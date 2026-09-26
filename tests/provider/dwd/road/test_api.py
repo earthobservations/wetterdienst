@@ -81,13 +81,16 @@ def test_dwd_road_weather_station_groups() -> None:
     assert files == {group.value for group in DwdRoadStationGroup}
 
 
-def _stub_stations(station_ids: tuple[str, ...] = ("A006",)) -> StationsResult:
+def _stub_stations(
+    station_ids: tuple[str, ...] = ("A006",),
+    parameters: list[tuple[str, str, str]] | None = None,
+) -> StationsResult:
     """Stand a road station up rather than look one up.
 
     Asked of the real index, a test about frame handling would find no station the day A006 leaves
     the network, walk no stations, and pass on an empty frame having exercised nothing.
     """
-    request = DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_mean_2m")])
+    request = DwdRoadRequest(parameters=parameters or [("15_minutes", "data", "temperature_air_mean_2m")])
     df_stations = pl.DataFrame(
         [
             {
@@ -807,6 +810,43 @@ def test_dwd_road_weather_water_film_has_no_flag_of_its_own(monkeypatch: pytest.
     assert quality["waterFilmThickness"] is None
     # where the reading the table does name is still answered, the flag having been read
     assert quality["airTemperature"] == 0.0
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_converts_the_bufr_units_it_decodes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A rate published per second and a film published in metres come back per hour and in cm.
+
+    This parser labels the BUFR units of what it decodes and converts nothing itself, so what a
+    request answers with rests entirely on the declaration. Both of these were declared one step up
+    -- `millimeter_per_hour` and `centimeter` -- until GH-1984, and because each wrong declaration
+    was its type's default target, nothing converted either: a shower came back as the 0.0056 the
+    file carries, which read as mm/h is no observable precipitation at all.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    readings = pl.DataFrame(
+        {
+            "station_id": ["A006", "A006"],
+            "date": [dt.datetime(2026, 9, 13, 12, tzinfo=ZoneInfo("UTC"))] * 2,
+            "parameter": ["intensityOfPrecipitation", "waterFilmThickness"],
+            "value": [0.0056, 0.002],
+            "quality": [None, None],
+        },
+        schema=_PARSED_SCHEMA_FOR_TEST,
+    )
+    monkeypatch.setattr(api.DwdRoadValues, "_collect_data_by_station_group", lambda *_args, **_kwargs: readings)
+    stations = _stub_stations(
+        parameters=[
+            ("15_minutes", "data", "precipitation_intensity"),
+            ("15_minutes", "data", "water_film_thickness"),
+        ],
+    )
+    df = stations.values.all().df
+    assert df.height == 2
+    assert dict(df.select("parameter", "value").iter_rows()) == {
+        "precipitation_intensity": 20.16,
+        "water_film_thickness": 0.2,
+    }
 
 
 def _series(station_id: str, parameter: str, values: list[float | None]) -> pl.DataFrame:

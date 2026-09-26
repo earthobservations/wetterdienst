@@ -558,9 +558,9 @@ def test_docs_parameter_descriptions_match_the_model() -> None:
 # and `kg/m²` is what DWD's MOSMIX documentation writes; `-` reads as "no unit" for a coded value whose
 # model symbol is the unhelpful `sign [0..95]`; the docs write a Greek mu where the model writes a
 # micro sign; and the model's Beaufort symbol is lower case. Listed rather than tolerated wholesale so
-# that a cell naming a different *quantity* -- `mm/s` where the model says `millimeter_per_hour`, a
+# that a cell naming a different *quantity* -- `mm/h` where the model says `millimeter_per_second`, a
 # factor of 3600, or `Bft` where it says `meter_per_second` -- fails instead of hiding among them. The
-# four cover all 60 cells that disagree; the three just named were the only wrong quantities.
+# four cover all 60 cells that disagree; the three named below were the only wrong quantities.
 _UNIT_SPELLINGS = frozenset(
     [
         ("kg/m²", "millimeter"),
@@ -578,11 +578,11 @@ def test_docs_parameter_units_name_the_quantity_the_model_declares() -> None:
     different quantity than the model declares. `dwd/observation` monthly and annual wrote `Bft` for
     `wind_gust_max`, which the model declares `meter_per_second` -- copied, it looks like, from the
     `wind_force_beaufort` row above, and the values are 12 to 28, so the model is right. `dwd/road`
-    15_minutes wrote `mm/s` against a declared `millimeter_per_hour`, and there the *model* is the side
-    under question: that parser labels the BUFR units of what it decodes, BUFR gives
-    `intensityOfPrecipitation` as `kg m-2 s-1`, and the delivered values top out at 0.006, which is
-    absurd as mm/h. GH-1984 carries it. This test follows the model either way, so whoever settles it
-    changes one declaration and the page follows -- it is not a claim that the page was the defect.
+    15_minutes wrote `mm/s` against a declared `millimeter_per_hour`, and there the *model* was the
+    side at fault: that parser labels the BUFR units of what it decodes, BUFR gives
+    `intensityOfPrecipitation` as `kg m-2 s-1`, and GH-1984 settled the declaration as
+    `millimeter_per_second`. Because this test follows the model, that one declaration moved the page
+    with it -- which is why it was never a claim that the page was the defect.
 
     Accepting `_UNIT_SPELLINGS` alongside the model's own name and symbol is what lets this run without
     reflowing 60 cells first: those four notations are real editorial choices for GH-1980 to settle,

@@ -82,7 +82,15 @@ DwdRoadMetadata = {
                         {
                             "name": "precipitation_intensity",
                             "name_original": "intensityOfPrecipitation",
-                            "unit": "millimeter_per_hour",
+                            # BUFR `0 13 055` gives this as `kg m-2 s-1`, a mass flux per area which
+                            # for water is millimetres per second, and nothing in this parser
+                            # converts. The station's own gauge says the same: over six hours of the
+                            # whole network, the 39 readings carrying both a positive intensity and a
+                            # positive 15-minute `precipitation_height` put the intensity times 900
+                            # seconds within a median 0.8% of that height -- 0.0056 against a
+                            # reported 5.0 mm -- where reading it as mm/h would make those rows
+                            # 0.0014 mm. It was declared `millimeter_per_hour` until GH-1984
+                            "unit": "millimeter_per_second",
                         },
                         {
                             "name": "road_surface_condition",
@@ -114,7 +122,12 @@ DwdRoadMetadata = {
                         {
                             "name": "water_film_thickness",
                             "name_original": "waterFilmThickness",
-                            "unit": "centimeter",
+                            # BUFR `0 13 116` gives this in metres to a scale of 4, and the delivered
+                            # values are multiples of that 0.0001 running to 0.002 -- 0.1 mm to 2 mm
+                            # of water on a road. As centimetres the same numbers would be a film of
+                            # 0.001 mm to 0.02 mm, every one of them thinner than the 0.1 mm step the
+                            # sensor reports in. It was declared `centimeter` until GH-1984
+                            "unit": "meter",
                         },
                         {
                             "name": "wind_direction",

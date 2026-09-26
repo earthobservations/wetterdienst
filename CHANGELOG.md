@@ -497,6 +497,22 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `dwd/road` declares the units BUFR publishes its precipitation intensity and water
+  film in, so both are converted instead of being served 3600 and 100 times too small.
+  `intensityOfPrecipitation` is BUFR `0 13 055`, `kg m-2 s-1`, millimetres per second for water, and
+  it was declared `millimeter_per_hour` -- the default target, so nothing converted and a shower
+  came back as 0.0056 mm/h, no observable precipitation at all. The station's own gauge settles
+  which side was wrong: over six hours of the whole network, the 39 readings carrying both a
+  positive intensity and a positive 15-minute `precipitation_height` put the intensity times 900
+  seconds within a median 0.8% of that height -- 0.0056 against a reported 5.0 mm -- where reading
+  it as mm/h would make those rows 0.0014 mm. `waterFilmThickness` is BUFR `0 13 116`, metres to a
+  scale of 4, and was declared `centimeter`; the delivered values are multiples of that 0.0001
+  running to 0.002, so 0.1 mm to 2 mm of water on a road, where as centimetres they would be a film
+  of 0.001 mm to 0.02 mm, every one of them thinner than the 0.1 mm step the sensor reports in. A
+  request now answers 20.16 mm/h and 0.2 cm where it answered 0.0056 and 0.002. The other twelve
+  declarations of that dataset were checked against the same tables and every one agrees, the wind
+  speeds included -- their ecCodes name maps to `m/s`, `km/h` and `kt` alike, and a network median
+  of 0.5 with a 99th percentile of 3.6 is metres per second (GH-1984)
 - **Breaking**: `imgw/meteorology` returns a documented *brak zjawiska* as the zero it means, where
   it returned no value at all. Status "9" was treated as the true zero it is by passing the value
   cell through, which only works where the cell holds a zero -- and the files do not agree that it

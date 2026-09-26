@@ -28,31 +28,31 @@
 | {term}`humidity`                      | relativeHumidity                         | mean humidity                    | %    | >=0,<=100   |
 | {term}`precipitation_type_flags`      | precipitationType                        | types of precipitation, as flags | -    | -           |
 | {term}`precipitation_height`          | totalPrecipitationOrTotalWaterEquivalent | precipitation height             | mm   | >=0         |
-| {term}`precipitation_intensity`       | intensityOfPrecipitation                 | precipitation intensity          | mm/h | >=0         |
+| {term}`precipitation_intensity`       | intensityOfPrecipitation                 | precipitation intensity          | mm/s | >=0         |
 | {term}`road_surface_condition`        | roadSurfaceCondition                     | road surface condition           | -    | -           |
 | {term}`temperature_air_mean_2m`       | airTemperature                           | mean air temperature in 2m       | K    | -           |
 | {term}`temperature_dew_point_mean_2m` | dewpointTemperature                      | mean dew point temperature in 2m | K    | -           |
 | {term}`temperature_surface_mean`      | roadSurfaceTemperature                   | road surface temperature         | K    | -           |
 | {term}`visibility_range`              | horizontalVisibility                     | visibility range                 | m    | >=0         |
-| {term}`water_film_thickness`          | waterFilmThickness                       | thickness of water film          | cm   | >=0         |
+| {term}`water_film_thickness`          | waterFilmThickness                       | thickness of water film          | m    | >=0         |
 | {term}`wind_direction`                | windDirection                            | mean direction of wind           | °    | >=0,<=360   |
 | {term}`wind_direction_gust_max`       | maximumWindGustDirection                 | direction of maximum wind gust   | °    | >=0,<=360   |
 | {term}`wind_gust_max`                 | maximumWindGustSpeed                     | maximum wind gust                | m/s  | >=0         |
 | {term}`wind_speed`                    | windSpeed                                | mean wind speed                  | m/s  | >=0         |
 
-:::{warning}
-{term}`precipitation_intensity` is labelled `mm/h` because that is the unit the model declares, but
-the value delivered is almost certainly millimetres per **second**: BUFR gives
-`intensityOfPrecipitation` (`0 13 055`) as `kg m-2 s-1`, this parser applies no conversion, and a day
-of real data tops out at 0.006 -- no observable precipitation at all as mm/h, an ordinary shower as
-mm/s. {term}`water_film_thickness` is labelled `cm` against a BUFR `m` for the same reason, a factor
-of 100. Both are tracked in
-[GH-1984](https://github.com/earthobservations/wetterdienst/issues/1984). Until it is settled, read a
-value as the unit it is really in and convert it yourself: the number is millimetres per second, so
-`0.006` is 21.6 mm/h, and it is metres, so `0.0005` is 0.05 cm -- multiply by 3600 and by 100 to get
-the labelled unit. `WD_TS_UNIT_TARGETS` converts from the declared unit, so it compounds the error
-rather than correcting it. Only the first of the two bites today: as the note below records,
-{term}`water_film_thickness` has never carried a value at all.
+:::{note}
+The `unit` column above is the unit this network **publishes** in, not the one a request returns. That
+is true of every row -- the three temperatures read `K` and come back in °C -- because the parser
+labels the BUFR units of what it decodes and converts nothing itself.
+
+Two of them are per-second and per-metre where a reader might expect otherwise. BUFR gives
+`intensityOfPrecipitation` (`0 13 055`) as `kg m-2 s-1`, a mass flux per area which for water is
+millimetres per second, and `waterFilmThickness` (`0 13 116`) in metres to a scale of 4. With the
+default unit targets a request serves the first as mm/h and the second as cm, so a reading that
+arrives as `0.0056` comes back as `20.16` mm/h and one that arrives as `0.002` as `0.2` cm.
+
+Until GH-1984 both were declared one step up -- `mm/h` and `cm` -- so no conversion happened and
+every value came back 3600 and 100 times too small.
 :::
 
 #### precipitation type
@@ -109,13 +109,14 @@ more thorough check, so a number from one network says nothing about a number fr
 reported "no automated meteorological data checks performed" and 40 carried no flag at all. It says
 the station did not look, which is why it is not reported as `0`.
 
-{term}`road_surface_condition` and {term}`water_film_thickness` are always `null`. Both are road
-descriptors of DWD's own, and the flag table is the WMO's generic one for an automatic weather
-station, which names neither: its nearest offers are "state of ground", about bare earth, and "water
-content", the moisture in it. The road surface temperature is mapped to "ground temperature data
-suspect" because the data confirms that reading of it, not because the wording is close -- and
-nothing confirms the other two, so they get a null rather than a guess. A wrong `0` would be worse,
-telling a caller filtering on quality that a suspect reading had been checked and found sound.
+{term}`road_surface_condition` and {term}`water_film_thickness` always carry a `null` *quality*,
+whatever they report as a value. Both are road descriptors of DWD's own, and the flag table is the
+WMO's generic one for an automatic weather station, which names neither: its nearest offers are
+"state of ground", about bare earth, and "water content", the moisture in it. The road surface
+temperature is mapped to "ground temperature data suspect" because the data confirms that reading of
+it, not because the wording is close -- and nothing confirms the other two, so they get a null
+rather than a guess. A wrong `0` would be worse, telling a caller filtering on quality that a
+suspect reading had been checked and found sound.
 
 ##### unflagged bad readings
 
