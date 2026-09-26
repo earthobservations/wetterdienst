@@ -462,7 +462,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
                     "column_3": "year",
                     "column_4": "month",
                     "column_5": "miesięczna suma opadów",
-                    "column_7": "opad maksymalny",
+                    "column_9": "opad maksymalny",
                 },
             },
             "synop": {

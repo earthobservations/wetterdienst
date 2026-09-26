@@ -568,16 +568,19 @@ def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() 
         # o_d column 6 is SMDB, the daily precipitation total -- the reason the dataset exists. It
         # carried daily/climate's mean-temperature name. WARSZOWICE, an opad station.
         ("daily", "precipitation", "249180020", "precipitation_height", 1.1),
+        # o_m field 9 is MAXO; field 7 is LDS, the count of days with snowfall. This one never
+        # looked empty -- it published a day count as millimetres. WARSZOWICE, January 2010.
+        ("monthly", "precipitation", "249180020", "precipitation_height_max", 17.8),
     ],
 )
-def test_imgw_meteorology_values_restored_by_gh1981(
+def test_imgw_meteorology_values_match_the_upstream_column(
     resolution: str,
     dataset: str,
     station_id: str,
     parameter: str,
     expected: float,
 ) -> None:
-    """Test that parameters whose rename never matched a declaration come back with values."""
+    """Test that parameters read the column their own dataset documents upstream (GH-1981)."""
     values = (
         ImgwMeteorologyRequest(
             parameters=[(resolution, dataset)],

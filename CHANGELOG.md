@@ -26,7 +26,9 @@ Types of changes:
   reported and nothing further, where per dataset it found eight entries -- those two, one name the
   model had taken from the wrong upstream file, and five columns `daily/synop` reads and can never
   return. The five are pinned rather than skipped, so closing that gap fails this test and has to
-  update it (GH-1991)
+  update it. What the check cannot see is a declared name sitting on the wrong `column_N`, which is
+  how `monthly/precipitation` came to publish a count of snow days as millimetres; positions are
+  held by the remote tests that compare a value against the file it is read from (GH-1991)
 - A documented parameter has to exist and a declared parameter has to be documented.
   `test_docs_parameter_descriptions_match_the_model` compares the *text* of rows that appear on
   both sides and says nothing about a row appearing on one side alone, in either direction, so a
@@ -435,25 +437,30 @@ Types of changes:
 
 ### Fixed
 
-- **Breaking**: `imgw/meteorology` returns three parameters that were permanently empty, two
-  monthly and one daily, and `monthly/climate/precipitation_height_max` answers to a different
-  original name. `monthly/synop/temperature_air_min_2m_mean` renamed its column to
-  `średnia temperatura minimalnaj`, `monthly/climate/precipitation_height_max` to
+- **Breaking**: `imgw/meteorology` returns three parameters that were permanently empty and one
+  that published a different column's numbers, and `monthly/climate/precipitation_height_max`
+  answers to a different original name. `monthly/synop/temperature_air_min_2m_mean` renamed its
+  column to `średnia temperatura minimalnaj`, `monthly/climate/precipitation_height_max` to
   `maksymalna dobowa suma opadóww`, and `daily/precipitation/precipitation_height` to
   `daily/climate`'s mean-temperature name for what upstream's own `o_d_format.txt` calls `SMDB`,
   the daily precipitation total -- the one measurement that dataset exists to publish, read out of
-  the file and thrown away on every request. Dropping the doubled `w` does not reach the climate
-  row on its own: `monthly/climate` declared `precipitation_height_max` as `opad maksymalny`, which
-  is `o_m`'s name for its `MAXO` column, where `k_m_d` column 19 is `OPMX`,
+  the file and thrown away on every request. `monthly/precipitation/precipitation_height_max` never
+  looked empty and was worse for it: the schema read `o_m` field 7, `LDS`, the count of days with
+  snowfall, and published that count as millimetres -- 19 for WARSZOWICE in January 2010, where
+  `MAXO` at field 9 is 17.8 mm. Dropping the doubled `w` does not reach the climate row on its own:
+  `monthly/climate` declared `precipitation_height_max` as `opad maksymalny`, which is `o_m`'s name
+  for its `MAXO` column, where `k_m_d` column 19 is `OPMX`,
   `Maksymalna dobowa suma opadów w miesiącu` -- the name `monthly/synop` already declared for the
   same column of `s_m_d`. A parameter resolves by `name_original` as well as by `name`, so
-  `monthly/climate/opad maksymalny` no longer resolves and raises `KeyError`; requests written
-  against the canonical `precipitation_height_max` are unaffected, and that is what the docs, the
-  examples and every test use. Every position and name here was read off the `*_format.txt` files
-  IMGW publishes beside the data rather than inferred from the neighbouring rows, which is how the
-  two errors those rows suggested turned out to be four. GH-1981 reported two and named
-  `monthly/climate/temperature_air_min_2m_mean` among them, which was never broken -- `k_m_d` spelt
-  it correctly -- and did not reach `daily` at all (GH-1981)
+  `monthly/climate/opad maksymalny` no longer resolves: a request for it raises
+  `NoParametersFoundError`, and indexing the dataset object with it raises `KeyError`. Requests
+  written against the canonical `precipitation_height_max` are unaffected, and that is what the
+  docs, the examples and every test use. Every position and name was checked against the
+  `*_format.txt` files IMGW publishes beside the data rather than inferred from the neighbouring
+  rows, which is how the two errors those rows suggested turned out to be five. GH-1981 reported
+  two and named `monthly/climate/temperature_air_min_2m_mean` among them, which was never broken --
+  `k_m_d` spelt it correctly -- and did not reach `daily` or `monthly/precipitation` at all
+  (GH-1981)
 - `wsv/pegel` returns no data for a timeseries between measurements rather than raising
   `ColumnNotFoundError`. Pegelonline answers `[]` with HTTP 200 for a series it lists but holds no
   current measurements for, and `pl.read_json` reads that body as a frame with **no columns**, so
