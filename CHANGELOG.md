@@ -155,6 +155,20 @@ Types of changes:
   against a model that carries no description was reported as "the page describes it, the model
   does not", which states the opposite of what happened. Either is still compared where the model
   does carry one
+- A `###` heading is read as a dataset only inside the page's `## datasets` block. All 269 dataset
+  sections in the tree sit there and `metno/frost` already writes prose under its own `## Notes`,
+  so a prose section elsewhere was being reported as "documents a dataset 'Detail' that the model
+  does not declare" -- the opposite of what happened. Each `###` still gets an entry either way,
+  empty for a prose one, so this walk and the row parser stay index for index in step and rows
+  under a prose heading are reported as belonging to no dataset rather than filed under the heading
+- The "parses to no parameter row at all" path caps its report per page like the other one. One
+  page with an extra header column reported every row of it uncapped -- 12 lines for `aemet` daily,
+  hundreds for `dwd/observation` hourly -- which would then have pushed every other page's findings
+  past the overall cap, the exact failure the per-page cap was added for
+- A `-` description cell says "no text here" for a dataset and for a resolution, as it already did
+  for a parameter row. Either was reported as "the page describes it, the model does not" where the
+  model describes nothing, which is the inverted report this change set removed one level down.
+  Where the model does describe it, a `-` is still compared and still fails
 - `_MARKUP_DIRECTIVES` holds the table wrappers -- `{table}`, `{list-table}`, `{csv-table}`,
   `{figure}` and `{toggle}` -- alongside the admonitions and layout containers. `{table}` exists
   only to give a markdown table a caption, so wrapping a `#### parameters` table in one is the

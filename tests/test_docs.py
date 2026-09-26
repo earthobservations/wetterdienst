@@ -252,7 +252,10 @@ def _section_datasets(path: Path) -> list[list[str]]:
 
     A first pass, so that the row parser below does not depend on the ``#### metadata`` table coming
     before the ``#### parameters`` one. A section naming no dataset falls back to its heading text,
-    which is the dataset name on the 31 sections that carry no metadata table at all.
+    which is the dataset name on the 31 sections that carry no metadata table at all. A ``###``
+    outside the page's ``## datasets`` block gets an empty entry rather than none, so that this walk
+    and the row parser's stay in step over the same lines -- and so that rows under a prose heading
+    are filed under no dataset and reported, rather than under the heading as though it named one.
 
     By position rather than by heading text, because two sections can share a heading while naming
     different datasets. Keyed by text, the later one won and the earlier one's rows were filed under
@@ -264,14 +267,23 @@ def _section_datasets(path: Path) -> list[list[str]]:
     # section, and a metadata table under it was renaming that section's dataset -- while
     # `_metadata_tables` kept the right name, so the two parsers came out disagreeing
     section_open = False
+    in_datasets = False
     in_metadata = False
     under_metadata = False
     for line in _prose_lines(path):
         if line.startswith("#"):
             level = len(line) - len(line.lstrip("#"))
+            if level <= 2:
+                # all 269 dataset sections in the tree sit under a `## datasets`, so a `###` anywhere
+                # else is prose -- `metno/frost` already writes `## Notes` -- and calling it a dataset
+                # would report the opposite of what happened
+                name = line.lstrip("#").strip().strip("#").strip()
+                in_datasets = level == 2 and name.casefold() == "datasets"
             if level == 3:
-                sections.append(_heading_datasets(line, []))
-                section_open = True
+                # an entry per `###` either way, empty for a prose one, so that this walk and the row
+                # parser's stay index for index in step over the same `_prose_lines`
+                sections.append(_heading_datasets(line, []) if in_datasets else [])
+                section_open = in_datasets
             elif level < 3:
                 section_open = False
             under_metadata = _is_metadata_heading(line)
@@ -697,7 +709,8 @@ def test_docs_resolution_descriptions_match_the_model() -> None:
         tag = f"{provider}/{network}/{resolution.name}"
         shown = _documented_resolution_description(path)
         model = resolution.description
-        if not shown and not model:
+        # a `-` says "no text here", as on the dataset and parameter sides
+        if shown in (None, "", "-") and not model:
             continue
         if not shown:
             mismatches.append(f"{tag}: the model describes the resolution, the page does not")
@@ -762,7 +775,11 @@ def _dataset_description_problems(
     instead.
     """
     shown = documented.get(dataset.name, [])
-    if not dataset.description and not shown:
+    # a `-` cell says "no text here", as it does for a parameter row, so a dataset the model does not
+    # describe and the page writes `-` for is not reported as described by the page. Where the model
+    # does describe it, the `-` is still compared and still fails, again as on the parameter side
+    substantive = [text for text, _ in shown if text not in ("", "-")]
+    if not dataset.description and not substantive:
         return
     if not shown:
         yield "the model describes it, the page does not"
@@ -904,9 +921,9 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
             # page's findings -- and skipped rather than compared, because otherwise it contributes
             # one error per declared parameter and fills the report the same way an abort emptied it
             # the cause first, where there is one: a page whose only table is the broken one used to
-            # report nothing but the symptom, which is the message this check exists to replace
-            errors.extend(malformed)
-            errors.append(f"{tag}: {path.name} parses to no parameter row at all")
+            # report nothing but the symptom, which is the message this check exists to replace. Capped
+            # like the path below, since one page with an extra header column reports every row of it
+            errors.extend(_capped([*malformed, f"{tag}: {path.name} parses to no parameter row at all"], 10, tag))
             continue
         declared = {
             (dataset.name, parameter.name, parameter.name_original)
