@@ -86,6 +86,17 @@ Types of changes:
   metadata tables", with its rows compared against the model besides. All 238 such tables in the
   tree are under that heading, so nothing is lost by asking for it, and the resolution-level reader
   was already asking
+- `test_docs_descriptions_do_not_misstate_a_parameter_count`, tying a count written into a
+  description to `len(dataset.parameters)`. `dwd/mosmix` hourly describes `small` and `large` by
+  how many parameters they carry, and a count in prose is the very fact whose drift set this change
+  off -- the page said 115 where the model declared 122, long enough that three other pages still
+  say it. Without this, adding a parameter to `large` would leave `discover`, the REST API, MCP and
+  the page all saying 122 of 123 with every other test green. Two descriptions name a count
+- The malformed-table report comes before the "parses to no parameter row at all" one, so a page
+  whose only table is the broken one says why. It used to print nothing but the symptom -- the
+  message that check was added to replace -- and a table is now reported for missing either column
+  it is read for, `description` or `unit`: losing `unit` made the units test compare nothing, and
+  no other test noticed
 - `test_docs_parameter_units_name_the_quantity_the_model_declares`, holding the `unit` column,
   which was hand-written and compared by nothing -- which is how three cells came to name a
   different physical quantity than the value carries. A documented unit has to be the model's unit
@@ -200,7 +211,7 @@ Types of changes:
   directive, not by the marker: a table inside a MyST admonition or layout container -- written
   `:::{note}` or ```{note}`, both legal and both used here -- is published documentation and has to
   be parsed, while `{code-block}`, `{literalinclude}`, `{doctest}`, `{eval-rst}` and the
-  `{code-cell}` this repo writes 114 times all hold code. An unlisted directive is read as code,
+  `{code-cell}` this repo writes 59 times all hold code. An unlisted directive is read as code,
   because the two mistakes do not cost the same: a code body read as markdown puts a `#` comment
   where a heading goes and makes the descriptions test compare nothing, silently, while a container
   read as code drops its tables, which the presence tests report. No resolution page carries a
@@ -333,16 +344,21 @@ Types of changes:
   `precipitation_height` under `synop`, which declares `precipitation_height_day` and `_night`
   instead, so the row named something that raises `NoParametersFoundError` -- while
   `imgw/meteorology` monthly `synop` documented none of its four precipitation parameters at all
-- Three unit cells naming a different physical quantity than the model declares: `dwd/road`
-  15_minutes wrote `mm/s` for `precipitation_intensity`, which is `millimeter_per_hour`, a factor
-  of 3600 out; and `dwd/observation` monthly and annual wrote `Bft` for `wind_gust_max`, which is
-  `meter_per_second`, apparently copied from the `wind_force_beaufort` row above it, which really
-  is Beaufort. Found by checking every unit cell against `UnitConverter.get_unit`: 63 of 2213
-  disagree with the model, and the rest are spellings rather than quantities -- `kg/m²` for `mm`
-  (36), `-` for the coded `significant_weather` (16), a Greek mu where the model writes a micro
-  sign (5) and `Bft` for `bft` (3). GH-1980 carries those, and it is the follow-through these three
-  fixes depend on: the `unit` and `constraints` columns are compared by nothing, so until it lands
-  they can drift straight back, exactly as the descriptions did before this change
+- Three unit cells disagreeing with the model about the quantity, not just the notation: `dwd/road`
+  15_minutes wrote `mm/s` where the model declares `millimeter_per_hour`, and `dwd/observation`
+  monthly and annual wrote `Bft` for `wind_gust_max`, which the model declares `meter_per_second`,
+  apparently copied from the `wind_force_beaufort` row above it, which really is Beaufort. All
+  three now say what the model says. Found by checking every unit cell against
+  `UnitConverter.get_unit`: 63 of 2213 disagreed, and the other 60 are notations rather than
+  quantities -- `kg/m²` for `mm` (36), `-` for the coded `significant_weather` (16), a Greek mu
+  where the model writes a micro sign (5) and `Bft` for `bft` (3), which
+  `test_docs_parameter_units_name_the_quantity_the_model_declares` lists and GH-1980 is to settle.
+  For the `dwd/road` cell the model is the side under question rather than the page: that module
+  labels the BUFR units of the elements it decodes -- it declares `degree_kelvin` for
+  `airTemperature`, whose CREX unit is Celsius -- and BUFR gives `intensityOfPrecipitation` as
+  `kg m-2 s-1`, which is millimetres per second. GH-1984 carries that, with what would settle it;
+  the page follows the model either way, so one label is wrong rather than two statements of it
+
 - `dwd/mosmix` hourly describes `large` as a forecast of 122 parameters, which is what the model
   declares, rather than 115. The figure sat in a `#### metadata` description that existed only in
   the markdown, so nothing compared it; GH-1975 corrects the same number in

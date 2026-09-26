@@ -123,7 +123,7 @@ def _prose_lines(path: Path) -> Iterator[str]:
     module exists to stop that. A markdown container left off the list drops its tables instead,
     which the presence tests report. So an unrecognised directive is read as code: ``{code-block}``,
     ``{literalinclude}``, ``{doctest}``, ``{eval-rst}`` and the ``{code-cell}`` this repo
-    writes 114 times all hold code, and a name nobody here has used yet is likelier to be another of
+    writes 59 times all hold code, and a name nobody here has used yet is likelier to be another of
     those than another admonition.
 
     The open fences are a stack, so a code block nested in a directive still hides its own contents,
@@ -287,8 +287,12 @@ def _malformed_parameter_tables(path: Path) -> list[str]:
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if cells and cells[0] == "name" and "original name" in cells:
             header = cells
-            if "description" not in cells:
-                malformed.append(f"a parameter table has no `description` column: {cells}")
+            # both columns, because `_documented_column` drops every row of a table that lacks the one
+            # it is asked for: a table losing `unit` made the units test compare nothing and no other
+            # test noticed, which is the hole this check closes for `description`
+            missing = [wanted for wanted in ("description", "unit") if wanted not in cells]
+            if missing:
+                malformed.append(f"a parameter table has no {missing} column: {cells}")
             continue
         if header is None or all(set(cell) <= {"-", ":"} for cell in cells):
             continue
@@ -541,6 +545,28 @@ def test_docs_parameter_units_name_the_quantity_the_model_declares() -> None:
                     wrong.append(
                         f"{provider}/{network}/{resolution.name}/{dataset.name} {parameter.name}: "
                         f"docs {shown!r}, model {unit.name!r} ({unit.symbol!r})",
+                    )
+    assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
+
+
+def test_docs_descriptions_do_not_misstate_a_parameter_count() -> None:
+    """Test that a description naming a parameter count names the number the dataset declares.
+
+    `dwd/mosmix` hourly describes `small` and `large` by how many parameters they carry, and a count
+    written into prose is exactly the fact whose drift set this change off: the page said 115 where the
+    model declared 122, for long enough that three other pages still say it. Tying the number to
+    `len(dataset.parameters)` is what stops the same sentence going stale again -- adding a parameter to
+    `large` would otherwise leave `discover`, the REST API, MCP and the page all saying 122 of 123, with
+    every other test green. Two descriptions name a count today.
+    """
+    wrong = []
+    for provider, network, resolution, _ in _documented_resolutions():
+        for dataset in resolution:
+            for count in re.findall(r"(\d+) parameters", dataset.description or ""):
+                if int(count) != len(dataset.parameters):
+                    wrong.append(
+                        f"{provider}/{network}/{resolution.name}/{dataset.name}: the description says "
+                        f"{count} parameters, the dataset declares {len(dataset.parameters)}",
                     )
     assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
 
@@ -815,10 +841,14 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
     for provider, network, resolution, path in _documented_resolutions():
         documented = _documented_descriptions(path)
         tag = f"{provider}/{network}/{resolution.name}"
+        malformed = [f"{tag}: {problem}" for problem in _malformed_parameter_tables(path)]
         if not documented:
             # collected rather than asserted, so one unparseable page does not hide every other
             # page's findings -- and skipped rather than compared, because otherwise it contributes
             # one error per declared parameter and fills the report the same way an abort emptied it
+            # the cause first, where there is one: a page whose only table is the broken one used to
+            # report nothing but the symptom, which is the message this check exists to replace
+            errors.extend(malformed)
             errors.append(f"{tag}: {path.name} parses to no parameter row at all")
             continue
         declared = {
@@ -839,7 +869,7 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
             # exists to report -- and be read by nothing
             | {name for entry in _section_datasets(path) for name in entry}
         )
-        found.extend(f"{tag}: {malformed}" for malformed in _malformed_parameter_tables(path))
+        found.extend(malformed)
         for orphan in sorted(sections - {dataset.name for dataset in resolution}):
             if orphan == _NO_SECTION:
                 found.append(f"{tag}: has a parameter table that no `###` dataset section encloses")
