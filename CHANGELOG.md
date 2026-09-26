@@ -66,6 +66,16 @@ Types of changes:
   blank status is a plain measurement and stays null, which is what every other value carries.
   `Z` appears in none of the 672,383 `o_d` rows sampled across 1961, 1985, 1995, 2010, 2015, 2020 and
   2024, so it is a documented status rather than an observed one (GH-1998)
+- `imgw/meteorology`'s page states each status IMGW documents, what the library returns for it and
+  what reaches `quality`, and -- the part the old paragraph got wrong -- the two things the status
+  does not settle. A `0` in `monthly/climate`'s `snow_depth_max` that carries no status means either
+  that there was no snow cover in the month or that the maximum could not be determined;
+  `k_m_d_format.txt` says so in as many words, it is 96 of the 196 rows of 2024, and it is returned
+  as 0 cm. And `daily/precipitation` carries a row only for the days a station has something to
+  report, while `o_d_format.txt` adds that *brak zjawiska* covers a day absent from a month that is
+  itself present, so those days are absent from the result rather than returned as 0 mm. The page had
+  said a parameter a station does not measure "comes back with no values", which those two cases
+  contradict (GH-1997, GH-1998)
 - An `imgw/meteorology` column whose Polish name states a minimum or a maximum has to be declared
   under a canonical name that says the same. These declarations are in a language the rest of the
   repository is not written in, so `temperatura minimalna przy gruncie` sat under
