@@ -69,6 +69,11 @@ Types of changes:
   waved through. No row writes either and no parameter lacks a description, so the two escapes this
   replaces could never have caught anything -- they could only have hidden a description being
   dropped from a page, which is the failure this test exists to report
+- `test_docs_resolution_descriptions_match_the_model`, holding the one description table the other
+  two never reached: the `## metadata` block a page opens with, above its first dataset section.
+  `RESOLUTION_DESCRIPTIONS` carries the model side, so it is compared in both directions like the
+  rest. Three pages have one -- `dwd/observation` subdaily, `meteofrance/synop` subdaily and
+  `metno/frost` 6_hour -- and the model has the same three
 - A parameter table that no `###` dataset section encloses is reported rather than dropped. Any
   heading of level 1 or 2 closes the section, and this tree carries `## Notes` and the like, so a
   table placed after one was filed under no dataset and read by neither comparison -- the last
@@ -76,7 +81,10 @@ Types of changes:
   heading swallowed a made-up row without a word
 - A page for a resolution the model does not declare is reported. The three comparisons walk the
   model, so a page left behind by a renamed resolution stayed published and stayed linked from its
-  network index -- which is all `test_data_coverage` asks of it -- and was read by nothing
+  network index -- which is all `test_data_coverage` asks of it -- and was read by nothing. The
+  networks skipped for a missing optional dependency are excluded from that direction, since a
+  network that was never walked declares nothing and its published pages would otherwise all be
+  reported -- turning the skip into the failure it exists to avoid
 - A `#### metadata` section naming a dataset the model does not declare is reported even when it
   carries no `#### parameters` table. The orphan check read the parameter rows, and the description
   test walks the model's datasets, so neither reached a section left behind when its dataset was
@@ -118,9 +126,11 @@ Types of changes:
   it sits in and dropped every row below it out of that dataset, which the descriptions test
   answers by silently comparing nothing -- the failure mode this change set exists to remove. A
   fence closes only on a marker at least as long as the one that opened it, so a ``` line inside a
-  ````-opened block is content rather than the end of it, and `:::` counts as a fence because
-  `docs/conf.py` enables MyST's `colon_fence`. No resolution page carries a fence today;
-  the guard is there so that adding one is not a trap
+  ````-opened block is content rather than the end of it. Only backticks and tildes count: MyST's
+  `colon_fence` is enabled, but a `:::{note}` block holds rendered markdown, so a table inside one
+  is published documentation and has to be parsed, while a `#` comment -- what this guard is for --
+  belongs to a code example, which is fenced with backticks. No resolution page carries a fence
+  today; the guard is there so that adding one is not a trap
 - `--if_exists` on `stations`, `values`, `interpolate` and `summarize`, taking `replace` (the
   default, and what the CLI did before), `append`, `fail` or `skip`. `to_target` has taken the
   argument since it was written and the export docs advertise it, but no command passed it, so

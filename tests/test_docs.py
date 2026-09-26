@@ -81,13 +81,15 @@ def _prose_lines(path: Path) -> Iterator[str]:
     descriptions test silently stops comparing them. Which is the skip this module exists to stop,
     and the reason the fence is stripped here rather than in each parser.
 
-    ``:::`` counts as a fence because `docs/conf.py` enables MyST's ``colon_fence``, so a
-    ``:::{note}`` block is one here as much as a ``````` one. `deflist` is enabled too but
-    its marker is a single colon, which this does not match.
+    Only backticks and tildes count. `docs/conf.py` enables MyST's ``colon_fence``, but a
+    ``:::{note}`` block holds rendered *markdown*, not code, so a table inside one is published
+    documentation and has to be parsed -- treating ``:::`` as a fence dropped it from the parse and
+    reported the absence as a missing row somewhere else. A ``#`` comment, which is what this guard is
+    for, belongs to a code example, and code examples are fenced with backticks.
     """
     fence: tuple[str, int] | None = None
     for line in path.read_text(encoding="utf8").splitlines():
-        marker = re.match(r"\s*(`{3,}|~{3,}|:{3,})", line)
+        marker = re.match(r"\s*(`{3,}|~{3,})", line)
         if marker:
             char, length = marker.group(1)[0], len(marker.group(1))
             if fence is None:
@@ -211,8 +213,8 @@ def _documented_descriptions(path: Path) -> dict[tuple[str, str, str], list[str]
     return documented
 
 
-def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
-    """Yield (provider, network, resolution model, docs page) for every resolution the model declares.
+def _resolution_pages() -> tuple[list[tuple[str, str, object, Path]], set[tuple[str, str]]]:
+    """Return ([(provider, network, resolution model, docs page)], the networks that were skipped).
 
     The page is where it belongs, whether or not it is there -- `test_docs_cover_every_resolution`
     below is what says it is, so that the three tests after it can assume the pages exist and report
@@ -225,7 +227,10 @@ def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
     A network whose request class needs a package this environment does not have is skipped, with a
     warning naming it: `dwd/derived` imports pandas, which arrives with the `export` extra, so a bare
     `uv sync` leaves its three resolutions unverifiable. CI installs the extras
-    (`.github/workflows/install.sh testing`) and skips nothing.
+    (`.github/workflows/install.sh testing`) and skips nothing. The skipped pairs come back beside the
+    pages because a network that was never walked declares nothing here, and the page-side half of
+    `test_docs_cover_every_resolution` would otherwise read its published pages as naming resolutions
+    the model does not declare -- turning the skip into the very failure it exists to avoid.
 
     Only a genuinely missing third-party module is excused -- a `metadata.py` that makes
     `build_metadata_model` raise, or a mistyped intra-package import in a provider's `api.py`, has to
@@ -238,6 +243,8 @@ def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
     """
     from wetterdienst import Wetterdienst  # noqa: PLC0415
 
+    pages: list[tuple[str, str, object, Path]] = []
+    skipped: set[tuple[str, str]] = set()
     for provider, networks in Wetterdienst.registry.items():
         excluded = EXCLUDE_PROVIDER_NETWORKS.get(provider, [])
         if excluded == "*":
@@ -251,21 +258,23 @@ def _resolution_pages() -> Iterator[tuple[str, str, object, Path]]:
                 cause = error.__cause__
                 if not isinstance(cause, ModuleNotFoundError) or (cause.name or "").startswith("wetterdienst"):
                     raise
-                warnings.warn(
-                    f"{provider}/{network} not checked against its docs: {error}",
-                    stacklevel=2,
-                )
+                warnings.warn(f"{provider}/{network} not checked against its docs: {error}", stacklevel=2)
+                skipped.add((provider, network))
                 continue
             metadata = getattr(api, "metadata", None)
             if metadata is None:
+                skipped.add((provider, network))
                 continue
-            for resolution in metadata:
-                yield provider, network, resolution, Path(COVERAGE / provider / network / f"{resolution.name}.md")
+            pages.extend(
+                (provider, network, resolution, Path(COVERAGE / provider / network / f"{resolution.name}.md"))
+                for resolution in metadata
+            )
+    return pages, skipped
 
 
 def _documented_resolutions() -> list[tuple[str, str, object, Path]]:
     """Return the pairs of `_resolution_pages` whose page exists."""
-    return [entry for entry in _resolution_pages() if entry[3].exists()]
+    return [entry for entry in _resolution_pages()[0] if entry[3].exists()]
 
 
 def test_docs_cover_every_resolution() -> None:
@@ -277,7 +286,7 @@ def test_docs_cover_every_resolution() -> None:
     once, rather than once per test or not at all. The reverse holds for the same reason: those tests
     walk the model, so a page whose resolution the model no longer declares stays published and unread.
     """
-    pages = list(_resolution_pages())
+    pages, skipped = _resolution_pages()
     errors = [
         f"{provider}/{network}: {path.relative_to(ROOT)} does not exist"
         for provider, network, _, path in pages
@@ -292,7 +301,7 @@ def test_docs_cover_every_resolution() -> None:
             continue
         provider, network = page.parts[-3], page.parts[-2]
         excluded = EXCLUDE_PROVIDER_NETWORKS.get(provider, [])
-        if excluded == "*" or network in excluded:
+        if excluded == "*" or network in excluded or (provider, network) in skipped:
             continue
         errors.append(f"{provider}/{network}: {page.relative_to(ROOT)} names a resolution the model does not declare")
     assert not errors, "\n".join(errors)
@@ -355,6 +364,60 @@ def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
             prop[cells[0]] = cells[1]
     if prop is not None and datasets:
         yield {"name": datasets[0], **prop}
+
+
+def _documented_resolution_description(path: Path) -> str | None:
+    """Return the ``## metadata`` description a provider docs page opens with, if it has one.
+
+    The resolution's own table, above the first ``###`` dataset section -- which is why
+    `_metadata_tables` skips it, and why nothing compared it until now. `RESOLUTION_DESCRIPTIONS`
+    carries the model side, so this is the last of the three description tables to be held in both
+    directions; three pages have one today.
+    """
+    prop: dict[str, str] = {}
+    in_table = False
+    for line in _prose_lines(path):
+        if line.startswith("#"):
+            if len(line) - len(line.lstrip("#")) == 3:
+                break
+            in_table = False
+            continue
+        if not line.startswith("|"):
+            in_table = False
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if cells[:1] == ["property"]:
+            in_table = True
+            continue
+        if in_table and len(cells) >= 2 and not all(set(cell) <= {"-", ":"} for cell in cells):
+            prop[cells[0]] = cells[1]
+    return prop.get("description")
+
+
+def test_docs_resolution_descriptions_match_the_model() -> None:
+    """Test that the ``## metadata`` description a page opens with agrees with the model.
+
+    Same contract as the dataset and parameter tables, for the one description table neither reaches:
+    the resolution's own, which sits above the first dataset section. Held in both directions, so the
+    text cannot drift and neither side can quietly drop it. Three pages carry one, and the model
+    carries the same three.
+    """
+    mismatches = []
+    for provider, network, resolution, path in _documented_resolutions():
+        tag = f"{provider}/{network}/{resolution.name}"
+        shown = _documented_resolution_description(path)
+        model = resolution.description
+        if not shown and not model:
+            continue
+        if not shown:
+            mismatches.append(f"{tag}: the model describes the resolution, the page does not")
+        elif not model:
+            mismatches.append(f"{tag}: the page describes the resolution, the model does not")
+        else:
+            text = re.sub(r"\s*\(\[[^\]]+\]\([^)]*\)\)\s*$", "", shown).strip().rstrip(".")
+            if text != model.rstrip("."):
+                mismatches.append(f"{tag}: docs {text!r} != model {model!r}")
+    assert not mismatches, "\n".join(_capped(mismatches, 20, "the report"))
 
 
 def _documented_dataset_sections(path: Path) -> dict[str, int]:
