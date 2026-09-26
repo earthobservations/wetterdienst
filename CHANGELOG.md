@@ -155,6 +155,16 @@ Types of changes:
   against a model that carries no description was reported as "the page describes it, the model
   does not", which states the opposite of what happened. Either is still compared where the model
   does carry one
+- Under the shared-description exemption, each model description also has to name its own dataset's
+  distinguishing token. Asking only that the several differ from each other, and that the docs cell
+  list them all, left the 18-degree `cooling_degreehours` free to be described by the 20-degree
+  sentence -- satisfying both, while nothing else reads those three. `discover`, the REST API and
+  MCP would have reported the wrong reference temperature
+- A `#### metadata` table under a prose `###` heading is reported rather than dropped, as the
+  parameter rows in that position already were. One naming a real dataset is reported as that
+  dataset's second description, so a contradictory blurb under a `## Notes` cannot slip in; one
+  naming nothing is reported as a table no section encloses. The page's own resolution-level `##
+  metadata` table stays out, since it sits above every section and belongs to no dataset
 - `_metadata_tables` takes which section a table belongs to from `_section_datasets`, by position,
   rather than reading the heading itself. Reading it in both places is how the two came to disagree
   again: this one had no notion of the `## datasets` block, so a `#### metadata` table under a

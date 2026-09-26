@@ -665,8 +665,12 @@ def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
         if not line.startswith("|"):
             # flushed before the heading moves on, so a table not separated from the next `###` by a
             # blank line is still yielded under the dataset it belongs to
-            if prop is not None and datasets:
-                yield {"name": datasets[0], **prop}
+            if prop is not None:
+                # under a sentinel where no dataset section encloses it, so that a `#### metadata`
+                # table under a prose `###` is reported rather than dropped -- the parameter rows in
+                # that position already are. Its own `name` row still wins, so one naming a real
+                # dataset is reported as that dataset's second description rather than as an orphan
+                yield {"name": datasets[0] if datasets else _NO_SECTION, **prop}
             prop = None
             if line.startswith("#"):
                 if len(line) - len(line.lstrip("#")) == 3:
@@ -678,11 +682,13 @@ def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if cells[:1] == ["property"]:
-            prop = {} if datasets and under_metadata else None
+            # `index >= 0` means a `###` has opened, which keeps the page's own resolution-level
+            # `## metadata` table out: it sits above them all and belongs to no dataset
+            prop = {} if under_metadata and index >= 0 else None
         elif prop is not None and len(cells) >= 2 and not all(set(cell) <= {"-", ":"} for cell in cells):
             prop[cells[0]] = cells[1]
-    if prop is not None and datasets:
-        yield {"name": datasets[0], **prop}
+    if prop is not None:
+        yield {"name": datasets[0] if datasets else _NO_SECTION, **prop}
 
 
 def _documented_resolution_description(path: Path) -> str | None:
@@ -866,12 +872,19 @@ def _shared_description_problems(
     if not sharing or sharing[0].name != first_of:
         return
     names = [dataset.name for dataset in sharing]
+    tokens = _distinguishing_tokens(names)
     described = [dataset.description for dataset in sharing]
     if len(set(described)) != len(described):
         yield f"{names} are documented by one description and the model repeats one of theirs"
-    missing = [token for token in _distinguishing_tokens(names) if token and token not in text]
+    missing = [token for token in tokens if token and token not in text]
     if missing:
         yield f"{names} are documented by one description that does not name {missing}"
+    # and each model description has to name its own dataset's token. Without this the exemption asked
+    # only that the three differ from each other and that the docs cell list all three, so moving the
+    # 18-degree dataset to the 20-degree sentence satisfied both and nothing else reads these
+    for dataset, token in zip(sharing, tokens, strict=True):
+        if token and token not in dataset.description:
+            yield f"{dataset.name} is described as {dataset.description!r}, which does not name {token!r}"
 
 
 def test_docs_dataset_descriptions_match_the_model() -> None:
@@ -975,7 +988,7 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
         found.extend(malformed)
         for orphan in sorted(sections - {dataset.name for dataset in resolution}):
             if orphan == _NO_SECTION:
-                found.append(f"{tag}: has a parameter table that no `###` dataset section encloses")
+                found.append(f"{tag}: has a table that no `###` dataset section encloses")
             else:
                 found.append(f"{tag}: documents a dataset {orphan!r} that the model does not declare")
         for dataset, name, name_original in sorted(set(documented) - declared):
