@@ -40,6 +40,18 @@
 | {term}`wind_gust_max`                 | maximumWindGustSpeed                     | maximum wind gust                | m/s  | >=0         |
 | {term}`wind_speed`                    | windSpeed                                | mean wind speed                  | m/s  | >=0         |
 
+:::{warning}
+{term}`precipitation_intensity` is labelled `mm/h` because that is the unit the model declares, but
+the value delivered is almost certainly millimetres per **second**: BUFR gives
+`intensityOfPrecipitation` (`0 13 055`) as `kg m-2 s-1`, this parser applies no conversion, and a day
+of real data tops out at 0.006 -- no observable precipitation at all as mm/h, an ordinary shower as
+mm/s. {term}`water_film_thickness` is labelled `cm` against a BUFR `m` for the same reason, a factor
+of 100. Both are tracked in
+[GH-1984](https://github.com/earthobservations/wetterdienst/issues/1984); until it is settled, divide
+by 3600 and by 100 respectively, and note that `WD_TS_UNIT_TARGETS` converts from the declared unit,
+so it compounds the error rather than correcting it.
+:::
+
 #### precipitation type
 
 {term}`precipitation_type_flags` is **not** a code like {term}`precipitation_form` elsewhere in this

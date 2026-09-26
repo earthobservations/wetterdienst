@@ -3,6 +3,7 @@
 """Tests for the documentation."""
 
 import doctest
+import os.path
 import re
 import warnings
 from collections.abc import Iterable, Iterator
@@ -756,39 +757,60 @@ def _dataset_description_problems(
         return
     for shown_text, from_shared_table in shown:
         if from_shared_table:
-            repeat = _shared_description_repeat(resolution, documented, shown_text, dataset.name)
-            if repeat:
-                yield repeat
+            yield from _shared_description_problems(resolution, documented, shown_text, dataset.name)
             continue
         text = re.sub(r"\s*\(\[[^\]]+\]\([^)]*\)\)\s*$", "", shown_text).strip().rstrip(".")
         if text != dataset.description.rstrip("."):
             yield f"docs {text!r} != model {dataset.description!r}"
 
 
-def _shared_description_repeat(
+def _distinguishing_tokens(names: list[str]) -> list[str]:
+    """Return what is left of each name once the part they all share is removed.
+
+    `cooling_degreehours_13`, `_16` and `_18` distinguish themselves by `13`, `16` and `18`. Used to
+    ask whether a cell documenting several datasets at once names each of them.
+
+    The shared part is cut back to the last `_` before it ends, so that the token is the whole segment
+    that differs rather than however many characters happen to be left: those three share the prefix
+    `cooling_degreehours_1`, and `3`, `6` and `8` would be matched by almost any prose.
+    """
+    head = os.path.commonprefix(names)
+    head = head[: head.rfind("_") + 1]
+    tail = os.path.commonprefix([name[::-1] for name in names])[::-1]
+    tail = tail[tail.find("_") :] if "_" in tail else ""
+    return [name[len(head) : len(name) - len(tail)] for name in names]
+
+
+def _shared_description_problems(
     resolution: object,
     documented: dict[str, list[tuple[str, bool]]],
     text: str,
     first_of: str,
-) -> str | None:
-    """Say whether the model repeats a description among the datasets one shared cell documents.
+) -> Iterator[str]:
+    """Yield what is wrong with one description cell that documents several datasets, if anything.
 
-    One `description` cell cannot equal the descriptions of the several datasets its table names, so
-    its text is not compared -- but those descriptions must at least differ from each other. A copied
-    entry is the likeliest error that exemption hides, and it surfaces as two of the datasets a shared
-    section documents reporting the same thing. Reported once, from the first of them, rather than
-    once per dataset.
+    Its text cannot equal any single one of their model descriptions, so it is not compared against
+    them -- but two things are still asked of it. The model's descriptions have to differ from each
+    other, a copied entry being the likeliest error the exemption hides. And the cell has to name what
+    tells the datasets apart -- `13`, `16` and `18` for the three `cooling_degreehours_*` -- so that a
+    blurb saying "13, 16 and 20" is reported rather than read. What stays unchecked is the prose
+    between those tokens, which is the price of documenting several datasets in one section and the
+    reason this exemption is kept as narrow as it is.
+
+    Reported once, from the first of the datasets, rather than once per dataset.
     """
     sharing = [
         dataset for dataset in resolution if dataset.description and (text, True) in documented.get(dataset.name, [])
     ]
     if not sharing or sharing[0].name != first_of:
-        return None
-    described = [dataset.description for dataset in sharing]
-    if len(set(described)) == len(described):
-        return None
+        return
     names = [dataset.name for dataset in sharing]
-    return f"{names} are documented by one description and the model repeats one of theirs"
+    described = [dataset.description for dataset in sharing]
+    if len(set(described)) != len(described):
+        yield f"{names} are documented by one description and the model repeats one of theirs"
+    missing = [token for token in _distinguishing_tokens(names) if token and token not in text]
+    if missing:
+        yield f"{names} are documented by one description that does not name {missing}"
 
 
 def test_docs_dataset_descriptions_match_the_model() -> None:

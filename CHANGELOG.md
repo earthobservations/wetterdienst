@@ -86,6 +86,12 @@ Types of changes:
   metadata tables", with its rows compared against the model besides. All 238 such tables in the
   tree are under that heading, so nothing is lost by asking for it, and the resolution-level reader
   was already asking
+- A `description` cell documenting several datasets has to name what tells them apart, on top of
+  the model's descriptions having to differ from each other. Its text still cannot be compared
+  against any one of them, but rewriting the `cooling_degreehours` blurb to "13, 16 and 20 degree
+  Fahrenheit" passed before and fails now. The prose between those tokens is what stays unchecked,
+  which is the price of documenting several datasets in one section and why the exemption is kept
+  this narrow
 - A network exposing no `metadata` attribute is named in `NETWORKS_WITHOUT_A_METADATA_MODEL` rather
   than merely skipped. The skip was keyed on an attribute, so renaming it would drop that provider
   out of all four comparisons and, because it lands in `skipped`, exempt its published pages from
@@ -150,10 +156,10 @@ Types of changes:
   does not", which states the opposite of what happened. Either is still compared where the model
   does carry one
 - A fence marker inside a code block is literal content, not a fence of its own. Reading it as one
-  left the stack permanently open and dropped every line below it -- a whole page, for a ```text
-  block showing a `~~~` or an unclosed `:::{note}`. On a resolution page that came out as a flood
-  of "declares X, which it does not document"; on a network index, where only the glossary test
-  runs, it came out as nothing at all
+  left the stack permanently open and dropped every line below it -- a whole page, for a
+  ```` ```text ```` block showing a `~~~` or an unclosed `:::{note}`. On a resolution page that
+  came out as a flood of "declares X, which it does not document"; on a network index, where only
+  the glossary test runs, it came out as nothing at all
 - The datasets a `###` section names are read by its position rather than by its heading text, so
   two sections sharing a heading no longer collapse into the later one's datasets -- which filed
   the earlier section's rows under the wrong dataset, and disagreed with `_metadata_tables`, which
@@ -213,12 +219,13 @@ Types of changes:
   Python example is not mistaken for a level-1 heading. One would have closed the dataset section
   it sits in and dropped every row below it out of that dataset, which the descriptions test
   answers by silently comparing nothing -- the failure mode this change set exists to remove. A
-  fence closes only on a marker at least as long as the one that opened it, so a ``` line inside a
-  ````-opened block is content rather than the end of it, and the open fences are a stack, so a
-  code block nested in a directive still hides its own body. What is hidden is decided by the
+  fence closes only on a marker at least as long as the one that opened it, so a ```` ``` ```` line
+  inside a ````` ```` `````-opened block is content rather than the end of it, and the open fences
+  are a stack, so a code block nested in a directive still hides its own body. What is hidden is
+  decided by the
   directive, not by the marker: a table inside a MyST admonition or layout container -- written
-  `:::{note}` or ```{note}`, both legal and both used here -- is published documentation and has to
-  be parsed, while `{code-block}`, `{literalinclude}`, `{doctest}`, `{eval-rst}` and the
+  `:::{note}` or ```` ```{note} ````, both legal and both used here -- is published documentation
+  and has to be parsed, while `{code-block}`, `{literalinclude}`, `{doctest}`, `{eval-rst}` and the
   `{code-cell}` this repo writes 59 times all hold code. An unlisted directive is read as code,
   because the two mistakes do not cost the same: a code body read as markdown puts a `#` comment
   where a heading goes and makes the descriptions test compare nothing, silently, while a container
@@ -367,6 +374,15 @@ Types of changes:
   `kg m-2 s-1`, which is millimetres per second. GH-1984 carries that, with what would settle it;
   the page follows the model either way, so one label is wrong rather than two statements of it
 
+- The changelog renders as prose again. Three bare ``` and ```` runs written into these entries
+  opened real code fences, so `poe docs` warned about a Pygments lexer named `-opened` and nine
+  lines of one bullet rendered as an unstyled block with the markup showing, one sentence
+  disappearing from the visible text entirely. They are code spans now, with the delimiters
+  CommonMark wants
+- `dwd/road` 15_minutes carries a warning that its `precipitation_intensity` is labelled `mm/h`
+  while the delivered value is almost certainly millimetres per second, with the factor to divide
+  by and a pointer to GH-1984 -- the page has to say what the model says, but not silently. Its
+  `water_film_thickness`, labelled `cm` against a BUFR `m`, is named there too
 - `dwd/mosmix` hourly describes `large` as a forecast of 122 parameters, which is what the model
   declares, rather than 115. The figure sat in a `#### metadata` description that existed only in
   the markdown, so nothing compared it; GH-1975 corrects the same number in
