@@ -26,6 +26,16 @@ EXCLUDE_PROVIDER_NETWORKS_FILES_STARTSWITH = ["_", ".", "metadata"]
 # checked with every test still passing. `dwd/alerts` is a CAP warnings feed with no timeseries model.
 NETWORKS_WITHOUT_A_METADATA_MODEL = {("dwd", "alerts")}
 
+# Networks whose request class needs a package outside the base install, and which therefore go
+# unchecked when it is absent. Bounded for the same reason as the set above: landing in `skipped`
+# exempts a network's pages from both directions of `test_docs_cover_every_resolution`, and the skip is
+# only a warning, which nothing escalates. `dwd/derived` reaches pandas through
+# `provider/dwd/derived/metaindex.py`, which the `export` extra supplies; CI installs it
+# (`.github/workflows/install.sh testing`) and so skips nothing, while a bare `uv sync` leaves those
+# three resolutions unverified -- including description changes made to them. Any other network
+# skipped this way is unexpected and fails.
+NETWORKS_NEEDING_AN_EXTRA = {("dwd", "derived")}
+
 # Providers that are excluded from the docs. "*" is a wildcard.
 EXCLUDE_PROVIDER_NETWORKS = {
     "eumetnet": "*",
@@ -451,6 +461,12 @@ def _resolution_pages() -> tuple[list[tuple[str, str, object, Path]], set[tuple[
                 cause = error.__cause__
                 if not isinstance(cause, ModuleNotFoundError) or (cause.name or "").startswith("wetterdienst"):
                     raise
+                if (provider, network) not in NETWORKS_NEEDING_AN_EXTRA:
+                    msg = (
+                        f"{provider}/{network} cannot be imported, so none of the docs tests read it: "
+                        f"{error}. Add it to NETWORKS_NEEDING_AN_EXTRA if that is intended."
+                    )
+                    raise AssertionError(msg) from error
                 warnings.warn(f"{provider}/{network} not checked against its docs: {error}", stacklevel=2)
                 skipped.add((provider, network))
                 continue
@@ -632,7 +648,16 @@ def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
     plausible -- read as a repeated metadata table, so correct documentation was reported as "carries 2
     metadata tables" and its rows compared against the model besides. All 238 such tables in the tree
     are under that heading today, so nothing is lost by asking.
+
+    Which section a table belongs to is `_section_datasets`' answer, taken by position, rather than this
+    walk's own reading of the heading. Reading it here as well is how the two came to disagree: this one
+    had no notion of the ``## datasets`` block, so a ``#### metadata`` table under a prose ``###``
+    elsewhere on the page was read as a dataset -- reported as one the model does not declare, or, if
+    the prose heading reused a real dataset's name, as that dataset carrying two metadata tables. Taking
+    the answer from one place is the invariant the rest of this module is built on.
     """
+    sections = _section_datasets(path)
+    index = -1
     datasets: list[str] = []
     under_metadata = False
     prop: dict[str, str] | None = None
@@ -644,7 +669,11 @@ def _metadata_tables(path: Path) -> Iterator[dict[str, str]]:
                 yield {"name": datasets[0], **prop}
             prop = None
             if line.startswith("#"):
-                datasets = _heading_datasets(line, datasets)
+                if len(line) - len(line.lstrip("#")) == 3:
+                    index += 1
+                    datasets = sections[index]
+                else:
+                    datasets = _heading_datasets(line, datasets)
                 under_metadata = _is_metadata_heading(line)
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]

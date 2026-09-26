@@ -155,6 +155,18 @@ Types of changes:
   against a model that carries no description was reported as "the page describes it, the model
   does not", which states the opposite of what happened. Either is still compared where the model
   does carry one
+- `_metadata_tables` takes which section a table belongs to from `_section_datasets`, by position,
+  rather than reading the heading itself. Reading it in both places is how the two came to disagree
+  again: this one had no notion of the `## datasets` block, so a `#### metadata` table under a
+  prose `###` elsewhere was read as a dataset -- reported as one the model does not declare, or,
+  where the prose heading reused a real dataset's name, as that dataset's own description drifting.
+  Taking the answer from one place is the invariant the rest of the module rests on
+- A network skipped because its request class needs a package outside the base install has to be
+  named in `NETWORKS_NEEDING_AN_EXTRA`, which holds `dwd/derived` alone. The skip is only a warning
+  and nothing escalates it, and landing in `skipped` also exempts that network's pages from both
+  directions of `test_docs_cover_every_resolution` -- so on a bare `uv sync`, where pandas is
+  absent, its three resolutions went unverified with every test green. Bounded now for the same
+  reason the metadata-less networks are
 - A `###` heading is read as a dataset only inside the page's `## datasets` block. All 269 dataset
   sections in the tree sit there and `metno/frost` already writes prose under its own `## Notes`,
   so a prose section elsewhere was being reported as "documents a dataset 'Detail' that the model
