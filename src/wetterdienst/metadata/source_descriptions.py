@@ -1099,7 +1099,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "climate", "maksymalna temperatura dobowa"): "temperature air max 2m",
         ("daily", "climate", "minimalna temperatura dobowa"): "temperature air min 2m",
         ("daily", "climate", "suma dobowa opadów"): "precipitation height",
-        ("daily", "climate", "temperatura minimalna przy gruncie"): "temperature air mean 0 05m",
+        ("daily", "climate", "temperatura minimalna przy gruncie"): "temperature air min 0 05m",
         ("daily", "climate", "wysokość pokrywy śnieżnej"): "snow depth",
         ("daily", "climate", "średnia dobowa prędkość wiatru"): "wind speed",
         ("daily", "climate", "średnia dobowa temperatura"): "temperature air mean",

@@ -105,18 +105,18 @@ def test_imgw_meteorology_api_daily() -> None:
                 "station_id": "253160090",
                 "resolution": "daily",
                 "dataset": "climate",
-                "parameter": "temperature_air_mean_0_05m",
+                "parameter": "temperature_air_mean_2m",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 5.6,
+                "value": 20.6,
                 "quality": None,
             },
             {
                 "station_id": "253160090",
                 "resolution": "daily",
                 "dataset": "climate",
-                "parameter": "temperature_air_mean_2m",
+                "parameter": "temperature_air_min_0_05m",
                 "date": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 20.6,
+                "value": 5.6,
                 "quality": None,
             },
             {
@@ -149,8 +149,8 @@ def test_imgw_meteorology_api_daily() -> None:
                     "precipitation_height",
                     "snow_depth",
                     "temperature_air_max_2m",
-                    "temperature_air_mean_0_05m",
                     "temperature_air_mean_2m",
+                    "temperature_air_min_0_05m",
                     "temperature_air_min_2m",
                     "wind_speed",
                 ]
@@ -539,7 +539,10 @@ def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() 
     dataset declares is dropped exactly as silently as a misspelt one, and nothing upstream or in
     the suite notices. Comparing per dataset is what makes this bite: pooled over the provider,
     ``monthly/climate``'s ``maksymalna dobowa suma opadów`` passes because ``monthly/synop``
-    declares it, which is how GH-1981 saw two defects where there were four.
+    declares it, which is how GH-1981 saw two entries where this finds eight.
+
+    This holds names, not positions -- a declared name sitting on the wrong ``column_N`` passes.
+    ``test_imgw_meteorology_values_match_the_upstream_column`` covers that.
     """
     structural = {"station_id", "year", "month", "day"}
     undeclared = set()
@@ -553,6 +556,41 @@ def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() 
                         continue
                     undeclared.add((resolution.value, dataset_name, file_pattern, column, name_original))
     assert undeclared == _UNDECLARED_COLUMNS
+
+
+# The Polish word for the aggregation a column carries, and the marker its canonical name has to
+# have. Only min/max are listed: the canonical vocabulary marks a mean only for temperature, so
+# `średnia dobowa prędkość wiatru` is plain `wind_speed` and a "mean" rule would be all noise.
+_AGGREGATION_MARKERS = {
+    "minimalna": "_min",
+    "minimalne": "_min",
+    "maksymalna": "_max",
+    "maksymalne": "_max",
+    "maksymalny": "_max",
+}
+
+
+def test_imgw_meteorology_parameters_agree_with_the_aggregation_their_name_states() -> None:
+    """A column whose Polish name says minimum or maximum must not be declared as something else.
+
+    The declarations are in a language this repository is not otherwise written in, so a canonical
+    name can contradict the measurement it is attached to and read fine to everyone reviewing it.
+    ``daily/climate`` published ``temperatura minimalna przy gruncie`` -- a nocturnal grass minimum
+    -- as ``temperature_air_mean_0_05m`` for exactly that reason, while both ``monthly`` datasets
+    declared the same quantity as ``temperature_air_min_0_05m`` (GH-1993).
+    """
+    mismatched = set()
+    for resolution in ImgwMeteorologyMetadata:
+        for dataset in resolution:
+            for parameter in dataset.parameters:
+                words = parameter.name_original.lower().split()
+                for word in words:
+                    marker = _AGGREGATION_MARKERS.get(word)
+                    if marker is not None and marker not in parameter.name:
+                        mismatched.add(
+                            (resolution.name, dataset.name, parameter.name, parameter.name_original, marker),
+                        )
+    assert mismatched == set()
 
 
 @pytest.mark.remote

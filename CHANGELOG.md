@@ -29,6 +29,13 @@ Types of changes:
   update it. What the check cannot see is a declared name sitting on the wrong `column_N`, which is
   how `monthly/precipitation` came to publish a count of snow days as millimetres; positions are
   held by the remote tests that compare a value against the file it is read from (GH-1991)
+- An `imgw/meteorology` column whose Polish name states a minimum or a maximum has to be declared
+  under a canonical name that says the same. These declarations are in a language the rest of the
+  repository is not written in, so `temperatura minimalna przy gruncie` sat under
+  `temperature_air_mean_0_05m` and read fine to everyone reviewing it. Minimum and maximum are all
+  that is checked: the canonical vocabulary marks a mean for temperature alone, so
+  `średnia dobowa prędkość wiatru` is plain `wind_speed` and a "mean" rule would flag twenty
+  correct rows (GH-1993)
 - A documented parameter has to exist and a declared parameter has to be documented.
   `test_docs_parameter_descriptions_match_the_model` compares the *text* of rows that appear on
   both sides and says nothing about a row appearing on one side alone, in either direction, so a
@@ -461,6 +468,18 @@ Types of changes:
   two and named `monthly/climate/temperature_air_min_2m_mean` among them, which was never broken --
   `k_m_d` spelt it correctly -- and did not reach `daily` or `monthly/precipitation` at all
   (GH-1981)
+- **Breaking**: `imgw/meteorology` declares `daily/climate`'s grass temperature as
+  `temperature_air_min_0_05m`, the name `monthly/climate` and `monthly/synop` already use for the
+  same measurement, rather than `temperature_air_mean_0_05m`. `k_d_format.txt` names field 12
+  `TMNG`, `Minimalna dobowa temperatura powietrza przy gruncie`, and the values say the same:
+  station 253160090 on 2010-08-01 reads 5.6 °C there against a 2 m minimum of 9.2 and a maximum of
+  28.2, so it cannot be a daily mean. The docs table said it outright, carrying the description
+  `temperature air mean 0 05m` beside the original name `temperatura minimalna przy gruncie`. Every
+  other provider declaring `temperature_air_mean_0_05m` -- `dwd`, `meteoswiss`, `rmi`,
+  `geosphere` -- means a genuine 5 cm mean by it, so anything selecting on canonical names across
+  providers was comparing a nocturnal grass minimum against a mean. A request for the old name
+  raises `NoParametersFoundError` and names the new one in its "Did you mean" hint; the
+  `name_original` and the column read are unchanged (GH-1993)
 - `wsv/pegel` returns no data for a timeseries between measurements rather than raising
   `ColumnNotFoundError`. Pegelonline answers `[]` with HTTP 200 for a series it lists but holds no
   current measurements for, and `pl.read_json` reads that body as a frame with **no columns**, so

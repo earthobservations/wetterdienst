@@ -71,13 +71,13 @@ ImgwMeteorologyMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_0_05m",
-                            "name_original": "temperatura minimalna przy gruncie",
+                            "name": "temperature_air_mean_2m",
+                            "name_original": "średnia dobowa temperatura",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
-                            "name_original": "średnia dobowa temperatura",
+                            "name": "temperature_air_min_0_05m",
+                            "name_original": "temperatura minimalna przy gruncie",
                             "unit": "degree_celsius",
                         },
                         {
