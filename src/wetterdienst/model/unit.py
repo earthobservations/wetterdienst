@@ -98,7 +98,12 @@ class UnitConverter:
                 Unit("liter_per_square_meter_per_hour", "l/m²/h"),
                 # what BUFR publishes a precipitation rate in, as `kg m-2 s-1`: a mass flux per
                 # area, which for water is a depth per second, so 1 kg m-2 s-1 is 1 mm/s. A source
-                # unit rather than one to read values in, which is why the target stays mm/h
+                # unit rather than one to read values in, which is why the target stays mm/h -- and
+                # why asking for it as one is a poor idea: `_convert_units` rounds to four decimals
+                # after converting, so a source publishing mm/h loses its resolution to it and 0.1
+                # mm/h comes back as 0.0. Every type spanning orders of magnitude carries that,
+                # `length_short` turning 5 cm into 0.0 under a `mile` target, and the fix is a
+                # rounding rule that scales with the target rather than a unit left undeclared
                 Unit("millimeter_per_second", "mm/s"),
             ],
             "pressure": [
