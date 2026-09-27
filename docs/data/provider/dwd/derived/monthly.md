@@ -25,9 +25,9 @@
 
 | name                              | original name   | description                                                                | unit          | constraints |
 |-----------------------------------|-----------------|----------------------------------------------------------------------------|---------------|-------------|
-| {term}`number_of_days_per_month`  | Anzahl Tage     | number of available values of mean daily air temperatures per month        | dimensionless | >=0         |
+| {term}`number_of_days_per_month`  | Anzahl Tage     | number of available values of mean daily air temperatures per month        | -             | >=0         |
 | {term}`heating_degree_day`        | Monatsgradtage  | sum of degree days over a month                                            | °Cd           | >=0         |
-| {term}`count_days_heating_degree` | Anzahl Heiztage | number of days with daily mean air temperature less than 15 degree Celsius | dimensionless | >=0         |
+| {term}`count_days_heating_degree` | Anzahl Heiztage | number of days with daily mean air temperature less than 15 degree Celsius | -             | >=0         |
 
 ### cooling_degreehours
 
@@ -45,10 +45,10 @@ To distinguish different base temperatures, there exist three datasets with the 
 
 | name                               | original name       | description                                                                                             | unit          | constraints |
 |------------------------------------|---------------------|---------------------------------------------------------------------------------------------------------|---------------|-------------|
-| {term}`number_of_hours_per_month`  | Anzahl Stunden      | number of hours per month                                                                               | dimensionless | >=0         |
-| {term}`count_hours_cooling_degree` | Anzahl Kuehlstunden | number of hours with positive temperature differences between air temperature and reference temperature | dimensionless | >=0         |
+| {term}`number_of_hours_per_month`  | Anzahl Stunden      | number of hours per month                                                                               | -             | >=0         |
+| {term}`count_hours_cooling_degree` | Anzahl Kuehlstunden | number of hours with positive temperature differences between air temperature and reference temperature | -             | >=0         |
 | {term}`cooling_degree_hour`        | Kuehlgradstunden    | accumulated hourly temperature differences between air temperature and reference temperature            | °Ch           | >=0         |
-| {term}`count_days_cooling_degree`  | Kuehltage           | Number of days with at least one cooling hour                                                           | dimensionless | >=0         |
+| {term}`count_days_cooling_degree`  | Kuehltage           | Number of days with at least one cooling hour                                                           | -             | >=0         |
 
 ### climate_correction_factor
 
@@ -65,7 +65,7 @@ To distinguish different base temperatures, there exist three datasets with the 
 
 | name                              | original name | description                                                                    | unit          | constraints |
 |-----------------------------------|---------------|--------------------------------------------------------------------------------|---------------|-------------|
-| {term}`climate_correction_factor` | KF            | quotient of yearly degree days of reference station in Potsdam and postal code | dimensionless | >=0         |
+| {term}`climate_correction_factor` | KF            | quotient of yearly degree days of reference station in Potsdam and postal code | -             | >=0         |
 
 ### soil
 

@@ -18,6 +18,22 @@ Types of changes:
 
 ### Added
 
+- `test_docs_parameter_units_keep_one_spelling_per_page`, holding a page's `unit` column to one
+  notation per unit and one notation style per page. Two ways a page could contradict itself, and it
+  takes both: writing one unit two ways, so that a quantity reads `dimensionless` in one row and `-`
+  in the next, and writing most units as symbols with one of them long-form, which is the same
+  inconsistency a column apart. Which notation style a page uses stays its own -- 22 pages are
+  long-form throughout, every `aemet` and `meteofrance` resolution among them, and nothing asks them
+  to change. The one-unit-one-way half is also what covers a notation that is neither the model's
+  name nor its symbol: `dwd/mosmix` writes `kg/m²` for a declared `millimeter` throughout, and
+  turning some of those rows into `mm` would be a defect the name-against-symbol tally cannot see,
+  because it records no long-form cell to weigh the symbols against. It reads one way only, from a
+  unit to its notations, so a page writing one notation for two units still passes -- `dwd/mosmix`
+  and `dwd/dmo` hourly write `-` for both `dimensionless` and `significant_weather`, and the model
+  declares `-` for `dimensionless` and `decimal` alike, so settling that belongs in `UnitConverter`
+  and not in a docs page. It is about internal consistency and not about which spelling the tree
+  prefers: `test_docs_parameter_units_name_the_quantity_the_model_declares` is what holds a cell to
+  the model, and it accepts either, which is what leaves the choice open (GH-1980)
 - `test_docs_parameter_tables_list_their_rows_in_declaration_order`, holding the order a parameter
   table lists its rows in. GH-1978 adopted that as the convention and restored it for the tables it
   touched, but nothing compared it, so it drifted: 41 of the 271 documented tables listed their rows
@@ -511,6 +527,26 @@ Types of changes:
 
 ### Fixed
 
+- The 67 unit cells that spelled a unit out on a page writing symbols for everything else now give
+  the symbol, across 10 of the 88 documented pages, every one of them symbol-majority with a
+  long-form minority. 59 were `dimensionless` on the eight `dwd/observation` pages, which wrote that
+  unit both ways: 13 of them within one table, a row or two apart, and the other 46 in a table
+  carrying no `-` at all while another table on the same page did. The remaining eight carried no
+  other notation of their unit anywhere on the page, so only the page's notation style made them
+  wrong -- the six `dimensionless` cells on `dwd/derived` monthly, against `%`, `mm`, `°C`, `cm`,
+  `°Cd` and `°Ch`, and the two `percent` on `eccc/observation` daily, against `°C`, `°Cd`, `mm`,
+  `cm`, `km/h` and `°`. Each was made to match the page it sits on rather than a convention chosen
+  for the tree, so the 22 pages that are long-form throughout keep their style and `dwd/derived`
+  hourly -- long-form, unlike its own monthly sibling, and nothing checks that the two agree -- is
+  untouched. The `-` a dimensionless cell now carries is the model's own symbol for it, and is the
+  same glyph the `constraints` column uses for "unconstrained", so a row can read `| - | - |`; the
+  two columns are headed separately and each is read in its own terms, where long form everywhere
+  would contradict the 66 pages that write symbols and the symbol the model declares. Every
+  rewritten line kept its exact length, so nothing reflowed and each one differs in a single cell.
+  For the 36 cells whose table pads its `unit` column that keeps the alignment; for the other 31 it
+  keeps the padding exactly as found, which is why `dwd/observation` 10_minutes now writes `-`
+  followed by thirteen spaces under a four-character `unit` header -- aligning with nothing, as it
+  did before, since tidying tables is not this change's business (GH-1980)
 - The 41 documented parameter tables that listed their rows in an order the model does not declare
   now list them in it. Three habits and nine one-off orderings, which is why they could be settled
   in one change rather than argued table by table: 25 tables put `quality` last where every dataset

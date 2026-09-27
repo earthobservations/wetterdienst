@@ -25,7 +25,7 @@
 
 | name                           | original name | description                                          | unit | constraints |
 |--------------------------------|---------------|------------------------------------------------------|------|-------------|
-| {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`precipitation_duration` | rws_dau_10 | Duration of precipitation during the previous 10 minutes. | min | >=0 |
 | {term}`precipitation_height` | rws_10 | Sum of the precipitation height of the previous 10 minutes. | mm | >=0 |
 | {term}`precipitation_index` | rws_ind_10 | Indicator of precipitation; if QN = 1 then: 0 = no precipitation, permanent sensor installed; 1 = precipitation, permanent sensor installed; 2 = no precipitation, heating in operation, permanent sensor installed; 3 = precipitation, heating in operation, permanent sensor installed; if QN > 1 then: 0 = no precipitation; 1 = precipitation. | - | ∈ \[0,1,3\] |
@@ -53,7 +53,7 @@ Codes (precipitation_indicator_wr):
 
 | name                                     | original name | description                              | unit  | constraints |
 |------------------------------------------|---------------|------------------------------------------|-------|-------------|
-| {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`radiation_sky_short_wave_diffuse` | ds_10 | Sum of diffuse sky radiation during the previous 10 minutes. | J/cm² | >=0 |
 | {term}`radiation_global` | gs_10 | Sum of global radiation during the previous 10 minutes. | J/cm² | >=0 |
 | {term}`sunshine_duration` | sd_10 | Sum of sunshine duration during the previous 10 minutes. | h | >=0 |
@@ -74,7 +74,7 @@ Codes (precipitation_indicator_wr):
 
 | name                                  | original name | description                                                                                                                         | unit | constraints |
 |---------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------|------|-------------|
-| {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`pressure_air_site` | pp_10 | Air pressure at station altitude. | hPa | >=0 |
 | {term}`temperature_air_mean_2m` | tt_10 | Air temperature 2 m above ground, instant. | °C | - |
 | {term}`temperature_air_mean_0_05m` | tm5_10 | Air temperature 5 cm above ground, instant. | °C | - |
@@ -96,7 +96,7 @@ Codes (precipitation_indicator_wr):
 
 | name                              | original name | description                                                         | unit | constraints |
 |-----------------------------------|---------------|---------------------------------------------------------------------|------|-------------|
-| {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`temperature_air_max_2m` | tx_10 | Maximum of air temperature at 2 m height during the last 10 minutes. | °C | - |
 | {term}`temperature_air_max_0_05m` | tx5_10 | Maximum of air temperature at 5 cm height during the last 10 minutes. | °C | - |
 | {term}`temperature_air_min_2m` | tn_10 | Minimum of air temperature at 2 m height during the last 10 minutes. | °C | - |

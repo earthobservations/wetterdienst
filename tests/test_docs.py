@@ -8,10 +8,15 @@ import re
 import warnings
 from collections.abc import Iterable, Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from wetterdienst.metadata.parameter_table import PARAMETERS
+
+if TYPE_CHECKING:
+    from wetterdienst.model.metadata import ResolutionModel
+    from wetterdienst.model.unit import UnitConverter
 
 ROOT = Path(__file__).parent.parent
 PROVIDER = Path(ROOT / "src" / "wetterdienst" / "provider")
@@ -646,6 +651,150 @@ def test_docs_parameter_units_name_the_quantity_the_model_declares() -> None:
     assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
 
 
+def _documented_unit_spellings(
+    resolution: "ResolutionModel",
+    path: Path,
+    converter: "UnitConverter",
+) -> tuple[dict[str, list[str]], dict[str, dict[str, list[str]]]]:
+    """Return how one docs page spells its units, as (rows per notation style, rows per notation).
+
+    Walks the page's rows rather than the model's parameters, because a section naming several
+    datasets registers one physical row under each of them: counting per parameter reported
+    `dwd/derived` monthly's six long-form cells as twelve, and a maintainer acts on that number.
+
+    Both maps hold `dataset/parameter` labels rather than counts, because the count alone does not say
+    which rows to edit. `dwd/observation` hourly carries a `quality` row in four of its datasets, and
+    those four were its whole long-form minority, so a report naming only the parameter spent its
+    entire sample on four copies of `quality 'dimensionless'` and named none of the tables holding
+    them.
+    """
+    declared = {
+        (dataset.name, parameter.name, parameter.name_original): parameter
+        for dataset in resolution
+        for parameter in dataset.parameters
+    }
+    styles: dict[str, list[str]] = {"name": [], "symbol": []}
+    notations: dict[str, dict[str, list[str]]] = {}
+    for datasets, header, cells in _parameter_table_rows(path):
+        if "unit" not in header:
+            continue
+        name, original = _row_names(header, cells)
+        keys = [(dataset, name, original) for dataset in datasets]
+        # the dataset that answers for the row, which is where a reader finds it: a section naming
+        # several declares the same unit in each, so any of them locates the one physical table
+        key = next((key for key in keys if key in declared), None)
+        if key is None:
+            # a row the resolution does not declare, which
+            # `test_docs_parameter_tables_hold_the_parameters_the_dataset_declares` reports
+            continue
+        parameter = declared[key]
+        unit = converter.get_unit(parameter.unit, parameter.unit_type)
+        shown = cells[header.index("unit")]
+        row = f"{key[0]}/{parameter.name}"
+        notations.setdefault(unit.name, {}).setdefault(shown, []).append(row)
+        if unit.name == unit.symbol:
+            # no unit declares one string for both today; were one to, its cells could not be read as
+            # either notation rather than the other, so they are left out of the style tally
+            continue
+        if shown == unit.name:
+            styles["name"].append(f"{row} {unit.name!r}")
+        elif shown == unit.symbol:
+            styles["symbol"].append(f"{row} {unit.symbol!r}")
+    return styles, notations
+
+
+def test_docs_parameter_units_keep_one_spelling_per_page() -> None:
+    """Test that a page's `unit` column writes a unit one way, in the model's names or its symbols.
+
+    Two ways a page can contradict itself, both settled here. A page can write one unit two ways, so
+    that the same quantity appears as `dimensionless` in one row and `-` in the next and a reader
+    cannot tell whether the difference means anything. And a page can write most units as symbols and
+    one of them long-form, which is the same inconsistency a column apart: the notation stops being
+    the page's and starts depending on the row.
+
+    Which of the two notations a page uses is a house style and stays the page's own: 22 pages are
+    long-form throughout -- every `aemet`, `meteofrance`, `meteoswiss` and `metno/frost` resolution,
+    20 between them, plus `dwd/phenology` annual and `dwd/derived` hourly -- and nothing here asks
+    them to change.
+
+    10 of the 88 pages failed one of the two, in 67 cells, every page symbol-majority with a
+    long-form minority (GH-1980). 59 of them are the first defect, all `dimensionless` on the eight
+    `dwd/observation` pages, which wrote that unit both ways. Only 13 of those 59 had the two
+    notations in one table, a row or two apart; the other 46 sit in a table carrying no `-` at all, on
+    a page that writes `-` for the same unit in another table. Both are the same contradiction to a
+    reader working down a page, which is why this check is scoped to the page and a per-table one
+    would have let 46 of the 59 stand. The remaining 8 cells are the second defect, on pages carrying
+    no other notation of that unit anywhere: six `dimensionless` on `dwd/derived` monthly against `%`,
+    `mm`, `°C`, `cm`, `°Cd` and `°Ch`, and two `percent` on `eccc/observation` daily against `°C`,
+    `°Cd`, `mm`, `cm`, `km/h` and `°`, where only the page's notation style says they are wrong. Each
+    was made to match the page it sits on rather than a convention chosen here.
+
+    Page-scoped is also the limit of what this can hold. `dwd/derived` monthly now writes `-` for the
+    dimensionless quantities it counts in, where its own hourly sibling writes `dimensionless` for the
+    two it has -- both `quality` rows, and no parameter is on both pages -- so one network's two pages
+    disagree and no test here can see it. Closing that means rewriting hourly's two `dimensionless`
+    cells, or all six of its unit cells to make the page symbol-style throughout, although nothing on
+    it is inconsistent with itself: the tree-wide fiat this change declined to make.
+
+    The check also runs one way only, from a unit to its notations, and not back. A page writing one
+    notation for two units passes, which `dwd/mosmix` hourly and `dwd/dmo` hourly do: both write `-`
+    for `dimensionless` and, `_UNIT_SPELLINGS` tolerating it, for `significant_weather` as well. That
+    is not an omission to tidy up here, because the model declares `-` as the symbol of `dimensionless`
+    and of `decimal` both, so a page documenting those two follows the model exactly and would still
+    write one glyph for two quantities. Settling it means giving one of them a symbol of its own, in
+    `UnitConverter` rather than in a docs page.
+
+    The one-unit-one-way half is what covers a notation that is neither the name nor the symbol:
+    `dwd/mosmix` writes `kg/m²` for a declared `millimeter` throughout, which `_UNIT_SPELLINGS`
+    tolerates, and turning some of those rows into `mm` would be this test's own defect while the
+    name/symbol tally saw nothing -- it records no `name` cell, so it finds no mix.
+
+    This is deliberately about one page's internal consistency and not about which spelling the tree
+    prefers. `test_docs_parameter_units_name_the_quantity_the_model_declares` is what holds a cell to
+    the model at all, and it accepts either spelling, which is what leaves the choice open.
+
+    The `-` this settles on for a dimensionless unit is the model's own symbol, and it is the same
+    glyph the `constraints` column uses for "unconstrained", so a row can read `| - | - |`. That is
+    the cost of the choice: the two columns are headed separately and each `-` is read in its own
+    column's terms, where the alternative -- long form everywhere -- would contradict the 66 pages
+    that write symbols and the symbol the model declares.
+    """
+    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+
+    converter = UnitConverter()
+    mixed = []
+    for provider, network, resolution, path in _documented_resolutions():
+        styles, notations = _documented_unit_spellings(resolution, path, converter)
+        page = f"{provider}/{network}/{resolution.name}"
+        found = []
+        if styles["name"] and styles["symbol"]:
+            named, symboled = len(styles["name"]), len(styles["symbol"])
+            fewer = min(styles, key=lambda key: len(styles[key]))
+            # on a tie there is no minority to point at, and which notation the page means is then
+            # the editor's call rather than something this test can read off the page -- but both
+            # sides are still named, since one of them is what has to be edited either way
+            minority = (
+                f"an even split, so the page's own notation is not on the page: "
+                f"{styles['name'][:2]} against {styles['symbol'][:2]}"
+                if named == symboled
+                else f"the {len(styles[fewer])} in the minority are {styles[fewer][:4]}"
+            )
+            found.append(
+                f"{page}: the unit is named in {_cells(named)} and given as its symbol in "
+                f"{_cells(symboled)}; {minority}",
+            )
+        # after the page's own notation, so that the per-page cap below takes the per-unit mixes and
+        # not the one finding that weighs the whole page and names both sides of it
+        for unit_name, shown_as in sorted(notations.items()):
+            if len(shown_as) > 1:
+                written = "; ".join(f"{shown!r} in {len(rows)}, {rows[:2]}" for shown, rows in sorted(shown_as.items()))
+                found.append(f"{page}: {unit_name} is written {len(shown_as)} ways -- {written}")
+        # capped per page before the report is: a page documenting twenty datasets can mix twenty
+        # units, which on a flat cap alone would report one page's rewrite as the whole corpus'
+        mixed.extend(_capped(found, 3, page))
+    assert not mixed, "\n".join(_capped(mixed, 20, "the report"))
+
+
 def test_docs_descriptions_do_not_misstate_a_parameter_count() -> None:
     """Test that a description naming a parameter count names the number the dataset declares.
 
@@ -1083,6 +1232,11 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
                 found.append(f"{tag}/{dataset}: documents {name}/{name_original!r} {len(shown)} times")
         errors.extend(_capped(found, 10, f"{tag}"))
     assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+def _cells(count: int) -> str:
+    """Return `count` with its noun, so a report reads "1 cell" and not "1 cells"."""
+    return f"{count} cell" if count == 1 else f"{count} cells"
 
 
 def _capped(lines: list[str], limit: int, what: str) -> list[str]:

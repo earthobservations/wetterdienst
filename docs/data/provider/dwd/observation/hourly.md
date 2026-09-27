@@ -25,7 +25,7 @@
 
 | name                        | original name | description              | unit | constraints                            |
 |-----------------------------|---------------|--------------------------|------|----------------------------------------|
-| {term}`quality` | qn_8 | Quality flag. | dimensionless | - |
+| {term}`quality` | qn_8 | Quality flag. | -             | - |
 | {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | >=0,<=8 |
 | {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
 | {term}`cloud_type_layer1` | v_s1_cs | Cloud type of 1. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
@@ -72,7 +72,7 @@ Code (cloud_type_layer):
 
 | name                            | original name | description                    | unit | constraints                         |
 |---------------------------------|---------------|--------------------------------|------|-------------------------------------|
-| {term}`quality` | qn_8 | Quality flag. | dimensionless | - |
+| {term}`quality` | qn_8 | Quality flag. | -             | - |
 | {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
 | {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | >=0,<=8 |
 
@@ -98,7 +98,7 @@ Code (cloud_cover_total_measurement_method):
 
 | name                                  | original name | description           | unit | constraints |
 |---------------------------------------|---------------|-----------------------|------|-------------|
-| {term}`quality` | qn_8 | Quality flag. | dimensionless | - |
+| {term}`quality` | qn_8 | Quality flag. | -             | - |
 | {term}`temperature_air_mean_2m` | tt | Air temperature. | °C | - |
 | {term}`temperature_dew_point_mean_2m` | td | Dew point temperature. | °C | - |
 
@@ -117,7 +117,7 @@ Code (cloud_cover_total_measurement_method):
 
 | name                                  | original name | description                        | unit | constraints |
 |---------------------------------------|---------------|------------------------------------|------|-------------|
-| {term}`quality` | qn_4 | Quality flag. | dimensionless | - |
+| {term}`quality` | qn_4 | Quality flag. | -             | - |
 | {term}`humidity_absolute` | absf_std | Computed hourly value of absolute humidity. | g/m³ | >=0 |
 | {term}`pressure_vapor` | vp_std | Computed hourly value of vapour pressure. | hPa | >=0 |
 | {term}`temperature_wet_mean_2m` | tf_std | Computed hourly value of wet bulb temperature. | °C | - |
