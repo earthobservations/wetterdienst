@@ -254,11 +254,30 @@ def test_unit_converter_refuses_a_source_only_unit_as_a_target(unit_converter: U
         match=r"Unit millimeter_per_second is what a source publishes in and cannot be a target",
     ):
         unit_converter.update_targets({"precipitation_intensity": "millimeter_per_second"})
-    # and the target is left as it was rather than half-applied
     assert unit_converter.targets["precipitation_intensity"].name == "millimeter_per_hour"
-    # while the unit is still there for a source to declare, and converts
+    # the unit is still there for a source to declare, and converts
     assert unit_converter.get_unit("millimeter_per_second", "precipitation_intensity").symbol == "mm/s"
     assert unit_converter.get_lambda("millimeter_per_second", "precipitation_intensity")(0.0056) == 20.16
+
+
+def test_unit_converter_update_targets_applies_all_of_a_mapping_or_none(unit_converter: UnitConverter) -> None:
+    """A mapping carrying one unusable entry changes no target at all.
+
+    The entries were validated and assigned in one pass, so an unusable one took effect only after
+    those before it already had -- and which those were depended on the order the caller happened to
+    write them in. `WD_TS_UNIT_TARGETS` is one mapping to a reader, so a rejected one should leave
+    the defaults it was meant to replace.
+    """
+    for targets in (
+        {"temperature": "degree_fahrenheit", "precipitation_intensity": "millimeter_per_second"},
+        {"temperature": "degree_fahrenheit", "nonsense": "degree_fahrenheit"},
+        {"temperature": "degree_fahrenheit", "pressure": "not_a_unit"},
+    ):
+        with pytest.raises(ValueError):  # noqa: PT011
+            unit_converter.update_targets(targets)
+        assert unit_converter.targets["temperature"].name == "degree_celsius"
+        assert unit_converter.targets["pressure"].name == "hectopascal"
+        assert unit_converter.targets["precipitation_intensity"].name == "millimeter_per_hour"
 
 
 def test_unit_converter_update_targets_invalid(unit_converter: UnitConverter) -> None:

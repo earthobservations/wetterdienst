@@ -502,6 +502,11 @@ Types of changes:
 
 ### Fixed
 
+- `ts_unit_targets` applies all of a mapping or none of it. `update_targets` validated and assigned
+  entry by entry, so a mapping carrying one it could not use applied the entries written before it
+  and then raised -- which of them took effect depending on the order the caller happened to write
+  them in, where the setting is a single mapping to a reader. Every entry is resolved before any is
+  assigned now (GH-1984)
 - **Breaking**: `dwd/road` declares the units BUFR publishes its precipitation intensity and water
   film in, so both are converted instead of being served 3600 and 100 times too small.
   `intensityOfPrecipitation` is BUFR `0 13 055`, `kg m-2 s-1`, millimetres per second for water, and

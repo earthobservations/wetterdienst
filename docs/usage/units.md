@@ -36,6 +36,22 @@ unit_converter = UnitConverter()
 unit_converter.units
 ```
 
+Not all of those can be asked for. A few exist so that a provider can declare the unit its source
+publishes in and have the conversion happen -- `millimeter_per_second` is what BUFR gives a
+precipitation rate as -- and converting *to* one of them would round the value away, so they are
+refused as a target:
+
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst.model.unit import UnitConverter
+
+unit_converter = UnitConverter()
+unit_converter.source_only_units
+```
+
 To set a different unit, you can use the `ts_unit_targets` setting in the `Settings` class. The following example
 shows how to convert the temperature to Fahrenheit:
 

@@ -21,18 +21,6 @@ _MILES_PER_NAUTICAL_MILE = _METERS_PER_NAUTICAL_MILE / _METERS_PER_MILE
 _METERS_PER_SECOND_PER_KNOT = _METERS_PER_NAUTICAL_MILE / 3600
 
 
-#: Units a source publishes in that nothing should report values in. They exist so that a provider
-#: can declare what it decodes and have the conversion to the target happen, which is the point of
-#: declaring them, and `update_targets` refuses them as a target: `_convert_units` rounds to four
-#: decimals after converting, so a source publishing millimetres per hour asked for millimetres per
-#: second comes back quantised to 0.36 mm/h steps, with KNMI's 0.1 mm/h reading as 0.0. Every unit
-#: type spanning orders of magnitude has that shape -- a `length_short` parameter under a `mile`
-#: target turns 5 cm of snow into 0.0 today -- and the general fix is a rounding rule that scales
-#: with the target. This list is not that fix. It keeps a unit added for a source from being
-#: reachable as a target at all, which is what it was on `main`: `get_unit` raised for it
-_SOURCE_ONLY_UNITS = frozenset({"millimeter_per_second"})
-
-
 @dataclass
 class Unit:
     """Data class for a unit."""
@@ -110,7 +98,7 @@ class UnitConverter:
                 Unit("liter_per_square_meter_per_hour", "l/m²/h"),
                 # what BUFR publishes a precipitation rate in, as `kg m-2 s-1`: a mass flux per
                 # area, which for water is a depth per second, so 1 kg m-2 s-1 is 1 mm/s. Source
-                # only, see `_SOURCE_ONLY_UNITS`
+                # only, see `source_only_units`
                 Unit("millimeter_per_second", "mm/s"),
             ],
             "pressure": [
@@ -193,6 +181,17 @@ class UnitConverter:
             "degree_day": self.units["degree_day"][0],
             "degree_hour": self.units["degree_hour"][0],
         }
+        # Units a source publishes in that nothing should report values in. They exist so that a
+        # provider can declare what it decodes and have the conversion to the target happen, which
+        # is the point of declaring them, and `update_targets` refuses them: `_convert_units` rounds
+        # to four decimals after converting, so a source publishing millimetres per hour asked for
+        # millimetres per second comes back quantised to 0.36 mm/h steps, with KNMI's 0.1 mm/h
+        # reading as 0.0. Every unit type spanning orders of magnitude has that shape -- a
+        # `length_short` parameter under a `mile` target turns 5 cm of snow into 0.0 today -- and the
+        # general fix is a rounding rule that scales with the target. This set is not that fix: it
+        # keeps a unit added for a source from being reachable as a target at all, which is what it
+        # was before the unit existed, `get_unit` having raised for the name
+        self.source_only_units: frozenset[str] = frozenset({"millimeter_per_second"})
         # dict of lambdas for conversion between units (described by names)
         self.lambdas: dict[tuple[str, str], Callable[[Any], Any]] = {
             # angle
@@ -381,16 +380,21 @@ class UnitConverter:
         """Update the target units for each unit type.
 
         A source-only unit is refused: it is declared so that a provider publishing in it converts,
-        and reporting values in it would round them away. See `_SOURCE_ONLY_UNITS`.
+        and reporting values in it would round them away. See `source_only_units`.
+
+        Every entry is resolved before any is assigned, so a mapping carrying one unusable entry
+        leaves the targets as they were rather than applying the entries that came before it.
         """
+        resolved = {}
         for key, value in targets.items():
             if key not in self.targets:
                 msg = f"Unit type {key} not supported"
                 raise ValueError(msg)
-            if value in _SOURCE_ONLY_UNITS:
+            if value in self.source_only_units:
                 msg = f"Unit {value} is what a source publishes in and cannot be a target for type {key}"
                 raise ValueError(msg)
-            self.targets[key] = self.get_unit(value, key)
+            resolved[key] = self.get_unit(value, key)
+        self.targets.update(resolved)
 
     def _get_lambda(self, unit: str, unit_target: str) -> Callable[[Any], Any]:
         if unit == unit_target:
