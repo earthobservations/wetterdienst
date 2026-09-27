@@ -45,11 +45,13 @@ The `unit` column above is the unit this network **publishes** in, not the one a
 is true of every row -- the three temperatures read `K` and come back in °C -- because the parser
 labels the BUFR units of what it decodes and converts nothing itself.
 
-Two of them are per-second and per-metre where a reader might expect otherwise. BUFR gives
-`intensityOfPrecipitation` (`0 13 055`) as `kg m-2 s-1`, a mass flux per area which for water is
-millimetres per second, and `waterFilmThickness` (`0 13 116`) in metres to a scale of 4. With the
-default unit targets a request serves the first as mm/h and the second as cm, so a reading that
-arrives as `0.0056` comes back as `20.16` mm/h and one that arrives as `0.002` as `0.2` cm.
+Two of them are per-second and per-metre where a reader might expect otherwise.
+`intensityOfPrecipitation` is BUFR `0 13 055`, `kg m-2 s-1` -- a mass flux per area, which for water
+is millimetres per second. The water film is metres, under either of the two descriptors these files
+use for it: the road layout names it with DWD's own local `0 13 241` and the WMO template `3 07 102`
+the rest arrive under reaches it as `0 13 116`. With the default unit targets a request serves the
+first as mm/h and the second as cm, so a reading that arrives as `0.0056` comes back as `20.16` mm/h
+and one that arrives as `0.002` as `0.2` cm.
 
 Until GH-1984 both were declared one step up -- `mm/h` and `cm` -- so no conversion happened and
 every value came back 3600 and 100 times too small.

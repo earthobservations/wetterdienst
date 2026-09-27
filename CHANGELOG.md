@@ -505,14 +505,17 @@ Types of changes:
   which side was wrong: over six hours of the whole network, the 39 readings carrying both a
   positive intensity and a positive 15-minute `precipitation_height` put the intensity times 900
   seconds within a median 0.8% of that height -- 0.0056 against a reported 5.0 mm -- where reading
-  it as mm/h would make those rows 0.0014 mm. `waterFilmThickness` is BUFR `0 13 116`, metres to a
-  scale of 4, and was declared `centimeter`; the delivered values are multiples of that 0.0001
-  running to 0.002, so 0.1 mm to 2 mm of water on a road, where as centimetres they would be a film
-  of 0.001 mm to 0.02 mm, every one of them thinner than the 0.1 mm step the sensor reports in. A
-  request now answers 20.16 mm/h and 0.2 cm where it answered 0.0056 and 0.002. The other twelve
-  declarations of that dataset were checked against the same tables and every one agrees, the wind
-  speeds included -- their ecCodes name maps to `m/s`, `km/h` and `kt` alike, and a network median
-  of 0.5 with a 99th percentile of 3.6 is metres per second (GH-1984)
+  it as mm/h would make those rows 0.0014 mm. The element's own width says the same without
+  reference to any gauge: 8 bits at a scale of 4 in every one of the 96 messages a network-wide
+  round publishes, so read as mm/h it could report at most 0.0255 mm/h. `waterFilmThickness` is
+  metres under either descriptor these files name it with -- DWD's own local `0 13 241` in the road
+  layout, the WMO `0 13 116` in the `3 07 102` template the rest arrive under -- and was declared
+  `centimeter`; the delivered values run to 0.002, 2 mm of water on a road, where as centimetres
+  they would top out at 0.02 mm. A request now answers 20.16 mm/h and 0.2 cm where it answered
+  0.0056 and 0.002. The other twelve declarations of that dataset were checked against the same
+  tables and every one agrees, the wind speeds included -- their ecCodes name maps to `m/s`, `km/h`
+  and `kt` alike, and a network median of 0.5 with a 99th percentile of 3.6 is metres per second
+  (GH-1984)
 - **Breaking**: `imgw/meteorology` returns a documented *brak zjawiska* as the zero it means, where
   it returned no value at all. Status "9" was treated as the true zero it is by passing the value
   cell through, which only works where the cell holds a zero -- and the files do not agree that it
