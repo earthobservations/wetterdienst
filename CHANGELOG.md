@@ -36,7 +36,10 @@ Types of changes:
   (GH-1998)
 - Six dataset descriptions the docs carried and the model did not, so `discover`, the REST API and
   MCP report them too: `dwd/mosmix` hourly `small` and `large`, the three `dwd/derived` monthly
-  `cooling_degreehours_*`, and `imgw/meteorology` monthly `climate`
+  `cooling_degreehours_*`, and `imgw/meteorology` monthly `climate`. The three
+  `cooling_degreehours_*` are each described by the reference temperature they use rather than by
+  the docs page's shared blurb about "13, 16 and 18 degree Celsius", those interfaces reporting a
+  dataset at a time
 - Documentation for running wetterdienst on a schedule, with ready-made units for systemd timers,
   launchd, cron and `docker run`. A `DynamicUser=yes` service has no writable `$HOME`, so without
   `CacheDirectory=` and `WD_CACHE_DIR` the run fails rather than going uncached, and
@@ -62,10 +65,11 @@ Types of changes:
   parameter describes a net radiation flux, and `radiation_global_last_3h` is taken by one, which
   GH-1977 carries
 - **Breaking**: `DwdDmoRequest.available_issues` takes the product it is answering for -- `dataset`,
-  `station_group` and `lead_time`, keyword-only, defaulting to what `DwdDmoRequest` defaults to. It
-  used to list `icon/single_stations/` whatever the request would read, and named issues that
-  request then rejected. `wetterdienst issues` and `/api/issues` take `--dataset`/`--lead_time` to
-  match; `lead_time=None` restores the old listing of every lead time together (GH-1956)
+  `station_group` and `lead_time`, keyword-only. It used to list `icon/single_stations/` whatever
+  the request would read, and named issues that request then rejected. `wetterdienst issues` and
+  `/api/issues` take `--dataset`/`--lead_time` to match. `dataset` and `station_group` default to
+  `DwdDmoRequest`'s own; `lead_time` defaults to `None`, which lists every lead time together, so
+  with no arguments this still answers more than a default request accepts -- GH-2009 (GH-1956)
 - **Breaking**: `Settings.auth` holds `SecretStr` rather than `str`, so reading a credential back
   has to ask for it: `reveal(settings.auth.aemet)`, or `.get_secret_value()`. Setting them is
   unchanged, as is every `if not settings.auth.x` check. An f-string or `str()` of a credential now
@@ -90,11 +94,11 @@ Types of changes:
   multiply by 3600 by hand is gone with it -- do not apply that factor to a value from this version
   (GH-1984)
 - **Breaking**: `imgw/meteorology` returns no value where IMGW records no measurement, rather than a
-  zero. Every value column is followed by a status column and none was read, while the value cell of
-  a missing measurement holds a literal `.0` -- so PSZCZYNA reported 0 % relative humidity for
-  January 2010 and WARSZOWICE 0 cm of snow cover every day of it. Only status `8` becomes null.
-  Under the default `ts_drop_nulls` a frame can come back shorter, or a parameter empty where it
-  used to read zero throughout (GH-1994)
+  zero. Each of the 61 declared value columns is followed by a status column and none was read,
+  while the value cell of a missing measurement holds a literal `.0` -- so PSZCZYNA reported 0 %
+  relative humidity for January 2010 and WARSZOWICE 0 cm of snow cover every day of it. Only status
+  `8` becomes null. Under the default `ts_drop_nulls` a frame can come back shorter, or a parameter
+  empty where it used to read zero throughout (GH-1994)
 - **Breaking**: `imgw/meteorology` returns a documented *brak zjawiska* as the zero it means, where
   it returned no value at all. Status "9" was handled by passing the value cell through, which only
   works where the cell holds a zero, and the files disagree that it does: `o_d_07_2024` leaves it
@@ -152,12 +156,12 @@ Types of changes:
   can be asked for. 135 of `icon`'s stations and 132 of `icon_eu`'s are absent from
   `dmo_stationsliste_txt.asc` -- `Y0353` is Mont Blanc -- and were filtered out of every request
   although their forecasts publish and fetch with HTTP 200. Both products now advertise exactly what
-  they publish, 5757 and 3688. The added stations report `icao_id` as null
+  they publish, 5757 and 3688. The added stations report `icao_id` as null (GH-1964)
 - **Breaking**: DWD DMO: a station is advertised only for the product that forecasts for it. The
   shared catalogue matches neither product, so a request for `icon_eu` listed 2255 stations that
   could only ever answer with an empty frame. Coverage is read from the product's `single_stations/`
   directory, one listing rather than a 20 MB parse; a listing that cannot be read keeps the
-  catalogue
+  catalogue (GH-1964)
 - DWD DMO: a station position is read as the degrees and minutes the catalogue writes it in
   (`{degrees}.{minutes:2d}`), and the seven hardcoded station patches are gone. Read as plain
   decimals, `.5` became 0°50' -- a station 84 km from where DWD says it is, and nothing raised --
@@ -292,10 +296,6 @@ Types of changes:
   daily climate data" -- wrong in both the resolution and the subject, and wrong in the model and
   the page alike. A caller asking `discover`, the REST API or MCP for `monthly/hydrology` was told
   it holds daily climate data
-- The three `dwd/derived` monthly `cooling_degreehours_*` datasets are each described by the
-  reference temperature they actually use, rather than sharing the page's blurb about "13, 16 and 18
-  degree Celsius" -- `discover`, the REST API and MCP report a dataset at a time and were telling a
-  caller asking for `cooling_degreehours_13` that it covers three base temperatures
 - The three `dwd/derived` *Kuehltage* overrides are described as "Number of days with at least one
   cooling hour", which is what DWD counts, rather than "Number of days on which cooling was
   required". The canonical `count_days_cooling_degree` keeps the general wording, as its
