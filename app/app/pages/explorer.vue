@@ -34,7 +34,10 @@ function unitLabel(unit: string): string {
   return t(`units.${unit}`)
 }
 
-// Available unit types and their possible units (from backend UnitConverter)
+// Unit types and the units a reader would want to see values in. A curated subset of what the backend
+// UnitConverter can convert to, not a mirror of it: the length types offer three or four of its six,
+// and precipitation_intensity leaves out millimeter_per_second, which is what BUFR publishes a rain
+// rate in rather than a unit to read one in -- the backend refuses it as a target for that reason.
 const unitTypes = [
   { type: 'temperature', units: ['degree_celsius', 'degree_kelvin', 'degree_fahrenheit'], default: 'degree_celsius' },
   { type: 'speed', units: ['meter_per_second', 'kilometer_per_hour', 'knots', 'beaufort'], default: 'meter_per_second' },
@@ -50,7 +53,7 @@ const unitTypes = [
   { type: 'length_long', units: ['meter', 'kilometer', 'mile', 'nautical_mile'], default: 'kilometer' },
 ]
 
-/** Select items for one unit type: the backend default first, then every unit it can convert to. */
+/** Select items for one unit type: the backend default first, then the units listed for it above. */
 function unitTargetItems(unitType: { units: string[], default: string }) {
   return [
     { label: t('explorer.unitDefault', { unit: unitLabel(unitType.default) }), value: '' },

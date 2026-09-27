@@ -41,9 +41,11 @@
 | {term}`wind_speed`                    | windSpeed                                | mean wind speed                  | m/s  | >=0         |
 
 :::{note}
-The `unit` column above is the unit this network **publishes** in, not the one a request returns. That
-is true of every row -- the three temperatures read `K` and come back in °C -- because the parser
-labels the BUFR units of what it decodes and converts nothing itself.
+The `unit` column above is the unit this network **publishes** in, not the one a request returns: the
+three temperatures read `K` and come back in °C, because the parser labels the BUFR units of what it
+decodes and converts nothing itself. Two rows spell that unit rather than copy it --
+{term}`precipitation_height` reads `mm` for a BUFR `kg m-2`, the same quantity for water, and
+{term}`precipitation_type_flags` reads `-` for a 30-bit flag table, which has no unit to give.
 
 Two of them are per-second and per-metre where a reader might expect otherwise.
 `intensityOfPrecipitation` is BUFR `0 13 055`, `kg m-2 s-1` -- a mass flux per area, which for water
@@ -116,11 +118,11 @@ the station did not look, which is why it is not reported as `0`.
 whatever they report as a value. The flag table is the WMO's generic one for an automatic weather
 station and it names neither quantity -- the road layout carries them as DWD's own `0 20 241` and
 `0 13 241`, and where the film instead arrives as WMO `0 13 116` the table still has no bit for it.
-Its nearest offers are "state of ground", about bare earth, and "water content", the moisture in it. The road surface
-temperature is mapped to "ground temperature data suspect" because the data confirms that reading of
-it, not because the wording is close -- and nothing confirms the other two, so they get a null
-rather than a guess. A wrong `0` would be worse, telling a caller filtering on quality that a
-suspect reading had been checked and found sound.
+Its nearest offers are "state of ground", about bare earth, and "water content", the moisture in it.
+The road surface temperature is mapped to "ground temperature data suspect" because the data
+confirms that reading of it, not because the wording is close -- and nothing confirms the other two,
+so they get a null rather than a guess. A wrong `0` would be worse, telling a caller filtering on
+quality that a suspect reading had been checked and found sound.
 
 ##### unflagged bad readings
 
