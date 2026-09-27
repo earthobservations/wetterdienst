@@ -84,7 +84,8 @@ Types of changes:
   annotation claimed `Period` and carried a `ty: ignore`, which made both `not self.period` guards
   in the radar API read as dead code to the type checker
 - `filter_by_name` refuses a name that is not a string before it downloads anything. The same
-  `TypeError` came out of rapidfuzz before, one whole station index later (GH-2003)
+  `TypeError` came out of rapidfuzz before, one whole station index later -- except for `None`,
+  which used to come back as an empty result and now raises like any other non-string (GH-2003)
 
 ### Fixed
 

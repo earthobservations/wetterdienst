@@ -119,6 +119,25 @@ _SOCKET_CONNECT = socket.socket.connect
 _SOCKET_CONNECT_EX = socket.socket.connect_ex
 
 
+class NetworkAccessBlockedError(Exception):
+    """Raised in place of a connection an unmarked test tried to open.
+
+    Deliberately not an `OSError`. The library treats being offline as a condition to degrade on
+    rather than report: aiohttp turns any `OSError` from a connect into `ClientConnectorError`,
+    `list_remote_files_fsspec` answers that with `[]`, and `download_file` answers it with a `File`
+    carrying `NoInternetError` that `raise_if_exception` logs at debug. A guard that raised
+    `OSError` was therefore swallowed by all three: the test either failed as
+    `FileNotFoundError: url ... does not have a list of files`, which reads like an upstream
+    restructure, or -- where an empty listing is a legitimate answer -- passed while testing
+    nothing. Deriving straight from `Exception` puts this outside every one of those handlers, so
+    the missing marker is what the failure says.
+
+    Not a `BaseException`, though that would also escape them: fsspec's `sync()` carries a result
+    back from the loop thread through `except Exception`, and anything outside that is dropped for
+    a `None` return rather than re-raised.
+    """
+
+
 def _guarded(original: Any) -> Any:  # noqa: ANN401
     """Wrap a socket connect method so that it refuses anything not on this machine."""
 
@@ -128,7 +147,7 @@ def _guarded(original: Any) -> Any:  # noqa: ANN401
                 f"network access blocked: {address}. A test that reaches the internet needs "
                 f"@pytest.mark.remote, or has to be rewritten to work without the network."
             )
-            raise OSError(msg)
+            raise NetworkAccessBlockedError(msg)
         return original(self, address, *args, **kwargs)
 
     return wrapper
@@ -145,6 +164,13 @@ def _block_network(request: pytest.FixtureRequest) -> None:
     The patching is done by hand rather than through ``monkeypatch``, because an autouse fixture
     requesting ``monkeypatch`` would pull it ahead of the module-level fixtures that expect to be
     torn down first.
+
+    Two things it does not cover, both of which would let a connection through rather than refuse
+    one wrongly: it is installed per test, so a connection opened at import time or by a
+    session-scoped fixture is made before it is in place; and it patches `socket.connect`, which on
+    Windows is not the path asyncio's `ProactorEventLoop` takes -- that connects through
+    `_overlapped.ConnectEx`. Name resolution goes out either way. So this is what holds the suite
+    to its own claim, not a sandbox.
     """
     if request.node.get_closest_marker("remote"):
         yield

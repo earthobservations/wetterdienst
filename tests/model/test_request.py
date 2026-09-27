@@ -174,6 +174,11 @@ def test_dwd_observations_stations_wrong_types(default_request: TimeseriesReques
     with pytest.raises(TypeError):
         default_request.filter_by_name(name=123)
 
+    # `None` reached rapidfuzz, which answered it with no matches rather than a `TypeError`, so an
+    # empty result came back for what is a caller's mistake rather than a name nothing is called
+    with pytest.raises(TypeError):
+        default_request.filter_by_name(name=None)
+
 
 @pytest.mark.remote
 def test_dwd_observation_stations_filter_by_rank_single(
