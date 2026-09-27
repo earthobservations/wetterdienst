@@ -390,10 +390,12 @@ class UnitConverter:
             if key not in self.targets:
                 msg = f"Unit type {key} not supported"
                 raise ValueError(msg)
+            # after `get_unit`, so that a unit of some other type is reported as not belonging to
+            # this one -- with the list of units that do -- rather than as held back by policy
+            resolved[key] = self.get_unit(value, key)
             if value in self.source_only_units:
                 msg = f"Unit {value} is what a source publishes in and cannot be a target for type {key}"
                 raise ValueError(msg)
-            resolved[key] = self.get_unit(value, key)
         self.targets.update(resolved)
 
     def _get_lambda(self, unit: str, unit_target: str) -> Callable[[Any], Any]:

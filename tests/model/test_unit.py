@@ -258,6 +258,14 @@ def test_unit_converter_refuses_a_source_only_unit_as_a_target(unit_converter: U
     # the unit is still there for a source to declare, and converts
     assert unit_converter.get_unit("millimeter_per_second", "precipitation_intensity").symbol == "mm/s"
     assert unit_converter.get_lambda("millimeter_per_second", "precipitation_intensity")(0.0056) == 20.16
+    # and asked for under a type it is no unit of, it is reported as that rather than as held back:
+    # a typo in `WD_TS_UNIT_TARGETS` wants the list of units the type does have
+    with pytest.raises(
+        ValueError,
+        match=r"Unit millimeter_per_second not supported for type temperature\. Supported units are: "
+        r"degree_celsius,degree_kelvin,degree_fahrenheit",
+    ):
+        unit_converter.update_targets({"temperature": "millimeter_per_second"})
 
 
 def test_unit_converter_update_targets_applies_all_of_a_mapping_or_none(unit_converter: UnitConverter) -> None:
