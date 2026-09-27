@@ -285,9 +285,11 @@ def test_unit_converter_holds_a_source_only_unit_against_its_own_type(unit_conve
     converter.source_only_units = frozenset({("precipitation", "millimeter")})
     with pytest.raises(ValueError, match="Unit millimeter is what a source publishes in"):
         converter.update_targets({"precipitation": "millimeter"})
+    # `length_short`, whose own default is `centimeter`, so this moves and a name-only match would
+    # have refused it. Asserting `precipitation`'s target here would prove nothing: `millimeter` is
+    # already its default
     converter.update_targets({"length_short": "millimeter"})
     assert converter.targets["length_short"].name == "millimeter"
-    assert converter.targets["precipitation"].name == "millimeter"
 
 
 def test_unit_converter_update_targets_applies_all_of_a_mapping_or_none(unit_converter: UnitConverter) -> None:

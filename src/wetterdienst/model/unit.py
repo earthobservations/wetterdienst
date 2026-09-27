@@ -369,7 +369,13 @@ class UnitConverter:
             raise ValueError(msg)
         unit = next((unit for unit in self.units[unit_type] if unit.name == name), None)
         if not unit:
-            supported_units = ",".join(unit.name for unit in self.units[unit_type])
+            # a source-only unit is named but marked, because this hint answers a caller who may have
+            # meant either side: it is a unit a provider can declare, and one `update_targets` will
+            # refuse, so listing it plainly would send a mistyped target to a second, different error
+            supported_units = ",".join(
+                f"{unit.name} (source only)" if (unit_type, unit.name) in self.source_only_units else unit.name
+                for unit in self.units[unit_type]
+            )
             msg = f"Unit {name} not supported for type {unit_type}. Supported units are: {supported_units}"
             raise ValueError(msg)
         return unit
