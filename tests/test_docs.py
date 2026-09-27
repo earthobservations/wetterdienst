@@ -655,12 +655,17 @@ def _documented_unit_spellings(
     resolution: "ResolutionModel",
     path: Path,
     converter: "UnitConverter",
-) -> tuple[dict[str, list[str]], dict[str, dict[str, int]]]:
-    """Return how one docs page spells its units, as (cells per notation style, cells per notation).
+) -> tuple[dict[str, list[str]], dict[str, dict[str, list[str]]]]:
+    """Return how one docs page spells its units, as (rows per notation style, rows per notation).
 
     Walks the page's rows rather than the model's parameters, because a section naming several
     datasets registers one physical row under each of them: counting per parameter reported
     `dwd/derived` monthly's six long-form cells as twelve, and a maintainer acts on that number.
+
+    Both maps hold `dataset/parameter` labels rather than counts, because the count alone does not
+    say which rows to edit. `dwd/observation` hourly documents some twenty datasets that each carry a
+    `quality` row, so a report naming only the parameter spent its whole sample on four copies of
+    `quality 'dimensionless'` and named none of the tables holding them.
     """
     declared = {
         (dataset.name, parameter.name, parameter.name_original): parameter
@@ -668,29 +673,32 @@ def _documented_unit_spellings(
         for parameter in dataset.parameters
     }
     styles: dict[str, list[str]] = {"name": [], "symbol": []}
-    notations: dict[str, dict[str, int]] = {}
+    notations: dict[str, dict[str, list[str]]] = {}
     for datasets, header, cells in _parameter_table_rows(path):
         if "unit" not in header:
             continue
         name, original = _row_names(header, cells)
         keys = [(dataset, name, original) for dataset in datasets]
-        parameter = next((declared[key] for key in keys if key in declared), None)
-        if parameter is None:
+        # the dataset that answers for the row, which is where a reader finds it: a section naming
+        # several declares the same unit in each, so any of them locates the one physical table
+        key = next((key for key in keys if key in declared), None)
+        if key is None:
             # a row the resolution does not declare, which
             # `test_docs_parameter_tables_hold_the_parameters_the_dataset_declares` reports
             continue
+        parameter = declared[key]
         unit = converter.get_unit(parameter.unit, parameter.unit_type)
         shown = cells[header.index("unit")]
-        per_notation = notations.setdefault(unit.name, {})
-        per_notation[shown] = per_notation.get(shown, 0) + 1
+        row = f"{key[0]}/{parameter.name}"
+        notations.setdefault(unit.name, {}).setdefault(shown, []).append(row)
         if unit.name == unit.symbol:
             # no unit declares one string for both today; were one to, its cells could not be read as
             # either notation rather than the other, so they are left out of the style tally
             continue
         if shown == unit.name:
-            styles["name"].append(f"{parameter.name} {unit.name!r}")
+            styles["name"].append(f"{row} {unit.name!r}")
         elif shown == unit.symbol:
-            styles["symbol"].append(f"{parameter.name} {unit.symbol!r}")
+            styles["symbol"].append(f"{row} {unit.symbol!r}")
     return styles, notations
 
 
@@ -740,15 +748,17 @@ def test_docs_parameter_units_keep_one_spelling_per_page() -> None:
         page = f"{provider}/{network}/{resolution.name}"
         for unit_name, shown_as in sorted(notations.items()):
             if len(shown_as) > 1:
-                written = ", ".join(f"{shown!r} in {count}" for shown, count in sorted(shown_as.items()))
+                written = "; ".join(f"{shown!r} in {len(rows)}, {rows[:2]}" for shown, rows in sorted(shown_as.items()))
                 mixed.append(f"{page}: {unit_name} is written {len(shown_as)} ways -- {written}")
         if styles["name"] and styles["symbol"]:
             named, symboled = len(styles["name"]), len(styles["symbol"])
             fewer = min(styles, key=lambda key: len(styles[key]))
             # on a tie there is no minority to point at, and which notation the page means is then
-            # the editor's call rather than something this test can read off the page
+            # the editor's call rather than something this test can read off the page -- but both
+            # sides are still named, since one of them is what has to be edited either way
             minority = (
-                "an even split, so the page's own notation is not on the page"
+                f"an even split, so the page's own notation is not on the page: "
+                f"{styles['name'][:2]} against {styles['symbol'][:2]}"
                 if named == symboled
                 else f"the {len(styles[fewer])} in the minority are {styles[fewer][:4]}"
             )
