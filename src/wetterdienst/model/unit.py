@@ -96,6 +96,10 @@ class UnitConverter:
             "precipitation_intensity": [
                 Unit("millimeter_per_hour", "mm/h"),
                 Unit("liter_per_square_meter_per_hour", "l/m²/h"),
+                # what BUFR publishes a precipitation rate in, as `kg m-2 s-1`: a mass flux per
+                # area, which for water is a depth per second, so 1 kg m-2 s-1 is 1 mm/s. Source
+                # only, see `source_only_units`
+                Unit("millimeter_per_second", "mm/s"),
             ],
             "pressure": [
                 Unit("pascal", "Pa"),
@@ -177,6 +181,25 @@ class UnitConverter:
             "degree_day": self.units["degree_day"][0],
             "degree_hour": self.units["degree_hour"][0],
         }
+        # Units a source publishes in that nothing should report values in. They exist so that a
+        # provider can declare what it decodes and have the conversion to the target happen, which
+        # is the point of declaring them, and `update_targets` refuses them: `_convert_units` rounds
+        # to four decimals after converting, so a source publishing millimetres per hour asked for
+        # millimetres per second comes back quantised to 0.36 mm/h steps, with KNMI's 0.1 mm/h
+        # reading as 0.0. Every unit type spanning orders of magnitude has that shape -- a
+        # `length_short` parameter under a `mile` target turns 5 cm of snow into 0.0 today -- and the
+        # general fix is a rounding rule that scales with the target, GH-2002. This set is not it: it
+        # keeps a unit added for a source from being reachable as a target at all, which is what it
+        # was before the unit existed, `get_unit` having raised for the name.
+        #
+        # Held per unit type rather than by name, because a name is not unique to one: eleven of them
+        # are shared, `millimeter` between `precipitation` and all three `length_*` and `beaufort`
+        # between `speed` and `wind_scale` among them. A bare name would make the next source-only
+        # unit unaskable for every type carrying it, and say "is what a source publishes in" of a
+        # type where it is an ordinary target
+        self.source_only_units: frozenset[tuple[str, str]] = frozenset(
+            {("precipitation_intensity", "millimeter_per_second")},
+        )
         # dict of lambdas for conversion between units (described by names)
         self.lambdas: dict[tuple[str, str], Callable[[Any], Any]] = {
             # angle
@@ -271,7 +294,11 @@ class UnitConverter:
             ("liter_per_square_meter", "millimeter"): lambda x: x,
             # precipitation_intensity
             ("millimeter_per_hour", "liter_per_square_meter_per_hour"): lambda x: x,
+            ("millimeter_per_hour", "millimeter_per_second"): lambda x: x / 3600,
             ("liter_per_square_meter_per_hour", "millimeter_per_hour"): lambda x: x,
+            ("liter_per_square_meter_per_hour", "millimeter_per_second"): lambda x: x / 3600,
+            ("millimeter_per_second", "millimeter_per_hour"): lambda x: x * 3600,
+            ("millimeter_per_second", "liter_per_square_meter_per_hour"): lambda x: x * 3600,
             # pressure
             ("pascal", "hectopascal"): lambda x: x / 100,
             ("pascal", "kilopascal"): lambda x: x / 1000,
@@ -342,7 +369,13 @@ class UnitConverter:
             raise ValueError(msg)
         unit = next((unit for unit in self.units[unit_type] if unit.name == name), None)
         if not unit:
-            supported_units = ",".join(unit.name for unit in self.units[unit_type])
+            # a source-only unit is named but marked, because this hint answers a caller who may have
+            # meant either side: it is a unit a provider can declare, and one `update_targets` will
+            # refuse, so listing it plainly would send a mistyped target to a second, different error
+            supported_units = ",".join(
+                f"{unit.name} (source only)" if (unit_type, unit.name) in self.source_only_units else unit.name
+                for unit in self.units[unit_type]
+            )
             msg = f"Unit {name} not supported for type {unit_type}. Supported units are: {supported_units}"
             raise ValueError(msg)
         return unit
@@ -358,12 +391,28 @@ class UnitConverter:
         return convert(1.0) - convert(0.0)
 
     def update_targets(self, targets: dict[str, str]) -> None:
-        """Update the target units for each unit type."""
+        """Update the target units for each unit type.
+
+        A source-only unit is refused: it is declared so that a provider publishing in it converts,
+        and reporting values in it would round them away. See `source_only_units`.
+
+        Every entry is resolved before any is assigned, so a mapping carrying one unusable entry
+        leaves the targets as they were rather than applying the entries that came before it.
+        """
+        resolved = {}
         for key, value in targets.items():
             if key not in self.targets:
                 msg = f"Unit type {key} not supported"
                 raise ValueError(msg)
-            self.targets[key] = self.get_unit(value, key)
+            # after `get_unit`, so that a unit of some other type is reported as not belonging to
+            # this one -- with the list of units that do -- rather than as held back by policy
+            resolved[key] = self.get_unit(value, key)
+            # against the resolved unit's own name rather than what the caller wrote, so that this
+            # keeps refusing what it is meant to if `get_unit` ever accepts a symbol as well
+            if (key, resolved[key].name) in self.source_only_units:
+                msg = f"Unit {value} is what a source publishes in and cannot be a target for type {key}"
+                raise ValueError(msg)
+        self.targets.update(resolved)
 
     def _get_lambda(self, unit: str, unit_target: str) -> Callable[[Any], Any]:
         if unit == unit_target:

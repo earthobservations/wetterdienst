@@ -326,6 +326,12 @@ class TimeseriesRequest:
              "parameters": [{"name": ..., "name_original": ..., "unit_type": ..., "unit": ...,
              "description": ...}]}}}}
 
+        `unit` is the unit the source publishes in, which is not always the unit a request answers
+        with: a value is converted to its type's target unless `ts_convert_units` is off, so
+        `dwd/road` reports `degree_kelvin` here and answers in °C, and `millimeter_per_second` here
+        and answers in mm/h. `UnitConverter.targets`, which `ts_unit_targets` overrides, is the other
+        side.
+
         Args:
             resolutions: Resolutions to discover metadata for.
             datasets: Datasets to discover metadata for.

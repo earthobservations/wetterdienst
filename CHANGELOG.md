@@ -18,6 +18,17 @@ Types of changes:
 
 ### Added
 
+- `precipitation_intensity` can be declared in `millimeter_per_second`, which is what BUFR publishes
+  a precipitation rate in: `kg m-2 s-1`, a mass flux per area, and a depth per second once the
+  density of water divides out. The unit type carried only the two hourly spellings, so there was
+  nowhere to put a per-second rate and `dwd/road` labelled one `millimeter_per_hour`. It is a source
+  unit: `update_targets` refuses it, so `WD_TS_UNIT_TARGETS` cannot ask for values in it, which is
+  what it could not do before the unit existed either. That is deliberate rather than tidy --
+  `_convert_units` rounds to four decimals after converting, so a source publishing mm/h under that
+  target would come back quantised to 0.36 mm/h steps, KNMI's 0.1 mm/h reading as 0.0. Every unit
+  type spanning orders of magnitude has that shape, a `length_short` parameter under a `mile` target
+  turning 5 cm of snow into 0.0 today, and the general fix is a rounding rule that scales with the
+  target, filed as GH-2002; refusing one source unit is not it (GH-1984)
 - Every column `imgw/meteorology` renames has to be declared by the dataset it is read for.
   `_parse_file` renames raw `column_N` headers to `name_original` strings and the result is matched
   against the dataset actually requested, so a name only some *other* dataset declares is dropped
@@ -182,7 +193,7 @@ Types of changes:
   by name or by symbol, or one of the four notations in `_UNIT_SPELLINGS`: `kg/m²` for `mm`, which
   are equal for water and which is what DWD's MOSMIX documentation writes; `-` for a coded value
   whose model symbol is the unhelpful `sign [0..95]`; a Greek mu where the model writes a micro
-  sign; and `Bft` for the model's lower-case `bft`. Those four cover all 60 cells that disagree, so
+  sign; and `Bft` for the model's lower-case `bft`. Those four cover all 42 cells that disagree, so
   the check runs without reflowing any of them first, and they are listed rather than tolerated
   wholesale so that a cell naming a different *quantity* fails instead of hiding among them.
   Reverting any of the three wrong-quantity fixes below now fails; the `hectopascal`/`hPa` one does
@@ -491,6 +502,30 @@ Types of changes:
 
 ### Fixed
 
+- `ts_unit_targets` applies all of a mapping or none of it. `update_targets` validated and assigned
+  entry by entry, so a mapping carrying one it could not use applied the entries written before it
+  and then raised -- which of them took effect depending on the order the caller happened to write
+  them in, where the setting is a single mapping to a reader. Every entry is resolved before any is
+  assigned now (GH-1984)
+- **Breaking**: `dwd/road` declares the units BUFR publishes its precipitation intensity and water
+  film in, so both are converted instead of being served 3600 and 100 times too small.
+  `intensityOfPrecipitation` is BUFR `0 13 055`, `kg m-2 s-1`, millimetres per second for water, and
+  it was declared `millimeter_per_hour` -- the default target, so nothing converted and a shower
+  came back as 0.0056 mm/h, no observable precipitation at all. The station's own gauge settles
+  which side was wrong: over six hours of the whole network, the 39 readings carrying both a
+  positive intensity and a positive 15-minute `precipitation_height` put the intensity times 900
+  seconds within a median 0.8% of that height -- 0.0056 against a reported 5.0 mm -- where reading
+  it as mm/h would make those rows 0.0014 mm. The element's own width says the same without
+  reference to any gauge: 8 bits at a scale of 4 in every one of the 96 messages a network-wide
+  round publishes, so read as mm/h it could report at most 0.0255 mm/h. `waterFilmThickness` is
+  metres under either descriptor these files name it with -- DWD's own local `0 13 241` in the road
+  layout, the WMO `0 13 116` in the `3 07 102` template the rest arrive under -- and was declared
+  `centimeter`; the delivered values run to 0.002, 2 mm of water on a road, where as centimetres
+  they would top out at 0.02 mm. A request now answers 20.16 mm/h and 0.2 cm where it answered
+  0.0056 and 0.002. The other twelve declarations of that dataset were checked against the same
+  tables and every one agrees, the wind speeds included -- their ecCodes name maps to `m/s`, `km/h`
+  and `kt` alike, and a network median of 0.5 with a 99th percentile of 3.6 is metres per second
+  (GH-1984)
 - **Breaking**: `imgw/meteorology` returns a documented *brak zjawiska* as the zero it means, where
   it returned no value at all. Status "9" was treated as the true zero it is by passing the value
   cell through, which only works where the cell holds a zero -- and the files do not agree that it
@@ -586,29 +621,30 @@ Types of changes:
   instead, so the row named something that raises `NoParametersFoundError` -- while
   `imgw/meteorology` monthly `synop` documented none of its four precipitation parameters at all
 - Three unit cells disagreeing with the model about the quantity, not just the notation: `dwd/road`
-  15_minutes wrote `mm/s` where the model declares `millimeter_per_hour`, and `dwd/observation`
+  15_minutes wrote `mm/s` where the model then declared `millimeter_per_hour`, and `dwd/observation`
   monthly and annual wrote `Bft` for `wind_gust_max`, which the model declares `meter_per_second`,
-  apparently copied from the `wind_force_beaufort` row above it, which really is Beaufort. All
-  three now say what the model says. Found by checking every unit cell against
-  `UnitConverter.get_unit`: 63 of 2213 disagreed, and the other 60 are notations rather than
-  quantities -- `kg/m²` for `mm` (36), `-` for the coded `significant_weather` (16), a Greek mu
-  where the model writes a micro sign (5) and `Bft` for `bft` (3), which
-  `test_docs_parameter_units_name_the_quantity_the_model_declares` lists and GH-1980 is to settle.
-  For the `dwd/road` cell the model is the side under question rather than the page: that module
-  labels the BUFR units of the elements it decodes -- it declares `degree_kelvin` for
+  apparently copied from the `wind_force_beaufort` row above it, which really is Beaufort. All three
+  now say what the model says. Found by checking every unit cell against `UnitConverter.get_unit`:
+  three named a different quantity, and the 42 disagreements remaining of the 2098 cells compared
+  are notations rather than quantities -- `kg/m²` for `mm` (24), `-` for the coded
+  `significant_weather` (10), a Greek mu where the model writes a micro sign (5) and `Bft` for `bft`
+  (3), which `test_docs_parameter_units_name_the_quantity_the_model_declares` lists and GH-1980 is
+  to settle. For the `dwd/road` cell the page was the right side and the model the wrong one: that
+  module labels the BUFR units of the elements it decodes -- it declares `degree_kelvin` for
   `airTemperature`, whose CREX unit is Celsius -- and BUFR gives `intensityOfPrecipitation` as
-  `kg m-2 s-1`, which is millimetres per second. GH-1984 carries that, with what would settle it;
-  the page follows the model either way, so one label is wrong rather than two statements of it
-
+  `kg m-2 s-1`, which is millimetres per second. GH-1984 settles it in this same release by
+  declaring `millimeter_per_second`, so the cell reads `mm/s` once more and the value now converts
 - The changelog renders as prose again. Three bare ``` and ```` runs written into these entries
   opened real code fences, so `poe docs` warned about a Pygments lexer named `-opened` and nine
   lines of one bullet rendered as an unstyled block with the markup showing, one sentence
   disappearing from the visible text entirely. They are code spans now, with the delimiters
   CommonMark wants
-- `dwd/road` 15_minutes carries a warning that its `precipitation_intensity` is labelled `mm/h`
-  while the delivered value is almost certainly millimetres per second, with the factor to multiply
-  by and a pointer to GH-1984 -- the page has to say what the model says, but not silently. Its
-  `water_film_thickness`, labelled `cm` against a BUFR `m`, is named there too
+- `dwd/road` 15_minutes explains what its `unit` column means: the unit this network publishes in
+  rather than the one a request answers with, which is why its three temperatures read `K`. It
+  carried a warning instead, that `precipitation_intensity` was labelled `mm/h` where the value is
+  millimetres per second and had to be multiplied by 3600 by hand, and that `water_film_thickness`
+  was labelled `cm` against a BUFR `m`. Both declarations are corrected in this release, so there is
+  nothing left for a reader to multiply -- do not apply that factor to a value from this version
 - `dwd/mosmix` hourly describes `large` as a forecast of 122 parameters, which is what the model
   declares, rather than 115. The figure sat in a `#### metadata` description that existed only in
   the markdown, so nothing compared it. It was the fourth copy of the number: GH-1975 corrects the

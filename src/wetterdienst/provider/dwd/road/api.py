@@ -82,7 +82,17 @@ DwdRoadMetadata = {
                         {
                             "name": "precipitation_intensity",
                             "name_original": "intensityOfPrecipitation",
-                            "unit": "millimeter_per_hour",
+                            # BUFR `0 13 055` gives this as `kg m-2 s-1`, a mass flux per area which
+                            # for water is millimetres per second, and nothing in this parser
+                            # converts. Its own width settles it: 8 bits at a scale of 4, in every
+                            # one of the 96 messages a round of the whole network publishes, so read
+                            # as mm/h the element could report at most 0.0255 mm/h -- no rain, ever.
+                            # The station's gauge agrees: of the readings carrying both a positive
+                            # intensity and a positive 15-minute `precipitation_height`, the 39 in
+                            # six hours of the network put the intensity times 900 seconds within a
+                            # median 0.8% of that height, 0.0056 against a reported 5.0 mm. It was
+                            # declared `millimeter_per_hour` until GH-1984
+                            "unit": "millimeter_per_second",
                         },
                         {
                             "name": "road_surface_condition",
@@ -114,7 +124,17 @@ DwdRoadMetadata = {
                         {
                             "name": "water_film_thickness",
                             "name_original": "waterFilmThickness",
-                            "unit": "centimeter",
+                            # metres whichever descriptor carries it, and nothing in this parser
+                            # converts. These files come in two layouts: the road one names the film
+                            # with DWD's own local `0 13 241`, metres to a scale of 3, and the WMO
+                            # template `3 07 102` the rest arrive under reaches the same key as
+                            # `0 13 116`, metres to a scale of 4. All 96 messages of one network-wide
+                            # round declare metres, 72 at the one scale and 24 at the other, so the
+                            # step is 1 mm for most of the network and 0.1 mm for the remainder. The
+                            # delivered values run to 0.002, 2 mm of water on a road, where as
+                            # centimetres they would top out at 0.02 mm. It was declared `centimeter`
+                            # until GH-1984
+                            "unit": "meter",
                         },
                         {
                             "name": "wind_direction",
@@ -233,15 +253,17 @@ _QUALITY_MISSING = _flag_bit(30)
 #: contradicted by the data, though a single dry night cannot confirm them: nothing was reporting a
 #: water film to flag, and only one station flagged its dry bulb.
 #:
-#: `roadSurfaceCondition` and `waterFilmThickness` are deliberately absent, both being road
-#: descriptors of DWD's own (`0 20 241` and `0 13 241`) rather than quantities this table names. Its
-#: nearest offers are bit 19, "state of ground", which is about bare earth, and bit 21, "water
-#: content", which is the moisture in it. Bit 7 shows DWD does write road quantities into the
-#: table, but it is mapped here because the data confirms it and not because the wording is close,
-#: and neither of those two has anything to confirm it: bit 19 is set nowhere at all, and the 14
-#: stations setting bit 21 reported the same film as everyone else on a dry night. A wrong `0`
-#: there would be worse than a null, telling a caller filtering on quality that a suspect reading
-#: was checked and found sound
+#: `roadSurfaceCondition` and `waterFilmThickness` are deliberately absent, being quantities this
+#: table does not name. Not for want of a WMO descriptor for either: the road layout carries them as
+#: DWD's own `0 20 241` and `0 13 241`, and a third of the readings -- 2451 of 7317 station reports
+#: in one round -- arrive on the WMO template `3 07 102`, which carries both as `0 13 116` and
+#: `0 20 138`. The flag table has no bit for them under either descriptor. Its nearest offers are
+#: bit 19, "state of ground", which is about bare earth, and bit 21, "water content", which is the
+#: moisture in it. Bit 7 shows DWD does write road quantities into the table, but it is mapped here
+#: because the data confirms it and not because the wording is close, and neither of those two has
+#: anything to confirm it: bit 19 is set nowhere at all, and the 14 stations setting bit 21 reported
+#: the same film as everyone else on a dry night. A wrong `0` there would be worse than a null,
+#: telling a caller filtering on quality that a suspect reading was checked and found sound
 _QUALITY_BITS = {
     "windDirection": 3,
     "windSpeed": 3,

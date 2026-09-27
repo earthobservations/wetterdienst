@@ -157,6 +157,15 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         ("millimeter", "millimeter", 42, 42),
         ("millimeter", "liter_per_square_meter", 42, 42),
         ("liter_per_square_meter", "millimeter", 42, 42),
+        # precipitation_intensity. 0.0056 mm/s is what a dwd/road station reports in a shower, its
+        # BUFR element being kg m-2 s-1, and 20.16 mm/h is the same rain
+        ("millimeter_per_hour", "millimeter_per_hour", 42, 42),
+        ("millimeter_per_hour", "liter_per_square_meter_per_hour", 42, 42),
+        ("liter_per_square_meter_per_hour", "millimeter_per_hour", 42, 42),
+        ("millimeter_per_second", "millimeter_per_hour", 0.0056, 20.16),
+        ("millimeter_per_second", "liter_per_square_meter_per_hour", 0.0056, 20.16),
+        ("millimeter_per_hour", "millimeter_per_second", 20.16, 0.0056),
+        ("liter_per_square_meter_per_hour", "millimeter_per_second", 20.16, 0.0056),
         # pressure
         ("hectopascal", "hectopascal", 42, 42),
         ("pascal", "hectopascal", 4200, 42),
@@ -229,6 +238,78 @@ def test_unit_converter_lambdas(
     """Test that the lambda functions work as expected."""
     lambda_ = unit_converter._get_lambda(unit, target)  # noqa: SLF001
     assert lambda_(value) == expected
+
+
+def test_unit_converter_refuses_a_source_only_unit_as_a_target(unit_converter: UnitConverter) -> None:
+    """A unit declared for a source cannot be asked for as a target.
+
+    `millimeter_per_second` exists so that `dwd/road` converts what BUFR publishes rather than
+    labelling it. Reporting values in it would round them away: `_convert_units` rounds to four
+    decimals after converting, so an mm/h source under that target loses everything below 0.36 mm/h
+    and KNMI's 0.1 mm/h reads as 0.0. `get_unit` raised for the unit before it existed, and this
+    keeps the setting failing as loudly as it did.
+    """
+    with pytest.raises(
+        ValueError,
+        match=r"Unit millimeter_per_second is what a source publishes in and cannot be a target",
+    ):
+        unit_converter.update_targets({"precipitation_intensity": "millimeter_per_second"})
+    assert unit_converter.targets["precipitation_intensity"].name == "millimeter_per_hour"
+    # the unit is still there for a source to declare, and converts
+    assert unit_converter.get_unit("millimeter_per_second", "precipitation_intensity").symbol == "mm/s"
+    assert unit_converter.get_lambda("millimeter_per_second", "precipitation_intensity")(0.0056) == 20.16
+    # and asked for under a type it is no unit of, it is reported as that rather than as held back:
+    # a typo in `WD_TS_UNIT_TARGETS` wants the list of units the type does have
+    with pytest.raises(
+        ValueError,
+        match=r"Unit millimeter_per_second not supported for type temperature\. Supported units are: "
+        r"degree_celsius,degree_kelvin,degree_fahrenheit",
+    ):
+        unit_converter.update_targets({"temperature": "millimeter_per_second"})
+
+
+def test_unit_converter_holds_a_source_only_unit_against_its_own_type(unit_converter: UnitConverter) -> None:
+    """A source-only unit is named per unit type, a name not belonging to only one.
+
+    Eleven names in this table are shared -- `millimeter` between `precipitation` and all three
+    `length_*`, `beaufort` between `speed` and `wind_scale`, the whole mass-per-volume list between
+    `concentration` and `mass_per_volume`. Matching on the name alone would make the next source-only
+    unit unaskable for every type carrying it, and call it "what a source publishes in" for a type
+    where it is an ordinary target.
+    """
+    for unit_type, name in unit_converter.source_only_units:
+        # each entry names a unit the type has, so a typo cannot sit here refusing nothing
+        assert unit_converter.get_unit(name, unit_type).name == name
+    # and the refusal keys on the pair, `millimeter` standing for the shared names
+    converter = UnitConverter()
+    converter.source_only_units = frozenset({("precipitation", "millimeter")})
+    with pytest.raises(ValueError, match="Unit millimeter is what a source publishes in"):
+        converter.update_targets({"precipitation": "millimeter"})
+    # `length_short`, whose own default is `centimeter`, so this moves and a name-only match would
+    # have refused it. Asserting `precipitation`'s target here would prove nothing: `millimeter` is
+    # already its default
+    converter.update_targets({"length_short": "millimeter"})
+    assert converter.targets["length_short"].name == "millimeter"
+
+
+def test_unit_converter_update_targets_applies_all_of_a_mapping_or_none(unit_converter: UnitConverter) -> None:
+    """A mapping carrying one unusable entry changes no target at all.
+
+    The entries were validated and assigned in one pass, so an unusable one took effect only after
+    those before it already had -- and which those were depended on the order the caller happened to
+    write them in. `WD_TS_UNIT_TARGETS` is one mapping to a reader, so a rejected one should leave
+    the defaults it was meant to replace.
+    """
+    for targets in (
+        {"temperature": "degree_fahrenheit", "precipitation_intensity": "millimeter_per_second"},
+        {"temperature": "degree_fahrenheit", "nonsense": "degree_fahrenheit"},
+        {"temperature": "degree_fahrenheit", "pressure": "not_a_unit"},
+    ):
+        with pytest.raises(ValueError):  # noqa: PT011
+            unit_converter.update_targets(targets)
+        assert unit_converter.targets["temperature"].name == "degree_celsius"
+        assert unit_converter.targets["pressure"].name == "hectopascal"
+        assert unit_converter.targets["precipitation_intensity"].name == "millimeter_per_hour"
 
 
 def test_unit_converter_update_targets_invalid(unit_converter: UnitConverter) -> None:
