@@ -43,10 +43,10 @@
 :::{note}
 The `unit` column above is the unit this network **publishes** in, not the one a request returns: the
 three temperatures read `K` and come back in °C, because the parser labels the BUFR units of what it
-decodes and converts nothing itself. Three rows spell that unit rather than copy it:
-{term}`precipitation_height` reads `mm` for a BUFR `kg m-2`, the same quantity for water, while
-{term}`precipitation_type_flags` and {term}`road_surface_condition` read `-` for a flag table and a
-code table, neither of which has a unit to give.
+decodes and converts nothing itself. Where the model spells a unit differently from BUFR the column
+carries the model's spelling of the same quantity -- `mm` for a `kg m-2`, `°` for a `deg` -- and the
+two coded rows, {term}`precipitation_type_flags` and {term}`road_surface_condition`, read `-` because
+a flag table and a code table have no unit to give.
 
 Two of them are per-second and per-metre where a reader might expect otherwise.
 `intensityOfPrecipitation` is BUFR `0 13 055`, `kg m-2 s-1` -- a mass flux per area, which for water
