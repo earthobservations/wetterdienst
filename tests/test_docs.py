@@ -650,10 +650,10 @@ def test_docs_parameter_units_keep_one_spelling_per_page() -> None:
     """Test that a page's `unit` column is written in the model's names or its symbols, not both.
 
     Which of the two a page uses is a house style and stays the page's own: 22 pages are long-form
-    throughout -- every `aemet` and `meteofrance` resolution, `dwd/phenology`, `dwd/derived` hourly --
-    and nothing here asks them to change. What was a defect is a page using both, because then the
-    same quantity is written two ways within one table and a reader cannot tell whether the
-    difference means anything.
+    throughout -- every `aemet`, `meteofrance`, `meteoswiss` and `metno/frost` resolution, 20 between
+    them, plus `dwd/phenology` annual and `dwd/derived` hourly -- and nothing here asks them to
+    change. What was a defect is a page using both, because then the same quantity is written two
+    ways within one table and a reader cannot tell whether the difference means anything.
 
     10 of the 88 pages did. Every one of them was symbol-majority with a long-form minority -- 67
     cells, 65 of them `dimensionless` beside rows reading `-`, and two `percent` on
@@ -667,8 +667,8 @@ def test_docs_parameter_units_keep_one_spelling_per_page() -> None:
     The `-` this settles on for a dimensionless unit is the model's own symbol, and it is the same
     glyph the `constraints` column uses for "unconstrained", so a row can read `| - | - |`. That is
     the cost of the choice: the two columns are headed separately and each `-` is read in its own
-    column's terms, where the alternative -- long form everywhere -- would contradict 78 pages and
-    the symbol the model declares.
+    column's terms, where the alternative -- long form everywhere -- would contradict the 66 pages
+    that write symbols and the symbol the model declares.
     """
     from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
 
@@ -683,8 +683,6 @@ def test_docs_parameter_units_keep_one_spelling_per_page() -> None:
                 if unit.name == unit.symbol:
                     continue
                 for shown in documented.get((dataset.name, parameter.name, parameter.name_original), []):
-                    if shown in spellings:
-                        continue
                     if shown == unit.name:
                         spellings["name"].append(f"{dataset.name}/{parameter.name} {unit.name!r}")
                     elif shown == unit.symbol:

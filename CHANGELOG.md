@@ -529,8 +529,8 @@ Types of changes:
   dimensionless cell now carries is the model's own symbol for it, and is the same glyph the
   `constraints` column uses for "unconstrained", so a row can read `| - | - |`; the two columns are
   headed separately and each is read in its own terms, where long form everywhere would contradict
-  78 pages and the symbol the model declares. Every cell kept its width, so the tables stay as
-  aligned as they were (GH-1980)
+  the 66 pages that write symbols and the symbol the model declares. Every cell kept its width, so
+  the tables stay as aligned as they were (GH-1980)
 - The 41 documented parameter tables that listed their rows in an order the model does not declare
   now list them in it. Three habits and nine one-off orderings, which is why they could be settled
   in one change rather than argued table by table: 25 tables put `quality` last where every dataset
