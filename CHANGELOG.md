@@ -538,8 +538,12 @@ Types of changes:
   untouched. The `-` a dimensionless cell now carries is the model's own symbol for it, and is the
   same glyph the `constraints` column uses for "unconstrained", so a row can read `| - | - |`; the
   two columns are headed separately and each is read in its own terms, where long form everywhere
-  would contradict the 66 pages that write symbols and the symbol the model declares. Every cell
-  kept its width, so the tables stay as aligned as they were (GH-1980)
+  would contradict the 66 pages that write symbols and the symbol the model declares. Every
+  rewritten line kept its exact length, so nothing reflowed and each one differs in a single cell.
+  For the 36 cells whose table pads its `unit` column that keeps the alignment; for the other 31 it
+  keeps the padding exactly as found, which is why `dwd/observation` 10_minutes now writes `-`
+  followed by thirteen spaces under a four-character `unit` header -- aligning with nothing, as it
+  did before, since tidying tables is not this change's business (GH-1980)
 - The 41 documented parameter tables that listed their rows in an order the model does not declare
   now list them in it. Three habits and nine one-off orderings, which is why they could be settled
   in one change rather than argued table by table: 25 tables put `quality` last where every dataset

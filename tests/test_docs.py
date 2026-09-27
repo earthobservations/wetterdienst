@@ -757,10 +757,6 @@ def test_docs_parameter_units_keep_one_spelling_per_page() -> None:
         styles, notations = _documented_unit_spellings(resolution, path, converter)
         page = f"{provider}/{network}/{resolution.name}"
         found = []
-        for unit_name, shown_as in sorted(notations.items()):
-            if len(shown_as) > 1:
-                written = "; ".join(f"{shown!r} in {len(rows)}, {rows[:2]}" for shown, rows in sorted(shown_as.items()))
-                found.append(f"{page}: {unit_name} is written {len(shown_as)} ways -- {written}")
         if styles["name"] and styles["symbol"]:
             named, symboled = len(styles["name"]), len(styles["symbol"])
             fewer = min(styles, key=lambda key: len(styles[key]))
@@ -777,6 +773,12 @@ def test_docs_parameter_units_keep_one_spelling_per_page() -> None:
                 f"{page}: the unit is named in {_cells(named)} and given as its symbol in "
                 f"{_cells(symboled)}; {minority}",
             )
+        # after the page's own notation, so that the per-page cap below takes the per-unit mixes and
+        # not the one finding that weighs the whole page and names both sides of it
+        for unit_name, shown_as in sorted(notations.items()):
+            if len(shown_as) > 1:
+                written = "; ".join(f"{shown!r} in {len(rows)}, {rows[:2]}" for shown, rows in sorted(shown_as.items()))
+                found.append(f"{page}: {unit_name} is written {len(shown_as)} ways -- {written}")
         # capped per page before the report is: a page documenting twenty datasets can mix twenty
         # units, which on a flat cap alone would report one page's rewrite as the whole corpus'
         mixed.extend(_capped(found, 3, page))
