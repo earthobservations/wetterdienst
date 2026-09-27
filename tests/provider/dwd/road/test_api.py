@@ -817,10 +817,11 @@ def test_dwd_road_weather_converts_the_bufr_units_it_decodes(monkeypatch: pytest
     """A rate published per second and a film published in metres come back per hour and in cm.
 
     This parser labels the BUFR units of what it decodes and converts nothing itself, so what a
-    request answers with rests entirely on the declaration. Both of these were declared one step up
-    -- `millimeter_per_hour` and `centimeter` -- until GH-1984, and because each wrong declaration
-    was its type's default target, nothing converted either: a shower came back as the 0.0056 the
-    file carries, which read as mm/h is no observable precipitation at all.
+    request answers with rests entirely on the declaration. Both of these were declared in a unit
+    smaller than the files publish in -- `millimeter_per_hour` for a rate in mm/s, `centimeter` for a
+    length in metres -- until GH-1984, and because each of those was its type's default target,
+    nothing converted either: a shower came back as the 0.0056 the file carries, which read as mm/h
+    is no observable precipitation at all.
     """
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 

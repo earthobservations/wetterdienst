@@ -621,7 +621,7 @@ Types of changes:
   instead, so the row named something that raises `NoParametersFoundError` -- while
   `imgw/meteorology` monthly `synop` documented none of its four precipitation parameters at all
 - Three unit cells disagreeing with the model about the quantity, not just the notation: `dwd/road`
-  15_minutes wrote `mm/s` where the model declares `millimeter_per_hour`, and `dwd/observation`
+  15_minutes wrote `mm/s` where the model then declared `millimeter_per_hour`, and `dwd/observation`
   monthly and annual wrote `Bft` for `wind_gust_max`, which the model declares `meter_per_second`,
   apparently copied from the `wind_force_beaufort` row above it, which really is Beaufort. All three
   now say what the model says. Found by checking every unit cell against `UnitConverter.get_unit`:

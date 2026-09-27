@@ -54,7 +54,7 @@ same quantity -- `mm` for a `kg m-2`, `°` for a `deg` -- and the two coded rows
 {term}`precipitation_type_flags` and {term}`road_surface_condition`, read `-` because a flag table
 and a code table have no unit to give.
 
-Two of them are per-second and per-metre where a reader might expect otherwise.
+Two are published in units a reader might not expect, one per second and one in metres.
 `intensityOfPrecipitation` is BUFR `0 13 055`, `kg m-2 s-1` -- a mass flux per area, which for water
 is millimetres per second. The water film is metres, under either of the two descriptors these files
 use for it: the road layout names it with DWD's own local `0 13 241` and the WMO template `3 07 102`
@@ -62,9 +62,11 @@ the rest arrive under reaches it as `0 13 116`. With the default unit targets a 
 first as mm/h and the second as cm, so a reading that arrives as `0.0056` comes back as `20.16` mm/h
 and one that arrives as `0.002` as `0.2` cm.
 
-Until [GH-1984](https://github.com/earthobservations/wetterdienst/issues/1984) both were declared one
-step up -- `mm/h` and `cm` -- so no conversion happened and every value came back 3600 and 100 times
-too small.
+Until [GH-1984](https://github.com/earthobservations/wetterdienst/issues/1984) both were declared in
+a unit smaller than the one the files publish in -- `mm/h` for a rate in mm/s, `cm` for a length in
+metres -- which is why the numbers came back too small: claiming a smaller unit claims a smaller
+quantity. And because each of those was also its type's default target, nothing converted, so the
+error was the whole factor, 3600 and 100.
 :::
 
 #### precipitation type
