@@ -58,9 +58,9 @@ Types of changes:
   where it used to return an empty frame. `precipitation_height_last_1h` is added to `icon_eu`,
   which serves it and did not declare it. The model has no lead-time axis, so four of `icon`'s 23
   are carried only by `lead_time="long"` and three only by the default `"short"`; those still answer
-  with the empty frame, tracked in GH-1976. Three served elements stay undeclared, no canonical
-  parameter describing a net radiation flux and `radiation_global_last_3h` being taken by one
-  (GH-1977)
+  with the empty frame, tracked in GH-1976. Three served elements stay undeclared: no canonical
+  parameter describes a net radiation flux, and `radiation_global_last_3h` is taken by one, which
+  GH-1977 carries
 - **Breaking**: `DwdDmoRequest.available_issues` takes the product it is answering for -- `dataset`,
   `station_group` and `lead_time`, keyword-only, defaulting to what `DwdDmoRequest` defaults to. It
   used to list `icon/single_stations/` whatever the request would read, and named issues that
@@ -102,13 +102,13 @@ Types of changes:
   `daily/synop` lost whole parameters that way rather than single days (GH-1997)
 - **Breaking**: `imgw/meteorology` returns three parameters that were permanently empty and one that
   published a different column's numbers, and `monthly/climate/precipitation_height_max` answers to
-  a different original name. Two rename targets carried a doubled `w`, and
-  `daily/precipitation/precipitation_height` carried `daily/climate`'s mean-temperature name for
-  what upstream calls `SMDB` -- the one measurement that dataset exists to publish.
-  `monthly/precipitation/precipitation_height_max` was worse for never looking empty: it read `o_m`
-  field 7, the count of days with snowfall, and published that count as millimetres. A request for
-  `monthly/climate/opad maksymalny` now raises `NoParametersFoundError`; the canonical name is
-  unaffected (GH-1981)
+  a different original name. Two rename targets carried a typo -- `opadóww` a doubled `w` and
+  `minimalnaj` a stray `j` -- and `daily/precipitation/precipitation_height` carried
+  `daily/climate`'s mean-temperature name for what upstream calls `SMDB` -- the one measurement that
+  dataset exists to publish. `monthly/precipitation/precipitation_height_max` was worse for never
+  looking empty: it read `o_m` field 7, the count of days with snowfall, and published that count as
+  millimetres. A request for `monthly/climate/opad maksymalny` now raises `NoParametersFoundError`;
+  the canonical name is unaffected (GH-1981)
 - **Breaking**: `imgw/meteorology` declares `daily/climate`'s grass temperature as
   `temperature_air_min_0_05m`, the name its monthly siblings already use for the same measurement,
   rather than `temperature_air_mean_0_05m` -- `k_d_format.txt` names field 12 a daily minimum, and
@@ -134,9 +134,11 @@ Types of changes:
   `except IndexError` never caught it, so a caller saw
   `RuntimeError: generator raised StopIteration` naming neither the directory nor what was looked
   for. A run is read as the ten digits DWD stamps a `.kmz` with rather than as the third
-  `_`-separated part of the name, which MOSMIX-L all-stations does not have -- that layout could not
-  be asked for a run at all. `available_issues` answers such a directory with no issues, as
-  `dwd/dmo` now does for its own (GH-1946)
+  `_`-separated part of the name: MOSMIX-L all-stations carries no station id, so that part was
+  `2026092203.kmz` with the extension still on it and every row met
+  `conversion from str to datetime failed` -- that layout could not be asked for a run at all.
+  `available_issues` answers such a directory with no issues, as `dwd/dmo` now does for its own
+  (GH-1946)
 - DWD dmo: a run is read by its whole name (`_<lead>_<n>_<DDHHMM>.kmz`), where every part of it was
   read by position or by substring and each wrongly. The lead time matched a bare `"78"` anywhere in
   the URL, which 187 of 5811 station ids also satisfy, so ~3% of stations raised
@@ -195,7 +197,9 @@ Types of changes:
   falls back to the run before the newest, an hour-old forecast being what it should mean while a
   run is still being written. A run is matched exactly (`swsmos_<14 digits>_opendata.csv.bz2`),
   since a `swsmos_` prefix also matches a checksum sidecar that sorts after the run it belongs to,
-  and a zero-byte 200 no longer parses to a run that simply holds nothing (GH-1922)
+  and a zero-byte 200 no longer parses to a run that simply holds nothing. The body is asked for
+  once more past the cache before the fallback, and only once where the caller disabled the cache,
+  which `cache_disable` can now say (GH-1922)
 - Network: the cache says what it did, where it used to decide on a caller's behalf and keep quiet.
   `cache_dir`, `cache_disable` and `use_certifi` decided what `NetworkFilesystemManager.register`
   built and were not part of the key it was filed under, and `register` runs only for a new key --
@@ -207,9 +211,10 @@ Types of changes:
 - Network cache: the on-disk blob directory is separated by the TTL and by the headers that can
   change what a server sends back, and by nothing else. Named for a hash of the whole of
   `client_kwargs`, it moved whenever the default User-Agent's version number did -- one developer
-  machine held 129 directories and 4.3 GB of which 115 MB was reachable, 1.4 GB of it under
-  `ttl-INFINITE-*`. Directories of the older layout are reclaimed on the first cached download of a
-  process, and one a rotated credential named ages out at a month (GH-1959)
+  machine held 129 directories and 4.3 GB, of which 115 MB was reachable by the installed version
+  and 1.4 GB sat under `ttl-INFINITE-*`, a provider saying those bytes never change. Directories of
+  the older layout are reclaimed on the first cached download of a process, and one a rotated
+  credential named ages out at a month (GH-1959)
 - Network cache: a blob its own TTL has already made useless is dropped, once per directory per
   process. A TTL that is not a positive number is not swept at all, because `CacheExpiry.INFINITE`
   is `False` and fsspec reads an expiry of zero as "every entry is expired" -- it would have thrown
@@ -235,8 +240,9 @@ Types of changes:
   connection that never carried a response but took every response that did arrive as an answer, and
   a 502 from a token endpoint is a blip. A mint is made once every three days and empties a whole
   Met Office query when it fails. A 401 is still an answer, and so is a 429 deliberately:
-  `download_file` no longer retries any failing status, so a 429 from AEMET or met.no Frost is not
-  answered by doubling the request rate against a provider that has just said it is rate-limiting
+  `download_file` no longer retries every failing status, so a 429 from AEMET or met.no Frost is not
+  answered by doubling the request rate against a provider that has just said it is rate-limiting. A
+  404 and a 5xx are still asked twice, a file index being read minutes before the files it names
   (GH-1939)
 - Met Office works on a plain `pip install wetterdienst`. Its CEDA token exchange imported `httpx`
   at module level, which only the `restapi` extra declared, so
@@ -277,6 +283,11 @@ Types of changes:
   in the same change, and a fourth copy of the 115 in `dwd/mosmix` hourly's own dataset description.
   Measured: MOSMIX 5649 stations, 40 parameters for `small` and 122 for `large`; DMO 5757 stations
   and 23 parameters for `icon`, 3688 and 19 for `icon_eu`
+- `imgw/meteorology`'s page states what its status column does not settle. A `0` in
+  `monthly/climate`'s `snow_depth_max` carrying no status means either no snow cover in the month or
+  a maximum that could not be determined -- 96 of the 196 rows of 2024, returned as 0 cm -- and
+  `daily/precipitation` omits a *brak zjawiska* day rather than returning 0 mm for it. The page had
+  said a parameter a station does not measure "comes back with no values" (GH-1997, GH-1998)
 - `imgw/hydrology` monthly is described as "historical monthly hydrology data", not "historical
   daily climate data" -- wrong in both the resolution and the subject, and wrong in the model and
   the page alike. A caller asking `discover`, the REST API or MCP for `monthly/hydrology` was told
@@ -312,11 +323,11 @@ Types of changes:
   Office's bearer token go, but AEMET sends its key as `api_key`
 - `httpx2` now has a floor of `>=2.12` wherever it is declared -- the dev group, which held
   `>=2.4.0`, and the `mcp` extra, which now declares it -- and the lockfile carries 2.13.0 where it
-  held 2.10.0. Three advisories stand against 2.10.0: multipart part header injection through an
-  unvalidated file `Content-Type` (CVE-2026-84379, fixed in 2.11.0), conflicting `Content-Length`
-  and `Transfer-Encoding` headers generated together (CVE-2026-84380, 2.11.0), and unbounded peak
-  memory decompressing a streamed response (CVE-2026-84382, 2.12.0). `uv audit` has failed on `main`
-  since 2026-09-16 on exactly these, and passes again
+  held 2.10.0. Six advisories stand against 2.10.0, three distinct defects: multipart part header
+  injection through an unvalidated file `Content-Type` (CVE-2026-84379, fixed in 2.11.0),
+  conflicting `Content-Length` and `Transfer-Encoding` headers generated together (CVE-2026-84380,
+  2.11.0), and unbounded peak memory decompressing a streamed response (CVE-2026-84382, 2.12.0).
+  `uv audit` has failed on `main` since 2026-09-16 on exactly these, and passes again
 
 ## [0.137.0] - 2026-09-18
 
