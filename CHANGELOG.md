@@ -180,8 +180,9 @@ Types of changes:
   named run is held for twelve hours instead of five minutes. The two are the same bytes -- one
   ETag, one content-length -- but a run named by its timestamp is that run for good, where the alias
   is a name DWD replaces hourly. MOSMIX-S, 36 MB published hourly, was refetched up to twelve times
-  an hour: 10.4 GB a day over the wire against 871 MB now, at the cost of one blob an hour in a
-  cache that has no eviction (GH-1945)
+  an hour: 10.4 GB a day over the wire against 871 MB now, at the cost of one blob an hour where it
+  reused one -- reclaimed by the TTL sweep below, a named run being held under a positive one
+  (GH-1945)
 - DWD mosmix: a station whose directory DWD has emptied or retired costs that station and no more.
   `get_url_for_date` raised on a listing that named nothing and nothing between it and
   `values.all()` catches, so one such station ended a request for fifty. It answers `None` now, the
@@ -271,12 +272,11 @@ Types of changes:
   count was wrong in `to_target`'s docstring and the PyConDE notebook, which showed
   `duckdb://name.duckdb` -- read as a host rather than a path, so the data went to an extensionless
   file named `dwd` in the working directory with no error
-- Four documented parameters that no request could ask for, and four requestable ones no page
+- Three documented parameters that no request could ask for, and four requestable ones no page
   documented. `dwd/mosmix` hourly documented `cloud_base_convective` and `cloud_cover_below_7km`
-  under `small`, which the model declares for `large` alone, and carried a stale `n1` row the model
-  has never mapped; `imgw/meteorology` daily documented a `precipitation_height` under `synop` that
-  raises `NoParametersFoundError`, while monthly `synop` documented none of its four precipitation
-  parameters at all
+  under `small`, which the model declares for `large` alone, and carried a stale `n1` row for
+  `cloud_cover_below_1000ft` that the model has never mapped; `imgw/meteorology` monthly `synop`
+  documented none of its four precipitation parameters at all
 - Three unit cells disagreeing with the model about the quantity rather than the notation:
   `dwd/road` 15_minutes wrote `mm/s` where the model declared `millimeter_per_hour` -- there the
   page was right and the model wrong, which GH-1984 settles in this release -- and `dwd/observation`
