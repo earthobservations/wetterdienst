@@ -646,6 +646,59 @@ def test_docs_parameter_units_name_the_quantity_the_model_declares() -> None:
     assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
 
 
+def test_docs_parameter_units_keep_one_spelling_per_page() -> None:
+    """Test that a page's `unit` column is written in the model's names or its symbols, not both.
+
+    Which of the two a page uses is a house style and stays the page's own: 22 pages are long-form
+    throughout -- every `aemet` and `meteofrance` resolution, `dwd/phenology`, `dwd/derived` hourly --
+    and nothing here asks them to change. What was a defect is a page using both, because then the
+    same quantity is written two ways within one table and a reader cannot tell whether the
+    difference means anything.
+
+    10 of the 88 pages did. Every one of them was symbol-majority with a long-form minority -- 67
+    cells, 65 of them `dimensionless` beside rows reading `-`, and two `percent` on
+    `eccc/observation` daily beside rows reading `%` -- so each was made to match the page it sits
+    on rather than a convention chosen here (GH-1980).
+
+    This is deliberately about one page's internal consistency and not about which spelling the tree
+    prefers. `test_docs_parameter_units_name_the_quantity_the_model_declares` is what holds a cell to
+    the model at all, and it accepts either spelling, which is what leaves the choice open.
+
+    The `-` this settles on for a dimensionless unit is the model's own symbol, and it is the same
+    glyph the `constraints` column uses for "unconstrained", so a row can read `| - | - |`. That is
+    the cost of the choice: the two columns are headed separately and each `-` is read in its own
+    column's terms, where the alternative -- long form everywhere -- would contradict 78 pages and
+    the symbol the model declares.
+    """
+    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+
+    converter = UnitConverter()
+    mixed = []
+    for provider, network, resolution, path in _documented_resolutions():
+        documented = _documented_units(path)
+        spellings: dict[str, list[str]] = {"name": [], "symbol": []}
+        for dataset in resolution:
+            for parameter in dataset.parameters:
+                unit = converter.get_unit(parameter.unit, parameter.unit_type)
+                if unit.name == unit.symbol:
+                    continue
+                for shown in documented.get((dataset.name, parameter.name, parameter.name_original), []):
+                    if shown in spellings:
+                        continue
+                    if shown == unit.name:
+                        spellings["name"].append(f"{dataset.name}/{parameter.name} {unit.name!r}")
+                    elif shown == unit.symbol:
+                        spellings["symbol"].append(f"{dataset.name}/{parameter.name} {unit.symbol!r}")
+        if spellings["name"] and spellings["symbol"]:
+            fewer = min(spellings, key=lambda key: len(spellings[key]))
+            mixed.append(
+                f"{provider}/{network}/{resolution.name}: "
+                f"{len(spellings['name'])} cells name the unit and {len(spellings['symbol'])} give its "
+                f"symbol; the {len(spellings[fewer])} in the minority are {spellings[fewer][:4]}",
+            )
+    assert not mixed, "\n".join(_capped(mixed, 20, "the report"))
+
+
 def test_docs_descriptions_do_not_misstate_a_parameter_count() -> None:
     """Test that a description naming a parameter count names the number the dataset declares.
 

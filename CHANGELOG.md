@@ -18,6 +18,14 @@ Types of changes:
 
 ### Added
 
+- `test_docs_parameter_units_keep_one_spelling_per_page`, holding a page's `unit` column to one of
+  the model's two spellings. Which one stays the page's own -- 22 pages are long-form throughout,
+  every `aemet` and `meteofrance` resolution among them, and nothing asks them to change -- because
+  the defect was a page using *both*, where the same quantity is written two ways in one table and a
+  reader cannot tell whether the difference means anything. It is about internal consistency and not
+  about which spelling the tree prefers:
+  `test_docs_parameter_units_name_the_quantity_the_model_declares` is what holds a cell to the
+  model, and it accepts either, which is what leaves the choice open (GH-1980)
 - `test_docs_parameter_tables_list_their_rows_in_declaration_order`, holding the order a parameter
   table lists its rows in. GH-1978 adopted that as the convention and restored it for the tables it
   touched, but nothing compared it, so it drifted: 41 of the 271 documented tables listed their rows
