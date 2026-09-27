@@ -18,1246 +18,305 @@ Types of changes:
 
 ### Added
 
-- `test_docs_parameter_units_keep_one_spelling_per_page`, holding a page's `unit` column to one
-  notation per unit and one notation style per page. Two ways a page could contradict itself, and it
-  takes both: writing one unit two ways, so that a quantity reads `dimensionless` in one row and `-`
-  in the next, and writing most units as symbols with one of them long-form, which is the same
-  inconsistency a column apart. Which notation style a page uses stays its own -- 22 pages are
-  long-form throughout, every `aemet` and `meteofrance` resolution among them, and nothing asks them
-  to change. The one-unit-one-way half is also what covers a notation that is neither the model's
-  name nor its symbol: `dwd/mosmix` writes `kg/m²` for a declared `millimeter` throughout, and
-  turning some of those rows into `mm` would be a defect the name-against-symbol tally cannot see,
-  because it records no long-form cell to weigh the symbols against. It reads one way only, from a
-  unit to its notations, so a page writing one notation for two units still passes -- `dwd/mosmix`
-  and `dwd/dmo` hourly write `-` for both `dimensionless` and `significant_weather`, and the model
-  declares `-` for `dimensionless` and `decimal` alike, so settling that belongs in `UnitConverter`
-  and not in a docs page. It is about internal consistency and not about which spelling the tree
-  prefers: `test_docs_parameter_units_name_the_quantity_the_model_declares` is what holds a cell to
-  the model, and it accepts either, which is what leaves the choice open (GH-1980)
-- `test_docs_parameter_tables_list_their_rows_in_declaration_order`, holding the order a parameter
-  table lists its rows in. GH-1978 adopted that as the convention and restored it for the tables it
-  touched, but nothing compared it, so it drifted: 41 of the 271 documented tables listed their rows
-  in an order the model does not declare, and every other test in this module read them without
-  complaint, being keyed by parameter rather than by position. Omissions stay allowed, which is what
-  makes the property checkable at all -- 33 tables document fewer parameters than their dataset
-  declares, so the comparison is against the declared order restricted to the rows a page keeps. The
-  two parsers now share one walk of the page, `_parameter_table_rows`, so that a row's dataset and a
-  row's position cannot be answered from two different readings of the same table (GH-1980)
-- `precipitation_intensity` can be declared in `millimeter_per_second`, which is what BUFR publishes
-  a precipitation rate in: `kg m-2 s-1`, a mass flux per area, and a depth per second once the
-  density of water divides out. The unit type carried only the two hourly spellings, so there was
-  nowhere to put a per-second rate and `dwd/road` labelled one `millimeter_per_hour`. It is a source
-  unit: `update_targets` refuses it, so `WD_TS_UNIT_TARGETS` cannot ask for values in it, which is
-  what it could not do before the unit existed either. That is deliberate rather than tidy --
-  `_convert_units` rounds to four decimals after converting, so a source publishing mm/h under that
-  target would come back quantised to 0.36 mm/h steps, KNMI's 0.1 mm/h reading as 0.0. Every unit
-  type spanning orders of magnitude has that shape, a `length_short` parameter under a `mile` target
-  turning 5 cm of snow into 0.0 today, and the general fix is a rounding rule that scales with the
-  target, filed as GH-2002; refusing one source unit is not it (GH-1984)
-- Every column `imgw/meteorology` renames has to be declared by the dataset it is read for.
-  `_parse_file` renames raw `column_N` headers to `name_original` strings and the result is matched
-  against the dataset actually requested, so a name only some *other* dataset declares is dropped
-  exactly as silently as a misspelt one, with nothing raised anywhere. Scoping the comparison per
-  dataset is what makes it bite: pooled over the provider it finds the two misspellings GH-1981
-  reported and nothing further, where per dataset it found eight entries -- those two, one name the
-  model had taken from the wrong upstream file, and five columns `daily/synop` reads and can never
-  return. Those five are declared now, so the check asserts the set is empty: every column the
-  parser renames is answerable by the dataset it is read for. What the check cannot see is a
-  declared name sitting on the wrong `column_N`, which is
-  how `monthly/precipitation` came to publish a count of snow days as millimetres; positions are
-  held by the remote tests that compare a value against the file it is read from (GH-1991)
-- `imgw/meteorology`'s `daily/synop` declares the five columns it has always read. Upstream `s_d`
-  carries `TMAX`, `TMIN`, `TMNG`, `SMDB` and `PKSN` at columns 6, 8, 12, 14 and 17 -- the positions
-  the rename map already named -- so the parser read all five and then dropped them for want of a
-  declaration, and no synop station could return a daily maximum or minimum temperature at all, nor
-  its daily precipitation total or its snow cover. They are now `temperature_air_max_2m`,
-  `temperature_air_min_2m`, `temperature_air_min_0_05m`, `precipitation_height` and `snow_depth`,
-  the same canonical names `daily/climate` uses for the same five columns of `k_d`. BIELSKO-BIAŁA
-  on 2010-01-15 answers -4.2 °C, -5.4, -5.4, 0.0 mm and 18 cm, every one of them present in the
-  file all along (GH-1991)
-- `imgw/meteorology`'s status columns cannot collide with its value columns. The parse reads
-  `column_N+1` as the status of `column_N`, so declaring a measurement there would make one column
-  both, and the parse resolves that by leaving its neighbour unstatused -- silently, and for that
-  one column only (GH-1994)
-- `imgw/meteorology` holds the positions IMGW publishes with no status column beside them, so
-  declaring one cannot start reading its neighbour as a status. The parse reads `column_N+1` as the
-  status of `column_N`, which is true of all 61 columns declared today but is not a property of the
-  files: `ROOP`, the kind of precipitation, `SGR`, the state of the ground, the `DN1`/`DN2` days a
-  monthly maximum fell on and the day counts `k_m_d` ends with carry no status, and the field after
-  them is another measurement. Declaring `k_m_d`'s `PSDN` would have taken `DESD`, a count of days
-  with rain, for the status of a count of days with snow cover, and returned no snow cover at all
-  for every month that had exactly eight days of rain -- one column, conditional on a neighbouring
-  value, so neither a review nor a full remote run would have had to show it. It is a table rather
-  than a rule because the files disagree with each other: `PSDN` carries a status in `s_m_d` and
-  none in `k_m_d`. Nothing changes in what the provider returns, since none of these positions is
-  declared (GH-1995)
-- `imgw/meteorology` carries IMGW's own status in `quality`, which was null for every value the
-  provider returned. The status was read to decide the value and then thrown away, so a plain
-  measurement of zero, a documented *brak zjawiska* returned as zero, and an `opad zbiorczy` -- a sum
-  over the preceding unmeasured days, published on the day the reading was taken without saying which
-  days it covers -- were indistinguishable from each other. `metoffice/observation` sets the pattern:
-  it carries MIDAS's raw `MESQL` flag verbatim and documents it on the provider's page, and IMGW's
-  column is literally *Status pomiaru*. "8" and "9" are IMGW's own codes; `quality` is numeric and
-  IMGW's `Z` is a letter, so `Z` is reported as 10, the one code here this library assigns itself. A
-  blank status is a plain measurement and stays null, which is what every other value carries.
-  `Z` appears in none of the 672,383 `o_d` rows sampled across 1961, 1985, 1995, 2010, 2015, 2020 and
-  2024, so it is a documented status rather than an observed one (GH-1998)
-- `imgw/meteorology`'s page states each status IMGW documents, what the library returns for it and
-  what reaches `quality`, and -- the part the old paragraph got wrong -- the two things the status
-  does not settle. A `0` in `monthly/climate`'s `snow_depth_max` that carries no status means either
-  that there was no snow cover in the month or that the maximum could not be determined;
-  `k_m_d_format.txt` says so in as many words, it is 96 of the 196 rows of 2024, and it is returned
-  as 0 cm. And `daily/precipitation` carries a row only for the days a station has something to
-  report, while `o_d_format.txt` adds that *brak zjawiska* covers a day absent from a month that is
-  itself present, so those days are absent from the result rather than returned as 0 mm. The page had
-  said a parameter a station does not measure "comes back with no values", which those two cases
-  contradict (GH-1997, GH-1998)
-- An `imgw/meteorology` column whose Polish name states a minimum or a maximum has to be declared
-  under a canonical name that says the same. These declarations are in a language the rest of the
-  repository is not written in, so `temperatura minimalna przy gruncie` sat under
-  `temperature_air_mean_0_05m` and read fine to everyone reviewing it. Minimum and maximum are all
-  that is checked: the canonical vocabulary marks a mean for temperature alone, so
-  `średnia dobowa prędkość wiatru` is plain `wind_speed` and a "mean" rule would flag twenty
-  correct rows (GH-1993)
-- A documented parameter has to exist and a declared parameter has to be documented.
-  `test_docs_parameter_descriptions_match_the_model` compares the *text* of rows that appear on
-  both sides and says nothing about a row appearing on one side alone, in either direction, so a
-  table could advertise a parameter no request can ask for or quietly omit one it can.
-  `test_docs_parameter_tables_hold_the_parameters_the_dataset_declares` asserts both, plus that
-  every documented section names a dataset the model declares. That last one is what had been
-  hiding the rest: `dwd/mosmix` heads its sections `Small` and `Large` while the datasets are
-  `small` and `large`, so the parse matched nothing on that page and *every* row on it went
-  unchecked -- the description comparison silently skipped the whole file through its "no
-  documented text" branch. The dataset now comes from the `name` row of the section's own metadata
-  table rather than from the heading, which also lets `dwd/derived` keep documenting
-  `cooling_degreehours_13`, `_16` and `_18` in one section as it says it does, rather than forcing
-  three copies of an identical table. The plain `quality` flag stays out of the presence check --
-  58 datasets declare it and 25 document it -- and the exclusion stops there rather than covering
-  every `quality*` name, so that it matches what the descriptions test skips: the other five are
-  all documented, and holding them here is what says so. The exemption applies to the *declared*
-  side alone, because the gap runs one way: no page carries a `quality` row for a dataset that has
-  no quality flag, and exempting the documented side too would have let one in -- along with a
-  wrong `name_original` on any of those 25 rows, which the descriptions test skips as well, so
-  nothing at all would have checked them
-- `test_docs_cover_every_resolution`, asserting that each resolution the model declares has a docs
-  page. The three tests above pair a resolution with its page and can only check the pages that
-  exist, so a resolution added without one was compared by nothing -- the same silent skip as a
-  page that parses to nothing, which they already report. `test_data_coverage` checks the other
-  direction, that every page is linked from its network index, and could not see this one
-- Dataset descriptions are held in both directions, the way the parameter rows are. A deleted
-  `description` row, a missing `#### metadata` table or a mistyped `name` row was answered by
-  comparing nothing, and so was text living only in the markdown, where the REST API, MCP and CLI
-  never see it. All 217 described datasets now document it and vice versa, and the 54 that document
-  none describe none either, so nothing is demanded that does not exist. A second metadata table
-  for one dataset is reported rather than overwriting its twin, for the same reason as the
-  parameter rows below. The repeat is counted from the sections rather than from the descriptions,
-  so it is reported for the 54 datasets no description names as much as for the 217 that do, and a
-  second table carrying no `description` row at all is reported too
-- The three `dwd/derived` monthly `cooling_degreehours_*` datasets are each described by the
-  reference temperature they actually use, phrased as their `heating_degreedays` sibling is, rather
-  than sharing the docs page's blurb about "13, 16 and 18 degree Celsius". The page documents all
-  three in one section and says so, which is the right documentation, but `discover`, the REST API
-  and MCP report a dataset at a time and were telling a caller asking for `cooling_degreehours_13`
-  that it covers three base temperatures. One `description` cell cannot equal three descriptions,
-  so the text of a section naming several datasets is no longer compared -- their presence still
-  is, and exactly one section is in that state
-- Six dataset descriptions the docs carried and the model did not: `dwd/mosmix` hourly `small` and
-  `large`, the three `dwd/derived` monthly `cooling_degreehours_*`, and `imgw/meteorology` monthly
-  `climate`, whose siblings `daily/climate`, `monthly/precipitation` and `monthly/synop` were all
-  already there. They are what the assertion above was missing, and what let the `mosmix` figure
-  below go stale unnoticed
-- A description cell that is blank, or holds a `-`, is compared like any other text rather than
-  waved through. No row writes either and no parameter lacks a description, so the two escapes this
-  replaces could never have caught anything -- they could only have hidden a description being
-  dropped from a page, which is the failure this test exists to report
-- `test_docs_resolution_descriptions_match_the_model`, holding the one description table the other
-  two never reached: the `## metadata` block a page opens with, above its first dataset section.
-  `RESOLUTION_DESCRIPTIONS` carries the model side, so it is compared in both directions like the
-  rest. Three pages have one -- `dwd/observation` subdaily, `meteofrance/synop` subdaily and
-  `metno/frost` 6_hour -- and the model has the same three
-- `imgw/hydrology` monthly is described as "historical monthly hydrology data", not "historical
-  daily climate data" -- wrong in both the resolution and the subject, and wrong in the model and
-  the page alike, which is why a comparison between the two could not see it. A caller asking
-  `discover`, the REST API or MCP for `monthly/hydrology` was told it holds daily climate data. Its
-  `daily` sibling and every `imgw/meteorology` entry already follow the pattern it now follows
-- A `#### metadata` table is read only under the section's own `metadata` heading, and that heading
-  is matched whatever its case -- `dwd/mosmix` hourly writes `#### Metadata`. Taking any
-  property/value table inside a `###` section made a second one, a `#### source file` or `####
-  periods`, read as a repeated metadata table: correct documentation reported as "carries 2
-  metadata tables", with its rows compared against the model besides. All 238 such tables in the
-  tree are under that heading, so nothing is lost by asking for it, and the resolution-level reader
-  was already asking
-- A `description` cell documenting several datasets has to name what tells them apart, on top of
-  the model's descriptions having to differ from each other. Its text still cannot be compared
-  against any one of them, but rewriting the `cooling_degreehours` blurb to "13, 16 and 20 degree
-  Fahrenheit" passed before and fails now. The prose between those tokens is what stays unchecked,
-  which is the price of documenting several datasets in one section and why the exemption is kept
-  this narrow
-- A network exposing no `metadata` attribute is named in `NETWORKS_WITHOUT_A_METADATA_MODEL` rather
-  than merely skipped. The skip was keyed on an attribute, so renaming it would drop that provider
-  out of all four comparisons and, because it lands in `skipped`, exempt its published pages from
-  the page side of `test_docs_cover_every_resolution` too. Renaming `metadata` to `_metadata` on
-  `ipma/observation` left all nine tests passing; it now says which network and why
-- The parameter-count check walks every resolution the model declares rather than only the
-  documented ones, since what it asserts is a model fact. Gated on the page, deleting
-  `dwd/mosmix/hourly.md` stopped the only two count-bearing descriptions being checked at all
-- `test_docs_descriptions_do_not_misstate_a_parameter_count`, tying a count written into a
-  description to `len(dataset.parameters)`. `dwd/mosmix` hourly describes `small` and `large` by
-  how many parameters they carry, and a count in prose is the very fact whose drift set this change
-  off -- the page said 115 where the model declared 122, long enough that three other pages still
-  say it. Without this, adding a parameter to `large` would leave `discover`, the REST API, MCP and
-  the page all saying 122 of 123 with every other test green. Two descriptions name a count
-- The malformed-table report comes before the "parses to no parameter row at all" one, so a page
-  whose only table is the broken one says why. It used to print nothing but the symptom -- the
-  message that check was added to replace -- and a table is now reported for missing either column
-  it is read for, `description` or `unit`: losing `unit` made the units test compare nothing, and
-  no other test noticed
-- `test_docs_parameter_units_name_the_quantity_the_model_declares`, holding the `unit` column,
-  which was hand-written and compared by nothing -- which is how three cells came to name a
-  different physical quantity than the value carries. A documented unit has to be the model's unit
-  by name or by symbol, or one of the four notations in `_UNIT_SPELLINGS`: `kg/m²` for `mm`, which
-  are equal for water and which is what DWD's MOSMIX documentation writes; `-` for a coded value
-  whose model symbol is the unhelpful `sign [0..95]`; a Greek mu where the model writes a micro
-  sign; and `Bft` for the model's lower-case `bft`. Those four cover all 42 cells that disagree, so
-  the check runs without reflowing any of them first, and they are listed rather than tolerated
-  wholesale so that a cell naming a different *quantity* fails instead of hiding among them.
-  Reverting any of the three wrong-quantity fixes below now fails; the `hectopascal`/`hPa` one does
-  not, because that is notation and stays GH-1980's
-- A `###` dataset section carrying neither a `#### metadata` nor a `#### parameters` table is
-  reported if the model does not declare it. Both halves of the orphan check were derived from
-  tables, so such a section named no dataset at all and a page could advertise one no request can
-  ask for -- the GH-1971 defect this test exists to report -- and be read by nothing
-- Where one `description` cell documents several datasets, and so cannot be compared against any
-  one of their model descriptions, those descriptions are at least required to differ from each
-  other. A copied entry is the likeliest error that exemption hides: setting
-  `cooling_degreehours_18` to the 13-degree sentence passed before and fails now
-- A parameter table whose header has no `description` column is reported as that, and so is a row
-  carrying *more* cells than its header -- an unescaped `|` in a description, which used to be read
-  with every column shifted, so the text compared was whatever sat before the stray pipe. Both are
-  the same "opposite of what happened" report the short-row check was added to remove, one level up
-  and one direction over
-- A `#### metadata` table only names its section while a section is open. A `## Notes` after the
-  last `###` closes it, and a metadata table under that was renaming the last real section's
-  dataset -- filing every one of its rows under a name the model does not declare -- while
-  `_metadata_tables` kept the right name, so the two parsers came out disagreeing on such a page
-- A directive name is matched whatever its case, as Sphinx resolves it and as the `metadata`
-  heading already is here. `:::{Note}` fell through to the unknown-directive default, was read as
-  code, and dropped every table inside it
-- A parameter row carrying fewer cells than its header is reported as that. It cannot be read --
-  the column wanted may not be there -- and dropping it silently made the presence test say the
-  opposite of what happened: a row plainly on the page came out as "declares X, which it does not
-  document". Forgetting a trailing `constraints` cell is a likelier slip than omitting a row, so
-  the report now names the real one first
-- The exemption for a `#### metadata` table naming several datasets rides with the description
-  rather than with the dataset name, so a page documenting one of them in its own section as well
-  has that section compared. Exempting the name let both go unread -- the silent skip this change
-  set exists to close, back in by the side door
-- A blank description cell and a `-` are read the same way, since both say "no text here". A `-`
-  against a model that carries no description was reported as "the page describes it, the model
-  does not", which states the opposite of what happened. Either is still compared where the model
-  does carry one
-- Under the shared-description exemption, each model description also has to name its own dataset's
-  distinguishing token. Asking only that the several differ from each other, and that the docs cell
-  list them all, left the 18-degree `cooling_degreehours` free to be described by the 20-degree
-  sentence -- satisfying both, while nothing else reads those three. `discover`, the REST API and
-  MCP would have reported the wrong reference temperature
-- A `#### metadata` table under a prose `###` heading is reported rather than dropped, as the
-  parameter rows in that position already were. One naming a real dataset is reported as that
-  dataset's second description, so a contradictory blurb under a `## Notes` cannot slip in; one
-  naming nothing is reported as a table no section encloses. The page's own resolution-level `##
-  metadata` table stays out, since it sits above every section and belongs to no dataset
-- `_metadata_tables` takes which section a table belongs to from `_section_datasets`, by position,
-  rather than reading the heading itself. Reading it in both places is how the two came to disagree
-  again: this one had no notion of the `## datasets` block, so a `#### metadata` table under a
-  prose `###` elsewhere was read as a dataset -- reported as one the model does not declare, or,
-  where the prose heading reused a real dataset's name, as that dataset's own description drifting.
-  Taking the answer from one place is the invariant the rest of the module rests on
-- A network skipped because its request class needs a package outside the base install has to be
-  named in `NETWORKS_NEEDING_AN_EXTRA`, which holds `dwd/derived` alone. The skip is only a warning
-  and nothing escalates it, and landing in `skipped` also exempts that network's pages from both
-  directions of `test_docs_cover_every_resolution` -- so on a bare `uv sync`, where pandas is
-  absent, its three resolutions went unverified with every test green. Bounded now for the same
-  reason the metadata-less networks are
-- A `###` heading is read as a dataset only inside the page's `## datasets` block. All 269 dataset
-  sections in the tree sit there and `metno/frost` already writes prose under its own `## Notes`,
-  so a prose section elsewhere was being reported as "documents a dataset 'Detail' that the model
-  does not declare" -- the opposite of what happened. Each `###` still gets an entry either way,
-  empty for a prose one, so this walk and the row parser stay index for index in step and rows
-  under a prose heading are reported as belonging to no dataset rather than filed under the heading
-- The "parses to no parameter row at all" path caps its report per page like the other one. One
-  page with an extra header column reported every row of it uncapped -- 12 lines for `aemet` daily,
-  hundreds for `dwd/observation` hourly -- which would then have pushed every other page's findings
-  past the overall cap, the exact failure the per-page cap was added for
-- A `-` description cell says "no text here" for a dataset and for a resolution, as it already did
-  for a parameter row. Either was reported as "the page describes it, the model does not" where the
-  model describes nothing, which is the inverted report this change set removed one level down.
-  Where the model does describe it, a `-` is still compared and still fails
-- `_MARKUP_DIRECTIVES` holds the table wrappers -- `{table}`, `{list-table}`, `{csv-table}`,
-  `{figure}` and `{toggle}` -- alongside the admonitions and layout containers. `{table}` exists
-  only to give a markdown table a caption, so wrapping a `#### parameters` table in one is the
-  likeliest next step on these pages, and it would have fallen through to the unknown-directive
-  default, been read as code, and taken the table with it. Verified for the colon and backtick
-  spellings of `{table}` and for `{figure}`: one row parsed where none was before
-- A prose line beginning with a long inline code span is yielded rather than dropped, which is what
-  the comment beside it already claimed. Nothing was lost by dropping it -- a heading or a table
-  row cannot start with a backtick -- but the two disagreed
-- A fence marker inside a code block is literal content, not a fence of its own. Reading it as one
-  left the stack permanently open and dropped every line below it -- a whole page, for a
-  ```` ```text ```` block showing a `~~~` or an unclosed `:::{note}`. On a resolution page that
-  came out as a flood of "declares X, which it does not document"; on a network index, where only
-  the glossary test runs, it came out as nothing at all
-- The datasets a `###` section names are read by its position rather than by its heading text, so
-  two sections sharing a heading no longer collapse into the later one's datasets -- which filed
-  the earlier section's rows under the wrong dataset, and disagreed with `_metadata_tables`, which
-  reads the same page positionally
-- The resolution description is read from under the page's own `## metadata` heading rather than
-  from any property table above the first dataset section. A second such table -- under a `##
-  Notes` or a `## periods`, say -- would have been compared against the resolution's description
-  and sent the author to the wrong table
-- A parameter table that no `###` dataset section encloses is reported rather than dropped. Any
-  heading of level 1 or 2 closes the section, and this tree carries `## Notes` and the like, so a
-  table placed after one was filed under no dataset and read by neither comparison -- the last
-  silent skip of the class this change is about. Verified on `metno/frost` 6_hour, whose `## Notes`
-  heading swallowed a made-up row without a word
-- A page for a resolution the model does not declare is reported. The three comparisons walk the
-  model, so a page left behind by a renamed resolution stayed published and stayed linked from its
-  network index -- which is all `test_data_coverage` asks of it -- and was read by nothing. The
-  networks skipped for a missing optional dependency are excluded from that direction, since a
-  network that was never walked declares nothing and its published pages would otherwise all be
-  reported -- turning the skip into the failure it exists to avoid
-- A `#### metadata` section naming a dataset the model does not declare is reported even when it
-  carries no `#### parameters` table. The orphan check read the parameter rows, and the description
-  test walks the model's datasets, so neither reached a section left behind when its dataset was
-  dropped
-- `quality` descriptions are compared like any other parameter's. The presence check requires the
-  25 documented `quality` rows to exist and to be keyed by the right `name_original`, so their text
-  was the one thing about them that nothing checked. Removing the skip turned up two `dwd/derived`
-  hourly rows writing "quality flag" against the model's "Quality flag."
-- A parameter row written twice is reported rather than deduped. The parse keys on (dataset, name,
-  original name), so a repeated row used to overwrite its twin and leave only the last of them
-  compared -- which is the exact shape of two of the defects below, a stale row left in place
-  beside the one that replaced it, so with a matching `original name` the next one was invisible
-- Only a genuinely missing module excuses a network from the docs tests, and it says so with a
-  warning
-  naming the network and the module. `dwd/derived` imports pandas, which arrives with the `export`
-  extra, so a bare `uv sync` cannot verify its three resolutions -- the reason the clause exists.
-  It used to catch every exception, which meant a `metadata.py` that made `build_metadata_model`
-  raise, or a typo in a provider's `api.py`, excused that provider from all four tests silently,
-  including the one above whose whole purpose is to stop that. The test is read off `__cause__`
-  rather than off the exception type, because `Wetterdienst.resolve` re-raises the
-  `ModuleNotFoundError` as a plain `ImportError`: catching `ModuleNotFoundError` catches nothing,
-  and under a bare `uv sync` the skip would have surfaced as four errors instead. A module name
-  inside this package is not excused either, since `resolve` reports any name it cannot import as a
-  missing dependency -- so a mistyped intra-package import in a provider's `api.py` would otherwise
-  have dropped that provider out of all four tests with nothing but a warning
-- All three docs comparisons state how many lines they truncated. The parameter descriptions test
-  still sliced its list bare, and it is the one that gained the most coverage here, since the
-  heading fix unblocked two whole pages
-- The presence report is capped per page as well as overall, and states how many lines it left out.
-  A single mistyped dataset `name` row matches nothing and so reports every parameter on both sides
-  -- 33 lines for one page, enough to fill a flat 20-line cap and report a corpus-wide problem as a
-  local one. A truncated list that does not say it was truncated reads like a complete one
-- The docs tests apply `EXCLUDE_PROVIDER_NETWORKS`, which `test_data_coverage` has always applied
-  and `test_docs_cover_every_resolution` did not. `dwd/radar` is deliberately undocumented and
-  already has a `metadata/` package, so the day it grows a metadata model the two tests in that
-  module would have contradicted each other and one would have had to fail
-- The docs parsers read only the lines outside a fenced code block, so a `#` comment in a shell or
-  Python example is not mistaken for a level-1 heading. One would have closed the dataset section
-  it sits in and dropped every row below it out of that dataset, which the descriptions test
-  answers by silently comparing nothing -- the failure mode this change set exists to remove. A
-  fence closes only on a marker at least as long as the one that opened it, so a ```` ``` ```` line
-  inside a ````` ```` `````-opened block is content rather than the end of it, and the open fences
-  are a stack, so a code block nested in a directive still hides its own body. What is hidden is
-  decided by the directive, not by the marker: a table inside a MyST admonition or layout container
-  -- written `:::{note}` or ```` ```{note} ````, both legal -- is published
-  documentation and has to be parsed, while `{code-block}`, `{literalinclude}`, `{doctest}`,
-  `{eval-rst}` and the `{code-cell}` this repo opens 57 times all hold code. An unlisted directive
-  is read as code, because the two mistakes do not cost the same: a code body read as markdown puts
-  a `#` comment where a heading goes and makes the descriptions test compare nothing, silently,
-  while a container read as code drops its tables, which the presence tests report. The backtick
-  spelling is the one this tree writes, four times, in `docs/usage` and on `dwd/phenology`'s index;
-  the colon spelling it writes once, in the `dwd/road` warning below -- which is also the only
-  fence on any of the 88 resolution pages, so the guard is load-bearing rather than hypothetical.
-  A backtick fence's info string may hold no backtick, so a line that merely starts with a long
-  inline code span -- the shape these entries use -- is prose, not a fence that nothing closes
 - `--if_exists` on `stations`, `values`, `interpolate` and `summarize`, taking `replace` (the
   default, and what the CLI did before), `append`, `fail` or `skip`. `to_target` has taken the
-  argument since it was written and the export docs advertise it, but no command passed it, so
-  every CLI export replaced: a nightly timer pointed at `duckdb:///obs.duckdb?table=weather` held
-  one run's rows rather than a history, and nothing on the command line could change that.
-  Appending now accumulates -- two runs of the same query put 550 rows then 1100 into the table.
-  Which values a sink takes is the sink's business, so the option offers all four and a refused
-  pairing is reported as a line and exit 1 rather than a traceback: `Append mode is not supported
-  for file exports.` A test walks the command tree rather than naming the four commands, because
-  the gap was a command gaining `--target` without it; `alerts`, `history` and `stripes values`
-  are excluded there, their `--target` never reaching a sink. A sink failure that is not about
-  `if_exists` at all keeps its traceback and names the target: the likeliest one is appending
-  `--shape=wide` output onto a table an earlier run created for a different set of parameters,
-  which DuckDB answers with `Binder Error: Table "weather" does not have a column with name
-  "precipitation_height"`. Which of the two a failure is cannot be read off its class, because `fail` is reported
-  by DuckDB as a `KeyError` and by the SQLAlchemy sinks as pandas' `ValueError`, and those classes
-  are also how a sink breaks -- `if_exists` settles it, since outside `fail` neither is ever about
-  the target already holding data. Reading them as refusals threw the detail away: exporting a
-  stations frame to InfluxDB pops a `date` column only values carry, and the whole report was
-  `ERROR date`
+  argument since it was written but no command passed it, so every CLI export replaced: a nightly
+  timer pointed at a DuckDB table held one run's rows rather than a history. A pairing the sink
+  refuses is reported as a line and exit 1 rather than a traceback
+- `precipitation_intensity` can be declared in `millimeter_per_second`, which is what BUFR publishes
+  a precipitation rate in (`kg m-2 s-1`). It is a source unit only: `WD_TS_UNIT_TARGETS` cannot ask
+  for values in it, because `_convert_units` rounds to four decimals and would quantise mm/h into
+  0.36 mm/h steps. A rounding rule that scales with the target is GH-2002 (GH-1984)
+- `imgw/meteorology` `daily/synop` returns the five columns it read and never declared: the daily
+  maximum, minimum and 5 cm minimum temperature, the precipitation total and the snow depth (`TMAX`,
+  `TMIN`, `TMNG`, `SMDB`, `PKSN`). No synop station could return any of them (GH-1991)
+- `imgw/meteorology` carries IMGW's own status in `quality`, which was null for every value the
+  provider returned. "8" and "9" are IMGW's codes; `Z` (*opad zbiorczy*) is reported as 10, since
+  `quality` is numeric and IMGW's code is a letter. A blank status is a measurement and stays null
+  (GH-1998)
+- Six dataset descriptions the docs carried and the model did not, so `discover`, the REST API and
+  MCP report them too: `dwd/mosmix` hourly `small` and `large`, the three `dwd/derived` monthly
+  `cooling_degreehours_*`, and `imgw/meteorology` monthly `climate`
 - Documentation for running wetterdienst on a schedule, with ready-made units for systemd timers,
-  launchd, cron and `docker run` (GH-255, open since 2020). The issue asked for the units and
-  proposed generating them with `hickory`; that package last released in August 2020, declares
-  `requires_python >=3.6` and schedules a Python *script*, so a CLI invocation would need a wrapper
-  around it anyway -- a dead dependency to write two unit files. What the page carries beyond the
-  units is what a scheduled run gets wrong. A `DynamicUser=yes` service has no `$HOME` it may write
-  to, and the cache directory comes from platformdirs, i.e. from `$HOME`, so without
-  `CacheDirectory=` and `WD_CACHE_DIR` the run does not degrade to an uncached one, it fails:
-  `PermissionError: [Errno 13] Cache directory ... does not exist and could not be created`. `No
-  data available for given constraints` exits 1, indistinguishable from a real failure, so a
-  schedule over a quiet station looks like a broken job. A run replaces what the last one wrote
-  unless told otherwise, databases included -- a `duckdb://` table is dropped and recreated exactly
-  as a `file://` target is rewritten -- so a schedule meant to accumulate passes
-  `--if_exists=append`, which this release adds, or writes to a date-stamped name. And a `duckdb:///x.duckdb` path is relative to the working directory,
-  because the first `/` after the `//` separates host from path; an absolute one takes four
-  slashes. Plus `RandomizedDelaySec`, an off-the-hour cron minute and schedules that match the
-  publication cadence, so that not every installation asks the provider at `:00` sharp
+  launchd, cron and `docker run`. A `DynamicUser=yes` service has no writable `$HOME`, so without
+  `CacheDirectory=` and `WD_CACHE_DIR` the run fails rather than going uncached, and
+  `No data available for given constraints` exits 1 indistinguishably from a real failure (GH-255)
 - DWD road: a temperature below -60 °C is marked suspect whatever window was asked for. The stopped
-  sensors that report `-75.00` °C to the hundredth were already found by the rule that marks a
-  sensor holding one value for six hours, but only where the request covered six hours to find them
-  in: over one hour of the whole network -- 809 stations, 11 505 temperature readings -- that rule
-  marks nothing for the two stations sitting at -75 °C, having five readings where it needs
-  twenty-four, and this marks all ten of their readings. Germany's record low air temperature is
-  -45.9 °C and a road surface tracks the air rather than running far beneath it, so the line stands
-  14 K under that record and 29 K above the world's. `-30.00` and `-25.00` are deliberately left to
-  the run rule, both being reachable on a German road in winter, and no line is drawn at the warm
-  end, where 79.8 °C is implausible rather than impossible. The reading is kept exactly as DWD
-  published it, as everywhere else here. GH-1917
+  sensors reporting `-75.00` °C were already caught by the rule marking a sensor held at one value
+  for six hours, but only where the request covered six hours to find them in. Germany's record low
+  air temperature is -45.9 °C, so the line stands 14 K under it (GH-1917)
 
 ### Changed
 
-- **Breaking**: Every export a sink refuses raises `ExportRefusedError`: a mode it does not do, a
-  target already holding data under `if_exists="fail"`, or a format or protocol nothing here
-  writes. It replaces a `NotImplementedError`, a `FileExistsError`, two `KeyError`s and, in the
-  SQLAlchemy sinks, pandas' own `ValueError` -- five classes for one meaning, none of them
-  exclusive to it. Callers matching on the old classes have to match on this one instead, which is
-  why this is here rather than in Fixed. What it buys is that nothing has to infer what a failure
-  meant. The CLI's export handler tried to, over three rounds of review: `fail` arrives from DuckDB
-  as a `KeyError` and from pandas as a `ValueError`, both classes are also simply how a sink
-  breaks, and every rule over types and messages let something through -- a `KeyError` from inside
-  a sink printed its own argument and nothing else (`ERROR date`, for a stations frame sent to
-  InfluxDB, which pops a `date` column only values carry), a bare `NotImplementedError` from scipy
-  would have printed an empty `ERROR` line, and `Unknown export file type` reported a traceback or
-  a sentence depending on which `--if_exists` the run happened to pass. The handler is two arms
-  with nothing to decide now, and `Unknown export file type` names the target it could not write
-- The stale MOSMIX and DMO figures the docs carried beside the ones this release measured.
-  `docs/data/provider/dwd/index.md` advertised MOSMIX-L at "~115 parameters" and both products at
-  "over 5000 stations worldwide", and `dwd/mosmix/index.md` the same two, while
-  `docs/data/overview.md` was being corrected to 5649 and 122 in the same change -- the twin one
-  file over. Measured: MOSMIX 5649 stations for both datasets, 40 parameters for `small` and 122
-  for `large`; DMO 5757 stations and 23 parameters for `icon`, 3688 and 19 for `icon_eu`. The DMO
-  bullet also described the long run as "168 h lead time" beside the short one, which reads as one
-  grid rather than a second run starting where the first ends
-- **Breaking**: DWD DMO declares the elements its runs carry, which is 23 parameters for `icon` and
-  19 for `icon_eu` rather than 122 and 40. A request for one of the 99 and 22 that are gone raises
-  `NoParametersFoundError` where it used to be built and return an empty frame, so a job pinned to
-  one of those names stops at construction rather than quietly producing nothing. The old lists
-  were MOSMIX's, copied in when the provider was written -- which is also why `icon` held
-  MOSMIX-L's count and `icon_eu` MOSMIX-S's, a split DMO does not have: both products carry the
-  same elements per run, and differ in the domain they cover and the lead times they cover it for
-  -- `icon` declares more only because it publishes the second, 3-hourly run as well. Measured over
-  22 runs across 12 stations, both products, both lead times and both station groups: every run
-  carries 21 elements, `dd ff fx3 n neff nh nl nm pppp rad1h radl1 rads1 rr1 rrs1c t5cm td tn ttt
-  tx w1w2 ww`, with the 3-hourly run substituting `rad3h radl3 rads3 rr3 rrs3c` for their 1-hourly
-  counterparts. Asking for one of the other 99 and 22 returned an empty frame with nothing saying
-  the product never forecasts it -- indistinguishable from a station that happens to have no data.
-  `precipitation_height_last_1h` is *added* to `icon_eu`, which serves it and did not declare it.
-  Three served elements stay undeclared, for two different reasons: `radl1` and `rads1` are
-  1-hourly radiation *balances* and no canonical parameter describes a net flux, while `rad3h` is
-  described exactly by `radiation_global_last_3h` -- except that name is already taken by `rads3`,
-  which is a balance and not global radiation, so declaring `rad3h` means correcting that first
-  (GH-1977). What this does not fix is which *run* carries what: the model has no lead-time axis,
-  so `icon` declares both the 1-hourly and the 3-hourly family and four of its 23 are carried only
-  by `lead_time="long"` (`precipitation_height_last_3h`, `radiation_global_last_3h`,
-  `radiation_sky_long_wave_last_3h`, `water_equivalent_snow_depth_new_last_3h`) while three are
-  carried only by the default `lead_time="short"` (`precipitation_height_last_1h`,
-  `radiation_global`, `water_equivalent_snow_depth_new_last_1h`). Those still answer with the empty
-  frame this entry is otherwise about -- 4 of 23 on the default path rather than 99 of 122, and
-  GH-1976 tracks saying so. `test_dmo_declares_the_elements_its_runs_carry` reads a run through the
-  same `KMLReader` handle the values path parses, and pins each run's element set separately rather
-  than unioning them, so an element changing run fails it. It also asserts which lead times each
-  product publishes, read off the `all_stations` listing that holds one file per run for the whole
-  product rather than off one station's directory, because `icon_eu` gaining a 168 run -- which
-  would arrive at a subset of stations first -- would give it the same split and leave it declaring
-  1-hourly elements its long run does not carry
-- **Breaking**: `DwdDmoRequest.available_issues` takes the product it is answering for: `dataset`
-  (`icon` or `icon_eu`), `station_group` and `lead_time`, all keyword-only, all defaulting to what
-  `DwdDmoRequest` itself defaults to -- so what it answers with no arguments is what a request
-  built with no arguments accepts. It used to list `icon/single_stations/<id>/kmz/` whatever the
-  request would go on to read, and name issues that request then rejected: `icon_eu`'s
-  `all_stations` publishes only the `078` lead time, so an issue advertised from a `168` file met
-  `IndexError: Unable to find a 168 h forecast within ...`, and a station the shared catalogue
-  listed for `icon_eu` without `icon_eu` covering it has no single-station directory, so every
-  issue advertised for it resolved to an empty frame with nothing said. Both measured against the
-  live server. The directory is named by one function that the values path uses too, so the two
-  cannot drift apart again. `wetterdienst issues` and `/api/issues` take `--dataset`/`--lead_time`
-  to match, and say so rather than ignoring them where the network is not DMO. Passing
-  `lead_time=None` restores the old listing of every lead time together, which is a question about
-  the directory rather than about anything that can be requested. GH-1956
-
-- **Breaking**: `Settings.auth` holds `SecretStr` rather than `str`, so code that reads a
-  credential off the settings has to ask for it: `reveal(settings.auth.aemet)`, or
-  `.get_secret_value()`. Setting them is unchanged -- the env vars, the strings and the pairs all
-  read as they did -- and so is every `if not settings.auth.x` check, an empty secret being falsy.
-  What changes is reading one back without asking: an f-string or a `str()` of a credential now
-  yields `**********` rather than the value, which is the point of the change but is silent where
-  the old behaviour was not. The mask is refused as a credential on the way in, so a JSON dump read
-  back fails where it is given rather than at the provider later
-
+- **Breaking**: Every export a sink refuses raises `ExportRefusedError` -- a mode it does not do, a
+  target already holding data under `if_exists="fail"`, or a format or protocol nothing here writes.
+  It replaces a `NotImplementedError`, a `FileExistsError`, two `KeyError`s and pandas' `ValueError`
+  in the SQLAlchemy sinks, so callers matching on those have to match on this one instead
+- **Breaking**: DWD DMO declares the elements its runs carry, 23 parameters for `icon` and 19 for
+  `icon_eu` rather than 122 and 40. The old lists were MOSMIX's, copied in when the provider was
+  written, so a request for one of the 99 and 22 that are gone now raises `NoParametersFoundError`
+  where it used to return an empty frame. `precipitation_height_last_1h` is added to `icon_eu`,
+  which serves it and did not declare it. The model has no lead-time axis, so four of `icon`'s 23
+  are carried only by `lead_time="long"` and three only by the default `"short"`; those still answer
+  with the empty frame, tracked in GH-1976. Three served elements stay undeclared, no canonical
+  parameter describing a net radiation flux and `radiation_global_last_3h` being taken by one
+  (GH-1977)
+- **Breaking**: `DwdDmoRequest.available_issues` takes the product it is answering for -- `dataset`,
+  `station_group` and `lead_time`, keyword-only, defaulting to what `DwdDmoRequest` defaults to. It
+  used to list `icon/single_stations/` whatever the request would read, and named issues that
+  request then rejected. `wetterdienst issues` and `/api/issues` take `--dataset`/`--lead_time` to
+  match; `lead_time=None` restores the old listing of every lead time together (GH-1956)
+- **Breaking**: `Settings.auth` holds `SecretStr` rather than `str`, so reading a credential back
+  has to ask for it: `reveal(settings.auth.aemet)`, or `.get_secret_value()`. Setting them is
+  unchanged, as is every `if not settings.auth.x` check. An f-string or `str()` of a credential now
+  yields `**********`, and the mask is refused as a credential on the way in
 - **Breaking**: The `mcp` extra requires `fastmcp>=4,<5` (was `>=3.4.4,<4.0.0`), and `ui/mcp.py`
-  builds the `OpenAPIProvider`'s in-process ASGI client with `httpx2` rather than `httpx`. FastMCP
-  4 moved off httpx entirely and types that provider's `client` as `httpx2.AsyncClient`; an httpx
-  client is still taken there by duck typing, but warns and is to be rejected in a later release,
-  so the floor now says which library the code is written against. `httpx2` is declared alongside
-  the extra (`>=2.12,<3`) rather than leaned on as a transitive dependency of `fastmcp`
-- Locked dependencies refreshed to their latest compatible versions -- 74 packages, among them the
-  majors cloup 4, fastmcp 4 (mcp 2), plotly 7 and tzfpy 2 -- and the dev toolchain with them (ruff
-  0.16.7, ty 0.0.81, zizmor 1.30.1). Three specifiers had to widen to admit them: `cloup<5`,
-  `tzfpy<3` and the fastmcp bound above. Plotly 7 leads an HTML export with a doctype where 6.x
-  began straight at `<html>`, which is the only change visible in output
-- `DwdRadarValues.period` is annotated `Period | None`, which is what it has always held: the
-  argument is optional and `parse_enumeration_from_template` returns `None` for it. The annotation
-  claimed `Period` and carried a `ty: ignore` to say so, which in turn made both `not self.period`
-  guards in the radar API read as dead code to the type checker
+  builds the `OpenAPIProvider`'s in-process ASGI client with `httpx2` (`>=2.12,<3`, now declared
+  alongside the extra) rather than `httpx`, which FastMCP 4 has moved off entirely
+- Locked dependencies refreshed to their latest compatible versions -- 74 packages, among them cloup
+  4, fastmcp 4 (mcp 2), plotly 7 and tzfpy 2 -- which widened `cloup<5` and `tzfpy<3`. Plotly 7
+  leads an HTML export with a doctype where 6.x began at `<html>`, the only change visible in output
+- `DwdRadarValues.period` is annotated `Period | None`, which is what it has always held. The
+  annotation claimed `Period` and carried a `ty: ignore`, which made both `not self.period` guards
+  in the radar API read as dead code to the type checker
 
 ### Fixed
 
-- The 67 unit cells that spelled a unit out on a page writing symbols for everything else now give
-  the symbol, across 10 of the 88 documented pages, every one of them symbol-majority with a
-  long-form minority. 59 were `dimensionless` on the eight `dwd/observation` pages, which wrote that
-  unit both ways: 13 of them within one table, a row or two apart, and the other 46 in a table
-  carrying no `-` at all while another table on the same page did. The remaining eight carried no
-  other notation of their unit anywhere on the page, so only the page's notation style made them
-  wrong -- the six `dimensionless` cells on `dwd/derived` monthly, against `%`, `mm`, `°C`, `cm`,
-  `°Cd` and `°Ch`, and the two `percent` on `eccc/observation` daily, against `°C`, `°Cd`, `mm`,
-  `cm`, `km/h` and `°`. Each was made to match the page it sits on rather than a convention chosen
-  for the tree, so the 22 pages that are long-form throughout keep their style and `dwd/derived`
-  hourly -- long-form, unlike its own monthly sibling, and nothing checks that the two agree -- is
-  untouched. The `-` a dimensionless cell now carries is the model's own symbol for it, and is the
-  same glyph the `constraints` column uses for "unconstrained", so a row can read `| - | - |`; the
-  two columns are headed separately and each is read in its own terms, where long form everywhere
-  would contradict the 66 pages that write symbols and the symbol the model declares. Every
-  rewritten line kept its exact length, so nothing reflowed and each one differs in a single cell.
-  For the 36 cells whose table pads its `unit` column that keeps the alignment; for the other 31 it
-  keeps the padding exactly as found, which is why `dwd/observation` 10_minutes now writes `-`
-  followed by thirteen spaces under a four-character `unit` header -- aligning with nothing, as it
-  did before, since tidying tables is not this change's business (GH-1980)
-- The 41 documented parameter tables that listed their rows in an order the model does not declare
-  now list them in it. Three habits and nine one-off orderings, which is why they could be settled
-  in one change rather than argued table by table: 25 tables put `quality` last where every dataset
-  declares it first, five `wsv/pegel` tables opened with `chlorid_concentration` ahead of `stage`,
-  two `geosphere/observation` ones inverted `pressure_air_site` and `pressure_air_sea_level`, and
-  ten of the 41 were simply alphabetical. Only the order changed: every row keeps its own text and
-  its own padding, since the rows were moved as whole lines, and each of the 21 files holds exactly
-  the same set of lines it held before (GH-1980)
-- `ts_unit_targets` applies all of a mapping or none of it. `update_targets` validated and assigned
-  entry by entry, so a mapping carrying one it could not use applied the entries written before it
-  and then raised -- which of them took effect depending on the order the caller happened to write
-  them in, where the setting is a single mapping to a reader. Every entry is resolved before any is
-  assigned now (GH-1984)
 - **Breaking**: `dwd/road` declares the units BUFR publishes its precipitation intensity and water
   film in, so both are converted instead of being served 3600 and 100 times too small.
-  `intensityOfPrecipitation` is BUFR `0 13 055`, `kg m-2 s-1`, millimetres per second for water, and
-  it was declared `millimeter_per_hour` -- the default target, so nothing converted and a shower
-  came back as 0.0056 mm/h, no observable precipitation at all. The station's own gauge settles
-  which side was wrong: over six hours of the whole network, the 39 readings carrying both a
-  positive intensity and a positive 15-minute `precipitation_height` put the intensity times 900
-  seconds within a median 0.8% of that height -- 0.0056 against a reported 5.0 mm -- where reading
-  it as mm/h would make those rows 0.0014 mm. The element's own width says the same without
-  reference to any gauge: 8 bits at a scale of 4 in every one of the 96 messages a network-wide
-  round publishes, so read as mm/h it could report at most 0.0255 mm/h. `waterFilmThickness` is
-  metres under either descriptor these files name it with -- DWD's own local `0 13 241` in the road
-  layout, the WMO `0 13 116` in the `3 07 102` template the rest arrive under -- and was declared
-  `centimeter`; the delivered values run to 0.002, 2 mm of water on a road, where as centimetres
-  they would top out at 0.02 mm. A request now answers 20.16 mm/h and 0.2 cm where it answered
-  0.0056 and 0.002. The other twelve declarations of that dataset were checked against the same
-  tables and every one agrees, the wind speeds included -- their ecCodes name maps to `m/s`, `km/h`
-  and `kt` alike, and a network median of 0.5 with a 99th percentile of 3.6 is metres per second
+  `intensityOfPrecipitation` is `kg m-2 s-1`, millimetres per second, and was declared
+  `millimeter_per_hour`, so a shower came back as 0.0056 mm/h; `waterFilmThickness` is metres and
+  was declared `centimeter`. A request now answers 20.16 mm/h and 0.2 cm. The page's warning to
+  multiply by 3600 by hand is gone with it -- do not apply that factor to a value from this version
   (GH-1984)
+- **Breaking**: `imgw/meteorology` returns no value where IMGW records no measurement, rather than a
+  zero. Every value column is followed by a status column and none was read, while the value cell of
+  a missing measurement holds a literal `.0` -- so PSZCZYNA reported 0 % relative humidity for
+  January 2010 and WARSZOWICE 0 cm of snow cover every day of it. Only status `8` becomes null.
+  Under the default `ts_drop_nulls` a frame can come back shorter, or a parameter empty where it
+  used to read zero throughout (GH-1994)
 - **Breaking**: `imgw/meteorology` returns a documented *brak zjawiska* as the zero it means, where
-  it returned no value at all. Status "9" was treated as the true zero it is by passing the value
-  cell through, which only works where the cell holds a zero -- and the files do not agree that it
-  does. `o_d_01_2024` writes ".0" beside all 3,658 of its "9"s on the daily precipitation total;
-  `o_d_07_2024` leaves the cell empty beside all 8,490 of its, the same column six months later.
-  WARSZOWICE on 2024-07-02, a day IMGW records as having had no precipitation, answered null and now
-  answers 0.0 mm. `daily/synop` lost whole parameters rather than single days: station 354150100 on
-  2024-01-01 carries `PKSN` empty beside a "9", so `snow_depth` was missing from the result instead
-  of reporting the 0 cm of snow cover the file states. One reading of "9" is not a zero and would
-  need its own branch -- `s_m_d_format.txt` gives it as "the station does not observe this
-  phenomenon" for a `Liczba dni z` aggregation -- but none of those columns is declared (GH-1997)
-- **Breaking**: `imgw/meteorology` returns three parameters that were permanently empty and one
-  that published a different column's numbers, and `monthly/climate/precipitation_height_max`
-  answers to a different original name. `monthly/synop/temperature_air_min_2m_mean` renamed its
-  column to `średnia temperatura minimalnaj`, `monthly/climate/precipitation_height_max` to
-  `maksymalna dobowa suma opadóww`, and `daily/precipitation/precipitation_height` to
-  `daily/climate`'s mean-temperature name for what upstream's own `o_d_format.txt` calls `SMDB`,
-  the daily precipitation total -- the one measurement that dataset exists to publish, read out of
-  the file and thrown away on every request. `monthly/precipitation/precipitation_height_max` never
-  looked empty and was worse for it: the schema read `o_m` field 7, `LDS`, the count of days with
-  snowfall, and published that count as millimetres -- 19 for WARSZOWICE in January 2010, where
-  `MAXO` at field 9 is 17.8 mm. Dropping the doubled `w` does not reach the climate row on its own:
-  `monthly/climate` declared `precipitation_height_max` as `opad maksymalny`, which is `o_m`'s name
-  for its `MAXO` column, where `k_m_d` column 19 is `OPMX`,
-  `Maksymalna dobowa suma opadów w miesiącu` -- the name `monthly/synop` already declared for the
-  same column of `s_m_d`. A parameter resolves by `name_original` as well as by `name`, so
-  `monthly/climate/opad maksymalny` no longer resolves: a request for it raises
-  `NoParametersFoundError`, and indexing the dataset object with it raises `KeyError`. Requests
-  written against the canonical `precipitation_height_max` are unaffected, and that is what the
-  docs, the examples and every test use. Every position and name was checked against the
-  `*_format.txt` files IMGW publishes beside the data rather than inferred from the neighbouring
-  rows, which is how the two errors those rows suggested turned out to be five. GH-1981 reported
-  two and named `monthly/climate/temperature_air_min_2m_mean` among them, which was never broken --
-  `k_m_d` spelt it correctly -- and did not reach `daily` or `monthly/precipitation` at all
-  (GH-1981)
-- **Breaking**: `imgw/meteorology` returns no value where IMGW records no measurement, rather than
-  a zero. Every value column in these files is followed by a status column -- documented per file
-  in the `*_format.txt` beside the data and generally in `Opis.txt`: a space means the value is a
-  measurement, `8` brak pomiaru, `9` brak zjawiska -- and none of them was read. The value column
-  of a missing measurement is not left empty, it holds a literal `.0`, so an unmeasured parameter
-  came back as a measured zero: 0 % relative humidity for PSZCZYNA in January 2010, a grass minimum
-  of exactly 0.0 °C on a January day, and 0 cm of snow cover for every day of that month at
-  WARSZOWICE -- a rain gauge that reports no snow at all, whose `o_d` snow columns carry status `8`
-  in all 15479 rows of the file. Nothing in a row distinguishes the two: `daily/climate/snow_depth`
-  reads a literal `0` for both PSZCZYNA and station 252190030 on 2010-01-01, and only the status
-  says that the first measured no snow cover and the second measured nothing. Only `8` becomes
-  null. `9` is a true zero, and `o_d`'s `Z`, opad zbiorczy, is a real measurement summed over the
-  days beside it. Under the default `ts_drop_nulls` the affected rows are absent rather than null,
-  so a frame can come back shorter, or a parameter empty where it used to read zero throughout. The
-  status sits at field N+1 for all 61 declared columns, checked against the `*_format.txt` files
-  rather than assumed (GH-1994)
+  it returned no value at all. Status "9" was handled by passing the value cell through, which only
+  works where the cell holds a zero, and the files disagree that it does: `o_d_07_2024` leaves it
+  empty beside all 8,490 of its "9"s. WARSZOWICE on 2024-07-02 answered null and now answers 0.0 mm;
+  `daily/synop` lost whole parameters that way rather than single days (GH-1997)
+- **Breaking**: `imgw/meteorology` returns three parameters that were permanently empty and one that
+  published a different column's numbers, and `monthly/climate/precipitation_height_max` answers to
+  a different original name. Two rename targets carried a doubled `w`, and
+  `daily/precipitation/precipitation_height` carried `daily/climate`'s mean-temperature name for
+  what upstream calls `SMDB` -- the one measurement that dataset exists to publish.
+  `monthly/precipitation/precipitation_height_max` was worse for never looking empty: it read `o_m`
+  field 7, the count of days with snowfall, and published that count as millimetres. A request for
+  `monthly/climate/opad maksymalny` now raises `NoParametersFoundError`; the canonical name is
+  unaffected (GH-1981)
 - **Breaking**: `imgw/meteorology` declares `daily/climate`'s grass temperature as
-  `temperature_air_min_0_05m`, the name `monthly/climate` and `monthly/synop` already use for the
-  same measurement, rather than `temperature_air_mean_0_05m`. `k_d_format.txt` names field 12
-  `TMNG`, `Minimalna dobowa temperatura powietrza przy gruncie`, and the values say the same:
-  station 253160090 on 2010-08-01 reads 5.6 °C there against a 2 m minimum of 9.2 and a maximum of
-  28.2, so it cannot be a daily mean. The docs table said it outright, carrying the description
-  `temperature air mean 0 05m` beside the original name `temperatura minimalna przy gruncie`. Every
-  other provider declaring `temperature_air_mean_0_05m` -- `dwd`, `meteoswiss`, `rmi`,
-  `geosphere` -- means a genuine 5 cm mean by it, so anything selecting on canonical names across
-  providers was comparing a nocturnal grass minimum against a mean. A request for the old name
-  raises `NoParametersFoundError` and names the new one in its "Did you mean" hint; the
-  `name_original` and the column read are unchanged (GH-1993)
+  `temperature_air_min_0_05m`, the name its monthly siblings already use for the same measurement,
+  rather than `temperature_air_mean_0_05m` -- `k_d_format.txt` names field 12 a daily minimum, and
+  every other provider declaring the mean means a genuine 5 cm mean by it. A request for the old
+  name raises `NoParametersFoundError` and names the new one in its hint (GH-1993)
+- **Breaking**: A DuckDB `if_exists="append"` matches columns by name. `INSERT INTO t SELECT *`
+  matches by position, so two frames with the same number of columns under different names were both
+  accepted and the second one's values landed under the first one's headings -- a `--shape=wide`
+  schedule that changed one parameter put a precipitation value into `temperature_air_mean_2m`, exit
+  0 and nothing said. A frame whose columns are a subset of the table's is still accepted
+- `ts_unit_targets` applies all of a mapping or none of it. `update_targets` validated and assigned
+  entry by entry, so a mapping carrying one entry it could not use applied those written before it
+  and then raised (GH-1984)
 - `wsv/pegel` returns no data for a timeseries between measurements rather than raising
   `ColumnNotFoundError`. Pegelonline answers `[]` with HTTP 200 for a series it lists but holds no
-  current measurements for, and `pl.read_json` reads that body as a frame with **no columns**, so
-  renaming `timestamp` raised out of an ordinary `values.all()` -- from the station list, not from
-  anything the caller did wrong. The station now drops out, which is what the neighbouring guards
-  already do for no internet, a 404 and a series the station does not publish, and what the wave
-  tests rely on when one contributor goes quiet. MELLUMPLATE answered that way for all three of its
-  wave series for days, failing `test_wsv_wave_height_comes_back_in_centimetres` and
-  `test_wsv_wave_period_is_seconds` on every CI job, which is how it was found (GH-1987)
-- `imgw/meteorology` daily writes `mm`/`>=0` for the precipitation and pressure rows its `synop`
-  table had as `millimeter`/`-` and `hectopascal`/`-`, which is what the same page's other datasets
-  and the same table's `pressure_air_site` already wrote. The monthly page was corrected in the
-  same change and the daily twin left alone
-- Parameter tables keep the order the model declares them in, which 229 of the 271 documented
-  tables carried once the rows they omit are ignored and 196 matched exactly when this change was
-  made -- 224 and 191 before it, so it put five more back, and one more again once the DMO prune
-  later in this release rewrites `icon`'s table -- and which lines a page up one-to-one with its
-  `metadata.py`. Sorting `mosmix` hourly and `imgw` monthly alphabetically had broken the
-  ascending-window grouping that made `precipitation_height_last_1h, _3h, _6h, _12h, _24h` legible,
-  reading it as `_12h, _1h, _24h, _3h, _6h` instead, and the same for the `probability_fog_last_*`,
-  `probability_drizzle_last_*` and `wind_gust_max_last_*` families
-- Four documented parameters that no request could ask for, and four requestable ones that no page
-  documented, found by the presence test above. `dwd/mosmix` hourly documented
-  `cloud_base_convective` and `cloud_cover_below_7km` under `small`, which the model declares for
-  `large` alone -- the same defect, in the same two parameters, that GH-1971 fixed for `dwd/dmo`
-  `icon_eu`, because DMO's tables were copied from MOSMIX's. It also carried a stale `n1` row for
-  `cloud_cover_below_1000ft` in both datasets, superseded by the `nl` row appended beside it; the
-  model maps `nl` and has never mapped `n1`. `imgw/meteorology` daily documented
-  `precipitation_height` under `synop`, which declares `precipitation_height_day` and `_night`
-  instead, so the row named something that raises `NoParametersFoundError` -- while
-  `imgw/meteorology` monthly `synop` documented none of its four precipitation parameters at all
-- Three unit cells disagreeing with the model about the quantity, not just the notation: `dwd/road`
-  15_minutes wrote `mm/s` where the model then declared `millimeter_per_hour`, and `dwd/observation`
-  monthly and annual wrote `Bft` for `wind_gust_max`, which the model declares `meter_per_second`,
-  apparently copied from the `wind_force_beaufort` row above it, which really is Beaufort. All three
-  now say what the model says. Found by checking every unit cell against `UnitConverter.get_unit`:
-  three named a different quantity, and the 42 disagreements remaining of the 2098 cells compared
-  are notations rather than quantities -- `kg/m²` for `mm` (24), `-` for the coded
-  `significant_weather` (10), a Greek mu where the model writes a micro sign (5) and `Bft` for `bft`
-  (3), which `test_docs_parameter_units_name_the_quantity_the_model_declares` lists and GH-1980 is
-  to settle. For the `dwd/road` cell the page was the right side and the model the wrong one: that
-  module labels the BUFR units of the elements it decodes -- it declares `degree_kelvin` for
-  `airTemperature`, whose CREX unit is Celsius -- and BUFR gives `intensityOfPrecipitation` as
-  `kg m-2 s-1`, which is millimetres per second. GH-1984 settles it in this same release by
-  declaring `millimeter_per_second`, so the cell reads `mm/s` once more and the value now converts
-- The changelog renders as prose again. Three bare ``` and ```` runs written into these entries
-  opened real code fences, so `poe docs` warned about a Pygments lexer named `-opened` and nine
-  lines of one bullet rendered as an unstyled block with the markup showing, one sentence
-  disappearing from the visible text entirely. They are code spans now, with the delimiters
-  CommonMark wants
-- `dwd/road` 15_minutes explains what its `unit` column means: the unit this network publishes in
-  rather than the one a request answers with, which is why its three temperatures read `K`. It
-  carried a warning instead, that `precipitation_intensity` was labelled `mm/h` where the value is
-  millimetres per second and had to be multiplied by 3600 by hand, and that `water_film_thickness`
-  was labelled `cm` against a BUFR `m`. Both declarations are corrected in this release, so there is
-  nothing left for a reader to multiply -- do not apply that factor to a value from this version
-- `dwd/mosmix` hourly describes `large` as a forecast of 122 parameters, which is what the model
-  declares, rather than 115. The figure sat in a `#### metadata` description that existed only in
-  the markdown, so nothing compared it. It was the fourth copy of the number: GH-1975 corrects the
-  other three, in `docs/data/overview.md`, `dwd/index.md` and `mosmix/index.md`, so all four agree
-  in this release
-- `dwd/observation` hourly writes `hPa`/`>=0` for the `urban_pressure` row it had as
-  `hectopascal`/`-`, which is what the same table's `pressure_air_site` already wrote, and puts the
-  two rows in the order the model declares them -- the one table this change touched that was among
-  the 47 of 271 `main` leaves out of order, five of which this change fixes. `main` carries 69 rows
-  that spell a unit out where their own page uses the symbol for it: 57 write `dimensionless`
-  against a `-` elsewhere on the page, which is a convention to settle rather than a slip
-  (GH-1980), and of the other 12 this change fixes 9 -- 5 on `dwd/mosmix` hourly and 3 on
-  `imgw/meteorology` daily, both described above, plus this one -- leaving the 3 on `dwd/dmo`
-  hourly to GH-1975, which has that file open
-- The three `dwd/derived` `Kuehltage` overrides are described as "Number of days with at least one
-  cooling hour", which is what DWD's *Kuehltage* counts, rather than the vaguer "Number of days on
-  which cooling was required". The precise wording sat in the docs table, where nothing compared it
-  -- that page is one of the two the heading mismatch above had left unchecked. The canonical
-  `count_days_cooling_degree` keeps the general wording, because cooling degree days elsewhere are
-  defined against a base temperature rather than by counting hours, and because that is exactly how
-  the sibling `count_days_heating_degree` is split: a general canonical, with DWD's "number of days
-  with daily mean air temperature less than 15 degree Celsius" in the override
-- The same parser keys `test_docs_dataset_descriptions_match_the_model` too, which had the
-  identical heading bug and so compared nothing on those same two pages. Both now resolve:
-  `dwd/mosmix` under `small`/`large` and `dwd/derived` under all three `cooling_degreehours_*`.
-  Both are compared now, since this change gives the model the descriptions those pages had been
-  carrying alone. `dwd/observation` subdaily `wind_extreme` also gained the `quality_3` and
-  `quality_6` rows it declares but never showed, placed where the model declares them, interleaved
-  with the gust rows -- so that table reads differently from the four beside it, which put their
-  `quality` row last against a model that declares it first. Declaration order is the convention
-  this change adopts, and `quality`'s placement is part of the row-order question GH-1980 carries
-- **Breaking**: A DuckDB `if_exists="append"` matches columns by name. `INSERT INTO t SELECT * FROM
-  origin` matches by position, so two frames carrying the same number of columns under different
-  names were both accepted and the second one's values landed under the first one's headings --
-  measured on a `--shape=wide` schedule that changed one parameter: `2025-03-23` ended up holding
-  both `10.1`, the temperature, and `0.0`, that day's precipitation, in the column named
-  `temperature_air_mean_2m`, exit 0 and nothing said. Reachable from the command line only since
-  `--if_exists` existed, and reachable by exactly the schedule the docs recommend. `BY NAME`
-  refuses it with `Binder Error: Table "weather" does not have a column with name
-  "precipitation_height"`. It does not catch every parameter drift, and the docs no longer say it
-  does: a frame whose columns are a subset of the table's is accepted, with nulls for the rest, and
-  under `--shape=long` the column set never varies, so nothing about `--parameters` reaches the
-  insert there at all
-- The InfluxDB sink takes `if_exists="append"`, which is the one word for what it actually does:
-  every write is points, and a point carrying the timestamp and tags another already has replaces
-  that one. Refusing that spelling made the batch export impossible rather than merely awkward --
-  `TimeseriesValues.to_target` writes its first station with the `if_exists` it was given and every
-  station after it with `append`, so no argument let a multi-station request reach InfluxDB at all.
-  The three export examples in the docs did exactly that and had been broken since the day
-  `if_exists` was added (02c3b15b, 2025-10-29), which added the guard and the examples together.
-  `fail` and `skip` stay refused, because both turn on whether the measurement already exists and
-  this sink never asks; the message says so rather than naming the mode alone. `replace` is
-  accepted as before and does not clear the measurement, because nothing here issues a delete --
-  the modes list says that now instead of implying otherwise, and says which default belongs to
-  which class: `replace` on a result, `fail` on `TimeseriesValues`
-- DWD DMO: both dataset descriptions were MOSMIX's, word for word. `icon` was described as "Local
-  forecast of 115 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours"
-  and `icon_eu` as the 40-parameter, 24-times-a-day one -- that is MOSMIX-L and MOSMIX-S, a
-  statistical postprocessing that DMO explicitly is not, and "worldwide" cannot be right for a
-  limited-area model covering 3688 stations where the global product covers 5757 -- though
-  "European" is not right for it either, since 11 of those 3688 sit between 13.25 and 22.52 degrees
-  north and between 35.6 and 49.12 degrees east, which no sense of the word covers, so the
-  description names the set it is published for instead. That set sits inside nothing else here:
-  132 of the 3688 are absent from the 5811-row shared catalogue, which is what
-  `_with_stations_the_catalogue_omits` recovers, and 189 are absent from `icon`'s 5757, so it is
-  smaller than the global product's set without being a subset of it. Read off upstream: both
-  products are issued at 00 and 12 UTC, `icon` hourly out to 78 hours plus a second run 3-hourly
-  from 78 to 168 (the long run *starts* where the short one ends -- it is not a 0-168 hour grid),
-  `icon_eu` hourly out to 78 only. Neither description names a parameter count any more: both
-  counts came from MOSMIX's leaflet, 115 being MOSMIX-L's and 40 MOSMIX-S's, a split DMO does not
-  have. 40 did match what `icon_eu` declared before this release, but only because that parameter
-  list was MOSMIX-S's verbatim as well. The `icon_eu` parameter table also listed
-  `cloud_base_convective` and `cloud_cover_below_7km`, which the model does not define for that
-  dataset, so the docs advertised two parameters no request could ask for
-- WSV pegel: the wave tests ask each station whether its own values are in the declared unit, rather
-  than asking whether two stations agree with each other. Comparing them assumed the same sea at
-  both, and they do not carry the same window -- MELLUMPLATE had 98 readings over 1.6 days against LT
-  ALTE WESER's 14 347 over ten, so their means were taken over different weather and differed by
-  10.5x against an assertion of less than 10, while over the window they share the ratio was 4.6x.
-  That failed on every one of the ten CI matrix jobs for days with no unit being wrong, and a
-  permanently red matrix is where a real failure goes unnoticed. The bounds now separate the two
-  readings of the same number instead: a median of 9.5 cm is 0.095 in metres, so the threshold sits
-  near the geometric middle of the hundredfold being guarded against, and no sea state moves a median
-  across it. Both wave tests read every station offering the parameter rather than two named ones, so
-  a station that stops publishing drops out instead of failing a test about units
-
-- DWD DMO: a station the shared catalogue omits is described from the product's newest run, so it can
-  be asked for. 135 of the stations `icon` forecasts for and 132 of `icon_eu`'s are absent from
-  `dmo_stationsliste_txt.asc` -- 72 of them with ids it never carries, such as `Y0330`, `G431` and
-  `O015` -- and being absent from it they were filtered out of every request, although their
-  forecasts are published and fetch with HTTP 200. `Y0353` is Mont Blanc. The run's placemarks carry
-  an id, a name and a position in decimal degrees, which is what these stations are now described
-  with; they carry no ICAO id, so the catalogue stays the source for the stations it does list rather
-  than being replaced, and the added ones report `icao_id` as null, which the catalogue already does
-  for the stations it writes as `----`. Both products now advertise exactly what they publish, 5757
-  and 3688. The run is read only where the catalogue is missing something, so a catalogue DWD
-  completes costs nothing, and once per product per request; a run that cannot be read leaves the
-  catalogue as it was and says so, as does one placemark that cannot be, the rest of them still
-  describing their stations
-
-- DWD DMO: a run stamp becomes the hour it names whatever that hour is. `DDHHMM` had its day, month
-  and minute padded back to two digits before the datetime was parsed, but not its hour, so `3` made
-  `...01300`, where `%H` takes the `30` it can see and rejects it as an hour. `00` survived only
-  because `%H` could take both its digits and leave `%M` the one it needed. DMO publishes at `00` and
-  `12` so no run has ever hit this, and it is fixed because the rule is about the stamp rather than
-  about which hours DWD happens to use
-
-- DWD DMO: a station position is read as the degrees and minutes the catalogue writes it in, and the
-  seven hardcoded station patches are gone. `dmo_stationsliste_txt.asc` is one format throughout,
-  `{degrees}.{minutes:2d}`, and it is the degrees rendering empty at zero that makes the rest look
-  irregular: the minutes are right-aligned in two columns, so a lone digit arrives behind a space and
-  a negative one behind its own minus sign. `. 5` is 0°05' and `.-6` is -0°06'. Read as plain
+  current measurements for, which `pl.read_json` reads as a frame with no columns (GH-1987)
+- The InfluxDB sink takes `if_exists="append"`, which is the one word for what it does: every write
+  is points, and a point repeating another's timestamp and tags replaces it. Refusing that spelling
+  made a multi-station export impossible, `to_target` writing every station after the first with
+  `append` -- the three export examples in the docs had been broken since `if_exists` was added
+- DWD mosmix: a `kml/` directory that exists and holds nothing is answered rather than raising past
+  the line written for it. `next` raises `StopIteration` where its filter matches nothing and the
+  `except IndexError` never caught it, so a caller saw
+  `RuntimeError: generator raised StopIteration` naming neither the directory nor what was looked
+  for. A run is read as the ten digits DWD stamps a `.kmz` with rather than as the third
+  `_`-separated part of the name, which MOSMIX-L all-stations does not have -- that layout could not
+  be asked for a run at all. `available_issues` answers such a directory with no issues, as
+  `dwd/dmo` now does for its own (GH-1946)
+- DWD dmo: a run is read by its whole name (`_<lead>_<n>_<DDHHMM>.kmz`), where every part of it was
+  read by position or by substring and each wrongly. The lead time matched a bare `"78"` anywhere in
+  the URL, which 187 of 5811 station ids also satisfy, so ~3% of stations raised
+  `can only call '.item()' if the Series is of length 1`; the run stamp took four characters off the
+  last name part, so a README raised `conversion from str to i64 failed`. `available_issues`
+  returned tz-aware datetimes that this compared against a naive column, so `wetterdienst issues`
+  printed issues `wetterdienst values` could not accept. An issue is floored to the run before it,
+  where `hour % 12` sent 1 through 11 up to 12, and one given in another zone is converted rather
+  than relabelled (GH-1948)
+- DWD DMO: a station the shared catalogue omits is described from the product's newest run, so it
+  can be asked for. 135 of `icon`'s stations and 132 of `icon_eu`'s are absent from
+  `dmo_stationsliste_txt.asc` -- `Y0353` is Mont Blanc -- and were filtered out of every request
+  although their forecasts publish and fetch with HTTP 200. Both products now advertise exactly what
+  they publish, 5757 and 3688. The added stations report `icao_id` as null
+- **Breaking**: DWD DMO: a station is advertised only for the product that forecasts for it. The
+  shared catalogue matches neither product, so a request for `icon_eu` listed 2255 stations that
+  could only ever answer with an empty frame. Coverage is read from the product's `single_stations/`
+  directory, one listing rather than a 20 MB parse; a listing that cannot be read keeps the
+  catalogue
+- DWD DMO: a station position is read as the degrees and minutes the catalogue writes it in
+  (`{degrees}.{minutes:2d}`), and the seven hardcoded station patches are gone. Read as plain
   decimals, `.5` became 0°50' -- a station 84 km from where DWD says it is, and nothing raised --
-  while `.-6` raised `conversion from str to f64 failed` naming neither column nor station, which is
-  what the patches existed to avoid. Of the file's 11 622 position fields, 77 carry no degrees and 21
-  of those needed repairing: 14 written with one minute digit, 11 of which landed 50 to 150 km out
-  while 3 were a harmless zero, and 7 carrying the sign on the minutes. All 21 now land on the
-  coordinate DWD's own KMZ placemarks carry, to 0.000 km for all seven formerly patched stations --
-  where the patches were 4 to 28 km out, put London City on the wrong side of Greenwich, and gave
-  London Weather Centre a height of 5 m against the 43 m both DWD sources agree on. One field is
-  beyond reach: `P0563` (London Luton) is written `.22` where DWD's placemark says -0.37, the sign
-  missing rather than misplaced, and nothing distinguishes that from the 39 degreeless fields that
-  really are positive -- it is read as written, exactly as before. The MOSMIX catalogue shares the
-  format and the conversion but has no such row, so this stays with DMO
-
-- **Breaking**: DWD DMO: a station is advertised only for the product that forecasts for it.
-  `dmo_stationsliste_txt.asc` is one list for both DMO products and matches neither: of its 5811
-  stations `icon` covers 5622 and `icon_eu` 3556, so a request for `icon_eu` listed 2255 stations
-  that could only ever answer with an empty frame -- indistinguishable, from the caller's side,
-  from a forecast that is merely missing right now, and from the swallowed listing GH-1947 was
-  about. Which stations a product covers is now read from its `single_stations/` directory, whose
-  entries are exactly the placemarks that product's `all_stations` run carries, so the correction
-  costs one directory listing rather than a 20 MB parse. A listing that cannot be read keeps the
-  shared catalogue rather than answering that a product has no stations, and says which it handed
-  back; so does a listing that shares no station with the catalogue, which is not a station listing
-  however many names it carries. Four of the seven hardcoded station patches are genuinely outside
-  `icon_eu` -- Gao, São Gabriel da Cachoeira, Quito and Quito/Mariscal Sucre are absent from the
-  3688 stations it publishes -- and are now dropped for it too
-
-- DWD DMO: the directory a product is served from is named by a total mapping rather than one special
-  case with a pass-through, so a product added without deciding its upstream spelling is refused where
-  the decision is missing instead of 404ing at request time
-
-- DWD swsmos: a body that could not be read is not fetched a second time when the caller has
-  disabled the cache. The re-ask exists to get past a cached bad body, and `cache_disable` now says
-  whether there is one: it named nothing in `NetworkFilesystemManager`'s registry key when this was
-  written -- a request that disabled the cache was served by whatever had been registered first in
-  that thread, cache and all -- and GH-1947 put it in that key, so the flag decides what is built
-  and asking again would fetch the same bytes down the same wire
-
-- Examples: the DuckDB dump addresses its database file with three slashes rather than four, so
-  it opens on Windows. `ConnectionString` takes the database as the URL path with one leading
-  slash removed, so exactly one slash belongs between the scheme and the path -- which a POSIX
-  path supplies itself and a Windows path does not. The fourth slash was silent on POSIX, where
-  the doubled `//` still resolves, and on Windows left DuckDB with `Cannot open file "//C:\..."`,
-  reading the leftover slash as a UNC share. The string was always wrong there; the test added in
-  GH-1958 is what ran the example on Windows and said so. The same count was wrong in the two
-  places that teach it: `to_target`'s own docstring and the PyConDE notebook both showed
-  `duckdb://name.duckdb`, which `urlparse` reads as a host rather than a path, so the database fell
-  through to the `dwd` default -- data written to an extensionless file named `dwd` in the working
-  directory, with no error, and in the notebook's case to a file it then reads back under a
-  different name
-- Network cache: the on-disk blob directory is separated by the TTL and by the headers that can
-  change what a server sends back, and by nothing else. It used to be named for a hash of the whole of `client_kwargs`, which mixes the two
-  kinds of thing that go in there: an `Authorization` header decides what a server sends back,
-  where a timeout, a proxy and a User-Agent decide nothing about it. The default User-Agent carries
-  the version number, so every release renamed the directory and began again from an empty cache --
-  and nothing read the old name afterwards or removed it. One developer machine held 129
-  directories under 98 distinct hashes and 4.3 GB, of which 115 MB was reachable by the installed
-  version; 1.4 GB sat under `ttl-INFINITE-*`, which is a provider saying those bytes never change.
-  A credential that rotates does the same on a faster clock, Met Office minting a three-day JWT.
-  Directories of the older layout are reclaimed on the first cached download of a process, which is
-  safe precisely because no key this version can produce names them. So is a directory a credential
-  named that has since rotated, aged out at a month by a marker touched whenever something asks for
-  the directory -- the blobs cannot answer that question, an archive read on every run and written
-  on none having file times as old as the day it was fetched. Only a directory that carries such a
-  suffix is ever aged out: the shared one is named on every run, and reclaiming it for looking idle
-  would throw away the main cache rather than a leftover. The in-memory registry key goes on
-  separating filesystems by everything one is built from, transport settings included -- `register`
-  runs only for a key that is new, so whatever that key omits, the first caller in a thread decides
-  for every later one. What it is given to hash changed with the entry below, for the same reason.
-  GH-1959
-- Network cache: a blob its own TTL has already made useless is dropped, once per directory per
-  process. The obvious version of this is destructive, which is why it was taken back out of
-  GH-1954: `CacheExpiry.INFINITE` is `False`, `int(False)` is `0`, and fsspec reads an expiry of
-  zero as "every entry is expired" -- it removes them all and then `rmtree`s the directory, so the
-  first such download in a fresh process would have thrown away the immutable archives `lhmt` and
-  both `meteofrance` providers keep there and fetched them again. So a TTL that is not a positive
-  number is not swept at all; the expiry is passed explicitly rather than left to fsspec's fallback
-  to `self.expiry`; the directory is marked swept before the attempt rather than after, since
-  `clear_expired` raises for a half-written entry and a sweep retried on every registration would
-  fail every download for that TTL for the life of the process; and the lock is held across the
-  sweep rather than around the bookkeeping, which is what keeps a `download_files` thread pool from
-  writing rows that the sweep's own snapshot would then drop and orphan -- the leak this closes.
-  One lock covers building a caching filesystem as well as sweeping or reclaiming one, because
-  building reads the metadata file the other two delete: on POSIX an unlink leaves the open handle
-  readable and the race is invisible, where on Windows the builder gets `PermissionError` out of
-  fsspec's `CacheMetadata._load`. GH-1955
-- Network: two credentials never share a cache directory or a filesystem, whatever shape their
-  headers arrive in. Three ways they could, each of which also told the error scrubber there was no
-  credential on a request that carried one -- so a failure holding the header went into the retry
-  log `stamina` writes. `str()` of a `SecretStr` is `**********`, and `Settings.auth` has held
-  credentials as `SecretStr` since GH-1937, so every secret hashed to one value; because that hash
-  also names the in-memory filesystem, the second caller was handed the first caller's filesystem,
-  built with the first caller's `Authorization` header, which is GH-1947 again. A value is read for
-  what it stands for now. `client_kwargs["headers"]` reaches aiohttp as a mapping or as a sequence
-  of pairs, and only the mapping was read, so a pair list answered "no credential"; both are read
-  now. An iterator is deliberately not read at all -- reading it to name a directory would empty it
-  before the request that needs it -- and counts as carrying a credential rather than as carrying
-  none
-- Network: the cache separates on every header but the ones that cannot change a body, rather than
-  on a list of the ones known to carry credentials. That list is written for redaction, where
-  missing a name costs a log line; here it costs one caller's body being handed to another, and
-  `WD_FSSPEC_CLIENT_KWARGS` is a public setting -- `Accept-Language: de` and `en` shared a
-  directory, as would `Cookie` or any header nobody had thought of. An unknown header now costs a
-  cache miss, which is a slow answer rather than a wrong one
-- met.no Frost: the credential probe builds its own headers rather than writing into the dict
-  `Settings` holds. `{**settings.fsspec_client_kwargs}` copies one level, so `setdefault("headers",
-  {})[...] = ...` mutated the shared mapping and every later request from that `Settings` -- any
-  provider, not only this one -- carried met.no's basic auth
-- Network: the log says whether a file was downloaded or read from the cache, rather than saying
-  "Downloading file" for both. `File.from_cache` has known which since GH-1947, and it is known
-  before the read rather than after, so both the opening and the closing line can say it instead of
-  guessing -- and the guess was wrong for every cache hit, which is the one thing a reader of the
-  log could already tell was not happening. Said per attempt, so a retry that goes to the network
-  after a cached read failed reads as the two different things it is. `download_files` likewise
-  announced `Downloading 3 files` before any of the three had been asked for; it now says what it
-  is fetching up front and, once they have all been answered, how many of them arrived and how many
-  of those the cache answered -- a failure comes back as a `File` carrying the exception rather than
-  raising, so counting the list would have said three files arrived where three 404s did. Where
-  there is no cache to report on -- `cache_disable`, or the `NO_CACHE` the 1-minute precipitation
-  metaindex asks for over a hundred files at a time -- it says `uncached` rather than `0 from
-  cache`, which reads as the cache having held none of them. A single file reads as `1 file` rather
-  than `1 files`, and the metaindex no longer prints its own count immediately above this one
-
-- DWD mosmix: a `kml/` directory that exists and holds nothing says so, rather than raising past
-  the line written for it -- whichever run was asked for. `next` raises `StopIteration` where its
-  filter matches nothing, and the `except IndexError` guarding the `LATEST` lookup never caught
-  that, so what a caller saw was `RuntimeError: generator raised StopIteration` from inside the
-  collection walk (PEP 479 converts it at the generator boundary), naming neither the directory nor
-  what was looked for -- or a bare `StopIteration` carrying no message where `get_url_for_date` was
-  called directly. Asked for a default instead of guarded by an exception it cannot raise, there is
-  nothing to miss. An explicit `issue` failed differently and just as opaquely, building a frame
-  whose `url` column was all-null and meeting `invalid series dtype: expected String, got null` in
-  the split below it, so an empty listing is now answered before either branch reads it, being one
-  thing whichever branch asked. What a run is called is read once, as the ten digits DWD stamps it
-  with in a name ending `.kmz`, rather than as the third `_`-separated part of one. Not `.km[lz]`,
-  though the directory is named `kml/`: `KMLReader.fetch` hands every download to `ZipFileSystem`,
-  which raises `BadZipFile` on a plain KML, so accepting an uncompressed forecast here would
-  resolve to a file the reader cannot open -- and would prefer it where DWD published both. That
-  wants the reader taught first. MOSMIX-L
-  all-stations is the layout that broke on: `MOSMIX_L_2026092203.kmz` carries no station id, so the
-  third part was `2026092203.kmz` with the extension still on it, and the alias was `LATEST.kmz`,
-  which the filter dropping `LATEST` does not match -- every row then met `conversion from str to
-  datetime failed`, and that layout could not be asked for a run at all. MOSMIX-S all-stations was
-  never affected: its lead time keeps the run in the third part (`MOSMIX_S_2026092205_240.kmz`) and
-  its alias reads as plain `LATEST`. It is on one rule with the others now, rather than on a naming
-  that happened to survive. Anything else in the directory is dropped by the same rule, a README as
-  much as a checksum published beside a forecast and carrying its run stamp, which would otherwise
-  leave two rows matching one run and raise `ValueError: can only call '.item()' if the Series is
-  of length 1` in place of that `IndexError`. A station
-  whose directory DWD has emptied or retired is how one reaches the empty-directory half, a path
-  that no longer exists being answered with no entries rather than an error; the draft adding
-  MOSMIX-SNOW is what first met it, that product being published only from November to April. The
-  `LATEST` alias is held to the same rule as a dated run, so the default path cannot answer with a
-  checksum published beside it either -- today only the listing's sort order keeps it from doing so.
-  What none of this changes is who the error takes down with it: nothing between `get_url_for_date`
-  and `values.all()` catches, so an emptied directory costs the whole request rather than the one
-  station, where `dwd/dmo` returns `None` and keeps the others. That difference is GH-1949. GH-1946
-
-- DWD mosmix: `available_issues` answers a `kml/` directory that holds no run with no issues,
-  rather than raising out of `wetterdienst issues` and the `/issues` endpoint, which are what reach
-  it. An empty listing built a `url` column of dtype Null and raised `invalid series dtype:
-  expected String, got null`; an entry that is not a forecast reached the positional read and
-  raised `get index is out of bounds`. Which runs exist has an answer in both cases: none. It reads
-  the run by the rule above rather than positionally, so it no longer carries the all-stations
-  fault either. Said with a warning naming the directory, because `fs.find` walks with
-  `on_error="omit"` and aiohttp's `ClientOSError` is an `OSError`, so a connection reset mid-listing
-  -- and the 404 of a station id that does not exist -- arrive looking exactly like an empty
-  directory, and a silent `[]` would make either a fact about the station. What that costs a caller
-  who is not reading a terminal: `/api/issues` answered a blip with the polars error as an HTTP 400
-  and the CLI exited 1, where both now answer `{"issues": []}` and exit 0. Telling them apart needs
-  the listing to report what it swallows, which is GH-1947. A directory holding no dated run is
-  reported by what is in it -- how many entries, how many of them the `LATEST` alias -- rather than
-  by a guess at why, an alias being a forecast and only a dated run being what this lists. GH-1946
-
-- DWD dmo: `available_issues` answers a `kmz/` directory that holds no run with no issues, rather
-  than raising out of `wetterdienst issues` and the `/issues` endpoint, which are what reach it. An
-  empty listing built a `url` column of dtype Null and raised `invalid series dtype: expected
-  String, got null`; an entry that is not a forecast reached `add_date_from_filename` and raised
-  `conversion from str to i64 failed ... ["AD"]`. Which runs exist has an answer in both cases:
-  none -- as `dwd/mosmix` now does for its own directory, in GH-1946, which this does not depend
-  on. Said with a warning naming the directory, because `fs.find` walks with `on_error="omit"`
-  and aiohttp's `ClientOSError` is an `OSError`, so a connection reset mid-listing -- and the 404 of
-  a station id that does not exist -- arrive looking exactly like an empty directory, and a silent
-  `[]` would make either a fact about the station. What that costs a caller who is not reading a
-  terminal: `/api/issues` answered a blip with the polars error as an HTTP 400 and the CLI exited 1,
-  where both now answer `{"issues": []}` and exit 0; telling them apart needs the listing to report
-  what it swallows, which is GH-1947. What counts as a forecast is the six digits a run is stamped
-  with *and* the `.kmz` the name ends in: the slice that reads the stamp takes four characters off
-  whatever it is given, so `..._210000.txt` strips to `210000` and would have been reported as a run
-  that exists, while `.kmz.md5` failed only by stripping to `210000.kmz`, which is luck rather than
-  a rule. The positional read itself stays, along with the lead-time substring match and the
-  tz-aware issues this method advertises that `get_url_for_date` rejects, which are GH-1948.
-
-- DWD dmo: a run is read by its whole name, where every part of it was read by position or by
-  substring and each wrongly. The lead time was matched as a bare `"78"` or `"168"` anywhere in the
-  URL, which the station id also satisfies -- 187 of 5811 ids contain `78`, so a request for the
-  short lead time kept the long one's files too, two rows carried one run start, and
-  `df.get_column("url").item()` raised `can only call '.item()' if the Series is of length 1`; that
-  is roughly 3% of DMO stations unable to be read at all, and the rest matched by luck. The run
-  stamp was the last `_`-separated part with four characters taken off the end, so a README reached
-  the parse and raised `conversion from str to i64 failed ... ["AD"]`, and a `..._210000.txt`
-  sidecar strips to a valid `210000` and could be answered with -- handing the reader a file that is
-  not a forecast, where a crash would at least have named the listing. And `available_issues`
-  returned tz-aware UTC datetimes while this compared against a naive column, so an issue that
-  command advertised was rejected by the next one with `could not evaluate comparison between
-  series 'date' of dtype: Datetime('us') and ... Datetime('us', 'UTC')`: `wetterdienst issues`
-  printed issues in a form `wetterdienst values` could not accept. Named as a whole
-  (`_<lead>_<n>_<DDHHMM>.kmz`), the lead time is a field rather than a substring and a name that is
-  not a forecast carries no stamp; the issue is converted when it carries a zone, and a filter that
-  empties the frame says so rather than reporting `Unable to find None file within`. `available_issues`
-  reads by the same rule. An issue between two releases is also floored to the one before it, where
-  `hour % 12` sent 1 through 11 *up* to 12: asking for the 03:00 run returned the 12:00 one, issued
-  nine hours later, or raised where 12:00 was not yet published while 00:00 sat there unasked for.
-  That was unreachable until the comparison above was fixed, every non-`LATEST` issue having raised
-  before it decided anything. An issue given in another zone is converted rather than relabelled,
-  too: taking its wall-clock hour and stamping UTC on it read `13:00+02:00` as 13:00 UTC, so
-  11:00 UTC asked for was answered with 12:00 -- one release too late, and at 11:00 a run not yet
-  published, so an `IndexError` where the 00:00 run was sitting there. GH-1948
-
-- DWD mosmix: `LATEST` reads the newest run the listing names, rather than the `LATEST` alias
-  beside it, and a forecast is held for as long as its URL allows. The two are the same bytes --
-  the server answers one ETag, one content-length and one Last-Modified for both, the alias being a
-  link rather than a copy -- but a run named by its timestamp is that run for good, where the alias
-  is a name whose content DWD replaces every hour. Holding everything for five minutes meant
-  re-downloading `MOSMIX_S`, 36 MB published hourly, up to twelve times an hour for a file that had
-  not changed; a named run is held for twelve hours and only the alias, still the fallback for a
-  listing that names no run, keeps the short expiry. `dwd/road` and `dwd/dmo` already index the
-  named files and skip the alias. What that costs is a distinct URL per run, so the cache gains a
-  blob an hour where it reused one: 36 MB an hour and 871 MB a day for MOSMIX-S, against 10.4 GB a
-  day over the wire before. Nothing evicts a blob once its expiry has passed, which is GH-1955 and
-  is true of every provider here -- the observation zips and the radar files accumulate per URL
-  already, and reusing one blob was mosmix's anomaly, from resolving to a name whose content
-  changed under it. `dwd/dmo` reads through the same class, so its downloads take the long hold
-  too; its names carry the same immutable run stamp. GH-1945
-
+  while `.-6` raised `conversion from str to f64 failed` naming neither column nor station. Of the
+  file's 11 622 position fields, 21 needed repairing and all 21 now land on the coordinate DWD's own
+  placemarks carry. `P0563` (London Luton) is beyond reach, written `.22` where the sign is missing
+  rather than misplaced
+- DWD DMO: a run stamp becomes the hour it names whatever that hour is. `DDHHMM` had its day, month
+  and minute padded back to two digits before parsing but not its hour, so `3` made `...01300` and
+  `%H` took the `30` it could see. DMO publishes at `00` and `12`, so no run has hit this
+- DWD DMO: both dataset descriptions were MOSMIX's, word for word -- `icon` described as MOSMIX-L's
+  "115 parameters for worldwide stations", `icon_eu` as MOSMIX-S's 40-parameter one, and neither
+  count is DMO's. Neither description names a parameter count any more, and `icon_eu` names the set
+  it is published for rather than "European": 11 of its 3688 stations sit east of 35° longitude
+- DWD mosmix: `LATEST` reads the newest run the listing names rather than the alias beside it, and a
+  named run is held for twelve hours instead of five minutes. The two are the same bytes -- one
+  ETag, one content-length -- but a run named by its timestamp is that run for good, where the alias
+  is a name DWD replaces hourly. MOSMIX-S, 36 MB published hourly, was refetched up to twelve times
+  an hour: 10.4 GB a day over the wire against 871 MB now, at the cost of one blob an hour in a
+  cache that has no eviction (GH-1945)
 - DWD mosmix: a station whose directory DWD has emptied or retired costs that station and no more.
-  `get_url_for_date` raised on a listing that named nothing, and nothing between it and
-  `values.all()` catches, so one such station ended a request for fifty and took the forty-nine
-  that do publish with it. It answers `None` now and the readers give that station an empty frame,
-  which is the split `dwd/dmo` has always made; mosmix raised because its return type said it must.
-  A directory that names files but no forecast still raises, being a statement about the product
-  rather than about one station -- and so does an empty listing for the all-stations products,
-  where one empty directory is every station at once and therefore cannot mean a station retired.
-  A run whose cached body is not a zip is dropped from the cache and asked for once more, too:
-  fsspec records a cache entry before the copy that fills it finishes, so a download interrupted
-  mid-copy leaves a truncated blob that is accepted for the life of the entry -- which held five
-  minutes righted itself and held twelve hours would not. GH-1949
-
-- Examples: the DuckDB dump writes outside the repository when it runs under pytest. It is a smoke
-  test there rather than an artifact -- one station's values, thrown away -- but it wrote to the
-  tracked `examples/provider/dwd/dwd_obs_daily_climate_summary.duckdb`, so every test run left a
-  1.3 MB binary modified in the working tree. That has twice been committed by accident alongside
-  unrelated work, which is how it was noticed; a test now asserts the file is untouched after the
-  example runs.
-
-- Network: the cache says what it did, where it used to decide on a caller's behalf and keep
-  quiet. `cache_dir`, `cache_disable` and `use_certifi` all decided what
-  `NetworkFilesystemManager.register` built and were then not part of the key it was filed under,
-  and `register` runs only for a key that is new -- so the first caller in a thread decided for
-  every later one. `CacheExpiry.METAINDEX` being an alias of `TWELVE_HOURS`, any earlier metaindex
-  download from any provider was enough to leave a caching filesystem under that key, and a later
-  request made with caching disabled, or against a different `WD_CACHE_DIR`, was then served by it.
-  All three are in the key now -- which names the instance in memory and nothing on disk, the blobs
-  staying where they have always been, since a key that reached the filesystem would strand every
-  blob an affected user already has. A listing that could not be read is also no longer answered as
-  an empty directory: `fs.find` walks with `on_error="omit"`, which catches `OSError` and returns
-  nothing, and aiohttp's `ClientOSError` is one -- so a connection reset was swallowed inside
-  fsspec, never reached the retry wrapping the call, and left every provider to decide what an
-  empty list meant, which none of them could. It raises now, and the two are told apart where the
-  difference is knowable: a directory that is not there is `FileNotFoundError` and stays the `[]`
-  callers have always had, and being offline stays `[]` too -- that is the whole library being
-  offline rather than this listing failing to read, and every other path here degrades on it
-  quietly, a download coming back carrying `NoInternetError` for providers to answer with empty
-  frames. That covers a flat listing, which is what this library asks for almost
-  everywhere; fsspec does not forward `on_error` to the recursive half of a walk, so a failure
-  below the top level of a subtree is still swallowed, which is noted in GH-1947 rather than
-  claimed as fixed. And `File` carries `from_cache`, sampled per attempt, because a caller that
-  cannot use what it was given needs to know whether asking again could answer differently.
-  GH-1947
+  `get_url_for_date` raised on a listing that named nothing and nothing between it and
+  `values.all()` catches, so one such station ended a request for fifty. It answers `None` now, the
+  split `dwd/dmo` has always made. A cached body that is not a zip is dropped and asked for once
+  more, since fsspec records a cache entry before the copy that fills it finishes (GH-1949)
 - DWD swsmos: the run is read once for the request rather than once for every station it answers
-  for. One run file holds every road station's whole forecast -- 306 612 rows, 1 836 stations to
-  +167 h -- where the collection above it asks for one station at a time, so the run was listed,
-  fetched and parsed once per station and all but one station's rows thrown away each time. Five
-  stations parsed the same file five times, 2.5 s of a 2.7 s request; twenty-five took 14.1 s, and
-  the whole network would have spent a quarter of an hour decompressing one file it already held.
-  They now take 0.7 s and 0.8 s: one parse whatever the request asks for, and a 1.08 ms filter over
-  the parsed run per station after it -- near-flat rather than flat, 1.98 s of filtering for the
-  whole network, where partitioning the run by station would cost 0.065 s once and is the better
-  trade only above about sixty stations. The whole
-  run is kept where `dwd/road` keeps only its last station group, a run being one file of some
-  20 MB however wide the request or long the window, and it needs no key: a group varies from
-  station to station, while the run is a property of the query. It is pinned for the length of a
-  query and no longer, so a caller keeping the values object and querying it again on a timer is
-  answered with the run published since rather than the one it first resolved. A run that cannot be
-  fetched is likewise asked for once, and reported once, instead of once per station. This is the
-  half of GH-1922 left open when `dwd/road` was fixed, measured rather than assumed to transfer.
-  GH-1922
-
-- DWD swsmos: `LATEST` no longer answers with a run up to twelve hours old. How long a run may be
-  cached is a property of the URL rather than of the request: a run named by its timestamp is that
-  run for good, while `swsmos_LATEST_opendata.csv.bz2` is a name whose content DWD replaces every
-  hour -- and the alias was cached by URL for twelve hours like everything else, so "the latest
-  run" could be one whose first twelve forecast hours had already happened. Measured against the
-  live server at 22:57 UTC: the alias was answered from the 21:00 run while DWD was serving 22:00.
-  `LATEST` now resolves to the newest run the directory listing names, which is the same bytes --
-  the server returns one ETag for the alias and that file, one content-length and one
-  Last-Modified, the alias being a link rather than a copy -- from a URL that cannot change under
-  its cache entry, so the answer is the newest run with nothing to expire. The listing is never
-  cached, and `dwd/road` likewise indexes the timestamped files and skips the aliases duplicating
-  them. The alias remains the fallback for a listing that names no run, held for five minutes,
-  which is what `dwd/mosmix` holds its KML for. Found while reviewing the fix above, and older than
-  it. GH-1922
-
-- DWD swsmos: a run that cannot be read is reported and skipped, where it used to end the request
-  in a traceback. A body that is not the bz2 a run file should be raises out of `bz2.decompress` --
-  `ValueError` where it stops early, `OSError` where it was never bz2 -- and nothing between there
-  and the caller catches, so a truncated download ended `values.all()` in a traceback where a
-  failed download ends it in an empty frame. It is cached for twelve hours as well, so the same
-  traceback would have repeated for half a day. It is now warned about and answered the way a
-  failed fetch is, and `LATEST` falls back to the run before the newest: the listing is
-  deliberately uncached, so it names a run the moment it appears, and a run still being written
-  cannot be read -- an hour-old forecast is what `LATEST` should mean in that window rather than
-  nothing. What counts as a run is matched exactly (`swsmos_<14 digits>_opendata.csv.bz2`) rather
-  than by a `swsmos_` prefix, which also matches a checksum sidecar or a second product published
-  beside the runs -- and one of those sorts *after* the run it belongs to, so the newest name would
-  have been a file that is not a run. A run that arrives holding nothing takes the same way out:
-  `bz2.decompress(b"")` returns `b""` rather than raising, so a zero-byte 200 parsed to a frame of
-  no rows and read as a run that simply holds nothing, which became the request's answer while the
-  run before it went untried -- the same window, one byte-count away. And a body that could not be
-  read is asked for once more past the cache before falling back, since it is held under its URL
-  for twelve hours like a good one, so what the cache hands back says nothing about what the server
-  has now -- and answering from the run before it without asking would mean an hour of yesterday's
-  hour while the run the caller asked for sits complete on the server. `LATEST` means the newest
-  run there is, not the newest one a stale cache entry will admit to. The re-ask is not held back by
-  `cache_disable`, which does not say what it looks like it says: `NetworkFilesystemManager` keys
-  its filesystems by TTL and client kwargs alone and registers one only where that key is new, so a
-  request made with caching disabled is served by whatever was registered first in that thread,
-  cache and all (GH-1947). Naming the run rather than the alias also means a distinct URL per model
-  run, so the cache grows by one 1.9 MB body an hour where it used to refetch one: 45.6 MB a day,
-  1.34 GB a month and 16.3 GB a year for a process that keeps asking, against a cache that has no
-  eviction at all and already reaches 4.2 GB on its own. Small next to that figure for a quarter,
-  and past it thereafter; tracked in GH-1947. A listing
-  that names no run at all now says so too, where it used to answer every station with an empty
-  frame and no diagnostic: the listing is retried and re-raises, so an empty one means the server
-  named nothing, which is a directory reorganised rather than a day without data. Found while
-  reviewing the fix above. GH-1922
-
+  for. One run file holds every road station's whole forecast -- 306 612 rows -- and was listed,
+  fetched and parsed once per station with all but one station's rows thrown away. Twenty-five
+  stations took 14.1 s and now take 0.8 s. The run is pinned for the length of a query and no
+  longer, so a caller querying again on a timer is answered with the run published since (GH-1922)
+- DWD swsmos: `LATEST` no longer answers with a run up to twelve hours old. The alias is a name
+  whose content DWD replaces hourly and was cached by URL for twelve hours like everything else, so
+  "the latest run" could be one whose first twelve forecast hours had already happened -- measured
+  at 22:57 UTC, the alias answered from the 21:00 run while DWD served 22:00 (GH-1922)
+- DWD swsmos: a run that cannot be read is reported and skipped, where it used to end the request in
+  a traceback out of `bz2.decompress` and repeat it for the twelve hours it stays cached. `LATEST`
+  falls back to the run before the newest, an hour-old forecast being what it should mean while a
+  run is still being written. A run is matched exactly (`swsmos_<14 digits>_opendata.csv.bz2`),
+  since a `swsmos_` prefix also matches a checksum sidecar that sorts after the run it belongs to,
+  and a zero-byte 200 no longer parses to a run that simply holds nothing (GH-1922)
+- Network: the cache says what it did, where it used to decide on a caller's behalf and keep quiet.
+  `cache_dir`, `cache_disable` and `use_certifi` decided what `NetworkFilesystemManager.register`
+  built and were not part of the key it was filed under, and `register` runs only for a new key --
+  so the first caller in a thread decided for every later one, and a request made with caching
+  disabled could be served by a caching filesystem. A listing that could not be read is no longer
+  answered as an empty directory either: `fs.find` walks with `on_error="omit"` and aiohttp's
+  `ClientOSError` is an `OSError`, so a connection reset was swallowed inside fsspec. A directory
+  that is not there stays `[]`, as does being offline (GH-1947)
+- Network cache: the on-disk blob directory is separated by the TTL and by the headers that can
+  change what a server sends back, and by nothing else. Named for a hash of the whole of
+  `client_kwargs`, it moved whenever the default User-Agent's version number did -- one developer
+  machine held 129 directories and 4.3 GB of which 115 MB was reachable, 1.4 GB of it under
+  `ttl-INFINITE-*`. Directories of the older layout are reclaimed on the first cached download of a
+  process, and one a rotated credential named ages out at a month (GH-1959)
+- Network cache: a blob its own TTL has already made useless is dropped, once per directory per
+  process. A TTL that is not a positive number is not swept at all, because `CacheExpiry.INFINITE`
+  is `False` and fsspec reads an expiry of zero as "every entry is expired" -- it would have thrown
+  away the immutable archives `lhmt` and both `meteofrance` providers keep there. The lock is held
+  across the sweep, which is what keeps a `download_files` thread pool from writing rows the sweep's
+  own snapshot would then drop and orphan (GH-1955)
+- Network: two credentials never share a cache directory or a filesystem, whatever shape their
+  headers arrive in. `str()` of a `SecretStr` is `**********`, so every secret hashed to one value
+  and the second caller was handed the first caller's filesystem, built with the first caller's
+  `Authorization` header; `client_kwargs["headers"]` reaches aiohttp as a mapping or as a sequence
+  of pairs and only the mapping was read. The cache also separates on every header but the ones that
+  cannot change a body, rather than on a list of those known to carry credentials --
+  `Accept-Language: de` and `en` shared a directory. An unknown header now costs a cache miss
+- met.no Frost: the credential probe builds its own headers rather than writing into the dict
+  `Settings` holds. `{**settings.fsspec_client_kwargs}` copies one level, so
+  `setdefault("headers", {})[...] = ...` mutated the shared mapping and every later request from
+  that `Settings` -- any provider, not only this one -- carried met.no's basic auth
+- Network: the log says whether a file was downloaded or read from the cache, rather than saying
+  "Downloading file" for both -- and it was wrong for every cache hit, the one thing a reader could
+  already tell was not happening. `download_files` says what it is fetching up front and then how
+  many arrived and how many the cache answered, `uncached` where there is no cache to report on
 - A token exchange that meets a server error is asked a second time. `post_file` retried a
-  connection that never carried a response, but took every response that did arrive as an answer --
-  and a 502 or 503 from a token endpoint is a blip, not an answer. A mint is made once every three
-  days and empties a whole Met Office query when it fails, so it is the request least able to afford
-  a single-shot failure. A body that stops arriving mid-read is asked again too -- it is the same
-  kind of blip, and no subclass of the connection errors that were already named. A 401 is still an
-  answer, and a 429 deliberately so: the endpoints that rate-limit are rate-limiting a free account,
-  and asking again a tenth of a second later makes that worse rather than better. `download_file`
-  is held to the same policy, where it used to retry any failing status -- so a 429 from AEMET or
-  met.no Frost is no longer answered by doubling the request rate against a provider that has just
-  said it is rate-limiting. AEMET's own retry loop, which waits properly between attempts, is what
-  clears that one, and it now sees the 429 after one request rather than two. A missing file is
-  still asked for twice, a file index being read minutes before the files it names. GH-1939
-
-- The three paths that do not go through the provider registry say which extra they want, where
-  they used to raise a bare `ModuleNotFoundError`: `wetterdienst restapi` without `[restapi]`,
-  `.interpolate()` without `[interpolation]`, and the radar HDF5 dump without `[radar]`. Each names
-  the package and the command that installs it, as the plotting helpers already did. Where several
-  extras install the same package -- `h5py` belongs to both `knmi` and `radar` -- the caller's own
-  is the one named, and only where the metadata agrees that it installs it, so a renamed extra
-  falls back to what is actually there rather than to a wrong instruction. GH-1938
-
-- A provider that cannot be loaded says which package it is missing. `importlib` raises
-  `ModuleNotFoundError` for an absent *dependency* of a module just as readily as for an absent
-  module, and `Wetterdienst.resolve` rewrote both into `Module wetterdienst.provider.X not found` --
-  so a reader went looking for a provider that was in fact right there, while the package they
-  needed went unnamed. The two are now told apart by the name the exception carries, and where an
-  extra of this package would install it, the message says which: `pip install wetterdienst[knmi]`.
-  The extras are read out of the installed metadata rather than from a list kept in the code, so one
-  that gains or loses a package cannot leave a wrong instruction behind, and nothing is suggested
-  for a package that belongs to no extra. GH-1929
-
+  connection that never carried a response but took every response that did arrive as an answer, and
+  a 502 from a token endpoint is a blip. A mint is made once every three days and empties a whole
+  Met Office query when it fails. A 401 is still an answer, and so is a 429 deliberately:
+  `download_file` no longer retries any failing status, so a 429 from AEMET or met.no Frost is not
+  answered by doubling the request rate against a provider that has just said it is rate-limiting
+  (GH-1939)
 - Met Office works on a plain `pip install wetterdienst`. Its CEDA token exchange imported `httpx`
-  at module level, but `httpx` was declared only by the `restapi` extra and nothing pulls it in
-  transitively, so `Wetterdienst("metoffice", "observation")` raised on an installation that had
-  not asked for the REST API -- reported as `Module wetterdienst.provider.metoffice.observation not
-  found`, since the registry rewrites a `ModuleNotFoundError` and drops the name of what was
-  actually missing. The exchange now goes through fsspec's HTTP filesystem like every other request
-  the package makes, by way of a new `post_file` in `util/network.py`: the download path could not
-  serve it, being a GET through a caching filesystem where a token mint is a POST whose answer must
-  never be cached. `httpx` is no longer a dependency of wetterdienst at all -- the REST API never
-  imported it, and starlette's test client has moved to `httpx2`. The basic-auth header is written
-  by hand rather than through aiohttp's `BasicAuth`, which is deprecated for removal in aiohttp 4,
-  and is sent per request so credentials never reach `client_kwargs`, which is hashed into the
-  filesystem cache key. A failed exchange is a `File` carrying the exception whichever way it
-  failed, the base `ClientError` being caught rather than a list of its subclasses: fsspec holds one
-  session and its keep-alive pool for the life of the process while a token is minted days apart, so
-  a mint can be handed a connection the server closed hours ago. That one is retried once, where a
-  response that did arrive -- a 401 among them -- is an answer and is not. A redirect is not
-  followed either: aiohttp would repeat a redirected POST as a GET, turning CEDA's login page into a
-  200 whose body parses as nothing, where the 302 says plainly what happened. GH-1929
-
+  at module level, which only the `restapi` extra declared, so
+  `Wetterdienst("metoffice", "observation")` raised on an installation that had not asked for the
+  REST API. The exchange goes through fsspec now, by way of a new `post_file` in `util/network.py`,
+  and `httpx` is no longer a dependency of wetterdienst at all. A redirect is not followed, since
+  aiohttp would repeat a redirected POST as a GET and turn CEDA's login page into a 200 whose body
+  parses as nothing (GH-1929)
+- A provider that cannot be loaded says which package it is missing. `importlib` raises
+  `ModuleNotFoundError` for an absent dependency as readily as for an absent module, and
+  `Wetterdienst.resolve` rewrote both into `Module wetterdienst.provider.X not found`. Where an
+  extra of this package would install it the message says which, read out of the installed metadata
+  rather than from a list kept in the code (GH-1929)
+- The three paths that do not go through the provider registry say which extra they want, where they
+  used to raise a bare `ModuleNotFoundError`: `wetterdienst restapi` without `[restapi]`,
+  `.interpolate()` without `[interpolation]`, and the radar HDF5 dump without `[radar]` (GH-1938)
 - The MCP server tells a client which wetterdienst it is talking to. `FastMCP(version=...)` was
   never set, and left unset it reports the installed FastMCP release as the server's own version --
-  so a client asking what it had connected to was answered "Wetterdienst 4.0.3". It now answers
-  with wetterdienst's version, the same one `GET /api/version` gives
+  so a client asking what it had connected to was answered "Wetterdienst 4.0.3"
+- Examples: the DuckDB dump addresses its database file with three slashes rather than four, so it
+  opens on Windows, where the leftover slash left DuckDB reading `//C:\...` as a UNC share. The same
+  count was wrong in `to_target`'s docstring and the PyConDE notebook, which showed
+  `duckdb://name.duckdb` -- read as a host rather than a path, so the data went to an extensionless
+  file named `dwd` in the working directory with no error
+- Four documented parameters that no request could ask for, and four requestable ones no page
+  documented. `dwd/mosmix` hourly documented `cloud_base_convective` and `cloud_cover_below_7km`
+  under `small`, which the model declares for `large` alone, and carried a stale `n1` row the model
+  has never mapped; `imgw/meteorology` daily documented a `precipitation_height` under `synop` that
+  raises `NoParametersFoundError`, while monthly `synop` documented none of its four precipitation
+  parameters at all
+- Three unit cells disagreeing with the model about the quantity rather than the notation:
+  `dwd/road` 15_minutes wrote `mm/s` where the model declared `millimeter_per_hour` -- there the
+  page was right and the model wrong, which GH-1984 settles in this release -- and `dwd/observation`
+  monthly and annual wrote `Bft` for `wind_gust_max`, which the model declares `meter_per_second`,
+  copied from the `wind_force_beaufort` row above it
+- The stale MOSMIX and DMO figures the docs carried: MOSMIX-L at "~115 parameters" and both products
+  at "over 5000 stations worldwide" in two files beside the `docs/data/overview.md` being corrected
+  in the same change, and a fourth copy of the 115 in `dwd/mosmix` hourly's own dataset description.
+  Measured: MOSMIX 5649 stations, 40 parameters for `small` and 122 for `large`; DMO 5757 stations
+  and 23 parameters for `icon`, 3688 and 19 for `icon_eu`
+- `imgw/hydrology` monthly is described as "historical monthly hydrology data", not "historical
+  daily climate data" -- wrong in both the resolution and the subject, and wrong in the model and
+  the page alike. A caller asking `discover`, the REST API or MCP for `monthly/hydrology` was told
+  it holds daily climate data
+- The three `dwd/derived` monthly `cooling_degreehours_*` datasets are each described by the
+  reference temperature they actually use, rather than sharing the page's blurb about "13, 16 and 18
+  degree Celsius" -- `discover`, the REST API and MCP report a dataset at a time and were telling a
+  caller asking for `cooling_degreehours_13` that it covers three base temperatures
+- The three `dwd/derived` *Kuehltage* overrides are described as "Number of days with at least one
+  cooling hour", which is what DWD counts, rather than "Number of days on which cooling was
+  required". The canonical `count_days_cooling_degree` keeps the general wording, as its
+  `count_days_heating_degree` sibling does
 
 ### Security
 
 - Provider credentials are held as `SecretStr`, so that rendering the settings does not print them.
-  `Settings.__repr__` and `__str__` serialise the whole model, `auth` included, and a request's
-  dataclass repr embeds a `Settings` -- so an API key reached every ordinary way of looking at an
-  object on a failure path: a pytest assertion diff, an unhandled traceback, `print(request)`, a
-  debugger, a notebook. Nothing logs a `Settings` in normal operation, which is what kept this out
-  of sight; what it costs is that anyone pasting such a traceback into an issue, a chat or a CI log
-  published every credential they had configured. All four -- AEMET, KNMI, met.no Frost and CEDA --
-  now render as `**********`, and `reveal()` is the one way back to a value, called where the
-  credential is actually sent. The Met Office token cache is keyed by the secrets themselves rather
-  than by what they hold, so it is not somewhere the pair sits in plain text either. GH-1920
-
+  `Settings.__repr__` serialises the whole model, `auth` included, and a request's dataclass repr
+  embeds a `Settings` -- so an API key reached every ordinary way of looking at an object on a
+  failure path: a pytest assertion diff, a traceback, `print(request)`, a debugger, a notebook.
+  Anyone pasting such a traceback into an issue or a CI log published every credential they had
+  configured. All four -- AEMET, KNMI, met.no Frost and CEDA -- now render as `**********`, and
+  `reveal()` is the one way back to a value (GH-1920)
+- A credential no longer travels in the error a failed download hands back. aiohttp hangs the
+  request's headers on a `ClientResponseError` and on its `args`, so an `Authorization` header
+  reached anything that rendered the `File` the download returned. It travelled three further ways:
+  the traceback's frames in `util/network.py` hold the caller's client kwargs as locals, which
+  `pytest --showlocals` prints; `ClientResponseError.history` holds a copy per redirect; and
+  `stamina`'s retry hook logs a `repr` of what failed. None of the four shows in `str(error)`. The
+  header is redacted, the history and traceback dropped, and the error scrubbed on its way into the
+  retry as well as out of it
 - A failed request that carried its credential in a header of another name has that header redacted
-  too. The scrubbing added above knew `Authorization`, which is where KNMI's key, met.no Frost's
-  basic auth and Met Office's bearer token go -- but AEMET sends its key as `api_key`, leaving the
-  one provider with a header of its own the only one whose key still reached a traceback and
-  stamina's retry log
-
+  too. The scrubbing knew `Authorization`, where KNMI's key, met.no Frost's basic auth and Met
+  Office's bearer token go, but AEMET sends its key as `api_key`
 - `httpx2` now has a floor of `>=2.12` wherever it is declared -- the dev group, which held
   `>=2.4.0`, and the `mcp` extra, which now declares it -- and the lockfile carries 2.13.0 where it
-  held 2.10.0. Six advisories stand against 2.10.0: multipart part header injection through an
+  held 2.10.0. Three advisories stand against 2.10.0: multipart part header injection through an
   unvalidated file `Content-Type` (CVE-2026-84379, fixed in 2.11.0), conflicting `Content-Length`
-  and `Transfer-Encoding` headers being generated together (CVE-2026-84380, 2.11.0), and unbounded
-  peak memory when decompressing a streamed response (CVE-2026-84382, 2.12.0). `uv audit` has
-  failed on `main` since 2026-09-16 on exactly these, and passes again
-
-- A credential no longer travels in the error a failed download hands back. KNMI sends its API key,
-  met.no Frost its basic auth and Met Office its bearer token as an `Authorization` header, and
-  aiohttp hangs the request's headers on a `ClientResponseError` -- and on its `args`, which is what
-  a `repr` renders -- so the key reached anything that rendered the `File` the download returned.
-  It travelled three further ways. The traceback's frames in `util/network.py` hold the caller's
-  client kwargs as locals, which is what `pytest --showlocals` prints and what an error reporter
-  capturing frame locals sends. `ClientResponseError.history` holds the responses a redirect chain
-  passed through, each with its own copy of the header -- the shape a login-page redirect takes.
-  And `stamina`'s retry hook logs a `repr` of what failed on the first failure of every retried
-  download, rendering the request info before any of this could redact it. None of the four shows
-  in `str(error)`, which is what made them easy to miss. The header is now redacted, the history
-  and the traceback dropped, and the error scrubbed on its way into the retry as well as out of it
-  -- for a request that carried credentials and only for one, an ordinary 404's traceback being
-  worth more than it costs. An aiohttp failure that is none of the named ones, a dropped connection
-  among them, is answered with a `File` rather than raised through the caller, so it cannot leave
-  by way of a traceback either. The token exchange added below is held to the same rule, its own
-  frames holding the header and its encoding
+  and `Transfer-Encoding` headers generated together (CVE-2026-84380, 2.11.0), and unbounded peak
+  memory decompressing a streamed response (CVE-2026-84382, 2.12.0). `uv audit` has failed on `main`
+  since 2026-09-16 on exactly these, and passes again
 
 ## [0.137.0] - 2026-09-18
 

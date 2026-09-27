@@ -114,3 +114,4 @@ Optional dependency groups include `export`, `interpolation`, `restapi`, `sql`, 
 - **New providers**: follow the strict metadata dict schema — copy an existing `provider/*/metadata.py` before adding one.
 - **Test markers**: `remote` (needs internet), `slow`, `sql`, `explorer`, `cflake` (concurrency-flaky). Remote tests run by default locally; skip with `-m "not remote"`.
 - **Ruff** is the linter/formatter, line length 120. **`ty`** is the type checker. Run `uv run poe format` before committing.
+- **Changelog**: entries record changes to wetterdienst that a caller can observe — behaviour, API, dependencies, security, and docs that stated a wrong fact. Not new tests, test helpers or docs consistency (notation, row order, padding). One to three lines wrapped at 100 columns, what changed and what it means for a caller, then `(GH-####)`; a breaking change also says what to do instead. The reasoning for the change belongs in the commit body, not here.
