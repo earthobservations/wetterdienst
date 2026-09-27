@@ -18,6 +18,15 @@ Types of changes:
 
 ### Added
 
+- `test_docs_parameter_tables_list_their_rows_in_declaration_order`, holding the order a parameter
+  table lists its rows in. GH-1978 adopted that as the convention and restored it for the tables it
+  touched, but nothing compared it, so it drifted: 41 of the 271 documented tables listed their rows
+  in an order the model does not declare, and every other test in this module read them without
+  complaint, being keyed by parameter rather than by position. Omissions stay allowed, which is what
+  makes the property checkable at all -- 33 tables document fewer parameters than their dataset
+  declares, so the comparison is against the declared order restricted to the rows a page keeps. The
+  two parsers now share one walk of the page, `_parameter_table_rows`, so that a row's dataset and a
+  row's position cannot be answered from two different readings of the same table (GH-1980)
 - `precipitation_intensity` can be declared in `millimeter_per_second`, which is what BUFR publishes
   a precipitation rate in: `kg m-2 s-1`, a mass flux per area, and a depth per second once the
   density of water divides out. The unit type carried only the two hourly spellings, so there was
