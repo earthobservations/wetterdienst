@@ -253,15 +253,16 @@ _QUALITY_MISSING = _flag_bit(30)
 #: contradicted by the data, though a single dry night cannot confirm them: nothing was reporting a
 #: water film to flag, and only one station flagged its dry bulb.
 #:
-#: `roadSurfaceCondition` and `waterFilmThickness` are deliberately absent, both being road
-#: descriptors of DWD's own (`0 20 241` and `0 13 241`) rather than quantities this table names. Its
-#: nearest offers are bit 19, "state of ground", which is about bare earth, and bit 21, "water
-#: content", which is the moisture in it. Bit 7 shows DWD does write road quantities into the
-#: table, but it is mapped here because the data confirms it and not because the wording is close,
-#: and neither of those two has anything to confirm it: bit 19 is set nowhere at all, and the 14
-#: stations setting bit 21 reported the same film as everyone else on a dry night. A wrong `0`
-#: there would be worse than a null, telling a caller filtering on quality that a suspect reading
-#: was checked and found sound
+#: `roadSurfaceCondition` and `waterFilmThickness` are deliberately absent, being quantities this
+#: table does not name. Not for want of a WMO descriptor for them: the road layout carries them as
+#: DWD's own `0 20 241` and `0 13 241`, but a quarter of the network delivers the film as WMO
+#: `0 13 116` and the flag table has no bit for it either way. Its nearest offers are bit 19, "state
+#: of ground", which is about bare earth, and bit 21, "water content", which is the moisture in it.
+#: Bit 7 shows DWD does write road quantities into the table, but it is mapped here because the data
+#: confirms it and not because the wording is close, and neither of those two has anything to
+#: confirm it: bit 19 is set nowhere at all, and the 14 stations setting bit 21 reported the same
+#: film as everyone else on a dry night. A wrong `0` there would be worse than a null, telling a
+#: caller filtering on quality that a suspect reading was checked and found sound
 _QUALITY_BITS = {
     "windDirection": 3,
     "windSpeed": 3,

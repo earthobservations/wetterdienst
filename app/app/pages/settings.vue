@@ -15,10 +15,11 @@ const themeOptions = computed(() => [
   { value: 'dark', label: t('settings.themeDark'), icon: 'i-lucide-moon' },
 ])
 
-// Units a reader would want to see values in, per convertible type. Not every unit the backend can
-// convert to: precipitation_intensity leaves out millimeter_per_second, which is what BUFR publishes
-// a rain rate in rather than a unit to read one in, and concentration leaves out the two
-// per-cubic-metre spellings of what it already offers per litre.
+// Units a reader would want to see values in. Curated rather than a mirror of the backend
+// UnitConverter, in both directions: precipitation_intensity leaves out millimeter_per_second (what
+// BUFR publishes a rain rate in, not a unit to read one in) and concentration the two
+// per-cubic-metre spellings of what it already offers per litre, while mass_per_volume and
+// degree_hour are convertible backend types with no picker here at all.
 // Length types share the same unit list.
 const LENGTH = ['millimeter', 'centimeter', 'meter', 'kilometer', 'mile', 'nautical_mile']
 

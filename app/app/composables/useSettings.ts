@@ -16,8 +16,9 @@ import { z } from 'zod'
 
 export const SETTINGS_VERSION = 1
 
-// Target units for every convertible unit type the backend UnitConverter knows
-// (types with more than one possible unit). Single-unit types are omitted.
+// Target units for the convertible unit types the app offers a picker for. Single-unit backend types
+// are omitted, and so are mass_per_volume and degree_hour, which are convertible and have never had
+// one -- see the list in pages/settings.vue.
 export const unitSettingsSchema = z.object({
   temperature: z.string(),
   precipitation: z.string(),

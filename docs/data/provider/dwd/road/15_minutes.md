@@ -113,9 +113,10 @@ reported "no automated meteorological data checks performed" and 40 carried no f
 the station did not look, which is why it is not reported as `0`.
 
 {term}`road_surface_condition` and {term}`water_film_thickness` always carry a `null` *quality*,
-whatever they report as a value. Both are road descriptors of DWD's own, and the flag table is the
-WMO's generic one for an automatic weather station, which names neither: its nearest offers are
-"state of ground", about bare earth, and "water content", the moisture in it. The road surface
+whatever they report as a value. The flag table is the WMO's generic one for an automatic weather
+station and it names neither quantity -- the road layout carries them as DWD's own `0 20 241` and
+`0 13 241`, and where the film instead arrives as WMO `0 13 116` the table still has no bit for it.
+Its nearest offers are "state of ground", about bare earth, and "water content", the moisture in it. The road surface
 temperature is mapped to "ground temperature data suspect" because the data confirms that reading of
 it, not because the wording is close -- and nothing confirms the other two, so they get a null
 rather than a guess. A wrong `0` would be worse, telling a caller filtering on quality that a

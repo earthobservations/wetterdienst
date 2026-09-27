@@ -188,7 +188,7 @@ Types of changes:
   by name or by symbol, or one of the four notations in `_UNIT_SPELLINGS`: `kg/m²` for `mm`, which
   are equal for water and which is what DWD's MOSMIX documentation writes; `-` for a coded value
   whose model symbol is the unhelpful `sign [0..95]`; a Greek mu where the model writes a micro
-  sign; and `Bft` for the model's lower-case `bft`. Those four cover all 60 cells that disagree, so
+  sign; and `Bft` for the model's lower-case `bft`. Those four cover all 42 cells that disagree, so
   the check runs without reflowing any of them first, and they are listed rather than tolerated
   wholesale so that a cell naming a different *quantity* fails instead of hiding among them.
   Reverting any of the three wrong-quantity fixes below now fails; the `hectopascal`/`hPa` one does
@@ -613,27 +613,28 @@ Types of changes:
 - Three unit cells disagreeing with the model about the quantity, not just the notation: `dwd/road`
   15_minutes wrote `mm/s` where the model declares `millimeter_per_hour`, and `dwd/observation`
   monthly and annual wrote `Bft` for `wind_gust_max`, which the model declares `meter_per_second`,
-  apparently copied from the `wind_force_beaufort` row above it, which really is Beaufort. All
-  three now say what the model says. Found by checking every unit cell against
-  `UnitConverter.get_unit`: 63 of 2213 disagreed, and the other 60 are notations rather than
-  quantities -- `kg/m²` for `mm` (36), `-` for the coded `significant_weather` (16), a Greek mu
-  where the model writes a micro sign (5) and `Bft` for `bft` (3), which
-  `test_docs_parameter_units_name_the_quantity_the_model_declares` lists and GH-1980 is to settle.
-  For the `dwd/road` cell the model is the side under question rather than the page: that module
-  labels the BUFR units of the elements it decodes -- it declares `degree_kelvin` for
+  apparently copied from the `wind_force_beaufort` row above it, which really is Beaufort. All three
+  now say what the model says. Found by checking every unit cell against `UnitConverter.get_unit`:
+  three named a different quantity, and the 42 disagreements remaining of the 2098 cells compared
+  are notations rather than quantities -- `kg/m²` for `mm` (24), `-` for the coded
+  `significant_weather` (10), a Greek mu where the model writes a micro sign (5) and `Bft` for `bft`
+  (3), which `test_docs_parameter_units_name_the_quantity_the_model_declares` lists and GH-1980 is
+  to settle. For the `dwd/road` cell the page was the right side and the model the wrong one: that
+  module labels the BUFR units of the elements it decodes -- it declares `degree_kelvin` for
   `airTemperature`, whose CREX unit is Celsius -- and BUFR gives `intensityOfPrecipitation` as
-  `kg m-2 s-1`, which is millimetres per second. GH-1984 carries that, with what would settle it;
-  the page follows the model either way, so one label is wrong rather than two statements of it
-
+  `kg m-2 s-1`, which is millimetres per second. GH-1984 settles it in this same release by
+  declaring `millimeter_per_second`, so the cell reads `mm/s` once more and the value now converts
 - The changelog renders as prose again. Three bare ``` and ```` runs written into these entries
   opened real code fences, so `poe docs` warned about a Pygments lexer named `-opened` and nine
   lines of one bullet rendered as an unstyled block with the markup showing, one sentence
   disappearing from the visible text entirely. They are code spans now, with the delimiters
   CommonMark wants
-- `dwd/road` 15_minutes carries a warning that its `precipitation_intensity` is labelled `mm/h`
-  while the delivered value is almost certainly millimetres per second, with the factor to multiply
-  by and a pointer to GH-1984 -- the page has to say what the model says, but not silently. Its
-  `water_film_thickness`, labelled `cm` against a BUFR `m`, is named there too
+- `dwd/road` 15_minutes explains what its `unit` column means: the unit this network publishes in
+  rather than the one a request answers with, which is why its three temperatures read `K`. It
+  carried a warning instead, that `precipitation_intensity` was labelled `mm/h` where the value is
+  millimetres per second and had to be multiplied by 3600 by hand, and that `water_film_thickness`
+  was labelled `cm` against a BUFR `m`. Both declarations are corrected in this release, so there is
+  nothing left for a reader to multiply -- do not apply that factor to a value from this version
 - `dwd/mosmix` hourly describes `large` as a forecast of 122 parameters, which is what the model
   declares, rather than 115. The figure sat in a `#### metadata` description that existed only in
   the markdown, so nothing compared it. It was the fourth copy of the number: GH-1975 corrects the

@@ -788,8 +788,9 @@ def test_dwd_road_weather_keeps_one_group_rather_than_every_group(monkeypatch: p
 def test_dwd_road_weather_water_film_has_no_flag_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
     """The water film gets no verdict from a bit about the moisture in soil.
 
-    `waterFilmThickness` is a road descriptor of DWD's own, and the flag table's nearest offer is
-    "water content data suspect", which in a generic automatic weather station is the ground's. The
+    The flag table has no bit for a road water film, under either descriptor these files carry it
+    with, and its nearest offer is "water content data suspect", which in a generic automatic weather
+    station is the ground's. The
     road surface temperature is mapped to "ground temperature data suspect" because the data
     confirms that reading, and nothing confirms this one: the stations setting the bit reported the
     same film as everyone else. A wrong `0` would tell a caller filtering on quality that a suspect
