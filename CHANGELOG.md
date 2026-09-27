@@ -502,6 +502,14 @@ Types of changes:
 
 ### Fixed
 
+- The 41 documented parameter tables that listed their rows in an order the model does not declare
+  now list them in it. Three habits and nine one-off orderings, which is why they could be settled
+  in one change rather than argued table by table: 25 tables put `quality` last where every dataset
+  declares it first, five `wsv/pegel` tables opened with `chlorid_concentration` ahead of `stage`,
+  two `geosphere/observation` ones inverted `pressure_air_site` and `pressure_air_sea_level`, and
+  ten of the 41 were simply alphabetical. Only the order changed: every row keeps its own text and
+  its own padding, since the rows were moved as whole lines, and each of the 21 files holds exactly
+  the same set of lines it held before (GH-1980)
 - `ts_unit_targets` applies all of a mapping or none of it. `update_targets` validated and assigned
   entry by entry, so a mapping carrying one it could not use applied the entries written before it
   and then raised -- which of them took effect depending on the order the caller happened to write

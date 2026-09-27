@@ -25,8 +25,10 @@
 
 | name                              | original name | description                                          | unit | constraints |
 |-----------------------------------|---------------|------------------------------------------------------|------|-------------|
+| {term}`quality_wind` | qn_3 | Quality level of the following columns. | dimensionless | - |
 | {term}`wind_gust_max` | fx | Daily maximum of windgust. | m/s | >=0 |
 | {term}`wind_speed` | fm | Daily mean of wind velocity. | m/s | >=0 |
+| {term}`quality_general` | qn_4 | Quality level of the following columns. | dimensionless | - |
 | {term}`precipitation_height` | rsk | Daily precipitation height. | mm | >=0 |
 | {term}`precipitation_form` | rskf | Precipitation form. | - | >=0 |
 | {term}`sunshine_duration` | sdk | Daily sunshine duration. | h | >=0 |
@@ -39,8 +41,6 @@
 | {term}`temperature_air_max_2m` | txk | Daily maximum of temperature at 2 m height. | °C | - |
 | {term}`temperature_air_min_2m` | tnk | Daily minimum of temperature at 2m height. | °C | - |
 | {term}`temperature_air_min_0_05m` | tgk | Daily minimum of air temperature at 5 cm above ground. | °C | - |
-| {term}`quality_wind` | qn_3 | Quality level of the following columns. | dimensionless | - |
-| {term}`quality_general` | qn_4 | Quality level of the following columns. | dimensionless | - |
 
 Codes (precipitation_form):
 
@@ -69,11 +69,11 @@ Codes (precipitation_form):
 
 | name                         | original name | description                | unit | constraints |
 |------------------------------|---------------|----------------------------|------|-------------|
+| {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 | {term}`precipitation_height` | rs | Daily precipitation height. | mm | >=0 |
 | {term}`precipitation_form` | rsf | Precipitation form. | - | >=0 |
 | {term}`snow_depth` | sh_tag | Height of snow pack. | cm | >=0 |
 | {term}`snow_depth_new` | nsh_tag | Fresh snow depth. | cm | >=0 |
-| {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 
 Codes (precipitation_form):
 
@@ -102,11 +102,11 @@ Codes (precipitation_form):
 
 | name                                     | original name | description                           | unit  | constraints |
 |------------------------------------------|---------------|---------------------------------------|-------|-------------|
+| {term}`quality` | qn_592 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 | {term}`radiation_sky_long_wave` | atmo_strahl | Longwave downward radiation. | J/cm² | >=0 |
 | {term}`radiation_sky_short_wave_diffuse` | fd_strahl | Daily sum of diffuse solar radiation. | J/cm² | >=0 |
 | {term}`radiation_global` | fg_strahl | Daily sum of solar incoming radiation. | J/cm² | >=0 |
 | {term}`sunshine_duration` | sd_strahl | Daily sum of sunshine duration. | h | >=0 |
-| {term}`quality` | qn_592 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 
 ### temperature_soil
 
@@ -123,13 +123,13 @@ Codes (precipitation_form):
 
 | name                                | original name | description                            | unit | constraints |
 |-------------------------------------|---------------|----------------------------------------|------|-------------|
+| {term}`quality` | qn_2 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 | {term}`temperature_soil_mean_0_02m` | v_te002m | Daily soil temperature in 2 cm depth. | °C | - |
 | {term}`temperature_soil_mean_0_05m` | v_te005m | Daily soil temperature in 5 cm depth. | °C | - |
 | {term}`temperature_soil_mean_0_1m` | v_te010m | Daily soil temperature in 10 cm depth. | °C | - |
 | {term}`temperature_soil_mean_0_2m` | v_te020m | Daily soil temperature in 20 cm depth. | °C | - |
 | {term}`temperature_soil_mean_0_5m` | v_te050m | Daily soil temperature in 50 cm depth. | °C | - |
 | {term}`temperature_soil_mean_1m` | v_te100m | Daily soil temperature in 100 cm depth. | °C | - |
-| {term}`quality` | qn_2 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 
 ### water_equivalent
 
