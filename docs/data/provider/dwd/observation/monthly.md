@@ -25,12 +25,12 @@
 
 | name | original name | description | unit | constraints |
 |------|---------------|-------------|------|-------------|
-| {term}`quality_general` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
-| {term}`count_days_tropical_night` | mo_tropennaechte | Monthly number of tropical nights, counted over the day from 00 to 23 hours. | dimensionless | >=0 |
-| {term}`count_days_frost` | mo_frosttage | Monthly number of frost days. | dimensionless | >=0 |
-| {term}`count_days_summer` | mo_sommertage | Monthly number of summer days. | dimensionless | >=0 |
-| {term}`count_days_hot` | mo_heisse_tage | Monthly number of hot days. | dimensionless | >=0 |
-| {term}`count_days_ice` | mo_eistage | Monthly number of ice days. | dimensionless | >=0 |
+| {term}`quality_general` | qn_4 | Quality flag published by the source for the values in the same dataset. | -             | - |
+| {term}`count_days_tropical_night` | mo_tropennaechte | Monthly number of tropical nights, counted over the day from 00 to 23 hours. | -             | >=0 |
+| {term}`count_days_frost` | mo_frosttage | Monthly number of frost days. | -             | >=0 |
+| {term}`count_days_summer` | mo_sommertage | Monthly number of summer days. | -             | >=0 |
+| {term}`count_days_hot` | mo_heisse_tage | Monthly number of hot days. | -             | >=0 |
+| {term}`count_days_ice` | mo_eistage | Monthly number of ice days. | -             | >=0 |
 
 ### climate_summary
 
@@ -47,7 +47,7 @@
 
 | name                                | original name | description                                              | unit | constraints |
 |-------------------------------------|---------------|----------------------------------------------------------|------|-------------|
-| {term}`quality_general` | qn_4 | Quality level of the data in the following columns. | dimensionless | - |
+| {term}`quality_general` | qn_4 | Quality level of the data in the following columns. | -             | - |
 | {term}`cloud_cover_total` | mo_n | Monthly mean of cloud cover. | 1/8 | >=0,<=8 |
 | {term}`temperature_air_mean_2m` | mo_tt | Monthly mean of the daily mean air temperature 2 m above ground. | °C | - |
 | {term}`temperature_air_max_2m_mean` | mo_tx | Monthly mean of daily temperature maxima at 2 m above ground. | °C | - |
@@ -57,7 +57,7 @@
 | {term}`temperature_air_max_2m` | mx_tx | Monthly maximum of daily temperature maxima in 2 m above ground. | °C | - |
 | {term}`wind_gust_max` | mx_fx | Monthly maximum of daily wind speed. | m/s | >=0 |
 | {term}`temperature_air_min_2m` | mx_tn | Monthly minimum of daily temperature minima in 2 m above ground. | °C | - |
-| {term}`quality_precipitation` | qn_6 | Quality level of the data in the following columns. | dimensionless | - |
+| {term}`quality_precipitation` | qn_6 | Quality level of the data in the following columns. | -             | - |
 | {term}`precipitation_height` | mo_rr | Monthly sum of precipitation height. | mm | >=0 |
 | {term}`precipitation_height_max` | mx_rs | Monthly maximum of daily precipitation height. | mm | >=0 |
 
@@ -76,15 +76,15 @@
 
 | name | original name | description | unit | constraints |
 |------|---------------|-------------|------|-------------|
-| {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
-| {term}`count_days_precipitation_height_ge_0_1mm` | mo_rr_ge_0_1_mm | Monthly number of days with a precipitation height of at least 0.1 mm. | dimensionless | >=0 |
-| {term}`count_days_precipitation_height_ge_1mm` | mo_rr_ge_1_0_mm | Monthly number of days with a precipitation height of at least 1.0 mm. | dimensionless | >=0 |
-| {term}`count_days_precipitation_height_ge_2_5mm` | mo_rr_ge_2_5_mm | Monthly number of days with a precipitation height of at least 2.5 mm. | dimensionless | >=0 |
-| {term}`count_days_precipitation_height_ge_5mm` | mo_rr_ge_5_0_mm | Monthly number of days with a precipitation height of at least 5.0 mm. | dimensionless | >=0 |
-| {term}`count_days_precipitation_height_ge_10mm` | mo_rr_ge_10_0_mm | Monthly number of days with a precipitation height of at least 10.0 mm. | dimensionless | >=0 |
-| {term}`count_days_precipitation_height_ge_20mm` | mo_rr_ge_20_0_mm | Monthly number of days with a precipitation height of at least 20.0 mm. | dimensionless | >=0 |
-| {term}`count_days_snow_depth_ge_1cm` | mo_sh_ge_1_0_cm | Monthly number of days with a snow depth of at least 1.0 cm. | dimensionless | >=0 |
-| {term}`count_days_snow_depth_ge_5cm` | mo_sh_ge_5_0_cm | Monthly number of days with a snow depth of at least 5.0 cm. | dimensionless | >=0 |
+| {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | -             | - |
+| {term}`count_days_precipitation_height_ge_0_1mm` | mo_rr_ge_0_1_mm | Monthly number of days with a precipitation height of at least 0.1 mm. | -             | >=0 |
+| {term}`count_days_precipitation_height_ge_1mm` | mo_rr_ge_1_0_mm | Monthly number of days with a precipitation height of at least 1.0 mm. | -             | >=0 |
+| {term}`count_days_precipitation_height_ge_2_5mm` | mo_rr_ge_2_5_mm | Monthly number of days with a precipitation height of at least 2.5 mm. | -             | >=0 |
+| {term}`count_days_precipitation_height_ge_5mm` | mo_rr_ge_5_0_mm | Monthly number of days with a precipitation height of at least 5.0 mm. | -             | >=0 |
+| {term}`count_days_precipitation_height_ge_10mm` | mo_rr_ge_10_0_mm | Monthly number of days with a precipitation height of at least 10.0 mm. | -             | >=0 |
+| {term}`count_days_precipitation_height_ge_20mm` | mo_rr_ge_20_0_mm | Monthly number of days with a precipitation height of at least 20.0 mm. | -             | >=0 |
+| {term}`count_days_snow_depth_ge_1cm` | mo_sh_ge_1_0_cm | Monthly number of days with a snow depth of at least 1.0 cm. | -             | >=0 |
+| {term}`count_days_snow_depth_ge_5cm` | mo_sh_ge_5_0_cm | Monthly number of days with a snow depth of at least 5.0 cm. | -             | >=0 |
 
 ### precipitation_more
 
@@ -101,7 +101,7 @@
 
 | name                             | original name | description                               | unit | constraints |
 |----------------------------------|---------------|-------------------------------------------|------|-------------|
-| {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`snow_depth_new` | mo_nsh | Monthly sum of daily fresh snow. | cm | >=0 |
 | {term}`precipitation_height` | mo_rr | Monthly sum of precipitation height. | mm | >=0 |
 | {term}`snow_depth` | mo_sh_s | Monthly sum of daily height of snow pack. | cm | >=0 |
@@ -122,7 +122,7 @@
 
 | name                                           | original name | description                                                     | unit | constraints |
 |------------------------------------------------|---------------|-----------------------------------------------------------------|------|-------------|
-| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`count_weather_type_storm_strong_wind` | mo_sturm_6 | Count of days with storm (strong wind) of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_storm_stormier_wind` | mo_sturm_8 | Count of days with storm (stormier wind) of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_thunder` | mo_gewitter | Count of days with thunder of stations in Germany. | - | >=0 |

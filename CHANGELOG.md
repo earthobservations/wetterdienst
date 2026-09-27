@@ -511,6 +511,18 @@ Types of changes:
 
 ### Fixed
 
+- The 67 unit cells that spelled a unit out on a page writing symbols for everything else now give
+  the symbol. 10 of the 88 documented pages mixed the two, every one of them symbol-majority with a
+  long-form minority: 65 `dimensionless` cells beside rows reading `-`, across the eight
+  `dwd/observation` resolutions and `dwd/derived` monthly, and two `percent` on `eccc/observation`
+  daily beside rows reading `%`. Each was made to match the page it sits on rather than a convention
+  chosen for the tree, so the 22 pages that are long-form throughout keep their style and
+  `dwd/derived` hourly -- long-form, unlike its own monthly sibling -- is untouched. The `-` a
+  dimensionless cell now carries is the model's own symbol for it, and is the same glyph the
+  `constraints` column uses for "unconstrained", so a row can read `| - | - |`; the two columns are
+  headed separately and each is read in its own terms, where long form everywhere would contradict
+  78 pages and the symbol the model declares. Every cell kept its width, so the tables stay as
+  aligned as they were (GH-1980)
 - The 41 documented parameter tables that listed their rows in an order the model does not declare
   now list them in it. Three habits and nine one-off orderings, which is why they could be settled
   in one change rather than argued table by table: 25 tables put `quality` last where every dataset

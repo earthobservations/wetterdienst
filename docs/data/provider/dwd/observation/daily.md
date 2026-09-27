@@ -25,10 +25,10 @@
 
 | name                              | original name | description                                          | unit | constraints |
 |-----------------------------------|---------------|------------------------------------------------------|------|-------------|
-| {term}`quality_wind` | qn_3 | Quality level of the following columns. | dimensionless | - |
+| {term}`quality_wind` | qn_3 | Quality level of the following columns. | -             | - |
 | {term}`wind_gust_max` | fx | Daily maximum of windgust. | m/s | >=0 |
 | {term}`wind_speed` | fm | Daily mean of wind velocity. | m/s | >=0 |
-| {term}`quality_general` | qn_4 | Quality level of the following columns. | dimensionless | - |
+| {term}`quality_general` | qn_4 | Quality level of the following columns. | -             | - |
 | {term}`precipitation_height` | rsk | Daily precipitation height. | mm | >=0 |
 | {term}`precipitation_form` | rskf | Precipitation form. | - | >=0 |
 | {term}`sunshine_duration` | sdk | Daily sunshine duration. | h | >=0 |
@@ -69,7 +69,7 @@ Codes (precipitation_form):
 
 | name                         | original name | description                | unit | constraints |
 |------------------------------|---------------|----------------------------|------|-------------|
-| {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`precipitation_height` | rs | Daily precipitation height. | mm | >=0 |
 | {term}`precipitation_form` | rsf | Precipitation form. | - | >=0 |
 | {term}`snow_depth` | sh_tag | Height of snow pack. | cm | >=0 |
@@ -102,7 +102,7 @@ Codes (precipitation_form):
 
 | name                                     | original name | description                           | unit  | constraints |
 |------------------------------------------|---------------|---------------------------------------|-------|-------------|
-| {term}`quality` | qn_592 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn_592 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`radiation_sky_long_wave` | atmo_strahl | Longwave downward radiation. | J/cm² | >=0 |
 | {term}`radiation_sky_short_wave_diffuse` | fd_strahl | Daily sum of diffuse solar radiation. | J/cm² | >=0 |
 | {term}`radiation_global` | fg_strahl | Daily sum of solar incoming radiation. | J/cm² | >=0 |
@@ -123,7 +123,7 @@ Codes (precipitation_form):
 
 | name                                | original name | description                            | unit | constraints |
 |-------------------------------------|---------------|----------------------------------------|------|-------------|
-| {term}`quality` | qn_2 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn_2 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`temperature_soil_mean_0_02m` | v_te002m | Daily soil temperature in 2 cm depth. | °C | - |
 | {term}`temperature_soil_mean_0_05m` | v_te005m | Daily soil temperature in 5 cm depth. | °C | - |
 | {term}`temperature_soil_mean_0_1m` | v_te010m | Daily soil temperature in 10 cm depth. | °C | - |

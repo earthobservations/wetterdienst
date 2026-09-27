@@ -26,7 +26,7 @@
 
 | name                      | original name | description       | unit | constraints |
 |---------------------------|---------------|-------------------|------|-------------|
-| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`cloud_cover_total` | n_ter | Total cloud cover. | 1/8 | >=0,<=8 |
 | {term}`cloud_density` | cd_ter | Cloud density. | - |  |
 
@@ -45,7 +45,7 @@
 
 | name                               | original name | description         | unit | constraints |
 |------------------------------------|---------------|---------------------|------|-------------|
-| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`pressure_vapor` | vp_ter | Vapor pressure. | hPa | >=0 |
 | {term}`temperature_wet_ice_formation` | e_tf_ter | Ice on the wet bulb thermometer. | - |  |
 | {term}`temperature_wet_mean_2m`    | tf_ter        | 2m wet bulb temperature | °C |           |
@@ -66,7 +66,7 @@
 
 | name                      | original name | description          | unit | constraints |
 |---------------------------|---------------|----------------------|------|-------------|
-| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`pressure_air_site` | pp_ter | Air pressure of site. | hPa | >=0 |
 
 ### soil
@@ -84,7 +84,7 @@
 
 | name                                | original name | description          | unit | constraints |
 |-------------------------------------|---------------|----------------------|------|-------------|
-| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`soil_state_index` | ek_ter | Coded ground state. | - | - |
 
 ### temperature_air
@@ -155,7 +155,7 @@
 
 | name                          | original name | description      | unit | constraints |
 |-------------------------------|---------------|------------------|------|-------------|
-| {term}`quality_3` | qn_8_3 | Quality flag for the 3-hourly maximum wind gust reported in the same dataset. | dimensionless | - |
+| {term}`quality_3` | qn_8_3 | Quality flag for the 3-hourly maximum wind gust reported in the same dataset. | -             | - |
 | {term}`wind_gust_max_last_3h` | fx_911_3 | Wind gust max 3h. | m/s | >=0 |
-| {term}`quality_6` | qn_8_6 | Quality flag for the 6-hourly maximum wind gust reported in the same dataset. | dimensionless | - |
+| {term}`quality_6` | qn_8_6 | Quality flag for the 6-hourly maximum wind gust reported in the same dataset. | -             | - |
 | {term}`wind_gust_max_last_6h` | fx_911_6 | Wind gust max 6h. | m/s | >=0 |
