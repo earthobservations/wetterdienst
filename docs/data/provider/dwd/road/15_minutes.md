@@ -53,8 +53,9 @@ the rest arrive under reaches it as `0 13 116`. With the default unit targets a 
 first as mm/h and the second as cm, so a reading that arrives as `0.0056` comes back as `20.16` mm/h
 and one that arrives as `0.002` as `0.2` cm.
 
-Until GH-1984 both were declared one step up -- `mm/h` and `cm` -- so no conversion happened and
-every value came back 3600 and 100 times too small.
+Until [GH-1984](https://github.com/earthobservations/wetterdienst/issues/1984) both were declared one
+step up -- `mm/h` and `cm` -- so no conversion happened and every value came back 3600 and 100 times
+too small.
 :::
 
 #### precipitation type

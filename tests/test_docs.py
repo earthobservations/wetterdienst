@@ -560,7 +560,7 @@ def test_docs_parameter_descriptions_match_the_model() -> None:
 # micro sign; and the model's Beaufort symbol is lower case. Listed rather than tolerated wholesale so
 # that a cell naming a different *quantity* -- `mm/h` where the model says `millimeter_per_second`, a
 # factor of 3600, or `Bft` where it says `meter_per_second` -- fails instead of hiding among them. The
-# four cover all 60 cells that disagree; the three named below were the only wrong quantities.
+# four cover all 42 cells that disagree; the three named below were the only wrong quantities.
 _UNIT_SPELLINGS = frozenset(
     [
         ("kg/m²", "millimeter"),
@@ -585,7 +585,7 @@ def test_docs_parameter_units_name_the_quantity_the_model_declares() -> None:
     with it -- which is why it was never a claim that the page was the defect.
 
     Accepting `_UNIT_SPELLINGS` alongside the model's own name and symbol is what lets this run without
-    reflowing 60 cells first: those four notations are real editorial choices for GH-1980 to settle,
+    reflowing 42 cells first: those four notations are real editorial choices for GH-1980 to settle,
     and holding them in a list keeps the check honest about which disagreements are tolerated. What it
     does not tolerate is a cell naming a different quantity, which is the only kind that misleads a
     reader about the numbers.
