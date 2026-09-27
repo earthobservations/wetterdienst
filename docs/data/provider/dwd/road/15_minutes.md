@@ -41,12 +41,18 @@
 | {term}`wind_speed`                    | windSpeed                                | mean wind speed                  | m/s  | >=0         |
 
 :::{note}
-The `unit` column above is the unit this network **publishes** in, not the one a request returns: the
-three temperatures read `K` and come back in °C, because the parser labels the BUFR units of what it
-decodes and converts nothing itself. Where the model spells a unit differently from BUFR the column
-carries the model's spelling of the same quantity -- `mm` for a `kg m-2`, `°` for a `deg` -- and the
-two coded rows, {term}`precipitation_type_flags` and {term}`road_surface_condition`, read `-` because
-a flag table and a code table have no unit to give.
+The `unit` column above is the unit this network **publishes** in, not the one a request returns,
+the parser labelling the BUFR units of what it decodes and converting nothing itself. Six rows
+differ from what comes back under the default targets: {term}`humidity` is published `%` and
+returned as a decimal, so 87 % reads 0.87; the three temperatures read `K` and come back in °C;
+{term}`precipitation_intensity` is per second and comes back per hour; and
+{term}`water_film_thickness` is metres and comes back centimetres. `WD_TS_UNIT_TARGETS` decides that
+other side, not this column.
+
+Where the model spells a unit differently from BUFR the column carries the model's spelling of the
+same quantity -- `mm` for a `kg m-2`, `°` for a `deg` -- and the two coded rows,
+{term}`precipitation_type_flags` and {term}`road_surface_condition`, read `-` because a flag table
+and a code table have no unit to give.
 
 Two of them are per-second and per-metre where a reader might expect otherwise.
 `intensityOfPrecipitation` is BUFR `0 13 055`, `kg m-2 s-1` -- a mass flux per area, which for water
