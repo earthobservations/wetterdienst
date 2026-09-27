@@ -18,12 +18,17 @@ Types of changes:
 
 ### Added
 
-- `test_docs_parameter_units_keep_one_spelling_per_page`, holding a page's `unit` column to one of
-  the model's two spellings. Which one stays the page's own -- 22 pages are long-form throughout,
-  every `aemet` and `meteofrance` resolution among them, and nothing asks them to change -- because
-  the defect was a page using *both*, where the same quantity is written two ways in one table and a
-  reader cannot tell whether the difference means anything. It is about internal consistency and not
-  about which spelling the tree prefers:
+- `test_docs_parameter_units_keep_one_spelling_per_page`, holding a page's `unit` column to one
+  notation per unit and one notation style per page. Two ways a page could contradict itself, and it
+  takes both: writing one unit two ways, so that a quantity reads `dimensionless` in one row and `-`
+  in the next, and writing most units as symbols with one of them long-form, which is the same
+  inconsistency a column apart. Which notation style a page uses stays its own -- 22 pages are
+  long-form throughout, every `aemet` and `meteofrance` resolution among them, and nothing asks them
+  to change. The one-unit-one-way half is also what covers a notation that is neither the model's
+  name nor its symbol: `dwd/mosmix` writes `kg/m²` for a declared `millimeter` throughout, and
+  turning some of those rows into `mm` would be a defect the name-against-symbol tally cannot see,
+  because it records no long-form cell to weigh the symbols against. It is about internal
+  consistency and not about which spelling the tree prefers:
   `test_docs_parameter_units_name_the_quantity_the_model_declares` is what holds a cell to the
   model, and it accepts either, which is what leaves the choice open (GH-1980)
 - `test_docs_parameter_tables_list_their_rows_in_declaration_order`, holding the order a parameter
@@ -520,11 +525,14 @@ Types of changes:
 ### Fixed
 
 - The 67 unit cells that spelled a unit out on a page writing symbols for everything else now give
-  the symbol. 10 of the 88 documented pages mixed the two, every one of them symbol-majority with a
-  long-form minority: 65 `dimensionless` cells beside rows reading `-`, across the eight
-  `dwd/observation` resolutions and `dwd/derived` monthly, and two `percent` on `eccc/observation`
-  daily beside rows reading `%`. Each was made to match the page it sits on rather than a convention
-  chosen for the tree, so the 22 pages that are long-form throughout keep their style and
+  the symbol, across 10 of the 88 documented pages, every one of them symbol-majority with a
+  long-form minority. 59 were `dimensionless` on the eight `dwd/observation` pages, which wrote that
+  same unit as `-` elsewhere in the same table -- one quantity, two notations, a few rows apart. The
+  other eight mixed notations across different units instead: the six `dimensionless` cells on
+  `dwd/derived` monthly sat on a page carrying no `-` at all, against `%`, `mm`, `°C`, `cm`, `°Cd`
+  and `°Ch`, and the two `percent` on `eccc/observation` daily on a page carrying no `%`, against
+  `°C`, `mm`, `cm`, `km/h` and `°`. Each was made to match the page it sits on rather than a
+  convention chosen for the tree, so the 22 pages that are long-form throughout keep their style and
   `dwd/derived` hourly -- long-form, unlike its own monthly sibling -- is untouched. The `-` a
   dimensionless cell now carries is the model's own symbol for it, and is the same glyph the
   `constraints` column uses for "unconstrained", so a row can read `| - | - |`; the two columns are
