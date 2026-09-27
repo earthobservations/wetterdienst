@@ -1211,16 +1211,20 @@ def test_create_humanized_column_names_mapping() -> None:
         "tnk": "temperature_air_min_2m",
         "tgk": "temperature_air_min_0_05m",
     }
-    hcnm = (
-        DwdObservationRequest(  # noqa: SLF001
-            parameters=[("daily", "kl")],
-            periods={"recent"},
-        )
-        .filter_by_station_id(
-            (0,),
-        )
-        .values._create_humanized_parameters_mapping()
+    # the mapping is read off the request's metadata, so the values object is built from an empty
+    # station frame rather than through `filter_by_station_id`, which would download the station
+    # index to answer a question about names
+    request = DwdObservationRequest(
+        parameters=[("daily", "kl")],
+        periods={"recent"},
     )
+    stations_result = StationsResult(
+        stations=request,
+        df=pl.DataFrame(),
+        df_all=pl.DataFrame(),
+        stations_filter=StationsFilter.ALL,
+    )
+    hcnm = DwdObservationValues.from_stations(stations_result)._create_humanized_parameters_mapping()  # noqa: SLF001
 
     assert set(kl_daily_hcnm.items()).issubset(set(hcnm.items()))
 

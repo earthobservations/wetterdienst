@@ -13,7 +13,56 @@ from polars.testing import assert_frame_equal, assert_series_equal
 
 from wetterdienst import Settings
 from wetterdienst.metadata.period import Period
+from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.derived import DwdDerivedMetadata, DwdDerivedRequest
+from wetterdienst.provider.dwd.derived.api import DwdDerivedValues
+
+
+def _values_of(request: DwdDerivedRequest) -> DwdDerivedValues:
+    """Build the values object for one station without looking that station up.
+
+    The date arithmetic and the url parsing below live on the values object, which is reached
+    through a `StationsResult`. Going there via `filter_by_station_id` would download DWD's
+    station index, which turns a unit test over a string like `somefile_202510.csv` into a test
+    that needs the internet. Only the request and the settings behind it are read, so a station
+    frame carrying nothing but the id is enough.
+    """
+    df_stations = pl.DataFrame(
+        [
+            {
+                "resolution": request.parameters[0].dataset.resolution.name,
+                "dataset": request.parameters[0].dataset.name,
+                "station_id": "00044",
+                "start_date": None,
+                "end_date": None,
+                "latitude": 52.9336,
+                "longitude": 8.2370,
+                "height": 44.0,
+                "name": "Grossenkneten",
+                "state": "Niedersachsen",
+            }
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "height": pl.Float64,
+            "name": pl.String,
+            "state": pl.String,
+        },
+        orient="row",
+    )
+    sr = StationsResult(
+        stations=request,
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.BY_STATION_ID,
+    )
+    return DwdDerivedValues.from_stations(sr)
 
 
 @pytest.mark.remote
@@ -793,9 +842,9 @@ def test_get_first_day_of_months_to_fetch(
         settings=default_settings,
         start_date=start_date,
         end_date=end_date,
-    ).filter_by_station_id(station_id="00044")
+    )
 
-    values = request.values
+    values = _values_of(request)
     months_to_fetch = values._get_first_day_of_months_to_fetch(request.parameters[0])  # noqa: SLF001
     assert_series_equal(months_to_fetch, expected_range, check_names=False)
 
@@ -811,9 +860,9 @@ def test_get_first_day_of_months_to_fetch_neither_start_nor_end_date_given(
         settings=default_settings,
         start_date=None,
         end_date=None,
-    ).filter_by_station_id(station_id="00044")
+    )
 
-    values = request.values
+    values = _values_of(request)
     months_to_fetch = values._get_first_day_of_months_to_fetch(request.parameters[0])  # noqa: SLF001
 
     assert min(months_to_fetch) == datetime.datetime(
@@ -859,9 +908,9 @@ def test_extract_datetime_from_file_url_single_date_format(
             ("monthly", "heating_degreedays"),
         ],
         settings=default_settings,
-    ).filter_by_station_id(station_id="00044")
+    )
 
-    values = request.values
+    values = _values_of(request)
     extracted_date = values._extract_datetime_from_file_url_single_date_format(file_url)  # noqa: SLF001
     if expected_date is None:
         assert extracted_date is None
@@ -890,9 +939,9 @@ def test_extract_datetime_from_file_url_multiple_dates_format(
             ("monthly", "heating_degreedays"),
         ],
         settings=default_settings,
-    ).filter_by_station_id(station_id="00044")
+    )
 
-    values = request.values
+    values = _values_of(request)
     extracted_date = values._extract_datetime_from_file_url_multiple_dates_format(file_url)  # noqa: SLF001
     if expected_date is None:
         assert extracted_date is None
@@ -909,9 +958,9 @@ def test_process_dataframe_to_expected_format(
             ("monthly", "heating_degreedays", "heating_degree_day"),
         ],
         settings=default_settings,
-    ).filter_by_station_id(station_id="00044")
+    )
 
-    values = request.values
+    values = _values_of(request)
     rename_mapping = _column_name_mapping = {
         "Monatsgradtage": "heating_degree_day",
     }
@@ -1047,9 +1096,9 @@ def test_filter_date_range_for_period(
             ("monthly", "heating_degreedays"),
         ],
         settings=default_settings,
-    ).filter_by_station_id(station_id="00044")
+    )
 
-    values = request.values
+    values = _values_of(request)
 
     with patch("wetterdienst.provider.dwd.derived.api.list_remote_files_fsspec") as mocked_function:
         mocked_function.return_value = input_files_on_server
@@ -1102,9 +1151,9 @@ def test_get_date_range_for_year_starting_in_month(
             ("monthly", "heating_degreedays"),
         ],
         settings=default_settings,
-    ).filter_by_station_id(station_id="00044")
+    )
 
-    values = request.values
+    values = _values_of(request)
     start_date, end_date = values._get_date_range_for_year_starting_in_month(month_of_year)  # noqa: SLF001
     assert start_date == expected_start_date
     assert end_date == expected_end_date

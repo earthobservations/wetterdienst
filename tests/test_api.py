@@ -485,6 +485,7 @@ def test_metadata_parameter_table(unit_converter_unit_type_units: dict, metadata
                 )
 
 
+@pytest.mark.remote
 def test_api_dwd_observation(default_settings: Settings) -> None:
     """Test dwd observation API."""
     request = DwdObservationRequest(parameters=[("daily", "kl")], periods="recent", settings=default_settings).all()
@@ -502,6 +503,7 @@ def test_api_dwd_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_dwd_observation_hourly_weather_phenomena(default_settings: Settings) -> None:
     """Test dwd observation API for hourly weather phenomena.
 
@@ -524,6 +526,7 @@ def test_api_dwd_observation_hourly_weather_phenomena(default_settings: Settings
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_dwd_mosmix(default_settings: Settings) -> None:
     """Test dwd mosmix API."""
     request = DwdMosmixRequest(parameters=[("hourly", "large")], settings=default_settings).all()
@@ -541,6 +544,7 @@ def test_api_dwd_mosmix(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_dwd_dmo_icon_single_stations(default_settings: Settings) -> None:
     """Test dwd dmo API."""
     request = DwdDmoRequest(
@@ -560,6 +564,7 @@ def test_api_dwd_dmo_icon_single_stations(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_dwd_dmo_icon_all_stations(default_settings: Settings) -> None:
     """Test dwd dmo API."""
     request = DwdDmoRequest(
@@ -579,6 +584,7 @@ def test_api_dwd_dmo_icon_all_stations(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_dwd_dmo_icon_eu_single_stations(default_settings: Settings) -> None:
     """Test dwd dmo API."""
     request = DwdDmoRequest(
@@ -598,6 +604,7 @@ def test_api_dwd_dmo_icon_eu_single_stations(default_settings: Settings) -> None
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_dwd_dmo_icon_eu_all_stations(default_settings: Settings) -> None:
     """Test dwd dmo API."""
     request = DwdDmoRequest(
@@ -617,6 +624,7 @@ def test_api_dwd_dmo_icon_eu_all_stations(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 @pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_api_dwd_road(default_settings: Settings) -> None:
@@ -751,6 +759,7 @@ def test_api_imgw_meteorology(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
     """Test noaa ghcn hourly API."""
     request = NoaaGhcnRequest(
@@ -771,6 +780,7 @@ def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_noaa_ghcn_daily(default_settings: Settings) -> None:
     """Test noaa ghcn daily API."""
     request = NoaaGhcnRequest(
@@ -791,6 +801,7 @@ def test_api_noaa_ghcn_daily(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_wsv_pegel(default_settings: Settings) -> None:
     """Test wsv pegel API."""
     # stage at the 15-minute gauges, which is two thirds of the network
@@ -830,6 +841,7 @@ def test_api_ea_hydrology(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_nws_observation(default_settings: Settings) -> None:
     """Test nws observation API."""
     request = NwsObservationRequest(
@@ -850,6 +862,7 @@ def test_api_nws_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
     """Test eaufrance hubeau API."""
     request = HubeauRequest(parameters=[("5_minutes", "data", "discharge")], settings=default_settings).all()
@@ -895,6 +908,7 @@ def test_api_metno_frost(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_geosphere_observation(default_settings: Settings) -> None:
     """Test geosphere observation API."""
     request = GeosphereObservationRequest(
@@ -913,6 +927,7 @@ def test_api_geosphere_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_meteofrance_synop(default_settings: Settings) -> None:
     """Test Météo-France SYNOP API."""
     # bounded to a few days: without a date range, values would default to downloading and
@@ -936,6 +951,7 @@ def test_api_meteofrance_synop(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_meteofrance_observation(default_settings: Settings) -> None:
     """Test Météo-France observation API ("Données climatologiques de base")."""
     # bounded to a few months: without a date range, values would download every period-bucket
@@ -961,6 +977,7 @@ def test_api_meteofrance_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@pytest.mark.remote
 def test_api_meteoswiss_observation(default_settings: Settings) -> None:
     """Test MeteoSwiss observation API."""
     request = MeteoswissObservationRequest(

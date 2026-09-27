@@ -2,8 +2,10 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Fixtures for tests."""
 
+import ipaddress
 import os
 import platform
+import socket
 import sys
 import time
 from typing import Any
@@ -93,6 +95,67 @@ def _patch_windows_atomic_write() -> None:
     _fsspec_utils.os = _OsWithRetry()
     yield
     _fsspec_utils.os = _orig_os
+
+
+def _is_local_address(address: object) -> bool:
+    """Say whether a socket address points at this machine.
+
+    Anything that is not an ``(host, port)`` tuple - a unix socket path, most notably - is local by
+    definition. pytest-xdist talks to its workers over loopback, so loopback stays open.
+    """
+    if not isinstance(address, tuple) or not address:
+        return True
+    host = str(address[0])
+    if host in {"", "localhost"} or host.endswith(".localhost"):
+        return True
+    try:
+        parsed = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return parsed.is_loopback or parsed.is_unspecified
+
+
+_SOCKET_CONNECT = socket.socket.connect
+_SOCKET_CONNECT_EX = socket.socket.connect_ex
+
+
+def _guarded(original: Any) -> Any:  # noqa: ANN401
+    """Wrap a socket connect method so that it refuses anything not on this machine."""
+
+    def wrapper(self: socket.socket, address: object, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        if not _is_local_address(address):
+            msg = (
+                f"network access blocked: {address}. A test that reaches the internet needs "
+                f"@pytest.mark.remote, or has to be rewritten to work without the network."
+            )
+            raise OSError(msg)
+        return original(self, address, *args, **kwargs)
+
+    return wrapper
+
+
+@pytest.fixture(autouse=True)
+def _block_network(request: pytest.FixtureRequest) -> None:
+    """Refuse non-local socket connections for every test not marked ``remote``.
+
+    ``-m "not remote"`` is documented as the offline selection, so nothing it selects may reach
+    upstream. Without this guard an unmarked test that downloads something passes on a warm cache
+    and fails on a cold one, which reads like a regression rather than a missing marker.
+
+    The patching is done by hand rather than through ``monkeypatch``, because an autouse fixture
+    requesting ``monkeypatch`` would pull it ahead of the module-level fixtures that expect to be
+    torn down first.
+    """
+    if request.node.get_closest_marker("remote"):
+        yield
+        return
+    socket.socket.connect = _guarded(_SOCKET_CONNECT)
+    socket.socket.connect_ex = _guarded(_SOCKET_CONNECT_EX)
+    try:
+        yield
+    finally:
+        socket.socket.connect = _SOCKET_CONNECT
+        socket.socket.connect_ex = _SOCKET_CONNECT_EX
 
 
 @pytest.fixture
