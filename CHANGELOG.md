@@ -27,10 +27,13 @@ Types of changes:
   to change. The one-unit-one-way half is also what covers a notation that is neither the model's
   name nor its symbol: `dwd/mosmix` writes `kg/m²` for a declared `millimeter` throughout, and
   turning some of those rows into `mm` would be a defect the name-against-symbol tally cannot see,
-  because it records no long-form cell to weigh the symbols against. It is about internal
-  consistency and not about which spelling the tree prefers:
-  `test_docs_parameter_units_name_the_quantity_the_model_declares` is what holds a cell to the
-  model, and it accepts either, which is what leaves the choice open (GH-1980)
+  because it records no long-form cell to weigh the symbols against. It reads one way only, from a
+  unit to its notations, so a page writing one notation for two units still passes -- `dwd/mosmix`
+  and `dwd/dmo` hourly write `-` for both `dimensionless` and `significant_weather`, and the model
+  declares `-` for `dimensionless` and `decimal` alike, so settling that belongs in `UnitConverter`
+  and not in a docs page. It is about internal consistency and not about which spelling the tree
+  prefers: `test_docs_parameter_units_name_the_quantity_the_model_declares` is what holds a cell to
+  the model, and it accepts either, which is what leaves the choice open (GH-1980)
 - `test_docs_parameter_tables_list_their_rows_in_declaration_order`, holding the order a parameter
   table lists its rows in. GH-1978 adopted that as the convention and restored it for the tables it
   touched, but nothing compared it, so it drifted: 41 of the 271 documented tables listed their rows

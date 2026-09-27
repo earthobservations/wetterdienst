@@ -662,10 +662,11 @@ def _documented_unit_spellings(
     datasets registers one physical row under each of them: counting per parameter reported
     `dwd/derived` monthly's six long-form cells as twelve, and a maintainer acts on that number.
 
-    Both maps hold `dataset/parameter` labels rather than counts, because the count alone does not
-    say which rows to edit. `dwd/observation` hourly documents some twenty datasets that each carry a
-    `quality` row, so a report naming only the parameter spent its whole sample on four copies of
-    `quality 'dimensionless'` and named none of the tables holding them.
+    Both maps hold `dataset/parameter` labels rather than counts, because the count alone does not say
+    which rows to edit. `dwd/observation` hourly carries a `quality` row in four of its datasets, and
+    those four were its whole long-form minority, so a report naming only the parameter spent its
+    entire sample on four copies of `quality 'dimensionless'` and named none of the tables holding
+    them.
     """
     declared = {
         (dataset.name, parameter.name, parameter.name_original): parameter
@@ -728,11 +729,20 @@ def test_docs_parameter_units_keep_one_spelling_per_page() -> None:
     `°Cd`, `mm`, `cm`, `km/h` and `°`, where only the page's notation style says they are wrong. Each
     was made to match the page it sits on rather than a convention chosen here.
 
-    Page-scoped is also the limit of what this can hold: `dwd/derived` monthly now reads `-` where its
-    own hourly sibling reads `dimensionless`, for the same `quality` parameter one page over, and no
-    test here can see that. Closing it would mean rewriting hourly's six cells -- the same count, as
-    it happens -- although nothing on that page is inconsistent with itself, which is the tree-wide
-    fiat this change declined to make.
+    Page-scoped is also the limit of what this can hold. `dwd/derived` monthly now writes `-` for the
+    dimensionless quantities it counts in, where its own hourly sibling writes `dimensionless` for the
+    two it has -- both `quality` rows, and no parameter is on both pages -- so one network's two pages
+    disagree and no test here can see it. Closing that means rewriting hourly's two `dimensionless`
+    cells, or all six of its unit cells to make the page symbol-style throughout, although nothing on
+    it is inconsistent with itself: the tree-wide fiat this change declined to make.
+
+    The check also runs one way only, from a unit to its notations, and not back. A page writing one
+    notation for two units passes, which `dwd/mosmix` hourly and `dwd/dmo` hourly do: both write `-`
+    for `dimensionless` and, `_UNIT_SPELLINGS` tolerating it, for `significant_weather` as well. That
+    is not an omission to tidy up here, because the model declares `-` as the symbol of `dimensionless`
+    and of `decimal` both, so a page documenting those two follows the model exactly and would still
+    write one glyph for two quantities. Settling it means giving one of them a symbol of its own, in
+    `UnitConverter` rather than in a docs page.
 
     The one-unit-one-way half is what covers a notation that is neither the name nor the symbol:
     `dwd/mosmix` writes `kg/m²` for a declared `millimeter` throughout, which `_UNIT_SPELLINGS`
