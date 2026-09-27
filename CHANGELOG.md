@@ -333,1319 +333,743 @@ Types of changes:
 
 ### Added
 
-- DWD road: a sensor that has stopped is marked suspect. Where an air temperature, a dew point or a
-  road surface temperature reports the identical value for 24 readings -- six hours at this
-  resolution -- `quality` becomes `1` and the reading is left exactly as DWD published it. The
-  threshold is measured rather than chosen: over a day of five station groups and around 700
-  stations per quantity, a working sensor's longest run of one value was 14 readings for the air
-  temperature, 17 for the dew point and 9 for the road surface, where a broken one held its value
-  for 86 to 96 of the day's 96 and reported a single distinct value for the whole day. Only those
-  three quantities, because only for those is standing still a fault -- the road surface condition
-  and the water film sit at 0 for the whole of a dry day, as does the precipitation type, the
-  humidity saturates in fog and the wind falls calm, and a 24-reading rule applied to those would
-  have called 547 of 571 stations' surface condition a fault. It adds 12 sensors across the five
-  groups that DWD's own flag does not name. This is also what the exact `-75.00`, `-30.00` and
-  `-25.00` readings are -- sensors that have stopped, not a sentinel value to recognise, and
-  matching them by value would have been worse than useless since -25 and -30 are both reachable in
-  a German winter. What it cannot catch is a sensor that moves and is wrong: the difference from a
-  station's own air temperature does not separate those, stations with no sign of a fault reaching
-  42.0 K above their air where one that is certainly broken sits between 31.8 and 38.9. A run ends
-  where the readings stop for more than four times the station's own usual interval, so two
-  three-hour plateaus either side of a three-day outage are not a six-hour one -- against the
-  station's own cadence rather than a fixed number of minutes, no fixed one separating them when
-  99.5% of this network's intervals are its quarter hour and the tail reaches 405. The run is
-  counted in readings, so a station publishing on another interval is neither exempt nor tripped
-  early. And a road surface at its
-  melting point is exempt where the station's own air came near freezing: melting ice holds a road
-  at 0.00 C for hours, which is what this network is for, and only the air tells that from a sensor
-  stopped at zero -- FN/P717 reads 0.00 all day while its own air reaches 26 C. Within 10 C of
-  freezing either side -- brine pinning a road no better at -20 than ice does at +26 -- an ordinary
-  thaw running to +6 or +10 with snow still lying -- and not only at 0.00 C,
-  German roads being salted and brine depressing the freezing point, so a treated road in the same
-  thaw sits at a constant sub-zero value by the same physics. The run must cover the hours as well
-  as the readings, the count having been measured at this network's quarter hour, so a station
-  reporting more often does not trip on less evidence than that. The question is asked of
-  the readings rather than of the rows throughout: a station-minute arriving in two files is one
-  minute, where counting it twice put a zero among the intervals and so a zero in their median,
-  which ended a run at every reading and answered that nothing anywhere had stopped; and a row
-  saying null is the same dropout as a row that never arrived, where reading it as a value ended
-  runs an absent row was allowed to span. GH-1917
-- DWD road: the `quality` column carries the station's own verdict on its sensors, where it was
-  null on every road reading. Each subset ends with `qualityInformationAwsData` (BUFR `0 33 005`), a
-  30-bit flag naming which of the station's quantities are suspect, and it was read and thrown away.
-  A reading is now `1` where the station checked it and calls it suspect, `0` where it checked and
-  does not, and null where nothing is known -- which is the common case rather than the exception,
-  817 of 1199 station-minutes measured reporting "no automated meteorological data checks performed"
-  and 40 carrying no flag at all. Null and not `0`, those saying the station did not look rather
-  than that it looked and was satisfied. Bit 7, "ground temperature data suspect", is the one this
-  was verified against: the four stations carrying it in a network-wide file are exactly the four
-  whose road surface temperature is impossible -- 65.6 C, 57.8 C, -0.7 C and 0.0 C against an air
-  temperature near 12 C -- and no station within 5 K of its own air temperature carries it. The
-  other bits follow the flag table's own wording. `road_surface_condition` is left null: the table
-  is the WMO's generic one for an automatic weather station and names no state of a road, its
-  nearest neighbour being about bare earth, so a reading with nothing to say about it gets a null
-  rather than a guess -- and `water_film_thickness` is left null for the same reason, "water
-  content" in a generic automatic weather station being the moisture in the ground. Bit 7 is
-  mapped because the data confirms that reading of it, not because its wording is close, and
-  nothing confirms those two: bit 19 is set nowhere at all, and the stations setting bit 21
-  reported the same film as everyone else. A wrong `0` would be worse than a null, telling a
-  caller filtering on quality that a suspect reading had been checked and found sound. A parameter
-  the station did not report is left null rather than answered 0 as well: one verdict covers the
-  station, and a clean bill of health says nothing whatever about the quantities it does not
-  measure -- and neither is a flag carrying only the table's own missing marker, the top bit of a
-  30-bit flag table, which read as a verdict said the station had checked and was satisfied. The
-  numbers are this network's own: `quality` carries whatever a source publishes and the scale
-  differs by provider, DWD observation putting `qn` codes there where a larger number means a more
-  thorough check, so the canonical description of the column says so now rather than promising one
-  meaning. GH-1917
-- Export: `file://` targets for `.json`, `.jsonl` and `.nc`. JSON could not be written to a file
-  at all; it holds the frame's records, with a list of station ids kept as a list since JSON has
-  arrays, rather than the `{"metadata": ..., "values": [...]}` envelope a response carries. JSON
-  Lines is the same records one per line, for reading as a stream. NetCDF joins Zarr as the second
-  array format, written through xarray with its timestamps as CF units, its gaps as NaN rather
-  than the -999 Zarr fills them with, and grouped by the datasets the frame holds. The `export`
-  extra carries `h5netcdf`, the engine xarray writes NetCDF with that needs no compiled netCDF
-  library
 - Interpolation and summary take an `elevation` for the point they answer for, in metres above sea
-  level, and bring each station's readings to it before using them. Air temperature falls about
-  0.65 K per 100 m and a dew point about 0.2, so a valley station and a summit one say different
-  things about the same weather -- around Garmisch the stations within 40 km span 630 m to 2956 m,
-  which is 15 K interpolated as though it were horizontal structure, and even the flat country
-  around Frankfurt spans 495 m, or 3.2 K. Named as `interpolate(latlon=..., elevation=1500)`, as
-  `--elevation` on the CLI and as `elevation` on the REST API. The
-  elevation names the point too: two elevations at one place are two answers, and they no longer
-  share a station id. A station whose own height the provider does not report is left out of
-  an answer about an elevation rather than contributing at its own altitude while its neighbours
-  are moved -- thirteen providers have such stations, every one of FMI's, IPMA's and the
-  Environment Agency's among them. Where that leaves a parameter with no station at all, the
-  request is refused rather than answered empty: `NoStationsWithHeightError` names it and how to
-  ask for the readings as they came, which the REST API reports as a 400 and the CLI as a message
-  rather than a traceback. Where every quantity asked for falls with height and no station near
-  the point reports one, that is settled off the station list without downloading a reading. A
-  parameter that kept some stations and still answered nothing is named in the log instead, the
-  rest of the result standing: whether the stations it lost would have completed the four an
-  interpolation wants is not something a count can say, and the readings that are there stay with
-  the caller. Whether a parameter
-  was answered is read off the finished frame rather than off the stations collected for it, those
-  being different questions -- and the exclusions are named as the reason only where the stations
-  they took would have made up what the calculation needs, a parameter that was short of stations
-  either way having failed on something an elevation has nothing to do with. Left out, the
-  elevation corrects nothing and the result is what it was before: an elevation taken from the
-  interpolation itself cancels out of it exactly, so the correction is only possible when a caller
-  says where the point is
+  level, and bring each station's readings to it before using them. Air temperature falls about 0.65
+  K per 100 m, so the stations within 40 km of Garmisch span 630 m to 2956 m -- 15 K interpolated as
+  though it were horizontal structure. Named `elevation` on the API and the REST API, `--elevation`
+  on the CLI, and it names the point too, so two elevations at one place no longer share a station
+  id. A station whose height the provider does not report is left out of such an answer; where that
+  leaves a parameter with no station at all, `NoStationsWithHeightError` names it and how to ask for
+  the readings uncorrected (400 on the REST API)
 - Parameter table: `lapse_rate` says how fast a quantity falls with height, in its own unit per
   metre, for the 17 air temperatures measured at 2 m and the dew point. Not for the 5 and 10 cm
-  readings -- the grass minimum and its kin -- which are made in the air but governed by the
-  ground radiating beneath them. Not for anything measured in or on the
-  ground -- soil, concrete, the surface -- which follows the ground rather than the air, nor for
-  the comfort indices, nor for pressure, which falls exponentially and wants the barometric
-  formula rather than a linear rate
+  readings, which are governed by the ground beneath them, nor for anything in or on the ground, nor
+  for the comfort indices, nor for pressure, which wants the barometric formula rather than a rate
+- Export: `file://` targets for `.json`, `.jsonl` and `.nc`. JSON could not be written to a file at
+  all; it holds the frame's records rather than the `{"metadata": ..., "values": [...]}` envelope a
+  response carries. NetCDF joins Zarr as the second array format, written through xarray with CF
+  time units and gaps as NaN rather than the -999 Zarr fills them with. The `export` extra carries
+  `h5netcdf`, which needs no compiled netCDF library
+- DWD road: the `quality` column carries the station's own verdict on its sensors, where it was null
+  on every road reading. `qualityInformationAwsData` (BUFR `0 33 005`) is a 30-bit flag naming which
+  quantities the station calls suspect, and it was read and thrown away. A reading is `1` where the
+  station checked it and calls it suspect, `0` where it checked and does not, and null where nothing
+  is known -- the common case, 817 of 1199 station-minutes reporting no checks performed.
+  `road_surface_condition` and `water_film_thickness` stay null, the WMO's generic table naming no
+  state of a road. `quality` carries whatever a source publishes and the scale differs by provider,
+  which the column's description now says rather than promising one meaning (GH-1917)
+- DWD road: a sensor that has stopped is marked suspect. Where an air temperature, dew point or road
+  surface temperature reports the identical value for 24 readings -- six hours here -- `quality`
+  becomes `1` and the reading is left exactly as DWD published it. Measured rather than chosen: over
+  a day of ~700 stations per quantity a working sensor's longest run was 9 to 17 readings, a broken
+  one 86 to 96 of 96. Only those three quantities, since a dry day's surface condition and water
+  film legitimately sit at 0 all day. A road at its melting point is exempt where the station's own
+  air came near freezing, salted roads holding a constant sub-zero value by the same physics
+  (GH-1917)
 
 ### Changed
 
 - DWD road: the precipitation type is reported as `precipitation_type_flags` rather than
   `precipitation_form`, being a different kind of number. `precipitationType` is BUFR `0 20 021`, a
-  30-bit *flag* table with a bit per type of precipitation, where `precipitation_form` everywhere
-  else in this library holds a single code from a table of its own -- DWD observation's `wrtr`,
-  documented as 0 for no precipitation and 6 for liquid. So rain came back from the road network as
-  `33554432`, bit 5 of a 30-bit field, against `wrtr`'s `6` for the same weather, under one
-  canonical name. The value is unchanged and still what DWD publishes; what changes is that it no
-  longer claims to be comparable with a code it shares nothing with. Decoding it into `wrtr`
-  instead would need a correspondence DWD has not published -- the flag table's twenty types would
-  have to collapse onto liquid, solid and unknown, and the freezing and depositional ones, glaze
-  and rime and clear ice, have no home there at all, which on a road weather network is the
-  distinction most worth keeping. The bit layout and how to mask for a type are on the provider's
-  docs page. GH-1916
-- Dependencies: the `bufr` extra is the whole of what reading BUFR takes. pdbufr requires eccodes,
-  but asks for any version at all, and the two were named as separate extras with the docs telling
-  you to install both -- neither being any use without the other. The floor is the oldest release
-  published as a wheel, named in both extras so that it binds for anyone installing
-  `wetterdienst[bufr]` and not only inside this repository's lockfile. It stood at 1.5.2, a 2023
-  source tarball, which the minimum-versions job -- resolving every direct dependency to its floor,
-  across extras -- had to build, and continues on error if it cannot. It is raised only that far on
-  purpose: nothing here needs eccodes 2.x, so an install pinned to 1.x keeps resolving. `pybufrkit`
-  is no longer pulled in by `bufr`: nothing in the library imports it, only the radar tests do, and
-  they skip on it now rather than failing to collect without it
-- Interpolation and summary by station id answer at that station's altitude. Naming a point by a
-  station names its height as well, and it is the one case where the elevation is known without
-  being given, so `interpolate_by_station_id` and `summarize_by_station_id` correct the quantities
-  that fall with height to it. **This changes what those two calls return** where the stations
-  drawn on stand at other altitudes -- for the reading uncorrected, pass the station's coordinates
-  to `interpolate` or `summarize` instead
-- REST API: `/api/summarize` answers a window that ends before it starts with a 400 rather than a
-  404, as `/api/interpolate` already did. Both endpoints decide that from one place now, so the
-  status a failure carries no longer depends on which of the two it came through
+  30-bit flag table with a bit per type, where `precipitation_form` elsewhere holds a single code --
+  so rain came back as `33554432` against DWD observation's `6` for the same weather, under one
+  canonical name. The value is unchanged. The bit layout and how to mask for a type are on the
+  provider's docs page (GH-1916)
+- Interpolation and summary by station id answer at that station's altitude, it being the one case
+  where the elevation is known without being given. **This changes what `interpolate_by_station_id`
+  and `summarize_by_station_id` return** where the stations drawn on stand at other altitudes -- for
+  the reading uncorrected, pass the station's coordinates to `interpolate` or `summarize` instead
+- Dependencies: the `bufr` extra is the whole of what reading BUFR takes. pdbufr requires eccodes
+  but asks for any version, and the two were named as separate extras with the docs telling you to
+  install both, neither being any use without the other. `pybufrkit` is no longer pulled in by
+  `bufr`: nothing in the library imports it, only the radar tests do, and they skip on it now
 - Dependencies: shapely is required from 2.0.6 rather than 2.0.4. The two releases before it raise
-  out of `create_collection` when a geometry is built from coordinates under numpy 2, which is what
-  every other dependency here resolves to, so the floor named a combination that does not work
+  out of `create_collection` under numpy 2, which is what every other dependency here resolves to
+- REST API: `/api/summarize` answers a window that ends before it starts with a 400 rather than a
+  404, as `/api/interpolate` already did. Both endpoints decide that from one place now
 
 ### Fixed
 
-- DWD road: a station group is read once for a request rather than once per station of it. A road
-  file holds a whole group where the collection above asks for one station at a time, so every file
-  of a group was decoded and built into a frame once per station and all but that station's rows
-  thrown away -- three stations of one group over two hours parsed nine files twenty-seven times.
-  The files themselves came from the cache; what repeated was the BUFR decode, which is the
-  expensive half. The group parsed for the previous station is kept, and one group rather than all
-  of them: stations arrive in group order, 1653 of them across 19 groups changing group 21 times,
-  so holding the last is worth almost exactly what holding every one would be -- 22 reads against
-  19 -- and it bounds what is held to a single group's readings, a month of which is some thirteen
-  million rows. Measured on those three stations, 27 parses became 9. GH-1922
-- DWD road: a subset that names no station or no minute is one reading lost rather than a file.
-  The read is required of nothing but its own structure now, so such a subset arrives like any
-  other -- and one null minute makes the whole of pandas' column a float, where 2026 written as
-  "2026.0" took the timestamp of every station in the file with it. The keys go through an integer
-  on the way to a string, a key at a rank other than the first is read where it actually is, and a
-  reading with no station or no minute is dropped
+- Unit conversion: the mile and the knot are derived from the metres they are defined as, rather
+  than from decimals rounded to four figures. `1.944` left knots to metres per second 0.0080% from
+  its km/h route, so the same quantity converted differently depending on which unit its source
+  published -- the Met Office publishes wind in knots and the speed target is m/s, so every one of
+  its wind speeds carried the error. A round trip hid all three, both directions sharing the
+  rounding
+- Interpolation: four stations that surround the target point are a valid group however they are
+  ordered. The check drew a polygon through them in the order they are held -- by distance from the
+  point, which says nothing about the order around it -- so roughly half of all groups described a
+  self-intersecting shape, where `covers` is undefined: 11676 of the 37415 groups that do surround
+  the point the tests use were rejected. The convex hull decides now, which is also the region
+  `LinearNDInterpolator` can answer for. No interpolated value in the test suite changes
+- Interpolation: stations that do not span a triangle are no group, and four on a line come back
+  without a value rather than raising scipy's `QhullError`. A hull with no width still covers a
+  point lying on it, so such a set counted as valid -- which is what stops the collection of further
+  stations, so a set that cannot be interpolated at all could end a search that would have found one
+  that can
+- Interpolation: a point the interpolation has no answer for comes back empty rather than as a zero.
+  `LinearNDInterpolator` answers NaN outside the stations it was given, and for the quantities
+  carrying an occurrence test -- precipitation, new snow -- `NaN >= 0.5` is False, so the NaN was
+  reported as a precipitation of exactly none
+- Interpolation: whether four stations surrounding the point exist is answered from the hull of all
+  of them rather than by enumerating groups, which costs C(N,4) hulls -- 91390 for the 40 stations a
+  wide radius reaches, seconds per station against 0.2 ms
 - DWD road: a station with two road sensors is read as having two, and a reading is one sensor's.
-  The sensors are a delayed replication inside the station's subset -- `1 09 000` and `0 31 001`
-  wrapping the surface temperature, the sub-surface temperatures at their depths, the water film
-  and the surface condition -- so the rank on the key names the sensor, where
-  `positionOfRoadSensors` reads 0 or missing in all 1199 subsets measured and names nothing. The
-  file is read flat to keep it. Only what is inside that replication can arrive twice: of the
-  fourteen parameters this dataset maps, three do, and the other eleven -- the air temperature and
-  dew point and humidity and visibility, the wind and the precipitation -- come once per station,
-  so a row can never hold one sensor's air temperature beside another's road surface. Where two
-  sensors report the same quantity they are measuring one road at two points, and they mostly agree
-  closely: of 75 stations whose sensors both reported a surface temperature the median disagreement
-  was 0.3 K and 97 in 100 sat inside 3 K, so which sensor answers rarely changes the reading. Two of
-  the 75 did not, at 22 K and 18 K, and both were a broken sensor rather than a road -- one stuck at
-  273.14 K for a day of readings, the other 22 K hot with a normal daily swing. Everything contested
-  is taken from the one sensor reporting most of it, so the row is a road rather than an average of
-  two, and what is dropped is named in the log at debug -- per file and routine, where the CLI logs
-  at info and a month of road data would be thousands of lines. A quantity the chosen sensor does
-  not report at all is taken from one that does rather than dropped -- with three sensors the one
-  answering a row's contests need not carry every contested quantity, and there is nothing of its
-  own for that reading to have been paired against. Where two sensors settle as many contests as
-  each other, the one that reported more altogether answers the row, so that a row is wholly one
-  sensor's wherever a sensor could supply the whole of it. Which sensor answers a wild
-  disagreement is the rank order and nothing better: this library does not judge a reading's
-  plausibility here any more than anywhere else. Where two sensors report different quantities they are one
-  installation and both are kept: that is the whole of the DD group, whose first sensor carries the
-  surface temperature and second the surface condition for 24 of its 25 stations, and answering
-  such a row from one sensor would drop the other quantity for nothing. GH-1908
-- DWD road: a station's reading is kept whole where it arrives in parts. A road file holds one
-  subset per station carrying the descriptors that station has, and `read_bufr` emits an
-  observation only where every column asked for is present -- its default, and ours. Asking for
-  all fourteen parameters of the dataset and keeping only the complete observations threw away
-  every reading of anything not universally fitted: against a file of the DD group the parse
-  returned 105 values where the file held 121, the whole of `roadSurfaceTemperature` among the
-  missing, on a road weather network. The file is read flat instead -- every key it holds, named by
-  its rank -- which is one row per subset and so one row per station and minute, with no column
-  list for a descriptor to fall out of. A parameter no subset in the file carries comes back as a
-  null column rather than as no column at all
-- DWD road: a listing entry is a file when it carries the timestamp the file index reads it by.
-  Two entries never do. The listing of a group that exists and holds nothing is the group itself,
-  which made the listing non-empty, so `No files found` never said so and a request without dates
-  downloaded the directory and handed it to the reader as a BUFR message; and each family a group
-  publishes under keeps a `LATEST` alias duplicating its newest file, which a request without
-  dates parsed a second time. Both are dropped now. The timestamp is read leniently and from the
-  ten digits the format takes, where the pattern used to match a longer run and raise out of the
-  file index on a match that would not parse -- taking the request with it, while an entry that
-  never matched was simply dropped. A name that is neither a file nor one of those two is one the
-  index cannot read, and it is said: a group publishing under two families, as FN does, would
-  otherwise lose half its readings to a rename of one of them as quietly as it drops the alias
-- DWD road: a file that decodes to nothing is nothing rather than a broken frame. The empty files
-  of GH-1526 are turned away by their exact length, which is a guess at a shape rather than a
-  reading of one, so a file holding no subsets at some other length reached the parse -- where the
-  merge of the two column batches raised `KeyError: 'year'` and the select after it would have
-  raised for a column that was not there. A file with no subsets in it, or with no station named in
-  them, is now answered in the shape the files that hold readings come back in, so it concatenates
-  with them and needs no handling of its own. It says so in the log, at the level its neighbour
-  uses for a group that published no file at all
+  The sensors are a delayed replication inside the station's subset, so the rank on the key names
+  the sensor where `positionOfRoadSensors` reads 0 or missing in all 1199 subsets measured. Only
+  what is inside that replication can arrive twice -- 3 of the dataset's 14 parameters -- so a row
+  can never hold one sensor's air temperature beside another's road surface. Of 75 stations whose
+  sensors both reported a surface temperature the median disagreement was 0.3 K. Everything
+  contested is taken from the one sensor reporting most of it, and what is dropped is logged at
+  debug (GH-1908)
+- DWD road: a station's reading is kept whole where it arrives in parts. `read_bufr` emits an
+  observation only where every column asked for is present, so asking for all fourteen parameters
+  threw away every reading of anything not universally fitted -- against one file of the DD group
+  the parse returned 105 values where the file held 121, the whole of `roadSurfaceTemperature` among
+  the missing, on a road weather network. The file is read flat instead, one row per station and
+  minute, and a parameter no subset carries comes back as a null column
+- DWD road: a station group is read once for a request rather than once per station of it. A road
+  file holds a whole group where the collection above asks one station at a time, so every file was
+  decoded once per station and all but that station's rows thrown away: three stations of one group
+  over two hours parsed nine files twenty-seven times, and now nine (GH-1922)
+- DWD road: a subset that names no station or no minute is one reading lost rather than a file. One
+  null minute made the whole of pandas' column a float, where 2026 written as "2026.0" took the
+  timestamp of every station in the file with it
+- DWD road: a listing entry is a file when it carries the timestamp the file index reads it by, and
+  two entries never do -- the directory of a group that holds nothing, which made the listing
+  non-empty so `No files found` never said so, and the `LATEST` alias duplicating each family's
+  newest file, which a request without dates parsed twice. A name that is neither is reported, so a
+  group publishing under two families cannot lose half its readings to a rename
 - DWD road: having nothing to answer with is one shape. There were three -- no columns where the
-  group published no file, five where the files it published held nothing, and the seven a reading
-  has -- handed to a caller that reads the first as "this station had nothing" and would meet
-  either of the others with a width it did not expect or a column that is not there. A frame of no
-  readings carries the columns a reading does, so the filter has a station id to look for and one
-  line answers for the empty case and the populated one alike
-- DWD road: a station group with no usable file is an empty result rather than a broken frame.
-  The stations report in fifteen-minute batches and four groups are already known to go quiet, so
-  a window with no file behind it -- or one holding only the 142-byte empty files of GH-1526 -- is
-  an ordinary outcome. The frame standing for "nothing here" carries no columns, and it was
-  filtered for a station id before anyone asked whether it held anything, so the collection walk
-  raised `ColumnNotFoundError: unable to find column "station_id"; valid columns: []` from its
-  middle. It is handed back instead, which is what the rest of the library already reads as "this
-  station had nothing". This is what failed `test_pdbufr_examples` on every CI job
+  group published no file, five where its files held nothing, and the seven a reading has -- so the
+  collection walk raised
+  `ColumnNotFoundError: unable to find column "station_id"; valid columns: []` from its middle. A
+  frame of no readings now carries the columns a reading does. The empty files of GH-1526 were
+  turned away by their exact length, which is a guess at a shape rather than a reading of one, so
+  one holding no subsets at another length reached the parse and raised `KeyError: 'year'`. This is
+  what failed `test_pdbufr_examples` on every CI job
 - REST API: a BUFR reader missing on the server answers 501 rather than 400. The blanket handler
   read every failure as the caller's, so a deployment installed without the `bufr` extra told the
-  client to `pip install wetterdienst[bufr]` on a machine they do not administer, for a request
-  that was perfectly well formed -- and `interpolate` and `summarize` called the same thing a 404,
-  which reads as "no such network". The install line moves to the server log, where whoever runs
-  the instance can act on it
-- CI: the test and coverage workflows watch `examples/**`. `tests/examples` runs those files, so a
-  change to one is a change both suites cover -- and a pull request touching only an example ran
-  neither, while the coverage workflow's header said it takes the same inputs as the test matrix
-- BUFR: one question, asked in one place. Reading BUFR takes two halves that fail apart -- pdbufr,
-  which reads the messages, and eccodes, the binding to the library that decodes them -- and no
-  caller cares which is missing. The codebase asked it four ways, one of them wrong:
-  `not ensure_eccodes() and not ensure_pdbufr()` skips only when *both* are missing, so with
-  eccodes installed and pdbufr not, the case a skip exists for, tests ran and died on the import --
-  and would now error earlier still, `require_bufr` refusing at the request. The four spellings are
-  one question now: `bufr_is_available` where an answer will do, `require_bufr` where it has to
-  come early, and one `BUFR_AVAILABLE` for the tests that skip on it
-- DWD road: a missing BUFR reader is refused at the request rather than at the parse. The values
-  class called `ensure_pdbufr()` and threw the answer away, so it guarded nothing: the request went
-  through and a bare `ImportError` came back out of the middle of a parse instead
+  client to `pip install wetterdienst[bufr]` on a machine they do not administer, and `interpolate`
+  and `summarize` called the same thing a 404. The install line moves to the server log
 - CLI: a missing optional reader is reported rather than raised. `values`, `interpolate` and
-  `summarize` caught `ValueError`, and the `ImportError` naming the extra to install is not one, so
-  the sentence saying what to do arrived as the last line of a traceback. The three share one
-  handler now, which reports that, a request the provider cannot serve as phrased, and a window
-  holding no readings -- the three failures a caller can act on rather than debug. The refusal has
-  a type of its own, `BufrReaderMissingError`, so reporting it does not mean reporting every import
-  failure that way: a cycle or a typo inside a provider module is a defect and keeps its traceback
-- BUFR: asking whether this environment can read BUFR answers, whatever the import does. Each
-  probe had a hole of its own: `ensure_eccodes` caught `ModuleNotFoundError` and `RuntimeError`
-  but not the plain `ImportError` an eccodes with no compiled library behind it raises, and
-  `ensure_pdbufr` caught `ImportError` but re-raised a `RuntimeError` whose message did not say
-  "Cannot find the ecCodes library" -- gribapi's phrasing of the day, and no promise. Naming what
-  had been seen would have left the next one out in turn, so the catch is anything at all: the
-  question is asked from a radar path documented to log and carry on rather than fail a query, and
-  from a constant the test suite computes while collecting, where a raise ends the collection
-  instead of skipping the tests that want a reader
-- BUFR: a reader that is installed and does not work says why, including when it fails as a
-  `ModuleNotFoundError` from inside itself -- `No module named 'gribapi.bindings'` is a broken
-  install and not an absent one, and reading it as absence hands the caller advice to install what
-  they have
-- CLI: an empty window is reported once. `get_values` logged "No data available for given
-  constraints" and handed the empty frame back, and the CLI logged the identical line again before
-  exiting, so a single empty result read as two. Reporting it belongs to the caller -- the CLI says
-  it and exits, the REST API returns the empty result -- and the library still notes it at info
-  level on the way out of `.all()`
-- Interpolation: four stations that surround the target point are a valid group however they are
-  ordered. The check drew a polygon through them in the order they are held -- by distance from
-  the point, which says nothing about the order around it -- so roughly half of all groups
-  described a self-intersecting shape, where `covers` is undefined. Around the point the tests
-  interpolate for, 11676 of the 37415 groups that do surround it were rejected, a third of them,
-  leaving the interpolation to fall back on more distant stations or to answer nothing at all
-  where the leading groups had no data for a timestamp. The convex hull decides now, which is also
-  the region `LinearNDInterpolator` can answer for, so a group that passes is one the
-  interpolation can use. No interpolated value in the test suite changes: the nearest four are
-  accepted either way, and what returns are the groups behind them
-- Interpolation: whether four stations surrounding the point exist is answered from the hull of
-  all of them rather than by enumerating groups. It is asked once per station collected and the
-  groups themselves are not wanted there, while enumerating them costs C(N,4) hulls -- 91390 of
-  them for the 40 stations a wide radius reaches, seconds per station, against 0.2 ms for the one
-  hull. A request whose parameters never fill up, which is what walks every station in range, is
-  the case that paid it
-- Interpolation: stations that do not span a triangle are no group. A hull with no width -- four
-  stations on a line, or several in one place -- still covers a point lying on it, so such a set
-  counted as a valid group, which is what stops the collection of further stations: a set that
-  cannot be interpolated at all could end a search that would have found one that can
-- Interpolation: four stations on a line come back without a value rather than raising. Their hull
-  is a line, which covers a point lying on it, so such a group reaches the interpolator -- where
-  scipy answers with a `QhullError` rather than the NaN the guard above expects
-- Interpolation: a point the interpolation has no answer for comes back empty rather than as a
-  zero. `LinearNDInterpolator` answers NaN outside the stations it was given, and for the
-  quantities that carry an occurrence test -- precipitation, new snow -- `NaN >= 0.5` is False, so
-  the NaN was reported as a precipitation of exactly none
-- Export: a file target renders what the matching format returns. `to_csv` joined a list of
-  station ids into one field and the CSV file target did not, so `--target=file://out.csv` on an
-  interpolation or a summary died with `CSV format does not support nested data` where
-  `--format=csv` wrote the same data out fine. Zarr failed on the same column, so neither could be
-  written to an array store either
-- Export: station metadata can be filtered by SQL and written to Zarr, NetCDF or CrateDB. All
-  three named the `date` column that a values frame has, while a stations frame carries
-  `start_date` and `end_date` and no `date`, so `request.all().filter_by_sql(...)` raised
-  `ColumnNotFoundError` and stations reached neither array store nor CrateDB. Every timestamp a
-  frame carries is handled now, whichever they are. The CLI's `--sql` went through a second copy
-  of the filter on `TimeseriesRequest`, which named those two columns itself and so worked but
-  called whatever came back UTC; both run the one filter now
-- Unit conversion: the mile and the knot are derived from the metres they are defined as, rather
-  than from decimals rounded to four figures. `1.609` put kilometre to mile 0.0214% away from the
-  metre-to-mile route, `1.151` did the same to the mile and the nautical mile -- the nautical mile
-  itself was already exact against metres and kilometres, and only its ratio to the mile moves --
-  and `1.944` left knots to metres per second 0.0080% from its kilometres-per-hour route, so
-  the same quantity converted differently depending on which unit its source published. That last
-  one is on real data: the Met Office publishes wind in knots and the speed target is metres per
-  second, so every one of its wind speeds carried the error. A round trip hid all three, both
-  directions sharing the rounding, so the tests now check that a conversion agrees whichever route
-  it takes
+  `summarize` caught `ValueError`, and the `ImportError` naming the extra is not one, so the
+  sentence saying what to do arrived as the last line of a traceback. The refusal has a type of its
+  own, `BufrReaderMissingError`, so a cycle or a typo inside a provider module keeps its traceback
+- DWD road: a missing BUFR reader is refused at the request rather than at the parse. The values
+  class called `ensure_pdbufr()` and threw the answer away, so the request went through and a bare
+  `ImportError` came back out of the middle of a parse
+- BUFR: asking whether this environment can read BUFR answers, whatever the import does. Each probe
+  had a hole: `ensure_eccodes` did not catch the plain `ImportError` an eccodes with no compiled
+  library raises, and `ensure_pdbufr` re-raised a `RuntimeError` matched on gribapi's phrasing of
+  the day. A reader that is installed and does not work says why,
+  `No module named 'gribapi.bindings'` being a broken install rather than an absent one
+- Export: a file target renders what the matching format returns. `to_csv` joined a list of station
+  ids into one field and the CSV file target did not, so `--target=file://out.csv` on an
+  interpolation died with `CSV format does not support nested data` where `--format=csv` wrote the
+  same data out fine. Zarr failed on the same column
+- Export: station metadata can be filtered by SQL and written to Zarr, NetCDF or CrateDB. All three
+  named the `date` column a values frame has, while a stations frame carries `start_date` and
+  `end_date`, so `request.all().filter_by_sql(...)` raised `ColumnNotFoundError`. The CLI's `--sql`
+  went through a second copy of the filter that worked but called whatever came back UTC; both run
+  the one filter now
+- CLI: an empty window is reported once, where `get_values` logged "No data available for given
+  constraints" and the CLI logged the identical line again before exiting
 
 ## [0.136.0] - 2026-09-04
 
 ### Added
 
-- DWD: new `poi` network (`dwd/poi`) covering DWD's POI ("Point Of Interest") current weather
-  reports -- the hourly observations of roughly the last day, published as one
-  `<station_id>-BEOB.csv` per station under `weather_reports/poi/`. 39 parameters at `hourly`
-  resolution and the `now` period: temperature (2 m and 5 cm), dew point, humidity, sea-level
-  pressure, wind and gusts, precipitation over the last 1/3/6/12/24 hours, cloud cover and base,
-  visibility, sunshine, snow depth, the coded present and past weather, and the previous day's
-  temperature and wind extremes. This is the observed counterpart to `dwd/mosmix`: the two share
-  the MOSMIX station catalogue, so a station keeps one id across both and a forecast can be
-  compared against what was measured. About 970 of the catalogue's ~5600 stations report, in
-  Germany and abroad. Two of the file's 41 columns are left unmapped -- the 24-hour global and
-  direct radiation. Both are declared W/m2, which a 24-hour figure cannot be; measured against the
-  daily total the hourly column adds up to (itself confirmed against DWD's own 10-minute solar
-  data), the 24-hour column comes out proportional with a factor of 1.573 over 29 stations, i.e. a
-  real daily total in a unit of ~0.636 MJ/m2 per count that matches nothing the converter knows.
-  Sum the hourly column for a daily total
+- DWD: new `poi` network (`dwd/poi`) covering DWD's POI current weather reports -- the hourly
+  observations of roughly the last day, one `<station_id>-BEOB.csv` per station. 39 parameters at
+  `hourly` resolution and the `now` period. This is the observed counterpart to `dwd/mosmix`: the
+  two share the MOSMIX station catalogue, so a station keeps one id across both and a forecast can
+  be compared against what was measured. About 970 of the catalogue's ~5600 stations report. The
+  file's two 24-hour radiation columns are left unmapped, both declared W/m2, which a 24-hour figure
+  cannot be -- sum the hourly column for a daily total
 
 ### Changed
 
-- Parameter parsing: a parameter the provider does not have is now logged as a warning naming what
-  did not match -- resolution, dataset or parameter -- with the closest name as a "did you mean"
-  and the names that would have matched, where it used to be an `info` line saying only that the
-  parameter was not found. Half a request silently resolving to less data than was asked for is
-  otherwise invisible. `NoParametersFoundError` names the request and the provider too
-- Parameter parsing: the parts of a parameter must be strings. A tuple mixing in an enum member,
-  `(Resolution.DAILY, "kl")`, now raises a `TypeError` naming the accepted forms instead of an
-  `AttributeError` from deep inside the parser
-- Lookups on the metadata models (`metadata["daily"]["kl"]`, `metadata.daily.kl`) match the
-  source's own name case-insensitively, as looking a parameter up by its `name_original` already
-  did in a request, and suggest the closest name when nothing matches
-- Provider metadata: `MetadataModel` carries the name it was built with as a `name` field, where
-  it used to be stashed on the model's `__name__`. Read `DwdObservationMetadata.name` instead of
-  `DwdObservationMetadata.__name__`
 - Periods: `periods` is an argument of every request rather than of the three that hand-rolled it,
-  and is resolved against the periods the requested datasets declare in the metadata. A dataset
-  published under a single period has nothing to choose between, so asking for that period is
-  answered and asking for another one raises `NoPeriodsFoundError` naming what is available.
-  Left out, the periods are still derived from `start_date`/`end_date` where the provider has a
-  release schedule to derive them from -- DWD observation and DWD phenology -- and are otherwise
-  every period the requested datasets publish, which for a request naming one dataset is narrower
-  than the provider-wide set it used to be. `TimeseriesRequest.available_periods()` reports the
-  provider's periods; the per-provider `_available_periods` class attributes it replaces were an
-  exact copy of what the metadata already said
+  and is resolved against the periods the requested datasets declare. A dataset published under a
+  single period is answered for that period and raises `NoPeriodsFoundError` for another. Left out,
+  the periods are still derived from `start_date`/`end_date` where the provider has a release
+  schedule (DWD observation and phenology) and are otherwise every period the requested datasets
+  publish, which for a request naming one dataset is narrower than the provider-wide set it used to
+  be. `TimeseriesRequest.available_periods()` replaces the per-provider `_available_periods`
+- Parameter parsing: a parameter the provider does not have is logged as a warning naming what did
+  not match -- resolution, dataset or parameter -- with the closest name as a "did you mean", where
+  it used to be an `info` line saying only that it was not found. Half a request silently resolving
+  to less data than was asked for is otherwise invisible
+- Provider metadata: `MetadataModel` carries the name it was built with as a `name` field. Read
+  `DwdObservationMetadata.name` rather than `DwdObservationMetadata.__name__`
+- Lookups on the metadata models (`metadata["daily"]["kl"]`, `metadata.daily.kl`) match the source's
+  own name case-insensitively, as looking one up by `name_original` in a request already did, and
+  suggest the closest name when nothing matches
+- Parameter parsing: the parts of a parameter must be strings. A tuple mixing in an enum member,
+  `(Resolution.DAILY, "kl")`, raises a `TypeError` naming the accepted forms rather than an
+  `AttributeError` from deep inside the parser
 - Periods: narrowing the periods of a provider that does not read its data per period -- SMHI,
-  MeteoSwiss, met.no Frost and Meteo-France observation declare datasets with more than one period
-  but fetch all of them by design -- is logged as a warning saying the request was not narrowed,
-  rather than answered with everything in silence
+  MeteoSwiss, met.no Frost and Meteo-France observation fetch all of them by design -- is logged as
+  a warning saying the request was not narrowed, rather than answered with everything in silence
 
 ### Fixed
 
-- Interpolation and summarization: a result that came back with no rows is a feature collection
-  with no values rather than an `OutOfBoundsError`. The feature's id was read out of the frame's
-  first row, so a point and window no station covers -- an ordinary outcome, and one the REST API
-  serves as `format=geojson` -- raised `gather indices are out of bounds` from `to_geojson` and
-  `to_ogc_feature_collection`, where `to_dict` on the same result answered fine. The id belongs to
-  the point rather than to any row: it is the name beside it hashed, which is how the
-  interpolation builds it in the first place
-- Plots: a parameter is labelled with the unit its values are actually written in. The label
-  mapping was keyed on the canonical parameter name alone, while a frame carries `name_original`
-  unless `ts_humanize` is on, so nothing matched and the label repeated the name -- `sd_10
-  (sd_10)`. The symbol was also always the target unit's, though `ts_convert_units=False` leaves
-  the values as the source published them: `10_minutes/solar/sunshine_duration` comes in hours and
-  was labelled seconds, a factor of 3600 between the number and its unit. The mapping is keyed by
-  resolution and dataset as well as name, since a canonical name is only unique within its dataset
-  -- DWD publishes `sunshine_duration` in hours at 10 minutes and in minutes at an hour, and one
-  would otherwise have labelled the other. Both affected the value, interpolation and summary
-  plots, and the images exported from them
 - Dates: a date string covers everything it names instead of only the instant it starts with.
-  `2020-05` is the month of May, `2020` the year, and `2020-05-01` a whole day -- which for
-  anything measured more often than daily is 24 hours of readings rather than the one at midnight.
-  Every one of these formats is documented as supported, and `filter_by_date` matched a single
-  date with `==`, so a month or a year of hourly data came back empty: no reading falls exactly on
-  the 1st at 00:00. An interval ran to the *first* instant of the span its second half names, so
-  `2017-01/2019-12` ended on the 1st of December 2019 and `2010/2020` dropped all of 2020. The
-  same reading of the string reached the CLI and REST API, where `--date=2019-12` asked for
-  December and got a window of one instant. A date carrying a time still names one instant and is
-  matched exactly, however it is written -- `2020-05-01T12`, `2020-05-01t12` or `2020-05-01 12:00`
-- Parameter parsing: parameters requested more than once -- a dataset and one of its parameters,
-  or the same dataset twice -- are returned once instead of being queried and returned per mention
-- Parameter parsing: an iterator of parameters no longer parses as empty. It was consumed by the
-  checks that tell `("daily", "kl")` apart from `["daily/kl", "daily/solar"]`
-- Parameter parsing: a quality flag requested by name (`daily/kl/quality_wind`) says that quality
-  flags come back in the `quality` column next to their parameter, where it used to be dropped as
-  if it did not exist. Requesting one as a `ParameterModel` was dropped the same way
-- Provider metadata: a misspelled key in a metadata declaration is rejected instead of dropped.
-  Only `ParameterModel` forbade extra keys, so `date_requiered` or `grupped` anywhere else was
-  silently ignored and the declaration fell back to a default -- a dataset quietly inheriting its
-  resolution's `date_required`. Every existing declaration passes unchanged
-- Provider metadata: an invalid `periods` or `date_required` on a resolution is reported as the
-  validation error it is, naming the value that is wrong, where the validator that cascades those
-  two fields down to the datasets used to turn it into a bare `KeyError('periods')`
-- CI: the Coolify deploy step has failed on every run since 2026-08-17, so no release or nightly
-  has reached the live deployment since. Coolify moved `/api/v1/deploy` from GET to POST and left
-  the GET route pointing at a stub that answers `405 This endpoint has changed to a POST request.`,
-  which `curl --fail` turned into an exit 22 after the images had already been built and pushed.
-  Both deploy calls now use POST. The images were never the problem -- every run pushed its
-  manifest and passed `Inspect image` before dying on the last step
-- Ranked station values: a station whose record lies entirely outside the requested window no
-  longer counts against the station count of `filter_by_rank`. It was checked for data before the
-  window was cut and never again after, so it spent one of the ranked slots on an empty frame and
-  the walk stopped short of the stations that do cover the window -- a request for a window only
-  the more distant stations reach came back with nothing, which reads exactly like no data
-  existing at all
+  `2020-05` is the month of May, `2020` the year, and `2020-05-01` a whole day. Every one of these
+  formats is documented as supported, and `filter_by_date` matched a single date with `==`, so a
+  month or a year of hourly data came back empty -- no reading falls exactly on the 1st at 00:00. An
+  interval ran to the *first* instant of the span its second half names, so `2017-01/2019-12` ended
+  on the 1st of December and `2010/2020` dropped all of 2020. The CLI and REST API read the string
+  the same way. A date carrying a time still names one instant
+- Periods: a period no requested dataset publishes is no longer silently turned into *every* period.
+  `periods="future"` intersected the request with the available periods and the empty result read as
+  "no periods requested", so asking for a period that does not exist returned more data than asking
+  for one that does. It raises `NoPeriodsFoundError` now
+- Periods: `periods` reaches providers that never accepted the argument. It was a per-provider
+  constructor field, so `NoaaGhcnRequest(..., periods="historical")` was a `TypeError` and the CLI's
+  `--periods` was dropped for every provider but DWD observation, derived and phenology -- including
+  met.no Frost, whose datasets are published under both `historical` and `recent`
+- Periods: a period derived from `start_date`/`end_date` is checked against the datasets like a
+  requested one. An interval reaching into today derives `now`, which `daily/kl` has no release for,
+  and the request then read no station index at all -- reporting *no stations* where asking for
+  `periods="now"` outright raises. Where the interval reaches past a dataset's newest release, that
+  release answers for it
+- Periods: an explicit period is answered for a dataset published under a single one. The CLI and
+  REST API forwarded `periods` only where some requested dataset had more than one, so asking DWD
+  derived for `historical` on a `recent`-only dataset read every period the provider has
 - Interpolation and summarization: the values of one station are no longer read together with
   another station's coordinates and distance. Both walks paired the distance-sorted stations frame
   against the values generator by position, but that frame carries a row per station *and* dataset
-  while the generator yields one result per station and passes over those that returned nothing,
-  so any gap shifted every station after it onto its neighbour's location
+  while the generator yields one result per station and skips those that returned nothing, so any
+  gap shifted every station after it onto its neighbour's location
+- Interpolation and summarization: a result with no rows is a feature collection with no values
+  rather than an `OutOfBoundsError`. The feature's id was read out of the frame's first row, so a
+  point and window no station covers raised `gather indices are out of bounds` from `to_geojson`,
+  where `to_dict` on the same result answered fine. The id belongs to the point
 - Values: a request that collected nothing returns an empty frame carrying its columns rather than
   one with no columns at all, which wrote an empty file where a header was meant and raised
-  `ColumnNotFoundError` from `get_column("date")`. The columns are the ones a populated frame
-  would have had, dataset prefixes and all, in whichever shape was asked for. Having no data for
-  the constraints given is an ordinary outcome, so it is no longer logged with an exception
-  traceback either
+  `ColumnNotFoundError` from `get_column("date")`. Having no data for the constraints given is an
+  ordinary outcome, so it is no longer logged with a traceback either
+- Ranked station values: a station whose record lies entirely outside the requested window no longer
+  counts against the station count of `filter_by_rank`. It was checked for data before the window
+  was cut and never again after, so it spent one of the ranked slots on an empty frame and the walk
+  stopped short of the stations that do cover the window -- which reads exactly like no data
+  existing at all
 - Values: a ranked request no longer reads the whole provider to answer for a window that predates
-  it. A station returning nothing inside the window rightly does not count towards `rank`, but
-  then nothing bounded the walk either, so a window no station covers read every station there is.
-  A station the index says began after the window ended is now skipped without being downloaded.
-  Only that direction is read from the index: a station still reporting carries an `end_date` a
-  little behind the readings it can already answer for
-- Periods: a period no requested dataset publishes is no longer silently turned into *every*
-  period. `DwdObservationRequest(parameters=["daily/kl"], periods="future")` intersected the
-  request with the available periods, and the empty result then read as "no periods requested", so
-  asking for a period that does not exist returned more data than asking for one that does. It
-  raises `NoPeriodsFoundError` now, and a period dropped from a request that keeps others is
-  logged as a warning naming it
-- Periods: `periods` reaches providers that never accepted the argument. It was a per-provider
-  constructor field, so `NoaaGhcnRequest(..., periods="historical")` was a `TypeError`, and the
-  CLI's `--periods` and the REST API's `periods` were dropped for every provider but DWD
-  observation, derived and phenology -- including met.no Frost, whose datasets are published under
-  both `historical` and `recent`
-- Periods: a period derived from `start_date`/`end_date` is checked against the datasets like a
-  requested one is. An interval reaching into today derives `now`, which `daily/kl` has no release
-  for, and the request then read no station index at all -- `DwdObservationRequest` for today's
-  `daily/kl` reported *no stations*, where asking for `periods="now"` outright raises for the same
-  datasets. Where the interval reaches past the newest release a dataset has, that release answers
-  for it
-- Periods: an explicit period is answered for a dataset published under a single one. The CLI and
-  REST API forwarded `periods` only when some requested dataset had more than one, so asking DWD
-  derived for `historical` on `monthly/climate_correction_factor` -- a `recent`-only dataset --
-  read every period the provider has instead of reporting that the dataset has no historical
-  release
-- Values: a dataset named more than once in a request -- interleaved with another, as in
-  `["daily/kl/temperature_air_mean_2m", "daily/more_precip/precipitation_height",
-  "daily/kl/precipitation_height"]` -- is fetched and parsed once instead of once per run of
-  consecutive mentions. The station index of NOAA GHCN, Geosphere and MeteoSwiss gained a
-  duplicate row per station the same way
-
+  it. A station returning nothing inside the window rightly does not count towards `rank`, but then
+  nothing bounded the walk either. A station the index says began after the window ended is skipped
+  without being downloaded; only that direction is read from the index, a station still reporting
+  carrying an `end_date` a little behind what it can answer for
+- Values: a dataset named more than once in a request -- interleaved with another -- is fetched and
+  parsed once instead of once per run of consecutive mentions. The station index of NOAA GHCN,
+  Geosphere and MeteoSwiss gained a duplicate row per station the same way
+- Plots: a parameter is labelled with the unit its values are actually written in. The label mapping
+  was keyed on the canonical name alone while a frame carries `name_original` unless `ts_humanize`
+  is on, so nothing matched and the label repeated the name -- `sd_10 (sd_10)`. The symbol was also
+  always the target unit's, though `ts_convert_units=False` leaves the values as published:
+  `10_minutes/solar/sunshine_duration` comes in hours and was labelled seconds. Keyed by resolution
+  and dataset as well as name now, a canonical name being unique only within its dataset
+- Parameter parsing: a quality flag requested by name (`daily/kl/quality_wind`) says that quality
+  flags come back in the `quality` column next to their parameter, where it used to be dropped as if
+  it did not exist. Requesting one as a `ParameterModel` was dropped the same way
+- Parameter parsing: parameters requested more than once -- a dataset and one of its parameters, or
+  the same dataset twice -- are returned once rather than per mention, and an iterator of parameters
+  no longer parses as empty, having been consumed by the checks that tell `("daily", "kl")` apart
+  from a list
+- Provider metadata: a misspelled key in a metadata declaration is rejected instead of dropped. Only
+  `ParameterModel` forbade extra keys, so `date_requiered` anywhere else was silently ignored and
+  the declaration fell back to a default. An invalid `periods` or `date_required` on a resolution is
+  now reported as the validation error it is rather than a bare `KeyError('periods')`
+- CI: the Coolify deploy step had failed on every run since 2026-08-17, so no release or nightly
+  reached the live deployment. Coolify moved `/api/v1/deploy` from GET to POST and left the GET
+  route answering `405`, which `curl --fail` turned into an exit 22 after the images had been pushed
 
 ## [0.135.0] - 2026-08-31
 
 ### Added
 
-- DWD: new `phenology` network (`dwd/phenology`) covering the DWD phenological observation
-  network -- the day of the year on which a plant reached a developmental phase, at `annual`
-  resolution, reaching back to 1925. 110 datasets, one per plant and reporter group
-  (`annual_common_hazel`, `immediate_winter_wheat`, ...), each carrying the phenological phases
-  that plant is observed for as parameters (`phenology_flowering_beginning`,
-  `phenology_leaf_unfolding_beginning`, `phenology_harvest`, ...). A value is DWD's `Jultag`, the
-  day of the year, dated to the 1st of January of the reference year, so the entry date is that
-  date plus the value. Both reporter groups are covered -- the ~6600-station *Jahresmelder* and
-  the ~1200-station *Sofortmelder* -- with their own station catalogues
+- DWD: new `phenology` network (`dwd/phenology`) covering the DWD phenological observation network
+  -- the day of the year on which a plant reached a developmental phase, at `annual` resolution,
+  reaching back to 1925. 110 datasets, one per plant and reporter group (`annual_common_hazel`,
+  `immediate_winter_wheat`, ...), each carrying that plant's phases as parameters. A value is DWD's
+  `Jultag` dated to the 1st of January of the reference year, so the entry date is that date plus
+  the value. Both reporter groups are covered, with their own station catalogues
 
 ### Removed
 
-- `Resolution.UNDEFINED` and `Period.UNDEFINED`, which no provider declared any more. They were
-  what the sources without a stated interval were served under, and the last of those went when
-  WSV and Hubeau started reporting the interval each station records at. `undefined` was still
-  accepted as a key of `ts_geo_station_distance_resolution_factors`, which validates its keys
-  against `Resolution` and was the one place the enum was read as a closed vocabulary, so it was a
-  setting that could be written and never read. `Resolution.UNDEFINED` also had no `Frequency`
-  member of its own name, which is how `create_date_range` looks the interval up, so anything that
-  had reached it would have raised a KeyError rather than being served coarsely. `PeriodType` goes
-  with `Period.UNDEFINED`, the only thing that read it, as `ResolutionType` did before it, and
-  `Frequency.MINUTE_2` goes too, having named a resolution that never existed.
-  `periods="undefined"` now raises `InvalidEnumerationError` where it used to parse and then
-  match no dataset, which is the one visible change
+- `Resolution.UNDEFINED` and `Period.UNDEFINED`, which no provider declared any more -- the last
+  sources without a stated interval went when WSV and Hubeau began reporting theirs.
+  `periods="undefined"` now raises `InvalidEnumerationError` where it used to parse and then match
+  no dataset, which is the one visible change. `PeriodType` goes with it, as `ResolutionType` did
+  before, and so does `Frequency.MINUTE_2`, which named a resolution that never existed
 
 ### Fixed
 
-- Network: the fsspec listings cache silently never hit for `CacheExpiry.INFINITE`. The expiry
-  reaches `FileDirCache` as `False`, which diskcache read as an expiry of `now + False == now`, so
-  every entry was stored already expired and each listing was refetched. Falsy expiries now mean
-  "never expire", matching what the download-side cache has always done with `INFINITE`
-- Network: `FileDirCache` could not be unpickled -- its `__reduce__` passed three positional
-  arguments to an `__init__` that takes one positional plus keyword-only arguments, and in the
-  wrong order
-- Network: a listing whose TTL lapsed between fsspec's `in dircache` probe and the following
-  lookup raised a `KeyError` out of `ls()`/`find()`. The dircache is now read with a single
-  lookup, which also stops a `detail=False` call from caching a name-only listing that later
-  `detail=True` reads would receive
-- Network: `download_file()` raised `AttributeError: 'NoneType' object has no attribute 'get'`
-  when `client_kwargs` was left at its `None` default
-- Network: a float timeout in `fsspec_client_kwargs` (e.g. `WD_FSSPEC_CLIENT_KWARGS='{"timeout": 30.5}'`)
-  reached aiohttp unwrapped and failed every request with `ValueError: timeout parameter cannot be of
-  <class 'float'> type`; only int timeouts were being wrapped in `ClientTimeout`
-- Network: a disabled listings cache created (and `mkdir`-ed) a cache directory named `False`,
-  `0.0` or `0.01` that nothing readable was ever written to. Those folders are no longer created,
-  and any left behind by an earlier version are swept from the cache directory on the next run --
-  guarded so that a folder still holding valid entries is kept
-- DWD observation: the `climate_urban` URL was pinned to the `recent` directory whatever period was
-  requested, so a `now` request for a 10-minute urban dataset was answered with `recent` data ending
-  at the previous midnight, and `historical` -- reaching back to each station's first year, 2015 for
-  Berlin-Alexanderplatz -- could not be read at all. The 10-minute urban datasets carry a directory
-  per period like the non-urban ones, so the requested period now reaches the URL. The hourly urban
-  datasets are unchanged: DWD publishes a single `recent` directory for them that already holds the
-  full record, and every period keeps mapping onto it
-- DWD observation: `describe_fields()` raised an opaque `.item()` length error for the 10-minute
-  urban datasets, for which DWD publishes no description PDF at all; it now names the dataset,
-  period and URL it looked at
-- DWD observation: station `history` returned nothing for the 10-minute urban datasets. It looked
-  for them under a `meta_data` directory that only the non-urban high resolutions have, while the
-  urban zips carry their `Metadaten_*.txt` files themselves
-- DWD observation: where two periods reported the same timestamp, which record survived was decided
-  by neither of the two things that should decide it. The periods were read in the iteration order
-  of a set, varying from one interpreter run to the next, and the deduplication then ran over a
-  frame that `how="align"` had already reordered by value -- so the surviving record was the lower
-  reading, or a null wherever one period was missing a measurement the other had. Values now settle
-  on the quality-marked historical record, carried through the concatenation as an explicit rank,
-  and stations settle on their most current description. This is visible for the first time on the
-  10-minute urban datasets, whose three periods used to resolve to the same directory
-- The app's `Resolution` type restates the backend enum, and had drifted both ways: it still
-  offered `undefined` and `dynamic`, and had never gained `6_minutes`, which Meteo-France is
-  served under. A test now holds the two together, as it does for `Frequency`, whose members are
-  looked up by resolution name, and for the interpolation radius factors, which are keyed by
-  resolution
-- Environment Agency: the whole 15-minute resolution was unreachable. Both `15_minutes/data/discharge`
-  and `15_minutes/data/groundwater_level` raised `KeyError` while building the station listing,
-  which asked a hand-kept map for the EA measure parameter each wetterdienst parameter is taken
-  from and that map still spelled them `discharge_instant` and `groundwater_level_instant`, names
-  the metadata had long since dropped. The measure parameter and the period are now read off the
-  notation the metadata already declares -- `flow-i-900` is flow measured every 900 seconds -- so
-  renaming a parameter cannot separate the two again
+- Environment Agency: 15-minute values arrived empty for every window of the last decade and a half.
+  The readings endpoint answers a request naming no window with its default page of 100_000
+  readings, oldest first, and reports no truncation; at 15 minutes that page runs out after some 2.8
+  years, so the readings of 2008 to 2011 came back whatever was asked for and the post-filter
+  dropped all of them. The window is now asked for, and the page raised to what it can hold. Daily
+  was never affected, 100_000 daily readings being 274 years, and this also stops a 22 MB download
+  per station
+- Environment Agency: the whole 15-minute resolution was unreachable, both `discharge` and
+  `groundwater_level` raising `KeyError` while building the station listing from a hand-kept map
+  that still spelled them `*_instant`. The measure parameter and the period are read off the
+  notation the metadata declares -- `flow-i-900` is flow measured every 900 seconds -- so renaming a
+  parameter cannot separate the two again
 - Environment Agency: a station is listed once rather than once per matching measure. The listing
-  carries a row per measure, so a station recording two of the requested parameters -- or two
-  daily statistics of one of them, which share the parameter and the period the listing reports --
-  came back duplicated, and `filter_by_rank` then spent rank on the same station twice
-- Environment Agency: 15-minute values arrived empty for every window of the last decade and a
-  half. The readings endpoint answers a request that names no window with its default page of
-  100_000 readings, oldest first, and reports no truncation; at 15 minutes that page runs out
-  after some 2.8 years, so the readings of 2008 to 2011 came back whatever was asked for and the
-  post-filter dropped all of them. The window is now asked for, and the page raised to the number
-  of readings it can hold, so a long window is not silently cut either. Daily was never affected,
-  100_000 daily readings being 274 years, and it also stops a 22 MB download per station
+  carries a row per measure, so a station recording two of the requested parameters came back
+  duplicated and `filter_by_rank` spent rank on it twice
+- DWD observation: the `climate_urban` URL was pinned to the `recent` directory whatever period was
+  requested, so a `now` request for a 10-minute urban dataset was answered with data ending at the
+  previous midnight and `historical` could not be read at all. The hourly urban datasets are
+  unchanged, DWD publishing a single `recent` directory that already holds the full record
+- DWD observation: where two periods reported the same timestamp, which record survived was decided
+  by neither of the two things that should decide it -- the periods were read in the iteration order
+  of a set, varying between interpreter runs, and the deduplication ran over a frame `how="align"`
+  had already reordered by value, so the survivor was the lower reading, or a null where one period
+  was missing a measurement the other had. Values now settle on the quality-marked historical record
+  and stations on their most current description
+- DWD observation: station `history` returned nothing for the 10-minute urban datasets, looking for
+  them under a `meta_data` directory only the non-urban high resolutions have, while the urban zips
+  carry their `Metadaten_*.txt` files themselves. `describe_fields()` raised an opaque `.item()`
+  length error for them, DWD publishing no description PDF at all, and now names what it looked at
+- Network: the fsspec listings cache silently never hit for `CacheExpiry.INFINITE`. The expiry
+  reaches `FileDirCache` as `False`, which diskcache read as `now + False == now`, so every entry
+  was stored already expired and each listing was refetched. Falsy expiries now mean "never expire",
+  as the download-side cache has always read them
+- Network: a listing whose TTL lapsed between fsspec's `in dircache` probe and the following lookup
+  raised a `KeyError` out of `ls()`/`find()`. The dircache is read with a single lookup now, which
+  also stops a `detail=False` call from caching a name-only listing that later `detail=True` reads
+  would receive
+- Network: a disabled listings cache created a cache directory named `False`, `0.0` or `0.01` that
+  nothing readable was ever written to. Those are no longer created, and any left by an earlier
+  version are swept on the next run, guarded so that a folder still holding valid entries is kept
+- Network: a float timeout in `fsspec_client_kwargs` reached aiohttp unwrapped and failed every
+  request with `ValueError: timeout parameter cannot be of <class 'float'> type`, only int timeouts
+  being wrapped in `ClientTimeout`. `download_file()` also raised
+  `AttributeError: 'NoneType' object has no attribute 'get'` where `client_kwargs` was left at its
+  `None` default, and `FileDirCache` could not be unpickled, its `__reduce__` passing three
+  positional arguments in the wrong order to an `__init__` that takes one
+- The app's `Resolution` type restates the backend enum and had drifted both ways: it still offered
+  `undefined` and `dynamic`, and had never gained `6_minutes`, which Meteo-France is served under
 
 ## [0.134.0] - 2026-08-22
 
 ### Added
 
-- Add the DWD climate indices as four datasets: `annual`/`climate_indices` and
-  `monthly`/`climate_indices` count tropical nights and frost, summer, hot and ice days, while
-  `annual`/`precipitation_indices` and `monthly`/`precipitation_indices` count the days reaching
-  precipitation heights of 0.1 to 20 mm and snow depths of 1 and 5 cm. DWD derives them from the
-  daily observations of the same stations and publishes them in the familiar CDC layout, so they
-  arrive as metadata alone. Twelve canonical parameters are new with them, named for the index the
-  literature knows (`count_days_frost`, `count_days_tropical_night`) rather than for its threshold,
-  which the description carries instead
+- The DWD climate indices as four datasets: `annual`/`monthly` `climate_indices` count tropical
+  nights and frost, summer, hot and ice days, while `annual`/`monthly` `precipitation_indices` count
+  the days reaching precipitation heights of 0.1 to 20 mm and snow depths of 1 and 5 cm. DWD derives
+  them from the daily observations of the same stations and publishes them in the familiar CDC
+  layout, so they arrive as metadata alone. Twelve canonical parameters are new with them, named for
+  the index the literature knows (`count_days_frost`, `count_days_tropical_night`) rather than for
+  its threshold, which the description carries
 - The two interpolation search radii are settings of their own:
-  `ts_geo_station_distance_homogeneous` (40 km, for a quantity that varies slowly across a region,
-  such as air temperature) and `ts_geo_station_distance_heterogeneous` (20 km, for one that
-  decorrelates within a few tens of kilometres, such as precipitation). They were module constants,
-  so widening the search for everything meant naming all 514 parameters individually in
-  `ts_geo_station_distance`, which keeps its role as the per-parameter override. The CLI takes
-  them as `--interpolation_station_distance_homogeneous` and `--…_heterogeneous` (`--summary_…`
-  for `summarize`) and the REST API as query parameters of the same names. A radius that is not
-  given is left out rather than passed as the library default, so a server configured through
-  `WD_TS_GEO_STATION_DISTANCE_*` keeps its own
-- `wetterdienst summarize` reaches the settings that `interpolate` always could:
-  `--summary_station_distance` and `--use_nearby_station_distance` had no command options at all,
-  so the summary CLI always ran with the defaults
+  `ts_geo_station_distance_homogeneous` (40 km, for a quantity that varies slowly across a region)
+  and `ts_geo_station_distance_heterogeneous` (20 km, for one that decorrelates within a few tens of
+  kilometres). They were module constants, so widening the search for everything meant naming all
+  514 parameters individually in `ts_geo_station_distance`, which keeps its role as the
+  per-parameter override. On the CLI as `--interpolation_station_distance_homogeneous` and
+  `--…_heterogeneous` (`--summary_…` for `summarize`), and on the REST API under the same names
+- `wetterdienst summarize` reaches the settings `interpolate` always could:
+  `--summary_station_distance` and `--use_nearby_station_distance` had no command options at all, so
+  the summary CLI always ran with the defaults
 
 ### Changed
 
-- An NWS request asks the observations endpoint for its own window. The endpoint answers an
-  unqualified request with its whole retention -- a rolling week of some 180 readings, close to a
-  megabyte -- however little of it was wanted, and the frame was trimmed to the request only after
-  it arrived. It clips a window to what it still holds rather than refusing one that reaches
-  further back, so the readings are the same and a request for one day now downloads one day
-- **Breaking**: `skip_empty` works through the CLI and the REST API. Neither surface ever set
-  `ts_complete`, and `ts_skip_empty` was silently switched off wherever it was not, so
-  `--skip_empty`, `--skip_threshold` and `--skip_criteria` -- and the three REST parameters of the
-  same names -- did nothing at all, and `filter_by_rank` never skipped a station over its coverage
-  the way it is documented to. The option now stands on its own: it needs neither a gridded frame
-  nor `ts_drop_nulls=False`, and their log lines are gone with it. A CLI or REST request that
-  passes `--skip_empty` starts skipping stations it used to return
-- A station's coverage is the share of the readings the requested window can hold at the
-  parameter's resolution that the station delivered, counted from the window and the resolution
-  rather than by measuring a frame that had been reindexed onto a grid first. The denominator is
-  the same one `ts_complete` produced, so a request that already set both settings keeps its
-  answers, with two departures: a reading that does not land on the resolution's grid now counts
-  as delivered rather than being dropped and counted as missing, and a request that names no
-  window is measured against the span of the station's own series for the dataset in question
-  instead of being called fully covered whatever it holds. Readings are counted by the grid slot
-  they fall in rather than one by one, so a station reporting more often than the resolution it is
-  listed under cannot cover a window twice over and read as complete while half of it holds
-  nothing. `subdaily` is measured on what came back instead: it is a bucket rather than an
-  interval, and its two providers disagree on one -- DWD takes three Termin readings a day where
-  Meteo-France SYNOP reports every three hours -- so counting either as the interval would judge
-  the other three times too harshly. A parameter is matched to its metadata case-insensitively, so
-  a provider emitting its own casing -- WSV reports `w` where its metadata declares `W` -- is no
-  longer read as having sent nothing
-- **Breaking**: Eaufrance Hubeau reports under the interval each station transmits at, so its
-  single `dynamic` resolution is replaced by `5_minutes`, `6_minutes`, `10_minutes`, `15_minutes`
-  and `hourly`, and a request for `dynamic/data/...` no longer resolves. Hubeau publishes the
-  interval nowhere -- not in the station referential, not on the observations, and the v2 API
-  defines no field for one -- so unlike Pegelonline's declared `equidistance` it is measured from
-  the timestamps a station has just published. The network does transmit on a grid: of 3018
-  stations reporting over six hours, 2987 resolved to one of the five intervals (5 min for 1643 of
-  them, 10 for 903, 15 for 251, 60 for 120, 6 for 33), and re-measuring a 45-station sample over
-  48 hours named all 45 the same way. Two hours of the whole network are read at the station list,
-  which names every station transmitting at least every fifteen minutes, and the slower and quieter
-  ones are then asked about by name over a longer window. A station that has published nothing to
-  measure is listed under no resolution rather than under a guessed one, and returns as soon as it
-  transmits again; so is one transmitting every 20 or 30 minutes, which no resolution covers, and
-  that is reported once. In exchange the interpolation search radius scales by resolution rather
-  than falling back to a factor of 1.0, and a station's coverage is measured against the interval
-  it actually transmits at. `Resolution.DYNAMIC` goes with it, and with it `ResolutionType`, which
-  existed only to spell that one member
 - **Breaking**: WSV Pegelonline reports under the interval it actually records at, so its single
   `dynamic` resolution is replaced by `1_minute`, `5_minutes`, `10_minutes`, `15_minutes` and
-  `hourly`, and a request for `dynamic/data/...` no longer resolves. Pegelonline publishes an
-  `equidistance` on every timeseries in the station listing the provider already downloads, so the
-  interval was never something that had to be guessed -- it was simply not read. Each station is
-  listed under the resolution it records the requested parameters at, and the 77 of 787 stations
-  that record different parameters at different intervals (Passau reads stage every 15 minutes and
-  air temperature every 60) appear under each, serving only the parameters that belong there. To
-  find a station's resolution, request the parameter at every interval that could carry it and read
-  the `resolution` column of the station list. In exchange the interpolation search radius scales
-  by resolution like every other provider's rather than falling back to a factor of 1.0, and a
-  station's coverage is measured against the interval it actually records at
+  `hourly`, and `dynamic/data/...` no longer resolves. Pegelonline publishes an `equidistance` on
+  every timeseries in the station listing the provider already downloads. The 77 of 787 stations
+  recording different parameters at different intervals appear under each, serving only the
+  parameters that belong there -- to find a station's resolution, request the parameter at every
+  interval that could carry it and read the `resolution` column of the station list
+- **Breaking**: Eaufrance Hubeau reports under the interval each station transmits at, so its single
+  `dynamic` resolution is replaced by `5_minutes`, `6_minutes`, `10_minutes`, `15_minutes` and
+  `hourly`, and `dynamic/data/...` no longer resolves. Hubeau publishes the interval nowhere, so
+  unlike Pegelonline's declared `equidistance` it is measured from the timestamps a station has just
+  published: of 3018 stations reporting over six hours, 2987 resolved to one of the five. A station
+  that has published nothing to measure, or transmits every 20 or 30 minutes, is listed under no
+  resolution rather than a guessed one, and returns as soon as it transmits on a covered interval.
+  `Resolution.DYNAMIC` goes with these two, and `ResolutionType` with it
 - **Breaking**: the heterogeneous search radius follows the resolution of the request, so an
   interpolation or summary that already worked returns different values without anything being
-  changed by hand: daily precipitation is drawn from 40 km rather than 20, `minute_10` from 15 km
-  rather than 20. A quantity that decorrelates fast in space does so less the longer it is
-  accumulated -- gauge studies put the correlation length of precipitation at roughly 8 km over ten
-  minutes, 27 km over three hours and 33 to 94 km over a day -- and one radius cannot serve both
-  ends of that. The factors are `ts_geo_station_distance_resolution_factors`: 0.75 for the minute
-  resolutions, 1.0 hourly, 1.5 for `6_hour` and `subdaily`, and 2.0 from daily upwards. Resolutions
-  left out keep their factor, every factor set to 1.0 turns the scaling off, and the factors
-  multiply whatever `ts_geo_station_distance_heterogeneous` says, so raising that setting moves
-  every resolution with it. The table stops at 2.0 rather than following the correlation length up:
-  past a day what binds is terrain and not correlation, since the interpolation reads UTM x/y and
-  never station height, so 40 km is as far as it may reach -- the same bound the homogeneous radius
-  is held to, which is why the two meet at `daily` with the defaults. Precipitation is more
-  orographically driven than temperature, not less, so it does not get to reach farther. The
-  homogeneous radius does not scale at all, and a radius written out per parameter in
-  `ts_geo_station_distance` is used exactly as given, at every resolution. The fine end stops short
-  of the 8 km the literature gives, since interpolation needs four surrounding stations and even
-  the DWD network rarely has four rain gauges that close -- in a sparse network 15 km may leave a
-  request that used to answer with nothing, and raising the factor for that resolution brings it
-  back. `summarize` scales too: nothing is blended there, but how far away a measurement still says
-  something about the target point is the same question, and it depends on the accumulation period
-- **Breaking**: the `"default"` key of `ts_geo_station_distance` is gone, in favour of the two
-  radii settings above. It was undocumented and did more than it said: it rebuilt the mapping
-  around the given number and so replaced the shorter radius of every heterogeneous parameter
-  along with the fallback, giving `{"default": 30}` precipitation, fresh snow and visibility 30 km
-  as well. Setting it now raises and names its replacements
+  changed by hand: daily precipitation is drawn from 40 km rather than 20, `minute_10` from 15 km. A
+  quantity that decorrelates fast in space does so less the longer it is accumulated -- gauge
+  studies put precipitation's correlation length at roughly 8 km over ten minutes and 33 to 94 km
+  over a day. The factors are `ts_geo_station_distance_resolution_factors`: 0.75 for the minute
+  resolutions, 1.0 hourly, 1.5 for `6_hour` and `subdaily`, 2.0 from daily upwards. Every factor set
+  to 1.0 turns the scaling off; a radius written out per parameter in `ts_geo_station_distance` is
+  used exactly as given. The table stops at 2.0 because past a day what binds is terrain, the
+  interpolation reading UTM x/y and never station height
+- **Breaking**: the `"default"` key of `ts_geo_station_distance` is gone in favour of the two radii
+  settings above. It was undocumented and did more than it said: it rebuilt the mapping around the
+  given number, so `{"default": 30}` gave precipitation, fresh snow and visibility 30 km as well as
+  setting the fallback. Setting it now raises and names its replacements
+- **Breaking**: `skip_empty` works through the CLI and the REST API. Neither surface ever set
+  `ts_complete`, and `ts_skip_empty` was silently switched off wherever it was not, so
+  `--skip_empty`, `--skip_threshold` and `--skip_criteria` did nothing at all and `filter_by_rank`
+  never skipped a station over its coverage the way it is documented to. A CLI or REST request that
+  passes `--skip_empty` starts skipping stations it used to return
+- A station's coverage is the share of the readings the requested window can hold at the parameter's
+  resolution that the station delivered, counted from the window and the resolution rather than by
+  measuring a frame reindexed onto a grid first. The denominator is the one `ts_complete` produced,
+  with two departures: a reading that does not land on the grid counts as delivered rather than
+  missing, and a request naming no window is measured against the span of the station's own series.
+  `subdaily` is measured on what came back, being a bucket rather than an interval whose two
+  providers disagree on the spacing
+- An NWS request asks the observations endpoint for its own window. The endpoint answers an
+  unqualified request with its whole retention -- a rolling week, close to a megabyte -- however
+  little was wanted, and the frame was trimmed only after it arrived
 
 ### Removed
 
 - **Breaking**: the `ts_complete` setting is gone. It reindexed a series onto the grid its
-  resolution implies, spelling every gap out as a null row, and it cost a materialized timestamp
-  per reading of the window, a station-local-to-UTC window conversion, and a three-way interlock
-  with `ts_drop_nulls` and `ts_shape` that had to be spelled out in three log lines before a
-  request could say what it did. The join it built was exact, so a station reporting off the grid
-  -- an hourly gauge at seven minutes past, which is how a good third of Hubeau's hourly stations
-  report -- came back as a column of nulls; that was worth a warning last release and is not worth
-  keeping now. A caller who wants the grid can build it in a few lines of polars over the frame
-  they were returned, where the phase is theirs to choose. Nothing in the CLI, the REST API or the
-  app ever set it
-- **Breaking**: `MetadataModel.timezone_data` is gone, and with it the `timezone_data` key all
-  29 providers declared. It named the zone a provider's own `date` labels are stamped in, and
-  `ts_complete` was the only thing that ever read it -- to decide which zone to build its grid in.
-  The `"dynamic"` value, which meant "read the zone off the station's coordinates" and which NOAA
-  GHCN and Hubeau declared, goes with the field; the lookup behind it stays, since ECCC and GHCN
-  call it directly while parsing. `metadata.timezone`, the provider's civil timezone, is a
-  different field and remains -- DWD reads it to work out which period a request needs. Every
-  `date` a request returns is UTC either way, which is what left the field with nothing to say
+  resolution implies, at the cost of a materialized timestamp per reading, a station-local-to-UTC
+  window conversion and a three-way interlock with `ts_drop_nulls` and `ts_shape`. The join it built
+  was exact, so a station reporting off the grid -- an hourly gauge at seven minutes past, which is
+  how a good third of Hubeau's hourly stations report -- came back as a column of nulls. A caller
+  who wants the grid can build it in a few lines of polars, where the phase is theirs to choose
+- **Breaking**: `MetadataModel.timezone_data` is gone, and with it the `timezone_data` key all 29
+  providers declared. It named the zone a provider's own `date` labels are stamped in and
+  `ts_complete` was the only thing that read it. `metadata.timezone`, the provider's civil timezone,
+  is a different field and remains. Every `date` a request returns is UTC either way
 
 ### Fixed
 
-- The NWS station list holds three American stations it used to leave out, and stops excluding
-  American ground for being in the wrong hemisphere. Barking Sands on Kauai and the two US Virgin
-  Islands airports are filed by MADIS under a state code rather than a country code, so the
-  country column missed them; they are named one by one, because that column cannot be read as a
-  state code in general -- `PR` in it is Peru and `GU` is Guatemala, and of its four `VI` rows two
-  are American and two are British. All three report, returning 257, 165 and 185 observations over
-  the endpoint's rolling week. The list was also narrowed to `longitude < 0 and latitude > 0` on
-  top of the country column, which is not where the United States ends: the Aleutians west of
-  Amchitka lie beyond the antimeridian, Pago Pago below the equator, and Tinian east of the prime
-  meridian. That box is gone, since it decided nationality by hemisphere; the six rows it dropped
-  are listed again, but as a correction to the filter and not as data recovered -- of the six,
-  Shemya and Pago Pago are stations api.weather.gov knows and both are silent at present, and the
-  other four (three duplicate Amchitka rows and Tinian) are not stations it knows at all. That is
-  the character of this station list rather than of these six: it is the MADIS METAR table used as
-  a proxy, and about a third of what it lists returns nothing. The box guarded nothing else --
-  every station MADIS files under the United States carries a usable coordinate pair
-- An NWS station of unknown elevation reads as null rather than as standing 9999 m up. MADIS
-  writes a missing elevation as 9999 and it was cast to a float and passed on unread, for 31 of
-  the 3120 stations -- and height is what interpolation weighs a neighbouring station by
-- An NWS request no longer rewrites the settings every other request shares. It stamped its own
-  headers onto `Settings.fsspec_client_kwargs` in `__post_init__`, replacing the User-Agent
-  wetterdienst builds from its version with a literal `wetterdienst/0.48.0` and adding a
-  `Content-Type` that no GET has a use for -- so a DWD request made after an NWS one went out under
-  NWS's headers, naming a version eighty-five releases old. api.weather.gov accepts the ordinary
-  User-Agent, and the override is gone rather than corrected
-- Eaufrance Hubeau serves the overseas departments. Metropolitan station codes begin with the
-  letter of their hydrographic basin and the codes of Guadeloupe, Martinique, Guyane, La Réunion
-  and Mayotte begin with a digit, and the station list kept only the codes beginning with a letter
-  -- excluding all 176 overseas gauges, 86 of them transmitting, for no reason the filter recorded.
-  Every station code the referential publishes is well formed, so the filter guarded nothing
-- Eaufrance Hubeau lists every station it has rather than the first thousand. The station
-  referential answers with a page of 1000 of its 4150 stations and a cursor to the rest, and the
-  query named no page size and followed no cursor, so three quarters of the French gauges were
-  missing from the station list and unreachable through it -- including by `filter_by_station_id`,
-  which filters against that list
 - **Breaking**: `ts_shape="wide"` puts one timestamp of one resolution in a row, and stops filling
-  rows with values that belong to another. The row used to be keyed on the dataset as well while
-  the parameters were joined on the date alone, so a request spanning two datasets emitted every
-  timestamp once per dataset and filled all of those rows with all of the datasets' values -- the
-  `precipitation_more` row of a `climate_summary` + `precipitation_more` request reported
-  `climate_summary_rsk`, and the two rows were identical but for the label. Datasets recorded at
-  one resolution share their timestamps and now share a row, which is what the dataset-name column
-  prefix was always for; `dataset` is null in that row, since no single name describes it, and
-  still carries the name wherever a resolution holds a single dataset.
-  Resolutions still get their own rows, because a 15-minute series and an hourly one do not have
-  the same timestamps to begin with. The parameter joins are also outer rather than inner, so a
-  parameter with no reading at a timestamp leaves a null instead of removing the timestamp from
-  the frame: chained inner joins had reduced the result to the timestamps every requested
-  parameter happened to share, dropping readings that were asked for and downloaded
+  rows with values that belong to another. The row was keyed on the dataset as well while the
+  parameters were joined on the date alone, so a request spanning two datasets emitted every
+  timestamp once per dataset and filled all of those rows with all of the values -- the two rows
+  were identical but for the label. Datasets recorded at one resolution now share a row, with
+  `dataset` null where no single name describes it. The parameter joins are also outer rather than
+  inner, so a parameter with no reading at a timestamp leaves a null instead of removing the
+  timestamp: chained inner joins had reduced the result to the timestamps every requested parameter
+  happened to share
 - Values of two resolutions are sorted apart in both shapes. The row order was `dataset`,
-  `parameter`, `date`, so an hourly and a 10-minute precipitation series -- one dataset name, one
-  parameter name -- came back shuffled into each other, one hourly row every six 10-minute ones.
-  Resolution leads the sort now, in the long shape as in the wide one
+  `parameter`, `date`, so an hourly and a 10-minute precipitation series came back shuffled into
+  each other, one hourly row every six 10-minute ones
+- Eaufrance Hubeau lists every station it has rather than the first thousand. The referential
+  answers with a page of 1000 of its 4150 stations and a cursor to the rest, and the query named no
+  page size and followed no cursor, so three quarters of the French gauges were unreachable --
+  including by `filter_by_station_id`, which filters against that list
+- Eaufrance Hubeau serves the overseas departments. Metropolitan station codes begin with the letter
+  of their hydrographic basin and those of Guadeloupe, Martinique, Guyane, La Réunion and Mayotte
+  with a digit, and the list kept only codes beginning with a letter -- excluding all 176 overseas
+  gauges, 86 of them transmitting
+- The NWS station list holds three American stations it used to leave out -- Barking Sands on Kauai
+  and the two US Virgin Islands airports, which MADIS files under a state code rather than a country
+  code. They are named one by one, that column not being readable as a state code in general: `PR`
+  in it is Peru and `GU` is Guatemala. The list was also narrowed to
+  `longitude < 0 and latitude > 0`, which is not where the United States ends -- the Aleutians west
+  of Amchitka lie beyond the antimeridian and Pago Pago below the equator -- so that box is gone,
+  having decided nationality by hemisphere
+- An NWS station of unknown elevation reads as null rather than as standing 9999 m up. MADIS writes
+  a missing elevation as 9999 and it was cast to a float and passed on unread, for 31 of 3120
+  stations -- and height is what interpolation weighs a neighbouring station by
+- An NWS request no longer rewrites the settings every other request shares. It stamped its own
+  headers onto `Settings.fsspec_client_kwargs` in `__post_init__`, so a DWD request made after an
+  NWS one went out under NWS's headers, naming a version eighty-five releases old
 - A Zarr export names its group for what the whole frame holds rather than for whatever its first
-  row happens to say: the dataset names present, or the resolutions when a wide row spanning
-  several datasets carries no dataset name at all. A frame of two datasets used to be filed under
-  whichever of them came first, and one merging them would have gone to the store root, where
-  `mode="w"` clobbers every other group already in it
-- `ts_geo_station_distance` validates what it is given. A key that is not a canonical parameter is
-  rejected rather than kept and never read -- a typo silently left the parameter the user meant at
-  its default radius, indistinguishable from having set nothing -- and a negative distance is
-  rejected as it already is for `ts_geo_use_nearby_station_distance` next to it. A radius set for a
-  parameter that is never interpolated is a warning, since the name is real but nothing reads it.
-  The CLI and the REST API report the rejection as a bad parameter and a 400 rather than a
-  traceback -- for `interpolate` and `summarize` that now covers every option they validate, such
-  as a negative distance, which used to end in a pydantic stack trace
+  row says. A frame of two datasets was filed under whichever came first, and one merging them would
+  have gone to the store root, where `mode="w"` clobbers every other group in it
+- `ts_geo_station_distance` validates what it is given: a key that is not a canonical parameter is
+  rejected rather than kept and never read, and a negative distance is rejected as it already was
+  for `ts_geo_use_nearby_station_distance`. The CLI and REST API report the rejection as a bad
+  parameter and a 400 rather than a pydantic traceback
 - Settings round-trip through `model_dump()` faithfully: `ts_geo_station_distance` serializes the
-  overrides it was given rather than the mapping they were expanded into. Dumping the expansion
-  made every heterogeneous parameter come back as an explicit override, which then won over a
-  `ts_geo_station_distance_heterogeneous` set alongside it. The expansion is idempotent for the
-  same reason -- `TimeseriesRequest` re-validates the settings it is handed, which used to take
-  the already-expanded mapping for what the user had written
+  overrides it was given rather than the mapping they were expanded into, which came back as
+  explicit per-parameter overrides that then won over a `ts_geo_station_distance_heterogeneous` set
+  alongside
+- `poe docs` builds the documentation again. It ran `make html` in `docs/`, which holds no Makefile,
+  so it had failed with "No rule to make target" for as long as that file has been gone. It runs
+  sphinx against `docs/conf.py` now, as Read the Docs does, and `poe docs:clean` removes the build
 - Docs: `ts_geo_min_gain_of_value_pairs` is documented with its actual default of 0.1, not 1.2
-- `poe docs` builds the documentation again. It ran `make html` in `docs/`, which holds no
-  Makefile, so it had failed with "No rule to make target" for as long as that file has been gone.
-  It runs sphinx against `docs/conf.py` now, which is what Read the Docs does, and `poe docs:clean`
-  removes the build directory
 
 ## [0.133.0] - 2026-08-19
 
 ### Added
 
-- Every parameter of every provider now carries a description, 1681 of 1681, closing the last 508
-  gaps. 271 come from the source itself: MeteoSwiss publishes `ogd-smn_meta_parameters.csv` beside
-  the data, MET Norway has a Frost `/elements` endpoint, KNMI writes a `long_name` on every NetCDF
-  variable, FMI has an `observableProperty` metadata endpoint, and AEMET and SMHI describe their
-  fields in the payloads and listings they already serve (translated here from Spanish and
-  Swedish). The remaining 237 are the canonical sentence for the quantity, kept apart in
-  `DERIVED_DESCRIPTIONS` so generated text is never mistaken for a source's own wording. Sibling
-  prose is now borrowed only within a provider, never across: another source's specifics ("within
-  the last 12 hours") need not hold for the one borrowing them
-- The provider docs tables carry a `description` column for the 46 pages that had none, and 41 rows
-  for parameters that were declared but never listed at all
-- `GET /api/version` reports `mcp_enabled` alongside the version. The MCP endpoint sits behind the
-  optional `[mcp]` extra, so whether `/mcp` exists is a property of the installation, and a client
-  had no way to find out short of probing `/mcp` -- which on the streamable-HTTP transport means
-  opening a session rather than asking a question. The index page has always known (it prints the
-  endpoint only when mounted); this exposes the same flag over JSON
-- 216 more parameters can be interpolated and summarized, 343 of 514 rather than 127. Soil
-  temperature under a named cover and depth (114, NOAA GHCNd), forecast probabilities (65, MOSMIX
-  and DMO), soil moisture (12, DWD's agrometeorological model), evaporation per crop and soil (6),
-  concrete slab temperature (3), humidex and mean radiant temperature, cloud cover in a fixed
-  height band, climatological normals, and — at the shorter radius — precipitation intensity and
-  visibility. The classification was never about the data being unavailable, only about which names
-  had been written into the list by hand. What stays out stays out on purpose: coded observations,
-  quality flags, counts, quantities tied to one body of water, a station's own measurement errors,
-  directions, which cannot be averaged linearly at all, and the 14 GHCNd soil temperatures whose
-  surface cover is recorded as `unknown` — the rest of that family qualifies because the cover is
-  part of the name, which is precisely what an unrecorded cover does not give you.
-  One cost to know about: `interpolate()` and `summarize()` stop querying stations once *every*
-  requested parameter has enough of them, so a whole-dataset request against MOSMIX or DMO now has
-  65 probabilities to satisfy and will walk further down the station ranking than it used to.
-  Requesting the parameters you actually want keeps it where it was
-- DWD hourly solar `true_local_time_offset` (`mess_datum_woz`), a new canonical parameter holding
-  how far true local solar time runs ahead of a record's timestamp -- the longitude correction plus
-  the equation of time. Solar records are stamped with the UTC instant of a whole true-solar-time
-  hour, so the correction sits in the minutes of that timestamp, which wetterdienst rounds to the
-  hour so a solar series lines up with every other hourly series. The rounding discarded it and the
-  column that also held it was dropped, so it was not reachable at all. At station 00183 it runs 40
-  to 71 minutes, its monthly mean tracing the equation of time from 40.4 in February to 69.1 in
-  November about a 54.7 minute longitude term
-- DWD's two measurement method indicators are returned instead of dropped:
-  `cloud_cover_total_measurement_method` (`v_n_i`, hourly cloud_type and cloudiness) and
-  `visibility_range_measurement_method` (`v_vv_i`, hourly visibility). DWD writes them as letters
-  -- `P` for a human person, `I` for an instrument -- in files that are otherwise numeric, and the
-  value column is Float64, so both were declared but silently dropped and a request for them
-  returned an empty frame. They are now decoded to 1 for `P` and 2 for `I`. The digits are
-  wetterdienst's, not DWD's: they follow the order DWD lists the letters in, and 0 is left unused
-  so "not measured" stays distinguishable from either method
-- Every DWD parameter now carries a description, 717 of 717 across observation, mosmix, dmo,
-  derived, road and swsmos. 25 came from correcting the docs (below), the rest are derived: where a
-  source publishes no prose at all, the text is taken from the same canonical parameter at the same
-  resolution elsewhere -- the same quantity over the same interval, so the wording transfers -- or
-  from the canonical sentence. Those sit in `DERIVED_DESCRIPTIONS`, apart from
-  `SOURCE_DESCRIPTIONS` and applied only where nothing else supplies one, so a derived sentence is
-  never mistaken for a source's own wording
-- Dataset and resolution descriptions on the metadata models: 88 of 148 datasets and 2 resolutions,
-  lifted out of the provider docs metadata tables the same way the parameter descriptions were.
-  `DatasetModel.description` and `ResolutionModel.description` had been declared but never
-  populated, so `metadata["hourly"]["data"].description` returned `None` for every provider.
-  `tests/test_docs.py` checks the tables still agree with the model, ignoring the trailing
-  `([details](url))` pointer the pages add, which is page formatting rather than description
-- Source descriptions for 1057 parameters, in `metadata.source_descriptions` and reported by
-  `discover()` -- so by `GET /api/coverage`, the `coverage` MCP tool and `wetterdienst about
-  coverage`. These say what a given provider's field means, as against the canonical,
-  provider-independent sentence the glossary serves
-- 113 DWD observation descriptions come from the English `DESCRIPTION_*_en.pdf` sheets, which are
-  more specific than the text the docs carried ("The solar incoming radiation includes the direct
-  and the diffuse part ..." against "hourly sum of solar incoming radiation"). DWD CDC is Creative
-  Commons BY 4.0, so its wording is reproduced with attribution. A sheet's cell is used only where
-  it says at least as much as the curated text: some are terse, a few truncated -- `V_S1_NS` reads
-  "cloud cover of 1. laye" and `V_S2_NS` repeats it for the second layer -- and two are left
-  untranslated in an otherwise English sheet
-- Source descriptions for DWD observation parameters: what a given DWD field means in DWD's own
-  words, alongside the canonical, provider-independent sentence the glossary already served. 133
-  parameters across the 30 datasets that publish an English description sheet, transcribed into
-  `provider/dwd/observation/descriptions.py` and attached to the metadata at import. DWD CDC is
-  Creative Commons BY 4.0, so the wording is reproduced with attribution to the Deutscher
-  Wetterdienst; the module records the source URL and licence
-- `description` now appears in `discover()`, and therefore in `GET /api/coverage`, the `coverage`
-  MCP tool and `wetterdienst about coverage`. `ParameterModel.description` had been a declared but
-  entirely unused field -- as are `DatasetModel.description` and `ResolutionModel.description`,
-  which remain unpopulated
-- ECCC monthly and hourly expose the fields that were previously left undeclared, with twelve new
-  canonical parameters for them. Monthly gains the day counts
-  (`count_days_precipitation_height_ge_1mm` and the six `count_days_valid_*`) and the
-  climatological normals (`temperature_air_mean_2m_normal`, `precipitation_height_normal`,
-  `snow_depth_new_normal`, `sunshine_duration_normal`); hourly gains `temperature_humidex`. Units
-  were taken from the values rather than assumed: each normal matches the range of the quantity it
-  is a normal of in the same response, and humidex sits at or above the air temperature in all 233
-  paired observations sampled, which is what an apparent temperature does
-- CI: new `Minimum dependency versions` job that resolves every direct dependency to the lowest
-  version its specifier allows (`UV_RESOLUTION=lowest-direct`) and runs the test suite against it,
-  so that declared floors are actually exercised
-- Canonical parameter table (`wetterdienst.metadata.parameter_table`) holding the `unit_type` of
-  each of the 505 canonical parameter names in one place, plus a test that checks every provider
-  declaration against it — that the name is canonical and that the declared `unit` is a unit of
-  that quantity. The table is now the single source of `unit_type`; see below
-- New canonical parameters `radiation_global_intensity`, `radiation_sky_long_wave_intensity` and
-  `radiation_sky_short_wave_diffuse_intensity` for sources that report irradiance (power per area)
-  rather than irradiation accumulated over the interval (energy per area)
-- Docs: a parameter glossary on the Parameters page, built from the canonical parameter table at
-  build time by the local Sphinx extension `docs/_ext/parameter_glossary.py`. Every parameter in
-  every provider's metadata table now links to its glossary entry
-- `wetterdienst.metadata.unit_type.UnitType`, a literal of the unit types the unit converter
-  knows. `CanonicalParameter.unit_type` is typed with it, so a mistyped unit type in the parameter
-  table is a type error rather than something only a test can catch. A test pins the literal to
-  `UnitConverter` in both directions, since the converter builds its unit types as a runtime dict
-  that no static type can be derived from
-- Two unit types the audit of the canonical table turned up as missing: `mass_per_volume`
-  (g/m³, kg/m³, and mg/l and g/l shared with `concentration`, which is the same quantity under a
-  different convention — 1 mg/l is 1 g/m³) and `degree_hour` (°Ch, Kh, °Fh), kept apart from
-  `degree_day` so that a quantity accumulated per hour is not reported per day
-- New canonical parameter `cooling_degree_day`, the counterpart of `heating_degree_day`
+- Every parameter of every provider carries a description, 1681 of 1681, closing the last 508 gaps,
+  and they are reported by `discover()` -- so by `GET /api/coverage`, the `coverage` MCP tool and
+  `wetterdienst about coverage`. 388 come from the source itself: MeteoSwiss, met.no Frost, KNMI,
+  FMI, AEMET, SMHI, CHMI, Météo-France, the Met Office's CEDA tables and LHMT publish per-field
+  metadata, translated here where it is not in English, and DWD's English `DESCRIPTION_*_en.pdf`
+  sheets and `MetElementDefinition.xml` cover its own. Those say what a canonical sentence cannot:
+  that Météo-France's daily precipitation runs 06h to 06h UTC and is attributed to the earlier day,
+  that Met Office pressure is uncorrected for altitude, that CHMI's daily temperature is the mean of
+  three fixed observations. The rest are the canonical sentence for the quantity, kept in
+  `DERIVED_DESCRIPTIONS` so generated text is never mistaken for a source's own wording
+- A one-sentence description for all 505 canonical parameters, provider- and resolution-independent,
+  so the glossary says what each quantity *is* rather than only which unit it comes back in.
+  `metadata.source_descriptions` carries what a given provider's field means alongside it, for 1057
+  parameters
 - Parameter discovery across all three interfaces: `GET /api/glossary`, the `glossary` MCP tool and
-  `wetterdienst about glossary`. `coverage` answers which parameters a given provider offers; the
-  glossary answers what any of them measures and which unit it comes back in — neither of which
-  `coverage` reports. Filter with `parameter=` (substring match over the 505 names), `unit_type=`
-  (a closed vocabulary, so an unknown one is a 422 or a CLI usage error rather than an empty
-  result) and `limit=` to cap the response. The unit reported is the one a values request would
-  actually return, including any `ts_unit_targets` override. This is what puts the canonical
-  descriptions in front of users rather than only in the docs. A filter matching nothing is an
-  empty list over HTTP and a non-zero exit on the CLI, the latter following grep so a shell script
-  can tell
-- A one-sentence description for all 505 canonical parameters, so the glossary now says what each
-  quantity *is* rather than only which unit it comes back in — that soil temperatures are at a
-  stated depth under a stated cover, that `wind_movement_24h` is wind run, that
-  `radiation_global` is accumulated energy while `radiation_global_intensity` is power. They are
-  deliberately provider- and resolution-independent, describing the quantity rather than one
-  source's version of it. They appear in the docs glossary today; exposing them through the REST
-  API, CLI and MCP is a separate change, since `discover()` reports name, unit type and unit only
+  `wetterdienst about glossary`. `coverage` answers which parameters a provider offers; the glossary
+  answers what any of them measures and which unit it comes back in, including any `ts_unit_targets`
+  override. Filter with `parameter=` (substring over the 505 names), `unit_type=` (a closed
+  vocabulary, so an unknown one is a 422 rather than an empty result) and `limit=`. A filter
+  matching nothing is an empty list over HTTP and a non-zero exit on the CLI, following grep
+- Dataset and resolution descriptions on the metadata models, 88 of 148 datasets and 2 resolutions.
+  `DatasetModel.description` and `ResolutionModel.description` had been declared but never
+  populated, so `metadata["hourly"]["data"].description` returned `None` for every provider
+- 216 more parameters can be interpolated and summarized, 343 of 514 rather than 127: soil
+  temperature under a named cover and depth (114), forecast probabilities (65), soil moisture (12),
+  evaporation per crop and soil, concrete slab temperature, humidex, climatological normals, and at
+  the shorter radius precipitation intensity and visibility. The classification was never about the
+  data being unavailable, only about which names had been written into the list by hand. What stays
+  out stays out on purpose: coded observations, quality flags, counts, directions, and the 14 GHCNd
+  soil temperatures whose cover is recorded as `unknown`. One cost: `interpolate()` stops querying
+  stations once *every* requested parameter has enough of them, so a whole-dataset request against
+  MOSMIX now has 65 probabilities to satisfy and walks further down the ranking
+- Canonical parameter table (`wetterdienst.metadata.parameter_table`) holding the `unit_type` of
+  each of the 505 canonical names in one place, plus a test checking every provider declaration
+  against it. `wetterdienst.metadata.unit_type.UnitType` types it, so a mistyped unit type is a type
+  error rather than something only a test can catch
+- ECCC monthly and hourly expose the fields that were previously left undeclared, with twelve new
+  canonical parameters: the monthly day counts and the climatological normals, and hourly
+  `temperature_humidex`. Units were taken from the values rather than assumed -- each normal matches
+  the range of the quantity it is a normal of, and humidex sits at or above the air temperature in
+  all 233 paired observations sampled
+- DWD hourly solar `true_local_time_offset` (`mess_datum_woz`), holding how far true local solar
+  time runs ahead of a record's timestamp -- the longitude correction plus the equation of time.
+  Solar records are stamped with the UTC instant of a whole true-solar-time hour, so the correction
+  sits in the minutes, which wetterdienst rounds away; it was not reachable at all. At station 00183
+  it runs 40 to 71 minutes, tracing the equation of time about a 54.7 minute longitude term
+- DWD's two measurement method indicators are returned instead of dropped:
+  `cloud_cover_total_measurement_method` (`v_n_i`) and `visibility_range_measurement_method`
+  (`v_vv_i`). DWD writes them as letters -- `P` for a person, `I` for an instrument -- in otherwise
+  numeric files, and the value column is Float64, so both were declared but silently dropped.
+  Decoded to 1 and 2; the digits are wetterdienst's, and 0 is left unused so "not measured" stays
+  distinct
+- New canonical parameters `radiation_global_intensity`, `radiation_sky_long_wave_intensity` and
+  `radiation_sky_short_wave_diffuse_intensity` for sources reporting irradiance (power per area)
+  rather than irradiation accumulated over the interval, plus `cooling_degree_day`, the counterpart
+  of `heating_degree_day`, and the `mass_per_volume` and `degree_hour` unit types the audit turned
+  up
+- `GET /api/version` reports `mcp_enabled` alongside the version. Whether `/mcp` exists is a
+  property of the installation, and a client had no way to find out short of opening a session
+  against it
+- Docs: a parameter glossary on the Parameters page, built from the canonical parameter table at
+  build time, with every provider metadata row linking to its entry
 
 ### Changed
 
-- The backend image builds with uv 0.12.5 rather than 0.8.4, four minor versions back. 0.8.4 could
-  not parse `exclude-newer = "3 days"` and responded by discarding the whole `[tool.uv]` table --
-  `warning: Failed to parse pyproject.toml during settings discovery` -- taking `[tool.uv.audit]`
-  with it. The build still succeeded, because `uv sync --frozen` installs from the lockfile and
-  needs none of those settings, so this was a silent degradation rather than a failure. Dependabot
-  will keep the pin current from here, now that it reads `docker/`
-- Dependabot's `docker` entry pointed at `/`, where there is no Dockerfile -- both of them live in
-  `docker/`. It has therefore never proposed a base-image update for either image; it now reads
-  the directory they are actually in
-- Locked dependencies refreshed to their latest compatible versions (cryptography 50, fastapi
-  0.141.1, starlette 1.6, uvicorn 0.52.3, numpy 2.5.2, zarr 3.3, mcp 1.29, and others), and the dev
-  toolchain with them (ruff 0.16.3, ty 0.0.72, zizmor 1.29) -- both still pass with no source
-  changes needed
-- `uv` now resolves with a three-day cooldown (`tool.uv.exclude-newer = "3 days"`), so a release
-  has to survive its first days in the wild before it can enter the lockfile. Yanks and
-  publish-day breakage are most often caught in that window. The lockfile records it as a relative
-  span (`exclude-newer-span = "P3D"`), not a timestamp, so it does not churn between runs and
-  `uv lock --check` stays stable
-- Docs: the REST API page's "Web Frontend" section is "Web App", matching what the app has been
-  called since it moved to `app/`. The stripes page and the pull-request checklist follow, as do
-  the Météo-France comments that explain which caller depends on a populated `start_date`
-- Docs: the README states what the project stands for, in the same four lines the app closes with,
-  and opens with "Global warming is not an opinion" rather than the Fridays for Future chant -- the
-  one claim a weather-data library backs up by existing. Anthropic gets a logo next to JetBrains
-  under "Supported by", where it had been a mention in prose
-- Docs: the README is rewritten around what a first-time reader needs. One header image rather than
-  three, one badge block rather than four, and a table of all 22 providers with their country and
-  what each one serves -- which the README never stated, though it is the first question anyone
-  asks. The MCP endpoint and the app are named among the features. The extras list is corrected: it
-  advertised a `matplotlib` extra that does not exist and omitted `eccodes`, `excel`, `knmi`,
-  `radar` and `radarplus`, which do. The Raspberry Pi installation notes move to
-  `docs/known_issues.md`, where the other environment-specific issues live, rather than being
-  dropped -- the README is the docs landing page, so nothing written only there survives deletion
-- 34 more descriptions come from the source. CHMI publishes per-element metadata beside its csv
-  archive -- name, unit, sensor height and measurement schedule -- which gives all 25 of its
-  parameters, translated from Czech and carrying facts the canonical sentence cannot: its daily
-  temperature, humidity, pressure and wind speed are averages of the 06:00, 13:00 and 20:00
-  observations, its daily extremes are read at 20:00 and its snow depth at 06:00. DWD's
-  `MetElementDefinition.xml` covers nine more codes across swsmos, mosmix and dmo. 190 derived
-  descriptions remain
-- Resolution descriptions are written where the name underdetermines what arrives, and only there:
-  Météo-France synop (SYNOP's native three-hourly interval), MET Norway's 6 hour, and the two
-  `dynamic` networks, WSV and Hubeau, where the interval is a property of the station rather than
-  the network -- 15 minutes at most gauges, 10 at some, measured across both. `hourly` and `daily`
-  say everything about themselves, so they are left empty rather than filled with text that reads
-  as information without being any. EA hydrology's resolution description is dropped: it described
-  the dataset structure, not the interval, and EA's dataset description already covers that
-- 84 more descriptions come from the source rather than from the canonical sentence, after finding
-  that three providers document their fields after all. Météo-France publishes a
-  `*_descriptif_champs*.csv` beside each resolution (43 parameters, translated from French), the
-  Met Office's MIDAS tables are documented by CEDA in English (32), and LHMT lists its fields on
-  api.meteo.lt (9, translated from Lithuanian). They say what the canonical sentence cannot: that
-  Météo-France's daily precipitation runs 06h to 06h UTC and is attributed to the earlier day, that
-  Met Office pressure is uncorrected for altitude, that LHMT returns null for cloud cover it cannot
-  determine through fog. 224 derived descriptions remain, DMI (52) and RMI (42) the largest, neither
-  of which documents its fields anywhere reachable
-- **Breaking**: `discover()` nests its answer so that every level has a place for its description,
-  which had nowhere to go before: `{resolution: {"description": ..., "datasets": {dataset:
-  {"description": ..., "parameters": [...]}}}}`. The 88 dataset descriptions and 2 resolution
-  descriptions were on the model but unreachable over `GET /api/coverage`, the `coverage` MCP tool
-  and `wetterdienst about coverage`, which all pass this dict through as their response. Consumers
+- **Breaking**: `discover()` nests its answer so that every level has a place for its description:
+  `{resolution: {"description": ..., "datasets": {dataset: {..., "parameters": [...]}}}}`. Consumers
   reading `data[resolution][dataset]` as a list of parameters now read
   `data[resolution]["datasets"][dataset]["parameters"]`
-- The `Parameter` enum is no longer used inside the library. The three places that hard-coded
-  parameter names — `TimeseriesRequest.interpolatable_parameters`, interpolation's
-  occurrence-based set and the `ts_geo_station_distance` defaults — used it purely to spell a
-  lowercased string, and now spell the canonical name directly. All 186 references resolve to the
-  same 126/30/30 names as before. Those three lists have since moved into the canonical parameter
-  table, see below
-- How a parameter behaves in space is declared once, on `CanonicalParameter`, rather than as three
-  hand-maintained name lists that had to agree with each other:
-  `TimeseriesRequest.interpolatable_parameters`, the `ts_geo_station_distance` defaults in
-  `Settings` and `_OCCURRENCE_BASED_PARAMETERS` in `core.interpolate` are all views of the new
-  `interpolation` (`"homogeneous"` at the 40 km default radius, `"heterogeneous"` at 20 km, or
-  `None` for a quantity that is not interpolated) and `zero_inflated` (whether interpolated values
-  are thresholded on occurrence) fields. The two are separate because they are separate facts:
-  visibility decorrelates over a few kilometres without being zero-inflated, and a precipitation
-  normal is as orographically variable as precipitation while never being zero.
-  `_OCCURRENCE_BASED_PARAMETERS` is gone; ask the table, `PARAMETERS[name].zero_inflated`.
-  The parameter glossary in the docs now states per parameter whether it can be interpolated and
-  from how far away
-- **Breaking**, mildly: `TimeseriesRequest.interpolatable_parameters` is a `frozenset` rather than
-  a `list`. Every caller in the library only tests membership, but it is a public class attribute,
-  so code that indexes or slices it, or relies on its order, needs updating
-- **Breaking**: irradiance (`power_per_area`) is now returned in W/m² rather than W/cm², so
-  affected values are 10⁴ times larger. W/m² is what WMO specifies and what every source in this
-  library actually publishes — MeteoSwiss global radiation now reads 0–1344 W/m² where it used to
-  read 0–0.1344 W/cm². Affects the 17 declarations using `power_per_area`: KNMI (10 minutes),
-  MeteoSwiss, met.no Frost and RMI. Set `ts_unit_targets={"power_per_area":
-  "watt_per_square_centimeter"}` to keep the old output. Irradiation (`energy_per_area`) is
-  unchanged and still returned in J/cm², which is the conventional unit for it
-- **Breaking**: KNMI (10 minutes), RMI, MeteoSwiss and met.no reported irradiance in W/m² under
-  the `radiation_global`, `radiation_sky_long_wave` and `radiation_sky_short_wave_diffuse` names,
-  which elsewhere mean irradiation in J/cm². These declarations moved to the new
-  `radiation_*_intensity` names. KNMI is the clearest case: its 10-minute `qg` is W/m² while its
-  hourly and daily `Q` is J/cm², so one name was covering two quantities that no unit conversion
-  relates without the accumulation interval. Queries using the old names against these providers
-  need to switch to the `_intensity` names; DWD and every other provider are unaffected
-- **Breaking**: Geosphere 10-minute and hourly radiation is now returned as published rather than
-  silently rescaled. `cglo` and `chim` are irradiance in W/m², but the parser multiplied them by
-  the interval length (600/10000 and 3600/10000) to present them as irradiation in J/cm² under the
-  `radiation_global` and `radiation_sky_short_wave_diffuse` names. That conversion is removed and
-  the three declarations moved to `radiation_global_intensity` and
-  `radiation_sky_short_wave_diffuse_intensity` in W/m². Values are correspondingly 16.67× (10
-  minutes) and 2.78× (hourly) larger; multiply by 0.06 and 0.36 respectively to recover the old
-  numbers. Daily and monthly are unaffected — they use `cglo_j`, a distinct upstream parameter
-  genuinely accumulated over the interval, and keep `radiation_global` in J/cm². This was the only
-  in-parser unit conversion left in the library
+- **Breaking**: irradiance (`power_per_area`) is returned in W/m² rather than W/cm², so affected
+  values are 10⁴ times larger. W/m² is what WMO specifies and what every source here publishes --
+  MeteoSwiss global radiation now reads 0–1344 where it read 0–0.1344. Affects the 17 declarations
+  using `power_per_area`: KNMI, MeteoSwiss, met.no Frost and RMI. Set
+  `ts_unit_targets={"power_per_area": "watt_per_square_centimeter"}` to keep the old output.
+  Irradiation (`energy_per_area`) is unchanged, still J/cm²
+- **Breaking**: KNMI (10 minutes), RMI, MeteoSwiss and met.no reported irradiance under the
+  `radiation_global`, `radiation_sky_long_wave` and `radiation_sky_short_wave_diffuse` names, which
+  elsewhere mean irradiation in J/cm². These declarations moved to the `radiation_*_intensity`
+  names. KNMI is the clearest case: its 10-minute `qg` is W/m² while its hourly `Q` is J/cm², so one
+  name covered two quantities no conversion relates without the accumulation interval
+- **Breaking**: Geosphere 10-minute and hourly radiation is returned as published rather than
+  silently rescaled. `cglo` and `chim` are irradiance in W/m² and the parser multiplied them by the
+  interval length to present them as irradiation; values are 16.67× and 2.78× larger, so multiply by
+  0.06 and 0.36 to recover the old numbers. Daily and monthly are unaffected, using a distinct
+  upstream parameter genuinely accumulated over the interval. This was the last in-parser unit
+  conversion in the library
 - **Breaking**: Météo-France synop `visibility_range` was the only declaration of that parameter
-  using `length_long`, so it was returned in km while all 15 other declarations return m. It now
-  uses `length_medium` and returns m
-- Docs: provider metadata tables no longer repeat the `unit type` column. The unit type is a
-  property of the canonical parameter, so it is stated once in the glossary; the `unit` column
-  stays, because that really is the individual provider's own
-- The provider docs tables no longer own that text. It lived only in markdown, where no interface
-  could reach it and where the two copies drifted apart in both directions -- three defects found
-  during the unit audit were each caught by the *other* source being right. The model is the source
-  now and `tests/test_docs.py::test_docs_parameter_descriptions_match_the_model` fails if a table
-  disagrees with it
-- Raise several dependency floors that were declared lower than what the code actually needs:
-  `aiohttp>=3.14.0` (`encode_basic_auth`), `stamina>=25.1.0` (`set_testing` as a context manager),
-  `pandas>=2.2.2`, `shapely>=2.0.4` and `h5py>=3.11` (NumPy 2 support),
-  `plotly>=6.1.1` with `kaleido>=1.0.0` (static image export), and `click>=8.2`
-  (separately captured `stderr` in `CliRunner`)
-- Raise the development tooling floors to the versions we develop against, so that the minimum
-  versions job only exercises runtime dependency floors
+  using `length_long`, so it was returned in km while all 15 others return m. It now uses
+  `length_medium`
+- How a parameter behaves in space is declared once, on `CanonicalParameter`, rather than as three
+  hand-maintained name lists that had to agree: `TimeseriesRequest.interpolatable_parameters`, the
+  `ts_geo_station_distance` defaults and `_OCCURRENCE_BASED_PARAMETERS` are all views of the new
+  `interpolation` (`"homogeneous"` at 40 km, `"heterogeneous"` at 20 km, or `None`) and
+  `zero_inflated` fields. The two are separate facts: visibility decorrelates over a few kilometres
+  without being zero-inflated. `_OCCURRENCE_BASED_PARAMETERS` is gone -- ask
+  `PARAMETERS[name].zero_inflated`
+- **Breaking**, mildly: `TimeseriesRequest.interpolatable_parameters` is a `frozenset` rather than a
+  `list`. Every caller in the library only tests membership, but it is public, so code that indexes
+  or slices it or relies on its order needs updating
+- The `Parameter` enum is no longer used inside the library. The three places that hard-coded
+  parameter names used it purely to spell a lowercased string and now spell the canonical name
+  directly; all 186 references resolve to the same names as before
+- `uv` resolves with a three-day cooldown (`tool.uv.exclude-newer = "3 days"`), so a release has to
+  survive its first days in the wild before entering the lockfile. Recorded as a relative span so it
+  does not churn between runs
+- Locked dependencies refreshed to their latest compatible versions (cryptography 50, fastapi
+  0.141.1, starlette 1.6, numpy 2.5.2, zarr 3.3, mcp 1.29), and several floors raised to what the
+  code actually needs: `aiohttp>=3.14.0`, `stamina>=25.1.0`, `pandas>=2.2.2`, `shapely>=2.0.4`,
+  `h5py>=3.11`, `plotly>=6.1.1` with `kaleido>=1.0.0` and `click>=8.2`
+- Provider docs tables no longer carry the `unit type` column or own the description text. The unit
+  type is a property of the canonical parameter, stated once in the glossary; the descriptions lived
+  only in markdown, where no interface could reach them and the two copies drifted apart in both
+  directions -- three defects found during the unit audit were each caught by the *other* source
+  being right
 
 ### Removed
 
-- **Breaking**: seven DWD observation parameters that were declared but never returned a value are
-  no longer declared, so a request for one now says so instead of answering with an empty frame:
-  `cloud_type_layer1..4_abbreviation` (`v_sN_csa`, hourly cloud_type), `weather_text` (`ww_text`,
-  hourly weather_phenomena), `end_of_interval` and `true_local_time` (`mess_datum_woz`, hourly
-  solar). Each was checked against the archive rather than assumed: `v_sN_csa` is the letter form
-  of `v_sN_cs` and matches it exactly across 398,381 records; every `ww` maps to one text across
-  443,827 records while two codes share a text, so the text says strictly less than the code;
-  `end_of_interval` names a column that does not exist in the solar files at all; and
-  `mess_datum_woz` is published as a whole hour, leaving it a fixed one hour from the returned
-  timestamp at station 00183 once the solar timestamps are rounded, which is where the sub-hour
-  solar correction actually lives. Their canonical entries are dropped too, since no provider can
-  express text in a `Float64` value column
-- `DwdObservationValues.DROPPABLE_COLUMNS`, which duplicated the parser's drop list and had already
-  drifted from it. Dropping happens once, in the parser
-- The `magnetic_field_intensity` and `wave_period` unit types. Each existed for exactly one
-  parameter, and both of those turned out to be mis-typed: WSV `current` is a bearing in degrees and
-  WSV `wave_period` is a duration in seconds, so neither unit type has anything left to describe
-- **Breaking**: the `Parameter` enum, exported from the package root. It listed the canonical
-  parameter names but could not be used to request them — `parameters=` accepts strings, tuples,
-  `ParameterModel` and `DatasetModel`, so passing a member raised
-  `AttributeError: 'Parameter' object has no attribute 'strip'`. It appeared in no example and no
-  documentation page, and its last internal uses are gone (see Changed). The canonical names live
-  in `wetterdienst.metadata.parameter_table`, which also carries each parameter's unit type and
-  description, and are discoverable through the new glossary endpoint, MCP tool and
-  `wetterdienst about glossary`. Callers who used it to spell a name should use the string directly
-- The `unit_type` key from provider metadata declarations — 1575 of them across 29 files. It is a
+- **Breaking**: the `Parameter` enum, exported from the package root. It listed the canonical names
+  but could not be used to request them -- `parameters=` accepts strings, tuples, `ParameterModel`
+  and `DatasetModel`, so passing a member raised
+  `AttributeError: 'Parameter' object has no attribute 'strip'`. The names live in
+  `wetterdienst.metadata.parameter_table` and are discoverable through the glossary endpoint, MCP
+  tool and `wetterdienst about glossary`
+- The `unit_type` key from provider metadata declarations, 1575 of them across 29 files. It is a
   property of the measured quantity rather than of the provider, and restating it once per
-  declaration is what let the same canonical name pick different output units in different
-  providers. `ParameterModel.unit_type` now reads it from the canonical parameter table via the
-  parameter's `name`, and `ParameterModel` rejects the key outright so an override cannot creep
-  back in. All 1692 parameters resolve to exactly the same `unit_type` as before, so nothing
-  changes for users of the library — but a **third-party or custom provider metadata dict that
-  still declares `unit_type` will now fail to validate**, and should simply drop the key.
-  `discover()` and the REST and CLI responses report `unit_type` exactly as before. It is no
-  longer part of `ParameterModel.model_dump()`/`model_dump_json()`, since it is derived from the
-  parameter's `name` and emitting it per declaration would reintroduce at the serialization layer
-  the duplication this removes; look the name up in `wetterdienst.metadata.parameter_table`
-  instead
-- **Breaking**: five `Parameter` enum members that no provider declared, so no request could ever
-  return them: `HUMIDEX`, `PRECIPITATION_FREQUENCY`, `PRECIPITATION_HEIGHT_LIQUID_MAX`,
-  `TIME_WIND_GUST_MAX` and `TIME_WIND_GUST_MAX_1MILE_OR_1MIN`. The dead entries referencing two of
-  them in the interpolation membership lists went with them
-- Docs: `docs/data/provider/eccc/observation/annual.md`. ECCC's `annual` resolution was dropped
-  when observation values moved to the api.weather.gc.ca OGC API, and the docs still described it,
-  along with `humidex` under hourly. The ECCC observation overview also still described bulk CSV
-  downloads and four resolutions; corrected
-- Docs: the `pressure_air_sea` row from IMGW meteorology daily, a parameter that provider no
-  longer exposes
-- Unused `jsonschema` development dependency
+  declaration is what let one canonical name pick different output units in different providers. All
+  1692 parameters resolve to the same `unit_type` as before, but a **third-party metadata dict that
+  still declares `unit_type` will now fail to validate** and should drop the key. It is no longer
+  part of `ParameterModel.model_dump()`
+- **Breaking**: seven DWD observation parameters that were declared but never returned a value, so a
+  request for one now says so instead of answering with an empty frame:
+  `cloud_type_layer1..4_abbreviation`, `weather_text`, `end_of_interval` and `true_local_time`. Each
+  was checked against the archive: `v_sN_csa` matches `v_sN_cs` exactly across 398,381 records,
+  every `ww` maps to one text across 443,827 while two codes share a text, and `end_of_interval`
+  names a column that does not exist in the solar files at all
+- **Breaking**: five `Parameter` members no provider declared, so no request could return them:
+  `HUMIDEX`, `PRECIPITATION_FREQUENCY`, `PRECIPITATION_HEIGHT_LIQUID_MAX`, `TIME_WIND_GUST_MAX` and
+  `TIME_WIND_GUST_MAX_1MILE_OR_1MIN`
+- The `magnetic_field_intensity` and `wave_period` unit types. Each existed for exactly one
+  parameter and both turned out mis-typed: WSV `current` is a bearing in degrees and WSV
+  `wave_period` a duration in seconds
+- Docs: `eccc/observation/annual.md` and `humidex` under hourly -- ECCC's `annual` resolution was
+  dropped when values moved to the OGC API, and the overview still described bulk CSV downloads and
+  four resolutions. The `pressure_air_sea` row of IMGW meteorology daily goes too, that provider no
+  longer exposing it
 
 ### Fixed
 
-- The whole test suite failed to collect on Python 3.10, the oldest version the project supports:
-  `tests/test_citation.py` imported `tomllib`, which is stdlib only from 3.11. The import error
-  aborted collection, so 3.10 has been running zero tests rather than failing loudly on one. The
-  import is now guarded and falls back to `tomli`, added to the dev group under the same marker
-- Fixed nine provider docs rows that named parameters renamed in the code but not in the docs
-  (`*_indicator` → `*_index` for DWD, `pressure_air_sl` → `pressure_air_sea_level` for
-  Geosphere/NWS, `pressure_air_sh` → `pressure_air_site` for NWS, `flow` → `discharge` for
-  Eaufrance)
-- Fixed `tests/test_docs.py::test_data_coverage`, which had been passing without checking anything
-  because its provider path pointed at `<root>/wetterdienst/provider` instead of `<root>/src/...`
-- `CITATION.cff` names the released version again, and is valid CFF 1.2.0 once more. It had lost
-  `version` and `date-released`, and carried an empty `identifiers:` key, which parses as null and
-  fails the schema — so the file every citation tool reads described no particular release and
-  could not be converted at all. It now states 0.132.0 of 2026-08-04 and the Zenodo concept DOI,
-  the one that resolves to the latest version. Because nothing generates the file, a test ties it
-  to the sources it duplicates: the version in `pyproject.toml`, the release date in this changelog
-  and the DOI badge in the README, so a release that forgets it fails rather than ships stale
-- `summarize()` searched for stations within 20 km whatever the parameter. It bounded its search
-  with `max(ts_geo_station_distance.values())`, and that mapping only holds entries for the
-  parameters that get the *shorter* radius — everything else is answered by the default factory and
-  so is not in `values()` at all. It now takes the widest radius among the requested parameters, as
-  interpolation already did, so a summary of e.g. `temperature_air_mean_2m` reaches the full 40 km
-  and finds stations it used to walk past
-- **Breaking**: MET Norway's in-band codes are decoded rather than returned as measurements. Frost
-  states both in the element descriptions it publishes and then writes them into the value itself:
-  snow depth -1 is "no snow", which is a depth of zero rather than an absent one, and cloud cover
-  -3 and 9 both mean the cover could not be estimated. Being declared in eighths those two
-  converted to -0.375 and 1.125 of the sky, the second looking like a plausible reading rather than
-  a code. Snow depth -1 now returns 0, cloud cover -3 and 9 return null. Frost keeps the codes out
-  of its own monthly and annual means, so only the elements themselves are touched
-- **Breaking**: DWD hourly cloud cover no longer reports -0.125 of the sky. `cloud_cover_total`
-  (`v_n`) and `cloud_cover_layer1` to `cloud_cover_layer4` (`v_sN_ns`) carry -1 where the sky could
-  not be seen at all, SYNOP's N = 9, and being declared in eighths that converted to -0.125 as a
-  fraction. It is returned as null now. DWD's description documents only -999 and says nothing
-  about -1, so the reading is from the data: -1 stands in 1.2% of station 00003's hourly
-  observations, and fog codes (`ww` 40-49) accompany 69.1% of those against 0.8% of the rest. The
-  cloud *type* codes beside them keep their -1, DWD's own value for an automated observation, which
-  is dimensionless and so passes through unscaled
-- Descriptions no longer leak between resolutions. `build_metadata_model` wrote them into the
-  metadata dicts it was given, and providers commonly build one resolution's parameter list from
-  another's by comprehension, which reuses the very same dicts: AEMET's annual parameters are its
-  monthly ones minus humidity, so annual reported "Monthly mean temperature" and its own seven
-  descriptions went nowhere. The dicts are copied now, and a test checks each description lands on
-  the parameter it names
-- **Breaking**: MET Norway `cloud_cover_total` was declared `percent` while Frost publishes it in
-  octas -- its own `unit` field says so, and the values run 0 to 8. A fully overcast sky was
-  reported as `8 %`. Now declared `one_eighth`, so it converts like every other cloud cover
-- **Breaking**: AEMET daily `dir` is `wind_direction_gust_max`, not `wind_direction`. AEMET
-  documents it as the direction of the maximum gust, and its hourly block already separates the two
-  as `dmax` and `dv`
-- IMGW's monthly `climate` dataset was documented under a stale `data` heading carrying the
-  parameter names it had before the dataset was renamed, and DWD derived still labelled
-  `count_days_cooling_degree` "Anzahl Kühltage" where the column is `Kuehltage`
-- 21 docs rows named a field the provider does not use. DWD MOSMIX and DMO documented low cloud
-  cover as `n1` where the element is `nl`, DWD derived used the label "Anzahl Kühltage" where the
-  column is `Kuehltage`, and ECCC and IMGW carried names from before their APIs changed. Each was
-  a row whose description could not reach the model, so correcting them recovered 25 descriptions
-  that already existed
-- DWD's layer cloud cover descriptions are correct. Its English sheet truncates `V_S1_NS` to "cloud
-  cover of 1. laye" and then repeats that same string for `V_S2_NS`, so the second layer was
-  described as the first. The German `Metadaten_Parameter` file inside the data ZIPs has both right
-  ("Bedeckungsgrad in der ersten/zweiten Schicht"), and all four layers now read consistently.
-  `end_of_interval` and `luftdruck_nn`, which DWD documents in neither language, are described
-  plainly; every non-quality DWD observation parameter now has a description
-- **Breaking**: DWD's `v_n_i` and `v_vv_i` are named for what they hold. Both are *measurement
-  method* indicators -- P for a human observer, I for an instrument, which is why the parser lists
-  them among its string parameters -- while `cloud_cover_total_index` and `visibility_range_index`
-  both described a coded *value*. They are now `cloud_cover_total_measurement_method` and
-  `visibility_range_measurement_method`
-- **Breaking**: `visibility_range_class` is renamed `visibility_range_index`. It only existed
-  because `visibility_range_index` was occupied by the method indicator above, and its description
-  ("Coded indicator of the visibility range") always described DWD subdaily `vk_ter` rather than
-  what it was attached to. `cloud_cover_total_index` is removed; no provider declares a coded cloud
-  cover
-- **Breaking**: four DWD subdaily parameters named the wrong quantity, not merely the wrong unit.
-  DWD's own `Metadaten_Parameter_*.txt`, shipped inside every data ZIP, gives each field a
-  description and a unit, and for these four it disagreed with what wetterdienst declared:
-  - `e_tf_ter` is "Eisansatz bei der Messung der Feuchttemperatur", unit YES/NO -- whether ice had
-    formed on the wet bulb thermometer. It was declared `temperature_air_mean_0_05m` in °C, and
-    carries only 0 and 1 across 82901 values at station 00003. Now
-    `temperature_wet_ice_formation`, dimensionless
-  - `ek_ter` is "Terminwerte des Erdbodenzustand", unit CODE -- values 0-9, exactly 10 distinct. It
-    was declared `temperature_soil_mean_0_05m` in °C. Now `soil_state_index`, dimensionless
-  - `vk_ter` is "Terminwerte Sichtweite", unit CODE -- also 0-9. It was declared `visibility_range`
-    in metres, so a request for subdaily visibility returned "5 metres" for visibility class 5. Now
-    `visibility_range_class`, dimensionless
-  - `tf_ter` is the wet bulb temperature and was declared `temperature_air_mean_2m`. DWD's *hourly*
-    moisture dataset already maps the same quantity (`tf_std`) to `temperature_wet_mean_2m`, so the
-    two resolutions disagreed with each other. Confirmed against 83994 paired observations: it sits
-    a median 1.6 °C below the air temperature and never exceeds it, which is the wet bulb
-    signature. Now `temperature_wet_mean_2m`
-- Three new canonical parameters for the above: `temperature_wet_ice_formation`,
-  `soil_state_index` and `visibility_range_class`, all dimensionless
-- **Breaking**: Geosphere `cloud_cover_total` is returned as a fraction rather than a percentage
-  passed off as one. It was declared `decimal` while Geosphere documents `bewm_mittel` as `1/100`
-  and returns 0-100, so the raw percentage went straight through the `fraction` target unconverted
-  and every value was 100x its stated meaning. Geosphere's own `humidity` and
-  `sunshine_duration_relative` already declared `percent`, so this was the odd one out within the
-  provider. Values now read 0-1
-- **Breaking**: DWD road `visibility_range` is returned in metres rather than 1000x too large. It
-  was declared `kilometer`, but BUFR `0 20 001 horizontalVisibility` is metres, nothing in the
-  parser converts, and the provider's own docs page already said `m`
-- **Breaking**: ECCC hourly and monthly return data at all. Both resolutions declared parameters
-  the OGC API never publishes -- hourly carried a copy of the *daily* field list
-  (`max_temperature`, `snow_on_ground`, the degree days), monthly carried bulk-CSV column headers
-  (`"total precip (mm)"`) -- so every request came back empty. Monthly additionally crashed on
-  `LOCAL_DATE`, which is `"2023-06"` for that collection against a parser expecting a full
-  timestamp. Both now declare the fields ECCC actually serves; the requested field list is derived
-  from those declarations rather than hand-maintained per resolution, which is what let hourly
-  drift into a copy of daily in the first place. Parameter names change for both resolutions
+- **Breaking**: conductivity conversions between per-centimetre and per-metre units were wrong, 8 of
+  the 12 pairs by 10²–10⁴. Conductivity is per unit *length*, so a shorter length in the denominator
+  means a larger number -- 1 S/cm is 100 S/m -- and the conversions had that inverted on top of
+  mishandling the µ prefix. Since `siemens_per_meter` was the default target, every conductivity
+  value the library returned was affected: WSV station 71160198 read 0.0021 S/m where the correct
+  figure is 0.2059. Only the two pairs the tests covered were right
+- **Breaking**: conductivity is returned in µS/cm rather than S/m, which is the convention in
+  hydrology and what the sources publish -- S/m is large enough that rounding to 4 decimals cost
+  real precision, 8.481 µS/cm coming back as `0.0008`. Set
+  `ts_unit_targets={"conductivity": "siemens_per_meter"}` for the old unit, which now also returns
+  the correct value
+- **Breaking**: WSV Pegelonline values are scaled to the unit the metadata declares. The service
+  publishes the unit per *timeseries*, not per parameter, and its stations disagree, so a single
+  declaration was silently wrong wherever a station differed: water level is `cm` at most gauges but
+  `m+NN` at 66 and `m+PNP` at 2, conductivity `µS/cm` or `mS/cm`, wave height `cm` or `m`. Wave
+  height at MELLUMPLATE came back as 0.07–1.32 next to 12.66–280.6 at LT ALTE WESER for the same
+  quantity, both labelled cm. A station publishing a unit the provider does not know is skipped with
+  an error rather than reported under the wrong one. The `m+NN` gauges measure against sea level
+  rather than the gauge datum even once scaled -- the `gauge_zero` column says which
+- **Breaking**: WSV `current` is renamed `flow_direction` and returned in degrees, the source's
+  `MGN` unit being degrees relative to magnetic north rather than a magnetic quantity; `wave_period`
+  is returned in seconds, having been declared with a unit whose symbol was `1/s`; and
+  `clearance_height` is returned in centimetres, having been declared in metres while every station
+  publishes centimetres, so values were 100× too large
+- **Breaking**: WSV parameter names are humanized like every other provider's. The parser wrote the
+  source name lowercased while the humanizing map is keyed on it as declared, so values came back as
+  `sigh`, `tp` and `r` rather than `wave_height_sign`, `wave_period` and `flow_direction`. With
+  `ts_humanize=False` the names are now the source's own casing (`SIGH`) rather than lowercased
+- WSV `gauge_zero` is populated rather than always null for all 738 stations -- the station frame
+  built the column as `gauge_datum`, which `_base_columns` then dropped. This is the column that
+  says which datum a water level is on, so it matters most for the `m+NN` gauges above. Turbidity is
+  checked against the station's own unit like the other scaled parameters: `FNU`, `TE/F` and `NTU`
+  all name the same formazin scale so no value changes, but a unit that is not on it is now skipped
+- **Breaking**: ECCC hourly and monthly return data at all. Both declared parameters the OGC API
+  never publishes -- hourly carried a copy of the *daily* field list, monthly carried bulk-CSV
+  column headers -- so every request came back empty, and monthly additionally crashed on a
+  `"2023-06"` timestamp. The requested field list is derived from the declarations now rather than
+  hand-maintained per resolution, which is what let hourly drift into a copy of daily. Parameter
+  names change for both resolutions
 - **Breaking**: ECCC value requests return the whole period rather than an arbitrary 500 records.
   The OGC endpoint pages at 500 features and a station-year of hourly data is ~8800, so every
-  request was silently truncated to a slice of the year -- June 1972 at station 4055 returned 16
-  timestamps where it holds 697. Results grow accordingly
-- ECCC exposes its whole station network rather than the first 500. The OGC endpoint pages at 500
-  by default and ECCC publishes ~8600 stations, so 94% of them could not be requested at all --
-  including every station whose data the hourly collection actually holds
-- ECCC no longer fails on the daylight-saving fall-back hour, which occurs twice in local time.
-  Unreachable while a request returned only part of a year, so it surfaced with the fix above
-- ECCC hourly `wind_direction` is returned in degrees rather than tens of degrees, the same source
-  encoding already decoded for the daily gust direction
-- ECCC stations opened before standard time no longer fail the station listing. `America/Toronto`
-  is `-5:17:32` in 1895, an offset that is not a whole number of minutes and that polars rejects;
-  the conversion to UTC now happens in Python. A handful of stations publish no timezone at all
-  and fall back to UTC. Neither showed up while the listing stopped at 500 rows
-- **Breaking**: WSV Pegelonline values are now scaled to the unit the metadata declares. The service
-  publishes the unit per *timeseries*, not per parameter, and its stations disagree, so a single
-  declaration was silently wrong wherever a station differed. Water level is `cm` at most gauges but
-  `m+NN` at 66 of them and `m+PNP` at 2; conductivity `µS/cm` or `mS/cm`; flow speed `m/s` or
-  `cm/s`; wave height `cm` or `m`; wave period `s` or `1/100s`. Significant wave height at
-  MELLUMPLATE came back as 0.07–1.32 next to 12.66–280.6 at LT ALTE WESER for the same quantity,
-  both labelled cm. Affected values change by the corresponding factor. A station publishing a unit
-  the provider does not know is now skipped with an error rather than reported under the wrong one.
-  Note that the `m+NN` gauges have no gauge zero and so measure against sea level rather than the
-  gauge datum even once scaled — the `gauge_zero` station column says which
-- **Breaking**: WSV `current` is renamed `flow_direction` and returned in degrees. The source gives
-  it the unit `MGN`, degrees relative to magnetic north, which had been read as a magnetic quantity
-  and declared as magnetic field strength in A/m; the values are compass bearings of 0–360
-- **Breaking**: WSV `wave_period` is returned in seconds. It was declared with a `wave_period` unit
-  whose symbol was `1/s`, a frequency rather than a duration, and carried a `TODO` questioning it
-- **Breaking**: WSV `clearance_height` is returned in centimetres. It was declared in metres while
-  every station publishes centimetres, so values were 100× too large
-- **Breaking**: WSV parameter names are humanized like every other provider's. The parser wrote the
-  source name lowercased while the humanizing map is keyed on it as declared, so the two never
-  matched and values came back as `sigh`, `tp` and `r` rather than `wave_height_sign`,
-  `wave_period` and `flow_direction`. Unit conversion keys case-insensitively and was unaffected,
-  which is why this went unnoticed. With `ts_humanize=False` the names are now the source's own
-  casing (`SIGH`) rather than lowercased (`sigh`)
-- WSV `gauge_zero` is populated rather than always null. The station frame built the column as
-  `gauge_datum`, which `_base_columns` then dropped, leaving `gauge_zero` null for all 738
-  stations. This is the column that says which datum a water level is on, so it matters most for
-  exactly the `m+NN` gauges above
-- WSV turbidity is checked against the station's own unit like the other scaled parameters. The
-  service publishes `TR` as `FNU` at two stations, `TE/F` at two and `NTU` at one; all three name
-  the same formazin scale so no value changes, but a turbidity unit that is *not* on that scale is
-  now skipped rather than passed through as NTU
-- Requesting several parameters at once no longer fails when one of them has no data for the
-  station. Concatenating the empty result raised `polars.exceptions.ShapeError: unable to append to
-  a DataFrame of width 6 with a DataFrame of width 0`; the empty frame is skipped instead. This
-  affected every provider that reports parameters separately rather than grouped. Note that a
-  parameter whose *download* fails is indistinguishable from one that simply has no data at this
-  point — both surface as an empty frame — so such a parameter is now omitted from the result
-  rather than failing the whole request with the `ShapeError` above
-- **Breaking**: conductivity conversions between per-centimetre and per-metre units were wrong, 8
-  of the 12 pairs by 10²–10⁴. Conductivity is per unit *length*, so a shorter length in the
-  denominator means a larger number — 1 S/cm is 100 S/m, not 1/100 of one — and the conversions
-  had that inverted on top of mishandling the µ prefix. Since `siemens_per_meter` was the default
-  target, every conductivity value the library returned was affected: WSV at station 71160198 read
-  0.0021 S/m where the correct figure is 0.2059. Only the two pairs the tests happened to cover
-  (µS/m ↔ S/m) were right. All 12 pairs are now checked against 1 µS/cm = 10⁻⁴ S/m
-- **Breaking**: conductivity is returned in µS/cm rather than S/m. That is the convention in
-  hydrology and water quality and what the sources publish, and S/m is a large enough unit that
-  rounding to 4 decimals cost real precision — 8.481 µS/cm came back as `0.0008`, a single
-  significant figure, where river values run from single digits to a few thousand µS/cm. Station
-  71160198 now reads 8.481–2058.642 µS/cm. Set `ts_unit_targets={"conductivity":
-  "siemens_per_meter"}` for the old unit, which now also returns the correct value
-- The three new `radiation_*_intensity` parameters are now listed in
-  `TimeseriesRequest.interpolatable_parameters`. Without them, `interpolate()` and `summarize()`
-  silently dropped the renamed radiation parameters for the affected providers
-- Fixed four more provider docs rows that named parameters renamed in the code but not in the docs:
-  DWD 1-minute and 5-minute `precipitation_form` → `precipitation_index`, and the `unit` cell of
-  DWD DMO hourly `visibility_range`, which repeated the unit type instead of naming the unit
-- **Breaking**: ECCC daily `cooling_degree_days` and `heating_degree_days` were mapped onto the
-  canonical names `count_days_cooling_degree` and `count_days_heating_degree`, which mean a number
-  of days. ECCC publishes the degree day total for the single day the record covers, so the values
-  were degree days labelled as a count of days — for station 2 on 1979-11-02 the mean temperature
-  is 6.3 °C and the reported value is 11.7, which is `18 - 6.3` and not any count. They now use
-  the canonical names `heating_degree_day` and the new `cooling_degree_day`, in °Cd. The values
-  are unchanged; queries using the old names against ECCC need to switch. DWD keeps both
-  quantities under their own names, and is unaffected. The same two declarations exist in the
-  ECCC *hourly* block and were renamed with them, but that block declares the daily field list
-  wholesale and the hourly collection publishes none of those fields, so nothing there returns
-  data either way — see above
+  request was silently truncated -- June 1972 at station 4055 returned 16 timestamps where it holds
+  697. ECCC also exposes its whole ~8600-station network rather than the first 500, so 94% of it
+  could not be requested at all, including every station whose data the hourly collection holds
+- ECCC no longer fails on the daylight-saving fall-back hour, and stations opened before standard
+  time no longer fail the listing -- `America/Toronto` is `-5:17:32` in 1895, an offset that is not
+  a whole number of minutes and that polars rejects, so the conversion to UTC happens in Python.
+  Neither showed up while the listing stopped at 500 rows. ECCC hourly `wind_direction` is returned
+  in degrees rather than tens of degrees
+- **Breaking**: ECCC daily `cooling_degree_days` and `heating_degree_days` were mapped onto
+  `count_days_cooling_degree` and `count_days_heating_degree`, which mean a number of days. ECCC
+  publishes the degree day total for the single day the record covers -- for station 2 on 1979-11-02
+  the mean temperature is 6.3 °C and the value is 11.7, which is `18 - 6.3` and not any count. They
+  now use `heating_degree_day` and the new `cooling_degree_day`, in °Cd; the values are unchanged
 - **Breaking**: ECCC `wind_direction_gust_max` is returned in degrees rather than tens of degrees.
-  ECCC publishes `DIRECTION_MAX_GUST` in tens — its own docs call the column
-  `Dir of Max Gust (10s deg)` — and the declaration said `degree`, so every bearing came back 10×
-  too small: 17–26 across a sample where the true directions are 170–260. Because the wrong values
-  still sit inside 0–360, no range check could have caught it. Found while auditing the same file
+  ECCC's own docs call the column `Dir of Max Gust (10s deg)` and the declaration said `degree`, so
+  every bearing came back 10× too small: 17–26 where the true directions are 170–260. Because the
+  wrong values still sit inside 0–360, no range check could have caught it
+- **Breaking**: four DWD subdaily parameters named the wrong quantity, not merely the wrong unit,
+  each contradicted by the `Metadaten_Parameter_*.txt` shipped inside every data ZIP. `e_tf_ter` is
+  whether ice had formed on the wet bulb thermometer, carrying only 0 and 1 across 82901 values, and
+  was declared `temperature_air_mean_0_05m` in °C -- now `temperature_wet_ice_formation`. `ek_ter`
+  is a 0-9 ground-state code declared `temperature_soil_mean_0_05m` -- now `soil_state_index`.
+  `vk_ter` is a 0-9 visibility code declared `visibility_range` in metres, so subdaily visibility
+  returned "5 metres" for class 5 -- now `visibility_range_class`. `tf_ter` is the wet bulb
+  temperature declared `temperature_air_mean_2m`, where DWD's hourly moisture dataset already maps
+  the same quantity to `temperature_wet_mean_2m`; confirmed against 83994 paired observations, a
+  median 1.6 °C below the air temperature and never above it
+- **Breaking**: DWD's `v_n_i` and `v_vv_i` are named for what they hold, both being *measurement
+  method* indicators where `cloud_cover_total_index` and `visibility_range_index` described a coded
+  value. `visibility_range_class` takes the freed `visibility_range_index` name, which it only ever
+  lacked because the method indicator held it; `cloud_cover_total_index` is removed, no provider
+  declaring a coded cloud cover
+- **Breaking**: DWD hourly cloud cover no longer reports -0.125 of the sky. `cloud_cover_total` and
+  `cloud_cover_layer1` to `_layer4` carry -1 where the sky could not be seen at all, SYNOP's N = 9,
+  which in eighths converted to -0.125. It is null now. DWD documents only -999, so the reading is
+  from the data: -1 stands in 1.2% of station 00003's hourly observations and fog codes accompany
+  69.1% of those against 0.8% of the rest. The cloud *type* codes keep their -1, being dimensionless
+- **Breaking**: MET Norway's in-band codes are decoded rather than returned as measurements. Frost
+  writes them into the value itself: snow depth -1 is "no snow", a depth of zero rather than an
+  absent one, and cloud cover -3 and 9 both mean the cover could not be estimated -- in eighths
+  those converted to -0.375 and 1.125 of the sky, the second looking like a plausible reading. Snow
+  depth -1 returns 0 and cloud cover -3 and 9 return null. Frost keeps the codes out of its own
+  means, so only the elements are touched
+- **Breaking**: MET Norway `cloud_cover_total` was declared `percent` while Frost publishes octas --
+  its own `unit` field says so and the values run 0 to 8 -- so a fully overcast sky was reported as
+  `8 %`. Now `one_eighth`
+- **Breaking**: Geosphere `cloud_cover_total` is returned as a fraction rather than a percentage
+  passed off as one. It was declared `decimal` while Geosphere documents `bewm_mittel` as `1/100`
+  and returns 0-100, so the raw percentage went through the `fraction` target unconverted and every
+  value was 100x its stated meaning. Its own `humidity` already declared `percent`
+- **Breaking**: DWD road `visibility_range` is returned in metres rather than 1000x too large. It
+  was declared `kilometer`, but BUFR `0 20 001 horizontalVisibility` is metres, nothing in the
+  parser converts, and the provider's docs page already said `m`
+- **Breaking**: AEMET daily `dir` is `wind_direction_gust_max`, not `wind_direction`. AEMET
+  documents it as the direction of the maximum gust, and its hourly block already separates the two
 - DWD `humidity_absolute` (`absf_std`) was declared `dimensionless`. It is a mass of water vapour
-  per volume of air, published in g/m³ — station 00433 reads 1.6 to 19.1. It now uses the new
-  `mass_per_volume` unit type, so it is labelled g/m³ and can be converted. The values are
+  per volume of air published in g/m³ -- station 00433 reads 1.6 to 19.1 -- so it now uses
+  `mass_per_volume`. DWD `cooling_degree_hour` was declared in degree days while it accumulates per
+  hour, reporting a monthly 4179.8 °Ch as 4179.8 °Cd, a figure no month can reach. Both values are
   unchanged
-- DWD `cooling_degree_hour` (`Kuehlgradstunden`) was declared in degree days while it accumulates
-  per hour, so a monthly total of 4179.8 °Ch was reported as 4179.8 °Cd — a figure no month can
-  reach. It now uses the new `degree_hour` unit type. The values are unchanged
+- Requesting several parameters at once no longer fails when one of them has no data for the
+  station. Concatenating the empty result raised polars'
+  `ShapeError: unable to append to a DataFrame of width 6 with a DataFrame of width 0`. This
+  affected every provider that reports parameters separately. A parameter whose *download* fails is
+  indistinguishable from one that has no data at this point, so such a parameter is omitted from the
+  result rather than failing the request
+- `summarize()` searched for stations within 20 km whatever the parameter. It bounded its search
+  with `max(ts_geo_station_distance.values())`, and that mapping only holds entries for the
+  parameters that get the *shorter* radius, everything else being answered by the default factory.
+  It takes the widest radius among the requested parameters now, as interpolation already did
+- The three new `radiation_*_intensity` parameters are listed in
+  `TimeseriesRequest.interpolatable_parameters`; without them `interpolate()` and `summarize()`
+  silently dropped the renamed radiation parameters for the affected providers
+- Descriptions no longer leak between resolutions. `build_metadata_model` wrote them into the
+  metadata dicts it was given, and providers commonly build one resolution's parameter list from
+  another's by comprehension, reusing those very dicts: AEMET's annual parameters are its monthly
+  ones minus humidity, so annual reported "Monthly mean temperature" and its own seven descriptions
+  went nowhere
+- 34 docs rows named a field the provider does not use -- DWD MOSMIX and DMO documented low cloud
+  cover as `n1` where the element is `nl`, DWD 1-minute and 5-minute carried `precipitation_form`
+  for `precipitation_index`, and ECCC and IMGW carried names from before their APIs changed. Each
+  was a row whose description could not reach the model, so correcting them recovered 25
+  descriptions that already existed. DWD's layer cloud cover descriptions are correct too: the
+  English sheet truncates `V_S1_NS` to "cloud cover of 1. laye" and repeats it for `V_S2_NS`, so the
+  second layer was described as the first
+- `CITATION.cff` names the released version again and is valid CFF 1.2.0 once more. It had lost
+  `version` and `date-released` and carried an empty `identifiers:` key, which parses as null and
+  fails the schema, so the file every citation tool reads described no particular release and could
+  not be converted at all. A test now ties it to the sources it duplicates
 
 ## [0.132.0] - 2026-08-04
 
