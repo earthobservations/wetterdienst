@@ -268,6 +268,28 @@ def test_unit_converter_refuses_a_source_only_unit_as_a_target(unit_converter: U
         unit_converter.update_targets({"temperature": "millimeter_per_second"})
 
 
+def test_unit_converter_holds_a_source_only_unit_against_its_own_type(unit_converter: UnitConverter) -> None:
+    """A source-only unit is named per unit type, a name not belonging to only one.
+
+    Eleven names in this table are shared -- `millimeter` between `precipitation` and all three
+    `length_*`, `beaufort` between `speed` and `wind_scale`, the whole mass-per-volume list between
+    `concentration` and `mass_per_volume`. Matching on the name alone would make the next source-only
+    unit unaskable for every type carrying it, and call it "what a source publishes in" for a type
+    where it is an ordinary target.
+    """
+    for unit_type, name in unit_converter.source_only_units:
+        # each entry names a unit the type has, so a typo cannot sit here refusing nothing
+        assert unit_converter.get_unit(name, unit_type).name == name
+    # and the refusal keys on the pair, `millimeter` standing for the shared names
+    converter = UnitConverter()
+    converter.source_only_units = frozenset({("precipitation", "millimeter")})
+    with pytest.raises(ValueError, match="Unit millimeter is what a source publishes in"):
+        converter.update_targets({"precipitation": "millimeter"})
+    converter.update_targets({"length_short": "millimeter"})
+    assert converter.targets["length_short"].name == "millimeter"
+    assert converter.targets["precipitation"].name == "millimeter"
+
+
 def test_unit_converter_update_targets_applies_all_of_a_mapping_or_none(unit_converter: UnitConverter) -> None:
     """A mapping carrying one unusable entry changes no target at all.
 

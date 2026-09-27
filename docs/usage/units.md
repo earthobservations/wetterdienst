@@ -39,7 +39,7 @@ unit_converter.units
 Not all of those can be asked for. A few exist so that a provider can declare the unit its source
 publishes in and have the conversion happen -- `millimeter_per_second` is what BUFR gives a
 precipitation rate as -- and converting *to* one of them would round the value away, so they are
-refused as a target:
+refused as a target. They are named per unit type, a unit name not being unique to one:
 
 ```{code-cell}
 ---

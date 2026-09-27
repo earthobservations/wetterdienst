@@ -190,8 +190,16 @@ class UnitConverter:
         # `length_short` parameter under a `mile` target turns 5 cm of snow into 0.0 today -- and the
         # general fix is a rounding rule that scales with the target. This set is not that fix: it
         # keeps a unit added for a source from being reachable as a target at all, which is what it
-        # was before the unit existed, `get_unit` having raised for the name
-        self.source_only_units: frozenset[str] = frozenset({"millimeter_per_second"})
+        # was before the unit existed, `get_unit` having raised for the name.
+        #
+        # Held per unit type rather than by name, because a name is not unique to one: eleven of them
+        # are shared, `millimeter` between `precipitation` and all three `length_*` and `beaufort`
+        # between `speed` and `wind_scale` among them. A bare name would make the next source-only
+        # unit unaskable for every type carrying it, and say "is what a source publishes in" of a
+        # type where it is an ordinary target
+        self.source_only_units: frozenset[tuple[str, str]] = frozenset(
+            {("precipitation_intensity", "millimeter_per_second")},
+        )
         # dict of lambdas for conversion between units (described by names)
         self.lambdas: dict[tuple[str, str], Callable[[Any], Any]] = {
             # angle
@@ -393,7 +401,7 @@ class UnitConverter:
             # after `get_unit`, so that a unit of some other type is reported as not belonging to
             # this one -- with the list of units that do -- rather than as held back by policy
             resolved[key] = self.get_unit(value, key)
-            if value in self.source_only_units:
+            if (key, value) in self.source_only_units:
                 msg = f"Unit {value} is what a source publishes in and cannot be a target for type {key}"
                 raise ValueError(msg)
         self.targets.update(resolved)
