@@ -26,9 +26,9 @@
 
 | name                      | original name | description       | unit | constraints |
 |---------------------------|---------------|-------------------|------|-------------|
+| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 | {term}`cloud_cover_total` | n_ter | Total cloud cover. | 1/8 | >=0,<=8 |
 | {term}`cloud_density` | cd_ter | Cloud density. | - |  |
-| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 
 ### moisture
 
@@ -45,11 +45,11 @@
 
 | name                               | original name | description         | unit | constraints |
 |------------------------------------|---------------|---------------------|------|-------------|
+| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 | {term}`pressure_vapor` | vp_ter | Vapor pressure. | hPa | >=0 |
 | {term}`temperature_wet_ice_formation` | e_tf_ter | Ice on the wet bulb thermometer. | - |  |
 | {term}`temperature_wet_mean_2m`    | tf_ter        | 2m wet bulb temperature | °C |           |
 | {term}`humidity` | rf_ter | 2m relative humidity. | % | >=0,<=100 |
-| {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
 
 ### pressure
 
@@ -66,8 +66,8 @@
 
 | name                      | original name | description          | unit | constraints |
 |---------------------------|---------------|----------------------|------|-------------|
-| {term}`pressure_air_site` | pp_ter | Air pressure of site. | hPa | >=0 |
 | {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`pressure_air_site` | pp_ter | Air pressure of site. | hPa | >=0 |
 
 ### soil
 
@@ -84,8 +84,8 @@
 
 | name                                | original name | description          | unit | constraints |
 |-------------------------------------|---------------|----------------------|------|-------------|
-| {term}`soil_state_index` | ek_ter | Coded ground state. | - | - |
 | {term}`quality` | qn_4 | Quality flag published by the source for the values in the same dataset. | dimensionless | - |
+| {term}`soil_state_index` | ek_ter | Coded ground state. | - | - |
 
 ### temperature_air
 

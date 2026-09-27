@@ -357,6 +357,63 @@ def _documented_units(path: Path) -> dict[tuple[str, str, str], list[str]]:
     return _documented_column(path, "unit")
 
 
+def _parameter_table_rows(path: Path) -> Iterator[tuple[list[str], list[str], list[str]]]:
+    """Yield (datasets, header cells, row cells) for every parameter-table row on one docs page.
+
+    Shared by the two parsers below so that they cannot disagree about which rows exist, under which
+    dataset, or which rows are malformed enough to skip -- the disagreement `_heading_datasets` was
+    extracted to end, one level further in. The dataset resolution is `_documented_column`'s, whose
+    docstring explains why it comes from the section's `name` row rather than its heading.
+    """
+    sections = _section_datasets(path)
+    index = -1
+    datasets: list[str] = []
+    header = None
+    for line in _prose_lines(path):
+        if line.startswith("#"):
+            if len(line) - len(line.lstrip("#")) == 3:
+                # the section's own answer, by position; `_heading_datasets` still answers for the
+                # `####` headings inside it and for anything that closes it
+                index += 1
+                datasets = sections[index]
+            else:
+                datasets = _heading_datasets(line, datasets)
+            header = None
+            continue
+        if not line.startswith("|"):
+            header = None
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if cells and cells[0] == "name" and "original name" in cells:
+            header = cells
+            continue
+        if header is None or all(set(cell) <= {"-", ":"} for cell in cells) or len(cells) != len(header):
+            # a row with more cells than its header reads every column shifted, so it is left to
+            # `_malformed_parameter_tables` rather than compared as though the cells lined up
+            continue
+        yield datasets or [_NO_SECTION], header, cells
+
+
+def _row_names(header: list[str], cells: list[str]) -> tuple[str, str]:
+    """Return the (canonical, original) pair a parameter row names, the glossary markup stripped."""
+    name = re.sub(r"\{term\}`([^`]+)`", r"\1", cells[header.index("name")])
+    return name, cells[header.index("original name")]
+
+
+def _documented_order(path: Path) -> dict[str, list[tuple[str, str]]]:
+    """Return {dataset: [(canonical name, original name)]} in the order the page lists them.
+
+    Ordered where `_documented_column` is keyed, because the order is itself a property the tables
+    carry and nothing compared it: 41 of 271 tables listed their rows in an order the model does not
+    declare, and each was read by every other test without complaint (GH-1980).
+    """
+    ordered: dict[str, list[tuple[str, str]]] = {}
+    for datasets, header, cells in _parameter_table_rows(path):
+        for dataset in datasets:
+            ordered.setdefault(dataset, []).append(_row_names(header, cells))
+    return ordered
+
+
 def _documented_column(path: Path, column: str) -> dict[tuple[str, str, str], list[str]]:
     """Return {(dataset, canonical name, original name): cells of `column`} for one docs page.
 
@@ -383,36 +440,15 @@ def _documented_column(path: Path, column: str) -> dict[tuple[str, str, str], li
     disagreement between the two parsers that sharing `_heading_datasets` was meant to end.
     """
     documented: dict[tuple[str, str, str], list[str]] = {}
-    sections = _section_datasets(path)
-    index = -1
-    datasets: list[str] = []
-    header = None
-    for line in _prose_lines(path):
-        if line.startswith("#"):
-            if len(line) - len(line.lstrip("#")) == 3:
-                # the section's own answer, by position; `_heading_datasets` still answers for the
-                # `####` headings inside it and for anything that closes it
-                index += 1
-                datasets = sections[index]
-            else:
-                datasets = _heading_datasets(line, datasets)
-            header = None
+    for datasets, header, cells in _parameter_table_rows(path):
+        # a table without the column asked for is skipped whole rather than read with a shifted
+        # index: losing `unit` made the units test compare nothing, which `_malformed_parameter_tables`
+        # now reports
+        if column not in header:
             continue
-        if not line.startswith("|"):
-            header = None
-            continue
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if cells and cells[0] == "name" and "original name" in cells:
-            header = cells if column in cells else None
-            continue
-        if header is None or all(set(cell) <= {"-", ":"} for cell in cells) or len(cells) != len(header):
-            # a row with more cells than its header reads every column shifted, so it is left to
-            # `_malformed_parameter_tables` rather than compared as though the cells lined up
-            continue
-        name = re.sub(r"\{term\}`([^`]+)`", r"\1", cells[header.index("name")])
-        for dataset in datasets or [_NO_SECTION]:
-            key = (dataset, name, cells[header.index("original name")])
-            documented.setdefault(key, []).append(cells[header.index(column)])
+        name, original = _row_names(header, cells)
+        for dataset in datasets:
+            documented.setdefault((dataset, name, original), []).append(cells[header.index(column)])
     return documented
 
 
@@ -933,6 +969,51 @@ def test_docs_dataset_descriptions_match_the_model() -> None:
 def _declared_to_document(keys: Iterable[tuple[str, str, str]]) -> set[tuple[str, str, str]]:
     """Drop the plain `quality` rows from a set of (dataset, name, original name) keys."""
     return {key for key in keys if key[1] != "quality"}
+
+
+def test_docs_parameter_tables_list_their_rows_in_declaration_order() -> None:
+    """Test that a parameter table lists its rows in the order its dataset declares them.
+
+    GH-1978 adopted that as the convention and restored it for the tables it touched, but nothing held
+    it, so it drifted: 41 of the 271 documented tables listed their rows in an order the model does not
+    declare, and every other test in this module read them without complaint, being keyed by parameter
+    rather than by position. A reader comparing a page against the model -- or against the sibling page
+    of another resolution -- is the only thing that noticed.
+
+    Omissions are allowed and the order still holds, which is what makes this checkable at all: 33 of
+    the 271 tables document fewer parameters than their dataset declares, so the comparison is against
+    the declared order *restricted to the rows the page keeps*, not against the whole declaration.
+
+    The 41 were three habits and nine one-offs, which is why they could be fixed in one change rather
+    than argued table by table: 25 put `quality` last where every dataset declares it first, five
+    `wsv/pegel` tables opened with `chlorid_concentration` ahead of `stage`, two `geosphere` ones
+    inverted `pressure_air_site` and `pressure_air_sea_level`, and ten of the 41 were simply
+    alphabetical. Only the row order changed -- every cell of every row kept its own text (GH-1980).
+    """
+    wrong = []
+    for provider, network, resolution, path in _documented_resolutions():
+        ordered = _documented_order(path)
+        for dataset in resolution:
+            rows = ordered.get(dataset.name)
+            if not rows:
+                continue
+            declared = [(parameter.name, parameter.name_original) for parameter in dataset.parameters]
+            expected = [row for row in declared if row in set(rows)]
+            if rows == expected:
+                continue
+            tag = f"{provider}/{network}/{resolution.name}/{dataset.name}"
+            if len(rows) != len(expected):
+                repeated = sorted({row[0] for row in rows if rows.count(row) > 1})
+                wrong.append(f"{tag}: documents {repeated} more than once, so it has no single order")
+                continue
+            position = next(
+                index for index, (shown, want) in enumerate(zip(rows, expected, strict=True)) if shown != want
+            )
+            wrong.append(
+                f"{tag}: row {position + 1} is {rows[position][0]!r} "
+                f"where the model declares {expected[position][0]!r}",
+            )
+    assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
 
 
 def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> None:
