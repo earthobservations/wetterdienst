@@ -527,18 +527,19 @@ Types of changes:
 - The 67 unit cells that spelled a unit out on a page writing symbols for everything else now give
   the symbol, across 10 of the 88 documented pages, every one of them symbol-majority with a
   long-form minority. 59 were `dimensionless` on the eight `dwd/observation` pages, which wrote that
-  same unit as `-` elsewhere in the same table -- one quantity, two notations, a few rows apart. The
-  other eight mixed notations across different units instead: the six `dimensionless` cells on
-  `dwd/derived` monthly sat on a page carrying no `-` at all, against `%`, `mm`, `°C`, `cm`, `°Cd`
-  and `°Ch`, and the two `percent` on `eccc/observation` daily on a page carrying no `%`, against
-  `°C`, `mm`, `cm`, `km/h` and `°`. Each was made to match the page it sits on rather than a
-  convention chosen for the tree, so the 22 pages that are long-form throughout keep their style and
-  `dwd/derived` hourly -- long-form, unlike its own monthly sibling -- is untouched. The `-` a
-  dimensionless cell now carries is the model's own symbol for it, and is the same glyph the
-  `constraints` column uses for "unconstrained", so a row can read `| - | - |`; the two columns are
-  headed separately and each is read in its own terms, where long form everywhere would contradict
-  the 66 pages that write symbols and the symbol the model declares. Every cell kept its width, so
-  the tables stay as aligned as they were (GH-1980)
+  unit both ways: 13 of them within one table, a row or two apart, and the other 46 in a table
+  carrying no `-` at all while another table on the same page did. The remaining eight carried no
+  other notation of their unit anywhere on the page, so only the page's notation style made them
+  wrong -- the six `dimensionless` cells on `dwd/derived` monthly, against `%`, `mm`, `°C`, `cm`,
+  `°Cd` and `°Ch`, and the two `percent` on `eccc/observation` daily, against `°C`, `°Cd`, `mm`,
+  `cm`, `km/h` and `°`. Each was made to match the page it sits on rather than a convention chosen
+  for the tree, so the 22 pages that are long-form throughout keep their style and `dwd/derived`
+  hourly -- long-form, unlike its own monthly sibling, and nothing checks that the two agree -- is
+  untouched. The `-` a dimensionless cell now carries is the model's own symbol for it, and is the
+  same glyph the `constraints` column uses for "unconstrained", so a row can read `| - | - |`; the
+  two columns are headed separately and each is read in its own terms, where long form everywhere
+  would contradict the 66 pages that write symbols and the symbol the model declares. Every cell
+  kept its width, so the tables stay as aligned as they were (GH-1980)
 - The 41 documented parameter tables that listed their rows in an order the model does not declare
   now list them in it. Three habits and nine one-off orderings, which is why they could be settled
   in one change rather than argued table by table: 25 tables put `quality` last where every dataset

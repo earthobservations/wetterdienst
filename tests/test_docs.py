@@ -717,12 +717,22 @@ def test_docs_parameter_units_keep_one_spelling_per_page() -> None:
     them to change.
 
     10 of the 88 pages failed one of the two, in 67 cells, every page symbol-majority with a
-    long-form minority (GH-1980). 59 were `dimensionless` on the eight `dwd/observation` pages, which
-    is the first defect: each of those pages already wrote `-` for that same unit elsewhere in the
-    same table. The other 8 are the second: the six `dimensionless` cells on `dwd/derived` monthly sat
-    on a page with no `-` at all, against `%`, `mm`, `°C`, `cm`, `°Cd` and `°Ch`, and the two
-    `percent` on `eccc/observation` daily on a page with no `%`, against `°C`, `mm`, `cm`, `km/h` and
-    `°`. Each was made to match the page it sits on rather than a convention chosen here.
+    long-form minority (GH-1980). 59 of them are the first defect, all `dimensionless` on the eight
+    `dwd/observation` pages, which wrote that unit both ways. Only 13 of those 59 had the two
+    notations in one table, a row or two apart; the other 46 sit in a table carrying no `-` at all, on
+    a page that writes `-` for the same unit in another table. Both are the same contradiction to a
+    reader working down a page, which is why this check is scoped to the page and a per-table one
+    would have let 46 of the 59 stand. The remaining 8 cells are the second defect, on pages carrying
+    no other notation of that unit anywhere: six `dimensionless` on `dwd/derived` monthly against `%`,
+    `mm`, `°C`, `cm`, `°Cd` and `°Ch`, and two `percent` on `eccc/observation` daily against `°C`,
+    `°Cd`, `mm`, `cm`, `km/h` and `°`, where only the page's notation style says they are wrong. Each
+    was made to match the page it sits on rather than a convention chosen here.
+
+    Page-scoped is also the limit of what this can hold: `dwd/derived` monthly now reads `-` where its
+    own hourly sibling reads `dimensionless`, for the same `quality` parameter one page over, and no
+    test here can see that. Closing it would mean rewriting hourly's six cells -- the same count, as
+    it happens -- although nothing on that page is inconsistent with itself, which is the tree-wide
+    fiat this change declined to make.
 
     The one-unit-one-way half is what covers a notation that is neither the name nor the symbol:
     `dwd/mosmix` writes `kg/m²` for a declared `millimeter` throughout, which `_UNIT_SPELLINGS`
@@ -746,10 +756,11 @@ def test_docs_parameter_units_keep_one_spelling_per_page() -> None:
     for provider, network, resolution, path in _documented_resolutions():
         styles, notations = _documented_unit_spellings(resolution, path, converter)
         page = f"{provider}/{network}/{resolution.name}"
+        found = []
         for unit_name, shown_as in sorted(notations.items()):
             if len(shown_as) > 1:
                 written = "; ".join(f"{shown!r} in {len(rows)}, {rows[:2]}" for shown, rows in sorted(shown_as.items()))
-                mixed.append(f"{page}: {unit_name} is written {len(shown_as)} ways -- {written}")
+                found.append(f"{page}: {unit_name} is written {len(shown_as)} ways -- {written}")
         if styles["name"] and styles["symbol"]:
             named, symboled = len(styles["name"]), len(styles["symbol"])
             fewer = min(styles, key=lambda key: len(styles[key]))
@@ -762,10 +773,13 @@ def test_docs_parameter_units_keep_one_spelling_per_page() -> None:
                 if named == symboled
                 else f"the {len(styles[fewer])} in the minority are {styles[fewer][:4]}"
             )
-            mixed.append(
-                f"{page}: {named} cell{'' if named == 1 else 's'} name the unit and {symboled} "
-                f"give its symbol; {minority}",
+            found.append(
+                f"{page}: the unit is named in {_cells(named)} and given as its symbol in "
+                f"{_cells(symboled)}; {minority}",
             )
+        # capped per page before the report is: a page documenting twenty datasets can mix twenty
+        # units, which on a flat cap alone would report one page's rewrite as the whole corpus'
+        mixed.extend(_capped(found, 3, page))
     assert not mixed, "\n".join(_capped(mixed, 20, "the report"))
 
 
@@ -1206,6 +1220,11 @@ def test_docs_parameter_tables_hold_the_parameters_the_dataset_declares() -> Non
                 found.append(f"{tag}/{dataset}: documents {name}/{name_original!r} {len(shown)} times")
         errors.extend(_capped(found, 10, f"{tag}"))
     assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+def _cells(count: int) -> str:
+    """Return `count` with its noun, so a report reads "1 cell" and not "1 cells"."""
+    return f"{count} cell" if count == 1 else f"{count} cells"
 
 
 def _capped(lines: list[str], limit: int, what: str) -> list[str]:
