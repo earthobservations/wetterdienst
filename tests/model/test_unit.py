@@ -240,6 +240,27 @@ def test_unit_converter_lambdas(
     assert lambda_(value) == expected
 
 
+def test_unit_converter_refuses_a_source_only_unit_as_a_target(unit_converter: UnitConverter) -> None:
+    """A unit declared for a source cannot be asked for as a target.
+
+    `millimeter_per_second` exists so that `dwd/road` converts what BUFR publishes rather than
+    labelling it. Reporting values in it would round them away: `_convert_units` rounds to four
+    decimals after converting, so an mm/h source under that target loses everything below 0.36 mm/h
+    and KNMI's 0.1 mm/h reads as 0.0. `get_unit` raised for the unit before it existed, and this
+    keeps the setting failing as loudly as it did.
+    """
+    with pytest.raises(
+        ValueError,
+        match=r"Unit millimeter_per_second is what a source publishes in and cannot be a target",
+    ):
+        unit_converter.update_targets({"precipitation_intensity": "millimeter_per_second"})
+    # and the target is left as it was rather than half-applied
+    assert unit_converter.targets["precipitation_intensity"].name == "millimeter_per_hour"
+    # while the unit is still there for a source to declare, and converts
+    assert unit_converter.get_unit("millimeter_per_second", "precipitation_intensity").symbol == "mm/s"
+    assert unit_converter.get_lambda("millimeter_per_second", "precipitation_intensity")(0.0056) == 20.16
+
+
 def test_unit_converter_update_targets_invalid(unit_converter: UnitConverter) -> None:
     """Test that the update_targets method raises an error for invalid units."""
     with pytest.raises(

@@ -21,9 +21,14 @@ Types of changes:
 - `precipitation_intensity` can be declared in `millimeter_per_second`, which is what BUFR publishes
   a precipitation rate in: `kg m-2 s-1`, a mass flux per area, and a depth per second once the
   density of water divides out. The unit type carried only the two hourly spellings, so there was
-  nowhere to put a per-second rate and `dwd/road` labelled one `millimeter_per_hour`.
-  `millimeter_per_hour` stays the target, being the unit to read a rain rate in, so declaring the
-  new one is what makes a conversion happen rather than merely relabelling the number (GH-1984)
+  nowhere to put a per-second rate and `dwd/road` labelled one `millimeter_per_hour`. It is a source
+  unit: `update_targets` refuses it, so `WD_TS_UNIT_TARGETS` cannot ask for values in it, which is
+  what it could not do before the unit existed either. That is deliberate rather than tidy --
+  `_convert_units` rounds to four decimals after converting, so a source publishing mm/h under that
+  target would come back quantised to 0.36 mm/h steps, KNMI's 0.1 mm/h reading as 0.0. Every unit
+  type spanning orders of magnitude has that shape, a `length_short` parameter under a `mile` target
+  turning 5 cm of snow into 0.0 today, and the general fix is a rounding rule that scales with the
+  target; refusing one source unit is not it (GH-1984)
 - Every column `imgw/meteorology` renames has to be declared by the dataset it is read for.
   `_parse_file` renames raw `column_N` headers to `name_original` strings and the result is matched
   against the dataset actually requested, so a name only some *other* dataset declares is dropped
