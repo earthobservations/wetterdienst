@@ -401,7 +401,9 @@ class UnitConverter:
             # after `get_unit`, so that a unit of some other type is reported as not belonging to
             # this one -- with the list of units that do -- rather than as held back by policy
             resolved[key] = self.get_unit(value, key)
-            if (key, value) in self.source_only_units:
+            # against the resolved unit's own name rather than what the caller wrote, so that this
+            # keeps refusing what it is meant to if `get_unit` ever accepts a symbol as well
+            if (key, resolved[key].name) in self.source_only_units:
                 msg = f"Unit {value} is what a source publishes in and cannot be a target for type {key}"
                 raise ValueError(msg)
         self.targets.update(resolved)
