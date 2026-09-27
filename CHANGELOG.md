@@ -28,7 +28,7 @@ Types of changes:
   target would come back quantised to 0.36 mm/h steps, KNMI's 0.1 mm/h reading as 0.0. Every unit
   type spanning orders of magnitude has that shape, a `length_short` parameter under a `mile` target
   turning 5 cm of snow into 0.0 today, and the general fix is a rounding rule that scales with the
-  target; refusing one source unit is not it (GH-1984)
+  target, filed as GH-2002; refusing one source unit is not it (GH-1984)
 - Every column `imgw/meteorology` renames has to be declared by the dataset it is read for.
   `_parse_file` renames raw `column_N` headers to `name_original` strings and the result is matched
   against the dataset actually requested, so a name only some *other* dataset declares is dropped

@@ -188,7 +188,7 @@ class UnitConverter:
         # millimetres per second comes back quantised to 0.36 mm/h steps, with KNMI's 0.1 mm/h
         # reading as 0.0. Every unit type spanning orders of magnitude has that shape -- a
         # `length_short` parameter under a `mile` target turns 5 cm of snow into 0.0 today -- and the
-        # general fix is a rounding rule that scales with the target. This set is not that fix: it
+        # general fix is a rounding rule that scales with the target, GH-2002. This set is not it: it
         # keeps a unit added for a source from being reachable as a target at all, which is what it
         # was before the unit existed, `get_unit` having raised for the name.
         #
