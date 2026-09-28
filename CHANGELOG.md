@@ -28,7 +28,7 @@ Types of changes:
   CSV, GeoJSON and `with_stations` output. Read `region` instead; a SQL filter still naming `state`
   fails with an error naming `region`. A DuckDB, SQLite or PostgreSQL table `to_target` wrote before
   takes no append of `region`: write it anew (GH-2026)
-- **Breaking:** the values column `date` is now `timestamp`, in long and wide values, interpolated
+- **Breaking**: the values column `date` is now `timestamp`, in long and wide values, interpolated
   and summarized values, their JSON, CSV, GeoJSON, NetCDF and Zarr output, the stripes values and
   the DWD radar BUFR frame. The `date` request parameter, `filter_by_date` and the station columns
   `start_date`/`end_date` keep their names. Read `timestamp` instead; a SQL filter on values still

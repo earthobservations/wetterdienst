@@ -948,7 +948,7 @@ def test_export_file_targets_take_a_stations_frame(
     tmp_path: Path,
     extension: str,
 ) -> None:
-    """Every flat file target takes a frame without a `date` column."""
+    """Every flat file target takes a frame without a `timestamp` column."""
     filename = tmp_path.joinpath(f"stations.{extension}")
     ExportMixin(df=df_stations).to_target(f"file://{filename}")
     assert filename.exists()

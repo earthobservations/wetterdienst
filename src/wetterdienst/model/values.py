@@ -346,22 +346,22 @@ class TimeseriesValues(ABC):
         """Widen a dataframe with each row having one timestamp, parameter, value and quality.
 
         Example:
-        date         parameter                  value   quality
+        timestamp    parameter                  value   quality
         1971-01-01   precipitation_height       0       0
         1971-01-01   temperature_air_mean_2m   10      0
 
         becomes
 
-        date         precipitation_height   qn_precipitation_height
+        timestamp    precipitation_height   qn_precipitation_height
         1971-01-01   0                      0
             temperature_air_mean_2m    ...
             10                          ...
 
         Args:
-            df: DataFrame with columns date, parameter, value and quality.
+            df: DataFrame with columns timestamp, parameter, value and quality.
 
         Returns:
-            DataFrame with columns date, parameter, value and quality as columns.
+            DataFrame with columns timestamp, parameter, value and quality as columns.
 
         """
         # if there is more than one dataset, we need to prefix parameter names with dataset names to avoid

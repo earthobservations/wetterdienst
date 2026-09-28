@@ -349,7 +349,7 @@ def test_metoffice_observation_values_daily_temperature_one_row_per_day() -> Non
         .df
     )
     assert not df.is_empty()
-    # no (date, parameter) duplicates -> report types were collapsed
+    # no (timestamp, parameter) duplicates -> report types were collapsed
     assert df.select("timestamp", "parameter").is_unique().all()
     maxes = df.filter(pl.col("parameter") == "temperature_air_max_2m")
     mins = df.filter(pl.col("parameter") == "temperature_air_min_2m")
