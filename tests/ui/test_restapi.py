@@ -527,7 +527,7 @@ def test_stations_dwd_obs_image_png_custom_settings(client: TestClient) -> None:
             "all": "true",
             "format": "png",
             "width": 1000,
-            "elevation": 1000,
+            "height": 1000,
             "scale": 2,
         },
     )
@@ -548,7 +548,7 @@ def test_stations_dwd_obs_image_png_wrong_settings(client: TestClient) -> None:
             "all": "true",
             "format": "png",
             "width": 0,
-            "elevation": 0,
+            "height": 0,
             "scale": 0,
         },
     )
