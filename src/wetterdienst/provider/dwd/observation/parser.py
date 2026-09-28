@@ -142,7 +142,7 @@ COLUMNS_MAPPING = {
     "geolaenge": "longitude",
     "geogr.laenge": "longitude",
     # those two are only used in the historical 1 minute precipitation data
-    # we keep start_date and end_date as it is internally named date
+    # we keep start_date and end_date as it is internally named timestamp
     # after exploding the date ranges
     "mess_datum_beginn": "timestamp",
     "mess_datum_ende": "end_date",

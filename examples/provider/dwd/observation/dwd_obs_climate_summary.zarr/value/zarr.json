@@ -46,7 +46,7 @@
     "station_id",
     "dataset",
     "parameter",
-    "date"
+    "timestamp"
   ],
   "zarr_format": 3,
   "node_type": "array",

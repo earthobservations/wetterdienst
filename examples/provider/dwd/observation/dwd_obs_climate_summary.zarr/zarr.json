@@ -46,52 +46,6 @@
         "node_type": "array",
         "storage_transformers": []
       },
-      "date": {
-        "shape": [
-          17348
-        ],
-        "data_type": "int64",
-        "chunk_grid": {
-          "name": "regular",
-          "configuration": {
-            "chunk_shape": [
-              17348
-            ]
-          }
-        },
-        "chunk_key_encoding": {
-          "name": "default",
-          "configuration": {
-            "separator": "/"
-          }
-        },
-        "fill_value": 0,
-        "codecs": [
-          {
-            "name": "bytes",
-            "configuration": {
-              "endian": "little"
-            }
-          },
-          {
-            "name": "zstd",
-            "configuration": {
-              "level": 0,
-              "checksum": false
-            }
-          }
-        ],
-        "attributes": {
-          "units": "days since 1937-01-01 00:00:00",
-          "calendar": "proleptic_gregorian"
-        },
-        "dimension_names": [
-          "date"
-        ],
-        "zarr_format": 3,
-        "node_type": "array",
-        "storage_transformers": []
-      },
       "parameter": {
         "shape": [
           10
@@ -177,7 +131,7 @@
           "station_id",
           "dataset",
           "parameter",
-          "date"
+          "timestamp"
         ],
         "zarr_format": 3,
         "node_type": "array",
@@ -219,6 +173,52 @@
         "attributes": {},
         "dimension_names": [
           "station_id"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "timestamp": {
+        "shape": [
+          17348
+        ],
+        "data_type": "int64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              17348
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "units": "days since 1937-01-01 00:00:00",
+          "calendar": "proleptic_gregorian"
+        },
+        "dimension_names": [
+          "timestamp"
         ],
         "zarr_format": 3,
         "node_type": "array",
@@ -272,7 +272,7 @@
           "station_id",
           "dataset",
           "parameter",
-          "date"
+          "timestamp"
         ],
         "zarr_format": 3,
         "node_type": "array",

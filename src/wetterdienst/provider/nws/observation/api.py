@@ -266,7 +266,7 @@ class NwsObservationValues(TimeseriesValues):
         df = df.select(pl.col("features").struct.field("properties"))
         df = df.select(pl.col("properties").struct.unnest())
         df = df.rename(str.lower)
-        df = df.rename(mapping={"station": "station_id", "timestamp": "timestamp"})
+        df = df.rename(mapping={"station": "station_id"})
         df = df.unpivot(
             index=["station_id", "timestamp"],
             variable_name="parameter",

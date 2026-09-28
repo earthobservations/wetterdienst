@@ -378,7 +378,7 @@ def report_elevation_exclusions(
         # set: a station at exactly the distance is not one it would have answered from alone
         if nearby_station_distance is not None and dropped.nearest < nearby_station_distance:
             return True
-        # minus the date column the values are laid on
+        # minus the timestamp column the values are laid on
         kept = param_dict[param_key].values.width - 1 if param_key in param_dict else 0
         return kept < stations_needed <= kept + dropped.count
 

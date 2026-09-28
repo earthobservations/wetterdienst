@@ -82,7 +82,7 @@ def visualize(
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            x=regular_df.get_column("date"),
+            x=regular_df.get_column("timestamp"),
             y=regular_df.get_column("value"),
             mode="lines",
             name="regular",
@@ -91,7 +91,7 @@ def visualize(
     )
     fig.add_trace(
         go.Scatter(
-            x=interpolated_df.get_column("date"),
+            x=interpolated_df.get_column("timestamp"),
             y=interpolated_df.get_column("value"),
             mode="lines",
             name="interpolated",

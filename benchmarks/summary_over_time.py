@@ -65,7 +65,7 @@ def main() -> None:
 
     fig.add_trace(
         go.Scatter(
-            x=summarized_df.get_column("date"),
+            x=summarized_df.get_column("timestamp"),
             y=summarized_df.get_column("value"),
             mode="markers",
             marker={"color": summarized_df.get_column("color")},
@@ -77,7 +77,7 @@ def main() -> None:
 
     fig.add_trace(
         go.Scatter(
-            x=regular_df_01050.get_column("date"),
+            x=regular_df_01050.get_column("timestamp"),
             y=regular_df_01050.get_column("value"),
             mode="lines",
             line={"color": "yellow"},
@@ -89,7 +89,7 @@ def main() -> None:
 
     fig.add_trace(
         go.Scatter(
-            x=regular_df_01051.get_column("date"),
+            x=regular_df_01051.get_column("timestamp"),
             y=regular_df_01051.get_column("value"),
             mode="lines",
             line={"color": "blue"},
@@ -101,7 +101,7 @@ def main() -> None:
 
     fig.add_trace(
         go.Scatter(
-            x=regular_df_01048.get_column("date"),
+            x=regular_df_01048.get_column("timestamp"),
             y=regular_df_01048.get_column("value"),
             mode="lines",
             line={"color": "green"},
@@ -113,7 +113,7 @@ def main() -> None:
 
     fig.add_trace(
         go.Scatter(
-            x=regular_df_05282.get_column("date"),
+            x=regular_df_05282.get_column("timestamp"),
             y=regular_df_05282.get_column("value"),
             mode="lines",
             line={"color": "pink"},

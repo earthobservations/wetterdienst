@@ -544,7 +544,7 @@ def values(
     the response small, and `station` with an id from `stations` (e.g. station="01975"). `periods`
     is optional and provider-specific -- "recent" for dwd/observation, while a provider that
     publishes under a single period rejects any other one. The response `values` array is sorted by
-    date; the most recent reading for a parameter is the last item with that parameter. Do not
+    timestamp; the most recent reading for a parameter is the last item with that parameter. Do not
     re-request in other formats.
     """
     set_logging_level(debug=request.debug)

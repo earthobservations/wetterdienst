@@ -261,7 +261,7 @@ class DwdPhenologyValues(TimeseriesValues):
         periods = _periods_for(cast("set[Period] | None", stations.periods), dataset)
         # oldest period first: where the periods overlap -- and recent reaches back into the years
         # the last historical release already covers -- `_process_dataset` keeps the first row for a
-        # (parameter, date), and the historical file is the one carrying the final quality marks
+        # (parameter, timestamp), and the historical file is the one carrying the final quality marks
         frames = [
             df
             for period in sorted(periods)

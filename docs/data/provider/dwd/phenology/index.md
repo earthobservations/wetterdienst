@@ -34,7 +34,7 @@ file layout:
   `phenology_leaf_unfolding_beginning`, `phenology_harvest`. The `original name` is DWD's numeric
   `Phase_id`, which is the only name the data files themselves use.
 - **value** — `Jultag`, the day of the year the phase was reached, dimensionless.
-- **date** — the 1st of January of the reference year. The entry date DWD also publishes is that
+- **timestamp** — the 1st of January of the reference year. The entry date DWD also publishes is that
   date plus `Jultag`, so nothing is lost by not carrying it separately.
 - **quality** — `Qualitaetsniveau`: `1` formal check only, `7` checked in routine but uncorrected,
   `10` checked and corrected.

@@ -381,7 +381,6 @@ class WsvPegelValues(TimeseriesValues):
             # guards above cover no internet, a 404 and a timeseries the station does not publish;
             # this is the same "no data here" for a body that parsed fine (GH-1987)
             return pl.DataFrame()
-        df = df.rename(mapping={"timestamp": "timestamp", "value": "value"})
 
         factors = _SOURCE_UNIT_FACTORS.get(name_original)
         factor = 1.0

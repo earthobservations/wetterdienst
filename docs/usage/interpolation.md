@@ -38,7 +38,7 @@ includes the interpolated value.
 
 Values represented as a table:
 
-| station_id | resolution | dataset         | parameter               | date                      | value  |
+| station_id | resolution | dataset         | parameter               | timestamp                 | value  |
 |------------|------------|-----------------|-------------------------|---------------------------|--------|
 | 02480      | daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 278.15 |
 | 04411      | daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 277.15 |
@@ -47,7 +47,7 @@ Values represented as a table:
 
 The interpolated value looks like this:
 
-| resolution | dataset         | parameter               | date                      | value  |
+| resolution | dataset         | parameter               | timestamp                 | value  |
 |------------|-----------------|-------------------------|---------------------------|--------|
 | daily      | climate_summary | temperature_air_mean_2m | 2022-01-02 00:00:00+00:00 | 277.65 |
 
