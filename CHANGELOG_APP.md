@@ -31,7 +31,7 @@ Types of changes:
 - `[Glossary]` `count_weather_type_hoar_frost` -- DWD's *Reif* -- was labelled as rime, a different
   deposit, in English ("rime"), German (*Raureif*), Low German (*Ruhreep*), Czech (*námraza*),
   Polish (*szadź*) and Italian (*galaverna*), and ambiguously in French (*givre*). Each now names
-  hoar frost: *Reif*, *Riep*, *jíní*, *szron*, *brina*, *gelée blanche* (GH-2032).
+  hoar frost: *Reif*, *Riep*, *jíní*, *szron*, *brina*, *gelée blanche* (GH-2032)
 - `[Glossary]` The German, Low German and Luxembourgish labels for `precipitation_type_flags` said
   `Flags`, the English word, where each of those catalogs already renders a flag as `Kennung` or
   `Kennen` -- sixteen times over, in its quality entries. They now use their own word. The other

@@ -6,6 +6,8 @@ error that says what it is called now, instead of the not-found a name that neve
 
 from collections.abc import Collection
 
+from wetterdienst.metadata.parameter_table import PARAMETERS
+
 #: frame columns, old name to new
 RENAMED_COLUMNS: dict[str, str] = {
     "height": "elevation",  # GH-2024
@@ -84,5 +86,10 @@ def _renamed_wide_column(key: str) -> str:
     # `<dataset>_<parameter>`: the longest renamed name the column ends in, after an underscore
     for old_name in sorted(RENAMED_PARAMETERS, key=len, reverse=True):
         if base.endswith(f"_{old_name}"):
-            return f"{base.removesuffix(old_name)}{RENAMED_PARAMETERS[old_name]}{suffix}"
+            new = f"{base.removesuffix(old_name)}{RENAMED_PARAMETERS[old_name]}"
+            # a parameter of its own is no dataset prefix: `count_days_multiday_wind_movement` ends
+            # in `wind_movement`, but `count_days_multiday_wind_movement_24h` never existed
+            if new in PARAMETERS:
+                continue
+            return f"{new}{suffix}"
     return f"{base}{suffix}"

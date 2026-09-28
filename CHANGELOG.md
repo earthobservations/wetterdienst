@@ -46,7 +46,8 @@ Types of changes:
   `thawing_thickness_bare*` is `thawing_thickness_bare_ground*`, `number_of_{days,hours}_per_month`
   are `count_{days,hours}_in_month`, `wind_movement_24h` is `wind_movement`, and
   `cloud_cover_between_2km_to_7km` is `cloud_cover_between_2km_and_7km`. Request the new name; an
-  old one in a request, or as a wide column in a SQL filter, is reported with its replacement
+  old one in a request, or as a wide column in a SQL filter, is reported with its replacement. A
+  wide DuckDB, SQLite or PostgreSQL table `to_target` wrote before takes no append of them
   (GH-2032)
 
 ## [0.138.0] - 2026-09-28

@@ -988,7 +988,8 @@ def test_filter_by_sql_names_a_renamed_parameter_column() -> None:
 def test_filter_by_sql_keeps_duckdbs_error_for_a_column_that_was_not_renamed() -> None:
     """A column the frame has, missing only where the query looks for it, gets DuckDB's own error.
 
-    The hint used to answer it with "renamed to" itself, in place of DuckDB's candidate bindings.
+    So does a name that only looks renamed: a current parameter ending in a renamed name's
+    successor is no dataset prefix, so its `_24h` variant was never a column of any frame.
     """
     import duckdb  # noqa: PLC0415
 
@@ -996,6 +997,9 @@ def test_filter_by_sql_keeps_duckdbs_error_for_a_column_that_was_not_renamed() -
     with pytest.raises(duckdb.BinderException, match='Referenced column "value" not found') as error:
         ExportMixin(df=df).filter_by_sql("true UNION ALL SELECT * FROM (SELECT 'b' s) WHERE value > 0")
     assert "renamed" not in str(error.value)
+    df = pl.DataFrame({"count_days_multiday_wind_movement": [2.0]})
+    with pytest.raises(duckdb.BinderException, match='Referenced column "count_days_multiday_wind_movement_24h"'):
+        ExportMixin(df=df).filter_by_sql("count_days_multiday_wind_movement_24h > 0")
 
 
 @pytest.mark.parametrize("extension", ["csv", "json", "jsonl", "xlsx", "parquet", "feather"])
