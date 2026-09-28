@@ -62,12 +62,27 @@ def renamed_column(old: str, columns: Collection[str]) -> str | None:
     key = old.lower()
     new = RENAMED_COLUMNS.get(key)
     if new is None:
-        # a wide frame names a column after its parameter, and its quality column after that, so
-        # both follow the parameter's rename; `qn_<parameter>` was the quality column's (GH-2030)
-        base, suffix = key, ""
-        if key.startswith("qn_"):
-            base, suffix = key.removeprefix("qn_"), "_quality"
-        elif key.endswith("_quality"):
-            base, suffix = key.removesuffix("_quality"), "_quality"
-        new = f"{RENAMED_PARAMETERS.get(base, base)}{suffix}"
-    return columns_by_lower.get(new)
+        new = _renamed_wide_column(key)
+    # a name that was not renamed is no hint at all: DuckDB's own error says more (GH-2032)
+    return columns_by_lower.get(new) if new and new != key else None
+
+
+def _renamed_wide_column(key: str) -> str:
+    """Rename a wide frame's column after the parameter it is named for.
+
+    A wide frame names a column after its parameter -- prefixed with its dataset where several are
+    requested -- and the quality column after that, so each follows its parameter's rename;
+    `qn_<parameter>` was the quality column's name before GH-2030.
+    """
+    base, suffix = key, ""
+    if key.startswith("qn_"):
+        base, suffix = key.removeprefix("qn_"), "_quality"
+    elif key.endswith("_quality"):
+        base, suffix = key.removesuffix("_quality"), "_quality"
+    if base in RENAMED_PARAMETERS:
+        return f"{RENAMED_PARAMETERS[base]}{suffix}"
+    # `<dataset>_<parameter>`: the longest renamed name the column ends in, after an underscore
+    for old_name in sorted(RENAMED_PARAMETERS, key=len, reverse=True):
+        if base.endswith(f"_{old_name}"):
+            return f"{base.removesuffix(old_name)}{RENAMED_PARAMETERS[old_name]}{suffix}"
+    return f"{base}{suffix}"

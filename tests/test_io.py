@@ -975,6 +975,27 @@ def test_filter_by_sql_names_a_renamed_parameter_column() -> None:
         new = "wave_height_significant" if old == "wave_height_sign" else "wave_height_significant_quality"
         with pytest.raises(duckdb.BinderException, match=f'column "{old}" was renamed to "{new}"'):
             ExportMixin(df=df).filter_by_sql(f"{old} > 1")
+    # several datasets prefix each column with its dataset, and the rename follows the parameter
+    df = pl.DataFrame({"soil_thawing_thickness_bare_ground": [3.0]})
+    with pytest.raises(
+        duckdb.BinderException,
+        match='column "soil_thawing_thickness_bare" was renamed to "soil_thawing_thickness_bare_ground"',
+    ):
+        ExportMixin(df=df).filter_by_sql("soil_thawing_thickness_bare > 1")
+
+
+@pytest.mark.sql
+def test_filter_by_sql_keeps_duckdbs_error_for_a_column_that_was_not_renamed() -> None:
+    """A column the frame has, missing only where the query looks for it, gets DuckDB's own error.
+
+    The hint used to answer it with "renamed to" itself, in place of DuckDB's candidate bindings.
+    """
+    import duckdb  # noqa: PLC0415
+
+    df = pl.DataFrame({"station_id": ["01048"], "value": [1.0]})
+    with pytest.raises(duckdb.BinderException, match='Referenced column "value" not found') as error:
+        ExportMixin(df=df).filter_by_sql("true UNION ALL SELECT * FROM (SELECT 'b' s) WHERE value > 0")
+    assert "renamed" not in str(error.value)
 
 
 @pytest.mark.parametrize("extension", ["csv", "json", "jsonl", "xlsx", "parquet", "feather"])
