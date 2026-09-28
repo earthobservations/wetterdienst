@@ -13,6 +13,7 @@ from tqdm import tqdm
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 ROOT = Path(__file__).parent.parent
+DUCKDB_OUTPUT_PATH = ROOT / "dwd_obs_daily_climate_summary.duckdb"
 
 
 def duckdb_target(path: Path, table: str) -> str:
@@ -53,9 +54,9 @@ def main() -> None:
             # an artifact -- it writes one station's values and throws them away -- and writing to
             # the tracked dump left every test run with a dirty working tree, which has twice been
             # committed by accident along with unrelated work
-            filepath = Path(stack.enter_context(TemporaryDirectory())) / "dwd_obs_daily_climate_summary.duckdb"
+            filepath = Path(stack.enter_context(TemporaryDirectory())) / DUCKDB_OUTPUT_PATH.name
         else:
-            filepath = ROOT / "dwd_obs_daily_climate_summary.duckdb"
+            filepath = DUCKDB_OUTPUT_PATH
         # this takes something like 15 min and will require roughly 1 gb on disk
         create_dwd_climate_summary_duckdb_dump(filepath, test=test)
         con = duckdb.connect(str(filepath))
