@@ -1386,7 +1386,7 @@ def test_stations_output_schemas_allow_null_region(schema_name: str) -> None:
 
     MOSMIX/DMO stations have no region and serialise ``region`` as null. The MCP server validates every
     tool result against the output schema derived from these ``response_model`` types (via FastMCP).
-    When ``region`` was typed ``str`` the schema required a string, so listing mosmix/dmo stations
+    When the field (then ``state``) was typed ``str`` the schema required a string, so listing mosmix/dmo stations
     failed with "Output validation error: None is not of type 'string'". The field must be nullable.
     """
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
