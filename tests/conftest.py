@@ -136,10 +136,10 @@ def _guarded_getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any) -> Any
     """Refuse to resolve a name off this machine.
 
     Refused here as well as at `connect`, because this is the step every platform shares. The
-    connect patch misses Windows entirely -- asyncio's `ProactorEventLoop` goes through
-    `_overlapped.ConnectEx`, not `socket.connect` -- so without this the library's whole download
-    path is unguarded there, and `-m "not remote"` is green on Windows for a test that fails
-    everywhere else. Nothing resolves a host it is not about to talk to.
+    connect patch still holds for a synchronous `socket.connect` on Windows; what it does not see
+    there is asyncio, whose `ProactorEventLoop` goes through `_overlapped.ConnectEx` -- which is
+    the library's whole download path, so without this `-m "not remote"` would be green on Windows
+    for a test that fails everywhere else. Nothing resolves a host it is not about to talk to.
 
     It is also what puts the name in the message. aiohttp resolves before it connects, so a refusal
     at `connect` alone would say `('141.38.2.164', 443)` and leave the reader to work out whose
