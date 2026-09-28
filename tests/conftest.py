@@ -311,10 +311,10 @@ def _block_network(request: pytest.FixtureRequest) -> Generator[None]:
     as session -- happens before it is in place, and is not recorded for the check below either. It
     patches `socket.connect`, which on Windows is not the path asyncio's `ProactorEventLoop` takes
     -- that connects through `_overlapped.ConnectEx`. And it only sees a connection being opened:
-    fsspec keeps one
-    filesystem instance per key, and with it one aiohttp session and its keep-alive pool, for the
-    life of the worker, so an unmarked test asking for a url a `remote` test has just fetched can
-    be served over a connection that is already up. Name resolution goes out regardless.
+    fsspec keeps one filesystem instance per key, and with it one aiohttp session and its
+    keep-alive pool, for the life of the worker, so an unmarked test asking for a url a `remote`
+    test has just fetched can be served over a connection that is already up. Name resolution goes
+    out regardless.
 
     And a fourth, which is pytest rather than this guard: a non-strict `@pytest.mark.xfail` absorbs
     everything a test can report, the teardown check below included -- a bare `pytest.fail()` in a

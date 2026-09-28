@@ -310,7 +310,12 @@ docs = "uv run --group docs sphinx-build --builder html docs docs/_build/html"
 "test:offline" = "uv run pytest --numprocesses=auto -m 'not (remote or cflake or explorer)'"
 # the two `cflake` tests the offline selection holds, run the way that marker asks for -- serially.
 # `test:offline` above runs under xdist, which is the concurrency they are flaky under
-"test:offline:cflakes" = "uv run pytest -m 'cflake and not (remote or explorer)'"
+# exit 5 is pytest saying it collected nothing, which for this selection is an answer rather than
+# a failure: the two tests it holds could be marked `remote` or dropped, and the offline job going
+# red with "no tests ran" would read as the regression it is the job's whole point to distinguish
+"test:offline:cflakes".shell = "uv run pytest -m 'cflake and not (remote or explorer)'; status=$?; [ $status -eq 5 ] && exit 0; exit $status"
+# named rather than left to poe's default `sh`, which the Windows leg of the offline job has not got
+"test:offline:cflakes".interpreter = "bash"
 "test:offline:all" = ["test:offline", "test:offline:cflakes"]
 test = ["test:parallel", "test:cflakes"]
 # For Windows CI

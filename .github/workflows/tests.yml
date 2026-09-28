@@ -177,8 +177,8 @@ jobs:
   # for that reason. Nothing in the repo's ruleset requires it, though - there is no
   # `required_status_checks` rule - so it reports rather than stops a merge.
   offline:
-    name: Offline selection on Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    name: Offline selection on ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
 
     strategy:
       # the guard reasons about interpreter differences, so the versions it names are the ones run
@@ -187,7 +187,16 @@ jobs:
       # five, but it is `continue-on-error`, so a regression in either branch would block nothing
       fail-fast: false
       matrix:
+        os: [ "ubuntu-latest" ]
         python-version: [ "3.10", "3.12", "3.14" ]
+        include:
+          # the one platform where `socket.connect` is not asyncio's path -- `ProactorEventLoop`
+          # connects through `_overlapped.ConnectEx` - which is why the guard refuses names as well
+          # as addresses. Nothing else in CI asks whether the selection is offline here: the
+          # Windows leg of the matrix above runs `poe test`, remote tests and all, which warms the
+          # cache and the connection an unmarked test would then be served from
+          - os: "windows-latest"
+            python-version: "3.14"
 
     defaults:
       run:
@@ -206,7 +215,8 @@ jobs:
       - name: Install project
         run: uv sync
 
-      - name: Install eccodes
+      - name: Install eccodes (Ubuntu only)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y libeccodes-dev
