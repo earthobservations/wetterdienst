@@ -139,7 +139,7 @@ def test_chmi_observation_stations() -> None:
             "dataset": "data",
             "station_id": CHEB,
             "name": "Cheb",
-            "state": None,
+            "region": None,
         },
     ]
     assert df["latitude"].item() == pytest.approx(50.068333)

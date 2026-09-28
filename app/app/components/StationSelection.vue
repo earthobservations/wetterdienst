@@ -142,7 +142,7 @@ watch(() => props.parameterSelection, (ps) => {
 // Items for the select menu
 const stationItems = computed(() =>
   allStations.value.map(station => ({
-    label: `${station.name} (ID: ${station.station_id}, ${station.state})`,
+    label: `${station.name} (ID: ${station.station_id}, ${station.region})`,
     value: station.station_id,
   })),
 )
@@ -151,12 +151,12 @@ const stationItems = computed(() =>
 const selectedItems = computed({
   get: () => props.multiple
     ? selectedStations.value.map(s => ({
-        label: `${s.name} (ID: ${s.station_id}, ${s.state})`,
+        label: `${s.name} (ID: ${s.station_id}, ${s.region})`,
         value: s.station_id,
       }))
     : selectedStations.value[0]
       ? [{
-          label: `${selectedStations.value[0].name} (ID: ${selectedStations.value[0].station_id}, ${selectedStations.value[0].state})`,
+          label: `${selectedStations.value[0].name} (ID: ${selectedStations.value[0].station_id}, ${selectedStations.value[0].region})`,
           value: selectedStations.value[0].station_id,
         }]
       : [],
@@ -257,7 +257,7 @@ async function createMarkers() {
       lat: station.latitude,
       lng: station.longitude,
       options: {
-        title: `${station.name} (ID: ${station.station_id}, ${station.state})`,
+        title: `${station.name} (ID: ${station.station_id}, ${station.region})`,
       },
     })),
   })

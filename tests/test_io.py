@@ -87,7 +87,7 @@ def df_stations() -> pl.DataFrame:
                 "latitude": 48.8049,
                 "longitude": 13.5528,
                 "name": "Freyung vorm Wald",
-                "state": "Bayern",
+                "region": "Bayern",
             },
         ],
         orient="row",
@@ -275,7 +275,7 @@ def test_stations_to_dict(df_stations: pl.DataFrame) -> None:
             "latitude": 48.8049,
             "longitude": 13.5528,
             "name": "Freyung vorm Wald",
-            "state": "Bayern",
+            "region": "Bayern",
         },
     ]
 
@@ -314,7 +314,7 @@ def test_stations_to_ogc_feature_collection(df_stations: pl.DataFrame) -> None:
             "start_date": "1957-05-01T00:00:00.000000+00:00",
             "end_date": "1995-11-30T00:00:00.000000+00:00",
             "name": "Freyung vorm Wald",
-            "state": "Bayern",
+            "region": "Bayern",
         },
         "type": "Feature",
     }
@@ -377,7 +377,7 @@ def test_stations_format_csv(df_stations: pl.DataFrame) -> None:
         .strip()
     )
     lines = output.split("\n")
-    assert lines[0] == "resolution,dataset,station_id,start_date,end_date,elevation,latitude,longitude,name,state"
+    assert lines[0] == "resolution,dataset,station_id,start_date,end_date,elevation,latitude,longitude,name,region"
     assert (
         lines[1] == "daily,climate_summary,01048,1957-05-01T00:00:00.000000+00:00,1995-11-30T00:00:00.000000+00:00,"
         "645.0,48.8049,13.5528,Freyung vorm Wald,Bayern"
@@ -426,7 +426,7 @@ def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_resu
             "dataset": "climate_summary",
             "id": "01048",
             "name": "Freyung vorm Wald",
-            "state": "Bayern",
+            "region": "Bayern",
             "start_date": "1957-05-01T00:00:00.000000+00:00",
             "end_date": "1995-11-30T00:00:00.000000+00:00",
         },
@@ -568,7 +568,7 @@ def test_interpolated_values_to_ogc_feature_collection(
                 "longitude": 13.5528,
                 "elevation": 645.0,
                 "name": "Freyung vorm Wald",
-                "state": "Bayern",
+                "region": "Bayern",
             },
         ],
         "type": "Feature",
@@ -669,7 +669,7 @@ def test_summarized_values_to_ogc_feature_collection(
                 "longitude": 13.5528,
                 "elevation": 645.0,
                 "name": "Freyung vorm Wald",
-                "state": "Bayern",
+                "region": "Bayern",
             },
         ],
         "type": "Feature",
@@ -905,16 +905,16 @@ def test_filter_by_sql_on_stations(df_stations: pl.DataFrame) -> None:
     raised `ColumnNotFoundError`. The CLI's own `--sql` goes through `TimeseriesRequest`, which
     named those two columns itself and so worked; both run this one filter now.
     """
-    df = ExportMixin(df=df_stations).filter_by_sql("state='Bayern'")
+    df = ExportMixin(df=df_stations).filter_by_sql("region='Bayern'")
     assert df.get_column("station_id").to_list() == ["01048"]
     # the timestamps keep the zone they came with
     assert df.schema["start_date"].time_zone == "UTC"
-    assert ExportMixin(df=df_stations).filter_by_sql("state='Sachsen'").is_empty()
+    assert ExportMixin(df=df_stations).filter_by_sql("region='Sachsen'").is_empty()
 
 
 @pytest.mark.sql
 def test_filter_by_sql_names_a_renamed_column(df_stations: pl.DataFrame, df_values: pl.DataFrame) -> None:
-    """A filter on a column renamed for 1.0 says what the column is called now (GH-2024)."""
+    """A filter on a column renamed for 1.0 says what the column is called now (GH-2024, GH-2026)."""
     import duckdb  # noqa: PLC0415
 
     with pytest.raises(duckdb.BinderException, match='column "height" was renamed to "elevation"'):
@@ -928,6 +928,8 @@ def test_filter_by_sql_names_a_renamed_column(df_stations: pl.DataFrame, df_valu
     # a values frame never had `height`, nor has it `elevation`, so DuckDB's own error stands
     with pytest.raises(duckdb.BinderException, match='Referenced column "height" not found'):
         ExportMixin(df=df_values).filter_by_sql("height > 500")
+    with pytest.raises(duckdb.BinderException, match='column "state" was renamed to "region"'):
+        ExportMixin(df=df_stations).filter_by_sql("state = 'Bayern'")
     # a column that never existed keeps DuckDB's own error
     with pytest.raises(duckdb.BinderException, match='Referenced column "altitude" not found'):
         ExportMixin(df=df_stations).filter_by_sql("altitude > 500")

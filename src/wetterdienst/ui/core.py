@@ -127,7 +127,7 @@ _RightField = Annotated[float | None, Field(ge=-180, le=180, description="Easter
 _TopField = Annotated[float | None, Field(ge=-90, le=90, description="Northern latitude of the bounding box.")]
 _SqlField = Annotated[
     str | None,
-    Field(description="SQL WHERE clause applied to the station metadata, e.g. \"state='Sachsen'\"."),
+    Field(description="SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\"."),
 ]
 _SqlValuesField = Annotated[
     str | None,

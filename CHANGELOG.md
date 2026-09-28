@@ -24,6 +24,10 @@ Types of changes:
   `NoStationsWithElevationError`. Read `elevation` instead; a SQL filter still naming `height` fails
   with an error naming `elevation`. A DuckDB, SQLite or PostgreSQL table `to_target` wrote before
   takes no append of `elevation`: write it anew (GH-2024)
+- **Breaking:** the station column `state` is now `region`, in every stations frame and its JSON,
+  CSV, GeoJSON and `with_stations` output. Read `region` instead; a SQL filter still naming `state`
+  fails with an error naming `region`. A DuckDB, SQLite or PostgreSQL table `to_target` wrote before
+  takes no append of `region`: write it anew (GH-2026)
 
 ## [0.138.0] - 2026-09-28
 

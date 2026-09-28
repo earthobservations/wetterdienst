@@ -37,7 +37,7 @@ def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
                 "longitude": -123.17,
                 "elevation": 4.0,
                 "name": "ACTIVE PASS",
-                "state": "BC",
+                "region": "BC",
             },
         ],
         orient="row",

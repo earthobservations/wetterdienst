@@ -186,7 +186,7 @@ def test_dmi_observation_stations() -> None:
     assert station.height == 1
     row = station.to_dicts()[0]
     assert row["name"]
-    assert row["state"] == "DNK"
+    assert row["region"] == "DNK"
     assert 54 < row["latitude"] < 58
     assert 8 < row["longitude"] < 16
 

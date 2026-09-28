@@ -168,7 +168,7 @@ class GeosphereObservationRequest(TimeseriesRequest):
                     "Höhe [m]": "elevation",
                     "Startdatum": "start_date",
                     "Enddatum": "end_date",
-                    "Bundesland": "state",
+                    "Bundesland": "region",
                 },
             )
             df = df.with_columns(

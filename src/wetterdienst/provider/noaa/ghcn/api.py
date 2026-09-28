@@ -248,7 +248,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
                 "LATITUDE": "latitude",
                 "LONGITUDE": "longitude",
                 "ELEVATION": "elevation",
-                "STATE": "state",
+                "STATE": "region",
                 "NAME": "name",
             }
         )
@@ -309,7 +309,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             "latitude",
             "longitude",
             "elevation",
-            "state",
+            "region",
             "name",
             "wmo_id",
         ]

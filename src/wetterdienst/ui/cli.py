@@ -242,7 +242,7 @@ def station_options_extension(command: click.Command) -> click.Command:
             click.option(
                 "--sql",
                 type=click.STRING,
-                help="SQL WHERE clause applied to station metadata. Example: state='Sachsen'",
+                help="SQL WHERE clause applied to station metadata. Example: region='Sachsen'",
             ),
         ),
         cloup.constraint(
@@ -592,9 +592,9 @@ Geospatial filtering:
 
 SQL filtering:
 
-    # Find stations by state.
+    # Find stations by region.
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --sql="state='Sachsen'"
+        --sql="region='Sachsen'"
 
     # Find stations by name (LIKE query).
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\

@@ -28,7 +28,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "latitude": 17.1167,
                 "longitude": -61.7833,
                 "name": "ST JOHNS COOLIDGE FLD",
-                "state": None,
+                "region": None,
             },
             {
                 "resolution": "daily",
@@ -39,7 +39,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "latitude": 17.1333,
                 "longitude": -61.7833,
                 "name": "ST JOHNS",
-                "state": None,
+                "region": None,
             },
             {
                 "resolution": "daily",
@@ -50,7 +50,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "latitude": 25.333,
                 "longitude": 55.517,
                 "name": "SHARJAH INTER. AIRP",
-                "state": None,
+                "region": None,
             },
             {
                 "resolution": "daily",
@@ -61,7 +61,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "latitude": 25.255,
                 "longitude": 55.364,
                 "name": "DUBAI INTL",
-                "state": None,
+                "region": None,
             },
             {
                 "resolution": "daily",
@@ -72,7 +72,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "latitude": 24.433,
                 "longitude": 54.651,
                 "name": "ABU DHABI INTL",
-                "state": None,
+                "region": None,
             },
         ],
         schema={
@@ -84,7 +84,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
             "longitude": pl.Float64,
             "elevation": pl.Float64,
             "name": pl.String,
-            "state": pl.String,
+            "region": pl.String,
         },
         orient="row",
     )

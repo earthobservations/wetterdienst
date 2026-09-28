@@ -146,7 +146,7 @@ class TimeseriesRequest:
         "longitude",
         "elevation",
         "name",
-        "state",
+        "region",
     )
 
     # The parameters that may be interpolated or summarized, which is a property of the measured
@@ -405,7 +405,7 @@ class TimeseriesRequest:
             pl.col("latitude").cast(pl.Float64),
             pl.col("longitude").cast(pl.Float64),
             pl.col("name").cast(pl.String),
-            pl.col("state").cast(pl.String),
+            pl.col("region").cast(pl.String),
             pl.col("start_date").cast(pl.Datetime(time_zone="UTC")),
             pl.col("end_date").cast(pl.Datetime(time_zone="UTC")),
         )

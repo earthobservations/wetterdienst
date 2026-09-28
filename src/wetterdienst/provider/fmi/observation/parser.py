@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 _EMPTY_STATIONS_SCHEMA = {
     "station_id": pl.String,
     "name": pl.String,
-    "state": pl.String,
+    "region": pl.String,
     "latitude": pl.Float64,
     "longitude": pl.Float64,
     "start_date": pl.Datetime(time_unit="us", time_zone="UTC"),
@@ -96,7 +96,7 @@ def _parse_facility(facility: _Element) -> dict[str, str | None] | None:
     return {
         "station_id": station_id,
         "name": name,
-        "state": region,
+        "region": region,
         "latitude": latitude,
         "longitude": longitude,
         "start_date": start,
@@ -126,7 +126,7 @@ def parse_fmi_stations(content: bytes) -> pl.DataFrame:
     return pl.DataFrame(rows, infer_schema_length=None).select(
         pl.col("station_id").cast(pl.String),
         pl.col("name").cast(pl.String),
-        pl.col("state").cast(pl.String),
+        pl.col("region").cast(pl.String),
         pl.col("latitude").cast(pl.Float64, strict=False),
         pl.col("longitude").cast(pl.Float64, strict=False),
         # cast to String first: when every station is still active (or the field is absent) the

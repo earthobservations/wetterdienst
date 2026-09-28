@@ -83,7 +83,7 @@ export interface CoverageQuery {
 export interface Station {
   station_id: string
   name: string
-  state: string
+  region: string
   latitude: number
   longitude: number
   /** Null where the provider reports no elevation for the station, which for several is every one. */
@@ -183,7 +183,7 @@ export type StripesKind = 'temperature' | 'precipitation'
 export interface StripesStation {
   station_id: string
   name: string
-  state: string
+  region: string
   latitude: number
   longitude: number
   start_date: string

@@ -306,7 +306,7 @@ class EcccObservationRequest(TimeseriesRequest):
         df_raw = df_raw.select(
             pl.col("features").struct.field("properties").struct.field("STN_ID").alias("station_id"),
             pl.col("features").struct.field("properties").struct.field("STATION_NAME").alias("name"),
-            pl.col("features").struct.field("properties").struct.field("PROV_STATE_TERR_CODE").alias("state"),
+            pl.col("features").struct.field("properties").struct.field("PROV_STATE_TERR_CODE").alias("region"),
             pl.col("features").struct.field("properties").struct.field("LATITUDE").alias("latitude"),
             pl.col("features").struct.field("properties").struct.field("LONGITUDE").alias("longitude"),
             pl.col("features").struct.field("properties").struct.field("ELEVATION").alias("elevation"),

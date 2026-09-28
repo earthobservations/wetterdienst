@@ -821,7 +821,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         df.columns = [
             "station_id",
             "name",
-            "state",
+            "region",
             "latitude",
             "longitude",
             "elevation",

@@ -511,7 +511,7 @@ class DwdDmoRequest(TimeseriesRequest):
         "longitude",
         "elevation",
         "name",
-        "state",
+        "region",
     ]
 
     @staticmethod
@@ -660,7 +660,7 @@ class DwdDmoRequest(TimeseriesRequest):
         extra = extra.with_columns(
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
-            pl.lit(None, pl.String).alias("state"),
+            pl.lit(None, pl.String).alias("region"),
         )
         return pl.concat([df_dataset, extra.select(df_dataset.columns)])
 
@@ -833,7 +833,7 @@ class DwdDmoRequest(TimeseriesRequest):
             _dm_degrees("longitude").alias("longitude"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
-            pl.lit(None, pl.String).alias("state"),
+            pl.lit(None, pl.String).alias("region"),
         )
         # combinations of resolution and dataset
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415

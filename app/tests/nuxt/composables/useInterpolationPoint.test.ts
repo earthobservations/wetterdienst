@@ -22,7 +22,7 @@ async function settle() {
     await nextTick()
 }
 
-const station = { station_id: '02290', name: 'Feldberg', state: '', latitude: 47.9, longitude: 8.0, elevation: 1000 }
+const station = { station_id: '02290', name: 'Feldberg', region: '', latitude: 47.9, longitude: 8.0, elevation: 1000 }
 
 describe('the point an interpolation answers for', () => {
   it('takes position and altitude from a chosen station', async () => {

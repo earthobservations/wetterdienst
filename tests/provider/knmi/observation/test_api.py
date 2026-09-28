@@ -393,7 +393,7 @@ def test_knmi_observation_stations() -> None:
             "start_date": None,
             "end_date": None,
             "name": "De Bilt",
-            "state": None,
+            "region": None,
         },
     ]
     # coordinates/height with a tolerance -- KNMI may adjust these slightly over time

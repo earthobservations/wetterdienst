@@ -33,7 +33,7 @@ def test_smhi_observation_stations() -> None:
             "dataset": "data",
             "station_id": ABISKO,
             "name": "Abisko Aut",
-            "state": None,
+            "region": None,
         },
     ]
     # assert coordinates/height with a tolerance -- SMHI may adjust these slightly over time

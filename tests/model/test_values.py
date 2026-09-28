@@ -505,7 +505,7 @@ def _stub_dwd_daily(
             "longitude": [8.0] * len(rows),
             "elevation": [100.0] * len(rows),
             "name": [station_id for station_id, _ in rows],
-            "state": ["x"] * len(rows),
+            "region": ["x"] * len(rows),
         },
     )
     monkeypatch.setattr(DwdObservationRequest, "_all", lambda self: df_stations.lazy())  # noqa: ARG005

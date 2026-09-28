@@ -37,7 +37,7 @@ DWD_COLUMN_NAMES_MAPPING = {
     "column_5": "latitude",
     "column_6": "longitude",
     "column_7": "name",
-    "column_8": "state",
+    "column_8": "region",
 }
 
 
@@ -63,7 +63,7 @@ def create_meta_index_for_climate_observations(
         meta_index = _create_meta_index_for_climate_observations(dataset, period, settings, urban=True)
     else:
         meta_index = _create_meta_index_for_climate_observations(dataset, period, settings)
-    # If no state column available, take state information from daily historical
+    # If no region column available, take the region from daily historical
     # precipitation
     if cond1:
         mdp = _create_meta_index_for_climate_observations(
@@ -72,7 +72,7 @@ def create_meta_index_for_climate_observations(
             settings=settings,
         )
         meta_index = meta_index.join(
-            other=mdp.select(["station_id", "state"]),
+            other=mdp.select(["station_id", "region"]),
             on=["station_id"],
             how="left",
         )
@@ -91,7 +91,7 @@ def create_meta_index_for_climate_observations(
         pl.col("latitude").cast(pl.Float64),
         pl.col("longitude").cast(pl.Float64),
         "name",
-        "state",
+        "region",
     )
 
 
@@ -183,7 +183,7 @@ def _read_meta_df_urban(raw_lines: list[bytes]) -> pl.LazyFrame:
     is the token before them, and any 8-digit tokens ahead of the elevation are the dates. Station and
     Bundesland names in these lists are single hyphenated tokens (e.g. "Freiburg-Mitte",
     "Baden-Wuerttemberg"), so the token right after longitude is the name and the remainder (if
-    present, and after dropping a trailing "Frei" Abgabe marker) is the state.
+    present, and after dropping a trailing "Frei" Abgabe marker) is the region.
 
     Raises MetaFileFormatError if a row does not match these content assumptions (fewer than two
     decimal tokens, or a decimal-valued elevation) so a changed DWD layout fails loudly instead of
@@ -217,10 +217,10 @@ def _read_meta_df_urban(raw_lines: list[bytes]) -> pl.LazyFrame:
                 "latitude": tokens[lat_idx],
                 "longitude": tokens[lon_idx],
                 "name": trailing[0] if trailing else "",
-                "state": " ".join(trailing[1:]),
+                "region": " ".join(trailing[1:]),
             }
         )
-    columns = ("station_id", "start_date", "end_date", "elevation", "latitude", "longitude", "name", "state")
+    columns = ("station_id", "start_date", "end_date", "elevation", "latitude", "longitude", "name", "region")
     return pl.DataFrame(records, schema=dict.fromkeys(columns, pl.String)).lazy()
 
 

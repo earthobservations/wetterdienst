@@ -39,7 +39,7 @@ def _values_of(request: DwdDerivedRequest) -> DwdDerivedValues:
                 "longitude": 8.2370,
                 "elevation": 44.0,
                 "name": "Grossenkneten",
-                "state": "Niedersachsen",
+                "region": "Niedersachsen",
             }
         ],
         schema={
@@ -52,7 +52,7 @@ def _values_of(request: DwdDerivedRequest) -> DwdDerivedValues:
             "longitude": pl.Float64,
             "elevation": pl.Float64,
             "name": pl.String,
-            "state": pl.String,
+            "region": pl.String,
         },
         orient="row",
     )

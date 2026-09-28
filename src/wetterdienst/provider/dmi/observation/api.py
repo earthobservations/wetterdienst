@@ -262,7 +262,7 @@ class DmiObservationRequest(TimeseriesRequest):
         df = df.select(
             pl.col("properties").struct.field("stationId").alias("station_id"),
             pl.col("properties").struct.field("name").alias("name"),
-            pl.col("properties").struct.field("country").alias("state"),
+            pl.col("properties").struct.field("country").alias("region"),
             pl.col("geometry").struct.field("coordinates").list.get(1).alias("latitude"),
             pl.col("geometry").struct.field("coordinates").list.get(0).alias("longitude"),
             pl.col("properties").struct.field("stationHeight").alias("elevation"),
@@ -289,7 +289,7 @@ class DmiObservationRequest(TimeseriesRequest):
         # without group_by(maintain_order=True).
         df = df.group_by("station_id").agg(
             pl.col("name").sort_by("created", descending=True).first().alias("name"),
-            pl.col("state").sort_by("created", descending=True).first().alias("state"),
+            pl.col("region").sort_by("created", descending=True).first().alias("region"),
             pl.col("latitude").sort_by("created", descending=True).first().alias("latitude"),
             pl.col("longitude").sort_by("created", descending=True).first().alias("longitude"),
             pl.col("elevation").sort_by("created", descending=True).first().alias("elevation"),

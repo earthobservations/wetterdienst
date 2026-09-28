@@ -10,7 +10,7 @@ fully public.
 Station metadata comes from `metadata/meta1.csv`. A station whose sensor was relocated appears
 under several operational periods; these are collapsed to a single station using the most recent
 position for the coordinates and the full extent for the operational dates. The catalogue does
-not expose a region, so `state` is always null, and a station's `end_date` is null while it is
+not expose a region, so `region` is always null, and a station's `end_date` is null while it is
 still active.
 
 Observations are addressed per station and element. The `daily`, `monthly` and `annual`

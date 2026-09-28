@@ -47,7 +47,7 @@ def test_dwd_road_weather() -> None:
         "longitude": 8.9087,
         "elevation": 2.0,
         "name": "Boeglum",
-        "state": "SH",
+        "region": "SH",
         "road_name": "L5S",
         "road_sector": "2",
         "road_surface_type": 1,
@@ -104,7 +104,7 @@ def _stub_stations(
                 "longitude": 8.9087,
                 "elevation": 2.0,
                 "name": "Boeglum",
-                "state": "SH",
+                "region": "SH",
                 "station_group": "DD",
             }
             for station_id in station_ids
@@ -119,7 +119,7 @@ def _stub_stations(
             "longitude": pl.Float64,
             "elevation": pl.Float64,
             "name": pl.String,
-            "state": pl.String,
+            "region": pl.String,
             "station_group": pl.String,
         },
         orient="row",

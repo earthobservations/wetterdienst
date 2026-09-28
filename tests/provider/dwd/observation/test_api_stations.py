@@ -32,7 +32,7 @@ def expected_df() -> pl.DataFrame:
                 "longitude": 8.8493,
                 "elevation": 478.0,
                 "name": "Aach",
-                "state": "Baden-Württemberg",
+                "region": "Baden-Württemberg",
             },
         ],
         orient="row",
@@ -54,7 +54,7 @@ def expected_df_name() -> pl.DataFrame:
                 "longitude": 8.8493,
                 "elevation": 478.0,
                 "name": "Aach",
-                "state": "Baden-Württemberg",
+                "region": "Baden-Württemberg",
             },
         ],
         orient="row",
@@ -133,7 +133,7 @@ def test_dwd_observations_stations_geojson(default_settings: Settings) -> None:
         "start_date": "1937-01-01T00:00:00.000000+00:00",
         "end_date": "1986-06-30T00:00:00.000000+00:00",
         "name": "Aach",
-        "state": "Baden-Württemberg",
+        "region": "Baden-Württemberg",
     }
     assert geometry == {
         "type": "Point",
@@ -163,7 +163,7 @@ def test_dwd_observations_stations_minute_1(default_settings: Settings) -> None:
                 "longitude": 6.0941,
                 "elevation": 202.0,
                 "name": "Aachen",
-                "state": "Nordrhein-Westfalen",
+                "region": "Nordrhein-Westfalen",
             },
         ],
         orient="row",
@@ -192,7 +192,7 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "longitude": 14.5042,
                 "elevation": 234.0,
                 "name": "Kubschütz, Kr. Bautzen",
-                "state": "Sachsen",
+                "region": "Sachsen",
             },
         ),
         IsDict(
@@ -206,7 +206,7 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "longitude": 8.7745,
                 "elevation": 187.0,
                 "name": "Cölbe, Kr. Marburg-Biedenkopf",
-                "state": "Hessen",
+                "region": "Hessen",
             },
         ),
         IsDict(
@@ -220,7 +220,7 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "longitude": 10.2518,
                 "elevation": 284.0,
                 "name": "Salzungen, Bad-Gräfen-Nitzendorf",
-                "state": "Thüringen",
+                "region": "Thüringen",
             },
         ),
     ]

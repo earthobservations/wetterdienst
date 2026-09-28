@@ -387,7 +387,7 @@ def test_stations_dwd_basic(client: TestClient) -> None:
         "longitude": 8.5205,
         "elevation": 680.0,
         "name": "Donaueschingen (Landeplatz)",
-        "state": "Baden-Württemberg",
+        "region": "Baden-Württemberg",
     }
 
 
@@ -418,7 +418,7 @@ def test_stations_dwd_geo(client: TestClient) -> None:
         "longitude": 10.2759,
         "elevation": 806.0,
         "name": "Oberstdorf",
-        "state": "Bayern",
+        "region": "Bayern",
         "distance": 207.0831,
     }
 
@@ -448,7 +448,7 @@ def test_stations_dwd_sql(client: TestClient) -> None:
         "longitude": 13.7543,
         "elevation": 228.0,
         "name": "Dresden-Klotzsche",
-        "state": "Sachsen",
+        "region": "Sachsen",
     }
 
 
@@ -1200,7 +1200,7 @@ def test_stations_missing_null(client: TestClient) -> None:
         "longitude": 18.92,
         "elevation": 10.0,
         "name": "TROMSOE",
-        "state": None,
+        "region": None,
     }
 
 
@@ -1393,7 +1393,7 @@ def test_stations_output_schemas_allow_null_state(schema_name: str) -> None:
 
     properties = app.openapi()["components"]["schemas"][schema_name]["properties"]
     # state is typed as string-or-null (anyOf includes a null branch)
-    branches = properties["state"].get("anyOf", [properties["state"]])
+    branches = properties["region"].get("anyOf", [properties["region"]])
     assert any(branch.get("type") == "null" for branch in branches), f"{schema_name}.state not nullable"
     assert any(branch.get("type") == "string" for branch in branches), f"{schema_name}.state not string"
 

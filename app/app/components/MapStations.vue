@@ -77,7 +77,7 @@ async function createMarkers() {
       lat: station.latitude,
       lng: station.longitude,
       options: {
-        title: `${station.name} (ID: ${station.station_id}, ${station.state})`,
+        title: `${station.name} (ID: ${station.station_id}, ${station.region})`,
       },
     })),
   })

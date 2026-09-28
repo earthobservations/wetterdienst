@@ -279,6 +279,6 @@ class ChmiObservationRequest(TimeseriesRequest):
             )
             for resolution, dataset in resolutions_and_datasets
         ]
-        # TimeseriesRequest.all() selects _base_columns and fills any the catalogue omits (state)
+        # TimeseriesRequest.all() selects _base_columns and fills any the catalogue omits (region)
         # with null, so no explicit padding is needed here.
         return pl.concat(data).lazy()

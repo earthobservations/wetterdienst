@@ -58,7 +58,7 @@ def test_aemet_observation_stations() -> None:
                 "longitude": -3.677778,
                 "elevation": 667.0,
                 "name": "MADRID, RETIRO",
-                "state": "MADRID",
+                "region": "MADRID",
             }
         ],
         schema={
@@ -71,7 +71,7 @@ def test_aemet_observation_stations() -> None:
             "longitude": pl.Float64,
             "elevation": pl.Float64,
             "name": pl.String,
-            "state": pl.String,
+            "region": pl.String,
         },
         orient="row",
     )

@@ -331,7 +331,7 @@ class DwdMosmixRequest(TimeseriesRequest):
         "longitude",
         "elevation",
         "name",
-        "state",
+        "region",
     ]
 
     @classmethod
@@ -417,7 +417,7 @@ class DwdMosmixRequest(TimeseriesRequest):
         df_raw = df_raw.with_columns(
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
-            pl.lit(None, pl.String).alias("state"),
+            pl.lit(None, pl.String).alias("region"),
         )
         # combinations of resolution and dataset
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415

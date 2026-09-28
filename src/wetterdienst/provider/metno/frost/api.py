@@ -827,7 +827,7 @@ class MetnoFrostRequest(TimeseriesRequest):
             .otherwise(pl.lit(None, dtype=pl.Datetime(time_unit="us", time_zone="UTC")))
             .alias("end_date"),
         )
-        df = df.rename({"id": "station_id", "name": "name", "county": "state", "countryCode": "country"})
+        df = df.rename({"id": "station_id", "name": "name", "county": "region", "countryCode": "country"})
         resolutions_and_datasets = {
             (parameter.dataset.resolution.name, parameter.dataset.name)
             for parameter in self.parameters
