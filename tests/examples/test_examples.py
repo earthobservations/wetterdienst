@@ -2,12 +2,33 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD observation examples."""
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path, PureWindowsPath
 
 import pytest
 
 from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_LINUX, IS_PYTHON_3_10, IS_WINDOWS
 from wetterdienst.util.url import ConnectionString
+
+
+@contextmanager
+def _leaves_untouched(path: Path) -> Iterator[None]:
+    """Fail if the block creates, removes or rewrites `path`, a file or a directory tree.
+
+    The dumps are ignored by git (GH-2044), so `git status` no longer sees an example writing
+    into the repository; the tree is compared directly.
+    """
+
+    def snapshot() -> dict[str, float]:
+        if not path.exists():
+            return {}
+        files = [path] if path.is_file() else [p for p in path.rglob("*") if p.is_file()]
+        return {str(p): p.stat().st_mtime for p in files}
+
+    before = snapshot()
+    yield
+    assert snapshot() == before, f"the example wrote to {path}"
 
 
 @pytest.mark.remote
@@ -48,7 +69,8 @@ def test_examples_zarr() -> None:
     """
     from examples.provider.dwd.observation import dwd_obs_climate_summary_zarr_dump  # noqa: PLC0415
 
-    assert dwd_obs_climate_summary_zarr_dump.main() is None
+    with _leaves_untouched(dwd_obs_climate_summary_zarr_dump.ZARR_OUTPUT_PATH):
+        assert dwd_obs_climate_summary_zarr_dump.main() is None
 
 
 @pytest.mark.remote
@@ -116,27 +138,10 @@ def test_the_duckdb_example_writes_outside_the_repository_under_pytest() -> None
     MB binary in the repository. That has twice been committed by accident along with unrelated
     work, which is how it was noticed.
     """
-    import subprocess  # noqa: PLC0415
-
     from examples.provider.dwd.observation import dwd_obs_climate_summary_duckdb_dump  # noqa: PLC0415
 
-    tracked = Path("examples/provider/dwd/dwd_obs_daily_climate_summary.duckdb")
-    before = subprocess.run(  # noqa: S603
-        ["git", "status", "--porcelain", "--", str(tracked)],  # noqa: S607
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-
-    assert dwd_obs_climate_summary_duckdb_dump.main() is None
-
-    after = subprocess.run(  # noqa: S603
-        ["git", "status", "--porcelain", "--", str(tracked)],  # noqa: S607
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    assert after == before, f"the example modified {tracked}"
+    with _leaves_untouched(dwd_obs_climate_summary_duckdb_dump.ROOT / "dwd_obs_daily_climate_summary.duckdb"):
+        assert dwd_obs_climate_summary_duckdb_dump.main() is None
 
 
 @pytest.mark.parametrize(
