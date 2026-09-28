@@ -6,7 +6,7 @@ error that says what it is called now, instead of the not-found a name that neve
 
 from collections.abc import Collection
 
-#: station and values columns, old name to new
+#: frame columns, old name to new
 RENAMED_COLUMNS: dict[str, str] = {
     "height": "elevation",  # GH-2024
 }

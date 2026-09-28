@@ -18,8 +18,8 @@ Types of changes:
 
 ### Changed
 
-- Stations carry `elevation` where they carried `height`, following the backend (GH-2024); the
-  history and station tables label it "Elevation (m)" and "Station elevation" in English.
+- `[Stations]` Stations carry `elevation` where they carried `height`, as the backend now returns
+  them; the history page labels it "Elevation (m)" and "Station elevation" in English (GH-2024)
 
 ### Fixed
 
