@@ -138,6 +138,11 @@ def test_parameter_search_invalid(value: str | tuple, error: type[Exception], me
             "'temperature_air_mean_200'. Did you mean 'temperature_air_mean_2m'? Available parameters:",
         ),
         ("daily/kl/quality_wind", "'quality_wind' is a quality flag."),
+        # renamed for 1.0 (GH-2032): the new name, not a guess at a near spelling
+        (
+            "daily/weather_phenomena/count_weather_type_ripe",
+            "'count_weather_type_ripe'. It was renamed to 'count_weather_type_hoar_frost'. Available parameters:",
+        ),
     ],
 )
 def test_parse_parameters_not_found(value: str, message: str, caplog: pytest.LogCaptureFixture) -> None:

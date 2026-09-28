@@ -446,7 +446,7 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
                 "cooling_degree_hour",
                 "count_days_cooling_degree",
                 "count_hours_cooling_degree",
-                "number_of_hours_per_month",
+                "count_hours_in_month",
             ]
             * 2,
             "timestamp": [
@@ -477,7 +477,7 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
                     "cooling_degree_hour",
                     "count_days_cooling_degree",
                     "count_hours_cooling_degree",
-                    "number_of_hours_per_month",
+                    "count_hours_in_month",
                 ]
             ),
             "timestamp": pl.Datetime(time_zone="UTC"),
@@ -529,9 +529,9 @@ def test_dwd_recent_data_result_long_single_dataset(
                 "heating_degree_day",
                 "heating_degree_day",
                 "heating_degree_day",
-                "number_of_days_per_month",
-                "number_of_days_per_month",
-                "number_of_days_per_month",
+                "count_days_in_month",
+                "count_days_in_month",
+                "count_days_in_month",
             ],
             "timestamp": [
                 datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
@@ -571,7 +571,7 @@ def test_dwd_recent_data_result_long_single_dataset(
             "station_id": pl.Enum(["00044"]),
             "resolution": pl.Enum(["monthly"]),
             "dataset": pl.Enum(["heating_degreedays"]),
-            "parameter": pl.Enum(["count_days_heating_degree", "heating_degree_day", "number_of_days_per_month"]),
+            "parameter": pl.Enum(["count_days_heating_degree", "heating_degree_day", "count_days_in_month"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,

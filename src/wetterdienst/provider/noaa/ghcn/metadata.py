@@ -1112,7 +1112,7 @@ NoaaGhcnMetadata = {
                         },
                         # 24-hour wind movement (km or miles as per user preference, miles on Daily Form pdf file)
                         {
-                            "name": "wind_movement_24h",
+                            "name": "wind_movement",
                             "name_original": "wdmv",
                             "unit": "kilometer",
                         },

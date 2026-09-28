@@ -28,7 +28,7 @@
 |-------------------------------------------------|---------------|------------------------------------------------|-------|-------------|
 | {term}`cloud_cover_above_7km`                   | nh            | High cloud cover (>7 km)                       | %     | >=0,<=100   |
 | {term}`cloud_cover_below_1000ft`                | nl            | Low cloud cover (lower than 2 km).             | %     | >=0,<=100   |
-| {term}`cloud_cover_between_2km_to_7km`          | nm            | Midlevel cloud cover (2-7 km)                  | %     | >=0,<=100   |
+| {term}`cloud_cover_between_2km_and_7km`          | nm            | Midlevel cloud cover (2-7 km)                  | %     | >=0,<=100   |
 | {term}`cloud_cover_effective`                   | neff          | Effective cloud cover                          | %     | >=0,<=100   |
 | {term}`cloud_cover_total`                       | n             | Total cloud cover                              | %     | >=0,<=100   |
 | {term}`precipitation_height_last_1h`            | rr1           | Total precipitation during the last hour       | kg/m² | >=0         |
@@ -64,7 +64,7 @@
 |-------------------------------------------------|---------------|------------------------------------------------------|-------|-------------|
 | {term}`cloud_cover_above_7km`                   | nh            | High cloud cover (>7 km)                             | %     | >=0,<=100   |
 | {term}`cloud_cover_below_1000ft`                | nl            | Low cloud cover (lower than 2 km).                   | %     | >=0,<=100   |
-| {term}`cloud_cover_between_2km_to_7km`          | nm            | Midlevel cloud cover (2-7 km)                        | %     | >=0,<=100   |
+| {term}`cloud_cover_between_2km_and_7km`          | nm            | Midlevel cloud cover (2-7 km)                        | %     | >=0,<=100   |
 | {term}`cloud_cover_effective`                   | neff          | Effective cloud cover                                | %     | >=0,<=100   |
 | {term}`cloud_cover_total`                       | n             | Total cloud cover                                    | %     | >=0,<=100   |
 | {term}`precipitation_height_last_1h`            | rr1           | Total precipitation during the last hour             | kg/m² | >=0         |

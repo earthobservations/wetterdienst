@@ -387,7 +387,7 @@ class DwdDerivedValues(TimeseriesValues):
 
     _COOLING_DEGREE_HOURS_COLUMN_NAME_MAPPING: ClassVar = {
         "ID": "station_id",
-        "Anzahl Stunden": "number_of_hours_per_month",
+        "Anzahl Stunden": "count_hours_in_month",
         "Anzahl Kuehlstunden": "count_hours_cooling_degree",
         "Kuehlgradestunden": "cooling_degree_hour",
         "Kuehltage": "count_days_cooling_degree",
@@ -395,7 +395,7 @@ class DwdDerivedValues(TimeseriesValues):
 
     _HEATING_DEGREE_DAYS_COLUMN_NAME_MAPPING: ClassVar = {
         "#ID": "station_id",
-        "Anzahl Tage": "number_of_days_per_month",
+        "Anzahl Tage": "count_days_in_month",
         "Monatsgradtage": "heating_degree_day",
         "Anzahl Heiztage": "count_days_heating_degree",
     }

@@ -172,7 +172,7 @@ Codes (precipitation_form):
 | {term}`count_weather_type_storm_stormier_wind` | sturm_8 | Count of days with storm (stormier wind) of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_dew` | tau | Count of days with dew of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_glaze` | glatteis | Count of days with glaze of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_ripe` | reif | Count of days with ripe of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_hoar_frost` | reif | Count of days with ripe of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_sleet` | graupel | Count of days with sleet of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_hail` | hagel | Count of days with hail of stations in Germany. | - | >=0 |
 

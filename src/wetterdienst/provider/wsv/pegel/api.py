@@ -224,7 +224,7 @@ _PARAMETERS = [
         "unit": "second",
     },
     {
-        "name": "wave_height_sign",
+        "name": "wave_height_significant",
         "name_original": "SIGH",
         "unit": "centimeter",
     },
@@ -239,7 +239,7 @@ _PARAMETERS = [
         "unit": "dimensionless",
     },
     {
-        "name": "chlorid_concentration",
+        "name": "chloride_concentration",
         "name_original": "CL",
         "unit": "milligram_per_liter",
     },
@@ -412,7 +412,7 @@ class WsvPegelValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             # not lowercased: `_create_humanized_parameters_mapping` keys on `name_original` as
             # declared, so a lowercased value never matched and WSV silently never humanized --
-            # values came back as `sigh` and `r` rather than `wave_height_sign` and
+            # values came back as `sigh` and `r` rather than `wave_height_significant` and
             # `flow_direction`. Unit conversion keys case-insensitively and is unaffected.
             pl.lit(parameter_or_dataset.name_original).alias("parameter"),
             pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S%z"),

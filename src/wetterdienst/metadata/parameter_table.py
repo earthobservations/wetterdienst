@@ -111,7 +111,7 @@ _AIR_TEMPERATURE_LAPSE_RATE = 0.0065
 _DEW_POINT_LAPSE_RATE = 0.002
 
 PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
-    CanonicalParameter("chlorid_concentration", "concentration", "Concentration of chloride dissolved in the water."),
+    CanonicalParameter("chloride_concentration", "concentration", "Concentration of chloride dissolved in the water."),
     CanonicalParameter(
         "clearance_height", "length_short", "Vertical clearance between the water surface and the structure above it."
     ),
@@ -149,7 +149,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "cloud_cover_between_2km_to_7km",
+        "cloud_cover_between_2km_and_7km",
         "fraction",
         "Fraction of the sky covered by cloud between 2 km and 7 km.",
         interpolation="homogeneous",
@@ -369,7 +369,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter("count_weather_type_fog", "dimensionless", "Number of days on which fog was observed."),
     CanonicalParameter("count_weather_type_glaze", "dimensionless", "Number of days on which glaze ice was observed."),
     CanonicalParameter("count_weather_type_hail", "dimensionless", "Number of days on which hail was observed."),
-    CanonicalParameter("count_weather_type_ripe", "dimensionless", "Number of days on which hoar frost was observed."),
+    CanonicalParameter(
+        "count_weather_type_hoar_frost", "dimensionless", "Number of days on which hoar frost was observed."
+    ),
     CanonicalParameter("count_weather_type_sleet", "dimensionless", "Number of days on which sleet was observed."),
     CanonicalParameter(
         "count_weather_type_storm_stormier_wind",
@@ -418,7 +420,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "evaporation_height_corn_loamysilt",
+        "evaporation_height_corn_loamy_silt",
         "precipitation",
         "Depth of water evaporated from loamy silt under corn.",
         interpolation="homogeneous",
@@ -430,13 +432,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "evaporation_height_gras_loamysilt",
+        "evaporation_height_grass_loamy_silt",
         "precipitation",
         "Depth of water evaporated from loamy silt under grass.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "evaporation_height_gras_sand",
+        "evaporation_height_grass_sand",
         "precipitation",
         "Depth of water evaporated from sand under grass.",
         interpolation="homogeneous",
@@ -448,13 +450,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "evaporation_height_winterwheat_loamysilt",
+        "evaporation_height_winter_wheat_loamy_silt",
         "precipitation",
         "Depth of water evaporated from loamy silt under winter wheat.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "evaporation_height_winterwheat_sand",
+        "evaporation_height_winter_wheat_sand",
         "precipitation",
         "Depth of water evaporated from sand under winter wheat.",
         interpolation="homogeneous",
@@ -466,13 +468,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "evapotranspiration_potential_gras_fao_last_24h",
+        "evapotranspiration_potential_grass_fao_last_24h",
         "precipitation",
         "Potential evapotranspiration over grass in the preceding 24 hours, after the FAO reference method.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "evapotranspiration_potential_gras_haude_last_24h",
+        "evapotranspiration_potential_grass_haude_last_24h",
         "precipitation",
         "Potential evapotranspiration over grass in the preceding 24 hours, after the Haude method.",
         interpolation="homogeneous",
@@ -527,8 +529,8 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "humidity_min", "fraction", "Lowest relative humidity over the period.", interpolation="homogeneous"
     ),
     CanonicalParameter("ice_on_water_thickness", "length_short", "Thickness of the ice covering the water surface."),
-    CanonicalParameter("number_of_days_per_month", "dimensionless", "Number of days in the month the record covers."),
-    CanonicalParameter("number_of_hours_per_month", "dimensionless", "Number of hours in the month the record covers."),
+    CanonicalParameter("count_days_in_month", "dimensionless", "Number of days in the month the record covers."),
+    CanonicalParameter("count_hours_in_month", "dimensionless", "Number of hours in the month the record covers."),
     CanonicalParameter("oxygen_level", "concentration", "Concentration of oxygen dissolved in the water."),
     CanonicalParameter("ph_value", "dimensionless", "Acidity of the water on the pH scale."),
     # The phenological phases of the DWD phenology network. A value is the day of the year on
@@ -1532,7 +1534,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="heterogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_corn_loamysilt_00cm_60cm",
+        "soil_moisture_corn_loamy_silt_00cm_60cm",
         "fraction",
         "Soil moisture in loamy silt under corn, between the surface and 60 cm.",
         interpolation="homogeneous",
@@ -1544,61 +1546,61 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_gras_loamysilt_00cm_10cm",
+        "soil_moisture_grass_loamy_silt_00cm_10cm",
         "fraction",
         "Soil moisture in loamy silt under grass, between the surface and 10 cm.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_gras_loamysilt_00cm_60cm",
+        "soil_moisture_grass_loamy_silt_00cm_60cm",
         "fraction",
         "Soil moisture in loamy silt under grass, between the surface and 60 cm.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_gras_loamysilt_10cm_20cm",
+        "soil_moisture_grass_loamy_silt_10cm_20cm",
         "fraction",
         "Soil moisture in loamy silt under grass, between 10 cm and 20 cm.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_gras_loamysilt_20cm_30cm",
+        "soil_moisture_grass_loamy_silt_20cm_30cm",
         "fraction",
         "Soil moisture in loamy silt under grass, between 20 cm and 30 cm.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_gras_loamysilt_30cm_40cm",
+        "soil_moisture_grass_loamy_silt_30cm_40cm",
         "fraction",
         "Soil moisture in loamy silt under grass, between 30 cm and 40 cm.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_gras_loamysilt_40cm_50cm",
+        "soil_moisture_grass_loamy_silt_40cm_50cm",
         "fraction",
         "Soil moisture in loamy silt under grass, between 40 cm and 50 cm.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_gras_loamysilt_50cm_60cm",
+        "soil_moisture_grass_loamy_silt_50cm_60cm",
         "fraction",
         "Soil moisture in loamy silt under grass, between 50 cm and 60 cm.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_gras_sand_00cm_60cm",
+        "soil_moisture_grass_sand_00cm_60cm",
         "fraction",
         "Soil moisture in sand under grass, between the surface and 60 cm.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_winterwheat_loamysilt_00cm_60cm",
+        "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
         "fraction",
         "Soil moisture in loamy silt under winter wheat, between the surface and 60 cm.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_winterwheat_sand_00cm_60cm",
+        "soil_moisture_winter_wheat_sand_00cm_60cm",
         "fraction",
         "Soil moisture in sand under winter wheat, between the surface and 60 cm.",
         interpolation="homogeneous",
@@ -2273,13 +2275,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_soil_mean_2m", "temperature", "Mean soil temperature at 2 m depth.", interpolation="homogeneous"
     ),
     CanonicalParameter(
-        "temperature_soil_mean_loamysand_0_05m",
+        "temperature_soil_mean_loamy_sand_0_05m",
         "temperature",
         "Mean soil temperature at 0.05 m depth under loamy sand.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "temperature_soil_mean_loamysilt_0_05m",
+        "temperature_soil_mean_loamy_silt_0_05m",
         "temperature",
         "Mean soil temperature at 0.05 m depth under loamy silt.",
         interpolation="homogeneous",
@@ -2723,10 +2725,10 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Greatest depth to which bare ground thawed during the month.",
     ),
     CanonicalParameter(
-        "thawing_thickness_plantstock", "length_short", "Depth to which ground under plant cover has thawed."
+        "thawing_thickness_plant_cover", "length_short", "Depth to which ground under plant cover has thawed."
     ),
     CanonicalParameter(
-        "thawing_thickness_plantstock_max_month",
+        "thawing_thickness_plant_cover_max_month",
         "length_short",
         "Greatest depth to which ground under plant cover thawed in the month.",
     ),
@@ -2793,7 +2795,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "wave_height_max", "length_short", "Height of the highest single wave observed over the period."
     ),
     CanonicalParameter(
-        "wave_height_sign",
+        "wave_height_significant",
         "length_short",
         "Significant wave height, the mean height of the highest third of the waves.",
     ),
@@ -2965,7 +2967,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "wind_movement_24h",
+        "wind_movement",
         "length_long",
         "Wind run, the distance a parcel of air travelled past the station in 24 hours.",
         interpolation="homogeneous",
