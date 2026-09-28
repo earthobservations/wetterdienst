@@ -257,7 +257,8 @@ class ExportMixin:
         try:
             df = duckdb.sql(sql).pl()
         except duckdb.BinderException as e:
-            missing = re.search(r'Referenced column "([^"]+)" not found', str(e))
+            # unqualified (`height`) or qualified by the table (`df.height`), which DuckDB words apart
+            missing = re.search(r'(?:Referenced column|does not have a column named) "([^"]+)"', str(e))
             new = renamed_column(missing.group(1), df.columns) if missing else None
             if missing and new:
                 msg = f'column "{missing.group(1)}" was renamed to "{new}"'

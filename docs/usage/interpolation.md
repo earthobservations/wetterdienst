@@ -224,7 +224,7 @@ multiplied by a factor that depends on the resolution of the request:
 
 The table stops widening at 2.0 rather than following the correlation length up. Past a day, what
 binds is terrain and not correlation: `apply_interpolation` works on UTM x/y and never reads station
-height, so 40 km is as far as it may reach in complex ground. That is the same bound the
+elevation, so 40 km is as far as it may reach in complex ground. That is the same bound the
 homogeneous radius is held to, which is why the two meet at `daily` with the defaults --
 precipitation is more orographically driven than temperature, not less, so it does not get to reach
 farther.

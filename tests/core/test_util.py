@@ -234,7 +234,7 @@ def test_collection_is_done_waits_for_a_parameter_that_has_yet_to_take_a_station
     assert not collection_is_done({}, set())
 
 
-def test_report_elevation_exclusions_does_not_blame_the_heights_for_what_they_did_not_do(
+def test_report_elevation_exclusions_does_not_blame_the_elevations_for_what_they_did_not_do(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A parameter that kept the stations it needs failed on something else.
@@ -292,7 +292,7 @@ def test_report_elevation_exclusions_refuses_only_where_a_parameter_took_nothing
     assert not caplog.text
 
 
-def test_collection_is_done_does_not_wait_where_no_station_reports_a_height() -> None:
+def test_collection_is_done_does_not_wait_where_no_station_reports_an_elevation() -> None:
     """A provider that publishes no elevations has nothing for the walk to hold out for.
 
     FMI has 441 stations and an elevation for none of them. Holding the walk open for a parameter that
@@ -418,7 +418,7 @@ def test_count_stations_in_reach_reads_the_nearest_row_of_a_station() -> None:
     }
 
 
-def test_parameters_still_in_reach_stops_at_the_last_station_that_has_a_height() -> None:
+def test_parameters_still_in_reach_stops_at_the_last_station_that_has_an_elevation() -> None:
     """Past the furthest station of known elevation, no station left to visit can answer.
 
     A parameter with one such station in reach that turns out to hold no data would otherwise hold
@@ -586,7 +586,7 @@ def test_report_elevation_exclusions_claims_a_standing_result_only_where_there_i
     assert "the rest of the result stands" in caplog.text
 
 
-def test_count_stations_in_reach_reads_the_height_the_walk_will_read() -> None:
+def test_count_stations_in_reach_reads_the_elevation_the_walk_will_read() -> None:
     """A station's elevation is the one the walk finds, whichever index it comes from.
 
     The walk keeps one row per station, the nearest over every dataset in the ranking, and reads

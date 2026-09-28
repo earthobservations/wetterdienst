@@ -17,7 +17,7 @@ function numberFromBox(value: string | number): number | undefined {
  *
  * Three values, filled from two places: the coordinates and the elevation are typed in manual
  * mode, while choosing a station writes all three at once. Keeping that straight is the whole of
- * this, and getting it wrong is quiet -- a query that carries a height the form does not show, or
+ * this, and getting it wrong is quiet -- a query that carries an elevation the form does not show, or
  * a station whose coordinates are cleared by an elevation arriving after them.
  */
 export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {

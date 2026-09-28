@@ -25,7 +25,7 @@ const selectedStation = ref<Station | undefined>(modelValue.value.station)
 watch(selectedStation, fromStation)
 
 // the parent replaces the whole model when the provider or dataset changes, which clears the
-// station -- and a select still holding the old one would write it back, coordinates, height and
+// station -- and a select still holding the old one would write it back, coordinates, elevation and
 // all, for a station the new dataset may not have
 watch(() => modelValue.value.station, (station) => {
   if (station !== selectedStation.value)
@@ -75,7 +75,7 @@ watch(() => props.parameterSelection, () => {
 }, { deep: true, immediate: true })
 
 function setSource(source: InterpolationSource) {
-  // clicking the source already in use is not a change, and treating it as one dropped the height
+  // clicking the source already in use is not a change, and treating it as one dropped the elevation
   // of a station that stayed selected -- the form unchanged on screen, the next answer
   // uncorrected, which at 1000 m is six degrees of air temperature
   if (source === modelValue.value.source)
@@ -83,7 +83,7 @@ function setSource(source: InterpolationSource) {
   // one assignment: a second write in the same tick spreads the model the first replaced, and the
   // source change was being undone by the elevation change that followed it
   modelValue.value = source === 'station'
-    // back to the station still in the select: it names its height again, where the watcher below
+    // back to the station still in the select: it names its elevation again, where the watcher below
     // stays silent, the selection itself not having changed. With nothing selected it says
     // nothing -- taking its empty answer would clear coordinates someone had just typed
     ? { ...modelValue.value, source, ...(selectedStation.value ? pointFromStation(selectedStation.value) : {}) }
@@ -160,7 +160,7 @@ const displayCoords = computed(() => {
     </div>
 
     <!-- part of the point whichever way the point was given: a station fills it with its own
-         height, and leaving it filled in silently is what drops the neighbours that have none -->
+         elevation, and leaving it filled in silently is what drops the neighbours that have none -->
     <UFormField :label="t('interpolation.elevation')" :hint="t('interpolation.elevationHint')">
       <UInput
         v-model="elevationInput"

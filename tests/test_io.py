@@ -922,6 +922,9 @@ def test_filter_by_sql_names_a_renamed_column(df_stations: pl.DataFrame, df_valu
     # DuckDB matches identifiers regardless of case, and so does the hint
     with pytest.raises(duckdb.BinderException, match='column "HEIGHT" was renamed to "elevation"'):
         ExportMixin(df=df_stations).filter_by_sql("HEIGHT > 500")
+    # qualified by the table, which DuckDB reports in other words
+    with pytest.raises(duckdb.BinderException, match='column "height" was renamed to "elevation"'):
+        ExportMixin(df=df_stations).filter_by_sql("df.height > 500")
     # a values frame never had `height`, nor has it `elevation`, so DuckDB's own error stands
     with pytest.raises(duckdb.BinderException, match='Referenced column "height" not found'):
         ExportMixin(df=df_values).filter_by_sql("height > 500")

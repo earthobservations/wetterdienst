@@ -350,6 +350,6 @@ class NwsObservationRequest(TimeseriesRequest):
             pl.col("latitude").cast(pl.Float64),
             pl.col("longitude").cast(pl.Float64),
             # a station of unknown elevation reads as null rather than as standing 9999 m up,
-            # which interpolation would otherwise take at its word when it weighs by elevation
+            # which interpolation would otherwise take at its word when it moves a reading by elevation
             pl.col("elevation").cast(pl.Float64).replace(self._elevation_missing, None),
         )
