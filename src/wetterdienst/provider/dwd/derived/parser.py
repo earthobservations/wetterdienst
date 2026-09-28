@@ -37,7 +37,7 @@ DROPPABLE_PARAMETERS = {
 
 COLUMNS_MAPPING = {
     "stations_id": "station_id",
-    "mess_datum": "date",
+    "mess_datum": "timestamp",
     "stationshoehe": "elevation",
     "geobreite": "latitude",
     "geogr.breite": "latitude",
@@ -46,12 +46,12 @@ COLUMNS_MAPPING = {
     # those two are only used in the historical 1 minute precipitation data
     # we keep start_date and end_date as it is internally named date
     # after exploding the date ranges
-    "mess_datum_beginn": "date",
+    "mess_datum_beginn": "timestamp",
     "mess_datum_ende": "end_date",
     # soil moisture:
-    "datum": "date",
+    "datum": "timestamp",
     "stationsindex": "station_id",
-    "monat": "date",
+    "monat": "timestamp",
 }
 
 
@@ -64,7 +64,7 @@ def parse_climate_derived_data(
         data = [_parse_climate_derived_data(file, dataset) for file in files]
         try:
             df1, df2 = data
-            df = df1.join(df2, on=["station_id", "date"], how="full", coalesce=True)
+            df = df1.join(df2, on=["station_id", "timestamp"], how="full", coalesce=True)
             return df.lazy()
         except ValueError:
             return data[0]
@@ -108,7 +108,7 @@ def _parse_climate_derived_data(
     df = df.rename(mapping=lambda col: COLUMNS_MAPPING.get(col, col))
     if dataset in RADIATION_DATASETS:
         df = df.with_columns(
-            (pl.col("date").cast(pl.String) + "00")
+            (pl.col("timestamp").cast(pl.String) + "00")
             .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
             .dt.round(dt.timedelta(hours=1))
         )
@@ -117,7 +117,7 @@ def _parse_climate_derived_data(
             str_format = "%Y%m%d"
         elif dataset.resolution.value.value == "monthly":
             str_format = "%Y%m"
-        df = df.with_columns((pl.col("date").cast(pl.String)).str.to_datetime(str_format, time_zone="UTC"))
+        df = df.with_columns((pl.col("timestamp").cast(pl.String)).str.to_datetime(str_format, time_zone="UTC"))
 
     if dataset.resolution.value in (Resolution.MONTHLY, Resolution.ANNUAL):
         df = df.drop("end_date", strict=False)

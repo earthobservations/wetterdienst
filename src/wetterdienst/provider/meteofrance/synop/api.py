@@ -169,7 +169,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
             pl.col("validity_time")
             .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", strict=False)
             .dt.replace_time_zone("UTC")
-            .alias("date"),
+            .alias("timestamp"),
             pl.col("value").cast(pl.Float64, strict=False),
             pl.lit(None, pl.Float64).alias("quality"),
         )

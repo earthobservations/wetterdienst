@@ -49,7 +49,7 @@ _EMPTY_VALUES_SCHEMA = {
     "dataset": pl.String,
     "parameter": pl.String,
     "station_id": pl.String,
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
     "quality": pl.Float64,
 }
@@ -136,13 +136,13 @@ class SmhiObservationValues(TimeseriesValues):
         # timestamp. corrected-archive is the finalized quality-controlled version and is
         # fetched (and appended) first, so keep="first" prefers it over the still-under-QC
         # latest-months value; maintain_order=True makes that deterministic.
-        df = df.unique(subset="date", keep="first", maintain_order=True)
+        df = df.unique(subset="timestamp", keep="first", maintain_order=True)
         return df.select(
             pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
             pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("date"),
+            pl.col("timestamp"),
             pl.col("value").cast(pl.Float64, strict=False),
             pl.lit(None, pl.Float64).alias("quality"),
         )

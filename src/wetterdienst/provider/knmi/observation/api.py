@@ -246,7 +246,7 @@ class KnmiObservationValues(TimeseriesValues):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("date"),
+            pl.col("timestamp"),
             pl.col("value"),
             pl.lit(None, pl.Float64).alias("quality"),
         )
@@ -259,7 +259,7 @@ class KnmiObservationValues(TimeseriesValues):
                 "dataset": pl.String,
                 "parameter": pl.String,
                 "station_id": pl.String,
-                "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+                "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
                 "value": pl.Float64,
                 "quality": pl.Float64,
             },

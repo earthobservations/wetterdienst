@@ -23,7 +23,7 @@ _EMPTY_STATIONS_SCHEMA = {
 }
 
 _EMPTY_OBSERVATIONS_SCHEMA = {
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
 }
@@ -186,8 +186,8 @@ def parse_fmi_observations(content: bytes) -> pl.DataFrame:
     if not times:
         return pl.DataFrame(schema=_EMPTY_OBSERVATIONS_SCHEMA)
     value = pl.col("value").cast(pl.Float64, strict=False).fill_nan(None)
-    return pl.DataFrame({"date": times, "parameter": names, "value": values}).select(
-        pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us").dt.replace_time_zone("UTC"),
+    return pl.DataFrame({"timestamp": times, "parameter": names, "value": values}).select(
+        pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us").dt.replace_time_zone("UTC"),
         pl.col("parameter").cast(pl.String),
         pl.when(pl.col("parameter").is_in(_NO_VALUE_SENTINEL_PARAMETERS) & (value == -1.0))
         .then(pl.lit(0.0, dtype=pl.Float64))

@@ -81,7 +81,7 @@ class ModelYearlyGaussians:
     def get_valid_data(self, result_values: pl.DataFrame) -> pl.DataFrame:
         """Get valid data for each year."""
         valid_data_lst = []
-        for _, group in result_values.group_by([pl.col("date").dt.year()]):
+        for _, group in result_values.group_by([pl.col("timestamp").dt.year()]):
             if self.validate_yearly_data(group):
                 valid_data_lst.append(group)
 
@@ -90,8 +90,10 @@ class ModelYearlyGaussians:
     @staticmethod
     def validate_yearly_data(df: pl.DataFrame) -> bool:
         """Validate the data for each year."""
-        year = df.get_column("date").dt.year().unique()[0]
-        if df.is_empty() or not (df.get_column("date").min().month <= 2 and df.get_column("date").max().month > 10):
+        year = df.get_column("timestamp").dt.year().unique()[0]
+        if df.is_empty() or not (
+            df.get_column("timestamp").min().month <= 2 and df.get_column("timestamp").max().month > 10
+        ):
             log.info(f"skip year {year}")
             return False
         return True
@@ -101,7 +103,7 @@ class ModelYearlyGaussians:
 
         https://lmfit.github.io/lmfit-py/model.html#composite-models-adding-or-multiplying-models
         """
-        number_of_years = valid_data.get_column("date").dt.year().n_unique()
+        number_of_years = valid_data.get_column("timestamp").dt.year().n_unique()
 
         x = valid_data.get_column("rc").to_numpy()
         y = valid_data.get_column("value").to_numpy()
@@ -109,7 +111,7 @@ class ModelYearlyGaussians:
         index_per_year = x.max() / number_of_years
 
         pars, composite_model = None, None
-        for (year,), group in valid_data.group_by([pl.col("date").dt.year()], maintain_order=True):
+        for (year,), group in valid_data.group_by([pl.col("timestamp").dt.year()], maintain_order=True):
             gmod = GaussianModel(prefix=f"g{year}_")
             if pars is None:
                 pars = gmod.make_params()
@@ -150,7 +152,7 @@ class ModelYearlyGaussians:
             _ = plt.subplots(figsize=(12, 12))
         df = pl.DataFrame(
             {
-                "year": valid_data.get_column("date"),
+                "year": valid_data.get_column("timestamp"),
                 "value": valid_data.get_column("value").to_numpy(),
                 "model": out.best_fit,
             },
@@ -159,7 +161,7 @@ class ModelYearlyGaussians:
         title = valid_data.get_column("parameter").unique()[0]
         df.to_pandas().plot(x="year", y=["value", "model"], title=title)
         if savefig_to_file:
-            number_of_years = valid_data.get_column("date").dt.year().n_unique()
+            number_of_years = valid_data.get_column("timestamp").dt.year().n_unique()
             filename = f"{self.__class__.__qualname__}_wetter_model_{number_of_years}"
             plt.savefig(plot_path / filename, dpi=300, bbox_inches="tight")
             log.info(f"saved fig to file {filename}")

@@ -233,7 +233,9 @@ def apply_station_values_per_parameter(
         )
         if param_data is None:
             continue
-        result_series_param = param_data.values.select("date").join(result_series_param, on="date", how="left")
+        result_series_param = param_data.values.select("timestamp").join(
+            result_series_param, on="timestamp", how="left"
+        )
         result_series_param = result_series_param.get_column("value")
         reduced = reduce_to_elevation(result_series_param, lapse_rate, station.get("elevation"), elevation)
         if reduced is None:  # pragma: no cover - the check above turns such a station away already
@@ -254,7 +256,7 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
     data = [
         pl.DataFrame(
             schema={
-                "date": pl.Datetime(time_zone="UTC"),
+                "timestamp": pl.Datetime(time_zone="UTC"),
                 "resolution": pl.String,
                 "dataset": pl.String,
                 "parameter": pl.String,
@@ -270,9 +272,9 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
             # pads the grid with nulls, and the rows come back with no resolution, dataset or
             # parameter either -- which is not a result for the parameter, it is noise
             continue
-        param_df = pl.DataFrame({"date": param_data.values.get_column("date")})
+        param_df = pl.DataFrame({"timestamp": param_data.values.get_column("timestamp")})
         results = []
-        for row in param_data.values.select(pl.all().exclude("date")).iter_rows(named=True):
+        for row in param_data.values.select(pl.all().exclude("timestamp")).iter_rows(named=True):
             results.append(apply_summary(row, stations_dict, resolution, dataset, parameter))
         results = pl.DataFrame(
             results,
@@ -295,7 +297,7 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
             "resolution",
             "dataset",
             "parameter",
-            "date",
+            "timestamp",
         ],
     )
 

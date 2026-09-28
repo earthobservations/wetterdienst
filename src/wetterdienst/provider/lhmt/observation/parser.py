@@ -29,7 +29,7 @@ _EMPTY_STATIONS_SCHEMA = {
 }
 
 _EMPTY_VALUES_SCHEMA = {
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
 }
@@ -84,7 +84,7 @@ def parse_lhmt_observations(content: bytes) -> pl.DataFrame:
     if not isinstance(observations, list) or not observations:
         return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
     rows = [
-        {"date": timestamp, "parameter": field, "value": observation.get(field)}
+        {"timestamp": timestamp, "parameter": field, "value": observation.get(field)}
         for observation in observations
         # skip a malformed entry (non-dict, or one without a timestamp) rather than crash the day
         if isinstance(observation, dict) and (timestamp := observation.get("observationTimeUtc")) is not None
@@ -95,13 +95,13 @@ def parse_lhmt_observations(content: bytes) -> pl.DataFrame:
     # parse non-strict so one malformed observationTimeUtc string yields null instead of raising and
     # failing the whole day; drop those rows so only cleanly-timestamped observations remain
     return (
-        pl.DataFrame(rows, schema={"date": pl.String, "parameter": pl.String, "value": pl.Float64})
+        pl.DataFrame(rows, schema={"timestamp": pl.String, "parameter": pl.String, "value": pl.Float64})
         .with_columns(
-            pl.col("date")
+            pl.col("timestamp")
             .str.to_datetime("%Y-%m-%d %H:%M:%S", time_unit="us", strict=False)
             .dt.replace_time_zone(
                 "UTC",
             ),
         )
-        .drop_nulls("date")
+        .drop_nulls("timestamp")
     )

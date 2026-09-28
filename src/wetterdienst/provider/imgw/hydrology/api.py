@@ -255,7 +255,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
             pl.col("station_id"),
-            pl.col("date").dt.replace_time_zone("UTC"),
+            pl.col("timestamp").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
@@ -291,7 +291,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             return pl.DataFrame()
         if df.is_empty():
             return pl.DataFrame()
-        return df.unique(subset=["parameter", "date"], keep="first")
+        return df.unique(subset=["parameter", "timestamp"], keep="first")
 
     def __parse_file(self, file: bytes, station_id: str, dataset: DatasetModel, schema: dict) -> pl.DataFrame:
         """Parse hydrological data from a single file."""
@@ -318,22 +318,22 @@ class ImgwHydrologyValues(TimeseriesValues):
         if dataset.resolution.value == Resolution.DAILY:
             df = df.with_columns(pl.col("day").cast(pl.Int64))
             exp1 = pl.all().exclude(["year", "month", "day"])
-            exp2 = pl.datetime("year", "month", "day").alias("date")
+            exp2 = pl.datetime("year", "month", "day").alias("timestamp")
         else:
             exp1 = pl.all().exclude(["year", "month"])
-            exp2 = pl.datetime("year", "month", 1).alias("date")
+            exp2 = pl.datetime("year", "month", 1).alias("timestamp")
         df = df.select(exp1, exp2)
         if dataset.resolution.value == Resolution.DAILY:
-            index = ["station_id", "date"]
+            index = ["station_id", "timestamp"]
         else:
             # monthly data includes extrimity column (1: min, 2: mean, 3: max)
-            index = ["station_id", "date", "extremity"]
+            index = ["station_id", "timestamp", "extremity"]
         df = df.unpivot(index=index, variable_name="parameter", value_name="value")
         df = df.with_columns(pl.col("value").cast(pl.Float64))
         if dataset.resolution.value == Resolution.MONTHLY:
             df = df.select(
                 pl.col("station_id"),
-                pl.col("date"),
+                pl.col("timestamp"),
                 pl.concat_str(
                     exprs=[
                         pl.col("extremity").replace({"1": "minimalna", "2": "średnia", "3": "maksymalna"}),

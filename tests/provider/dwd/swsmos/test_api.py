@@ -101,7 +101,7 @@ def test_swsmos_values() -> None:
         "road_surface_condition",
     }
     # the forecast is hourly and lies in the future of the run
-    dates = df["date"].unique().sort()
+    dates = df["timestamp"].unique().sort()
     assert len(dates) > 24  # multi-day hourly horizon
     deltas = dates.diff().drop_nulls().unique().to_list()
     assert deltas == [dt.timedelta(hours=1)]
@@ -229,7 +229,7 @@ def test_swsmos_pins_every_station_to_one_run(monkeypatch: pytest.MonkeyPatch) -
     answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999")]  # noqa: SLF001
 
     assert len(runs) == 1, "the second run should never be fetched"
-    assert [df.get_column("date").to_list() for df in answers] == [
+    assert [df.get_column("timestamp").to_list() for df in answers] == [
         [dt.datetime(2026, 7, 31, 8, tzinfo=UTC)],
         [dt.datetime(2026, 7, 31, 8, tzinfo=UTC)],
     ]
@@ -257,7 +257,15 @@ def test_swsmos_run_that_cannot_be_fetched_is_asked_for_once(
     answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999")]  # noqa: SLF001
 
     assert all(df.is_empty() for df in answers)
-    assert set(answers[0].columns) == {"resolution", "dataset", "parameter", "station_id", "date", "value", "quality"}
+    assert set(answers[0].columns) == {
+        "resolution",
+        "dataset",
+        "parameter",
+        "station_id",
+        "timestamp",
+        "value",
+        "quality",
+    }
     assert len(downloads) == 1, "a run that cannot be fetched is not re-fetched for the next station"
     # and the outage is reported once for the request rather than once per station
     assert len([record for record in caplog.records if "Failed to fetch SWSMOS run" in record.message]) == 1

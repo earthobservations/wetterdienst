@@ -135,8 +135,8 @@ class ExportMixin:
         # is a CSV field
         df = _join_list_columns(df).with_columns(pl.col(pl.Enum).cast(pl.String))
         # every timestamp the frame carries, in UTC without the zone: a stations frame has
-        # `start_date` and `end_date` and no `date`, and naming `date` alone took it down with a
-        # missing column before it could be written at all
+        # `start_date` and `end_date` and no `timestamp`, and naming `timestamp` alone took it down
+        # with a missing column before it could be written at all
         df = df.with_columns(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
 
         if netcdf:
@@ -248,8 +248,8 @@ class ExportMixin:
         """
         import duckdb  # noqa: PLC0415
 
-        # every timestamp the frame carries, not `date` alone: a stations frame has `start_date`
-        # and `end_date` and no `date` at all, so the CLI's own `--sql "region=\'Sachsen\'"` --
+        # every timestamp the frame carries, not `timestamp` alone: a stations frame has `start_date`
+        # and `end_date` and no `timestamp` at all, so the CLI's own `--sql "region=\'Sachsen\'"` --
         # documented as a filter on station metadata -- died on a missing column
         zones = {name: dtype.time_zone for name, dtype in df.schema.items() if isinstance(dtype, pl.Datetime)}
         df = df.with_columns(cs.datetime().dt.replace_time_zone(None))  # uses df from local scope
@@ -613,7 +613,7 @@ class ExportMixin:
             points = []
             for record in self.df.iter_rows(named=True):
                 # for record in items.iter_rows(named=True):
-                time = record.pop("date").isoformat()
+                time = record.pop("timestamp").isoformat()
                 tags = {
                     "station_id": record.pop("station_id"),
                     "resolution": record.pop("resolution"),

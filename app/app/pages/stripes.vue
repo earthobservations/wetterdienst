@@ -146,7 +146,7 @@ async function plotStripes(data: StripesValuesResponse) {
   Plotly.purge(plotContainer.value)
 
   // Filter out null values and prepare data
-  const validData = data.values.filter(v => v.value !== null && v.date !== null)
+  const validData = data.values.filter(v => v.value !== null && v.timestamp !== null)
 
   if (validData.length === 0) {
     console.warn('No valid data to plot')
@@ -154,7 +154,7 @@ async function plotStripes(data: StripesValuesResponse) {
   }
 
   // Extract years and values
-  const years = validData.map(v => new Date(v.date!).getFullYear())
+  const years = validData.map(v => new Date(v.timestamp!).getFullYear())
   const values = validData.map(v => v.value!)
 
   // Calculate min and max for normalization

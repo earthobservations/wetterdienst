@@ -298,8 +298,8 @@ def test_ea_15_minute_values_come_from_the_window_asked_for(default_settings: Se
     )
     df = request.filter_by_rank(latlon=(51.5, -1.0), rank=1).values.all().df
     assert not df.is_empty()
-    assert df.get_column("date").min() >= start_date
-    assert df.get_column("date").max() <= end_date
+    assert df.get_column("timestamp").min() >= start_date
+    assert df.get_column("timestamp").max() <= end_date
 
 
 @pytest.mark.remote

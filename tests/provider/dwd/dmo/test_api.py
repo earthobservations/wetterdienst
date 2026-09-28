@@ -110,7 +110,7 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
 def test_add_date_from_filename(df_files_two_month: pl.DataFrame) -> None:
     """Test that the date is correctly set."""
     df = add_date_from_filename(df_files_two_month, dt.datetime(2021, 11, 15, tzinfo=ZoneInfo("UTC")))
-    assert df.get_column("date").to_list() == [
+    assert df.get_column("timestamp").to_list() == [
         dt.datetime(2021, 10, 31, 12, tzinfo=ZoneInfo("UTC")),
         dt.datetime(2021, 11, 1, 0, tzinfo=ZoneInfo("UTC")),
         dt.datetime(2021, 11, 1, 12, tzinfo=ZoneInfo("UTC")),
@@ -121,7 +121,7 @@ def test_add_date_from_filename(df_files_two_month: pl.DataFrame) -> None:
 def test_add_date_from_filename_early_in_month(df_files_end_of_month: pl.DataFrame) -> None:
     """Test that the date is correctly set when the date is early in the month."""
     df = add_date_from_filename(df_files_end_of_month, dt.datetime(2021, 11, 1, 2, tzinfo=ZoneInfo("UTC")))
-    assert df.get_column("date").to_list() == [
+    assert df.get_column("timestamp").to_list() == [
         dt.datetime(2021, 10, 31, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
         dt.datetime(2021, 10, 31, 12, 0, 0, tzinfo=ZoneInfo("UTC")),
     ]
@@ -130,7 +130,7 @@ def test_add_date_from_filename_early_in_month(df_files_end_of_month: pl.DataFra
 def test_add_date_from_filename_early_in_year(df_files_january: pl.DataFrame) -> None:
     """Test that the date is correctly set when the date is early in the year."""
     df = add_date_from_filename(df_files_january, dt.datetime(2021, 1, 1, 1, 1, 1, tzinfo=ZoneInfo("UTC")))
-    assert df.get_column("date").to_list() == [
+    assert df.get_column("timestamp").to_list() == [
         dt.datetime(2020, 12, 31, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
         dt.datetime(2020, 12, 31, 12, 0, 0, tzinfo=ZoneInfo("UTC")),
     ]
@@ -1076,7 +1076,7 @@ def test_dmo_a_run_stamp_becomes_the_hour_it_names(stamp: str, expected: dt.date
         dt.datetime(2026, 9, 24, 12, 0, tzinfo=ZoneInfo("UTC")),
     )
 
-    assert df.get_column("date").item() == expected
+    assert df.get_column("timestamp").item() == expected
 
 
 # what each DMO run carries: 16 elements common to both, and one of two families of five that the

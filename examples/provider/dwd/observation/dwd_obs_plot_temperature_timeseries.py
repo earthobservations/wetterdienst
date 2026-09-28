@@ -27,15 +27,17 @@ def plot_temperature_timeseries() -> None:
         periods="historical",
     ).filter_by_name("Hohenpeissenberg")
     df = stations.values.all().df
-    df_annual = df.group_by([pl.col("date").dt.year()], maintain_order=True).agg(pl.col("value").mean().alias("value"))
+    df_annual = df.group_by([pl.col("timestamp").dt.year()], maintain_order=True).agg(
+        pl.col("value").mean().alias("value")
+    )
     df_annual = df_annual.with_columns(
-        pl.col("date").cast(str).str.to_datetime("%Y"),
+        pl.col("timestamp").cast(str).str.to_datetime("%Y"),
         pl.col("value").mean().alias("mean"),
     )
     fig, ax = plt.subplots(tight_layout=True)
-    df.to_pandas().plot("date", "value", ax=ax, color="blue", label="Tmean,daily", legend=False)
-    df_annual.to_pandas().plot("date", "value", ax=ax, color="orange", label="Tmean,annual", legend=False)
-    df_annual.to_pandas().plot("date", "mean", ax=ax, color="red", label="mean(Tmean,daily)", legend=False)
+    df.to_pandas().plot("timestamp", "value", ax=ax, color="blue", label="Tmean,daily", legend=False)
+    df_annual.to_pandas().plot("timestamp", "value", ax=ax, color="orange", label="Tmean,annual", legend=False)
+    df_annual.to_pandas().plot("timestamp", "mean", ax=ax, color="red", label="mean(Tmean,daily)", legend=False)
     ax.text(0.2, 0.05, "Source: Deutscher Wetterdienst", ha="center", va="center", transform=ax.transAxes)
     ax.set_xlabel("Date")
     title = "Temperature (K) at Hohenpeissenberg, Germany"

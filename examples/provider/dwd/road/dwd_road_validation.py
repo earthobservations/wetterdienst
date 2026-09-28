@@ -52,8 +52,8 @@ def dwd_road_weather_example() -> None:
 
     _fig, ax = plt.subplots(tight_layout=True)
 
-    df_drw.to_pandas().plot(x="date", y="value", label="DRW", ax=ax)
-    df_dobs.to_pandas().plot(x="date", y="value", label="DOBS", ax=ax)
+    df_drw.to_pandas().plot(x="timestamp", y="value", label="DRW", ax=ax)
+    df_dobs.to_pandas().plot(x="timestamp", y="value", label="DOBS", ax=ax)
 
     if "PYTEST_CURRENT_TEST" not in os.environ:
         plt.show()

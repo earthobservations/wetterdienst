@@ -46,7 +46,7 @@ _EMPTY_VALUES_SCHEMA = {
     "dataset": pl.String,
     "parameter": pl.String,
     "station_id": pl.String,
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
     "quality": pl.Float64,
 }
@@ -105,7 +105,7 @@ class DmiObservationValues(TimeseriesValues):
 
     @staticmethod
     def _date_expression(resolution: Resolution) -> pl.Expr:
-        """Build the ``date`` column expression from DMI's ``from`` timestamp.
+        """Build the ``timestamp`` column expression from DMI's ``from`` timestamp.
 
         DMI labels each aggregate by the start of its period. Hourly data is aligned to UTC
         (``from`` carries a ``+00:00`` offset), so it is parsed and normalised to UTC directly.
@@ -201,7 +201,7 @@ class DmiObservationValues(TimeseriesValues):
         # starts at 22:00Z the previous day), so a boundary period would otherwise be dropped.
         # Widen the requested window by a day on each side for those resolutions;
         # TimeseriesValues.query() trims the result back to the exact requested range by the
-        # assigned `date`. Hourly aggregates are already UTC-aligned (label == `from`), so no
+        # assigned `timestamp`. Hourly aggregates are already UTC-aligned (label == `from`), so no
         # margin is needed and none is added -- widening would only fetch extra data. Normalise
         # to UTC so the "Z" filter is true even for already-tz-aware, non-UTC callers.
         margin = dt.timedelta(0) if resolution == Resolution.HOURLY else dt.timedelta(days=1)
@@ -225,7 +225,7 @@ class DmiObservationValues(TimeseriesValues):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameterId").alias("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            self._date_expression(resolution).alias("date"),
+            self._date_expression(resolution).alias("timestamp"),
             pl.col("value").cast(pl.Float64),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )

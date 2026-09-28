@@ -271,5 +271,5 @@ class KMLReader:
         station_forecast_values = self.data.get(station_id)
         if not station_forecast_values:
             return pl.DataFrame()
-        data = {"date": self.timesteps} | station_forecast_values
+        data = {"timestamp": self.timesteps} | station_forecast_values
         return pl.DataFrame(data)

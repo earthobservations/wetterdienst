@@ -49,14 +49,14 @@ def test_parse_values() -> None:
         {
             "station_id": "07521",
             "parameter": "5",
-            "date": dt.datetime(2024, 1, 1, tzinfo=UTC),
+            "timestamp": dt.datetime(2024, 1, 1, tzinfo=UTC),
             "value": 27.0,
             "quality": 10.0,
         },
         {
             "station_id": "07521",
             "parameter": "5",
-            "date": dt.datetime(2025, 1, 1, tzinfo=UTC),
+            "timestamp": dt.datetime(2025, 1, 1, tzinfo=UTC),
             "value": 41.0,
             "quality": 1.0,
         },
@@ -82,7 +82,7 @@ def test_parse_values_beet_header_variant() -> None:
         {
             "station_id": "14433",
             "parameter": "10",
-            "date": dt.datetime(2024, 1, 1, tzinfo=UTC),
+            "timestamp": dt.datetime(2024, 1, 1, tzinfo=UTC),
             "value": 92.0,
             "quality": 10.0,
         },
@@ -99,7 +99,7 @@ def test_parse_values_empty() -> None:
     """A header-only or empty file yields an empty frame with the expected schema."""
     df = _parse_values(b"", object_id=113)
     assert df.is_empty()
-    assert df.columns == ["station_id", "parameter", "date", "value", "quality"]
+    assert df.columns == ["station_id", "parameter", "timestamp", "value", "quality"]
 
 
 def test_file_url_recent() -> None:
@@ -286,7 +286,7 @@ def test_phenology_values_recent() -> None:
     df = next(request.filter_by_station_id("07521").values.query()).df
     assert df["parameter"].unique().to_list() == ["phenology_flowering_beginning"]
     assert df["dataset"].unique().to_list() == ["annual_common_hazel"]
-    row = df.filter(pl.col("date") == dt.datetime(2024, 1, 1, tzinfo=UTC)).to_dicts()[0]
+    row = df.filter(pl.col("timestamp") == dt.datetime(2024, 1, 1, tzinfo=UTC)).to_dicts()[0]
     assert row["value"] == 27.0
     assert row["quality"] == 10.0
 
@@ -299,7 +299,7 @@ def test_phenology_values_immediate_reporters() -> None:
     df = next(request.filter_by_station_id("07532").values.query()).df
     assert set(df["parameter"]) == {"phenology_flowering_beginning", "phenology_flowering_end_observation_area"}
     row = df.filter(
-        (pl.col("date") == dt.datetime(2024, 1, 1, tzinfo=UTC))
+        (pl.col("timestamp") == dt.datetime(2024, 1, 1, tzinfo=UTC))
         & (pl.col("parameter") == "phenology_flowering_beginning"),
     ).to_dicts()[0]
     assert row["value"] == 57.0
@@ -316,7 +316,7 @@ def test_phenology_values_historical_reaches_back() -> None:
     )
     df = next(request.filter_by_station_id("07521").values.query()).df
     assert df.height > 10
-    assert df["date"].min() < dt.datetime(1995, 1, 1, tzinfo=UTC)
+    assert df["timestamp"].min() < dt.datetime(1995, 1, 1, tzinfo=UTC)
     # beech leaf unfolding is an April/May event, so somewhere around day 90-150
     assert 60 < df["value"].min() <= df["value"].max() < 200
 

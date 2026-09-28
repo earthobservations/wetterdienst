@@ -159,7 +159,7 @@ def test_fmi_observation_values_hourly() -> None:
 
     def value_at(parameter: str, hour: int) -> float:
         date = dt.datetime(2024, 1, 1, hour, tzinfo=UTC)
-        return df.filter(pl.col("parameter").eq(parameter), pl.col("date").eq(date)).get_column("value").item()
+        return df.filter(pl.col("parameter").eq(parameter), pl.col("timestamp").eq(date)).get_column("value").item()
 
     assert value_at("temperature_air_mean_2m", 0) == pytest.approx(-14.6)
     assert value_at("temperature_dew_point_mean_2m", 0) == pytest.approx(-16.6)
@@ -189,7 +189,7 @@ def test_fmi_observation_values_daily() -> None:
     )
     assert df["station_id"].unique().to_list() == [HELSINKI_KAISANIEMI]
     assert df["resolution"].unique().to_list() == ["daily"]
-    assert df["date"].unique().to_list() == [dt.datetime(2024, 1, 1, tzinfo=UTC)]
+    assert df["timestamp"].unique().to_list() == [dt.datetime(2024, 1, 1, tzinfo=UTC)]
 
     def value_of(parameter: str) -> float:
         return df.filter(pl.col("parameter").eq(parameter)).get_column("value").item()

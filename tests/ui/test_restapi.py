@@ -577,7 +577,7 @@ def test_values_dwd_success(client: TestClient) -> None:
         "resolution": "daily",
         "dataset": "climate_summary",
         "parameter": "wind_gust_max",
-        "date": "1982-01-01T00:00:00.000000+00:00",
+        "timestamp": "1982-01-01T00:00:00.000000+00:00",
         "value": 4.2,
         "quality": 10.0,
     }
@@ -642,7 +642,7 @@ def test_values_dwd_sql_tabular(client: TestClient) -> None:
     item = data[0]
     assert item == {
         "station_id": "01048",
-        "date": "2020-01-25T00:00:00.000000+00:00",
+        "timestamp": "2020-01-25T00:00:00.000000+00:00",
         "resolution": "daily",
         "dataset": "climate_summary",
         "cloud_cover_total": 0.8625,
@@ -698,7 +698,7 @@ def test_values_dwd_sql_long(client: TestClient) -> None:
         "resolution": "daily",
         "dataset": "climate_summary",
         "parameter": "temperature_air_max_2m",
-        "date": "2019-12-28T00:00:00.000000+00:00",
+        "timestamp": "2019-12-28T00:00:00.000000+00:00",
         "value": 1.3,
         "quality": 10.0,
     }
@@ -724,7 +724,7 @@ def test_interpolate_dwd(client: TestClient) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-10-31T00:00:00.000000+00:00",
+            "timestamp": "1986-10-31T00:00:00.000000+00:00",
             "value": 6.64,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
@@ -734,7 +734,7 @@ def test_interpolate_dwd(client: TestClient) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-11-01T00:00:00.000000+00:00",
+            "timestamp": "1986-11-01T00:00:00.000000+00:00",
             "value": 8.7,
             "distance_mean": 0.0,
             "taken_station_ids": ["00071"],
@@ -763,7 +763,7 @@ def test_interpolate_dwd_lower_interpolation_distance(client: TestClient) -> Non
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-10-31T00:00:00.000000+00:00",
+            "timestamp": "1986-10-31T00:00:00.000000+00:00",
             "value": None,
             "distance_mean": None,
             "taken_station_ids": [],
@@ -773,7 +773,7 @@ def test_interpolate_dwd_lower_interpolation_distance(client: TestClient) -> Non
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-11-01T00:00:00.000000+00:00",
+            "timestamp": "1986-11-01T00:00:00.000000+00:00",
             "value": 8.7,
             "distance_mean": 0.0,
             "taken_station_ids": ["00071"],
@@ -802,7 +802,7 @@ def test_interpolate_dwd_dont_use_nearby_station(client: TestClient) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-10-31T00:00:00.000000+00:00",
+            "timestamp": "1986-10-31T00:00:00.000000+00:00",
             "value": 6.64,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
@@ -812,7 +812,7 @@ def test_interpolate_dwd_dont_use_nearby_station(client: TestClient) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-11-01T00:00:00.000000+00:00",
+            "timestamp": "1986-11-01T00:00:00.000000+00:00",
             "value": 8.7,
             "distance_mean": 11.33,
             "taken_station_ids": ["00071", "00072", "02074", "02638"],
@@ -844,7 +844,7 @@ def test_interpolate_dwd_custom_unit(client: TestClient) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-10-31T00:00:00.000000+00:00",
+            "timestamp": "1986-10-31T00:00:00.000000+00:00",
             "value": 43.96,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
@@ -854,7 +854,7 @@ def test_interpolate_dwd_custom_unit(client: TestClient) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-11-01T00:00:00.000000+00:00",
+            "timestamp": "1986-11-01T00:00:00.000000+00:00",
             "value": 47.66,
             "distance_mean": 0.0,
             "taken_station_ids": ["00071"],
@@ -1016,7 +1016,7 @@ def test_summarize_dwd(client: TestClient) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-10-31T00:00:00.000000+00:00",
+            "timestamp": "1986-10-31T00:00:00.000000+00:00",
             "value": 6.83,
             "distance": 6.97,
             "taken_station_id": "00072",
@@ -1026,7 +1026,7 @@ def test_summarize_dwd(client: TestClient) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-11-01T00:00:00.000000+00:00",
+            "timestamp": "1986-11-01T00:00:00.000000+00:00",
             "value": 8.7,
             "distance": 0.0,
             "taken_station_id": "00071",
@@ -1058,7 +1058,7 @@ def test_summarize_dwd_custom_unit(client: TestClient) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-10-31T00:00:00.000000+00:00",
+            "timestamp": "1986-10-31T00:00:00.000000+00:00",
             "value": 44.29,
             "distance": 6.97,
             "taken_station_id": "00072",
@@ -1068,7 +1068,7 @@ def test_summarize_dwd_custom_unit(client: TestClient) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-11-01T00:00:00.000000+00:00",
+            "timestamp": "1986-11-01T00:00:00.000000+00:00",
             "value": 47.66,
             "distance": 0.0,
             "taken_station_id": "00071",
@@ -1418,7 +1418,7 @@ def test_values_dwd_mosmix(client: TestClient) -> None:
         "resolution": "hourly",
         "dataset": "small",
         "parameter": "temperature_air_mean_2m",
-        "date": IsStr,
+        "timestamp": IsStr,
         "value": IsNumber,
         "quality": None,
     }
@@ -1444,7 +1444,7 @@ def test_values_dwd_dmo_lead_time_long(client: TestClient) -> None:
         "resolution": "hourly",
         "dataset": "icon",
         "parameter": "temperature_air_mean_2m",
-        "date": IsStr,
+        "timestamp": IsStr,
         "value": IsNumber,
         "quality": None,
     }
@@ -1474,7 +1474,7 @@ def test_values_dwd_observation_climate_summary_custom_units(client: TestClient)
         "resolution": "daily",
         "dataset": "climate_summary",
         "parameter": "temperature_air_mean_2m",
-        "date": "2022-01-01T00:00:00.000000+00:00",
+        "timestamp": "2022-01-01T00:00:00.000000+00:00",
         "value": 52.52,
         "quality": 10.0,
     }
@@ -1597,7 +1597,7 @@ def test_stripes_values_default(client: TestClient) -> None:
     assert data["metadata"]["dataset"] == "climate_summary"
     assert data["metadata"]["parameter"] == "temperature_air_mean_2m"
     assert len(data["values"]) > 0
-    assert all("date" in v and "value" in v for v in data["values"])
+    assert all("timestamp" in v and "value" in v for v in data["values"])
 
 
 @pytest.mark.remote
@@ -1630,7 +1630,7 @@ def test_stripes_values_csv_format(client: TestClient) -> None:
     )
     assert response.status_code == 200
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
-    assert b"date,value" in response.content
+    assert b"timestamp,value" in response.content
 
 
 @pytest.mark.remote

@@ -211,7 +211,7 @@ class EcccObservationValues(TimeseriesValues):
                 # all; both were unreachable while a request returned only a slice of the year
                 .dt.replace_time_zone(station_tz, ambiguous="earliest", non_existent="null")
                 .dt.convert_time_zone("UTC")
-                .alias("date"),
+                .alias("timestamp"),
                 "value",
                 pl.lit(None, dtype=pl.Float64).alias("quality"),
             )

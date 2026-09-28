@@ -33,7 +33,7 @@ _EMPTY_STATIONS_SCHEMA = {
 }
 
 _EMPTY_VALUES_SCHEMA = {
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
 }
@@ -99,11 +99,13 @@ def extract_ipma_station_observations(feed: dict, station_id: str) -> pl.DataFra
         if not record:
             continue
         for field in (*_VALUE_FIELDS, "idDireccVento"):
-            rows.append({"date": timestamp, "parameter": field, "value": _value(field, record.get(field))})
+            rows.append({"timestamp": timestamp, "parameter": field, "value": _value(field, record.get(field))})
     if not rows:
         return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-    return pl.DataFrame(rows, schema={"date": pl.String, "parameter": pl.String, "value": pl.Float64}).with_columns(
-        pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M", time_unit="us").dt.replace_time_zone("UTC"),
+    return pl.DataFrame(
+        rows, schema={"timestamp": pl.String, "parameter": pl.String, "value": pl.Float64}
+    ).with_columns(
+        pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M", time_unit="us").dt.replace_time_zone("UTC"),
     )
 
 

@@ -562,7 +562,7 @@ def test_radar_request_site_historic_pe_bufr_dataframe() -> None:
     df = result.df
     assert df.columns == [
         "station_id",
-        "date",
+        "timestamp",
         "latitude",
         "longitude",
         "elevation",
@@ -571,7 +571,7 @@ def test_radar_request_site_historic_pe_bufr_dataframe() -> None:
         "value",
     ]
     assert df.get_column("station_id").unique().to_list() == ["BOO"]
-    assert "UTC" in str(df.schema["date"])
+    assert "UTC" in str(df.schema["timestamp"])
     assert df.height > 0
     # a real echo-top grid has at least some non-null pixel values
     assert not df.drop_nulls("value").is_empty()

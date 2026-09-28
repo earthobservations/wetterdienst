@@ -186,7 +186,7 @@ def test_dwd_recent_data_result_long_single_parameter(
         "resolution",
         "dataset",
         "parameter",
-        "date",
+        "timestamp",
         "value",
         "quality",
     ]
@@ -196,7 +196,7 @@ def test_dwd_recent_data_result_long_single_parameter(
             "resolution": ["monthly"] * 3,
             "dataset": ["heating_degreedays"] * 3,
             "parameter": ["heating_degree_day"] * 3,
-            "date": [
+            "timestamp": [
                 datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2014, 9, 1, tzinfo=ZoneInfo("UTC")),
@@ -217,7 +217,7 @@ def test_dwd_recent_data_result_long_single_parameter(
             "resolution": pl.Enum(["monthly"]),
             "dataset": pl.Enum(["heating_degreedays"]),
             "parameter": pl.Enum(["heating_degree_day"]),
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
         },
@@ -250,7 +250,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
         "station_id",
         "resolution",
         "dataset",
-        "date",
+        "timestamp",
         "heating_degree_day",
         "qn_heating_degree_day",
     ]
@@ -259,7 +259,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
             "station_id": ["00044"] * 3,
             "resolution": ["monthly"] * 3,
             "dataset": ["heating_degreedays"] * 3,
-            "date": [
+            "timestamp": [
                 datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2014, 9, 1, tzinfo=ZoneInfo("UTC")),
@@ -279,7 +279,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
             "station_id": pl.Enum(["00044"]),
             "resolution": pl.Enum(["monthly"]),
             "dataset": pl.Enum(["heating_degreedays"]),
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "heating_degree_day": pl.Float64,
             "qn_heating_degree_day": pl.Float64,
         },
@@ -310,7 +310,7 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
         "resolution",
         "dataset",
         "parameter",
-        "date",
+        "timestamp",
         "value",
         "quality",
     ]
@@ -320,7 +320,7 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
             "resolution": ["monthly"] * 2,
             "dataset": ["heating_degreedays"] * 2,
             "parameter": ["heating_degree_day"] * 2,
-            "date": [
+            "timestamp": [
                 datetime.datetime(2023, 3, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2023, 5, 1, tzinfo=ZoneInfo("UTC")),
             ],
@@ -338,7 +338,7 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
             "resolution": pl.Enum(["monthly"]),
             "dataset": pl.Enum(["heating_degreedays"]),
             "parameter": pl.Enum(["heating_degree_day"]),
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
         },
@@ -369,7 +369,7 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
         "resolution",
         "dataset",
         "parameter",
-        "date",
+        "timestamp",
         "value",
         "quality",
     ]
@@ -379,7 +379,7 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
             "resolution": ["monthly"] * 2,
             "dataset": ["cooling_degreehours_13"] * 2,
             "parameter": ["cooling_degree_hour"] * 2,
-            "date": [
+            "timestamp": [
                 datetime.datetime(2014, 6, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
             ],
@@ -394,7 +394,7 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
             "resolution": pl.Enum(["monthly"]),
             "dataset": pl.Enum(["cooling_degreehours_13"]),
             "parameter": pl.Enum(["cooling_degree_hour"]),
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
         },
@@ -433,7 +433,7 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
         "resolution",
         "dataset",
         "parameter",
-        "date",
+        "timestamp",
         "value",
         "quality",
     ]
@@ -449,7 +449,7 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
                 "number_of_hours_per_month",
             ]
             * 2,
-            "date": [
+            "timestamp": [
                 datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
             ]
             * 8,
@@ -480,7 +480,7 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
                     "number_of_hours_per_month",
                 ]
             ),
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
         },
@@ -513,7 +513,7 @@ def test_dwd_recent_data_result_long_single_dataset(
         "resolution",
         "dataset",
         "parameter",
-        "date",
+        "timestamp",
         "value",
         "quality",
     ]
@@ -533,7 +533,7 @@ def test_dwd_recent_data_result_long_single_dataset(
                 "number_of_days_per_month",
                 "number_of_days_per_month",
             ],
-            "date": [
+            "timestamp": [
                 datetime.datetime(2014, 7, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2014, 9, 1, tzinfo=ZoneInfo("UTC")),
@@ -572,7 +572,7 @@ def test_dwd_recent_data_result_long_single_dataset(
             "resolution": pl.Enum(["monthly"]),
             "dataset": pl.Enum(["heating_degreedays"]),
             "parameter": pl.Enum(["count_days_heating_degree", "heating_degree_day", "number_of_days_per_month"]),
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
         },
@@ -611,7 +611,7 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
         "resolution",
         "dataset",
         "parameter",
-        "date",
+        "timestamp",
         "value",
         "quality",
     ]
@@ -621,7 +621,7 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
             "resolution": ["monthly"] * 7,
             "dataset": ["climate_correction_factor"] * 7,
             "parameter": ["climate_correction_factor"] * 7,
-            "date": [
+            "timestamp": [
                 datetime.datetime(2019, 9, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2019, 10, 1, tzinfo=ZoneInfo("UTC")),
                 datetime.datetime(2019, 11, 1, tzinfo=ZoneInfo("UTC")),
@@ -649,7 +649,7 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
             "resolution": pl.Enum(["monthly"]),
             "dataset": pl.Enum(["climate_correction_factor"]),
             "parameter": pl.Enum(["climate_correction_factor"]),
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
         },
@@ -676,7 +676,7 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
             "resolution": "monthly",
             "dataset": "soil",
             "parameter": "thawing_thickness_bare_max_month",
-            "date": datetime.datetime(2024, 5, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "timestamp": datetime.datetime(2024, 5, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 0.0,
             "quality": None,
         },
@@ -685,7 +685,7 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
             "resolution": "monthly",
             "dataset": "soil",
             "parameter": "thawing_thickness_bare_max_month",
-            "date": datetime.datetime(2024, 6, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "timestamp": datetime.datetime(2024, 6, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 0.0,
             "quality": None,
         },
@@ -694,7 +694,7 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
             "resolution": "monthly",
             "dataset": "soil",
             "parameter": "thawing_thickness_bare_max_month",
-            "date": datetime.datetime(2024, 7, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "timestamp": datetime.datetime(2024, 7, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 0.0,
             "quality": None,
         },
@@ -721,7 +721,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "resolution": "hourly",
             "dataset": "radiation_global",
             "parameter": "radiation_global",
-            "date": datetime.datetime(2024, 5, 5, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+            "timestamp": datetime.datetime(2024, 5, 5, 8, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 103.0,
             "quality": 503.0,
         },
@@ -730,7 +730,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "resolution": "hourly",
             "dataset": "radiation_global",
             "parameter": "radiation_global",
-            "date": datetime.datetime(2024, 5, 5, 9, 0, tzinfo=ZoneInfo(key="UTC")),
+            "timestamp": datetime.datetime(2024, 5, 5, 9, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 114.0,
             "quality": 503.0,
         },
@@ -739,7 +739,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "resolution": "hourly",
             "dataset": "radiation_global",
             "parameter": "radiation_global",
-            "date": datetime.datetime(2024, 5, 5, 10, 0, tzinfo=ZoneInfo(key="UTC")),
+            "timestamp": datetime.datetime(2024, 5, 5, 10, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 74.0,
             "quality": 503.0,
         },
@@ -748,7 +748,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "resolution": "hourly",
             "dataset": "radiation_global",
             "parameter": "radiation_global",
-            "date": datetime.datetime(2024, 5, 5, 11, 0, tzinfo=ZoneInfo(key="UTC")),
+            "timestamp": datetime.datetime(2024, 5, 5, 11, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 42.0,
             "quality": 503.0,
         },
@@ -757,7 +757,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "resolution": "hourly",
             "dataset": "radiation_global",
             "parameter": "radiation_global",
-            "date": datetime.datetime(2024, 5, 5, 12, 0, tzinfo=ZoneInfo(key="UTC")),
+            "timestamp": datetime.datetime(2024, 5, 5, 12, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 26.0,
             "quality": 503.0,
         },
@@ -766,7 +766,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "resolution": "hourly",
             "dataset": "radiation_global",
             "parameter": "radiation_global",
-            "date": datetime.datetime(2024, 5, 5, 13, 0, tzinfo=ZoneInfo(key="UTC")),
+            "timestamp": datetime.datetime(2024, 5, 5, 13, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 84.0,
             "quality": 503.0,
         },
@@ -982,7 +982,7 @@ def test_process_dataframe_to_expected_format(
             "resolution": ["monthly"],
             "dataset": ["heating_degreedays"],
             "parameter": ["Monatsgradtage"],
-            "date": [input_date],
+            "timestamp": [input_date],
             "value": [12.3],
             "quality": [
                 None,
@@ -992,7 +992,7 @@ def test_process_dataframe_to_expected_format(
             "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
         },

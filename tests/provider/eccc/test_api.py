@@ -63,7 +63,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "cooling_degree_day",
-                "date": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
                 "quality": None,
             },
@@ -72,7 +72,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "heating_degree_day",
-                "date": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 11.7,
                 "quality": None,
             },
@@ -81,7 +81,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "precipitation_height",
-                "date": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 1.0,
                 "quality": None,
             },
@@ -90,7 +90,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "precipitation_height_liquid",
-                "date": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 1.0,
                 "quality": None,
             },
@@ -99,7 +99,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "snow_depth_new",
-                "date": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
                 "quality": None,
             },
@@ -108,7 +108,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_max_2m",
-                "date": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 9.5,
                 "quality": None,
             },
@@ -117,7 +117,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_mean_2m",
-                "date": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 6.3,
                 "quality": None,
             },
@@ -126,7 +126,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_min_2m",
-                "date": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 3.0,
                 "quality": None,
             },
@@ -147,7 +147,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                     "temperature_air_min_2m",
                 ]
             ),
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
         },
@@ -199,7 +199,7 @@ def test_eccc_hourly_returns_data(settings_convert_units_false: Settings) -> Non
     assert "temperature_air_mean_2m" in values
     # June has 720 hours; a single unpaged request returns 500 features for the whole *year*, so
     # truncation shows up here as a couple of dozen timestamps rather than a few hundred
-    assert df.get_column("date").unique().len() > 500
+    assert df.get_column("timestamp").unique().len() > 500
     # kPa, not hPa -- an hPa reading would be around 988
     pressure = df.filter(pl.col("parameter") == "pressure_air_site").get_column("value").drop_nulls()
     assert 80 < pressure.max() < 110
@@ -226,5 +226,5 @@ def test_eccc_monthly_returns_data(settings_convert_units_false: Settings) -> No
     assert not df.is_empty()
     assert "temperature_air_mean_2m" in df.get_column("parameter").unique().to_list()
     # one row per month over the two years requested, so the year-month date parsed
-    dates = df.get_column("date").unique()
+    dates = df.get_column("timestamp").unique()
     assert dates.len() == 24

@@ -214,7 +214,7 @@ _RANKED_KEY = re.compile(r"^#(\d+)#(.+)$")
 #: returned in it and still concatenate with the files that hold something
 _PARSED_SCHEMA = {
     "station_id": pl.String,
-    "date": pl.Datetime(time_zone="UTC"),
+    "timestamp": pl.Datetime(time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
     "quality": pl.Float64,
@@ -453,8 +453,8 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
         # memory against 2.06, and 4.2 seconds against 0.83. `airTemperature` is one of the three,
         # so the air the melting exemption reads survives the narrowing
         df.filter(pl.col("parameter").is_in(_STUCK_PARAMETERS) & pl.col("value").is_not_null())
-        .unique(subset=[*keys, "date"], keep="first")
-        .sort(*keys, "date")
+        .unique(subset=[*keys, "timestamp"], keep="first")
+        .sort(*keys, "timestamp")
     )
     # the station's air beside each reading, because the question is whether ice could be melting
     # at that minute. Asked of a whole run, or worse of the whole request, one cold hour at the end
@@ -462,22 +462,22 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
     # depending on how much of the year the caller asked for
     air = readings.filter(pl.col("parameter").eq("airTemperature")).select(
         "station_id",
-        "date",
+        "timestamp",
         pl.col("value").alias("_air"),
     )
     marked = (
-        readings.join(air, on=["station_id", "date"], how="left")
+        readings.join(air, on=["station_id", "timestamp"], how="left")
         # sorted after the join and not only before it: the run below reads each row against the
         # one before it, and `join` promises nothing about the order it returns. Left unsorted, a
         # reordering would put a negative interval among the gaps and so drag their median under
         # every ordinary one, ending a run at every reading and answering that nothing had stopped
-        .sort(*keys, "date")
+        .sort(*keys, "timestamp")
         .with_columns(
             # a run breaks where the value changes and where the readings stop for longer than
             # this station usually leaves between them: a gap is not evidence that the sensor held
             # still across it, and the hole ends the run and nothing more -- a sensor stopped on
             # both sides of one is still stopped on both sides of it
-            _gap=pl.col("date").diff().over(keys),
+            _gap=pl.col("timestamp").diff().over(keys),
         )
         .with_columns(
             _run=(
@@ -489,7 +489,7 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
         )
         .with_columns(
             _stuck=pl.len().over(*keys, "_run").ge(_STUCK_RUN)
-            & (pl.col("date").max().over(*keys, "_run") - pl.col("date").min().over(*keys, "_run")).ge(
+            & (pl.col("timestamp").max().over(*keys, "_run") - pl.col("timestamp").min().over(*keys, "_run")).ge(
                 _STUCK_MIN_SPAN,
             ),
         )
@@ -515,7 +515,7 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
         # the value too, so the verdict stays with the reading it was reached from. A station-minute
         # arriving twice is judged from the first copy, and joining on the minute alone marked the
         # second as well -- including one holding a value that had moved and belonged to no run
-        .select("station_id", "parameter", "date", "value", "_stuck")
+        .select("station_id", "parameter", "timestamp", "value", "_stuck")
     )
     if marked.is_empty():
         return df
@@ -532,7 +532,7 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
     # answered for both rows and gains none
     return (
         df.with_row_index("_row")
-        .join(marked, on=["station_id", "parameter", "date", "value"], how="left")
+        .join(marked, on=["station_id", "parameter", "timestamp", "value"], how="left")
         .sort("_row")
         # and only where there is a reading to judge, as the parse itself does: a station-minute
         # arriving twice, once with the reading and once with a null for this descriptor, would
@@ -736,7 +736,7 @@ def _one_row_per_reading(rows: pl.DataFrame, source: str) -> pl.DataFrame:
     Asked with a count rather than answered with a fold, the fold being the per-file cost this
     parse was rewritten to drop and a repeat being something no published file has yet done.
     """
-    keys = ["station_id", "date"]
+    keys = ["station_id", "timestamp"]
     if rows.height == rows.select(keys).n_unique():
         return rows
     log.warning(
@@ -843,7 +843,7 @@ class DwdRoadValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             "parameter",
             "station_id",
-            "date",
+            "timestamp",
             "value",
             "quality",
         )
@@ -877,7 +877,7 @@ class DwdRoadValues(TimeseriesValues):
                 # counts as a file, rather than a crash for one kind of not-a-file and a drop for the
                 # other
                 .str.to_datetime("%y%m%d%H%M", time_zone="UTC", strict=False)
-                .alias("date"),
+                .alias("timestamp"),
             )
         )
         # what is dropped below and expected to be: the listing of a group that exists and holds
@@ -887,7 +887,7 @@ class DwdRoadValues(TimeseriesValues):
         # under `DWFN` and `DWNB`. Left in, either is downloaded and handed to the reader as
         # though it were a file
         expected = pl.col("name").is_in(["", road_weather_station_group.value]) | pl.col("name").str.contains("LATEST")
-        unreadable = df.filter(pl.col("date").is_null() & ~expected).get_column("name").to_list()
+        unreadable = df.filter(pl.col("timestamp").is_null() & ~expected).get_column("name").to_list()
         if unreadable:
             # a name the index cannot read, which is asked of every listing rather than only of one
             # that came back empty: a group publishing under two families loses half its readings
@@ -898,7 +898,7 @@ class DwdRoadValues(TimeseriesValues):
                 f"{road_weather_station_group.value} carry no timestamp the file index reads "
                 f"({', '.join(sorted(unreadable)[:3])}); the file names may have changed",
             )
-        df = df.drop_nulls("date")
+        df = df.drop_nulls("timestamp")
         if df.is_empty():
             log.info(f"No files found for {road_weather_station_group.value}.")
             if road_weather_station_group in TEMPORARILY_UNAVAILABLE_STATION_GROUPS:
@@ -944,7 +944,7 @@ class DwdRoadValues(TimeseriesValues):
         df_files = self._create_file_index_for_dwd_road_weather_station(road_weather_station_group)
         if self.sr.start_date:
             df_files = df_files.filter(
-                pl.col("date").is_between(self.sr.start_date, self.sr.end_date),
+                pl.col("timestamp").is_between(self.sr.start_date, self.sr.end_date),
             )
         remote_files = df_files.get_column("filename").to_list()
         files = download_files(
@@ -1098,7 +1098,7 @@ class DwdRoadValues(TimeseriesValues):
                     ],
                 )
                 .str.to_datetime("%Y%m%d%H%M", time_zone="UTC")
-                .alias("date"),
+                .alias("timestamp"),
                 # the station's verdict on its own sensors, carried through the unpivot so that
                 # each reading can be told apart from the others it was reported beside. Outside
                 # the sensor replication, so one per station and minute however many sensors it has
@@ -1111,12 +1111,12 @@ class DwdRoadValues(TimeseriesValues):
             # what the read no longer filters: required of nothing but its own structure, a subset
             # that names no station or no minute arrives like any other, and there is nowhere to
             # put a reading that does not say where or when it was taken
-            .filter(pl.col("station_id").is_not_null() & pl.col("date").is_not_null())
+            .filter(pl.col("station_id").is_not_null() & pl.col("timestamp").is_not_null())
         )
         return (
             _one_row_per_reading(rows, file.url)
             .unpivot(
-                index=["station_id", "date", "_flag"],
+                index=["station_id", "timestamp", "_flag"],
                 variable_name="parameter",
                 value_name="value",
             )

@@ -138,4 +138,4 @@ def test_meteofrance_observation_api_6_minutes() -> None:
     assert not df.is_empty()
     # 6-minute intervals within a day: exercise that the date column parses to real, distinct
     # timestamps rather than e.g. all collapsing to midnight
-    assert df.get_column("date").n_unique() > 1
+    assert df.get_column("timestamp").n_unique() > 1

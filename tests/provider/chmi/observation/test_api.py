@@ -51,12 +51,12 @@ def test_parse_chmi_values_daily_selects_timefunc_and_truncates() -> None:
     )
     df = parse_chmi_values_daily(content, element="T", timefunc="AVG")
     assert df.to_dicts() == [
-        {"date": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": -3.0},
-        {"date": dt.datetime(2020, 1, 2, tzinfo=UTC), "parameter": "T", "value": -2.0},
+        {"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": -3.0},
+        {"timestamp": dt.datetime(2020, 1, 2, tzinfo=UTC), "parameter": "T", "value": -2.0},
     ]
     # a 20:00-term reading is truncated back to the calendar day (not kept at 20:00)
     df_max = parse_chmi_values_daily(content, element="T", timefunc="20:00")
-    assert df_max.to_dicts() == [{"date": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": -1.0}]
+    assert df_max.to_dicts() == [{"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": -1.0}]
 
 
 def test_parse_chmi_values_subdaily_keeps_native_timestamp() -> None:
@@ -68,8 +68,8 @@ def test_parse_chmi_values_subdaily_keeps_native_timestamp() -> None:
     )
     df = parse_chmi_values_subdaily(content, element="T")
     assert df.to_dicts() == [
-        {"date": dt.datetime(2020, 1, 1, 0, 0, tzinfo=UTC), "parameter": "T", "value": -2.8},
-        {"date": dt.datetime(2020, 1, 1, 0, 10, tzinfo=UTC), "parameter": "T", "value": -2.7},
+        {"timestamp": dt.datetime(2020, 1, 1, 0, 0, tzinfo=UTC), "parameter": "T", "value": -2.8},
+        {"timestamp": dt.datetime(2020, 1, 1, 0, 10, tzinfo=UTC), "parameter": "T", "value": -2.7},
     ]
 
 
@@ -82,7 +82,7 @@ def test_parse_chmi_values_aggregate_pins_both_functions() -> None:
         b"0-X,T,2020,1,AVG,MIN,-9.0,,,\n"
     )
     df = parse_chmi_values_aggregate(monthly, element="T", timefunc="AVG", mdfunc="AVG", has_month=True)
-    assert df.to_dicts() == [{"date": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": 1.1}]
+    assert df.to_dicts() == [{"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": 1.1}]
 
     # precipitation must select the SUM (monthly total), not another MDFUNCTION
     precip = (
@@ -91,7 +91,9 @@ def test_parse_chmi_values_aggregate_pins_both_functions() -> None:
         b"0-X,SRA,2020,1,06:00,MAX,7.0,,,\n"
     )
     df_precip = parse_chmi_values_aggregate(precip, element="SRA", timefunc="06:00", mdfunc="SUM", has_month=True)
-    assert df_precip.to_dicts() == [{"date": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "SRA", "value": 21.3}]
+    assert df_precip.to_dicts() == [
+        {"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "SRA", "value": 21.3}
+    ]
 
 
 def test_parse_chmi_values_aggregate_annual_has_no_month() -> None:
@@ -100,7 +102,7 @@ def test_parse_chmi_values_aggregate_annual_has_no_month() -> None:
         b"STATION,ELEMENT,YEAR,TIMEFUNCTION,MDFUNCTION,VALUE,FLAG_REPEAT,FLAG_INTERRUPTED,\n0-X,T,2018,AVG,AVG,9.7,,,\n"
     )
     df = parse_chmi_values_aggregate(annual, element="T", timefunc="AVG", mdfunc="AVG", has_month=False)
-    assert df.to_dicts() == [{"date": dt.datetime(2018, 1, 1, tzinfo=UTC), "parameter": "T", "value": 9.7}]
+    assert df.to_dicts() == [{"timestamp": dt.datetime(2018, 1, 1, tzinfo=UTC), "parameter": "T", "value": 9.7}]
 
 
 # CHMI's open-data portal is a live third-party service; xfail rather than a hard failure keeps a
@@ -122,7 +124,7 @@ def _values(resolution: str, start: dt.datetime, end: dt.datetime) -> pl.DataFra
 
 
 def _value_of(df: pl.DataFrame, parameter: str, date: dt.datetime) -> float:
-    return df.filter(pl.col("parameter").eq(parameter), pl.col("date").eq(date)).get_column("value").item()
+    return df.filter(pl.col("parameter").eq(parameter), pl.col("timestamp").eq(date)).get_column("value").item()
 
 
 @pytest.mark.remote

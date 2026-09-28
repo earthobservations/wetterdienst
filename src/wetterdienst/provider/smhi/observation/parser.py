@@ -8,7 +8,7 @@ import io
 
 import polars as pl
 
-_EMPTY_PARSED_SCHEMA = {"date": pl.Datetime(time_unit="us", time_zone="UTC"), "value": pl.String}
+_EMPTY_PARSED_SCHEMA = {"timestamp": pl.Datetime(time_unit="us", time_zone="UTC"), "value": pl.String}
 
 
 def parse_smhi_csv(text: str) -> pl.DataFrame:
@@ -25,7 +25,7 @@ def parse_smhi_csv(text: str) -> pl.DataFrame:
 
     This locates the actual data header row (identified by its "Kvalitet" column,
     present in every resolution) and extracts just the date and value columns, ignoring
-    everything else, returning "date" already parsed to a UTC datetime.
+    everything else, returning "timestamp" already parsed to a UTC datetime.
     """
     lines = text.splitlines()
     # match "Kvalitet" as an exact column (after splitting on ";"), not a substring: data rows
@@ -65,7 +65,7 @@ def parse_smhi_csv(text: str) -> pl.DataFrame:
         return pl.DataFrame(schema=_EMPTY_PARSED_SCHEMA)
 
     return (
-        df.select(date_expr.alias("date"), pl.col(value_column).alias("value"))
-        .filter(pl.col("date").is_not_null())
-        .with_columns(pl.col("date").dt.replace_time_zone("UTC"))
+        df.select(date_expr.alias("timestamp"), pl.col(value_column).alias("value"))
+        .filter(pl.col("timestamp").is_not_null())
+        .with_columns(pl.col("timestamp").dt.replace_time_zone("UTC"))
     )

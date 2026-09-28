@@ -237,14 +237,14 @@ def test_collect_reshapes_wide_features_to_long_utc_values() -> None:
     values._iter_value_pages = lambda *_args, **_kwargs: iter([wide])  # noqa: SLF001
 
     df = values._collect_station_parameter_or_dataset(UCCLE, dataset)  # noqa: SLF001
-    assert df.columns == ["resolution", "dataset", "parameter", "station_id", "date", "value", "quality"]
+    assert df.columns == ["resolution", "dataset", "parameter", "station_id", "timestamp", "value", "quality"]
     assert df.get_column("resolution").unique().to_list() == ["hourly"]
     assert df.get_column("station_id").unique().to_list() == [UCCLE]
     assert set(df.get_column("parameter").unique().to_list()) == set(names)
     # two timestamps x every parameter, none dropped (all non-null)
     assert df.height == 2 * len(names)
-    assert str(df.schema["date"]).find("UTC") != -1
-    assert df.get_column("date").min() == dt.datetime(2023, 6, 1, tzinfo=UTC)
+    assert str(df.schema["timestamp"]).find("UTC") != -1
+    assert df.get_column("timestamp").min() == dt.datetime(2023, 6, 1, tzinfo=UTC)
     # qc_flags validation maps to the quality code: validated -> 1.0, not validated -> 0.0
     quality_by_parameter = dict(df.select("parameter", "quality").unique().iter_rows())
     assert quality_by_parameter[names[0]] == 1.0
@@ -276,10 +276,10 @@ def test_rmi_observation_values_hourly_utc() -> None:
         end_date=dt.datetime(2023, 6, 1, 5, tzinfo=UTC),
     ).filter_by_station_id([UCCLE])
     values = request.values.all().df
-    dates = values.get_column("date").sort().to_list()
+    dates = values.get_column("timestamp").sort().to_list()
     assert dates[0] == dt.datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
     assert dates[-1] == dt.datetime(2023, 6, 1, 5, 0, tzinfo=UTC)
-    assert "UTC" in str(values.schema["date"])
+    assert "UTC" in str(values.schema["timestamp"])
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -292,10 +292,10 @@ def test_rmi_observation_values_daily() -> None:
         end_date=dt.datetime(2023, 6, 5, tzinfo=UTC),
     ).filter_by_station_id([UCCLE])
     values = request.values.all().df
-    dates = values.get_column("date").sort().to_list()
+    dates = values.get_column("timestamp").sort().to_list()
     assert dates[0] == dt.datetime(2023, 6, 1, tzinfo=UTC)
     assert dates[-1] == dt.datetime(2023, 6, 5, tzinfo=UTC)
-    assert values.get_column("date").dt.hour().unique().to_list() == [0]
+    assert values.get_column("timestamp").dt.hour().unique().to_list() == [0]
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -308,7 +308,7 @@ def test_rmi_observation_values_10_minutes() -> None:
         end_date=dt.datetime(2023, 6, 1, 0, 50, tzinfo=UTC),
     ).filter_by_station_id([UCCLE])
     values = request.values.all().df
-    assert values.get_column("date").min() == dt.datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
+    assert values.get_column("timestamp").min() == dt.datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
     assert not values.drop_nulls(subset="value").is_empty()
 
 

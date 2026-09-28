@@ -83,8 +83,8 @@ their datasets do not have is an error, not a narrower answer.
 hourly/air_temperature, hourly/precipitation.
 
 ## Reading results
-- `values` returns JSON with a `values` array of {station_id, parameter, date, value}, sorted by \
-date. The MOST RECENT value for a parameter is the LAST item with that parameter name.
+- `values` returns JSON with a `values` array of {station_id, parameter, timestamp, value}, sorted \
+by timestamp. The MOST RECENT value for a parameter is the LAST item with that parameter name.
 - Responses are compact by default (just the `values`). Keep them small (and answer in fewer calls) \
 by querying a single "resolution/dataset/parameter" and -- if you only need one day -- a \
 `date` (e.g. date="2026-07-25"; a station's most recent day is its `end_date` from `stations`). A \
@@ -98,7 +98,7 @@ format (csv/wide/pretty) or with unrelated flags; that just wastes calls.
     -> station_id "01975"
   values(provider="dwd", network="observation",
          parameters="daily/climate_summary/temperature_air_mean_2m", station="01975", periods="recent")
-    -> last item ≈ {"date": "2026-07-25", "value": 19.2}  (i.e. 19.2 °C)
+    -> last item ≈ {"timestamp": "2026-07-25", "value": 19.2}  (i.e. 19.2 °C)
 """
 
 # Non-data endpoints that only add noise to an agent's tool list.

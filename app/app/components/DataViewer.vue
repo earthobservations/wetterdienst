@@ -253,7 +253,7 @@ const columnDefinitions: { key: keyof Value, column: TableColumn<Value> }[] = [
   { key: 'resolution', column: { accessorKey: 'resolution', header: 'resolution' } },
   { key: 'dataset', column: { accessorKey: 'dataset', header: 'dataset' } },
   { key: 'parameter', column: { accessorKey: 'parameter', header: 'parameter' } },
-  { key: 'date', column: { accessorKey: 'date', header: 'date', cell: ({ row }) => formatDate(row.original.date) } },
+  { key: 'timestamp', column: { accessorKey: 'timestamp', header: 'timestamp', cell: ({ row }) => formatDate(row.original.timestamp) } },
   { key: 'value', column: { accessorKey: 'value', header: 'value' } },
   { key: 'quality', column: { accessorKey: 'quality', header: 'quality' } },
   { key: 'taken_station_id', column: { accessorKey: 'taken_station_id', header: 'taken_station_id' } },
@@ -323,7 +323,7 @@ watch(allValues, () => {
 
 // Column options based on mode - only show mode-specific columns when in that mode
 const columnOptions = computed(() => {
-  const base: (keyof Value)[] = ['station_id', 'resolution', 'dataset', 'parameter', 'date', 'value', 'quality']
+  const base: (keyof Value)[] = ['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality']
   if (isSummaryMode.value) {
     return [...base, 'taken_station_id']
   }
@@ -335,7 +335,7 @@ const columnOptions = computed(() => {
 
 // Default columns based on mode
 const defaultColumns = computed((): (keyof Value)[] => {
-  const base: (keyof Value)[] = ['station_id', 'parameter', 'date', 'value', 'quality']
+  const base: (keyof Value)[] = ['station_id', 'parameter', 'timestamp', 'value', 'quality']
   if (isSummaryMode.value) {
     return [...base, 'taken_station_id']
   }
@@ -644,7 +644,7 @@ const chartTraces = computed(() => {
 
     if (value.value !== null && value.value !== undefined) {
       const series = seriesMap.get(seriesKey)!
-      series.x.push(new Date(value.date))
+      series.x.push(new Date(value.timestamp))
       series.y.push(value.value)
     }
   }
@@ -735,7 +735,7 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
 
     if (value.value !== null && value.value !== undefined) {
       const series = stationMap.get(stationKey)!
-      series.x.push(new Date(value.date))
+      series.x.push(new Date(value.timestamp))
       series.y.push(value.value)
     }
   }

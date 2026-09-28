@@ -835,7 +835,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
             # using an exact, case-sensitive comparison against parameter.name_original
             pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            _parse_climate_date(pl.col(date_column), resolution_name).alias("date"),
+            _parse_climate_date(pl.col(date_column), resolution_name).alias("timestamp"),
             pl.col("value").cast(pl.Float64, strict=False),
             pl.lit(None, pl.Float64).alias("quality"),
         )

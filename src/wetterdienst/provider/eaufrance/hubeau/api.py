@@ -183,7 +183,7 @@ def _modal_steps(df: pl.DataFrame) -> pl.DataFrame:
     """Reduce observation timestamps to one interval per station.
 
     Args:
-        df: Frame of ``station_id`` and ``date``, one row per observation.
+        df: Frame of ``station_id`` and ``timestamp``, one row per observation.
 
     Returns:
         Frame of ``station_id`` and ``step``, the station's modal interval in minutes.
@@ -191,12 +191,12 @@ def _modal_steps(df: pl.DataFrame) -> pl.DataFrame:
     """
     if df.is_empty():
         return pl.DataFrame(schema={"station_id": pl.String, "step": pl.Int64})
-    df = df.unique(subset=["station_id", "date"]).sort("station_id", "date")
+    df = df.unique(subset=["station_id", "timestamp"]).sort("station_id", "timestamp")
     # rounded to the nearest minute rather than truncated: a gauge whose transmissions drift by
     # seconds spaces them 4 m 55 s apart as readily as 5 m 00 s, and truncation would call that a
     # four-minute station -- an interval no resolution covers, which drops it from the list
     df = df.with_columns(
-        (pl.col("date").diff().over("station_id").dt.total_seconds() / 60).round().cast(pl.Int64).alias("step"),
+        (pl.col("timestamp").diff().over("station_id").dt.total_seconds() / 60).round().cast(pl.Int64).alias("step"),
     )
     # a null step is a station's first observation, which spans nothing; a zero step would be two
     # records at one timestamp, which `unique` above has already ruled out
@@ -312,7 +312,7 @@ class HubeauValues(TimeseriesValues):
         df = df.rename(
             mapping={
                 "code_station": "station_id",
-                "date_obs": "date",
+                "date_obs": "timestamp",
                 "resultat_obs": "value",
                 "code_qualification_obs": "quality",
             },
@@ -325,7 +325,7 @@ class HubeauValues(TimeseriesValues):
             # Hubeau silently never humanized and every station counted as having no data
             pl.lit(parameter_or_dataset.name_original).alias("parameter"),
             "station_id",
-            pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%SZ").dt.replace_time_zone("UTC"),
+            pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%SZ").dt.replace_time_zone("UTC"),
             "value",
             "quality",
         )
@@ -344,7 +344,7 @@ class HubeauRequest(TimeseriesRequest):
         """Read the timestamps one observations query carries.
 
         Returns:
-            Frame of ``station_id`` and ``date``, one row per observation.
+            Frame of ``station_id`` and ``timestamp``, one row per observation.
 
         """
         from typing import cast  # noqa: PLC0415
@@ -352,11 +352,11 @@ class HubeauRequest(TimeseriesRequest):
         settings = cast("Settings", self.settings)
         rows = _paged_rows(url, settings, ttl=CacheExpiry.METAINDEX, timeout=_SNIFF_TIMEOUT)
         if not rows:
-            return pl.DataFrame(schema={"station_id": pl.String, "date": pl.Datetime(time_unit="us")})
+            return pl.DataFrame(schema={"station_id": pl.String, "timestamp": pl.Datetime(time_unit="us")})
         df = pl.from_dicts(rows, schema={"code_station": pl.String, "date_obs": pl.String})
         return df.select(
             pl.col("code_station").alias("station_id"),
-            pl.col("date_obs").str.to_datetime(format="%Y-%m-%dT%H:%M:%SZ").alias("date"),
+            pl.col("date_obs").str.to_datetime(format="%Y-%m-%dT%H:%M:%SZ").alias("timestamp"),
         )
 
     def _station_steps(self, station_ids: list[str]) -> pl.DataFrame:

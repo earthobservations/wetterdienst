@@ -40,7 +40,7 @@ def test_cli_interpolate_no_metadata_no_stations() -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-10-31T00:00:00.000000+00:00",
+            "timestamp": "1986-10-31T00:00:00.000000+00:00",
             "value": 6.64,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
@@ -50,7 +50,7 @@ def test_cli_interpolate_no_metadata_no_stations() -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-11-01T00:00:00.000000+00:00",
+            "timestamp": "1986-11-01T00:00:00.000000+00:00",
             "value": 8.7,
             "distance_mean": 0.0,
             "taken_station_ids": ["00071"],
@@ -242,7 +242,7 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
                         "resolution": "daily",
                         "dataset": "climate_summary",
                         "parameter": "temperature_air_mean_2m",
-                        "date": "1986-10-31T00:00:00.000000+00:00",
+                        "timestamp": "1986-10-31T00:00:00.000000+00:00",
                         "value": 6.64,
                         "distance_mean": 16.99,
                         "taken_station_ids": ["00072", "02074", "02638", "04703"],
@@ -252,7 +252,7 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
                         "resolution": "daily",
                         "dataset": "climate_summary",
                         "parameter": "temperature_air_mean_2m",
-                        "date": "1986-11-01T00:00:00.000000+00:00",
+                        "timestamp": "1986-11-01T00:00:00.000000+00:00",
                         "value": 8.7,
                         "distance_mean": 0.0,
                         "taken_station_ids": ["00071"],
@@ -292,7 +292,7 @@ def test_cli_interpolate_interpolation_station_distance() -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-10-31T00:00:00.000000+00:00",
+            "timestamp": "1986-10-31T00:00:00.000000+00:00",
             "value": None,
             "distance_mean": None,
             "taken_station_ids": [],
@@ -302,7 +302,7 @@ def test_cli_interpolate_interpolation_station_distance() -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-11-01T00:00:00.000000+00:00",
+            "timestamp": "1986-11-01T00:00:00.000000+00:00",
             "value": 8.7,
             "distance_mean": 0.0,
             "taken_station_ids": ["00071"],
@@ -339,7 +339,7 @@ def test_cli_interpolate_dont_use_nearby_station() -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-10-31T00:00:00.000000+00:00",
+            "timestamp": "1986-10-31T00:00:00.000000+00:00",
             "value": 6.64,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
@@ -349,7 +349,7 @@ def test_cli_interpolate_dont_use_nearby_station() -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-11-01T00:00:00.000000+00:00",
+            "timestamp": "1986-11-01T00:00:00.000000+00:00",
             "value": 8.7,
             "distance_mean": 11.33,
             "taken_station_ids": ["00071", "00072", "02074", "02638"],
@@ -386,7 +386,7 @@ def test_cli_interpolate_custom_units() -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-10-31T00:00:00.000000+00:00",
+            "timestamp": "1986-10-31T00:00:00.000000+00:00",
             "value": 43.96,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
@@ -396,7 +396,7 @@ def test_cli_interpolate_custom_units() -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
-            "date": "1986-11-01T00:00:00.000000+00:00",
+            "timestamp": "1986-11-01T00:00:00.000000+00:00",
             "value": 47.66,
             "distance_mean": 0.0,
             "taken_station_ids": ["00071"],
@@ -494,7 +494,7 @@ def test_cli_interpolate_start_date_end_date() -> None:
     if result.exit_code != 0:
         raise ChildProcessError(result.output)
     response = json.loads(result.stdout)
-    dates = [v["date"][:10] for v in response["values"]]
+    dates = [v["timestamp"][:10] for v in response["values"]]
     assert "1986-10-31" in dates
     assert "1986-11-01" in dates
 
@@ -520,7 +520,7 @@ def test_cli_interpolate_end_date_only() -> None:
     if result.exit_code != 0:
         raise ChildProcessError(result.output)
     response = json.loads(result.stdout)
-    assert response["values"][0]["date"].startswith("1986-11-01")
+    assert response["values"][0]["timestamp"].startswith("1986-11-01")
 
 
 def test_cli_interpolate_negative_radius() -> None:

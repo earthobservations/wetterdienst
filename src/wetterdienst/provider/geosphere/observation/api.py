@@ -123,7 +123,7 @@ class GeosphereObservationValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            series_timestamps.alias("date").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
+            series_timestamps.alias("timestamp").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
             pl.col("value"),
             pl.lit(None, pl.Float64).alias("quality"),
         )

@@ -135,7 +135,7 @@ def _encode_true_local_time_offset(series: pl.Series) -> pl.Series:
 
 COLUMNS_MAPPING = {
     "stations_id": "station_id",
-    "mess_datum": "date",
+    "mess_datum": "timestamp",
     "stationshoehe": "elevation",
     "geobreite": "latitude",
     "geogr.breite": "latitude",
@@ -144,7 +144,7 @@ COLUMNS_MAPPING = {
     # those two are only used in the historical 1 minute precipitation data
     # we keep start_date and end_date as it is internally named date
     # after exploding the date ranges
-    "mess_datum_beginn": "date",
+    "mess_datum_beginn": "timestamp",
     "mess_datum_ende": "end_date",
 }
 
@@ -161,7 +161,7 @@ def parse_climate_observations_data(
             return pl.LazyFrame()
         try:
             df1, df2 = data
-            df = df1.join(df2, on=["station_id", "date"], how="full", coalesce=True)
+            df = df1.join(df2, on=["station_id", "timestamp"], how="full", coalesce=True)
             return df.lazy()
         except ValueError:
             return data[0]
@@ -244,7 +244,7 @@ def _parse_climate_observations_data(  # noqa: C901
         # @nkiessling proposed to round the timestamps to the nearest hour
         # Until further discussion, we will apply this rounding
         df = df.with_columns(
-            pl.col("date")
+            pl.col("timestamp")
             .str.to_datetime("%Y%m%d%H:%M", time_zone="UTC")
             .dt.round(dt.timedelta(hours=1))
             .dt.strftime("%Y%m%d%H%M")
@@ -261,9 +261,9 @@ def _parse_climate_observations_data(  # noqa: C901
     if dataset.resolution.value in (Resolution.MONTHLY, Resolution.ANNUAL):
         df = df.drop("end_date")
     # prepare date column
-    df = df.with_columns(pl.col("date").cast(pl.String).str.pad_end(12, "0"))
+    df = df.with_columns(pl.col("timestamp").cast(pl.String).str.pad_end(12, "0"))
     return df.with_columns(
-        pl.col("date").str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),
+        pl.col("timestamp").str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),
     )
 
 
@@ -274,16 +274,16 @@ def _transform_minute_1_precipitation_historical(df: pl.LazyFrame) -> pl.LazyFra
     This function transforms the data into a format where each minute of the event is represented by a row.
     """
     df = df.with_columns(
-        pl.col("date").cast(str).str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),
+        pl.col("timestamp").cast(str).str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),
         pl.col("end_date").cast(str).str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),
     )
     df = df.with_columns(
-        pl.datetime_ranges(pl.col("date"), pl.col("end_date"), interval="1m").alias(
-            "date",
+        pl.datetime_ranges(pl.col("timestamp"), pl.col("end_date"), interval="1m").alias(
+            "timestamp",
         ),
     )
     df = df.drop(
         "end_date",
     )
     # Expand dataframe over calculated date ranges -> one datetime per row
-    return df.explode("date", empty_as_null=True)
+    return df.explode("timestamp", empty_as_null=True)

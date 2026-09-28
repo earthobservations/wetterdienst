@@ -34,7 +34,7 @@ const isValidating = ref(false)
 
 // Required columns based on mode
 const requiredColumns = computed(() => {
-  const base = ['station_id', 'resolution', 'dataset', 'parameter', 'date', 'value', 'quality']
+  const base = ['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality']
   if (props.mode === 'summary') {
     return [...base, 'taken_station_id']
   }
@@ -56,8 +56,8 @@ const exampleQueries = computed(() => {
       query: 'SELECT * FROM data WHERE parameter = \'temperature_air_mean_2m\' LIMIT 100',
     },
     {
-      label: 'Aggregate by date',
-      query: 'SELECT date, parameter, AVG(value) as avg_value FROM data GROUP BY date, parameter ORDER BY date LIMIT 100',
+      label: 'Aggregate by timestamp',
+      query: 'SELECT timestamp, parameter, AVG(value) as avg_value FROM data GROUP BY timestamp, parameter ORDER BY timestamp LIMIT 100',
     },
     {
       label: 'Filter by value range',
@@ -65,7 +65,7 @@ const exampleQueries = computed(() => {
     },
     {
       label: 'Recent data only',
-      query: 'SELECT * FROM data ORDER BY date DESC LIMIT 100',
+      query: 'SELECT * FROM data ORDER BY timestamp DESC LIMIT 100',
     },
   ]
 

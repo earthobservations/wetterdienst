@@ -178,7 +178,7 @@ def test_cli_values_json_wide(setting: list) -> None:
     response = json.loads(result.stdout)
     station_ids = {reading["station_id"] for reading in response["values"]}
     assert station_id in station_ids
-    default_columns = {"station_id", "dataset", "date"}
+    default_columns = {"station_id", "dataset", "timestamp"}
     first = response["values"][0]
     assert default_columns.issubset(first.keys())
     assert set(first.keys()) - default_columns
@@ -222,7 +222,7 @@ def test_cli_values_json_multiple_datasets() -> None:
         "resolution": "daily",
         "dataset": "climate_summary",
         "parameter": "wind_gust_max",
-        "date": "2020-06-30T00:00:00.000000+00:00",
+        "timestamp": "2020-06-30T00:00:00.000000+00:00",
         "value": 15.3,
         "quality": 10.0,
     }
@@ -251,7 +251,7 @@ def test_cli_values_json(
     assert set(first.keys()).issuperset(
         {
             "station_id",
-            "date",
+            "timestamp",
             "parameter",
             "value",
             "quality",
@@ -564,7 +564,7 @@ def test_cli_values_custom_units() -> None:
         "resolution": "daily",
         "dataset": "climate_summary",
         "parameter": "temperature_air_mean_2m",
-        "date": "2022-01-01T00:00:00.000000+00:00",
+        "timestamp": "2022-01-01T00:00:00.000000+00:00",
         "value": 52.52,
         "quality": 10.0,
     }
@@ -646,7 +646,7 @@ def test_cli_values_start_date_end_date() -> None:
     response = json.loads(result.output)
     first = response["values"][0]
     assert first["station_id"] == "01048"
-    assert first["date"].startswith("2020-06-30")
+    assert first["timestamp"].startswith("2020-06-30")
 
 
 @pytest.mark.remote
@@ -682,7 +682,7 @@ def test_cli_values_end_date_only() -> None:
     )
     assert result.exit_code == 0
     response = json.loads(result.output)
-    assert response["values"][0]["date"].startswith("2020-06-30")
+    assert response["values"][0]["timestamp"].startswith("2020-06-30")
 
 
 @pytest.mark.remote

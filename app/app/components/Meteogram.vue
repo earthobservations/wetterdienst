@@ -749,7 +749,7 @@ function buildSeries(values: Value[]) {
     if (!series.has(p))
       series.set(p, { x: [], y: [] })
     if (v.value !== null && v.value !== undefined) {
-      series.get(p)!.x.push(new Date(v.date))
+      series.get(p)!.x.push(new Date(v.timestamp))
       series.get(p)!.y.push(v.value)
     }
   }
@@ -955,9 +955,9 @@ async function renderChartActual() {
   const isoMap = new Map<number, string>()
   for (const v of vals) {
     try {
-      const ms = new Date(String(v.date)).getTime()
+      const ms = new Date(String(v.timestamp)).getTime()
       if (!isoMap.has(ms))
-        isoMap.set(ms, String(v.date))
+        isoMap.set(ms, String(v.timestamp))
     }
     catch { /* ignore */ }
   }

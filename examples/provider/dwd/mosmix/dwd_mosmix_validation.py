@@ -64,11 +64,11 @@ def main(obs_id: str, for_id: str) -> None:
     observation_values = observation_request.values.all()
     print(observation_values.df)
     df_joined = (
-        forecast_values.df.select(["date", "value"])
+        forecast_values.df.select(["timestamp", "value"])
         .rename({"value": "forecast"})
-        .join(observation_values.df.select(["date", "value"]).rename({"value": "observation"}), on="date")
+        .join(observation_values.df.select(["timestamp", "value"]).rename({"value": "observation"}), on="timestamp")
     )
-    df_joined.to_pandas().plot(x="date", y=["observation", "forecast"], title="Forecast validation")
+    df_joined.to_pandas().plot(x="timestamp", y=["observation", "forecast"], title="Forecast validation")
     plt.show()
 
 

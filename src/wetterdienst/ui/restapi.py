@@ -890,10 +890,10 @@ def stripes_values(
             "metadata": stripes_data.metadata.model_dump(),
             "values": [
                 {
-                    "date": row["date"].isoformat() if row["date"] else None,
+                    "timestamp": row["timestamp"].isoformat() if row["timestamp"] else None,
                     "value": row["value"],
                 }
-                for row in stripes_data.df.select("date", "value").iter_rows(named=True)
+                for row in stripes_data.df.select("timestamp", "value").iter_rows(named=True)
             ],
         }
         content = json.dumps(data, indent=4 if pretty else None)

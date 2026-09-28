@@ -21,7 +21,7 @@ from wetterdienst.util.network import File, download_files, list_remote_files_fs
 
 _PARSED_SCHEMA_FOR_TEST = {
     "station_id": pl.String,
-    "date": pl.Datetime(time_zone="UTC"),
+    "timestamp": pl.Datetime(time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
     "quality": pl.Float64,
@@ -149,7 +149,7 @@ def test_dwd_road_weather_group_with_nothing_published(monkeypatch: pytest.Monke
     df = _stub_stations().values.all().df
     assert df.is_empty()
     # and it is an answer rather than a hole: the columns a caller asks the result for are there
-    assert set(df.columns) == {"station_id", "resolution", "dataset", "parameter", "date", "value", "quality"}
+    assert set(df.columns) == {"station_id", "resolution", "dataset", "parameter", "timestamp", "value", "quality"}
 
 
 def _listing(*names: str) -> list[str]:
@@ -244,8 +244,8 @@ def test_dwd_road_weather_file_that_decodes_to_nothing(
         df = parse(file, parameters)
     assert df.is_empty()
     # in the shape the files that do hold something come back in, so the two concatenate
-    assert set(df.columns) == {"station_id", "date", "parameter", "value", "quality"}
-    assert df.schema["date"] == pl.Datetime(time_zone="UTC")
+    assert set(df.columns) == {"station_id", "timestamp", "parameter", "value", "quality"}
+    assert df.schema["timestamp"] == pl.Datetime(time_zone="UTC")
     # once for the file: the whole of it is one read now, so there is one thing to say
     assert [record.message for record in caplog.records] == ["a-file-of-no-readings holds no readings"]
 
@@ -829,7 +829,7 @@ def test_dwd_road_weather_converts_the_bufr_units_it_decodes(monkeypatch: pytest
     readings = pl.DataFrame(
         {
             "station_id": ["A006", "A006"],
-            "date": [dt.datetime(2026, 9, 13, 12, tzinfo=ZoneInfo("UTC"))] * 2,
+            "timestamp": [dt.datetime(2026, 9, 13, 12, tzinfo=ZoneInfo("UTC"))] * 2,
             "parameter": ["intensityOfPrecipitation", "waterFilmThickness"],
             "value": [0.0056, 0.002],
             "quality": [None, None],
@@ -856,7 +856,7 @@ def _series(station_id: str, parameter: str, values: list[float | None]) -> pl.D
     return pl.DataFrame(
         {
             "station_id": [station_id] * len(values),
-            "date": [
+            "timestamp": [
                 dt.datetime(2026, 9, 13, tzinfo=ZoneInfo("UTC")) + dt.timedelta(minutes=15 * i)
                 for i in range(len(values))
             ],
@@ -866,7 +866,7 @@ def _series(station_id: str, parameter: str, values: list[float | None]) -> pl.D
         },
         schema={
             "station_id": pl.String,
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "parameter": pl.String,
             "value": pl.Float64,
             "quality": pl.Float64,
@@ -940,14 +940,14 @@ def test_dwd_road_weather_a_run_is_not_read_across_an_outage() -> None:
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
     plateau = _series("A006", "roadSurfaceTemperature", [285.0] * 12)
-    later = plateau.with_columns(pl.col("date") + pl.duration(days=3))
+    later = plateau.with_columns(pl.col("timestamp") + pl.duration(days=3))
     across = api._flag_stuck_sensors(pl.concat([plateau, later]), "a-group")  # noqa: SLF001
     assert not across.get_column("quality").eq(1.0).any()
 
     # and the hole ends the run rather than the marking: a sensor that has stopped either side of
     # one is still stopped, where scoring the whole span at once let a single gap clear the lot
     long_enough = _series("A006", "roadSurfaceTemperature", [285.0] * 34)
-    beyond = long_enough.with_columns(pl.col("date") + pl.duration(hours=12))
+    beyond = long_enough.with_columns(pl.col("timestamp") + pl.duration(hours=12))
     both = api._flag_stuck_sensors(pl.concat([long_enough, beyond]), "a-group")  # noqa: SLF001
     assert both.get_column("quality").eq(1.0).all()
 
@@ -979,7 +979,7 @@ def test_dwd_road_weather_stuck_run_counts_readings_whatever_the_cadence(every: 
 
     readings = _series("A006", "roadSurfaceTemperature", [285.0] * 24)
     spaced = readings.with_columns(
-        pl.col("date").first() + pl.duration(minutes=every) * pl.int_range(pl.len()),
+        pl.col("timestamp").first() + pl.duration(minutes=every) * pl.int_range(pl.len()),
     )
     assert api._flag_stuck_sensors(spaced, "a-group").get_column("quality").eq(1.0).all()  # noqa: SLF001
 
@@ -1090,7 +1090,9 @@ def test_dwd_road_weather_stuck_marking_leaves_the_frame_as_it_found_it() -> Non
     df = _series("A006", "roadSurfaceTemperature", [285.0] * 30)
     marked = api._flag_stuck_sensors(df, "a-group")  # noqa: SLF001
     assert marked.get_column("value").to_list() == df.get_column("value").to_list()
-    assert marked.select("station_id", "date", "parameter").equals(df.select("station_id", "date", "parameter"))
+    assert marked.select("station_id", "timestamp", "parameter").equals(
+        df.select("station_id", "timestamp", "parameter")
+    )
     # and running it again says the same thing, the column it writes being one it also reads
     assert api._flag_stuck_sensors(marked, "a-group").get_column("quality").to_list() == (  # noqa: SLF001
         marked.get_column("quality").to_list()
@@ -1184,7 +1186,7 @@ def test_dwd_road_weather_stuck_needs_the_hours_as_well_as_the_readings(
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
     series = _series("A006", "roadSurfaceTemperature", [285.0] * readings)
-    spaced = series.with_columns(pl.col("date").first() + pl.duration(minutes=every) * pl.int_range(pl.len()))
+    spaced = series.with_columns(pl.col("timestamp").first() + pl.duration(minutes=every) * pl.int_range(pl.len()))
     marked = api._flag_stuck_sensors(spaced, "a-group")  # noqa: SLF001
     assert marked.get_column("quality").eq(1.0).any() is expected, case
 
@@ -1275,7 +1277,7 @@ def test_dwd_road_weather_stuck_check_counts_minutes_not_rows() -> None:
     plateau = _series("A006", "airTemperature", [285.0] * 13)
     assert not api._flag_stuck_sensors(plateau, "a-group").get_column("quality").eq(1.0).any()  # noqa: SLF001
     doubled = pl.concat([plateau, plateau])
-    assert doubled.get_column("date").n_unique() == 13
+    assert doubled.get_column("timestamp").n_unique() == 13
     assert not api._flag_stuck_sensors(doubled, "a-group").get_column("quality").eq(1.0).any()  # noqa: SLF001
 
 
@@ -1369,7 +1371,7 @@ def test_dwd_road_weather_empty_is_one_shape(
         parameter_or_dataset=DwdRoadRequest.metadata["15_minutes"]["data"],
     )
     assert df.is_empty(), case
-    assert df.columns == ["resolution", "dataset", "parameter", "station_id", "date", "value", "quality"], case
+    assert df.columns == ["resolution", "dataset", "parameter", "station_id", "timestamp", "value", "quality"], case
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")

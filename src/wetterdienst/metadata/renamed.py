@@ -10,6 +10,7 @@ from collections.abc import Collection
 RENAMED_COLUMNS: dict[str, str] = {
     "height": "elevation",  # GH-2024
     "state": "region",  # GH-2026
+    "date": "timestamp",  # GH-2028
 }
 
 

@@ -149,7 +149,7 @@ class DwdMosmixValues(TimeseriesValues):
             return pl.DataFrame()
         df = df.unpivot(
             index=[
-                "date",
+                "timestamp",
             ],
             variable_name="parameter",
             value_name="value",
@@ -159,7 +159,7 @@ class DwdMosmixValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             "parameter",
-            pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_zone="UTC"),
+            pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_zone="UTC"),
             "value",
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
@@ -279,20 +279,20 @@ class DwdMosmixValues(TimeseriesValues):
 
         df = pl.DataFrame({"url": urls}, orient="col")
 
-        df = df.with_columns(_run_stamp(pl.col("url")).alias("date"))
+        df = df.with_columns(_run_stamp(pl.col("url")).alias("timestamp"))
 
-        df = df.filter(pl.col("date").is_not_null())
+        df = df.filter(pl.col("timestamp").is_not_null())
 
         df = df.with_columns(
             pl.concat_str(
                 [
-                    pl.col("date"),
+                    pl.col("timestamp"),
                     pl.lit("00"),
                 ]
             ).str.to_datetime("%Y%m%d%H%M"),
         )
 
-        df = df.filter(pl.col("date").eq(date))
+        df = df.filter(pl.col("timestamp").eq(date))
 
         if df.is_empty():
             msg = f"Unable to find {date} file within {url}"
@@ -364,8 +364,8 @@ class DwdMosmixRequest(TimeseriesRequest):
             log.warning(f"No MOSMIX run listed within {url}; a listing that failed looks the same as one that is empty")
             return []
         df = pl.DataFrame({"url": urls}, orient="col")
-        df = df.with_columns(_run_stamp(pl.col("url")).alias("date"))
-        df = df.filter(pl.col("date").is_not_null())
+        df = df.with_columns(_run_stamp(pl.col("url")).alias("timestamp"))
+        df = df.filter(pl.col("timestamp").is_not_null())
         if df.is_empty():
             # the directory named things and none of them is a dated run, answered with `[]` that
             # reads as "this station publishes no runs" exactly as the empty listing did.
@@ -386,9 +386,11 @@ class DwdMosmixRequest(TimeseriesRequest):
             )
             return []
         df = df.with_columns(
-            pl.concat_str([pl.col("date"), pl.lit("00")]).str.to_datetime("%Y%m%d%H%M").dt.replace_time_zone("UTC"),
+            pl.concat_str([pl.col("timestamp"), pl.lit("00")])
+            .str.to_datetime("%Y%m%d%H%M")
+            .dt.replace_time_zone("UTC"),
         )
-        return df.get_column("date").unique().sort().to_list()
+        return df.get_column("timestamp").unique().sort().to_list()
 
     def __post_init__(self) -> None:
         """Post-initialization of the DwdMosmixRequest class."""

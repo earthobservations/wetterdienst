@@ -58,7 +58,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
-                "date": selected_dates[0],
+                "timestamp": selected_dates[0],
                 "value": 0.5,
                 "distance": 13.42,
                 "taken_station_id": "01048",
@@ -68,7 +68,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
-                "date": selected_dates[1],
+                "timestamp": selected_dates[1],
                 "value": -5.5,
                 "distance": 5.05,
                 "taken_station_id": "01051",
@@ -78,7 +78,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
-                "date": selected_dates[2],
+                "timestamp": selected_dates[2],
                 "value": -2.7,
                 "distance": 0.0,
                 "taken_station_id": "01050",
@@ -88,7 +88,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
     )
     for result in (request.summarize(latlon=(51.0221, 13.8470)),):
         given_df = result.df
-        given_df = given_df.filter(pl.col("date").is_in(selected_dates))
+        given_df = given_df.filter(pl.col("timestamp").is_in(selected_dates))
         assert_frame_equal(given_df, expected_df)
 
 
@@ -111,7 +111,7 @@ def test_not_summarizable_parameter(default_settings: Settings) -> None:
             "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "distance": pl.Float64,
             "taken_station_id": pl.String,

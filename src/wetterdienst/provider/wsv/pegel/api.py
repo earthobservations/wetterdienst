@@ -381,7 +381,7 @@ class WsvPegelValues(TimeseriesValues):
             # guards above cover no internet, a 404 and a timeseries the station does not publish;
             # this is the same "no data here" for a body that parsed fine (GH-1987)
             return pl.DataFrame()
-        df = df.rename(mapping={"timestamp": "date", "value": "value"})
+        df = df.rename(mapping={"timestamp": "timestamp", "value": "value"})
 
         factors = _SOURCE_UNIT_FACTORS.get(name_original)
         factor = 1.0
@@ -416,7 +416,7 @@ class WsvPegelValues(TimeseriesValues):
             # values came back as `sigh` and `r` rather than `wave_height_sign` and
             # `flow_direction`. Unit conversion keys case-insensitively and is unaffected.
             pl.lit(parameter_or_dataset.name_original).alias("parameter"),
-            pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M:%S%z"),
+            pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S%z"),
             (pl.col("value") * factor) if factor != 1.0 else pl.col("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )

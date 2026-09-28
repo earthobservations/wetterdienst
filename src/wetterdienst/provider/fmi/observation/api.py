@@ -55,7 +55,7 @@ _EMPTY_VALUES_SCHEMA = {
     "dataset": pl.String,
     "parameter": pl.String,
     "station_id": pl.String,
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
     "quality": pl.Float64,
 }
@@ -149,13 +149,13 @@ class FmiObservationValues(TimeseriesValues):
         df = pl.concat(frames)
         # consecutive windows share their boundary timestamp (see _time_windows), so drop the
         # duplicate boundary row -- keep="first" retains the earlier window's copy.
-        df = df.unique(subset=["parameter", "date"], keep="first", maintain_order=True)
+        df = df.unique(subset=["parameter", "timestamp"], keep="first", maintain_order=True)
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("date"),
+            pl.col("timestamp"),
             pl.col("value").cast(pl.Float64, strict=False),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
@@ -199,7 +199,7 @@ class FmiObservationValues(TimeseriesValues):
                 log.warning(f"Failed to fetch FMI data for station {station_id}: {file.content}")
             return pl.DataFrame(
                 schema={
-                    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+                    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
                     "parameter": pl.String,
                     "value": pl.Float64,
                 }

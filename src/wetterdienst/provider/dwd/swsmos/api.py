@@ -53,7 +53,7 @@ _EMPTY_VALUES_SCHEMA = {
     "dataset": pl.String,
     "parameter": pl.String,
     "station_id": pl.String,
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
     "quality": pl.Float64,
 }
@@ -336,16 +336,16 @@ class DwdSwsmosValues(TimeseriesValues):
             pl.col("YYYYMMDDHHmm")
             .str.to_datetime("%Y%m%d%H%M", time_unit="us")
             .dt.replace_time_zone("UTC")
-            .alias("date"),
+            .alias("timestamp"),
             *[pl.col(c).cast(pl.Float64, strict=False) for c in columns],
         )
-        df = df.unpivot(index=["date"], variable_name="parameter", value_name="value")
+        df = df.unpivot(index=["timestamp"], variable_name="parameter", value_name="value")
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("date"),
+            pl.col("timestamp"),
             pl.col("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )

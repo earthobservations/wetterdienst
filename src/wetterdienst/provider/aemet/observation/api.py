@@ -63,7 +63,7 @@ _EMPTY_VALUES_SCHEMA = {
     "dataset": pl.String,
     "parameter": pl.String,
     "station_id": pl.String,
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
     "quality": pl.Float64,
 }
@@ -293,7 +293,7 @@ class AemetObservationValues(TimeseriesValues):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("fint").str.to_datetime("%Y-%m-%dT%H:%M:%S%z").dt.convert_time_zone("UTC").alias("date"),
+            pl.col("fint").str.to_datetime("%Y-%m-%dT%H:%M:%S%z").dt.convert_time_zone("UTC").alias("timestamp"),
             pl.col("value"),
             pl.lit(None, pl.Float64).alias("quality"),
         )
@@ -352,7 +352,7 @@ class AemetObservationValues(TimeseriesValues):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("fecha").str.to_datetime("%Y-%m-%d").dt.replace_time_zone("UTC").alias("date"),
+            pl.col("fecha").str.to_datetime("%Y-%m-%d").dt.replace_time_zone("UTC").alias("timestamp"),
             pl.col("value"),
             pl.lit(None, pl.Float64).alias("quality"),
         )
@@ -427,7 +427,7 @@ class AemetObservationValues(TimeseriesValues):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("_date").cast(pl.Datetime(time_zone="UTC")).alias("date"),
+            pl.col("_date").cast(pl.Datetime(time_zone="UTC")).alias("timestamp"),
             pl.col("value"),
             pl.lit(None, pl.Float64).alias("quality"),
         )

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 _EMPTY_SCHEMA = {
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
 }
@@ -84,5 +84,5 @@ def parse_knmi_netcdf(payload: bytes, station_id: str, parameters: Sequence[str]
                 value = None
             elif parameter in _TRACE_PRECIPITATION_PARAMETERS and value == -1:
                 value = 0.0
-            rows.append({"date": moment, "parameter": parameter, "value": value})
+            rows.append({"timestamp": moment, "parameter": parameter, "value": value})
     return pl.DataFrame(rows, schema=_EMPTY_SCHEMA, orient="row")
