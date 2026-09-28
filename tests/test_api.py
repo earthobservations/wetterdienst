@@ -1037,7 +1037,7 @@ def test_api_chmi_observation(default_settings: Settings) -> None:
     ).filter_by_station_id("0-20000-0-11406")  # Cheb
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    # CHMI's station catalogue provides no state/region and no end_date for active stations.
+    # CHMI's station catalogue provides no region and no end_date for active stations.
     assert _is_complete_stations_df(request.df, exclude_columns={"region", "end_date"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
@@ -1112,7 +1112,7 @@ def test_api_knmi_observation(default_settings: Settings) -> None:
     ).filter_by_station_id("06260")  # De Bilt (WMO station number, from WSI 0-20000-0-06260)
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    # KNMI's station inventory provides neither start_date/end_date nor a state.
+    # KNMI's station inventory provides neither start_date/end_date nor a region.
     assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "region"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
