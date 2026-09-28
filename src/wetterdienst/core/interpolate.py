@@ -154,7 +154,7 @@ def request_stations(
     )
     unanswerable = unanswerable_at_elevation(counts, elevation, STATIONS_NEEDED)
     if unanswerable and unanswerable == set(counts):
-        # every parameter asked for falls with elevation and not one station in reach reports one:
+        # every parameter asked for falls with height and not one station in reach reports one:
         # true of the request whatever the stations hold, so it is said without downloading them
         raise no_elevation_in_reach_error(unanswerable, elevation)
     tqdm_out = TqdmToLogger(log, level=logging.INFO)

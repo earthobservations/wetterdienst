@@ -343,10 +343,10 @@ def test_count_stations_in_reach_asks_per_parameter_radius() -> None:
 
 
 def test_unanswerable_at_elevation_names_what_no_walk_can_reach() -> None:
-    """A quantity that falls with elevation and has no station of known elevation in reach is unanswerable.
+    """A quantity that falls with height and has no station of known elevation in reach is unanswerable.
 
     Whatever the walk downloads, no reading can be brought to the elevation asked about. A quantity
-    that does not fall with elevation is answered by those same stations as it always was, and with no
+    that does not fall with height is answered by those same stations as it always was, and with no
     elevation asked for nothing is unanswerable at all.
     """
     from wetterdienst.core.util import unanswerable_at_elevation  # noqa: PLC0415

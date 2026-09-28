@@ -18,7 +18,7 @@ Types of changes:
 
 ### Changed
 
-- **Breaking:** the station column `height` is now `elevation`, in every stations frame and its
+- **Breaking**: the station column `height` is now `elevation`, in every stations frame and its
   JSON, CSV and `with_stations` output. History's `station_height` is `station_elevation`, the DWD
   radar BUFR frame's `height` is `elevation`, and `NoStationsWithHeightError` is
   `NoStationsWithElevationError`. Read `elevation` instead; a SQL filter still naming `height` fails

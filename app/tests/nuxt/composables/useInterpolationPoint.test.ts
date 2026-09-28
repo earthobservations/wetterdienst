@@ -32,7 +32,7 @@ describe('the point an interpolation answers for', () => {
     expect(wrapper.vm.modelValue.latitude).toBe(47.9)
     expect(wrapper.vm.modelValue.longitude).toBe(8.0)
     expect(wrapper.vm.modelValue.elevation).toBe(1000)
-    // and the box shows it, rather than the query carrying a height the form does not
+    // and the box shows it, rather than the query carrying an elevation the form does not
     expect(wrapper.vm.elevationInput).toBe('1000')
   })
 
@@ -47,7 +47,7 @@ describe('the point an interpolation answers for', () => {
     expect(wrapper.vm.modelValue.longitude).toBe(8.0)
   })
 
-  it('leaves the elevation unset for a station the provider gives no height for', async () => {
+  it('leaves the elevation unset for a station the provider gives no elevation for', async () => {
     // FMI, IPMA, LHMT, the Environment Agency, WSV and IMGW's hydrology report none for any
     // station; null is not undefined, and reached `.toString()` on the way to the query
     const wrapper = await mountSuspended(harness({ source: 'station' }))

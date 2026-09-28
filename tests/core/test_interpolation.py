@@ -442,7 +442,7 @@ def test_near_ground_air_temperatures_carry_no_lapse_rate() -> None:
 
 
 def test_reduce_to_elevation_leaves_alone_what_it_cannot_correct() -> None:
-    """Without a target, or for a quantity that does not fall with elevation, the readings stand.
+    """Without a target, or for a quantity that does not fall with height, the readings stand.
 
     A soil temperature follows the ground rather than the air, precipitation does not lapse at all,
     and with no elevation for the target there is nothing to correct towards -- an elevation taken from
@@ -452,7 +452,7 @@ def test_reduce_to_elevation_leaves_alone_what_it_cannot_correct() -> None:
 
     values = pl.Series("00001", [10.0, 12.0])
     assert reduce_to_elevation(values, 0.0065, 100.0, None).to_list() == [10.0, 12.0]
-    # no rate: a quantity that does not fall with elevation
+    # no rate: a quantity that does not fall with height
     assert reduce_to_elevation(values, None, 100.0, 600.0).to_list() == [10.0, 12.0]
 
 
@@ -470,7 +470,7 @@ def test_reduce_to_elevation_leaves_out_a_station_it_cannot_place() -> None:
     assert reduce_to_elevation(values, 0.0065, None, 600.0) is None
     # but with no elevation asked for there is nothing to place it against, so it contributes
     assert reduce_to_elevation(values, 0.0065, None, None).to_list() == [10.0, 12.0]
-    # and a quantity that does not fall with elevation needs no placing either
+    # and a quantity that does not fall with height needs no placing either
     assert reduce_to_elevation(values, None, None, 600.0).to_list() == [10.0, 12.0]
 
 
@@ -819,7 +819,7 @@ def test_interpolation_at_an_elevation_names_the_parameter_it_lost(
 ) -> None:
     """A parameter emptied beside one that answered is named, and the rest of the result stands.
 
-    Precipitation does not fall with elevation in the sense the correction means, so it keeps every
+    Precipitation does not fall with height in the sense the correction means, so it keeps every
     station a temperature loses.
     """
     request = DwdObservationRequest(

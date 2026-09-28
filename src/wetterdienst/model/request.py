@@ -793,7 +793,7 @@ class TimeseriesRequest:
         Args:
             latlon: Latitude and longitude for the requested point.
             elevation: Elevation of the requested point in metres above sea level. Given, a reading of a quantity that
-                falls with elevation is brought from the station's altitude to this one -- which
+                falls with height is brought from the station's altitude to this one -- which
                 matters more here than in an interpolation, one station's reading standing for the
                 point with nothing to soften the difference.
 

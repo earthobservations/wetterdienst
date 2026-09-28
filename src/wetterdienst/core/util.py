@@ -97,7 +97,7 @@ def lapse_rate_for(
         convert_units: whether they went through it at all
 
     Returns:
-        The rate in the values' own unit, or None for a quantity that does not fall with elevation
+        The rate in the values' own unit, or None for a quantity that does not fall with height
 
     """
     lapse_rate = PARAMETERS[parameter.name].lapse_rate
@@ -131,7 +131,7 @@ def can_answer_at_elevation(
 ) -> bool:
     """Whether a station has anything to say about a quantity at a given elevation.
 
-    It has not when the quantity falls with elevation, an elevation was asked about, and the station's own
+    It has not when the quantity falls with height, an elevation was asked about, and the station's own
     is unknown: its reading cannot be placed against the target, and letting it through would put
     it at its own altitude among neighbours moved to the caller's.
     """
@@ -222,7 +222,7 @@ def unanswerable_at_elevation(
 ) -> set[tuple[str, str, str]]:
     """Find the parameters no station in reach can answer at the elevation asked about.
 
-    A quantity that falls with elevation needs a station whose own elevation is known to be brought to
+    A quantity that falls with height needs a station whose own elevation is known to be brought to
     another one. Where not one station inside its radius reports an elevation -- which is every station
     FMI, IPMA and the Environment Agency publish -- the parameter is unanswerable before anything
     is downloaded, and the walk down the ranking has nothing to look for.
@@ -313,7 +313,7 @@ def report_elevation_exclusions(
 ) -> None:
     """Say what asking about an elevation cost, once the answer is in.
 
-    A station whose own elevation is unknown is turned away from a quantity that falls with elevation,
+    A station whose own elevation is unknown is turned away from a quantity that falls with height,
     and thirteen providers have such stations -- every one of FMI's, IPMA's and the Environment
     Agency's among them. Where that leaves a parameter unanswered, the result is not "no data for
     those dates": it is a question that cannot be answered as asked, and one the caller can fix.
@@ -427,7 +427,7 @@ def reduce_to_elevation(
 ) -> pl.Series | None:
     """Bring a station's readings to the elevation they are being asked about.
 
-    A quantity that falls with elevation -- air temperature at about 0.65 K per 100 m, a dew point at
+    A quantity that falls with height -- air temperature at about 0.65 K per 100 m, a dew point at
     0.2 -- says something different at a valley station than at a summit one, and interpolating the
     two as they come fits that vertical difference as though it were horizontal. Around Garmisch
     the stations within 40 km span 630 m to 2956 m, which is 15 K of air temperature; even the flat
