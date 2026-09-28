@@ -124,6 +124,33 @@ def _is_local_address(address: object) -> bool:
 
 _SOCKET_CONNECT = socket.socket.connect
 _SOCKET_CONNECT_EX = socket.socket.connect_ex
+_SOCKET_GETADDRINFO = socket.getaddrinfo
+
+#: Which name each address was resolved from. aiohttp and urllib3 both resolve first and hand
+#: `connect` an address, so without this the refusal names an anonymous `('141.38.2.164', 443)` and
+#: the contributor has to look up whose it is. Not cleared between tests: a name learned once is
+#: still the right answer later, and the table is as large as the run has distinct addresses.
+_RESOLVED: dict[str, str] = {}
+
+
+def _recording_getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+    """Resolve as usual, remembering which name each address came back for."""
+    results = _SOCKET_GETADDRINFO(host, port, *args, **kwargs)
+    if isinstance(host, str):
+        for *_, sockaddr in results:
+            if isinstance(sockaddr, tuple) and sockaddr:
+                _RESOLVED.setdefault(str(sockaddr[0]), host)
+    return results
+
+
+def _describe(address: object) -> str:
+    """Say what was refused, naming the host where the address came from a lookup we saw."""
+    if isinstance(address, tuple) and address:
+        host = str(address[0])
+        name = _RESOLVED.get(host)
+        if name and name != host:
+            return f"{name} ({host}:{address[1]})" if len(address) > 1 else f"{name} ({host})"
+    return str(address)
 
 
 class NetworkAccessBlockedError(Exception):
@@ -160,6 +187,29 @@ _GUARD_STATE: dict[str, Any] = {"refused": [], "expected": False}
 _REFUSAL_ENDED_TEST = pytest.StashKey[bool]()
 
 
+def _carries_refusal(exception: BaseException, seen: frozenset[int] = frozenset()) -> bool:
+    """Say whether the refusal is anywhere in what a phase raised.
+
+    Not just the exception itself: a provider that catches it and raises its own `from exc` has
+    still put it in the traceback, where a reader sees it, so the teardown check below must not
+    report it a second time. Groups are walked too, an `asyncio` gather being the way several
+    connections arrive at once.
+    """
+    if id(exception) in seen:
+        return False
+    if isinstance(exception, NetworkAccessBlockedError):
+        return True
+    seen = seen | {id(exception)}
+    nested: tuple[BaseException | None, ...] = (exception.__cause__, exception.__context__)
+    # asked for rather than an `isinstance(exception, BaseExceptionGroup)`, which is a name 3.10
+    # does not have and 3.10 is supported here. Nothing else in the traceback carries a tuple of
+    # exceptions under this attribute
+    grouped = getattr(exception, "exceptions", None)
+    if isinstance(grouped, (tuple, list)):
+        nested = (*nested, *(one for one in grouped if isinstance(one, BaseException)))
+    return any(one is not None and _carries_refusal(one, seen) for one in nested)
+
+
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_makereport(
     item: pytest.Item,
@@ -179,11 +229,7 @@ def pytest_runtest_makereport(
     """
     report = yield
     if call.when in {"setup", "call"}:
-        ended = (
-            call.excinfo is not None
-            and isinstance(call.excinfo.value, NetworkAccessBlockedError)
-            and report.outcome == "failed"
-        )
+        ended = call.excinfo is not None and _carries_refusal(call.excinfo.value) and report.outcome == "failed"
         item.stash[_REFUSAL_ENDED_TEST] = item.stash.get(_REFUSAL_ENDED_TEST, default=False) or ended
     return report
 
@@ -194,7 +240,7 @@ def _guarded(original: Any) -> Any:  # noqa: ANN401
     def wrapper(self: socket.socket, address: object, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
         if not _is_local_address(address):
             msg = (
-                f"network access blocked: {address}. A test that reaches the internet needs "
+                f"network access blocked: {_describe(address)}. A test that reaches the internet needs "
                 f"@pytest.mark.remote, or has to be rewritten to work without the network."
             )
             _GUARD_STATE["refused"].append(address)
@@ -253,11 +299,13 @@ def _block_network(request: pytest.FixtureRequest) -> None:
     _GUARD_STATE["expected"] = False
     socket.socket.connect = _guarded(_SOCKET_CONNECT)
     socket.socket.connect_ex = _guarded(_SOCKET_CONNECT_EX)
+    socket.getaddrinfo = _recording_getaddrinfo
     try:
         yield
     finally:
         socket.socket.connect = _SOCKET_CONNECT
         socket.socket.connect_ex = _SOCKET_CONNECT_EX
+        socket.getaddrinfo = _SOCKET_GETADDRINFO
         refused = list(_GUARD_STATE["refused"])
         reported = request.node.stash.get(_REFUSAL_ENDED_TEST, default=False)
         if refused and not _GUARD_STATE["expected"] and not reported:
@@ -266,7 +314,8 @@ def _block_network(request: pytest.FixtureRequest) -> None:
             # do, but several providers degrade on a bare `except Exception`. Said here, because a
             # refusal nobody reported is the vacuous pass this guard exists to stop
             pytest.fail(
-                f"network access blocked: {refused}. A test that reaches the internet needs "
+                f"network access blocked: {[_describe(one) for one in refused]}. A test that "
+                f"reaches the internet needs "
                 f"@pytest.mark.remote, or has to be rewritten to work without the network. The "
                 f"refusal did not reach the test, so something on the way caught it.",
             )

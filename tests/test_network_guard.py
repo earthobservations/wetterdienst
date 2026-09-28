@@ -2,12 +2,13 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the guard that holds `-m "not remote"` to being offline."""
 
+import os
 import socket
 from pathlib import Path
 
 import pytest
 
-from tests.conftest import _SOCKET_CONNECT, NetworkAccessBlockedError, _is_local_address
+from tests.conftest import _RESOLVED, _SOCKET_CONNECT, NetworkAccessBlockedError, _describe, _is_local_address
 from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
@@ -116,6 +117,21 @@ def test_what_counts_as_this_machine(address: object, local: bool) -> None:  # n
     assert _is_local_address(address) is local
 
 
+def test_the_refusal_names_the_host_behind_an_address(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Aiohttp resolves before it connects, so without the lookup table this reads as a bare IP.
+
+    `('141.38.2.164', 443)` says nothing about whose server it is, and naming DWD is the whole
+    point of the message.
+    """
+    monkeypatch.setitem(_RESOLVED, "141.38.2.164", "opendata.dwd.de")
+    assert _describe(("141.38.2.164", 443)) == "opendata.dwd.de (141.38.2.164:443)"
+
+
+def test_an_address_nothing_resolved_is_still_described() -> None:
+    """A connection to a literal address never went through a lookup, and still has to be named."""
+    assert _describe((UNROUTABLE, 443)) == str((UNROUTABLE, 443))
+
+
 def _run_one(
     pytester: pytest.Pytester,
     pytestconfig: pytest.Config,
@@ -127,7 +143,10 @@ def _run_one(
     A subprocess rather than a nested in-process session: the guard keeps what it refused in module
     state, which a nested session would share with the test running it.
     """
-    monkeypatch.setenv("PYTHONPATH", str(pytestconfig.rootpath))
+    # prepended rather than set: an environment that already has one (tox, conda, some CI images)
+    # needs to keep it, or the generated conftest's `pytest_plugins` may not import
+    existing = os.environ.get("PYTHONPATH", "")
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join(filter(None, [str(pytestconfig.rootpath), existing])))
     pytester.makeconftest("pytest_plugins = ['tests.conftest']\n")
     pytester.makepyfile(body)
     return pytester.runpytest_subprocess("-p", "no:randomly", "-p", "no:cacheprovider")
@@ -218,3 +237,31 @@ def test_a_refusal_nobody_reported_still_fails_the_test(
     )
     result.assert_outcomes(passed=1, errors=1)
     result.stdout.fnmatch_lines(["*did not reach the test*"])
+
+
+def test_a_refusal_a_provider_reraised_is_reported_once(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Catching the refusal and raising your own `from` it still puts it in the traceback.
+
+    Several providers do that rather than let the original through, and a reader sees the cause
+    either way, so the teardown check must not report a second time for it.
+    """
+    result = _run_one(
+        pytester,
+        pytestconfig,
+        monkeypatch,
+        """
+        import socket
+
+        def test_provider_reraises():
+            try:
+                socket.socket().connect(("example.org", 80))
+            except Exception as exc:
+                raise RuntimeError("could not read the index") from exc
+        """,
+    )
+    result.assert_outcomes(failed=1, errors=0)
+    assert "did not reach the test" not in result.stdout.str()
