@@ -20,9 +20,9 @@ Types of changes:
 
 - `[Stations]` Stations carry `elevation` where they carried `height`, as the backend now returns
   them; the history page labels it "Elevation (m)" and "Station elevation" in English (GH-2024)
-- `[Stations]` Stations carry `region` where they carried `state`. Every locale labelled the field
-  as a federal state -- "Bundesland", "Kraj związkowy", "Land" -- which most providers' regions
-  are not; each now uses its own word for region (GH-2026)
+- `[Stations]` Stations carry `region` where they carried `state`. English labelled the field
+  "State" and every other locale a federal state -- "Bundesland", "Kraj związkowy", "Land" -- which
+  most providers' regions are not; each now uses its own word for region (GH-2026)
 
 ### Fixed
 
