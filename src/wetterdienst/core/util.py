@@ -433,7 +433,7 @@ def reduce_to_elevation(
     the stations within 40 km span 630 m to 2956 m, which is 15 K of air temperature; even the flat
     country around Frankfurt spans 495 m, or 3.2 K.
 
-    The correction needs an elevation for the target, which the interpolation cannot supply itself: a
+    The correction needs an elevation for the target, which the interpolation cannot supply itself: an
     elevation taken from the same linear interpolation cancels out of it exactly, leaving the result
     unchanged. So it is applied only when a caller says where the point is, and otherwise the
     readings are left as they came.

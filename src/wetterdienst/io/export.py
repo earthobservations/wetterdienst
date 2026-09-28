@@ -18,7 +18,7 @@ import polars as pl
 import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError
-from wetterdienst.metadata.renamed import RENAMED_COLUMNS
+from wetterdienst.metadata.renamed import renamed_column
 from wetterdienst.util.url import ConnectionString
 
 if TYPE_CHECKING:
@@ -258,9 +258,9 @@ class ExportMixin:
             df = duckdb.sql(sql).pl()
         except duckdb.BinderException as e:
             missing = re.search(r'Referenced column "([^"]+)" not found', str(e))
-            if missing and missing.group(1) in RENAMED_COLUMNS:
-                old = missing.group(1)
-                msg = f'column "{old}" was renamed to "{RENAMED_COLUMNS[old]}"'
+            new = renamed_column(missing.group(1), df.columns) if missing else None
+            if missing and new:
+                msg = f'column "{missing.group(1)}" was renamed to "{new}"'
                 raise duckdb.BinderException(msg) from e
             raise
         return df.with_columns(

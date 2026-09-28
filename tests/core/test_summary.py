@@ -165,12 +165,12 @@ def test_summary_at_an_elevation_none_of_the_stations_can_answer(
     )
     original = DwdObservationRequest.filter_by_distance
 
-    def without_heights(self: DwdObservationRequest, *args: object, **kwargs: object) -> object:
+    def without_elevations(self: DwdObservationRequest, *args: object, **kwargs: object) -> object:
         stations_ranked = original(self, *args, **kwargs)
         stations_ranked.df = stations_ranked.df.with_columns(pl.lit(None, dtype=pl.Float64).alias("elevation"))
         return stations_ranked
 
-    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", without_heights)
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", without_elevations)
     with pytest.raises(
         NoStationsWithElevationError,
         match=r"nothing can be brought to 200\.0 m for daily/climate_summary/temperature_air_mean_2m",

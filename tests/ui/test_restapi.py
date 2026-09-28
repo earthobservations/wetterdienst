@@ -2303,7 +2303,7 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
     """
     from wetterdienst.exceptions import NoStationsWithElevationError  # noqa: PLC0415
 
-    msg = "no station of known height is in reach, so there is no answer at 200.0 m for daily/climate_summary/tas"
+    msg = "no station of known elevation is in reach, so there is no answer at 200.0 m for daily/climate_summary/tas"
 
     def unanswerable(**_kwargs: object) -> None:
         raise NoStationsWithElevationError(msg)

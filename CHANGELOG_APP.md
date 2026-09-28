@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- Stations carry `elevation` where they carried `height`, following the backend (GH-2024); the
+  history and station tables label it "Elevation (m)" and "Station elevation" in English.
+
 ### Fixed
 
 - `[Glossary]` The German, Low German and Luxembourgish labels for `precipitation_type_flags` said

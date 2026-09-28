@@ -751,7 +751,7 @@ def test_interpolation_at_an_elevation(default_settings: Settings) -> None:
     assert lower < uncorrected.mean() < upper
 
 
-def _blank_station_elevations(monkeypatch: pytest.MonkeyPatch, keeps_its_height: pl.Expr) -> None:
+def _blank_station_elevations(monkeypatch: pytest.MonkeyPatch, keeps_its_elevation: pl.Expr) -> None:
     """Make a DWD request look like a provider that reports elevations for only some of its stations.
 
     FMI, IPMA and the Environment Agency publish no elevation for any station, and eleven more
@@ -761,14 +761,14 @@ def _blank_station_elevations(monkeypatch: pytest.MonkeyPatch, keeps_its_height:
     """
     original = DwdObservationRequest.filter_by_distance
 
-    def without_heights(self: DwdObservationRequest, *args: object, **kwargs: object) -> object:
+    def without_elevations(self: DwdObservationRequest, *args: object, **kwargs: object) -> object:
         stations_ranked = original(self, *args, **kwargs)
         stations_ranked.df = stations_ranked.df.with_columns(
-            pl.when(keeps_its_height).then(pl.col("elevation")).otherwise(None).alias("elevation"),
+            pl.when(keeps_its_elevation).then(pl.col("elevation")).otherwise(None).alias("elevation"),
         )
         return stations_ranked
 
-    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", without_heights)
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", without_elevations)
 
 
 @pytest.mark.remote
