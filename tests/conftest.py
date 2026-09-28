@@ -127,21 +127,19 @@ _SOCKET_CONNECT = socket.socket.connect
 _SOCKET_CONNECT_EX = socket.socket.connect_ex
 _SOCKET_GETADDRINFO = socket.getaddrinfo
 
-#: Which name each address was resolved from. aiohttp and urllib3 both resolve first and hand
-#: `connect` an address, so without this the refusal names an anonymous `('141.38.2.164', 443)` and
-#: the contributor has to look up whose it is. Not cleared between tests: a name learned once is
-#: still the right answer later, and the table is as large as the run has distinct addresses.
-_RESOLVED: dict[str, str] = {}
 
-
-def _recording_getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-    """Refuse to resolve a name off this machine, and remember the ones that are on it.
+def _guarded_getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+    """Refuse to resolve a name off this machine.
 
     Refused here as well as at `connect`, because this is the step every platform shares. The
     connect patch misses Windows entirely -- asyncio's `ProactorEventLoop` goes through
     `_overlapped.ConnectEx`, not `socket.connect` -- so without this the library's whole download
     path is unguarded there, and `-m "not remote"` is green on Windows for a test that fails
     everywhere else. Nothing resolves a host it is not about to talk to.
+
+    It is also what puts the name in the message. aiohttp resolves before it connects, so a refusal
+    at `connect` alone would say `('141.38.2.164', 443)` and leave the reader to work out whose
+    server that is; refused at the name, it says `opendata.dwd.de`.
     """
     if isinstance(host, str) and not _is_local_address((host, port)):
         msg = (
@@ -150,24 +148,7 @@ def _recording_getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any) -> A
         )
         _GUARD_STATE["refused"].append((host, port))
         raise NetworkAccessBlockedError(msg)
-    results = _SOCKET_GETADDRINFO(host, port, *args, **kwargs)
-    if isinstance(host, str):
-        for *_, sockaddr in results:
-            if isinstance(sockaddr, tuple) and sockaddr:
-                # last writer wins: one address can front several names, and the one just asked
-                # for is a better answer than whichever was asked for first
-                _RESOLVED[str(sockaddr[0])] = host
-    return results
-
-
-def _describe(address: object) -> str:
-    """Say what was refused, naming the host where the address came from a lookup we saw."""
-    if isinstance(address, tuple) and address:
-        host = str(address[0])
-        name = _RESOLVED.get(host)
-        if name and name != host:
-            return f"{name} ({host}:{address[1]})" if len(address) > 1 else f"{name} ({host})"
-    return str(address)
+    return _SOCKET_GETADDRINFO(host, port, *args, **kwargs)
 
 
 class NetworkAccessBlockedError(Exception):
@@ -196,7 +177,27 @@ class NetworkAccessBlockedError(Exception):
 
 #: What the guard refused during the current test, and whether the test said it meant to provoke
 #: one. Read at teardown, because a refusal a caller swallowed has to fail the test all the same.
-_GUARD_STATE: dict[str, Any] = {"refused": [], "expected": False}
+_GUARD_STATE: dict[str, Any] = {"refused": [], "expected": False, "alone": False}
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Note whether this run is the offline selection, or the whole suite with `remote` in it.
+
+    Last, because deselecting on `-m` is itself done in this hook: asked any earlier, `items` still
+    holds the `remote` tests that `-m "not remote"` is about to take out, and every run looks mixed.
+
+    The teardown check below only runs for the former. What the guard records is per process, not
+    per test: a connection from a thread an earlier `remote` test left running -- fsspec cancels
+    nothing on `FSTimeoutError`, and this suite carries `--only-rerun FSTimeoutError` because it
+    sees them -- is refused while whichever unmarked test is current owns the record, and would be
+    read as that test's. Nothing tells the two apart at the socket, and failing a correct test is
+    worse than missing a swallowed refusal. `poe test:offline` has no `remote` test in it to leave
+    anything behind, and that is the run the CI job gates on, so the check is kept for it and the
+    refusal itself -- which is raised either way -- covers the rest.
+    """
+    _GUARD_STATE["alone"] = not any(item.get_closest_marker("remote") for item in items)
+
 
 #: Whether the refusal is what ended the test itself. Set from the report hook below, because a
 #: fixture's teardown cannot see how the call phase went, and the teardown check would otherwise
@@ -257,7 +258,7 @@ def _guarded(original: Any) -> Any:  # noqa: ANN401
     def wrapper(self: socket.socket, address: object, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
         if not _is_local_address(address):
             msg = (
-                f"network access blocked: {_describe(address)}. A test that reaches the internet needs "
+                f"network access blocked: {address}. A test that reaches the internet needs "
                 f"@pytest.mark.remote, or has to be rewritten to work without the network."
             )
             _GUARD_STATE["refused"].append(address)
@@ -306,14 +307,6 @@ def _block_network(request: pytest.FixtureRequest) -> None:
     unmarked and `xfail` can reach upstream and say nothing, and no check made per test can change
     that. `test_benchmarks` was the one in the tree; it is marked now.
 
-    What it records is per process rather than per test, which is the one way it could be unfair
-    rather than lenient: a connection attempted by a thread an earlier `remote` test left running
-    -- fsspec cancels nothing on `FSTimeoutError`, and this suite sees enough of those to carry
-    `--only-rerun FSTimeoutError` -- is refused while whichever unmarked test is current owns the
-    record, and the teardown check below would read it as that test's. Nothing distinguishes the
-    two at the socket, so this is written down rather than worked around. `poe test:offline` runs
-    the selection on its own, where no `remote` test has run to leave anything behind.
-
     So this holds the suite to its own claim; it is not a sandbox.
     """
     # cleared rather than rebound, so a reference `blocked_network` handed out stays the live one,
@@ -326,7 +319,7 @@ def _block_network(request: pytest.FixtureRequest) -> None:
         return
     socket.socket.connect = _guarded(_SOCKET_CONNECT)
     socket.socket.connect_ex = _guarded(_SOCKET_CONNECT_EX)
-    socket.getaddrinfo = _recording_getaddrinfo
+    socket.getaddrinfo = _guarded_getaddrinfo
     try:
         yield
     finally:
@@ -335,14 +328,13 @@ def _block_network(request: pytest.FixtureRequest) -> None:
         socket.getaddrinfo = _SOCKET_GETADDRINFO
         refused = list(_GUARD_STATE["refused"])
         reported = request.node.stash.get(_REFUSAL_ENDED_TEST, default=False)
-        if refused and not _GUARD_STATE["expected"] and not reported:
+        if refused and not _GUARD_STATE["expected"] and not reported and _GUARD_STATE["alone"]:
             # the test ended on something other than the refusal, so something between the socket
             # and the test caught it -- `list_remote_files_fsspec` and `download_file` no longer
             # do, but several providers degrade on a bare `except Exception`. Said here, because a
             # refusal nobody reported is the vacuous pass this guard exists to stop
             pytest.fail(
-                f"network access blocked: {[_describe(one) for one in refused]}. A test that "
-                f"reaches the internet needs "
+                f"network access blocked: {refused}. A test that reaches the internet needs "
                 f"@pytest.mark.remote, or has to be rewritten to work without the network. The "
                 f"refusal did not reach the test, so something on the way caught it.",
             )

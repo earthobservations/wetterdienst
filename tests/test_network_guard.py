@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import _RESOLVED, _SOCKET_CONNECT, NetworkAccessBlockedError, _describe, _is_local_address
+from tests.conftest import _SOCKET_CONNECT, NetworkAccessBlockedError, _is_local_address
 from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
@@ -39,7 +39,8 @@ def test_resolving_a_name_off_this_machine_is_refused(blocked_network: list[obje
     """The connect patch misses Windows, where asyncio connects through `_overlapped.ConnectEx`.
 
     Resolution is the step every platform shares, so it is refused here too and the guard holds on
-    all three rather than going quietly green on one of them.
+    all three rather than going quietly green on one of them. It is also what names the host: a
+    refusal at `connect` alone would say `('141.38.2.164', 443)`, aiohttp having resolved already.
     """
     with pytest.raises(NetworkAccessBlockedError, match=r"network access blocked: opendata\.dwd\.de"):
         socket.getaddrinfo("opendata.dwd.de", 443)
@@ -132,21 +133,6 @@ def test_loopback_stays_open() -> None:
 def test_what_counts_as_this_machine(address: object, local: bool) -> None:  # noqa: FBT001
     """A hostname never resolves here, so anything that is not plainly local is refused."""
     assert _is_local_address(address) is local
-
-
-def test_the_refusal_names_the_host_behind_an_address(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Aiohttp resolves before it connects, so without the lookup table this reads as a bare IP.
-
-    `('141.38.2.164', 443)` says nothing about whose server it is, and naming DWD is the whole
-    point of the message.
-    """
-    monkeypatch.setitem(_RESOLVED, "141.38.2.164", "opendata.dwd.de")
-    assert _describe(("141.38.2.164", 443)) == "opendata.dwd.de (141.38.2.164:443)"
-
-
-def test_an_address_nothing_resolved_is_still_described() -> None:
-    """A connection to a literal address never went through a lookup, and still has to be named."""
-    assert _describe((UNROUTABLE, 443)) == str((UNROUTABLE, 443))
 
 
 def _run_one(
@@ -282,3 +268,39 @@ def test_a_refusal_a_provider_reraised_is_reported_once(
     )
     result.assert_outcomes(failed=1, errors=0)
     assert "did not reach the test" not in result.stdout.str()
+
+
+def test_the_teardown_check_stands_down_where_remote_tests_are_running_too(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """What the guard records is per process, so a mixed run cannot say whose a refusal was.
+
+    A thread an earlier `remote` test left running reaches the socket while some unmarked test is
+    current, and the record would make it that test's. Failing a correct test is worse than missing
+    a swallowed refusal, and the refusal itself is raised in either run, so only the offline
+    selection -- which has no `remote` test to leave anything behind, and is the one CI gates on --
+    carries the check.
+    """
+    result = _run_one(
+        pytester,
+        pytestconfig,
+        monkeypatch,
+        """
+        import socket
+
+        import pytest
+
+        def test_swallows_the_refusal():
+            try:
+                socket.socket().connect(("example.org", 80))
+            except Exception:  # noqa: BLE001
+                pass
+
+        @pytest.mark.remote
+        def test_a_remote_neighbour():
+            pass
+        """,
+    )
+    result.assert_outcomes(passed=2, errors=0)
