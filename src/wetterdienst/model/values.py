@@ -352,16 +352,20 @@ class TimeseriesValues(ABC):
 
         becomes
 
-        timestamp    precipitation_height   qn_precipitation_height
+        timestamp    precipitation_height   precipitation_height_quality
         1971-01-01   0                      0
-            temperature_air_mean_2m    ...
-            10                          ...
+            temperature_air_mean_2m    temperature_air_mean_2m_quality
+            10                          0
+
+        Each quality column is named after its parameter with a `_quality` suffix. A `quality_`
+        prefix would collide: `quality_temperature_air_max_2m` and ten more like it are parameters
+        of their own.
 
         Args:
             df: DataFrame with columns timestamp, parameter, value and quality.
 
         Returns:
-            DataFrame with columns timestamp, parameter, value and quality as columns.
+            DataFrame with one value and one quality column per parameter.
 
         """
         # if there is more than one dataset, we need to prefix parameter names with dataset names to avoid
@@ -414,7 +418,7 @@ class TimeseriesValues(ABC):
         if not df.is_empty():
             for (parameter,), df_parameter in df.group_by(["parameter"], maintain_order=True):
                 # Build quality column name
-                parameter_quality = f"qn_{parameter}"
+                parameter_quality = f"{parameter}_quality"
                 df_parameter = df_parameter.select(["resolution", "timestamp", "value", "quality"])
                 df_parameter = df_parameter.rename(
                     mapping={"value": parameter, "quality": parameter_quality},
@@ -433,7 +437,7 @@ class TimeseriesValues(ABC):
                 # unprefixed names it used to, which named no column the request could produce
                 if len(datasets) > 1:
                     parameter_name = f"{parameter.dataset.name}_{parameter_name}"
-                parameter_quality = f"qn_{parameter_name}"
+                parameter_quality = f"{parameter_name}_quality"
                 df_wide = df_wide.with_columns(
                     pl.lit(None, pl.Float64).alias(parameter_name),
                     pl.lit(None, pl.Float64).alias(parameter_quality),

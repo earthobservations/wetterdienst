@@ -21,5 +21,10 @@ def renamed_column(old: str, columns: Collection[str]) -> str | None:
     new name: a values frame never had `height`, and pointing its caller at an `elevation` it lacks
     as well would send them the wrong way.
     """
-    new = RENAMED_COLUMNS.get(old.lower())
-    return new if new in columns else None
+    columns_by_lower = {column.lower(): column for column in columns}
+    key = old.lower()
+    new = RENAMED_COLUMNS.get(key)
+    if new is None and key.startswith("qn_"):
+        # a wide frame's quality columns, which follow their parameter rather than a list (GH-2030)
+        new = f"{key.removeprefix('qn_')}_quality"
+    return columns_by_lower.get(new) if new else None
