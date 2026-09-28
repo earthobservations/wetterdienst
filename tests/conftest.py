@@ -8,6 +8,7 @@ import platform
 import socket
 import sys
 import time
+from collections.abc import Generator
 from typing import Any
 
 import fsspec.utils as _fsspec_utils
@@ -112,6 +113,12 @@ def _is_local_address(address: object) -> bool:
         parsed = ipaddress.ip_address(host)
     except ValueError:
         return False
+    # a dual-stack socket reports a v4 peer as `::ffff:127.0.0.1`, and whether `is_loopback` looks
+    # through that mapping has moved about between interpreters -- 3.12 answers False where 3.10,
+    # 3.11, 3.13 and 3.14 answer True, and all five are in the CI matrix. Unwrapped here so the
+    # answer is the same on all of them. The mapped address is asked the same question, so a mapped
+    # `::ffff:8.8.8.8` stays refused
+    parsed = getattr(parsed, "ipv4_mapped", None) or parsed
     return parsed.is_loopback or parsed.is_unspecified
 
 
@@ -129,13 +136,43 @@ class NetworkAccessBlockedError(Exception):
     `OSError` was therefore swallowed by all three: the test either failed as
     `FileNotFoundError: url ... does not have a list of files`, which reads like an upstream
     restructure, or -- where an empty listing is a legitimate answer -- passed while testing
-    nothing. Deriving straight from `Exception` puts this outside every one of those handlers, so
-    the missing marker is what the failure says.
+    nothing. Deriving straight from `Exception` puts this outside those three, so the missing
+    marker is what the failure says.
 
-    Not a `BaseException`, though that would also escape them: fsspec's `sync()` carries a result
-    back from the loop thread through `except Exception`, and anything outside that is dropped for
-    a `None` return rather than re-raised.
+    Not a `BaseException`, which would escape more: fsspec's `sync()` carries a result back from
+    the loop thread through `except Exception`, and anything outside that is dropped for a `None`
+    return rather than re-raised.
+
+    Being an `Exception` does leave it catchable by the handful of call sites that degrade on a
+    bare `except Exception` -- `provider/dwd/dmo/api.py` and `Wetterdienst.discover`'s `is_valid`
+    among them. `_block_network` therefore also fails the test at teardown for a refusal that
+    never reached it, so swallowing one postpones the failure rather than avoiding it.
     """
+
+
+#: What the guard refused during the current test, and whether the test said it meant to provoke
+#: one. Read at teardown, because a refusal a caller swallowed has to fail the test all the same.
+_GUARD_STATE: dict[str, Any] = {"refused": [], "expected": False}
+
+#: Whether the refusal is what ended the test itself. Set from the report hook below, because a
+#: fixture's teardown cannot see how the call phase went, and the teardown check would otherwise
+#: report a second time -- saying a caller swallowed it -- on the run where it plainly did not.
+_REFUSAL_ENDED_TEST = pytest.StashKey[bool]()
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(
+    item: pytest.Item,
+    call: pytest.CallInfo,
+) -> Generator[None, pytest.TestReport, pytest.TestReport]:
+    """Note whether the guard's refusal is what the test failed on."""
+    report = yield
+    if call.when == "call":
+        item.stash[_REFUSAL_ENDED_TEST] = call.excinfo is not None and isinstance(
+            call.excinfo.value,
+            NetworkAccessBlockedError,
+        )
+    return report
 
 
 def _guarded(original: Any) -> Any:  # noqa: ANN401
@@ -147,10 +184,23 @@ def _guarded(original: Any) -> Any:  # noqa: ANN401
                 f"network access blocked: {address}. A test that reaches the internet needs "
                 f"@pytest.mark.remote, or has to be rewritten to work without the network."
             )
+            _GUARD_STATE["refused"].append(address)
             raise NetworkAccessBlockedError(msg)
         return original(self, address, *args, **kwargs)
 
     return wrapper
+
+
+@pytest.fixture
+def blocked_network() -> list[object]:
+    """Say that this test provokes the guard on purpose, and hand it what was refused.
+
+    Without it a refusal fails the test at teardown even where nothing propagated, which is the
+    point of the teardown check. Requested after the autouse fixture has armed it, so the flag is
+    set between that fixture's setup and its teardown.
+    """
+    _GUARD_STATE["expected"] = True
+    return _GUARD_STATE["refused"]
 
 
 @pytest.fixture(autouse=True)
@@ -165,16 +215,22 @@ def _block_network(request: pytest.FixtureRequest) -> None:
     requesting ``monkeypatch`` would pull it ahead of the module-level fixtures that expect to be
     torn down first.
 
-    Two things it does not cover, both of which would let a connection through rather than refuse
-    one wrongly: it is installed per test, so a connection opened at import time or by a
-    session-scoped fixture is made before it is in place; and it patches `socket.connect`, which on
+    Three things it does not cover, all of which would let a connection through rather than refuse
+    one wrongly. It is installed per test, so a connection opened at import time or by a
+    session-scoped fixture is made before it is in place. It patches `socket.connect`, which on
     Windows is not the path asyncio's `ProactorEventLoop` takes -- that connects through
-    `_overlapped.ConnectEx`. Name resolution goes out either way. So this is what holds the suite
-    to its own claim, not a sandbox.
+    `_overlapped.ConnectEx`. And it only sees a connection being opened: fsspec keeps one
+    filesystem instance per key, and with it one aiohttp session and its keep-alive pool, for the
+    life of the worker, so an unmarked test asking for a url a `remote` test has just fetched can
+    be served over a connection that is already up. Name resolution goes out regardless. So this
+    holds the suite to its own claim; it is not a sandbox.
     """
     if request.node.get_closest_marker("remote"):
         yield
         return
+    # cleared rather than rebound, so a reference `blocked_network` handed out stays the live one
+    _GUARD_STATE["refused"].clear()
+    _GUARD_STATE["expected"] = False
     socket.socket.connect = _guarded(_SOCKET_CONNECT)
     socket.socket.connect_ex = _guarded(_SOCKET_CONNECT_EX)
     try:
@@ -182,6 +238,18 @@ def _block_network(request: pytest.FixtureRequest) -> None:
     finally:
         socket.socket.connect = _SOCKET_CONNECT
         socket.socket.connect_ex = _SOCKET_CONNECT_EX
+        refused = list(_GUARD_STATE["refused"])
+        reported = request.node.stash.get(_REFUSAL_ENDED_TEST, default=False)
+        if refused and not _GUARD_STATE["expected"] and not reported:
+            # the test ended on something other than the refusal, so something between the socket
+            # and the test caught it -- `list_remote_files_fsspec` and `download_file` no longer
+            # do, but several providers degrade on a bare `except Exception`. Said here, because a
+            # refusal nobody reported is the vacuous pass this guard exists to stop
+            pytest.fail(
+                f"network access blocked: {refused}. A test that reaches the internet needs "
+                f"@pytest.mark.remote, or has to be rewritten to work without the network. The "
+                f"refusal did not reach the test, so something on the way caught it.",
+            )
 
 
 @pytest.fixture

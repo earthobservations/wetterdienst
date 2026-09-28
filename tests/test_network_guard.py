@@ -17,19 +17,21 @@ from wetterdienst.util.network import download_file, list_remote_files_fsspec
 UNROUTABLE = "192.0.2.1"
 
 
-def test_an_unmarked_test_cannot_reach_upstream() -> None:
+def test_an_unmarked_test_cannot_reach_upstream(blocked_network: list[object]) -> None:
     """The refusal names the address, so what is missing a marker is read off the failure."""
     with (
         socket.socket() as sock,
         pytest.raises(NetworkAccessBlockedError, match=r"network access blocked: \('example.org', 80\)"),
     ):
         sock.connect(("example.org", 80))
+    assert blocked_network == [("example.org", 80)]
 
 
-def test_the_refusal_says_what_to_do_about_it() -> None:
+def test_the_refusal_says_what_to_do_about_it(blocked_network: list[object]) -> None:
     """A test reaching upstream is either remote or written wrong, and the message says both."""
     with socket.socket() as sock, pytest.raises(NetworkAccessBlockedError, match=r"pytest\.mark\.remote"):
         sock.connect_ex(("example.org", 80))
+    assert blocked_network == [("example.org", 80)]
 
 
 def test_the_refusal_is_not_an_oserror() -> None:
@@ -41,7 +43,7 @@ def test_the_refusal_is_not_an_oserror() -> None:
     assert not issubclass(NetworkAccessBlockedError, OSError)
 
 
-def test_a_blocked_listing_says_so_rather_than_coming_back_empty() -> None:
+def test_a_blocked_listing_says_so_rather_than_coming_back_empty(blocked_network: list[object]) -> None:
     """A directory that is not there and one that was never asked for are different answers.
 
     `list_remote_files_fsspec` returns `[]` for both a missing directory and an offline library, so
@@ -55,9 +57,14 @@ def test_a_blocked_listing_says_so_rather_than_coming_back_empty() -> None:
             settings=Settings(),
             cache_expiry=CacheExpiry.METAINDEX,
         )
+    # more than one: the listing is wrapped in a stamina retry, which asks again before giving up
+    assert set(blocked_network) == {(UNROUTABLE, 443)}
 
 
-def test_a_blocked_download_says_so_rather_than_carrying_no_internet(tmp_path: Path) -> None:
+def test_a_blocked_download_says_so_rather_than_carrying_no_internet(
+    tmp_path: Path,
+    blocked_network: list[object],
+) -> None:
     """A refused download leaves by raising, and not as the `File` every real failure comes back as.
 
     `download_file` answers a failure with a `File` carrying the exception, and `raise_if_exception`
@@ -71,6 +78,7 @@ def test_a_blocked_download_says_so_rather_than_carrying_no_internet(tmp_path: P
             cache_dir=tmp_path,
             ttl=CacheExpiry.NO_CACHE,
         )
+    assert blocked_network == [(UNROUTABLE, 443)]
 
 
 @pytest.mark.remote
@@ -96,10 +104,85 @@ def test_loopback_stays_open() -> None:
         pytest.param(("localhost", 8000), True, id="localhost"),
         pytest.param(("0.0.0.0", 8000), True, id="unspecified"),  # noqa: S104
         pytest.param("/tmp/some.sock", True, id="unix-socket"),  # noqa: S108
+        # a dual-stack socket reports a v4 peer this way, and 3.12's `is_loopback` says False for it
+        pytest.param(("::ffff:127.0.0.1", 8000, 0, 0), True, id="loopback-v4-mapped"),
         pytest.param(("opendata.dwd.de", 443), False, id="hostname"),
         pytest.param(("141.38.3.10", 443), False, id="address"),
+        pytest.param(("::ffff:8.8.8.8", 443, 0, 0), False, id="address-v4-mapped"),
     ],
 )
 def test_what_counts_as_this_machine(address: object, local: bool) -> None:  # noqa: FBT001
     """A hostname never resolves here, so anything that is not plainly local is refused."""
     assert _is_local_address(address) is local
+
+
+def _run_one(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+    body: str,
+) -> pytest.RunResult:
+    """Run one generated test under this guard, as its own session in its own process.
+
+    A subprocess rather than a nested in-process session: the guard keeps what it refused in module
+    state, which a nested session would share with the test running it.
+    """
+    monkeypatch.setenv("PYTHONPATH", str(pytestconfig.rootpath))
+    pytester.makeconftest("pytest_plugins = ['tests.conftest']\n")
+    pytester.makepyfile(body)
+    return pytester.runpytest_subprocess("-p", "no:randomly", "-p", "no:cacheprovider")
+
+
+def test_a_refusal_that_reaches_the_test_is_reported_once(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The ordinary missing-marker case: one failure naming the host, and no teardown error.
+
+    The teardown check below cannot tell on its own that the refusal already ended the test, and
+    reporting a second time would send a contributor hunting for an `except Exception` that is not
+    there.
+    """
+    result = _run_one(
+        pytester,
+        pytestconfig,
+        monkeypatch,
+        """
+        import socket
+
+        def test_forgot_the_marker():
+            socket.socket().connect(("example.org", 80))
+        """,
+    )
+    result.assert_outcomes(failed=1, errors=0)
+    result.stdout.fnmatch_lines(["*network access blocked: ('example.org', 80)*"])
+    assert "did not reach the test" not in result.stdout.str()
+
+
+def test_a_refusal_nobody_reported_still_fails_the_test(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A caller that degrades on `except Exception` postpones the failure rather than avoiding it.
+
+    Several providers do exactly that, so the refusal reaching the test cannot be what the guard
+    rests on.
+    """
+    result = _run_one(
+        pytester,
+        pytestconfig,
+        monkeypatch,
+        """
+        import socket
+
+        def test_swallows_the_refusal():
+            try:
+                socket.socket().connect(("example.org", 80))
+            except Exception:  # noqa: BLE001 -- the degradation being imitated
+                pass
+        """,
+    )
+    result.assert_outcomes(passed=1, errors=1)
+    result.stdout.fnmatch_lines(["*did not reach the test*"])

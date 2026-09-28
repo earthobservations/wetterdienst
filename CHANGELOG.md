@@ -74,6 +74,11 @@ Types of changes:
   has to ask for it: `reveal(settings.auth.aemet)`, or `.get_secret_value()`. Setting them is
   unchanged, as is every `if not settings.auth.x` check. An f-string or `str()` of a credential now
   yields `**********`, and the mask is refused as a credential on the way in
+- **Breaking**: `filter_by_name` refuses a name that is not a string before it downloads anything.
+  The same `TypeError` came out of rapidfuzz before, one whole station index later -- except for
+  `None`, which came back as an empty result and now raises like any other non-string. Check the
+  name is there before asking, rather than reading an empty result as "no station by that name"
+  (GH-2003)
 - **Breaking**: The `mcp` extra requires `fastmcp>=4,<5` (was `>=3.4.4,<4.0.0`), and `ui/mcp.py`
   builds the `OpenAPIProvider`'s in-process ASGI client with `httpx2` (`>=2.12,<3`, now declared
   alongside the extra) rather than `httpx`, which FastMCP 4 has moved off entirely
@@ -83,9 +88,6 @@ Types of changes:
 - `DwdRadarValues.period` is annotated `Period | None`, which is what it has always held. The
   annotation claimed `Period` and carried a `ty: ignore`, which made both `not self.period` guards
   in the radar API read as dead code to the type checker
-- `filter_by_name` refuses a name that is not a string before it downloads anything. The same
-  `TypeError` came out of rapidfuzz before, one whole station index later -- except for `None`,
-  which used to come back as an empty result and now raises like any other non-string (GH-2003)
 
 ### Fixed
 
