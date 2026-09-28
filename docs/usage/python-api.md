@@ -78,7 +78,7 @@ mystnb:
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 DwdObservationRequest(
-    parameters=("daily", "climate_summary", "precipitation_height")
+    parameters=("daily", "climate_summary", "precipitation_amount")
 )
 ```
 

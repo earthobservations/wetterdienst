@@ -44,7 +44,7 @@ _BASE_PARAMETERS = [
         "unit": "hectopascal",
     },
     {
-        "name": "precipitation_height",
+        "name": "precipitation_amount",
         "name_original": "acc_precip",
         "unit": "millimeter",
     },
@@ -83,7 +83,7 @@ _DAILY_PARAMETERS = [
     *_BASE_PARAMETERS,
     {
         # maximum 30-minute precipitation within the day
-        "name": "precipitation_height_max",
+        "name": "precipitation_amount_max",
         "name_original": "max_precip_30m",
         "unit": "millimeter",
     },
@@ -116,7 +116,7 @@ _MONTHLY_PARAMETERS = [
         "unit": "percent",
     },
     {
-        "name": "precipitation_height_max",
+        "name": "precipitation_amount_max",
         "name_original": "max_precip_24h",
         "unit": "millimeter",
     },

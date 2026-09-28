@@ -35,17 +35,17 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rs_01",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_droplet",
+                            "name": "precipitation_amount_droplet",
                             "name_original": "rth_01",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_rocker",
+                            "name": "precipitation_amount_rocker",
                             "name_original": "rwh_01",
                             "unit": "millimeter",
                         },
@@ -117,7 +117,7 @@ Requesting a specific parameter of the dataset:
 from wetterdienst.provider.dwd.observation import DwdObservationRequest, DwdObservationMetadata
 
 DwdObservationRequest(
-    parameters=[DwdObservationMetadata.minute_1.precipitation.precipitation_height]
+    parameters=[DwdObservationMetadata.minute_1.precipitation.precipitation_amount]
 )
 ```
 
@@ -127,7 +127,7 @@ or equally
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 DwdObservationRequest(
-    parameters=[("minute_1", "precipitation", "precipitation_height")]
+    parameters=[("minute_1", "precipitation", "precipitation_amount")]
 )
 ```
 

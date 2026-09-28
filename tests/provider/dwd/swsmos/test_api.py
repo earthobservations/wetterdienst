@@ -94,10 +94,10 @@ def test_swsmos_values() -> None:
         "temperature_air_mean_2m",
         "temperature_dew_point_mean_2m",
         "temperature_surface_mean",
-        "precipitation_height_liquid",
-        "precipitation_height_last_6h",
+        "precipitation_amount_liquid",
+        "precipitation_amount_last_6h",
         "probability_precipitation_liquid_last_6h",
-        "probability_precipitation_height_gt_5mm_last_6h",
+        "probability_precipitation_amount_gt_5mm_last_6h",
         "road_surface_condition",
     }
     # the forecast is hourly and lies in the future of the run

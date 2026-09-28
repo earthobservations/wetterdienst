@@ -21,7 +21,7 @@
 | {term}`wind_speed`                    | FH            | Mean wind speed               | m/s   |
 | {term}`wind_direction`                | DD            | Mean wind direction           | °     |
 | {term}`wind_gust_max`                 | FX            | Maximum wind gust             | m/s   |
-| {term}`precipitation_height`          | RH            | Precipitation amount          | mm    |
+| {term}`precipitation_amount`          | RH            | Precipitation amount          | mm    |
 | {term}`precipitation_duration`        | DR            | Precipitation duration        | h     |
 | {term}`pressure_air_sea_level`        | P             | Air pressure                  | hPa   |
 | {term}`sunshine_duration`             | SQ            | Sunshine duration             | h     |

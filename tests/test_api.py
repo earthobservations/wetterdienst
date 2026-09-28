@@ -763,7 +763,7 @@ def test_api_imgw_meteorology(default_settings: Settings) -> None:
 def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
     """Test noaa ghcn hourly API."""
     request = NoaaGhcnRequest(
-        parameters=[("hourly", "data", "precipitation_height")],
+        parameters=[("hourly", "data", "precipitation_amount")],
         settings=default_settings,
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
@@ -784,7 +784,7 @@ def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
 def test_api_noaa_ghcn_daily(default_settings: Settings) -> None:
     """Test noaa ghcn daily API."""
     request = NoaaGhcnRequest(
-        parameters=[("daily", "data", "precipitation_height")],
+        parameters=[("daily", "data", "precipitation_amount")],
         settings=default_settings,
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
@@ -912,7 +912,7 @@ def test_api_metno_frost(default_settings: Settings) -> None:
 def test_api_geosphere_observation(default_settings: Settings) -> None:
     """Test geosphere observation API."""
     request = GeosphereObservationRequest(
-        parameters=[("daily", "data", "precipitation_height")],
+        parameters=[("daily", "data", "precipitation_amount")],
         settings=default_settings,
     ).filter_by_station_id("5882")
     assert not request.df.is_empty()
@@ -957,7 +957,7 @@ def test_api_meteofrance_observation(default_settings: Settings) -> None:
     # bounded to a few months: without a date range, values would download every period-bucket
     # archive for the station's department (up to multi-decade, 100+ MB decompressed each)
     request = MeteoFranceObservationRequest(
-        parameters=[("monthly", "data", "precipitation_height")],
+        parameters=[("monthly", "data", "precipitation_amount")],
         start_date=datetime(2023, 1, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
         end_date=datetime(2023, 6, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
         settings=default_settings,

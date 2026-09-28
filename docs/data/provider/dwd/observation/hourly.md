@@ -141,7 +141,7 @@ Code (cloud_cover_total_measurement_method):
 
 | name                         | original name | description           | unit | constraints                  |
 |------------------------------|---------------|-----------------------|------|------------------------------|
-| {term}`precipitation_height` | r1 | Precipitation height during the previous hour. | mm | >=0 |
+| {term}`precipitation_amount` | r1 | Precipitation height during the previous hour. | mm | >=0 |
 | {term}`precipitation_index` | rs_ind | Precipitation indicator; 0 = no; 1 = yes. | - | ∈ \[0, 1\] |
 | {term}`precipitation_form` | wrtr | Precipitation form; 0=No precipitation. | - | ∈ \[0, 1, 2, 3, 6, 7, 8, 9\] |
 
@@ -277,7 +277,7 @@ Code (precipitation_form):
 
 | name                         | original name      | description          | unit | constraints |
 |------------------------------|--------------------|----------------------|------|-------------|
-| {term}`precipitation_height` | niederschlagshoehe | Precipitation height. | mm | >=0 |
+| {term}`precipitation_amount` | niederschlagshoehe | Precipitation height. | mm | >=0 |
 
 ### urban_pressure
 

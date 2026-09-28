@@ -158,7 +158,7 @@ KnmiObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "RH",
                             "unit": "millimeter",
                         },
@@ -233,7 +233,7 @@ KnmiObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "RH",
                             "unit": "millimeter",
                         },

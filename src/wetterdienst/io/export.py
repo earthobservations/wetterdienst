@@ -436,7 +436,7 @@ class ExportMixin:
                         # A `--shape=wide` schedule does that by changing one parameter -- a day's
                         # precipitation was filed as its temperature, exit 0 and nothing said. Matching
                         # by name refuses that with `Binder Error: Table "weather" does not have a
-                        # column with name "precipitation_height"`, and still accepts a frame whose
+                        # column with name "precipitation_amount"`, and still accepts a frame whose
                         # columns are a subset, filling the rest with nulls
                         connection.execute(f"INSERT INTO {tablename} BY NAME SELECT * FROM origin;")  # noqa: S608
                 elif if_exists == "fail":

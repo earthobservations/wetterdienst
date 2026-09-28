@@ -60,6 +60,10 @@ Types of changes:
   new names; an old one in a request, as a `ts_geo_station_distance` key or as a wide column in a
   SQL filter is reported with its replacement. A wide DuckDB, SQLite or PostgreSQL table
   `to_target` wrote before takes no append of them (GH-2036)
+- **Breaking:** every parameter name containing `precipitation_height` or `evaporation_height` says
+  `precipitation_amount` or `evaporation_amount` instead -- 66 names, from `precipitation_height`
+  itself to `count_days_precipitation_height_ge_1mm` and `evaporation_height_grass_sand`. Request the
+  new names; an old one is reported with its replacement (GH-2038)
 
 ## [0.138.0] - 2026-09-28
 

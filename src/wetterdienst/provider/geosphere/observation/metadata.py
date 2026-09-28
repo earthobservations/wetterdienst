@@ -38,7 +38,7 @@ GeosphereObservationMetadata = {
                             "unit": "minute",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rr",
                             "unit": "millimeter",
                         },
@@ -168,7 +168,7 @@ GeosphereObservationMetadata = {
                             "unit": "minute",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rr",
                             "unit": "millimeter",
                         },
@@ -279,7 +279,7 @@ GeosphereObservationMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rr",
                             "unit": "millimeter",
                         },
@@ -375,12 +375,12 @@ GeosphereObservationMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rr",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_max",
+                            "name": "precipitation_amount_max",
                             "name_original": "rr_max",
                             "unit": "millimeter",
                         },

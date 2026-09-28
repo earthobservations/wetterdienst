@@ -29,8 +29,8 @@
 | {term}`heating_degree_day`          | heating_degree_days       | heating degree days                 | °Cd  | >=0         |
 | {term}`humidity_relative_max` | max_rel_humidity | Highest relative humidity over the period. | %       | - |
 | {term}`humidity_relative_min` | min_rel_humidity | Lowest relative humidity over the period. | %       | - |
-| {term}`precipitation_height` | total_precipitation | Total precipitation. | mm | >=0 |
-| {term}`precipitation_height_liquid` | total_rain | Total liquid precipitation. | mm | >=0 |
+| {term}`precipitation_amount` | total_precipitation | Total precipitation. | mm | >=0 |
+| {term}`precipitation_amount_liquid` | total_rain | Total liquid precipitation. | mm | >=0 |
 | {term}`snow_depth` | snow_on_ground | Total snow depth. | cm | >=0 |
 | {term}`snow_depth_new` | total_snow | New snow depth. | cm | >=0 |
 | {term}`temperature_air_max_2m` | max_temperature | Daily maximum 2m air temperature. | °C | - |

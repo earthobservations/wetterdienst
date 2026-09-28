@@ -36,12 +36,12 @@ _MONTHLY_ANNUAL_PARAMETERS = [
         "unit": "degree_celsius",
     },
     {
-        "name": "precipitation_height",
+        "name": "precipitation_amount",
         "name_original": "p_mes",
         "unit": "millimeter",
     },
     {
-        "name": "precipitation_height_max",
+        "name": "precipitation_amount_max",
         "name_original": "p_max",
         "unit": "millimeter",
     },
@@ -98,7 +98,7 @@ AemetObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "prec",
                             "unit": "millimeter",
                         },
@@ -168,7 +168,7 @@ AemetObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "prec",
                             "unit": "millimeter",
                         },

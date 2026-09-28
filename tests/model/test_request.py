@@ -91,13 +91,13 @@ def default_request(default_settings: Settings) -> TimeseriesRequest:
 def test_dwd_observation_data_api_singe_parameter(default_settings: Settings) -> None:
     """Test parameters given as parameter - dataset pair."""
     request = DwdObservationRequest(
-        parameters=[("daily", "kl", "precipitation_height")],
+        parameters=[("daily", "kl", "precipitation_amount")],
         periods={"recent", "historical"},
         settings=default_settings,
     )
 
     assert request == DwdObservationRequest(
-        parameters=[DwdObservationMetadata.daily.kl.precipitation_height],
+        parameters=[DwdObservationMetadata.daily.kl.precipitation_amount],
         periods={Period.HISTORICAL, Period.RECENT},
         start_date=None,
         end_date=None,
@@ -113,7 +113,7 @@ def test_dwd_observation_data_whole_dataset(default_settings: Settings) -> None:
     assert given.parameters == [
         DwdObservationMetadata.daily.climate_summary.wind_gust_max,
         DwdObservationMetadata.daily.climate_summary.wind_speed,
-        DwdObservationMetadata.daily.climate_summary.precipitation_height,
+        DwdObservationMetadata.daily.climate_summary.precipitation_amount,
         DwdObservationMetadata.daily.climate_summary.precipitation_form,
         DwdObservationMetadata.daily.climate_summary.sunshine_duration,
         DwdObservationMetadata.daily.climate_summary.snow_depth,
@@ -133,7 +133,7 @@ def test_dwd_observation_wrong_start_date_end_date(default_settings: Settings) -
     """Test for wrong start and end date."""
     with pytest.raises(StartDateEndDateError):
         DwdObservationRequest(
-            parameters=[("daily", "kl", "precipitation_height")],
+            parameters=[("daily", "kl", "precipitation_amount")],
             start_date="1971-01-01",
             end_date="1951-01-01",
             settings=default_settings,
@@ -276,14 +276,14 @@ def test_dwd_observation_stations_fail(default_request: TimeseriesRequest) -> No
 def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
     """Test for multiple parameters."""
     request = DwdObservationRequest(
-        parameters=[("daily", "kl", "temperature_air_mean_2m"), ("hourly", "precipitation", "precipitation_height")],
+        parameters=[("daily", "kl", "temperature_air_mean_2m"), ("hourly", "precipitation", "precipitation_amount")],
         settings=default_settings,
         start_date=dt.datetime(1900, 1, 1, tzinfo=ZoneInfo("UTC")),
         end_date=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id(("02315", "01050", "19140"))
     assert request.parameters == [
         DwdObservationMetadata.daily.kl.temperature_air_mean_2m,
-        DwdObservationMetadata.hourly.precipitation.precipitation_height,
+        DwdObservationMetadata.hourly.precipitation.precipitation_amount,
     ]
     df_stations = request.df
     assert df_stations.get_column("resolution").unique(maintain_order=True).sort().to_list() == ["daily", "hourly"]
@@ -351,7 +351,7 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
         "precipitation",
     ]
     assert df_values.get_column("parameter").unique().sort().to_list() == [
-        "precipitation_height",
+        "precipitation_amount",
         "temperature_air_mean_2m",
     ]
     # station in climate_summary

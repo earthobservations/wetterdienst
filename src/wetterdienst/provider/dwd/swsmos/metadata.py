@@ -51,8 +51,8 @@ DwdSwsmosMetadata = {
                         {"name": "temperature_surface_mean", "name_original": "TS", **_TEMPERATURE},
                         # RR6 is a 6-hour liquid precipitation total; there is no ``*_liquid_last_6h``
                         # parameter, so the (window-bearing) generic 6-hour height is the closest fit
-                        {"name": "precipitation_height_liquid", "name_original": "RRL1c", **_PRECIPITATION},
-                        {"name": "precipitation_height_last_6h", "name_original": "RR6", **_PRECIPITATION},
+                        {"name": "precipitation_amount_liquid", "name_original": "RRL1c", **_PRECIPITATION},
+                        {"name": "precipitation_amount_last_6h", "name_original": "RR6", **_PRECIPITATION},
                         {
                             "name": "probability_precipitation_liquid_last_6h",
                             "name_original": "WWL6",
@@ -60,7 +60,7 @@ DwdSwsmosMetadata = {
                         },
                         {
                             # R650: probability of > 5 mm liquid+solid precipitation in the last 6 h
-                            "name": "probability_precipitation_height_gt_5mm_last_6h",
+                            "name": "probability_precipitation_amount_gt_5mm_last_6h",
                             "name_original": "R650",
                             "unit": "percent",
                         },

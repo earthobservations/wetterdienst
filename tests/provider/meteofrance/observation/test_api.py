@@ -20,7 +20,7 @@ def test_meteofrance_observation_api_interleaved_datasets_no_duplicate_stations(
     """
     request = MeteoFranceObservationRequest(
         parameters=[
-            ("daily", "core", "precipitation_height"),
+            ("daily", "core", "precipitation_amount"),
             ("daily", "others", "humidity_relative"),
             ("daily", "core", "wind_speed"),
         ],
@@ -80,7 +80,7 @@ def test_meteofrance_observation_api_daily(dataset: str, parameter: str) -> None
 @pytest.mark.parametrize(
     "parameter",
     [
-        "precipitation_height",
+        "precipitation_amount",
         "temperature_air_max_2m_mean",
         "wind_gust_max",
         "sunshine_duration",
@@ -102,7 +102,7 @@ def test_meteofrance_observation_api_monthly(parameter: str) -> None:
     ("dataset", "parameter"),
     [
         ("core", "temperature_air_mean_2m"),
-        ("core", "precipitation_height"),
+        ("core", "precipitation_amount"),
         ("core", "wind_direction_gust_max"),
         ("others", "cloud_cover_total"),
         ("others", "visibility_range"),
@@ -130,7 +130,7 @@ def test_meteofrance_observation_api_6_minutes() -> None:
     Only precipitation is published at this resolution.
     """
     request = MeteoFranceObservationRequest(
-        parameters=[("6_minutes", "data", "precipitation_height")],
+        parameters=[("6_minutes", "data", "precipitation_amount")],
         start_date=datetime(2025, 6, 1, tzinfo=ZoneInfo("UTC")),
         end_date=datetime(2025, 6, 2, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("31069001")

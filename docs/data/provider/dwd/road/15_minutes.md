@@ -27,7 +27,7 @@
 |---------------------------------------|------------------------------------------|----------------------------------|------|-------------|
 | {term}`humidity_relative`                      | relativeHumidity                         | mean humidity                    | %    | >=0,<=100   |
 | {term}`precipitation_type_flags`      | precipitationType                        | types of precipitation, as flags | -    | -           |
-| {term}`precipitation_height`          | totalPrecipitationOrTotalWaterEquivalent | precipitation height             | mm   | >=0         |
+| {term}`precipitation_amount`          | totalPrecipitationOrTotalWaterEquivalent | precipitation height             | mm   | >=0         |
 | {term}`precipitation_intensity`       | intensityOfPrecipitation                 | precipitation intensity          | mm/s | >=0         |
 | {term}`road_surface_condition`        | roadSurfaceCondition                     | road surface condition           | -    | -           |
 | {term}`temperature_air_mean_2m`       | airTemperature                           | mean air temperature in 2m       | K    | -           |

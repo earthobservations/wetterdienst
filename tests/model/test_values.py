@@ -22,7 +22,7 @@ def test_cast_metadata_to_enum_uses_sorted_unique_categories() -> None:
             "station_id": ["00044", "00011", "00044"],
             "resolution": ["daily", "daily", "daily"],
             "dataset": ["climate_summary"] * 3,
-            "parameter": ["temperature_air_mean_2m", "precipitation_height", "temperature_air_mean_2m"],
+            "parameter": ["temperature_air_mean_2m", "precipitation_amount", "temperature_air_mean_2m"],
             "value": [1.0, 2.0, 3.0],
         },
     )
@@ -32,7 +32,7 @@ def test_cast_metadata_to_enum_uses_sorted_unique_categories() -> None:
     assert result.schema["station_id"] == pl.Enum(["00011", "00044"])
     assert result.schema["resolution"] == pl.Enum(["daily"])
     assert result.schema["dataset"] == pl.Enum(["climate_summary"])
-    assert result.schema["parameter"] == pl.Enum(["precipitation_height", "temperature_air_mean_2m"])
+    assert result.schema["parameter"] == pl.Enum(["precipitation_amount", "temperature_air_mean_2m"])
     # value column is untouched and the data is preserved
     assert result.schema["value"] == pl.Float64
     assert_frame_equal(result.with_columns(pl.col(pl.Enum).cast(pl.String)), df)
@@ -157,7 +157,7 @@ def test_widen_df_merges_datasets_of_one_resolution_into_one_row() -> None:
     df = _long(
         [
             ("daily", "climate_summary", "temperature_air_mean_2m", 0, 5.0),
-            ("daily", "precipitation_more", "precipitation_height", 0, 1.0),
+            ("daily", "precipitation_more", "precipitation_amount", 0, 1.0),
         ],
     )
 
@@ -166,7 +166,7 @@ def test_widen_df_merges_datasets_of_one_resolution_into_one_row() -> None:
     assert result.height == 1
     assert result.get_column("dataset").to_list() == [None]
     assert result.get_column("climate_summary_temperature_air_mean_2m").to_list() == [5.0]
-    assert result.get_column("precipitation_more_precipitation_height").to_list() == [1.0]
+    assert result.get_column("precipitation_more_precipitation_amount").to_list() == [1.0]
 
 
 def test_widen_df_keeps_the_dataset_name_where_a_resolution_has_one() -> None:
@@ -179,8 +179,8 @@ def test_widen_df_keeps_the_dataset_name_where_a_resolution_has_one() -> None:
     df = _long(
         [
             ("daily", "climate_summary", "temperature_air_mean_2m", 0, 5.0),
-            ("daily", "precipitation_more", "precipitation_height", 0, 1.0),
-            ("hourly", "precipitation", "precipitation_height", 0, 0.5),
+            ("daily", "precipitation_more", "precipitation_amount", 0, 1.0),
+            ("hourly", "precipitation", "precipitation_amount", 0, 0.5),
         ],
     )
 
@@ -191,7 +191,7 @@ def test_widen_df_keeps_the_dataset_name_where_a_resolution_has_one() -> None:
 
     assert result.get_column("resolution").to_list() == ["daily", "hourly"]
     assert result.get_column("dataset").to_list() == [None, "precipitation"]
-    assert result.get_column("precipitation_precipitation_height").to_list() == [None, 0.5]
+    assert result.get_column("precipitation_precipitation_amount").to_list() == [None, 0.5]
 
 
 def _hourly_values(start_date: dt.datetime, end_date: dt.datetime) -> TimeseriesValues:
@@ -395,7 +395,7 @@ def test_actual_percentage_reads_the_fallback_window_off_the_dataset_it_measures
     request = DwdObservationRequest(
         parameters=[
             ("hourly", "temperature_air", "temperature_air_mean_2m"),
-            ("daily", "climate_summary", "precipitation_height"),
+            ("daily", "climate_summary", "precipitation_amount"),
         ],
     )
     values = DwdObservationValues(
@@ -590,7 +590,7 @@ def test_wide_empty_result_matches_the_shape_of_a_populated_one(monkeypatch: pyt
         monkeypatch=monkeypatch,
         datasets=["climate_summary", "precipitation_more"],
     )
-    parameters = ["daily/kl/temperature_air_mean_2m", "daily/more_precip/precipitation_height"]
+    parameters = ["daily/kl/temperature_air_mean_2m", "daily/more_precip/precipitation_amount"]
     settings = {"ts_shape": "wide"}
 
     empty = (

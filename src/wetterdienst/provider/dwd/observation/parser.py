@@ -226,14 +226,14 @@ def _parse_climate_observations_data(  # noqa: C901
             # this is a special case, we return as the dates are already parsed and everything is done
             return _transform_minute_1_precipitation_historical(df)
         missing_parameters = (
-            DwdObservationMetadata.minute_1.precipitation.precipitation_height_droplet.name_original,
-            DwdObservationMetadata.minute_1.precipitation.precipitation_height_rocker.name_original,
+            DwdObservationMetadata.minute_1.precipitation.precipitation_amount_droplet.name_original,
+            DwdObservationMetadata.minute_1.precipitation.precipitation_amount_rocker.name_original,
         )
         df = df.with_columns(pl.lit(None, pl.String).alias(parameter) for parameter in missing_parameters)
     elif dataset == DwdObservationMetadata.minute_5.precipitation and period != Period.HISTORICAL:
         missing_parameters = [
-            DwdObservationMetadata.minute_5.precipitation.precipitation_height_rocker.name_original,
-            DwdObservationMetadata.minute_5.precipitation.precipitation_height_droplet.name_original,
+            DwdObservationMetadata.minute_5.precipitation.precipitation_amount_rocker.name_original,
+            DwdObservationMetadata.minute_5.precipitation.precipitation_amount_droplet.name_original,
         ]
         df = df.with_columns(pl.lit(None, dtype=pl.String).alias(parameter) for parameter in missing_parameters)
     # Special handling for hourly solar data, as it has more date columns

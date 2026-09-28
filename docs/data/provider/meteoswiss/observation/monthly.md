@@ -26,7 +26,7 @@
 |-------------------------------------------|---------------|-----------------------------------------------------------------|-----------------------|
 | {term}`wind_speed`                        | fkl010m0      | Wind speed scalar; monthly mean in m/s                          | meter_per_second      |
 | {term}`wind_gust_max`                     | fkl010m1      | Gust peak (one second); monthly maximum in m/s                  | meter_per_second      |
-| {term}`precipitation_height`              | rre150m0      | Precipitation; monthly total                                    | millimeter            |
+| {term}`precipitation_amount`              | rre150m0      | Precipitation; monthly total                                    | millimeter            |
 | {term}`pressure_air_site`                 | prestam0      | Atmospheric pressure at barometric altitude (QFE); monthly mean | hectopascal           |
 | {term}`pressure_air_sea_level`            | pp0qffm0      | Atmospheric pressure reduced to sea level (QFF); monthly mean   | hectopascal           |
 | {term}`pressure_vapor`                    | pva200m0      | Vapour pressure 2 m above ground; monthly mean                  | hectopascal           |

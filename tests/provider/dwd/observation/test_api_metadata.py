@@ -16,19 +16,19 @@ def test_dwd_observation_metadata_discover_parameters() -> None:
         "1_minute": {
             "precipitation": [
                 {
-                    "name": "precipitation_height",
+                    "name": "precipitation_amount",
                     "name_original": "rs_01",
                     "unit_type": "precipitation",
                     "unit": "millimeter",
                 },
                 {
-                    "name": "precipitation_height_droplet",
+                    "name": "precipitation_amount_droplet",
                     "name_original": "rth_01",
                     "unit_type": "precipitation",
                     "unit": "millimeter",
                 },
                 {
-                    "name": "precipitation_height_rocker",
+                    "name": "precipitation_amount_rocker",
                     "name_original": "rwh_01",
                     "unit_type": "precipitation",
                     "unit": "millimeter",

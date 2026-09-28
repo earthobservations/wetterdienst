@@ -194,7 +194,7 @@ const compactDays = computed(() => {
   const series = seriesCache.value
   const available = new Set(series.keys())
   const weatherKey = findFirstAvailable(['weather_significant', 'significant_weather', 'ww', 'weather'], available)
-  const precipKey = findFirstAvailable(['precipitation_height_significant_weather_last_1h', 'precipitation_height_last_1h', 'rr1', 'rr1c'], available)
+  const precipKey = findFirstAvailable(['precipitation_amount_significant_weather_last_1h', 'precipitation_amount_last_1h', 'rr1', 'rr1c'], available)
   const tempKey = findFirstAvailable(['temperature_air_mean_2m', 'ttt'], available)
   const cloudKey = findFirstAvailable(['cloud_cover_total', 'n'], available)
 
@@ -373,7 +373,7 @@ const summaryStats = computed(() => {
   const available = new Set(series.keys())
 
   const tempKey = findFirstAvailable(['temperature_air_mean_2m', 'ttt'], available)
-  const precipKey = findFirstAvailable(['precipitation_height_significant_weather_last_1h', 'precipitation_height_last_1h', 'rr1', 'rr1c'], available)
+  const precipKey = findFirstAvailable(['precipitation_amount_significant_weather_last_1h', 'precipitation_amount_last_1h', 'rr1', 'rr1c'], available)
   const gustKey = findFirstAvailable(['wind_gust_max', 'wind_gust', 'ffx', 'fx', 'wind_gust_max_last_1h', 'wind_gust_max_last_3h', 'fx1', 'fx3'], available)
   const cloudKey = findFirstAvailable(['cloud_cover_total', 'n'], available)
   const pressureKey = findFirstAvailable(['pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'], available)
@@ -910,7 +910,7 @@ async function renderChartActual() {
   const available = new Set(series.keys())
 
   const tempKey = findFirstAvailable(['temperature_air_mean_2m', 'ttt'], available)
-  const precipKey = findFirstAvailable(['precipitation_height_significant_weather_last_1h', 'precipitation_height_last_1h', 'rr1', 'rr1c'], available)
+  const precipKey = findFirstAvailable(['precipitation_amount_significant_weather_last_1h', 'precipitation_amount_last_1h', 'rr1', 'rr1c'], available)
   const windKey = findFirstAvailable(['wind_speed', 'ff'], available)
   const windDirKey = findFirstAvailable(['wind_direction', 'dd'], available)
   const gustKey = findFirstAvailable(['wind_gust_max', 'wind_gust', 'ffx', 'fx', 'wind_gust_max_last_1h', 'wind_gust_max_last_3h', 'fx1', 'fx3'], available)

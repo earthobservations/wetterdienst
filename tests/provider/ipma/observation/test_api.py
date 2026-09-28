@@ -159,7 +159,7 @@ def test_ipma_observation_values() -> None:
         "pressure_air_sea_level",
         "wind_speed",
         "wind_direction",
-        "precipitation_height",
+        "precipitation_amount",
         "radiation_global",
     }
     # wind direction is emitted in degrees, quantised to the 8-point compass (multiples of 45)

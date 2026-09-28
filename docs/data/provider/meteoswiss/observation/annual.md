@@ -26,7 +26,7 @@
 |-------------------------------------------|---------------|----------------------------------------------------------------|-----------------------|
 | {term}`wind_speed`                        | fkl010y0      | Wind speed scalar; annual mean in m/s                          | meter_per_second      |
 | {term}`wind_gust_max`                     | fkl010y1      | Gust peak (one second); annual maximum in m/s                  | meter_per_second      |
-| {term}`precipitation_height`              | rre150y0      | Precipitation; annual total                                    | millimeter            |
+| {term}`precipitation_amount`              | rre150y0      | Precipitation; annual total                                    | millimeter            |
 | {term}`pressure_air_site`                 | prestay0      | Atmospheric pressure at barometric altitude (QFE); annual mean | hectopascal           |
 | {term}`pressure_air_sea_level`            | pp0qffy0      | Atmospheric pressure reduced to sea level (QFF); annual mean   | hectopascal           |
 | {term}`pressure_vapor`                    | pva200y0      | Vapour pressure 2 m above ground; annual mean                  | hectopascal           |

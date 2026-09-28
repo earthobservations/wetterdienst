@@ -29,7 +29,7 @@ _CLIMATE_PARAMETERS = [
     {"name": "temperature_air_mean_2m", "name_original": "T", **_TEMPERATURE},
     {"name": "temperature_air_max_2m", "name_original": "TMA", **_TEMPERATURE},
     {"name": "temperature_air_min_2m", "name_original": "TMI", **_TEMPERATURE},
-    {"name": "precipitation_height", "name_original": "SRA", **_PRECIPITATION},
+    {"name": "precipitation_amount", "name_original": "SRA", **_PRECIPITATION},
 ]
 
 _DAILY_PARAMETERS = [
@@ -51,7 +51,7 @@ _MINUTE_10_PARAMETERS = [
 
 _HOURLY_PARAMETERS = [
     {"name": "temperature_dew_point_mean_2m", "name_original": "Td", **_TEMPERATURE},
-    {"name": "precipitation_height", "name_original": "SRA1H", **_PRECIPITATION},
+    {"name": "precipitation_amount", "name_original": "SRA1H", **_PRECIPITATION},
     {"name": "pressure_air_site", "name_original": "P", **_PRESSURE},
 ]
 

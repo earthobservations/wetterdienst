@@ -26,4 +26,4 @@ observation feed.
 | {term}`visibility_range`        | 51            | Visibility. One minute mean, every minute.                            | m    |
 | {term}`wind_speed`              | 47            | Wind speed. One minute mean, every minute.                            | m/s  |
 | {term}`wind_direction`          | 48            | Wind direction. One minute mean, every minute.                        | °    |
-| {term}`precipitation_height`    | 46            | Precipitation amount. Precipitation during one minute.                | mm   |
+| {term}`precipitation_amount`    | 46            | Precipitation amount. Precipitation during one minute.                | mm   |

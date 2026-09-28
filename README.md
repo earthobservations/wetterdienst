@@ -111,7 +111,7 @@ Daily precipitation for Zinnwald-Georgenfeld, August 2002 — the flood:
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
-    parameters=[("daily", "climate_summary", "precipitation_height")],
+    parameters=[("daily", "climate_summary", "precipitation_amount")],
     start_date="2002-08-11",
     end_date="2002-08-13",
 ).filter_by_station_id(station_id=(5779,))
@@ -131,9 +131,9 @@ values.head()
 # ┌────────────┬────────────┬─────────────────┬──────────────────────┬─────────────────────────┬───────┬─────────┐
 # │ station_id ┆ resolution ┆ dataset         ┆ parameter            ┆ timestamp               ┆ value ┆ quality │
 # ╞════════════╪════════════╪═════════════════╪══════════════════════╪═════════════════════════╪═══════╪═════════╡
-# │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_height ┆ 2002-08-11 00:00:00 UTC ┆ 67.9  ┆ 10.0    │
-# │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_height ┆ 2002-08-12 00:00:00 UTC ┆ 312.0 ┆ 10.0    │
-# │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_height ┆ 2002-08-13 00:00:00 UTC ┆ 26.3  ┆ 10.0    │
+# │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_amount ┆ 2002-08-11 00:00:00 UTC ┆ 67.9  ┆ 10.0    │
+# │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_amount ┆ 2002-08-12 00:00:00 UTC ┆ 312.0 ┆ 10.0    │
+# │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_amount ┆ 2002-08-13 00:00:00 UTC ┆ 26.3  ┆ 10.0    │
 # └────────────┴────────────┴─────────────────┴──────────────────────┴─────────────────────────┴───────┴─────────┘
 
 values.to_pandas()  # if you would rather have pandas

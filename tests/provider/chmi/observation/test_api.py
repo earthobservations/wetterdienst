@@ -171,7 +171,7 @@ def test_chmi_observation_values_hourly() -> None:
     when = dt.datetime(2020, 1, 1, tzinfo=UTC)
     assert _value_of(df, "temperature_dew_point_mean_2m", when) == pytest.approx(-3.9)
     assert _value_of(df, "pressure_air_site", when) == pytest.approx(975.8)
-    assert _value_of(df, "precipitation_height", when) == pytest.approx(0.0)
+    assert _value_of(df, "precipitation_amount", when) == pytest.approx(0.0)
 
 
 @pytest.mark.remote
@@ -184,7 +184,7 @@ def test_chmi_observation_values_daily() -> None:
     assert _value_of(df, "temperature_air_mean_2m", when) == pytest.approx(-3.0)
     assert _value_of(df, "temperature_air_max_2m", when) == pytest.approx(1.5)
     assert _value_of(df, "temperature_air_min_2m", when) == pytest.approx(-6.9)
-    assert _value_of(df, "precipitation_height", when) == pytest.approx(0.0)
+    assert _value_of(df, "precipitation_amount", when) == pytest.approx(0.0)
     assert _value_of(df, "wind_speed", when) == pytest.approx(0.8)
     assert _value_of(df, "wind_gust_max", when) == pytest.approx(3.7)
     assert _value_of(df, "pressure_air_site", when) == pytest.approx(974.9)
@@ -205,7 +205,7 @@ def test_chmi_observation_values_monthly() -> None:
     assert _value_of(df, "temperature_air_max_2m", when) == pytest.approx(3.7)
     assert _value_of(df, "temperature_air_min_2m", when) == pytest.approx(-1.5)
     # precipitation is the monthly total (MDFUNCTION SUM), not an average
-    assert _value_of(df, "precipitation_height", when) == pytest.approx(21.3)
+    assert _value_of(df, "precipitation_amount", when) == pytest.approx(21.3)
 
 
 @pytest.mark.remote
@@ -217,4 +217,4 @@ def test_chmi_observation_values_annual() -> None:
     assert _value_of(df, "temperature_air_mean_2m", when) == pytest.approx(9.7)
     assert _value_of(df, "temperature_air_max_2m", when) == pytest.approx(14.9)
     assert _value_of(df, "temperature_air_min_2m", when) == pytest.approx(5.0)
-    assert _value_of(df, "precipitation_height", when) == pytest.approx(465.6)
+    assert _value_of(df, "precipitation_amount", when) == pytest.approx(465.6)

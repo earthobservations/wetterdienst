@@ -297,7 +297,7 @@ pytest_credentials = pytest.mark.skipif(
 def test_metoffice_observation_stations() -> None:
     """The daily-rain catalogue resolves and contains the reference station."""
     df = (
-        MetOfficeObservationRequest(parameters=[("daily", "rain", "precipitation_height")])
+        MetOfficeObservationRequest(parameters=[("daily", "rain", "precipitation_amount")])
         .filter_by_station_id(LERWICK)
         .df
     )
@@ -317,7 +317,7 @@ def test_metoffice_observation_values_daily_rain() -> None:
     """Daily precipitation returns one day-truncated row per day, all non-negative."""
     df = (
         MetOfficeObservationRequest(
-            parameters=[("daily", "rain", "precipitation_height")],
+            parameters=[("daily", "rain", "precipitation_amount")],
             start_date=dt.datetime(2023, 7, 1, tzinfo=UTC),
             end_date=dt.datetime(2023, 7, 10, tzinfo=UTC),
         )
@@ -327,7 +327,7 @@ def test_metoffice_observation_values_daily_rain() -> None:
     )
     assert not df.is_empty()
     assert df["resolution"].unique().to_list() == ["daily"]
-    assert df["parameter"].unique().to_list() == ["precipitation_height"]
+    assert df["parameter"].unique().to_list() == ["precipitation_amount"]
     # one value per day, timestamps truncated to midnight
     assert (df["timestamp"] == df["timestamp"].dt.truncate("1d")).all()
     assert df["timestamp"].n_unique() == df.height

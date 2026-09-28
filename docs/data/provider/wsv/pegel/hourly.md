@@ -39,7 +39,7 @@
 | {term}`turbidity`               | TR                      | average turbidity during time scale                    | NTU   | -           |
 | {term}`flow_direction`          | R                       | direction of the water current                         | °     | >=0,<=360   |
 | {term}`wind_direction`          | WR                      | average wind direction during time scale               | °     | >=0,<=360   |
-| {term}`precipitation_height`    | NIEDERSCHLAG            | average precipitation height during time scale         | mm    | >=0         |
+| {term}`precipitation_amount`    | NIEDERSCHLAG            | average precipitation height during time scale         | mm    | >=0         |
 | {term}`precipitation_intensity` | NIEDERSCHLAGSINTENSITÄT | average precipitation intensity during time scale      | mm/h  | >=0         |
 | {term}`wave_period`             | TP                      | average wave period during time scale                  | s     | >=0         |
 | {term}`wave_height_significant`        | SIGH                    | average significant wave height during time scale      | cm    | -           |

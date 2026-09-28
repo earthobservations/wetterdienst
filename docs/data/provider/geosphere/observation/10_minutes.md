@@ -27,7 +27,7 @@
 |----------------------------------------------------|---------------|----------------------------------|------|-------------|
 | {term}`humidity_relative`                                   | rf            | relative humidity                | %    | >=0,<=100   |
 | {term}`precipitation_duration`                     | rrm           | precipitation duration           | min  | >=0         |
-| {term}`precipitation_height`                       | rr            | precipitation height             | mm   | >=0         |
+| {term}`precipitation_amount`                       | rr            | precipitation height             | mm   | >=0         |
 | {term}`pressure_air_sea_level`                     | pred          | air pressure at sea level        | hPa  | >=0         |
 | {term}`pressure_air_site`                          | p             | air pressure at site             | hPa  | >=0         |
 | {term}`radiation_global_intensity`                 | cglo          | global radiation                 | W/m² | >=0         |

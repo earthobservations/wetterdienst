@@ -21,4 +21,4 @@
 | {term}`humidity_relative_min` | min(relative_humidity PT10M) | Minimum relative humidity per 10 min | percent |
 | {term}`wind_gust_max` | max(wind_speed_of_gust PT10M) | Maximum wind gust for the last ten minutes | meter_per_second |
 | {term}`wind_direction_gust_max` | max(wind_from_direction_of_gust PT10M) | Varying wind direction last 10 minutes. Upper limit | degree |
-| {term}`precipitation_height` | sum(precipitation_amount PT10M) | Amount of precipitation per 10 minutes | millimeter |
+| {term}`precipitation_amount` | sum(precipitation_amount PT10M) | Amount of precipitation per 10 minutes | millimeter |

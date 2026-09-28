@@ -54,7 +54,7 @@ def test_cli_about_parameters() -> None:
     assert "temperature_air" in result.output
     assert "weather_phenomena" in result.output
     # parameters
-    assert "precipitation_height" in result.output
+    assert "precipitation_amount" in result.output
 
 
 @pytest.mark.remote
@@ -87,7 +87,7 @@ def test_no_combination_of_provider_and_network(caplog: pytest.CaptureFixture) -
             "stations",
             "--provider=dwd",
             "--network=abc",
-            "--parameters=daily/climate_summary/precipitation_height",
+            "--parameters=daily/climate_summary/precipitation_amount",
             "--all",
         ],
     )
@@ -105,9 +105,9 @@ def test_coverage() -> None:
     assert len(response["1_minute"]["datasets"]["precipitation"]["parameters"]) > 0
     parameters = [p["name"] for p in response["1_minute"]["datasets"]["precipitation"]["parameters"]]
     assert parameters == [
-        "precipitation_height",
-        "precipitation_height_droplet",
-        "precipitation_height_rocker",
+        "precipitation_amount",
+        "precipitation_amount_droplet",
+        "precipitation_amount_rocker",
         "precipitation_index",
     ]
 

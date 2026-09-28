@@ -24,7 +24,7 @@
 
 | name                            | original name | description                                           | unit             |
 |---------------------------------|---------------|-------------------------------------------------------|------------------|
-| {term}`precipitation_height` | RR | Precipitation amount over 24 hours, from 06h UTC on day J to 06h UTC on day J+1. The value recorded at J+1 is attributed to day J. | millimeter |
+| {term}`precipitation_amount` | RR | Precipitation amount over 24 hours, from 06h UTC on day J to 06h UTC on day J+1. The value recorded at J+1 is attributed to day J. | millimeter |
 | {term}`temperature_air_min_2m` | TN | Minimum air temperature under shelter. | degree_celsius |
 | {term}`temperature_air_max_2m` | TX | Maximum air temperature under shelter. | degree_celsius |
 | {term}`temperature_air_mean_2m` | TM | Daily mean of the hourly air temperatures under shelter. | degree_celsius |

@@ -168,7 +168,7 @@ def station_options_core(command: click.Command) -> click.Command:
             required=True,
             help=(
                 "Parameters as resolution/dataset or resolution/dataset/parameter (comma-separated for multiple). "
-                "Examples: daily/kl, daily/climate_summary/precipitation_height, "
+                "Examples: daily/kl, daily/climate_summary/precipitation_amount, "
                 "hourly/air_temperature/temperature_air_mean_2m"
             ),
         ),
@@ -382,7 +382,7 @@ Selection options:
                                 Examples: observation, mosmix, radar, ghcn, pegel, hydrology
 
     --parameters                The parameters to be requested concatenated by a slash.
-                                Examples: daily/climate_summary, daily/climate_summary/precipitation_height
+                                Examples: daily/climate_summary, daily/climate_summary/precipitation_amount
 
     [--periods]                 Dataset periods
                                 Examples: "historical", "recent", "now"
@@ -539,7 +539,7 @@ Acquire observation data:
 
     # Acquire data for multiple given parameters
     wetterdienst values --provider=dwd --network=observation \\
-        --parameters=hourly/precipitation_more/precipitation_height,hourly/air_temperature/temperature_air_mean_2m \\
+        --parameters=hourly/precipitation_more/precipitation_amount,hourly/air_temperature/temperature_air_mean_2m \\
         --date=2020-06-15T12/2020-06-16T12 --station=1048,4411
 
 Acquire MOSMIX data:
@@ -559,19 +559,19 @@ Acquire DMO data:
 Compute data:
 
     # Compute daily interpolation of precipitation for specific station selected by id
-    wetterdienst interpolate --provider=dwd --network=observation --parameters=daily/climate_summary/precipitation_height \\
+    wetterdienst interpolate --provider=dwd --network=observation --parameters=daily/climate_summary/precipitation_amount \\
         --date=2020-06-30 --station=01048
 
     # Compute daily interpolation of precipitation for specific station selected by coordinates
-    wetterdienst interpolate --provider=dwd --network=observation --parameters=daily/kl/precipitation_height \\
+    wetterdienst interpolate --provider=dwd --network=observation --parameters=daily/kl/precipitation_amount \\
         --date=2020-06-30 --latitude=49.9195 --longitude=8.9671
 
     # Compute daily summary of precipitation for specific station selected by id
-    wetterdienst summarize --provider=dwd --network=observation --parameters=daily/kl/precipitation_height \\
+    wetterdienst summarize --provider=dwd --network=observation --parameters=daily/kl/precipitation_amount \\
         --date=2020-06-30 --station=01048
 
     # Compute daily summary data of precipitation for specific station selected by coordinates
-    wetterdienst summarize --provider=dwd --network=observation --parameters=daily/kl/precipitation_height \\
+    wetterdienst summarize --provider=dwd --network=observation --parameters=daily/kl/precipitation_amount \\
         --date=2020-06-30 --latitude=49.9195 --longitude=8.9671
 
 Geospatial filtering:
@@ -1185,7 +1185,7 @@ def issues_cmd(
     required=True,
     help=(
         "Parameters as resolution/dataset or resolution/dataset/parameter (comma-separated for multiple). "
-        "Examples: daily/kl, daily/climate_summary/precipitation_height, "
+        "Examples: daily/kl, daily/climate_summary/precipitation_amount, "
         "hourly/air_temperature/temperature_air_mean_2m"
     ),
 )

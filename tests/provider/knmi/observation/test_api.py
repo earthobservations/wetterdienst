@@ -432,7 +432,7 @@ def test_knmi_observation_values_daily() -> None:
     assert value_of("temperature_air_mean_2m") == pytest.approx(0.8)
     assert value_of("temperature_air_min_2m") == pytest.approx(-0.2)
     assert value_of("temperature_air_max_2m") == pytest.approx(1.8)
-    assert value_of("precipitation_height") == pytest.approx(0.0)
+    assert value_of("precipitation_amount") == pytest.approx(0.0)
 
 
 @pytest.mark.remote

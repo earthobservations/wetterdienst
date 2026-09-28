@@ -58,8 +58,8 @@
 | {term}`wind_gust_max` | ja_mx_fx | Annual maximum of daily wind speed. | m/s | >=0 |
 | {term}`temperature_air_min_2m` | ja_mx_tn | Annual minimum of daily temperature minima in 2m height. | °C | - |
 | {term}`quality_precipitation` | qn_6 | Quality flag published by the source for `precipitation` in the same dataset. | -             | - |
-| {term}`precipitation_height` | ja_rr | Annual sum of daily precipitation height. | mm | >=0 |
-| {term}`precipitation_height_max` | ja_mx_rs | Annual max of daily precipitation height. | mm | >=0 |
+| {term}`precipitation_amount` | ja_rr | Annual sum of daily precipitation height. | mm | >=0 |
+| {term}`precipitation_amount_max` | ja_mx_rs | Annual max of daily precipitation height. | mm | >=0 |
 
 ### precipitation_indices
 
@@ -77,12 +77,12 @@
 | name | original name | description | unit | constraints |
 |------|---------------|-------------|------|-------------|
 | {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | -             | - |
-| {term}`count_days_precipitation_height_ge_0_1mm` | ja_rr_ge_0_1_mm | Annual number of days with a precipitation height of at least 0.1 mm. | -             | >=0 |
-| {term}`count_days_precipitation_height_ge_1mm` | ja_rr_ge_1_0_mm | Annual number of days with a precipitation height of at least 1.0 mm. | -             | >=0 |
-| {term}`count_days_precipitation_height_ge_2_5mm` | ja_rr_ge_2_5_mm | Annual number of days with a precipitation height of at least 2.5 mm. | -             | >=0 |
-| {term}`count_days_precipitation_height_ge_5mm` | ja_rr_ge_5_0_mm | Annual number of days with a precipitation height of at least 5.0 mm. | -             | >=0 |
-| {term}`count_days_precipitation_height_ge_10mm` | ja_rr_ge_10_0_mm | Annual number of days with a precipitation height of at least 10.0 mm. | -             | >=0 |
-| {term}`count_days_precipitation_height_ge_20mm` | ja_rr_ge_20_0_mm | Annual number of days with a precipitation height of at least 20.0 mm. | -             | >=0 |
+| {term}`count_days_precipitation_amount_ge_0_1mm` | ja_rr_ge_0_1_mm | Annual number of days with a precipitation height of at least 0.1 mm. | -             | >=0 |
+| {term}`count_days_precipitation_amount_ge_1mm` | ja_rr_ge_1_0_mm | Annual number of days with a precipitation height of at least 1.0 mm. | -             | >=0 |
+| {term}`count_days_precipitation_amount_ge_2_5mm` | ja_rr_ge_2_5_mm | Annual number of days with a precipitation height of at least 2.5 mm. | -             | >=0 |
+| {term}`count_days_precipitation_amount_ge_5mm` | ja_rr_ge_5_0_mm | Annual number of days with a precipitation height of at least 5.0 mm. | -             | >=0 |
+| {term}`count_days_precipitation_amount_ge_10mm` | ja_rr_ge_10_0_mm | Annual number of days with a precipitation height of at least 10.0 mm. | -             | >=0 |
+| {term}`count_days_precipitation_amount_ge_20mm` | ja_rr_ge_20_0_mm | Annual number of days with a precipitation height of at least 20.0 mm. | -             | >=0 |
 | {term}`count_days_snow_depth_ge_1cm` | ja_sh_ge_1_0_cm | Annual number of days with a snow depth of at least 1.0 cm. | -             | >=0 |
 | {term}`count_days_snow_depth_ge_5cm` | ja_sh_ge_5_0_cm | Annual number of days with a snow depth of at least 5.0 cm. | -             | >=0 |
 
@@ -103,9 +103,9 @@
 |----------------------------------|---------------|------------------------------------------|------|-------------|
 | {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`snow_depth_new` | ja_nsh | Annual sum of daily fresh snow. | cm | >=0 |
-| {term}`precipitation_height` | ja_rr | Annual sum of daily precipitation height. | mm | >=0 |
+| {term}`precipitation_amount` | ja_rr | Annual sum of daily precipitation height. | mm | >=0 |
 | {term}`snow_depth` | ja_sh_s | Annual sum of daily height of snow pack. | cm | >=0 |
-| {term}`precipitation_height_max` | ja_mx_rs | Annual max of daily precipitation height. | mm | >=0 |
+| {term}`precipitation_amount_max` | ja_mx_rs | Annual max of daily precipitation height. | mm | >=0 |
 
 ### weather_phenomena
 

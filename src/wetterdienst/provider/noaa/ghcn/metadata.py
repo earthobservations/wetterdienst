@@ -36,7 +36,7 @@ NoaaGhcnMetadata = {
                         # total liquid precipitation (rain or melted snow) for past hour; a “T” in the measurement
                         # code column indicates a trace amount of precipitation (millimeters)
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "precipitation",
                             "unit": "millimeter",
                         },
@@ -45,42 +45,42 @@ NoaaGhcnMetadata = {
                         # of precipitation (millimeters); accumulations can be reported over 3,6,9,12,15,18,21
                         # and 24 hours.
                         {
-                            "name": "precipitation_height_last_3h",
+                            "name": "precipitation_amount_last_3h",
                             "name_original": "precipitation_3_hour",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_last_6h",
+                            "name": "precipitation_amount_last_6h",
                             "name_original": "precipitation_6_hour",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_last_9h",
+                            "name": "precipitation_amount_last_9h",
                             "name_original": "precipitation_9_hour",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_last_12h",
+                            "name": "precipitation_amount_last_12h",
                             "name_original": "precipitation_12_hour",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_last_15h",
+                            "name": "precipitation_amount_last_15h",
                             "name_original": "precipitation_15_hour",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_last_18h",
+                            "name": "precipitation_amount_last_18h",
                             "name_original": "precipitation_18_hour",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_last_21h",
+                            "name": "precipitation_amount_last_21h",
                             "name_original": "precipitation_21_hour",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_last_24h",
+                            "name": "precipitation_amount_last_24h",
                             "name_original": "precipitation_24_hour",
                             "unit": "millimeter",
                         },
@@ -185,7 +185,7 @@ NoaaGhcnMetadata = {
                         # PRCP = Precipitation (mm or inches as per user preference,
                         #     inches to hundredths on Daily Form pdf file)
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "prcp",
                             "unit": "millimeter",
                         },
@@ -294,14 +294,14 @@ NoaaGhcnMetadata = {
                         },
                         # Number of days with non-zero precipitation included in multiday precipitation total (MDPR)
                         {
-                            "name": "count_days_multiday_precipitation_height_gt_0mm",
+                            "name": "count_days_multiday_precipitation_amount_gt_0mm",
                             "name_original": "dwpr",
                             "unit": "dimensionless",
                         },
                         # Evaporation of water from evaporation pan (mm or inches as per user preference, or hundredths
                         # of inches on Daily Form pdf file)
                         {
-                            "name": "evaporation_height",
+                            "name": "evaporation_amount",
                             "name_original": "evap",
                             "unit": "millimeter",
                         },
@@ -332,14 +332,14 @@ NoaaGhcnMetadata = {
                         },
                         # Multiday evaporation total (mm or inches as per user preference; use with DAEV)
                         {
-                            "name": "evaporation_height_multiday",
+                            "name": "evaporation_amount_multiday",
                             "name_original": "mdev",
                             "unit": "millimeter",
                         },
                         # Multiday precipitation total (mm or inches as per user preference; use with DAPR and DWPR,
                         # if available)
                         {
-                            "name": "precipitation_height_multiday",
+                            "name": "precipitation_amount_multiday",
                             "name_original": "mdpr",
                             "unit": "millimeter",
                         },
@@ -1333,16 +1333,16 @@ NoaaGhcnMetadata = {
 NoaaGhcnMetadata = build_metadata_model(NoaaGhcnMetadata, "NoaaGhcnMetadata")
 
 DAILY_PARAMETER_MULTIPLICATION_FACTORS = {
-    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].precipitation_height.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].precipitation_height_multiday.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].precipitation_amount.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].precipitation_amount_multiday.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_max_2m.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_max_2m_multiday.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_min_2m.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_min_2m_multiday.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_mean_2m.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_speed.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].evaporation_height.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].evaporation_height_multiday.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].evaporation_amount.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].evaporation_amount_multiday.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_water_evaporation_pan_max.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_water_evaporation_pan_min.name_original: 1 / 10,
     # height definition similar to temperature with three digits

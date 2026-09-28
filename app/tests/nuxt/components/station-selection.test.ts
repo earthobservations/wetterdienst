@@ -177,7 +177,7 @@ describe('stationSelection', () => {
     expect(calls).toBe(1)
 
     await wrapper.setProps({
-      parameterSelection: { ...parameterSelection, dataset: 'precipitation_more', parameters: ['precipitation_height'] },
+      parameterSelection: { ...parameterSelection, dataset: 'precipitation_more', parameters: ['precipitation_amount'] },
     })
     await new Promise(resolve => setTimeout(resolve, 100))
     await wrapper.vm.$nextTick()

@@ -27,8 +27,8 @@
 |--------------------------------------|----------------|---------------------------------|-------|-------------|
 | {term}`cloud_cover_total`            | bewm_mittel    | cloud cover total               | %     | >=0,<=100   |
 | {term}`humidity_relative`                     | rf_mittel      | relative humidity               | %     | >=0,<=100   |
-| {term}`precipitation_height`         | rr             | precipitation height            | mm    | >=0         |
-| {term}`precipitation_height_max`     | rr_max         | precipitation height max        | mm    | >=0         |
+| {term}`precipitation_amount`         | rr             | precipitation height            | mm    | >=0         |
+| {term}`precipitation_amount_max`     | rr_max         | precipitation height max        | mm    | >=0         |
 | {term}`pressure_air_site`            | p              | air pressure at site            | hPa   | >=0         |
 | {term}`pressure_air_site_max`        | pmax           | air pressure at site max        | hPa   | >=0         |
 | {term}`pressure_air_site_min`        | pmin           | air pressure at site min        | hPa   | >=0         |

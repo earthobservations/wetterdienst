@@ -45,7 +45,7 @@ _SNOW_DEPTH = {"unit": "centimeter"}
 _RADIATION = {"unit": "kilojoule_per_square_meter"}
 
 _DAILY_RAIN_PARAMETERS = [
-    {"name": "precipitation_height", "name_original": "prcp_amt", **_PRECIPITATION},
+    {"name": "precipitation_amount", "name_original": "prcp_amt", **_PRECIPITATION},
 ]
 
 _DAILY_TEMPERATURE_PARAMETERS = [
@@ -64,7 +64,7 @@ _DAILY_WEATHER_PARAMETERS = [
 ]
 
 _HOURLY_RAIN_PARAMETERS = [
-    {"name": "precipitation_height", "name_original": "prcp_amt", **_PRECIPITATION},
+    {"name": "precipitation_amount", "name_original": "prcp_amt", **_PRECIPITATION},
     {"name": "precipitation_duration", "name_original": "prcp_dur", "unit": "minute"},
 ]
 

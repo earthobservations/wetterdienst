@@ -45,8 +45,8 @@ def dwd_climate_summary_tabular_columns() -> list[str]:
         "wind_gust_max_quality",
         "wind_speed",
         "wind_speed_quality",
-        "precipitation_height",
-        "precipitation_height_quality",
+        "precipitation_amount",
+        "precipitation_amount_quality",
         "precipitation_form",
         "precipitation_form_quality",
         "sunshine_duration",
@@ -1164,8 +1164,8 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "wind_gust_max_quality",
         "wind_speed",
         "wind_speed_quality",
-        "precipitation_height",
-        "precipitation_height_quality",
+        "precipitation_amount",
+        "precipitation_amount_quality",
         "precipitation_form",
         "precipitation_form_quality",
         "sunshine_duration",
@@ -1201,8 +1201,8 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "wind_gust_max_quality": 10,
         "wind_speed": 8.5,
         "wind_speed_quality": 10,
-        "precipitation_height": 0.9,
-        "precipitation_height_quality": 10,
+        "precipitation_amount": 0.9,
+        "precipitation_amount_quality": 10,
         "precipitation_form": 8.0,
         "precipitation_form_quality": 10,
         "sunshine_duration": 0.0,
@@ -1236,8 +1236,8 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "wind_gust_max_quality": 10,
         "wind_speed": 3.2,
         "wind_speed_quality": 10,
-        "precipitation_height": 0.0,
-        "precipitation_height_quality": 10,
+        "precipitation_amount": 0.0,
+        "precipitation_amount_quality": 10,
         "precipitation_form": 0,
         "precipitation_form_quality": 10,
         "sunshine_duration": 3.9,
@@ -1384,8 +1384,8 @@ def test_export_zarr_two_datasets(
     assert list(root.group_keys()) == ["daily"]
     group = root.get("daily")
     columns = set(group.keys())
-    assert "climate_summary_precipitation_height" in columns
-    assert "precipitation_more_precipitation_height" in columns
+    assert "climate_summary_precipitation_amount" in columns
+    assert "precipitation_more_precipitation_amount" in columns
 
 
 @pytest.mark.remote
@@ -1631,13 +1631,13 @@ def test_export_influxdb1_wide(settings_convert_units_false_wide_shape: Settings
             "cloud_cover_total": 7.4,
             "humidity_relative": 84.0,
             "precipitation_form": 8.0,
-            "precipitation_height": 0.9,
+            "precipitation_amount": 0.9,
             "pressure_air_site": 991.9,
             "pressure_vapor": 7.9,
             "cloud_cover_total_quality": 10.0,
             "humidity_relative_quality": 10.0,
             "precipitation_form_quality": 10.0,
-            "precipitation_height_quality": 10.0,
+            "precipitation_amount_quality": 10.0,
             "pressure_air_site_quality": 10.0,
             "pressure_vapor_quality": 10.0,
             "snow_depth_quality": 10.0,
@@ -1742,13 +1742,13 @@ def test_export_influxdb2_wide(settings_convert_units_false_wide_shape: Settings
             "cloud_cover_total": 7.4,
             "humidity_relative": 84.0,
             "precipitation_form": 8.0,
-            "precipitation_height": 0.9,
+            "precipitation_amount": 0.9,
             "pressure_air_site": 991.9,
             "pressure_vapor": 7.9,
             "cloud_cover_total_quality": 10.0,
             "humidity_relative_quality": 10.0,
             "precipitation_form_quality": 10.0,
-            "precipitation_height_quality": 10.0,
+            "precipitation_amount_quality": 10.0,
             "pressure_air_site_quality": 10.0,
             "pressure_vapor_quality": 10.0,
             "snow_depth_quality": 10.0,
@@ -1845,13 +1845,13 @@ def test_export_influxdb3_wide(settings_convert_units_false_wide_shape: Settings
             "cloud_cover_total": 7.4,
             "humidity_relative": 84.0,
             "precipitation_form": 8.0,
-            "precipitation_height": 0.9,
+            "precipitation_amount": 0.9,
             "pressure_air_site": 991.9,
             "pressure_vapor": 7.9,
             "cloud_cover_total_quality": 10.0,
             "humidity_relative_quality": 10.0,
             "precipitation_form_quality": 10.0,
-            "precipitation_height_quality": 10.0,
+            "precipitation_amount_quality": 10.0,
             "pressure_air_site_quality": 10.0,
             "pressure_vapor_quality": 10.0,
             "snow_depth_quality": 10.0,
@@ -2206,10 +2206,10 @@ def test_duckdb_append_matches_columns_by_name(tmp_path: Path) -> None:
     duckdb = pytest.importorskip("duckdb")
     target = f"duckdb:///{tmp_path / 'obs.duckdb'}?table=weather"
     temperature = pl.DataFrame({"timestamp": ["2020-01-01"], "temperature_air_mean_2m": [10.1]})
-    precipitation = pl.DataFrame({"timestamp": ["2020-01-01"], "precipitation_height": [0.0]})
+    precipitation = pl.DataFrame({"timestamp": ["2020-01-01"], "precipitation_amount": [0.0]})
 
     ExportMixin(df=temperature).to_target(target)
-    with pytest.raises(duckdb.BinderException, match='does not have a column with name "precipitation_height"'):
+    with pytest.raises(duckdb.BinderException, match='does not have a column with name "precipitation_amount"'):
         ExportMixin(df=precipitation).to_target(target, if_exists="append")
 
     connection = duckdb.connect(str(tmp_path / "obs.duckdb"))

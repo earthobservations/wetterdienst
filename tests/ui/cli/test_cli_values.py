@@ -909,7 +909,7 @@ def test_cli_values_target_reports_a_sink_failure_that_is_not_about_if_exists(
 
     `--shape=wide` puts one column per parameter, so a second run asking for a different set of
     parameters names a column the table does not have, and DuckDB answers `Binder Error: Table
-    "weather" does not have a column with name "precipitation_height"`. That derives from `Exception`
+    "weather" does not have a column with name "precipitation_amount"`. That derives from `Exception`
     alone, so it is not an `ExportRefusedError` and must not be reported as one -- an unattended run
     would otherwise end in a traceback out of click rather than a logged failure naming the target.
     """
@@ -930,7 +930,7 @@ def test_cli_values_target_reports_a_sink_failure_that_is_not_about_if_exists(
 
     second = runner.invoke(
         cli,
-        [*common, "--parameters=daily/kl/temperature_air_mean_2m,daily/kl/precipitation_height", "--if_exists=append"],
+        [*common, "--parameters=daily/kl/temperature_air_mean_2m,daily/kl/precipitation_amount", "--if_exists=append"],
     )
 
     assert second.exit_code == 1

@@ -190,7 +190,7 @@ settings = Settings(
 Single parameters are overridden on top of the two, keyed by canonical parameter name:
 
 ```python
-settings = Settings(ts_geo_station_distance={"precipitation_height": 25.0})
+settings = Settings(ts_geo_station_distance={"precipitation_amount": 25.0})
 ```
 
 All three are settable from the environment as well, as any other setting is:
@@ -198,7 +198,7 @@ All three are settable from the environment as well, as any other setting is:
 ```bash
 export WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS=60
 export WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS=15
-export WD_TS_GEO_STATION_DISTANCE='{"precipitation_height": 25}'
+export WD_TS_GEO_STATION_DISTANCE='{"precipitation_amount": 25}'
 ```
 
 A key that is not a canonical parameter is rejected rather than kept and never read, so a typo no
@@ -272,7 +272,7 @@ from wetterdienst import Settings
 
 settings = Settings()
 {
-    resolution: settings.ts_geo_station_distance_for("precipitation_height", resolution)
+    resolution: settings.ts_geo_station_distance_for("precipitation_amount", resolution)
     for resolution in ("10_minutes", "hourly", "6_hour", "daily", "monthly")
 }
 ```
@@ -293,7 +293,7 @@ flat = Settings(
     ts_geo_station_distance_resolution_factors=dict.fromkeys((resolution.value for resolution in Resolution), 1.0),
 )
 {
-    resolution: flat.ts_geo_station_distance_for("precipitation_height", resolution)
+    resolution: flat.ts_geo_station_distance_for("precipitation_amount", resolution)
     for resolution in ("10_minutes", "hourly", "daily")
 }
 ```
@@ -328,9 +328,9 @@ import datetime as dt
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-settings = Settings(ts_geo_station_distance={"precipitation_height": 25.0})
+settings = Settings(ts_geo_station_distance={"precipitation_amount": 25.0})
 request = DwdObservationRequest(
-    parameters=("hourly", "precipitation", "precipitation_height"),
+    parameters=("hourly", "precipitation", "precipitation_amount"),
     start_date=dt.datetime(2022, 1, 1),
     end_date=dt.datetime(2022, 1, 20),
     settings=settings,
@@ -453,11 +453,11 @@ and `--interpolation_station_distance_heterogeneous` (`--summary_…` for `summa
 ```bash
 wetterdienst interpolate \
   --provider dwd --network observation \
-  --parameters hourly/precipitation/precipitation_height \
+  --parameters hourly/precipitation/precipitation_amount \
   --latitude 52.8 --longitude 12.9 \
   --start-date 2022-01-01 --end-date 2022-01-20 \
   --interpolation_station_distance_heterogeneous 30 \
-  --interpolation_station_distance '{"precipitation_height": 25}'
+  --interpolation_station_distance '{"precipitation_amount": 25}'
 ```
 
 `summarize` takes the same three under `--summary_…`, next to `--use_nearby_station_distance`:
@@ -465,7 +465,7 @@ wetterdienst interpolate \
 ```bash
 wetterdienst summarize \
   --provider dwd --network observation \
-  --parameters daily/climate_summary/precipitation_height \
+  --parameters daily/climate_summary/precipitation_amount \
   --station 02480 \
   --start-date 2022-01-01 --end-date 2022-01-20 \
   --summary_station_distance_heterogeneous 15 \
@@ -502,11 +502,11 @@ The radii are query parameters of their own, again per request rather than per s
 ```bash
 http localhost:7890/api/interpolate \
   provider==dwd network==observation \
-  parameters==hourly/precipitation/precipitation_height \
+  parameters==hourly/precipitation/precipitation_amount \
   latitude==52.8 longitude==12.9 \
   date==2022-01-01/2022-01-20 \
   interpolation_station_distance_heterogeneous==30 \
-  interpolation_station_distance=='{"precipitation_height": 25}'
+  interpolation_station_distance=='{"precipitation_amount": 25}'
 ```
 
 `/api/summarize` takes the same three under `summary_…`. A parameter name that is not canonical,

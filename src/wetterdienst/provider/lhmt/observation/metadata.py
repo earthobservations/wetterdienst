@@ -75,7 +75,7 @@ LhmtObservationMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "precipitation",
                             "unit": "millimeter",
                         },
