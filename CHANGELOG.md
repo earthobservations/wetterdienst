@@ -62,8 +62,8 @@ Types of changes:
   `to_target` wrote before takes no append of them (GH-2036)
 - **Breaking:** every parameter name containing `precipitation_height` or `evaporation_height` says
   `precipitation_amount` or `evaporation_amount` instead -- 66 names, from `precipitation_height`
-  itself to `count_days_precipitation_height_ge_1mm` and `evaporation_height_grass_sand`. Request the
-  new names; an old one is reported with its replacement (GH-2038)
+  itself to `count_days_precipitation_height_ge_1mm` and `evaporation_height_multiday`. Request
+  the new names; an old one is reported with its replacement (GH-2038)
 
 ## [0.138.0] - 2026-09-28
 

@@ -506,11 +506,11 @@ def _(con, mo):
             v.station_id,
             s.name        AS station,
             s.region,
-            v.value       AS precipitation_height_mm,
+            v.value       AS precipitation_amount_mm,
             v.quality
         FROM "values" v
         JOIN stations s USING (station_id)
-        WHERE v.parameter = 'precipitation_height'
+        WHERE v.parameter = 'precipitation_amount'
           AND v.value IS NOT NULL
         ORDER BY v.value DESC
         LIMIT 10

@@ -862,7 +862,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "precipitation_amount_normal",
         "precipitation",
-        "Climatological normal of the precipitation height for the period.",
+        "Climatological normal of the precipitation amount for the period.",
         interpolation="heterogeneous",
     ),
     CanonicalParameter(

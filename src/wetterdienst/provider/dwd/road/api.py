@@ -90,7 +90,7 @@ DwdRoadMetadata = {
                             # The station's gauge agrees: of the readings carrying both a positive
                             # intensity and a positive 15-minute `precipitation_amount`, the 39 in
                             # six hours of the network put the intensity times 900 seconds within a
-                            # median 0.8% of that height, 0.0056 against a reported 5.0 mm. It was
+                            # median 0.8% of that amount, 0.0056 against a reported 5.0 mm. It was
                             # declared `millimeter_per_hour` until GH-1984
                             "unit": "millimeter_per_second",
                         },
