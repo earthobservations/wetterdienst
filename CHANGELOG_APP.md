@@ -31,6 +31,9 @@ Types of changes:
 
 ### Fixed
 
+- `[Glossary]` DWD's sampled snow depth and its water equivalent were labelled in every language as
+  snow beyond the measuring range. They are the snow cut out as a sample to weigh, and now read as
+  such -- "Snow depth (sample)", German *Ausgestochene Schneehöhe* (GH-2034).
 - `[Glossary]` `count_weather_type_hoar_frost` -- DWD's *Reif* -- was labelled as rime, a different
   deposit, in English ("rime"), German (*Raureif*), Low German (*Ruhreep*), Czech (*námraza*),
   Polish (*szadź*) and Italian (*galaverna*), and ambiguously in French (*givre*). Each now names
