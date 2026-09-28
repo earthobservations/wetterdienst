@@ -35,6 +35,23 @@ def test_the_refusal_says_what_to_do_about_it(blocked_network: list[object]) -> 
     assert blocked_network == [("example.org", 80)]
 
 
+def test_resolving_a_name_off_this_machine_is_refused(blocked_network: list[object]) -> None:
+    """The connect patch misses Windows, where asyncio connects through `_overlapped.ConnectEx`.
+
+    Resolution is the step every platform shares, so it is refused here too and the guard holds on
+    all three rather than going quietly green on one of them.
+    """
+    with pytest.raises(NetworkAccessBlockedError, match=r"network access blocked: opendata\.dwd\.de"):
+        socket.getaddrinfo("opendata.dwd.de", 443)
+    assert blocked_network == [("opendata.dwd.de", 443)]
+
+
+def test_resolving_a_local_name_is_not(blocked_network: list[object]) -> None:
+    """The local-server fixtures resolve `localhost`, and xdist's workers are reached by name too."""
+    assert socket.getaddrinfo("localhost", 0)
+    assert blocked_network == []
+
+
 def test_the_refusal_is_not_an_oserror() -> None:
     """What the guard raises has to be outside everything the library degrades on.
 

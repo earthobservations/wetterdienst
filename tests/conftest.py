@@ -107,6 +107,7 @@ def _is_local_address(address: object) -> bool:
     if not isinstance(address, tuple) or not address:
         return True
     host = str(address[0])
+    host = host.lower()  # names are case-insensitive, and Windows tooling likes to shout them
     if host in {"", "localhost"} or host.endswith(".localhost"):
         return True
     try:
@@ -134,7 +135,21 @@ _RESOLVED: dict[str, str] = {}
 
 
 def _recording_getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-    """Resolve as usual, remembering which name each address came back for."""
+    """Refuse to resolve a name off this machine, and remember the ones that are on it.
+
+    Refused here as well as at `connect`, because this is the step every platform shares. The
+    connect patch misses Windows entirely -- asyncio's `ProactorEventLoop` goes through
+    `_overlapped.ConnectEx`, not `socket.connect` -- so without this the library's whole download
+    path is unguarded there, and `-m "not remote"` is green on Windows for a test that fails
+    everywhere else. Nothing resolves a host it is not about to talk to.
+    """
+    if isinstance(host, str) and not _is_local_address((host, port)):
+        msg = (
+            f"network access blocked: {host}. A test that reaches the internet needs "
+            f"@pytest.mark.remote, or has to be rewritten to work without the network."
+        )
+        _GUARD_STATE["refused"].append((host, port))
+        raise NetworkAccessBlockedError(msg)
     results = _SOCKET_GETADDRINFO(host, port, *args, **kwargs)
     if isinstance(host, str):
         for *_, sockaddr in results:
@@ -291,12 +306,14 @@ def _block_network(request: pytest.FixtureRequest) -> None:
 
     So this holds the suite to its own claim; it is not a sandbox.
     """
+    # cleared rather than rebound, so a reference `blocked_network` handed out stays the live one,
+    # and before the `remote` return below rather than after it: a marked test that asked for
+    # `blocked_network` would otherwise be handed the last unmarked test's refusals as its own
+    _GUARD_STATE["refused"].clear()
+    _GUARD_STATE["expected"] = False
     if request.node.get_closest_marker("remote"):
         yield
         return
-    # cleared rather than rebound, so a reference `blocked_network` handed out stays the live one
-    _GUARD_STATE["refused"].clear()
-    _GUARD_STATE["expected"] = False
     socket.socket.connect = _guarded(_SOCKET_CONNECT)
     socket.socket.connect_ex = _guarded(_SOCKET_CONNECT_EX)
     socket.getaddrinfo = _recording_getaddrinfo

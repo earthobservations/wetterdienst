@@ -68,10 +68,11 @@ uv run poe test -m "not (remote or slow)"
 ```
 
 `-m "not remote"` is the offline selection and the suite holds itself to it: every test that is
-not marked `remote` runs with non-local socket connections refused, so one that reaches upstream
-fails at once, naming what it tried to reach, rather than passing on a warm cache. A new test that needs the
-internet therefore wants `@pytest.mark.remote`; one that only needs an object a request would have
-downloaded is better built from a `StationsResult` over a literal frame, as the provider tests do.
+not marked `remote` runs with non-local names and addresses refused, so one that reaches upstream
+fails at once, naming what it tried to reach, rather than passing on a warm cache. A new test
+that needs the internet therefore wants `@pytest.mark.remote`; one that only needs an object a
+request would have downloaded is better built from a `StationsResult` over a literal frame, as
+the provider tests do.
 
 ## Build OCI images
 
