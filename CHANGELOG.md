@@ -66,9 +66,12 @@ Types of changes:
   the new names; an old one in a request, as a `ts_geo_station_distance` key or as a wide column in
   a SQL filter is reported with its replacement. A wide DuckDB, SQLite or PostgreSQL table
   `to_target` wrote before -- a nightly `daily/kl` export, say -- takes no append of them (GH-2038)
-- **Breaking:** `visibility_range`, `visibility_range_index` and `visibility_range_measurement_method`
-  are `visibility`, `visibility_index` and `visibility_measurement_method`. Request the new names;
-  an old one is reported with its replacement (GH-2040)
+- **Breaking**: `visibility_range`, `visibility_range_index` and
+  `visibility_range_measurement_method` are `visibility`, `visibility_index` and
+  `visibility_measurement_method`. Request the new names; an old one in a request, as a
+  `ts_geo_station_distance` key or as a wide column in a SQL filter is reported with its
+  replacement. A wide DuckDB, SQLite or PostgreSQL table `to_target` wrote before takes no append
+  of them (GH-2040)
 
 ## [0.138.0] - 2026-09-28
 
