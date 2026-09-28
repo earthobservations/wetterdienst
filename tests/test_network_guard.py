@@ -150,6 +150,7 @@ def test_loopback_stays_open() -> None:
     ("address", "local"),
     [
         pytest.param(("127.0.0.1", 8000), True, id="loopback-v4"),
+        pytest.param((b"127.0.0.1", 8000), True, id="loopback-v4-bytes"),
         pytest.param(("::1", 8000, 0, 0), True, id="loopback-v6"),
         pytest.param(("localhost", 8000), True, id="localhost"),
         pytest.param(("0.0.0.0", 8000), True, id="unspecified"),  # noqa: S104
@@ -210,7 +211,7 @@ def test_a_refusal_that_reaches_the_test_is_reported_once(
     )
     result.assert_outcomes(failed=1, errors=0)
     result.stdout.fnmatch_lines(["*network access blocked: ('example.org', 80)*"])
-    assert "did not reach the test" not in result.stdout.str()
+    assert "Neither the setup nor the call phase reported it" not in result.stdout.str()
 
 
 def test_a_refusal_in_a_fixture_is_reported_once(
@@ -242,7 +243,7 @@ def test_a_refusal_in_a_fixture_is_reported_once(
     )
     result.assert_outcomes(errors=1)
     result.stdout.fnmatch_lines(["*network access blocked: ('example.org', 80)*"])
-    assert "did not reach the test" not in result.stdout.str()
+    assert "Neither the setup nor the call phase reported it" not in result.stdout.str()
 
 
 def test_a_refusal_nobody_reported_still_fails_the_test(
@@ -270,7 +271,7 @@ def test_a_refusal_nobody_reported_still_fails_the_test(
         """,
     )
     result.assert_outcomes(passed=1, errors=1)
-    result.stdout.fnmatch_lines(["*did not reach the test*"])
+    result.stdout.fnmatch_lines(["*Neither the setup nor the call phase reported it*"])
 
 
 def test_a_refusal_a_provider_reraised_is_reported_once(
@@ -298,7 +299,7 @@ def test_a_refusal_a_provider_reraised_is_reported_once(
         """,
     )
     result.assert_outcomes(failed=1, errors=0)
-    assert "did not reach the test" not in result.stdout.str()
+    assert "Neither the setup nor the call phase reported it" not in result.stdout.str()
 
 
 def test_the_teardown_check_stands_down_where_remote_tests_are_running_too(

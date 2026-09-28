@@ -106,7 +106,11 @@ def _is_local_address(address: object) -> bool:
     """
     if not isinstance(address, tuple) or not address:
         return True
-    host = str(address[0])
+    # decoded the way `_guarded_getaddrinfo` decodes, not `str()`: a bytes host is valid at
+    # `connect` too, and `str(b"127.0.0.1")` is `"b'127.0.0.1'"`, which matches no loopback and
+    # would refuse a legitimate local connection
+    first = address[0]
+    host = os.fsdecode(first) if isinstance(first, (str, bytes)) else str(first)
     host = host.lower()  # names are case-insensitive, and Windows tooling likes to shout them
     if host in {"", "localhost"} or host.endswith(".localhost"):
         return True
@@ -341,14 +345,17 @@ def _block_network(request: pytest.FixtureRequest) -> Generator[None]:
         refused = list(_GUARD_STATE["refused"])
         reported = request.node.stash.get(_REFUSAL_ENDED_TEST, default=False)
         if refused and not _GUARD_STATE["expected"] and not reported and _GUARD_STATE["alone"]:
-            # the test ended on something other than the refusal, so something between the socket
-            # and the test caught it -- `list_remote_files_fsspec` and `download_file` no longer
-            # do, but several providers degrade on a bare `except Exception`. Said here, because a
-            # refusal nobody reported is the vacuous pass this guard exists to stop
+            # usually something between the socket and the test caught it -- `list_remote_files_
+            # fsspec` and `download_file` no longer do, but several providers degrade on a bare
+            # `except Exception` -- and a refusal nobody reported is the vacuous pass this guard
+            # exists to stop. Not always, though: a refusal raised in another fixture's teardown
+            # is reported after this runs, and saying it was swallowed would send the reader
+            # looking for an `except Exception` that is not there. So this says what is known
             pytest.fail(
                 f"network access blocked: {refused}. A test that reaches the internet needs "
-                f"@pytest.mark.remote, or has to be rewritten to work without the network. The "
-                f"refusal did not reach the test, so something on the way caught it.",
+                f"@pytest.mark.remote, or has to be rewritten to work without the network. "
+                f"Neither the setup nor the call phase reported it, so it was either caught on "
+                f"the way or raised during teardown.",
             )
 
 

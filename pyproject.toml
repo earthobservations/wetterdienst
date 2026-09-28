@@ -310,7 +310,7 @@ docs = "uv run --group docs sphinx-build --builder html docs docs/_build/html"
 "test:offline" = "uv run pytest --numprocesses=auto -m 'not (remote or cflake or explorer)'"
 # the two `cflake` tests the offline selection holds, run the way that marker asks for -- serially.
 # `test:offline` above runs under xdist, which is the concurrency they are flaky under
-"test:offline:cflakes" = "uv run pytest -m 'cflake and not remote'"
+"test:offline:cflakes" = "uv run pytest -m 'cflake and not (remote or explorer)'"
 "test:offline:all" = ["test:offline", "test:offline:cflakes"]
 test = ["test:parallel", "test:cflakes"]
 # For Windows CI
