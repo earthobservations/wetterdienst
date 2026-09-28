@@ -18,7 +18,7 @@ RENAMED_COLUMNS: dict[str, str] = {
 
 #: canonical parameter names, old name to new
 RENAMED_PARAMETERS: dict[str, str] = {
-    # GH-2032: misspelt, German or mistranslated names
+    # GH-2032: misspelt, German or mistranslated names (evaporation targets follow GH-2038 below)
     "chlorid_concentration": "chloride_concentration",
     "cloud_cover_between_2km_to_7km": "cloud_cover_between_2km_and_7km",
     "count_weather_type_ripe": "count_weather_type_hoar_frost",
