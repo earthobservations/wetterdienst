@@ -193,14 +193,17 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     Last, because deselecting on `-m` is itself done in this hook: asked any earlier, `items` still
     holds the `remote` tests that `-m "not remote"` is about to take out, and every run looks mixed.
 
-    The teardown check below only runs for the former. What the guard records is per process, not
-    per test: a connection from a thread an earlier `remote` test left running -- fsspec cancels
-    nothing on `FSTimeoutError`, and this suite carries `--only-rerun FSTimeoutError` because it
-    sees them -- is refused while whichever unmarked test is current owns the record, and would be
-    read as that test's. Nothing tells the two apart at the socket, and failing a correct test is
-    worse than missing a swallowed refusal. `poe test:offline` has no `remote` test in it to leave
-    anything behind, and that is the run the CI job gates on, so the check is kept for it and the
-    refusal itself -- which is raised either way -- covers the rest.
+    The teardown check below only runs for the former, and what makes that safe is not merely that
+    the offline selection has no `remote` test in it. What the guard records is per process, not
+    per test, so a connection made by a thread that outlives the test that started it is charged to
+    whichever test is current. In a mixed run that happens: a `remote` test opens real sockets, one
+    of them times out, and fsspec cancels nothing -- this suite carries `--only-rerun
+    FSTimeoutError` because it sees them -- so the attempt can land on an innocent unmarked test and
+    fail it at teardown. In the offline selection it cannot: every non-local name and address is
+    refused before any I/O, so no socket to one is ever opened, nothing can be waiting on one, and
+    there is no attempt left over to arrive late. Failing a correct test is worse than missing a
+    swallowed refusal, so the check is kept for the run where it cannot do that -- which is the run
+    the CI job gates on -- and the refusal itself, raised either way, covers the rest.
     """
     _GUARD_STATE["alone"] = not any(item.get_closest_marker("remote") for item in items)
 

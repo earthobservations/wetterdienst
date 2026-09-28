@@ -75,8 +75,9 @@ request would have downloaded is better built from a `StationsResult` over a lit
 the provider tests do.
 
 What the guard catches is a connection being made, not one already open or made before the
-per-test fixture is in place -- `tests/conftest.py` says what that leaves out. `poe test:offline`
-runs the selection on its own, which is how CI asks the question.
+per-test fixture is in place -- `tests/conftest.py` says what that leaves out. `poe
+test:offline:all` runs the selection on its own, which is how CI asks the question; it is
+`test:offline` plus `test:offline:cflakes`, the second running serially what the first excludes.
 
 ## Build OCI images
 
