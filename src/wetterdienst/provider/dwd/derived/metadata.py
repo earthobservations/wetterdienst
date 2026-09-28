@@ -142,7 +142,8 @@ DwdDerivedMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "thawing_thickness_bare",  # Auftauschicht am Mittag unter unbewachsenem Boden
+                            # Auftauschicht am Mittag unter unbewachsenem Boden
+                            "name": "thawing_thickness_bare_ground",
                             "name_original": "ztumi",
                             "unit": "centimeter",
                         },
@@ -361,7 +362,7 @@ DwdDerivedMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "thawing_thickness_bare_max_month",
+                            "name": "thawing_thickness_bare_ground_max_month",
                             "name_original": "maximum von ztumi",
                             "unit": "centimeter",
                         },

@@ -91,7 +91,7 @@ To distinguish different base temperatures, there exist three datasets with the 
 | {term}`temperature_soil_mean_loamy_silt_0_05m`            | mittel von tssl05    | mean soil temperature for loamy silt at 0.05m depth           | °C   | -           |
 | {term}`frozen_ground_layer_thickness_max_month`          | maximum von zfumi    | maximum frozen ground layer thickness in the month            | cm   | >=0         |
 | {term}`thawing_thickness_plant_cover_max_month`           | maximum von ztkmi    | maximum thawing thickness under vegetation in the month       | cm   | >=0         |
-| {term}`thawing_thickness_bare_max_month`                 | maximum von ztumi    | maximum thawing thickness under bare soil in the month        | cm   | >=0         |
+| {term}`thawing_thickness_bare_ground_max_month`                 | maximum von ztumi    | maximum thawing thickness under bare soil in the month        | cm   | >=0         |
 | {term}`soil_moisture_grass_loamy_silt_00cm_10cm`           | mittel von bfgl01_ag | mean soil moisture for meadow on loamy silt 0-10cm            | %    | 0-100       |
 | {term}`soil_moisture_grass_loamy_silt_10cm_20cm`           | mittel von bfgl02_ag | mean soil moisture for meadow on loamy silt 10-20cm           | %    | 0-100       |
 | {term}`soil_moisture_grass_loamy_silt_20cm_30cm`           | mittel von bfgl03_ag | mean soil moisture for meadow on loamy silt 20-30cm           | %    | 0-100       |

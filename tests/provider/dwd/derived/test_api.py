@@ -663,7 +663,7 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
     """Test monthly soil ztumi dataset."""
     default_settings.ts_shape = "long"
     request = DwdDerivedRequest(
-        parameters=[DwdDerivedMetadata.monthly.soil.thawing_thickness_bare_max_month],
+        parameters=[DwdDerivedMetadata.monthly.soil.thawing_thickness_bare_ground_max_month],
         settings=default_settings,
         start_date=datetime.datetime(year=2024, month=5, day=1, tzinfo=ZoneInfo("UTC")),
         end_date=datetime.datetime(year=2024, month=7, day=1, tzinfo=ZoneInfo("UTC")),
@@ -675,7 +675,7 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
             "station_id": "00150",
             "resolution": "monthly",
             "dataset": "soil",
-            "parameter": "thawing_thickness_bare_max_month",
+            "parameter": "thawing_thickness_bare_ground_max_month",
             "timestamp": datetime.datetime(2024, 5, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 0.0,
             "quality": None,
@@ -684,7 +684,7 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
             "station_id": "00150",
             "resolution": "monthly",
             "dataset": "soil",
-            "parameter": "thawing_thickness_bare_max_month",
+            "parameter": "thawing_thickness_bare_ground_max_month",
             "timestamp": datetime.datetime(2024, 6, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 0.0,
             "quality": None,
@@ -693,7 +693,7 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
             "station_id": "00150",
             "resolution": "monthly",
             "dataset": "soil",
-            "parameter": "thawing_thickness_bare_max_month",
+            "parameter": "thawing_thickness_bare_ground_max_month",
             "timestamp": datetime.datetime(2024, 7, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 0.0,
             "quality": None,

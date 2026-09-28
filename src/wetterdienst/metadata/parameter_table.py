@@ -2718,9 +2718,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Wind chill, the temperature the air feels like once wind is accounted for.",
         interpolation="homogeneous",
     ),
-    CanonicalParameter("thawing_thickness_bare", "length_short", "Depth to which bare ground has thawed."),
+    CanonicalParameter("thawing_thickness_bare_ground", "length_short", "Depth to which bare ground has thawed."),
     CanonicalParameter(
-        "thawing_thickness_bare_max_month",
+        "thawing_thickness_bare_ground_max_month",
         "length_short",
         "Greatest depth to which bare ground thawed during the month.",
     ),

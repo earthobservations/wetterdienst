@@ -34,7 +34,7 @@
 | {term}`temperature_soil_mean_loamy_silt_0_05m`            | tssl05        | mean soil temperature for loamy silt at 0.05m depth    | °C   | -           |
 | {term}`frozen_ground_layer_thickness`                    | zfumi         | frozen ground layer thickness                          | cm   | >=0         |
 | {term}`thawing_thickness_plant_cover`                     | ztkmi         | thawing thickness under vegetation                     | cm   | >=0         |
-| {term}`thawing_thickness_bare`                           | ztumi         | thawing thickness under bare soil                      | cm   | >=0         |
+| {term}`thawing_thickness_bare_ground`                           | ztumi         | thawing thickness under bare soil                      | cm   | >=0         |
 | {term}`soil_moisture_grass_loamy_silt_00cm_10cm`           | bfgl01_ag     | soil moisture for meadow on loamy silt 0-10cm          | %    | 0-100       |
 | {term}`soil_moisture_grass_loamy_silt_10cm_20cm`           | bfgl02_ag     | soil moisture for meadow on loamy silt 10-20cm         | %    | 0-100       |
 | {term}`soil_moisture_grass_loamy_silt_20cm_30cm`           | bfgl03_ag     | soil moisture for meadow on loamy silt 20-30cm         | %    | 0-100       |

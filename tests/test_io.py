@@ -965,6 +965,18 @@ def test_filter_by_sql_names_a_renamed_wide_quality_column() -> None:
         ExportMixin(df=df).filter_by_sql("qn_wind_speed = 10")
 
 
+@pytest.mark.sql
+def test_filter_by_sql_names_a_renamed_parameter_column() -> None:
+    """A wide frame's column after a renamed parameter, and its quality column, name the new ones (GH-2032)."""
+    import duckdb  # noqa: PLC0415
+
+    df = pl.DataFrame({"wave_height_significant": [1.5], "wave_height_significant_quality": [10.0]})
+    for old in ("wave_height_sign", "wave_height_sign_quality", "qn_wave_height_sign"):
+        new = "wave_height_significant" if old == "wave_height_sign" else "wave_height_significant_quality"
+        with pytest.raises(duckdb.BinderException, match=f'column "{old}" was renamed to "{new}"'):
+            ExportMixin(df=df).filter_by_sql(f"{old} > 1")
+
+
 @pytest.mark.parametrize("extension", ["csv", "json", "jsonl", "xlsx", "parquet", "feather"])
 def test_export_file_targets_take_a_stations_frame(
     df_stations: pl.DataFrame,

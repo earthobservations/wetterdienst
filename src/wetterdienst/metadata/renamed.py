@@ -42,6 +42,8 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "soil_moisture_winterwheat_sand_00cm_60cm": "soil_moisture_winter_wheat_sand_00cm_60cm",
     "temperature_soil_mean_loamysand_0_05m": "temperature_soil_mean_loamy_sand_0_05m",
     "temperature_soil_mean_loamysilt_0_05m": "temperature_soil_mean_loamy_silt_0_05m",
+    "thawing_thickness_bare": "thawing_thickness_bare_ground",
+    "thawing_thickness_bare_max_month": "thawing_thickness_bare_ground_max_month",
     "thawing_thickness_plantstock": "thawing_thickness_plant_cover",
     "thawing_thickness_plantstock_max_month": "thawing_thickness_plant_cover_max_month",
     "wave_height_sign": "wave_height_significant",
@@ -59,7 +61,13 @@ def renamed_column(old: str, columns: Collection[str]) -> str | None:
     columns_by_lower = {column.lower(): column for column in columns}
     key = old.lower()
     new = RENAMED_COLUMNS.get(key)
-    if new is None and key.startswith("qn_"):
-        # a wide frame's quality columns, which follow their parameter rather than a list (GH-2030)
-        new = f"{key.removeprefix('qn_')}_quality"
-    return columns_by_lower.get(new) if new else None
+    if new is None:
+        # a wide frame names a column after its parameter, and its quality column after that, so
+        # both follow the parameter's rename; `qn_<parameter>` was the quality column's (GH-2030)
+        base, suffix = key, ""
+        if key.startswith("qn_"):
+            base, suffix = key.removeprefix("qn_"), "_quality"
+        elif key.endswith("_quality"):
+            base, suffix = key.removesuffix("_quality"), "_quality"
+        new = f"{RENAMED_PARAMETERS.get(base, base)}{suffix}"
+    return columns_by_lower.get(new)
