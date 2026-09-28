@@ -160,6 +160,38 @@ def test_a_refusal_that_reaches_the_test_is_reported_once(
     assert "did not reach the test" not in result.stdout.str()
 
 
+def test_a_refusal_in_a_fixture_is_reported_once(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A fixture that downloads something is an ordinary thing to write, and reaches the runner too.
+
+    The phase differs, not the diagnosis, so the teardown check has to stay quiet here as well.
+    """
+    result = _run_one(
+        pytester,
+        pytestconfig,
+        monkeypatch,
+        """
+        import socket
+
+        import pytest
+
+        @pytest.fixture
+        def needs_net():
+            socket.socket().connect(("example.org", 80))
+            yield
+
+        def test_forgot_the_marker(needs_net):
+            pass
+        """,
+    )
+    result.assert_outcomes(errors=1)
+    result.stdout.fnmatch_lines(["*network access blocked: ('example.org', 80)*"])
+    assert "did not reach the test" not in result.stdout.str()
+
+
 def test_a_refusal_nobody_reported_still_fails_the_test(
     pytester: pytest.Pytester,
     pytestconfig: pytest.Config,

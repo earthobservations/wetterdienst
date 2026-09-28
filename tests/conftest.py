@@ -165,13 +165,18 @@ def pytest_runtest_makereport(
     item: pytest.Item,
     call: pytest.CallInfo,
 ) -> Generator[None, pytest.TestReport, pytest.TestReport]:
-    """Note whether the guard's refusal is what the test failed on."""
+    """Note whether the guard's refusal is what ended this phase.
+
+    Setup as well as the call: a fixture that downloads something is an ordinary thing to write,
+    and the refusal reaches the runner from there just as plainly. Accumulated rather than
+    assigned, so the later phase does not answer for the earlier one. A refusal raised in another
+    fixture's *teardown* is still reported twice -- that report is made after `_block_network` has
+    already run its check, so there is nothing for the check to read.
+    """
     report = yield
-    if call.when == "call":
-        item.stash[_REFUSAL_ENDED_TEST] = call.excinfo is not None and isinstance(
-            call.excinfo.value,
-            NetworkAccessBlockedError,
-        )
+    if call.when in {"setup", "call"}:
+        ended = call.excinfo is not None and isinstance(call.excinfo.value, NetworkAccessBlockedError)
+        item.stash[_REFUSAL_ENDED_TEST] = item.stash.get(_REFUSAL_ENDED_TEST, default=False) or ended
     return report
 
 

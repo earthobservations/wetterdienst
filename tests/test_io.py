@@ -1988,8 +1988,8 @@ def test_export_duckdb_all_result_if_exists_append(tmp_path: Path) -> None:
 def _one_row(station_id: str = "01048") -> ExportMixin:
     """Build the smallest frame a sink will write, so it is reached without a request behind it.
 
-    The station id is an argument because the `if_exists` tests below tell two writes apart by it,
-    and asking upstream for a second station is a slow way to obtain a different string.
+    The station id is an argument because the `if_exists` tests tell two writes apart by it, and
+    asking upstream for a second station is a slow way to obtain a different string.
     """
     return ExportMixin(
         df=pl.DataFrame(
