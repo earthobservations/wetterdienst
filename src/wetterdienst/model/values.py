@@ -357,9 +357,10 @@ class TimeseriesValues(ABC):
             temperature_air_mean_2m    temperature_air_mean_2m_quality
             10                          0
 
-        Each quality column is named after its parameter with a `_quality` suffix. A `quality_`
-        prefix would collide: `quality_temperature_air_max_2m` and ten more like it are parameters
-        of their own.
+        Each quality column is named after its parameter with a `_quality` suffix rather than a
+        `quality_` prefix, which is how the table names a source's own quality flags
+        (`quality_temperature_air_max_2m` and ten more like it); those never become value columns,
+        but a column named like one would read as one.
 
         Args:
             df: DataFrame with columns timestamp, parameter, value and quality.
