@@ -31,9 +31,6 @@ Types of changes:
 
 ### Fixed
 
-- The meteogram looked relative humidity up as `relative_humidity`, `rh` or `r`, never under the
-  name the backend returns, so it never derived a missing dew point from humidity nor refined its
-  rain-or-snow call with it. It asks for `humidity_relative` first (GH-2036).
 - `[Glossary]` DWD's sampled snow depth and its water equivalent were labelled in every language as
   snow beyond the measuring range. They are the snow cut out as a sample to measure its water
   equivalent, and now read as such -- "Snow depth (sample)", German *Ausgestochene Schneehöhe*
