@@ -309,7 +309,7 @@ class EcccObservationRequest(TimeseriesRequest):
             pl.col("features").struct.field("properties").struct.field("PROV_STATE_TERR_CODE").alias("state"),
             pl.col("features").struct.field("properties").struct.field("LATITUDE").alias("latitude"),
             pl.col("features").struct.field("properties").struct.field("LONGITUDE").alias("longitude"),
-            pl.col("features").struct.field("properties").struct.field("ELEVATION").alias("height"),
+            pl.col("features").struct.field("properties").struct.field("ELEVATION").alias("elevation"),
             pl.col("features").struct.field("properties").struct.field("FIRST_DATE").alias("start_date"),
             pl.col("features").struct.field("properties").struct.field("LAST_DATE").alias("end_date"),
             pl.col("features").struct.field("properties").struct.field("TIMEZONE").alias("timezone"),
@@ -324,7 +324,7 @@ class EcccObservationRequest(TimeseriesRequest):
             pl.col("station_id").cast(pl.String),
             pl.col("start_date").str.to_datetime("%Y-%m-%d %H:%M:%S"),
             pl.col("end_date").str.to_datetime("%Y-%m-%d %H:%M:%S"),
-            pl.col("height").cast(pl.Float64),
+            pl.col("elevation").cast(pl.Float64),
         )
         # Convert datetime to the timezone from the timezone column.
         df_raw = df_raw.with_columns(

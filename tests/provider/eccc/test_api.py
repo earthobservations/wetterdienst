@@ -35,7 +35,7 @@ def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
                 "end_date": dt.datetime(1996, 11, 30, hour=8, tzinfo=ZoneInfo("UTC")),
                 "latitude": 48.52,
                 "longitude": -123.17,
-                "height": 4.0,
+                "elevation": 4.0,
                 "name": "ACTIVE PASS",
                 "state": "BC",
             },

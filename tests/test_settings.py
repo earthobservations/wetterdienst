@@ -190,7 +190,7 @@ def test_settings_geo_station_distance_for_stops_widening_past_a_day() -> None:
     """Test that the table stops at twice the base radius rather than following correlation up.
 
     Past a day what binds is terrain and not correlation -- the interpolation reads UTM x/y and
-    never station height -- so the widest the defaults reach is the 40 km the homogeneous radius is
+    never station elevation -- so the widest the defaults reach is the 40 km the homogeneous radius is
     held to, which is why the two meet at `daily`.
     """
     settings = Settings()
@@ -227,7 +227,7 @@ def test_settings_geo_station_distance_for_leaves_homogeneous_parameters_alone()
 
     What bounds it is terrain rather than correlation -- daily temperature stays correlated over
     hundreds of kilometres, while `apply_interpolation` works on UTM x/y and never reads station
-    height -- and terrain does not care how long the quantity was accumulated for.
+    elevation -- and terrain does not care how long the quantity was accumulated for.
     """
     settings = Settings()
     for resolution in ("10_minutes", "hourly", "daily", "annual"):

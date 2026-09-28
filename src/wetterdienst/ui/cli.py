@@ -23,7 +23,7 @@ from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
     ExportRefusedError,
-    NoStationsWithHeightError,
+    NoStationsWithElevationError,
 )
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.ui.core import (
@@ -739,11 +739,11 @@ def _collect_or_exit(
     """
     try:
         values_ = get(api=api, request=request, settings=settings)
-    except (BufrReaderMissingError, NoStationsWithHeightError) as e:
+    except (BufrReaderMissingError, NoStationsWithElevationError) as e:
         # the message names what to install, or what to ask instead: the whole of what is to be
         # done about it. Both are narrow on purpose -- a bare `ImportError` would swallow a cycle
         # or a typo inside a provider module, which is a defect and wants its traceback, not an
-        # instruction. NoStationsWithHeightError subclasses ValueError, so it is caught here or not
+        # instruction. NoStationsWithElevationError subclasses ValueError, so it is caught here or not
         # at all
         log.error(str(e))  # noqa: TRY400
         sys.exit(1)

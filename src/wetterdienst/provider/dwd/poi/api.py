@@ -168,7 +168,7 @@ class DwdPoiRequest(TimeseriesRequest):
         "end_date",
         "latitude",
         "longitude",
-        "height",
+        "elevation",
         "name",
         "state",
     )

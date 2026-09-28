@@ -265,7 +265,7 @@ class DmiObservationRequest(TimeseriesRequest):
             pl.col("properties").struct.field("country").alias("state"),
             pl.col("geometry").struct.field("coordinates").list.get(1).alias("latitude"),
             pl.col("geometry").struct.field("coordinates").list.get(0).alias("longitude"),
-            pl.col("properties").struct.field("stationHeight").alias("height"),
+            pl.col("properties").struct.field("stationHeight").alias("elevation"),
             # %.f tolerates an optional fractional-seconds part; DMI's station timestamps are
             # observed at second precision but emit fractional seconds elsewhere, so parse
             # defensively (matching the hourly `from` parser).
@@ -282,7 +282,7 @@ class DmiObservationRequest(TimeseriesRequest):
             pl.col("properties").struct.field("created").alias("created"),
         )
         # DMI lists a station once per validity period. Collapse to one row per station: keep
-        # the most recent metadata (name, coordinates, height) and span the full active range
+        # the most recent metadata (name, coordinates, elevation) and span the full active range
         # (earliest validFrom; a null validTo on any record means "still active" -> null).
         # `sort_by("created").first()` inside the aggregation picks the newest record per group
         # order-independently -- relying on a pre-sort + `first()` would not be deterministic
@@ -292,7 +292,7 @@ class DmiObservationRequest(TimeseriesRequest):
             pl.col("state").sort_by("created", descending=True).first().alias("state"),
             pl.col("latitude").sort_by("created", descending=True).first().alias("latitude"),
             pl.col("longitude").sort_by("created", descending=True).first().alias("longitude"),
-            pl.col("height").sort_by("created", descending=True).first().alias("height"),
+            pl.col("elevation").sort_by("created", descending=True).first().alias("elevation"),
             pl.col("start_date").min(),
             pl.when(pl.col("end_date").is_null().any())
             .then(None)

@@ -204,7 +204,7 @@ class MeteoFranceSynopRequest(TimeseriesRequest):
                 {
                     "station_id": properties["Id"],
                     "name": properties["Nom"],
-                    "height": properties["Altitude"],
+                    "elevation": properties["Altitude"],
                     "start_date": properties["Date_ouverture"],
                     "latitude": latitude,
                     "longitude": longitude,
@@ -215,7 +215,7 @@ class MeteoFranceSynopRequest(TimeseriesRequest):
             schema={
                 "station_id": pl.String,
                 "name": pl.String,
-                "height": pl.Float64,
+                "elevation": pl.Float64,
                 "start_date": pl.String,
                 "latitude": pl.Float64,
                 "longitude": pl.Float64,

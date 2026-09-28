@@ -889,7 +889,7 @@ class MeteoFranceObservationRequest(TimeseriesRequest):
             pl.col("name"),
             pl.col("lat").cast(pl.Float64, strict=False).alias("latitude"),
             pl.col("lon").cast(pl.Float64, strict=False).alias("longitude"),
-            pl.col("alt").cast(pl.Float64, strict=False).alias("height"),
+            pl.col("alt").cast(pl.Float64, strict=False).alias("elevation"),
             pl.col("start_date").str.to_datetime("%Y-%m-%d", strict=False).dt.replace_time_zone("UTC"),
             # nullable: still-open stations (the vast majority) have no end_date, matching how
             # the app already treats a missing end_date as "still reporting"

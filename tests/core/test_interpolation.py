@@ -17,7 +17,7 @@ from wetterdienst.core.interpolate import (
     apply_interpolation,
     get_valid_station_groups,
 )
-from wetterdienst.exceptions import NoStationsWithHeightError, StationNotFoundError
+from wetterdienst.exceptions import NoStationsWithElevationError, StationNotFoundError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
@@ -245,8 +245,8 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
     # by station id the answer is at the station's own altitude, which the result says outright --
     # a surer contract than comparing two live interpolations, which can draw on different stations
     # under a slow or partial upstream and then differ for reasons of their own
-    height = request.all().df.filter(pl.col("station_id").eq("00071")).get_column("height").item()
-    assert request.interpolate_by_station_id(station_id="00071").elevation == height
+    elevation = request.all().df.filter(pl.col("station_id").eq("00071")).get_column("elevation").item()
+    assert request.interpolate_by_station_id(station_id="00071").elevation == elevation
 
 
 @pytest.mark.parametrize("method", ["interpolate", "summarize"])
@@ -396,16 +396,16 @@ def test_valid_station_groups_ignore_the_order_the_stations_are_held_in() -> Non
     assert sorted(taken) == ["a", "b", "c", "d"]
 
 
-def test_reduce_to_height_brings_a_reading_to_the_point() -> None:
-    """A reading is corrected by the rate its quantity falls at, over the difference in height."""
-    from wetterdienst.core.util import reduce_to_height  # noqa: PLC0415
+def test_reduce_to_elevation_brings_a_reading_to_the_point() -> None:
+    """A reading is corrected by the rate its quantity falls at, over the difference in elevation."""
+    from wetterdienst.core.util import reduce_to_elevation  # noqa: PLC0415
 
     values = pl.Series("00001", [10.0, 12.0])
     # 500 m above the station, at 0.65 K per 100 m, is 3.25 K colder
-    corrected = reduce_to_height(values, 0.0065, station_height=100.0, target_height=600.0)
+    corrected = reduce_to_elevation(values, 0.0065, station_elevation=100.0, target_elevation=600.0)
     assert corrected.to_list() == pytest.approx([6.75, 8.75])
     # and below it, warmer
-    corrected = reduce_to_height(values, 0.0065, station_height=600.0, target_height=100.0)
+    corrected = reduce_to_elevation(values, 0.0065, station_elevation=600.0, target_elevation=100.0)
     assert corrected.to_list() == pytest.approx([13.25, 15.25])
 
 
@@ -441,37 +441,37 @@ def test_near_ground_air_temperatures_carry_no_lapse_rate() -> None:
         assert PARAMETERS[name].lapse_rate is None, name
 
 
-def test_reduce_to_height_leaves_alone_what_it_cannot_correct() -> None:
-    """Without a target, or for a quantity that does not fall with height, the readings stand.
+def test_reduce_to_elevation_leaves_alone_what_it_cannot_correct() -> None:
+    """Without a target, or for a quantity that does not fall with elevation, the readings stand.
 
     A soil temperature follows the ground rather than the air, precipitation does not lapse at all,
-    and with no elevation for the target there is nothing to correct towards -- a height taken from
+    and with no elevation for the target there is nothing to correct towards -- an elevation taken from
     the interpolation itself cancels out of it exactly.
     """
-    from wetterdienst.core.util import reduce_to_height  # noqa: PLC0415
+    from wetterdienst.core.util import reduce_to_elevation  # noqa: PLC0415
 
     values = pl.Series("00001", [10.0, 12.0])
-    assert reduce_to_height(values, 0.0065, 100.0, None).to_list() == [10.0, 12.0]
-    # no rate: a quantity that does not fall with height
-    assert reduce_to_height(values, None, 100.0, 600.0).to_list() == [10.0, 12.0]
+    assert reduce_to_elevation(values, 0.0065, 100.0, None).to_list() == [10.0, 12.0]
+    # no rate: a quantity that does not fall with elevation
+    assert reduce_to_elevation(values, None, 100.0, 600.0).to_list() == [10.0, 12.0]
 
 
-def test_reduce_to_height_leaves_out_a_station_it_cannot_place() -> None:
-    """A station with no height of its own cannot answer a question about a height.
+def test_reduce_to_elevation_leaves_out_a_station_it_cannot_place() -> None:
+    """A station with no elevation of its own cannot answer a question about an elevation.
 
     Thirteen providers have such stations -- every one of FMI's, IPMA's and the Environment
     Agency's, and a scattering of ECCC's and met.no's. Letting the readings through uncorrected
     would place them at their own altitude while their neighbours are moved to the caller's, which
     mixes two vertical references in one interpolation.
     """
-    from wetterdienst.core.util import reduce_to_height  # noqa: PLC0415
+    from wetterdienst.core.util import reduce_to_elevation  # noqa: PLC0415
 
     values = pl.Series("00001", [10.0, 12.0])
-    assert reduce_to_height(values, 0.0065, None, 600.0) is None
+    assert reduce_to_elevation(values, 0.0065, None, 600.0) is None
     # but with no elevation asked for there is nothing to place it against, so it contributes
-    assert reduce_to_height(values, 0.0065, None, None).to_list() == [10.0, 12.0]
-    # and a quantity that does not fall with height needs no placing either
-    assert reduce_to_height(values, None, None, 600.0).to_list() == [10.0, 12.0]
+    assert reduce_to_elevation(values, 0.0065, None, None).to_list() == [10.0, 12.0]
+    # and a quantity that does not fall with elevation needs no placing either
+    assert reduce_to_elevation(values, None, None, 600.0).to_list() == [10.0, 12.0]
 
 
 def test_a_parameter_no_station_answered_gives_no_rows() -> None:
@@ -479,7 +479,7 @@ def test_a_parameter_no_station_answered_gives_no_rows() -> None:
 
     Concatenating an empty result horizontally pads the grid, and the rows come back with no
     resolution, dataset or parameter either -- noise wearing the shape of an answer. It is
-    reachable where every station is turned away for having no height, which is every station a
+    reachable where every station is turned away for having no elevation, which is every station a
     few providers have.
     """
     from wetterdienst.core.interpolate import calculate_interpolation  # noqa: PLC0415
@@ -728,7 +728,7 @@ def test_interpolation_increased_station_distance() -> None:
 
 @pytest.mark.remote
 def test_interpolation_at_an_elevation(default_settings: Settings) -> None:
-    """A point's elevation moves the answer by the lapse rate over the difference in height.
+    """A point's elevation moves the answer by the lapse rate over the difference in elevation.
 
     Around Garmisch the stations within 40 km span 630 m to 2956 m, which is 15 K of air
     temperature interpolated as though it were horizontal structure. Naming the elevation is what
@@ -751,11 +751,11 @@ def test_interpolation_at_an_elevation(default_settings: Settings) -> None:
     assert lower < uncorrected.mean() < upper
 
 
-def _blank_station_heights(monkeypatch: pytest.MonkeyPatch, keeps_its_height: pl.Expr) -> None:
-    """Make a DWD request look like a provider that reports heights for only some of its stations.
+def _blank_station_elevations(monkeypatch: pytest.MonkeyPatch, keeps_its_height: pl.Expr) -> None:
+    """Make a DWD request look like a provider that reports elevations for only some of its stations.
 
-    FMI, IPMA and the Environment Agency publish no height for any station, and eleven more
-    providers for some of theirs. Borrowing DWD's data and taking the heights away exercises the
+    FMI, IPMA and the Environment Agency publish no elevation for any station, and eleven more
+    providers for some of theirs. Borrowing DWD's data and taking the elevations away exercises the
     same path without a second provider's outages deciding whether this test passes. The frame is
     ranked by distance, so the expression picks by how near the station is.
     """
@@ -764,7 +764,7 @@ def _blank_station_heights(monkeypatch: pytest.MonkeyPatch, keeps_its_height: pl
     def without_heights(self: DwdObservationRequest, *args: object, **kwargs: object) -> object:
         stations_ranked = original(self, *args, **kwargs)
         stations_ranked.df = stations_ranked.df.with_columns(
-            pl.when(keeps_its_height).then(pl.col("height")).otherwise(None).alias("height"),
+            pl.when(keeps_its_height).then(pl.col("elevation")).otherwise(None).alias("elevation"),
         )
         return stations_ranked
 
@@ -778,7 +778,7 @@ def test_interpolation_at_an_elevation_none_of_the_stations_can_answer(
 ) -> None:
     """An elevation that empties the request says so instead of coming back empty.
 
-    A station of unknown height cannot be placed against the height asked about, and where that is
+    A station of unknown elevation cannot be placed against the elevation asked about, and where that is
     every station in reach there is nothing left to interpolate. That used to be an empty frame
     with the reason in a server-side log -- the one place the caller cannot look.
     """
@@ -788,7 +788,7 @@ def test_interpolation_at_an_elevation_none_of_the_stations_can_answer(
         end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
-    _blank_station_heights(monkeypatch, pl.lit(value=False))
+    _blank_station_elevations(monkeypatch, pl.lit(value=False))
     downloads = 0
     original_query = TimeseriesValues.query
 
@@ -799,12 +799,12 @@ def test_interpolation_at_an_elevation_none_of_the_stations_can_answer(
 
     monkeypatch.setattr(TimeseriesValues, "query", counting_query)
     with pytest.raises(
-        NoStationsWithHeightError,
+        NoStationsWithElevationError,
         match=r"nothing can be brought to 200\.0 m for daily/climate_summary/temperature_air_mean_2m",
     ):
         request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
     # and not one station's values were fetched to arrive at that: the ranking already said no
-    # station in reach reports a height, and every quantity asked for needs one
+    # station in reach reports an elevation, and every quantity asked for needs one
     assert downloads == 0
     # without an elevation the same stations answer as they always did
     monkeypatch.setattr(TimeseriesValues, "query", original_query)
@@ -819,7 +819,7 @@ def test_interpolation_at_an_elevation_names_the_parameter_it_lost(
 ) -> None:
     """A parameter emptied beside one that answered is named, and the rest of the result stands.
 
-    Precipitation does not fall with height in the sense the correction means, so it keeps every
+    Precipitation does not fall with elevation in the sense the correction means, so it keeps every
     station a temperature loses.
     """
     request = DwdObservationRequest(
@@ -828,7 +828,7 @@ def test_interpolation_at_an_elevation_names_the_parameter_it_lost(
         end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
-    _blank_station_heights(monkeypatch, pl.lit(value=False))
+    _blank_station_elevations(monkeypatch, pl.lit(value=False))
     with caplog.at_level(logging.WARNING):
         values = request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
     # of the values that are there, not of the rows: a parameter with a station collected for it
@@ -853,8 +853,8 @@ def test_interpolation_at_an_elevation_too_few_stations_left_to_interpolate(
 ) -> None:
     """Stations left over that cannot interpolate are named, the answer being null either way.
 
-    An interpolation wants four that surround the point, so two of known height among neighbours of
-    unknown height hold columns and still come back null. Whether keeping the other eight would
+    An interpolation wants four that surround the point, so two of known elevation among neighbours of
+    unknown elevation hold columns and still come back null. Whether keeping the other eight would
     have helped is not something a count can say -- they may not have surrounded the point either
     -- so it is said in the log rather than raised over the caller's result.
     """
@@ -865,7 +865,7 @@ def test_interpolation_at_an_elevation_too_few_stations_left_to_interpolate(
         end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
         settings=settings,
     )
-    _blank_station_heights(monkeypatch, pl.int_range(pl.len()) < 2)
+    _blank_station_elevations(monkeypatch, pl.int_range(pl.len()) < 2)
     with caplog.at_level(logging.WARNING):
         values = request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
     assert values.df.drop_nulls("value").is_empty()

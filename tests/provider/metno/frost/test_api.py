@@ -38,7 +38,7 @@ def test_metno_frost_stations() -> None:
                 "end_date": None,
                 "latitude": 59.9423,
                 "longitude": 10.72,
-                "height": 94.0,
+                "elevation": 94.0,
                 "name": "OSLO - BLINDERN",
                 "state": "OSLO",
             }
@@ -51,7 +51,7 @@ def test_metno_frost_stations() -> None:
             "end_date": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
-            "height": pl.Float64,
+            "elevation": pl.Float64,
             "name": pl.String,
             "state": pl.String,
         },

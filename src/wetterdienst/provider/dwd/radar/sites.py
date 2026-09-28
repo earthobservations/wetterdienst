@@ -83,11 +83,11 @@ class DwdRadarSitesGenerator:  # pragma: no cover
             "coordinates_wgs84_text",
             "coordinates_wgs84",
             "coordinates_gauss",
-            "altitude",
+            "elevation",
         ]
 
         # Adjust offsets.
-        for column in ["name", "dwd_id", "wmo_id", "altitude"]:
+        for column in ["name", "dwd_id", "wmo_id", "elevation"]:
             df[column] = df[column].shift(-1)
 
         # Remove header rows.
@@ -111,7 +111,7 @@ class DwdRadarSitesGenerator:  # pragma: no cover
             pl.col("latitude").str.strip_chars("NE").str.replace(",", ".").cast(float),
             pl.col("longitude").str.strip_chars("NE").str.replace(",", ".").cast(float),
             pl.col("wmo_id").cast(int),
-            pl.col("altitude").cast(int),
+            pl.col("elevation").cast(int),
         )
 
 

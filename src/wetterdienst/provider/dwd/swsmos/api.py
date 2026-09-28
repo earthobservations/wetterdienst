@@ -401,7 +401,7 @@ class DwdSwsmosRequest(TimeseriesRequest):
             pl.col("Name").alias("name"),
             pl.col("Breite").str.replace(",", ".").cast(pl.Float64, strict=False).alias("latitude"),
             pl.col("Laenge").str.replace(",", ".").cast(pl.Float64, strict=False).alias("longitude"),
-            pl.col("Hoehe").str.replace(",", ".").cast(pl.Float64, strict=False).alias("height"),
+            pl.col("Hoehe").str.replace(",", ".").cast(pl.Float64, strict=False).alias("elevation"),
             pl.lit(resolution.name, pl.String).alias("resolution"),
             pl.lit(resolution.datasets[0].name, pl.String).alias("dataset"),
         ).lazy()

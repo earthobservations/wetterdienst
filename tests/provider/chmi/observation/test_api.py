@@ -34,7 +34,7 @@ def test_parse_chmi_stations_collapses_periods() -> None:
             "name": "Cheb",
             "latitude": 50.068333,  # GEOGR2 of the most recent (active) period
             "longitude": 12.391389,  # GEOGR1 of the most recent period
-            "height": 483.0,
+            "elevation": 483.0,
             "start_date": dt.datetime(1961, 1, 1, tzinfo=UTC),  # earliest BEGIN_DATE
             "end_date": None,  # END_DATE year 3999 -> active -> null
         },
@@ -133,7 +133,7 @@ def test_chmi_observation_stations() -> None:
         parameters=[("daily", "data", "temperature_air_mean_2m")],
     ).filter_by_station_id(CHEB)
     df = request.df
-    assert df.select(pl.exclude("latitude", "longitude", "start_date", "end_date", "height")).to_dicts() == [
+    assert df.select(pl.exclude("latitude", "longitude", "start_date", "end_date", "elevation")).to_dicts() == [
         {
             "resolution": "daily",
             "dataset": "data",
@@ -144,7 +144,7 @@ def test_chmi_observation_stations() -> None:
     ]
     assert df["latitude"].item() == pytest.approx(50.068333)
     assert df["longitude"].item() == pytest.approx(12.391389)
-    assert df["height"].item() == pytest.approx(483.0)
+    assert df["elevation"].item() == pytest.approx(483.0)
     assert df["start_date"].item() == dt.datetime(1863, 10, 1, tzinfo=UTC)
     assert df["end_date"].item() is None
 

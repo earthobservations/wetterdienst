@@ -60,8 +60,8 @@ class BufrReaderMissingError(ImportError):
     """
 
 
-class NoStationsWithHeightError(ValueError):
-    """Raised when a height is asked about and no station in reach reports one of its own."""
+class NoStationsWithElevationError(ValueError):
+    """Raised when an elevation is asked about and no station in reach reports one of its own."""
 
 
 class ExportRefusedError(Exception):

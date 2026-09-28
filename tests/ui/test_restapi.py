@@ -385,7 +385,7 @@ def test_stations_dwd_basic(client: TestClient) -> None:
         "end_date": IsStr,
         "latitude": 47.9736,
         "longitude": 8.5205,
-        "height": 680.0,
+        "elevation": 680.0,
         "name": "Donaueschingen (Landeplatz)",
         "state": "Baden-Württemberg",
     }
@@ -416,7 +416,7 @@ def test_stations_dwd_geo(client: TestClient) -> None:
         "end_date": IsStr,
         "latitude": 47.3984,
         "longitude": 10.2759,
-        "height": 806.0,
+        "elevation": 806.0,
         "name": "Oberstdorf",
         "state": "Bayern",
         "distance": 207.0831,
@@ -446,7 +446,7 @@ def test_stations_dwd_sql(client: TestClient) -> None:
         "end_date": IsStr,
         "latitude": 51.1278,
         "longitude": 13.7543,
-        "height": 228.0,
+        "elevation": 228.0,
         "name": "Dresden-Klotzsche",
         "state": "Sachsen",
     }
@@ -527,7 +527,7 @@ def test_stations_dwd_obs_image_png_custom_settings(client: TestClient) -> None:
             "all": "true",
             "format": "png",
             "width": 1000,
-            "height": 1000,
+            "elevation": 1000,
             "scale": 2,
         },
     )
@@ -548,7 +548,7 @@ def test_stations_dwd_obs_image_png_wrong_settings(client: TestClient) -> None:
             "all": "true",
             "format": "png",
             "width": 0,
-            "height": 0,
+            "elevation": 0,
             "scale": 0,
         },
     )
@@ -1198,7 +1198,7 @@ def test_stations_missing_null(client: TestClient) -> None:
         "end_date": None,
         "latitude": 69.68,
         "longitude": 18.92,
-        "height": 10.0,
+        "elevation": 10.0,
         "name": "TROMSOE",
         "state": None,
     }
@@ -1884,7 +1884,7 @@ def test_history_dwd_observation(client: TestClient) -> None:
         "longitude": 10.14,
         "method": "Luftdruckmessung, konv.",
         "start_date": "1986-06-01T00:00:00+00:00",
-        "station_height": 27.0,
+        "station_elevation": 27.0,
         "station_id": "2564",
         "station_name": "Kiel-Holtenau",
     }
@@ -1894,7 +1894,7 @@ def test_history_dwd_observation(client: TestClient) -> None:
         "latitude": 54.3767,
         "longitude": 10.1601,
         "start_date": "1927-02-01T00:00:00+00:00",
-        "station_height": 4.0,
+        "station_elevation": 4.0,
         "station_id": "2564",
         "station_name": "Kiel-Holtenau",
     }
@@ -2301,12 +2301,12 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
     elevation no station in reach can be placed against -- and the detail carried the reason to a
     caller who had no reason to read it.
     """
-    from wetterdienst.exceptions import NoStationsWithHeightError  # noqa: PLC0415
+    from wetterdienst.exceptions import NoStationsWithElevationError  # noqa: PLC0415
 
     msg = "no station of known height is in reach, so there is no answer at 200.0 m for daily/climate_summary/tas"
 
     def unanswerable(**_kwargs: object) -> None:
-        raise NoStationsWithHeightError(msg)
+        raise NoStationsWithElevationError(msg)
 
     monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", unanswerable)
     response = client.get(

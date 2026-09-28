@@ -140,7 +140,7 @@ def _stub_stations(station_ids: tuple[str, ...] = ("A006",), settings: Settings 
                 "end_date": None,
                 "latitude": 54.8892,
                 "longitude": 8.9087,
-                "height": 2.0,
+                "elevation": 2.0,
                 "name": f"Station {station_id}",
             }
             for station_id in station_ids
@@ -153,7 +153,7 @@ def _stub_stations(station_ids: tuple[str, ...] = ("A006",), settings: Settings 
             "end_date": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
-            "height": pl.Float64,
+            "elevation": pl.Float64,
             "name": pl.String,
         },
         orient="row",

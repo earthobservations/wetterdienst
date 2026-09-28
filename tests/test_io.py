@@ -83,7 +83,7 @@ def df_stations() -> pl.DataFrame:
                 "station_id": "01048",
                 "start_date": dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC")),
                 "end_date": dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC")),
-                "height": 645.0,
+                "elevation": 645.0,
                 "latitude": 48.8049,
                 "longitude": 13.5528,
                 "name": "Freyung vorm Wald",
@@ -271,7 +271,7 @@ def test_stations_to_dict(df_stations: pl.DataFrame) -> None:
             "station_id": "01048",
             "start_date": "1957-05-01T00:00:00.000000+00:00",
             "end_date": "1995-11-30T00:00:00.000000+00:00",
-            "height": 645.0,
+            "elevation": 645.0,
             "latitude": 48.8049,
             "longitude": 13.5528,
             "name": "Freyung vorm Wald",
@@ -377,7 +377,7 @@ def test_stations_format_csv(df_stations: pl.DataFrame) -> None:
         .strip()
     )
     lines = output.split("\n")
-    assert lines[0] == "resolution,dataset,station_id,start_date,end_date,height,latitude,longitude,name,state"
+    assert lines[0] == "resolution,dataset,station_id,start_date,end_date,elevation,latitude,longitude,name,state"
     assert (
         lines[1] == "daily,climate_summary,01048,1957-05-01T00:00:00.000000+00:00,1995-11-30T00:00:00.000000+00:00,"
         "645.0,48.8049,13.5528,Freyung vorm Wald,Bayern"
@@ -566,7 +566,7 @@ def test_interpolated_values_to_ogc_feature_collection(
                 "end_date": "1995-11-30T00:00:00.000000+00:00",
                 "latitude": 48.8049,
                 "longitude": 13.5528,
-                "height": 645.0,
+                "elevation": 645.0,
                 "name": "Freyung vorm Wald",
                 "state": "Bayern",
             },
@@ -667,7 +667,7 @@ def test_summarized_values_to_ogc_feature_collection(
                 "end_date": "1995-11-30T00:00:00.000000+00:00",
                 "latitude": 48.8049,
                 "longitude": 13.5528,
-                "height": 645.0,
+                "elevation": 645.0,
                 "name": "Freyung vorm Wald",
                 "state": "Bayern",
             },
@@ -910,6 +910,19 @@ def test_filter_by_sql_on_stations(df_stations: pl.DataFrame) -> None:
     # the timestamps keep the zone they came with
     assert df.schema["start_date"].time_zone == "UTC"
     assert ExportMixin(df=df_stations).filter_by_sql("state='Sachsen'").is_empty()
+
+
+@pytest.mark.sql
+def test_filter_by_sql_names_a_renamed_column(df_stations: pl.DataFrame) -> None:
+    """A filter on a column renamed for 1.0 says what the column is called now (GH-2024)."""
+    import duckdb  # noqa: PLC0415
+
+    with pytest.raises(duckdb.BinderException, match='column "height" was renamed to "elevation"'):
+        ExportMixin(df=df_stations).filter_by_sql("height > 500")
+    # a column that never existed keeps DuckDB's own error
+    with pytest.raises(duckdb.BinderException, match='Referenced column "altitude" not found'):
+        ExportMixin(df=df_stations).filter_by_sql("altitude > 500")
+    assert ExportMixin(df=df_stations).filter_by_sql("elevation > 500").get_column("station_id").to_list() == ["01048"]
 
 
 @pytest.mark.parametrize("extension", ["csv", "json", "jsonl", "xlsx", "parquet", "feather"])

@@ -22,7 +22,7 @@ async function settle() {
     await nextTick()
 }
 
-const station = { station_id: '02290', name: 'Feldberg', state: '', latitude: 47.9, longitude: 8.0, height: 1000 }
+const station = { station_id: '02290', name: 'Feldberg', state: '', latitude: 47.9, longitude: 8.0, elevation: 1000 }
 
 describe('the point an interpolation answers for', () => {
   it('takes position and altitude from a chosen station', async () => {
@@ -51,7 +51,7 @@ describe('the point an interpolation answers for', () => {
     // FMI, IPMA, LHMT, the Environment Agency, WSV and IMGW's hydrology report none for any
     // station; null is not undefined, and reached `.toString()` on the way to the query
     const wrapper = await mountSuspended(harness({ source: 'station' }))
-    wrapper.vm.fromStation({ ...station, height: null } as never)
+    wrapper.vm.fromStation({ ...station, elevation: null } as never)
     await settle()
     expect(wrapper.vm.modelValue.elevation).toBeUndefined()
     expect(wrapper.vm.elevationInput).toBe('')

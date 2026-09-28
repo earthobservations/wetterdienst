@@ -18,7 +18,7 @@ const feldberg = {
   state: 'Baden-Württemberg',
   latitude: 47.9,
   longitude: 8.0,
-  height: 1000,
+  elevation: 1000,
 }
 
 registerEndpoint('/api/stations', () => ({ stations: [feldberg] }))

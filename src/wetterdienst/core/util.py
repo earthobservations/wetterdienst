@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, NamedTuple, cast
 
 import polars as pl
 
-from wetterdienst.exceptions import NoStationsWithHeightError
+from wetterdienst.exceptions import NoStationsWithElevationError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Frequency
 from wetterdienst.model.metadata import ParameterModel
@@ -26,13 +26,13 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-#: what a caller can do about a height nothing in reach can be brought to. By coordinates,
-#: because a request named by a station id answers at that station's own height and so has no
-#: form that asks about no height at all
+#: what a caller can do about an elevation nothing in reach can be brought to. By coordinates,
+#: because a request named by a station id answers at that station's own elevation and so has no
+#: form that asks about no elevation at all
 _ASK_INSTEAD = (
     "Ask by coordinates and without an elevation to take each station's readings as they came "
-    "-- naming a station id instead asks at that station's own height -- or use a provider that "
-    "publishes the heights of its stations."
+    "-- naming a station id instead asks at that station's own elevation -- or use a provider that "
+    "publishes the elevations of its stations."
 )
 
 
@@ -97,7 +97,7 @@ def lapse_rate_for(
         convert_units: whether they went through it at all
 
     Returns:
-        The rate in the values' own unit, or None for a quantity that does not fall with height
+        The rate in the values' own unit, or None for a quantity that does not fall with elevation
 
     """
     lapse_rate = PARAMETERS[parameter.name].lapse_rate
@@ -126,18 +126,20 @@ def open_parameter_data(
     return param_dict[param_key]
 
 
-def can_answer_at_height(station_height: float | None, lapse_rate: float | None, target_height: float | None) -> bool:
-    """Whether a station has anything to say about a quantity at a given height.
+def can_answer_at_elevation(
+    station_elevation: float | None, lapse_rate: float | None, target_elevation: float | None
+) -> bool:
+    """Whether a station has anything to say about a quantity at a given elevation.
 
-    It has not when the quantity falls with height, a height was asked about, and the station's own
+    It has not when the quantity falls with elevation, an elevation was asked about, and the station's own
     is unknown: its reading cannot be placed against the target, and letting it through would put
     it at its own altitude among neighbours moved to the caller's.
     """
-    return not (target_height is not None and lapse_rate and station_height is None)
+    return not (target_elevation is not None and lapse_rate and station_elevation is None)
 
 
-class DroppedForHeight(NamedTuple):
-    """What a parameter lost to stations of unknown height, and how near the nearest of them was."""
+class DroppedForElevation(NamedTuple):
+    """What a parameter lost to stations of unknown elevation, and how near the nearest of them was."""
 
     count: int
     #: distance of the nearest station turned away, in km. A station inside the nearby-station
@@ -149,10 +151,10 @@ class StationsInReach(NamedTuple):
     """What a parameter has inside its own radius, read off the ranking before any download."""
 
     total: int
-    with_height: int
-    #: how far out the last station that reports a height stands, or None where there is none.
-    #: Stations are walked in this order, so once it is passed there is no height left to find
-    furthest_with_height: float | None
+    with_elevation: int
+    #: how far out the last station that reports an elevation stands, or None where there is none.
+    #: Stations are walked in this order, so once it is passed there is no elevation left to find
+    furthest_with_elevation: float | None
 
 
 def count_stations_in_reach(
@@ -164,23 +166,23 @@ def count_stations_in_reach(
     """Count what each parameter has within its own radius, before a single value is downloaded.
 
     Only the parameters the walk would collect: one it skips outright, for not being
-    interpolatable at all, is never unanswerable for want of a height, and counting it would keep
+    interpolatable at all, is never unanswerable for want of an elevation, and counting it would keep
     the refusal that costs no download from ever being reached.
 
     Per parameter, because the radius is: a quantity that decorrelates fast in space is given a
-    narrower one, so "is there a station of known height in reach" has a different answer for
+    narrower one, so "is there a station of known elevation in reach" has a different answer for
     temperature at 20 km than for precipitation at 40 km, and one answer for the whole request
     would be the wrong one for at least one of them.
 
-    The height count says whether walking at all can help: where no station in reach reports one,
+    The elevation count says whether walking at all can help: where no station in reach reports one,
     nothing this request downloads will change that. The distance says how long it can: the walk
-    goes outwards, so once it is past the furthest station that reports a height, no station left
-    to visit can answer a question about another height.
+    goes outwards, so once it is past the furthest station that reports an elevation, no station left
+    to visit can answer a question about another elevation.
     """
     counts = {}
-    # a station's height and its distance as the walk reads them: `stations_by_id` keeps one row
+    # a station's elevation and its distance as the walk reads them: `stations_by_id` keeps one row
     # per station, the nearest, over every dataset in the ranking. Two dataset indexes can disagree
-    # about a station's height, and reading a different row here than the walk does would refuse a
+    # about a station's elevation, and reading a different row here than the walk does would refuse a
     # request the walk would have answered
     as_the_walk_reads_it = df_stations_ranked.unique(subset=["station_id"], keep="first", maintain_order=True)
     for parameter in parameters:
@@ -203,31 +205,31 @@ def count_stations_in_reach(
         in_radius = as_the_walk_reads_it.join(holds_the_dataset, on="station_id", how="semi").filter(
             pl.col("distance").le(radius),
         )
-        with_height = in_radius.drop_nulls("height")
-        furthest = with_height.get_column("distance").max()
+        with_elevation = in_radius.drop_nulls("elevation")
+        furthest = with_elevation.get_column("distance").max()
         counts[(dataset.resolution.name, dataset.name, parameter.name)] = StationsInReach(
             total=in_radius.height,
-            with_height=with_height.height,
-            furthest_with_height=float(cast("float", furthest)) if furthest is not None else None,
+            with_elevation=with_elevation.height,
+            furthest_with_elevation=float(cast("float", furthest)) if furthest is not None else None,
         )
     return counts
 
 
-def unanswerable_at_height(
+def unanswerable_at_elevation(
     counts: dict[tuple[str, str, str], StationsInReach],
     elevation: float | None,
     stations_needed: int,
 ) -> set[tuple[str, str, str]]:
-    """Find the parameters no station in reach can answer at the height asked about.
+    """Find the parameters no station in reach can answer at the elevation asked about.
 
-    A quantity that falls with height needs a station whose own height is known to be brought to
-    another one. Where not one station inside its radius reports a height -- which is every station
+    A quantity that falls with elevation needs a station whose own elevation is known to be brought to
+    another one. Where not one station inside its radius reports an elevation -- which is every station
     FMI, IPMA and the Environment Agency publish -- the parameter is unanswerable before anything
     is downloaded, and the walk down the ranking has nothing to look for.
 
-    Which is a claim about heights, so it is made only where there were heights to miss. A point
+    Which is a claim about elevations, so it is made only where there were elevations to miss. A point
     out at sea, or a mistyped coordinate, has no station in reach at all: the answer is empty for a
-    reason that has nothing to do with heights, and saying otherwise sends the caller off to drop
+    reason that has nothing to do with elevations, and saying otherwise sends the caller off to drop
     an elevation that was never the trouble. Too few stations to answer from is the same story --
     keeping every one of them would still have left the calculation short.
     """
@@ -236,7 +238,7 @@ def unanswerable_at_height(
     return {
         param_key
         for param_key, in_reach in counts.items()
-        if not in_reach.with_height and stations_needed <= in_reach.total and PARAMETERS[param_key[2]].lapse_rate
+        if not in_reach.with_elevation and stations_needed <= in_reach.total and PARAMETERS[param_key[2]].lapse_rate
     }
 
 
@@ -246,49 +248,49 @@ def parameters_still_in_reach(
 ) -> set[tuple[str, str, str]]:
     """Find the parameters a station this far out, or further, could still contribute to.
 
-    Only one that reports a height can, an elevation having been asked about, and the walk goes
-    outwards -- so a parameter whose furthest station of known height stands nearer than this has
+    Only one that reports an elevation can, an elevation having been asked about, and the walk goes
+    outwards -- so a parameter whose furthest station of known elevation stands nearer than this has
     nothing left coming. Waiting for it downloads the rest of the ranking to no end, which is what
-    happens when its one station of known height turns out to hold no data.
+    happens when its one station of known elevation turns out to hold no data.
     """
     return {
         param_key
         for param_key, in_reach in counts.items()
-        if in_reach.furthest_with_height is not None and station_distance <= in_reach.furthest_with_height
+        if in_reach.furthest_with_elevation is not None and station_distance <= in_reach.furthest_with_elevation
     }
 
 
-def no_height_in_reach_error(
+def no_elevation_in_reach_error(
     unanswerable: set[tuple[str, str, str]],
     elevation: float | None,
-) -> NoStationsWithHeightError:
-    """Refuse a request no station in reach reports a height for, before anything is downloaded.
+) -> NoStationsWithElevationError:
+    """Refuse a request no station in reach reports an elevation for, before anything is downloaded.
 
     A claim of its own, and one the ranking alone can make: not one station near the point says how
-    high it stands, so no reading can be brought to the height asked about, whatever those stations
-    hold. It is deliberately not the claim `report_height_exclusions` makes -- that one weighs how
+    high it stands, so no reading can be brought to the elevation asked about, whatever those stations
+    hold. It is deliberately not the claim `report_elevation_exclusions` makes -- that one weighs how
     many stations held the parameter, which is knowable only by downloading them, and downloading
     every station in the radius to say what the ranking already said is what this avoids.
     """
     listing = ", ".join("/".join(param_key) for param_key in sorted(unanswerable))
     msg = (
-        f"no station near the point reports a height of its own, so nothing can be brought to "
+        f"no station near the point reports an elevation of its own, so nothing can be brought to "
         f"{elevation} m for {listing}. {_ASK_INSTEAD}"
     )
-    return NoStationsWithHeightError(msg)
+    return NoStationsWithElevationError(msg)
 
 
 def collection_is_done(param_dict: dict, waiting_on: set[tuple[str, str, str]]) -> bool:
     """Whether every parameter has the stations it needs, so the walk down the ranking can stop.
 
-    A parameter every station so far was turned away from for having no height never opened an
+    A parameter every station so far was turned away from for having no elevation never opened an
     entry of its own, so it cannot hold the walk open by being unfinished. Stopping there would
-    report it as unanswerable while a station further out, still inside the radius, has a height
+    report it as unanswerable while a station further out, still inside the radius, has an elevation
     and could have answered it -- so a parameter that lost a station and has yet to take one keeps
     the walk going.
 
     `waiting_on` is those of them that a further station could still answer: a parameter with no
-    station of known height anywhere inside its radius is not among them, since holding the walk
+    station of known elevation anywhere inside its radius is not among them, since holding the walk
     open for it would download the rest of the ranking to arrive at the answer the fourth station
     already gave.
     """
@@ -299,19 +301,19 @@ def collection_is_done(param_dict: dict, waiting_on: set[tuple[str, str, str]]) 
     )
 
 
-def report_height_exclusions(
+def report_elevation_exclusions(
     df: pl.DataFrame,
     param_dict: dict,
-    dropped_for_height: dict[tuple[str, str, str], DroppedForHeight],
+    dropped_for_elevation: dict[tuple[str, str, str], DroppedForElevation],
     elevation: float | None,
     *,
     stations_needed: int,
     nearby_station_distance: float | None = None,
     unanswerable: Collection[tuple[str, str, str]] = (),
 ) -> None:
-    """Say what asking about a height cost, once the answer is in.
+    """Say what asking about an elevation cost, once the answer is in.
 
-    A station whose own height is unknown is turned away from a quantity that falls with height,
+    A station whose own elevation is unknown is turned away from a quantity that falls with elevation,
     and thirteen providers have such stations -- every one of FMI's, IPMA's and the Environment
     Agency's among them. Where that leaves a parameter unanswered, the result is not "no data for
     those dates": it is a question that cannot be answered as asked, and one the caller can fix.
@@ -345,29 +347,29 @@ def report_height_exclusions(
     Args:
         df: the interpolated or summarized frame, before any nulls are dropped from it
         param_dict: the parameters that were collected, each holding the columns it took
-        dropped_for_height: how many stations each parameter lost for having no height
-        elevation: the height that was asked about
+        dropped_for_elevation: how many stations each parameter lost for having no elevation
+        elevation: the elevation that was asked about
         stations_needed: how many stations the calculation wants before it can answer -- four
             surrounding the point for an interpolation, one for a summary
         nearby_station_distance: how near a station has to stand to answer on its own, where the
             calculation has such a shortcut, so that losing one is the whole answer
-        unanswerable: the parameters the ranking already proved cannot be answered at this height,
+        unanswerable: the parameters the ranking already proved cannot be answered at this elevation,
             no station inside their radius reporting one -- what they lost is beyond counting
 
     Raises:
-        NoStationsWithHeightError: where nothing was answered at all and a parameter took not one
+        NoStationsWithElevationError: where nothing was answered at all and a parameter took not one
             station, there being no result for a warning to be read against and no doubt about why
 
     """
-    if not dropped_for_height:
+    if not dropped_for_elevation:
         return
     answered = set(df.drop_nulls("value").select("resolution", "dataset", "parameter").unique().iter_rows())
 
-    def the_exclusions_cost_it(param_key: tuple[str, str, str], dropped: DroppedForHeight) -> bool:
+    def the_exclusions_cost_it(param_key: tuple[str, str, str], dropped: DroppedForElevation) -> bool:
         """Whether giving the parameter back the stations it lost would have answered it."""
         if param_key in unanswerable:
             # the ranking said so before anything was downloaded: no station inside this
-            # parameter's radius reports a height, so every station that held it was turned away
+            # parameter's radius reports an elevation, so every station that held it was turned away
             return True
         # an interpolation answers from a single station standing near enough to the point, without
         # the four a hull wants around it, so losing such a station is the whole answer however
@@ -382,7 +384,7 @@ def report_height_exclusions(
 
     emptied = sorted(
         param_key
-        for param_key, dropped in dropped_for_height.items()
+        for param_key, dropped in dropped_for_elevation.items()
         if param_key not in answered and the_exclusions_cost_it(param_key, dropped)
     )
     if not emptied:
@@ -397,7 +399,7 @@ def report_height_exclusions(
         # only where something was answered is there a rest of the result to stand
         stands = "; the rest of the result stands" if answered else ""
         log.warning(
-            f"leaving out the stations of unknown height leaves nothing that can answer {listing} "
+            f"leaving out the stations of unknown elevation leaves nothing that can answer {listing} "
             f"at {elevation} m{stands}",
         )
         return
@@ -407,58 +409,58 @@ def report_height_exclusions(
     if kept_some:
         listing = ", ".join("/".join(param_key) for param_key in kept_some)
         log.warning(
-            f"leaving out the stations of unknown height leaves nothing that can answer {listing} at {elevation} m",
+            f"leaving out the stations of unknown elevation leaves nothing that can answer {listing} at {elevation} m",
         )
     listing = ", ".join("/".join(param_key) for param_key in took_nothing)
     msg = (
-        f"leaving out the stations of unknown height leaves nothing that can answer {listing} at "
+        f"leaving out the stations of unknown elevation leaves nothing that can answer {listing} at "
         f"{elevation} m. {_ASK_INSTEAD}"
     )
-    raise NoStationsWithHeightError(msg)
+    raise NoStationsWithElevationError(msg)
 
 
-def reduce_to_height(
+def reduce_to_elevation(
     values: pl.Series,
     lapse_rate: float | None,
-    station_height: float | None,
-    target_height: float | None,
+    station_elevation: float | None,
+    target_elevation: float | None,
 ) -> pl.Series | None:
-    """Bring a station's readings to the height they are being asked about.
+    """Bring a station's readings to the elevation they are being asked about.
 
-    A quantity that falls with height -- air temperature at about 0.65 K per 100 m, a dew point at
+    A quantity that falls with elevation -- air temperature at about 0.65 K per 100 m, a dew point at
     0.2 -- says something different at a valley station than at a summit one, and interpolating the
     two as they come fits that vertical difference as though it were horizontal. Around Garmisch
     the stations within 40 km span 630 m to 2956 m, which is 15 K of air temperature; even the flat
     country around Frankfurt spans 495 m, or 3.2 K.
 
-    The correction needs a height for the target, which the interpolation cannot supply itself: a
-    height taken from the same linear interpolation cancels out of it exactly, leaving the result
+    The correction needs an elevation for the target, which the interpolation cannot supply itself: a
+    elevation taken from the same linear interpolation cancels out of it exactly, leaving the result
     unchanged. So it is applied only when a caller says where the point is, and otherwise the
     readings are left as they came.
 
-    A station whose own height is unknown cannot be placed against that target at all, and
+    A station whose own elevation is unknown cannot be placed against that target at all, and
     thirteen providers have such stations -- every one of FMI's, IPMA's and the Environment
     Agency's, and a scattering of ECCC's and met.no's. Letting its readings through uncorrected
     would put them at their own altitude while their neighbours are moved to the caller's, which
     is a worse answer than leaving the station out: hence `None`, meaning it has nothing to
-    contribute to a question about this height.
+    contribute to a question about this elevation.
 
     Args:
         values: the station's readings
         lapse_rate: the rate the quantity falls at, in the values' own unit per metre
-        station_height: the height the station stands at, in metres
-        target_height: the height asked about, in metres
+        station_elevation: the elevation the station stands at, in metres
+        target_elevation: the elevation asked about, in metres
 
     Returns:
-        The readings as they would read at the target height, or None where the station cannot be
+        The readings as they would read at the target elevation, or None where the station cannot be
         placed against it
 
     """
-    if target_height is None or not lapse_rate:
+    if target_elevation is None or not lapse_rate:
         return values
-    if station_height is None:
+    if station_elevation is None:
         return None
-    return values - lapse_rate * (target_height - station_height)
+    return values - lapse_rate * (target_elevation - station_elevation)
 
 
 def extract_station_values(

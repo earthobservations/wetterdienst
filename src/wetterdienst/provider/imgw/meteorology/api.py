@@ -824,12 +824,12 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             "state",
             "latitude",
             "longitude",
-            "height",
+            "elevation",
         ]
         df = df.with_columns(
             pl.col("latitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
             pl.col("longitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
-            pl.col("height").str.replace(" ", "").cast(pl.Float64, strict=False),
+            pl.col("elevation").str.replace(" ", "").cast(pl.Float64, strict=False),
         )
         # the station list is shared across all datasets, so tag each row once per requested resolution/dataset
         resolutions_and_datasets = {

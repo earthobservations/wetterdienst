@@ -130,7 +130,7 @@ request.interpolate(latlon=(47.48, 11.06), elevation=200)    # in the valley
 station's reading rather than a blend, so nothing softens the difference in altitude.
 
 `interpolate_by_station_id` and `summarize_by_station_id` answer at the named station's own
-altitude unless told another one. Naming a point by a station names its height as well, and it is
+altitude unless told another one. Naming a point by a station names its elevation as well, and it is
 the one case where the elevation is known without being given. For the reading uncorrected, pass
 the station's coordinates to `interpolate` instead.
 
@@ -138,14 +138,14 @@ Which quantities are corrected is declared per parameter, alongside whether it c
 at all: the air temperatures measured at 2 m and the dew point. Not the readings taken at 5 or
 10 cm, which are made in the air but governed by the ground radiating beneath them, nor anything
 measured in or on the ground, nor pressure, which falls exponentially rather than linearly. A
-station whose own height the provider does not report is left out of an answer about an elevation
+station whose own elevation the provider does not report is left out of an answer about an elevation
 rather than contributing at its own altitude while its neighbours are moved.
 
 Where that leaves a parameter with no station at all — every station of a few providers reports no
-height, FMI's, IPMA's and the Environment Agency's among them — the request is refused rather than
-answered empty, and `NoStationsWithHeightError` names it. Where every quantity asked for falls with
-height, enough stations stand near the point for their heights to have mattered, and none of
-them reports one, that much is settled off the station list alone, without downloading a
+elevation, FMI's, IPMA's and the Environment Agency's among them — the request is refused rather
+than answered empty, and `NoStationsWithElevationError` names it. Where every quantity asked for
+falls with height, enough stations stand near the point for their elevations to have mattered, and
+none of them reports one, that much is settled off the station list alone, without downloading a
 reading. Ask for such a quantity beside one that does not fall with height and the readings are
 fetched for the second, the first being named once the answer is in.
 
@@ -154,10 +154,10 @@ raised. Whether the stations it lost would have completed the four an interpolat
 something a count can say — they may not have surrounded the point either — and the readings that
 are there stay with the caller either way.
 
-Asking by coordinates and without an elevation takes each station's readings as they came. A
-request named by a station id answers at that station's own height, so it has no form that asks
-about no height at all: pass the station's coordinates to `interpolate` for that. Over the REST API
-both endpoints report the refusal as a 400, and the CLI prints it without a traceback.
+Asking by coordinates and without an elevation takes each station's readings as they came. A request
+named by a station id answers at that station's own elevation, so it has no form that asks about no
+elevation at all: pass the station's coordinates to `interpolate` for that. Over the REST API both
+endpoints report the refusal as a 400, and the CLI prints it without a traceback.
 
 Left out, nothing is corrected. The elevation cannot be taken from the stations themselves: one
 derived from the same linear interpolation cancels out of the correction exactly, leaving the
@@ -436,7 +436,7 @@ wetterdienst summarize \
 ```
 
 Both take `--elevation` in metres above sea level, which brings each station's readings to that
-height before they are used:
+elevation before they are used:
 
 ```bash
 wetterdienst interpolate \

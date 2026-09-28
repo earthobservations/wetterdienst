@@ -97,7 +97,7 @@ DF_STATIONS_MINIMUM_COLUMNS = {
     "end_date",
     "latitude",
     "longitude",
-    "height",
+    "elevation",
     "name",
     "state",
 }
@@ -664,7 +664,7 @@ def test_api_dmi_observation(default_settings: Settings) -> None:
     ).filter_by_station_id(["06180"])
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "height"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "elevation"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -707,7 +707,7 @@ def test_api_eccc_observation(default_settings: Settings) -> None:
     request = EcccObservationRequest(parameters=[("daily", "data")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "height"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "elevation"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -810,7 +810,7 @@ def test_api_wsv_pegel(default_settings: Settings) -> None:
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(
         request.df,
-        exclude_columns={"start_date", "end_date", "latitude", "longitude", "height", "state"},
+        exclude_columns={"start_date", "end_date", "latitude", "longitude", "elevation", "state"},
     )
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
@@ -829,7 +829,7 @@ def test_api_ea_hydrology(default_settings: Settings) -> None:
     request = EAHydrologyRequest(parameters=[("daily", "data", "discharge_max")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state", "height"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state", "elevation"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -1085,7 +1085,7 @@ def test_api_fmi_observation(default_settings: Settings) -> None:
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     # FMI's station catalogue exposes neither elevation nor an end_date for active stations.
-    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "height"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "elevation"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")

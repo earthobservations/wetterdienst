@@ -136,7 +136,7 @@ def _encode_true_local_time_offset(series: pl.Series) -> pl.Series:
 COLUMNS_MAPPING = {
     "stations_id": "station_id",
     "mess_datum": "date",
-    "stationshoehe": "height",
+    "stationshoehe": "elevation",
     "geobreite": "latitude",
     "geogr.breite": "latitude",
     "geolaenge": "longitude",

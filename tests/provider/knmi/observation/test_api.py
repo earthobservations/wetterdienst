@@ -385,7 +385,7 @@ def test_knmi_observation_stations() -> None:
         parameters=[("daily", "data", "temperature_air_mean_2m")],
     ).filter_by_station_id(DE_BILT)
     df = request.df
-    assert df.select(pl.exclude("latitude", "longitude", "height")).to_dicts() == [
+    assert df.select(pl.exclude("latitude", "longitude", "elevation")).to_dicts() == [
         {
             "resolution": "daily",
             "dataset": "data",
@@ -399,7 +399,7 @@ def test_knmi_observation_stations() -> None:
     # coordinates/height with a tolerance -- KNMI may adjust these slightly over time
     assert df["latitude"].item() == pytest.approx(52.0989, abs=1e-2)
     assert df["longitude"].item() == pytest.approx(5.1797, abs=1e-2)
-    assert df["height"].item() == pytest.approx(1.9, abs=1.0)
+    assert df["elevation"].item() == pytest.approx(1.9, abs=1.0)
 
 
 @pytest.mark.remote

@@ -670,9 +670,9 @@ station's reading rather than a blend, so nothing softens the difference in alti
 altitude unless told another one, that being the one case where the elevation is known without
 being given. For the reading uncorrected, pass the station's coordinates to ``interpolate``.
 
-A station whose own height the provider does not report cannot be placed against the elevation
+A station whose own elevation the provider does not report cannot be placed against the elevation
 asked for, so it is left out rather than contributing at its own altitude while its neighbours are
-moved. Some providers report no station heights at all, in which case an elevation leaves nothing
+moved. Some providers report no station elevations at all, in which case an elevation leaves nothing
 to interpolate from for the quantities that depend on it.
 
 Left out, nothing is corrected. The elevation cannot be derived from the stations themselves: an

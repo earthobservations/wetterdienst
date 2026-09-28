@@ -301,8 +301,8 @@ class NwsObservationRequest(TimeseriesRequest):
     # over the endpoint's rolling week
     _stations_filed_under_a_state_code = ("PHBK", "TIST", "TISX")
 
-    # MADIS writes a missing elevation as 9999, which is the only height above 5000 m in the table
-    _height_missing = 9999.0
+    # MADIS writes a missing elevation as 9999, which is the only elevation above 5000 m in the table
+    _elevation_missing = 9999.0
 
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
@@ -339,7 +339,7 @@ class NwsObservationRequest(TimeseriesRequest):
                 "column_2": "station_id",
                 "column_3": "latitude",
                 "column_4": "longitude",
-                "column_5": "height",
+                "column_5": "elevation",
                 "column_6": "name",
             },
         )
@@ -350,6 +350,6 @@ class NwsObservationRequest(TimeseriesRequest):
             pl.col("latitude").cast(pl.Float64),
             pl.col("longitude").cast(pl.Float64),
             # a station of unknown elevation reads as null rather than as standing 9999 m up,
-            # which interpolation would otherwise take at its word when it weighs by height
-            pl.col("height").cast(pl.Float64).replace(self._height_missing, None),
+            # which interpolation would otherwise take at its word when it weighs by elevation
+            pl.col("elevation").cast(pl.Float64).replace(self._elevation_missing, None),
         )

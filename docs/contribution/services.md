@@ -171,7 +171,7 @@ stations for the requested datasets/parameters. The listing includes:
 - station_id
 - start_date
 - end_date
-- height
+- elevation
 - name
 - state
 - latitude

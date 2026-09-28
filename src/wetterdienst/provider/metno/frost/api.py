@@ -806,7 +806,10 @@ class MetnoFrostRequest(TimeseriesRequest):
             .alias("_elevation"),
         )
         df = df.with_columns(
-            pl.when(pl.col("masl").is_not_null()).then(pl.col("masl")).otherwise(pl.col("_elevation")).alias("height"),
+            pl.when(pl.col("masl").is_not_null())
+            .then(pl.col("masl"))
+            .otherwise(pl.col("_elevation"))
+            .alias("elevation"),
         )
         if "validTo" not in df.columns:
             df = df.with_columns(pl.lit(None, dtype=pl.String).alias("validTo"))

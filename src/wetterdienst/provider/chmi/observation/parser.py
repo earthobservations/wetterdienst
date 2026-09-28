@@ -20,7 +20,7 @@ _EMPTY_STATIONS_SCHEMA = {
     "name": pl.String,
     "latitude": pl.Float64,
     "longitude": pl.Float64,
-    "height": pl.Float64,
+    "elevation": pl.Float64,
     "start_date": pl.Datetime(time_unit="us", time_zone="UTC"),
     "end_date": pl.Datetime(time_unit="us", time_zone="UTC"),
 }
@@ -52,7 +52,7 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
         pl.col("FULL_NAME").sort_by("END_DATE").last().alias("name"),
         pl.col("GEOGR2").sort_by("END_DATE").last().alias("latitude"),
         pl.col("GEOGR1").sort_by("END_DATE").last().alias("longitude"),
-        pl.col("ELEVATION").sort_by("END_DATE").last().alias("height"),
+        pl.col("ELEVATION").sort_by("END_DATE").last().alias("elevation"),
         pl.col("BEGIN_DATE").min().alias("start_date"),
         pl.col("END_DATE").max().alias("end_date"),
     )
@@ -61,7 +61,7 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
         pl.col("name").cast(pl.String),
         pl.col("latitude").cast(pl.Float64, strict=False),
         pl.col("longitude").cast(pl.Float64, strict=False),
-        pl.col("height").cast(pl.Float64, strict=False),
+        pl.col("elevation").cast(pl.Float64, strict=False),
         pl.col("start_date"),
         pl.when(pl.col("end_date").dt.year() >= 3999).then(None).otherwise(pl.col("end_date")).alias("end_date"),
     )

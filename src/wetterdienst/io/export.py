@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from abc import abstractmethod
 from copy import copy
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ import polars as pl
 import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError
+from wetterdienst.metadata.renamed import RENAMED_COLUMNS
 from wetterdienst.util.url import ConnectionString
 
 if TYPE_CHECKING:
@@ -126,7 +128,7 @@ class ExportMixin:
             # Solution: Fill gaps in the data.
             # NetCDF keeps its gaps as NaN, which is what a reader of a CF file expects: -999 with
             # no `_FillValue` beside it reads as a measurement of -999, and a station with no
-            # height would report one 999 m below the sea
+            # elevation would report one 999 m below the sea
             df = df.fill_null(-999)
         # xarray encoding cannot handle a pandas Categorical (produced from Enum columns), so cast
         # the Enum metadata columns back to String, and a list column is no more an array than it
@@ -252,7 +254,15 @@ class ExportMixin:
         zones = {name: dtype.time_zone for name, dtype in df.schema.items() if isinstance(dtype, pl.Datetime)}
         df = df.with_columns(cs.datetime().dt.replace_time_zone(None))  # uses df from local scope
         sql = f"FROM df WHERE {sql}"
-        df = duckdb.sql(sql).pl()
+        try:
+            df = duckdb.sql(sql).pl()
+        except duckdb.BinderException as e:
+            missing = re.search(r'Referenced column "([^"]+)" not found', str(e))
+            if missing and missing.group(1) in RENAMED_COLUMNS:
+                old = missing.group(1)
+                msg = f'column "{old}" was renamed to "{RENAMED_COLUMNS[old]}"'
+                raise duckdb.BinderException(msg) from e
+            raise
         return df.with_columns(
             pl.col(name).dt.replace_time_zone(zone) for name, zone in zones.items() if zone and name in df.columns
         )

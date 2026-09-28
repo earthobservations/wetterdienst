@@ -503,7 +503,7 @@ def _stub_dwd_daily(
             # spread along a meridian so the distance ranking follows the list order
             "latitude": [50.0 + station_ids.index(station_id) / 10 for station_id, _ in rows],
             "longitude": [8.0] * len(rows),
-            "height": [100.0] * len(rows),
+            "elevation": [100.0] * len(rows),
             "name": [station_id for station_id, _ in rows],
             "state": ["x"] * len(rows),
         },

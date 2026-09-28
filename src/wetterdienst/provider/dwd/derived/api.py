@@ -659,7 +659,7 @@ class DwdDerivedRequest(TimeseriesRequest):
             pl.col("station_id"),
             pl.col("start_date"),
             pl.col("end_date"),
-            pl.col("height"),
+            pl.col("elevation"),
             pl.col("latitude"),
             pl.col("longitude"),
             "name",

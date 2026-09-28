@@ -547,7 +547,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 31.0
     assert device_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2009, 11, 17, tzinfo=ZoneInfo("UTC"))
@@ -558,7 +558,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 31.0
     assert device_history.start_date == dt.datetime(2009, 11, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2013, 2, 25, tzinfo=ZoneInfo("UTC"))
@@ -569,7 +569,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 28.0
     assert device_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2015, 10, 14, tzinfo=ZoneInfo("UTC"))
@@ -580,7 +580,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 28.0
     assert device_history.start_date == dt.datetime(2015, 10, 15, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 9, 17, tzinfo=ZoneInfo("UTC"))
@@ -591,7 +591,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 29.56
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
@@ -602,7 +602,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 0.05
     assert device_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2009, 11, 17, tzinfo=ZoneInfo("UTC"))
@@ -613,7 +613,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 0.05
     assert device_history.start_date == dt.datetime(2009, 11, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2013, 2, 25, tzinfo=ZoneInfo("UTC"))
@@ -624,7 +624,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 0.05
     assert device_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 9, 17, tzinfo=ZoneInfo("UTC"))
@@ -635,7 +635,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 0.05
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
@@ -646,7 +646,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2009, 11, 17, tzinfo=ZoneInfo("UTC"))
@@ -657,7 +657,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 9, 17, tzinfo=ZoneInfo("UTC"))
@@ -668,7 +668,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
@@ -679,7 +679,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.2
     assert device_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2009, 11, 17, tzinfo=ZoneInfo("UTC"))
@@ -690,7 +690,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 9, 17, tzinfo=ZoneInfo("UTC"))
@@ -701,7 +701,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
@@ -712,7 +712,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.2
     assert device_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2009, 12, 31, tzinfo=ZoneInfo("UTC"))
@@ -723,7 +723,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 9, 17, tzinfo=ZoneInfo("UTC"))
@@ -734,7 +734,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
@@ -745,7 +745,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 1.0
     assert device_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2009, 11, 17, tzinfo=ZoneInfo("UTC"))
@@ -756,7 +756,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 1.0
     assert device_history.start_date == dt.datetime(2009, 11, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2013, 2, 28, tzinfo=ZoneInfo("UTC"))
@@ -767,7 +767,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 1.0
     assert device_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 9, 17, tzinfo=ZoneInfo("UTC"))
@@ -778,7 +778,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 1.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
@@ -789,7 +789,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 1.0
     assert device_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 9, 17, tzinfo=ZoneInfo("UTC"))
@@ -800,7 +800,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 1.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
@@ -811,7 +811,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2009, 12, 31, tzinfo=ZoneInfo("UTC"))
@@ -822,7 +822,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2009, 11, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2013, 2, 25, tzinfo=ZoneInfo("UTC"))
@@ -833,7 +833,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2014, 7, 9, tzinfo=ZoneInfo("UTC"))
@@ -844,7 +844,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2014, 7, 10, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 9, 17, tzinfo=ZoneInfo("UTC"))
@@ -855,7 +855,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
@@ -866,7 +866,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height is None
     assert device_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2012, 12, 31, tzinfo=ZoneInfo("UTC"))
@@ -877,7 +877,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.0
     assert device_history.start_date == dt.datetime(2013, 10, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 9, 17, tzinfo=ZoneInfo("UTC"))
@@ -888,7 +888,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 2.3
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2024, 8, 12, tzinfo=ZoneInfo("UTC"))
@@ -899,7 +899,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 2.3
     assert device_history.start_date == dt.datetime(2024, 8, 13, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
@@ -910,7 +910,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 1.6
     assert device_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2012, 9, 30, tzinfo=ZoneInfo("UTC"))
@@ -921,7 +921,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.7
     assert device_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2014, 11, 18, tzinfo=ZoneInfo("UTC"))
@@ -932,7 +932,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.7
     assert device_history.start_date == dt.datetime(2014, 11, 19, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 3, 4, tzinfo=ZoneInfo("UTC"))
@@ -943,7 +943,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 2.7
     assert device_history.start_date == dt.datetime(2019, 3, 5, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 5, 5, tzinfo=ZoneInfo("UTC"))
@@ -954,7 +954,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.15
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(1974, 1, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(1985, 8, 31, tzinfo=ZoneInfo("UTC"))
@@ -965,7 +965,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(1985, 9, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
@@ -976,7 +976,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(1986, 6, 2, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2013, 2, 25, tzinfo=ZoneInfo("UTC"))
@@ -987,7 +987,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 9, 17, tzinfo=ZoneInfo("UTC"))
@@ -998,7 +998,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2020, 10, 13, tzinfo=ZoneInfo("UTC"))
@@ -1009,7 +1009,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(2020, 10, 14, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
@@ -1020,7 +1020,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.15
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(1974, 1, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(1985, 8, 31, tzinfo=ZoneInfo("UTC"))
@@ -1031,7 +1031,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(1985, 9, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
@@ -1042,7 +1042,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(1986, 6, 2, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2013, 2, 25, tzinfo=ZoneInfo("UTC"))
@@ -1053,7 +1053,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 27.0
+    assert device_history.station_elevation == 27.0
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2019, 9, 17, tzinfo=ZoneInfo("UTC"))
@@ -1064,7 +1064,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(2019, 9, 18, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == dt.datetime(2020, 10, 13, tzinfo=ZoneInfo("UTC"))
@@ -1075,7 +1075,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
-    assert device_history.station_height == 28.41
+    assert device_history.station_elevation == 28.41
     assert device_history.device_height == 10.0
     assert device_history.start_date == dt.datetime(2020, 10, 14, tzinfo=ZoneInfo("UTC"))
     assert device_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
@@ -1083,7 +1083,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert len(history.geography) == 8
     geography = history.geography[0]
     assert geography.station_id == "2564"
-    assert geography.station_height == 4.0
+    assert geography.station_elevation == 4.0
     assert geography.latitude == 54.3767
     assert geography.longitude == 10.1601
     assert geography.start_date == dt.datetime(1927, 2, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
@@ -1091,7 +1091,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[1]
     assert geography.station_id == "2564"
-    assert geography.station_height == 26.0
+    assert geography.station_elevation == 26.0
     assert geography.latitude == 54.3766
     assert geography.longitude == 10.1485
     assert geography.start_date == dt.datetime(1935, 4, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
@@ -1099,7 +1099,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[2]
     assert geography.station_id == "2564"
-    assert geography.station_height == 6.0
+    assert geography.station_elevation == 6.0
     assert geography.latitude == 54.3696
     assert geography.longitude == 10.1522
     assert geography.start_date == dt.datetime(1946, 8, 8, 0, 0, tzinfo=ZoneInfo("UTC"))
@@ -1107,7 +1107,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[3]
     assert geography.station_id == "2564"
-    assert geography.station_height == 27.0
+    assert geography.station_elevation == 27.0
     assert geography.latitude == 54.3773
     assert geography.longitude == 10.1469
     assert geography.start_date == dt.datetime(1968, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
@@ -1115,7 +1115,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[4]
     assert geography.station_id == "2564"
-    assert geography.station_height == 27.0
+    assert geography.station_elevation == 27.0
     assert geography.latitude == 54.3761
     assert geography.longitude == 10.1434
     assert geography.start_date == dt.datetime(1985, 9, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
@@ -1123,7 +1123,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[5]
     assert geography.station_id == "2564"
-    assert geography.station_height == 27.0
+    assert geography.station_elevation == 27.0
     assert geography.latitude == 54.3761
     assert geography.longitude == 10.1434
     assert geography.start_date == dt.datetime(1986, 6, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
@@ -1131,7 +1131,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[6]
     assert geography.station_id == "2564"
-    assert geography.station_height == 27.0
+    assert geography.station_elevation == 27.0
     assert geography.latitude == 54.3761
     assert geography.longitude == 10.1434
     assert geography.start_date == dt.datetime(2013, 3, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
@@ -1139,7 +1139,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[7]
     assert geography.station_id == "2564"
-    assert geography.station_height == 28.41
+    assert geography.station_elevation == 28.41
     assert geography.latitude == 54.3776
     assert geography.longitude == 10.1424
     assert geography.start_date == dt.datetime(2019, 9, 18, 0, 0, tzinfo=ZoneInfo("UTC"))

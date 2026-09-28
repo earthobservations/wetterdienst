@@ -137,7 +137,7 @@ def test_nws_stations_report_no_height_where_the_source_reports_none() -> None:
     MADIS writes a missing elevation as 9999, which was cast to a float and passed on unread --
     and height is what interpolation weighs a neighbouring station by.
     """
-    heights = _request().all().df.get_column("height")
+    heights = _request().all().df.get_column("elevation")
 
     assert heights.is_null().sum() > 0
     assert heights.drop_nulls().max() < 9999

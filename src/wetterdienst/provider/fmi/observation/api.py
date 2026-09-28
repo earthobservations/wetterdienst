@@ -263,5 +263,5 @@ class FmiObservationRequest(TimeseriesRequest):
             for resolution, dataset in resolutions_and_datasets
         ]
         # TimeseriesRequest.all() selects _base_columns and fills any the catalogue omits (e.g.
-        # height) with null, so no explicit padding is needed here.
+        # elevation) with null, so no explicit padding is needed here.
         return pl.concat(data).lazy()

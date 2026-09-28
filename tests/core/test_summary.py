@@ -10,7 +10,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
-from wetterdienst.exceptions import NoStationsWithHeightError
+from wetterdienst.exceptions import NoStationsWithElevationError
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
@@ -22,7 +22,7 @@ def test_summary_by_station_id_answers_at_the_station_altitude(default_settings:
     """A summary named by a station is a summary at that station's altitude.
 
     Which is the same summary with an elevation, not the same summary: the reading of whichever
-    station answers is brought from its own height to the named station's.
+    station answers is brought from its own elevation to the named station's.
     """
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
@@ -30,11 +30,11 @@ def test_summary_by_station_id_answers_at_the_station_altitude(default_settings:
         end_date=dt.datetime(2022, 1, 3, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
-    height = request.all().df.filter(pl.col("station_id").eq("01050")).get_column("height").item()
+    elevation = request.all().df.filter(pl.col("station_id").eq("01050")).get_column("elevation").item()
     # the result says which elevation it answered for, so the contract is one call rather than two
     # compared against each other -- two live fetches can draw on different stations under a slow
     # or partial upstream, and then differ for reasons that have nothing to do with the elevation
-    assert request.summarize_by_station_id(station_id="01050").elevation == height
+    assert request.summarize_by_station_id(station_id="01050").elevation == elevation
 
 
 @pytest.mark.remote
@@ -153,8 +153,8 @@ def test_summary_at_an_elevation_none_of_the_stations_can_answer(
     """A summary emptied by an elevation says so rather than coming back empty.
 
     A summary answers with one station's reading rather than a blend, so a station it cannot place
-    against the height asked about is the whole answer gone, not a quarter of it. DWD's stations
-    stand in for FMI's here: same data, heights taken away, and no second provider's outages
+    against the elevation asked about is the whole answer gone, not a quarter of it. DWD's stations
+    stand in for FMI's here: same data, elevations taken away, and no second provider's outages
     deciding whether this passes.
     """
     request = DwdObservationRequest(
@@ -167,12 +167,12 @@ def test_summary_at_an_elevation_none_of_the_stations_can_answer(
 
     def without_heights(self: DwdObservationRequest, *args: object, **kwargs: object) -> object:
         stations_ranked = original(self, *args, **kwargs)
-        stations_ranked.df = stations_ranked.df.with_columns(pl.lit(None, dtype=pl.Float64).alias("height"))
+        stations_ranked.df = stations_ranked.df.with_columns(pl.lit(None, dtype=pl.Float64).alias("elevation"))
         return stations_ranked
 
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", without_heights)
     with pytest.raises(
-        NoStationsWithHeightError,
+        NoStationsWithElevationError,
         match=r"nothing can be brought to 200\.0 m for daily/climate_summary/temperature_air_mean_2m",
     ):
         request.summarize(latlon=(47.48, 11.06), elevation=200.0)

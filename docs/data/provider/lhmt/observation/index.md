@@ -15,7 +15,7 @@ Values are already published in canonical units (temperature °C, wind m/s, dire
 sea-level pressure hPa, humidity and cloud cover %, precipitation mm, snow depth cm) with `null` for
 missing data — there is no sentinel. The API also returns `feelsLikeTemperature` (apparent
 temperature) and a textual `conditionCode`, which are not exposed as they have no clean numeric
-canonical parameter. The catalogue carries no elevation, so `height` is always null, and — being a
+canonical parameter. The catalogue carries no elevation, so `elevation` is always null, and — being a
 live API — there is no operational start/end date per station.
 
 ## License

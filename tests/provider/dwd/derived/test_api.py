@@ -37,7 +37,7 @@ def _values_of(request: DwdDerivedRequest) -> DwdDerivedValues:
                 "end_date": None,
                 "latitude": 52.9336,
                 "longitude": 8.2370,
-                "height": 44.0,
+                "elevation": 44.0,
                 "name": "Grossenkneten",
                 "state": "Niedersachsen",
             }
@@ -50,7 +50,7 @@ def _values_of(request: DwdDerivedRequest) -> DwdDerivedValues:
             "end_date": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
-            "height": pl.Float64,
+            "elevation": pl.Float64,
             "name": pl.String,
             "state": pl.String,
         },

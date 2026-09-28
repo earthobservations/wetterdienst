@@ -112,7 +112,7 @@ def parse_fmi_stations(content: bytes) -> pl.DataFrame:
     region as ``gml:name`` entries in the ``.../locationcode/name`` and ``.../location/region``
     code spaces, its position as a ``gml:pos`` (``lat lon``), and its operational period as a
     ``gml:beginPosition``/``gml:endPosition`` pair. Elevation is not exposed by this catalogue,
-    so ``height`` is left for the request layer to fill with null.
+    so ``elevation`` is left for the request layer to fill with null.
     """
     root = fromstring(content, parser=_XML_PARSER)
     rows = [

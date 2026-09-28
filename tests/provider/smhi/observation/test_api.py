@@ -27,7 +27,7 @@ def test_smhi_observation_stations() -> None:
         parameters=[("hourly", "data", "temperature_air_mean_2m")],
     ).filter_by_station_id(ABISKO)
     df = request.df
-    assert df.select(pl.exclude("latitude", "longitude", "start_date", "end_date", "height")).to_dicts() == [
+    assert df.select(pl.exclude("latitude", "longitude", "start_date", "end_date", "elevation")).to_dicts() == [
         {
             "resolution": "hourly",
             "dataset": "data",
@@ -37,7 +37,7 @@ def test_smhi_observation_stations() -> None:
         },
     ]
     # assert coordinates/height with a tolerance -- SMHI may adjust these slightly over time
-    assert df["height"].item() == pytest.approx(392.235)
+    assert df["elevation"].item() == pytest.approx(392.235)
     assert df["latitude"].item() == pytest.approx(68.3538)
     assert df["longitude"].item() == pytest.approx(18.8164)
 

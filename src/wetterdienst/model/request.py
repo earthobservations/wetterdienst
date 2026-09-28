@@ -144,7 +144,7 @@ class TimeseriesRequest:
         "end_date",
         "latitude",
         "longitude",
-        "height",
+        "elevation",
         "name",
         "state",
     )
@@ -401,7 +401,7 @@ class TimeseriesRequest:
         """Coerce metadata fields to the correct types."""
         return df.with_columns(
             pl.col("station_id").cast(pl.String),
-            pl.col("height").cast(pl.Float64),
+            pl.col("elevation").cast(pl.Float64),
             pl.col("latitude").cast(pl.Float64),
             pl.col("longitude").cast(pl.Float64),
             pl.col("name").cast(pl.String),
@@ -691,7 +691,7 @@ class TimeseriesRequest:
         Args:
             latlon: Latitude and longitude for the requested point.
             elevation: Elevation of the requested point in metres above sea level. Given, the quantities that fall with
-                height -- air temperature, dew point -- are brought from each station's altitude to
+                elevation -- air temperature, dew point -- are brought from each station's altitude to
                 this one before being interpolated, which is what tells a valley reading from a
                 summit one. Left out, the readings are interpolated as they come.
 
@@ -699,9 +699,9 @@ class TimeseriesRequest:
             InterpolatedValuesResult: Interpolated values.
 
         Raises:
-            NoStationsWithHeightError: Where an elevation is asked about and leaving out the
-                stations whose height the provider does not report leaves nothing that can answer
-                it. A few providers report no height for any station.
+            NoStationsWithElevationError: Where an elevation is asked about and leaving out the
+                stations whose elevation the provider does not report leaves nothing that can answer
+                it. A few providers report no elevation for any station.
 
         """
         try:
@@ -768,21 +768,21 @@ class TimeseriesRequest:
         """Use .interpolate with station_id instead of latlon.
 
         Answers at the station's own altitude unless told another: naming a point by a station
-        names its height as well, and it is the one case where an interpolation knows the elevation
+        names its elevation as well, and it is the one case where an interpolation knows the elevation
         of its target without being told. For the reading uncorrected, pass the station's
         coordinates to `interpolate` instead.
 
         Raises:
-            NoStationsWithHeightError: Where leaving out the stations of unknown height leaves
+            NoStationsWithElevationError: Where leaving out the stations of unknown elevation leaves
                 nothing that can answer at this station's altitude. There is no elevation to omit
                 here, so the reading as it came is asked for by coordinates: pass the station's
                 own to `interpolate`.
 
         """
-        latitude, longitude, station_height = self._get_position_by_station_id(station_id)
+        latitude, longitude, station_elevation = self._get_position_by_station_id(station_id)
         return self.interpolate(
             latlon=(latitude, longitude),
-            elevation=elevation if elevation is not None else station_height,
+            elevation=elevation if elevation is not None else station_elevation,
         )
 
     def summarize(self, latlon: tuple[float, float], elevation: float | None = None) -> SummarizedValuesResult:
@@ -793,7 +793,7 @@ class TimeseriesRequest:
         Args:
             latlon: Latitude and longitude for the requested point.
             elevation: Elevation of the requested point in metres above sea level. Given, a reading of a quantity that
-                falls with height is brought from the station's altitude to this one -- which
+                falls with elevation is brought from the station's altitude to this one -- which
                 matters more here than in an interpolation, one station's reading standing for the
                 point with nothing to soften the difference.
 
@@ -801,9 +801,9 @@ class TimeseriesRequest:
             SummarizedValuesResult: Summarized values.
 
         Raises:
-            NoStationsWithHeightError: Where an elevation is asked about and leaving out the
-                stations whose height the provider does not report leaves nothing that can answer
-                it. A few providers report no height for any station.
+            NoStationsWithElevationError: Where an elevation is asked about and leaving out the
+                stations whose elevation the provider does not report leaves nothing that can answer
+                it. A few providers report no elevation for any station.
 
         """
         from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
@@ -866,16 +866,16 @@ class TimeseriesRequest:
         does.
 
         Raises:
-            NoStationsWithHeightError: Where leaving out the stations of unknown height leaves
+            NoStationsWithElevationError: Where leaving out the stations of unknown elevation leaves
                 nothing that can answer at this station's altitude. There is no elevation to omit
                 here, so the reading as it came is asked for by coordinates: pass the station's
                 own to `summarize`.
 
         """
-        latitude, longitude, station_height = self._get_position_by_station_id(station_id)
+        latitude, longitude, station_elevation = self._get_position_by_station_id(station_id)
         return self.summarize(
             latlon=(latitude, longitude),
-            elevation=elevation if elevation is not None else station_height,
+            elevation=elevation if elevation is not None else station_elevation,
         )
 
     def _get_latlon_by_station_id(self, station_id: str) -> tuple[float, float]:
@@ -888,22 +888,22 @@ class TimeseriesRequest:
         return latitude, longitude
 
     def _get_position_by_station_id(self, station_id: str) -> tuple[float, float, float | None]:
-        """Get the coordinates and the height of a station.
+        """Get the coordinates and the elevation of a station.
 
-        The height comes along because naming a point by a station names its altitude too, which
+        The elevation comes along because naming a point by a station names its altitude too, which
         is otherwise the one thing an interpolation cannot know about its target. It is null for
         the providers that do not report one.
         """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
         stations = self.all().df
         try:
-            lat, lon, height = (
+            lat, lon, elevation = (
                 stations.filter(pl.col("station_id").eq(station_id))
-                .select(pl.col("latitude"), pl.col("longitude"), pl.col("height"))
+                .select(pl.col("latitude"), pl.col("longitude"), pl.col("elevation"))
                 .transpose()
                 .to_series()
             )
         except NoDataError as e:
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg) from e
-        return lat, lon, height
+        return lat, lon, elevation

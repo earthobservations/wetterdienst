@@ -74,7 +74,7 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
       station,
       latitude: station?.latitude,
       longitude: station?.longitude,
-      elevation: station?.height ?? undefined,
+      elevation: station?.elevation ?? undefined,
     }
   }
 
