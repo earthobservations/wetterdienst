@@ -5,6 +5,7 @@
 import pytest
 
 
+@pytest.mark.remote
 @pytest.mark.xfail(reason="zlib.error: Error -3 while decompressing data: invalid literal/length/distance code")
 def test_benchmarks() -> None:
     """Test benchmarks."""

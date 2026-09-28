@@ -172,10 +172,18 @@ def pytest_runtest_makereport(
     assigned, so the later phase does not answer for the earlier one. A refusal raised in another
     fixture's *teardown* is still reported twice -- that report is made after `_block_network` has
     already run its check, so there is nothing for the check to read.
+
+    Only where the phase actually failed, so the stash does not claim a refusal was reported when
+    `xfail` turned it into a green xfail instead. That does not rescue the `xfail` case -- see the
+    fixture below -- it only keeps this from saying something untrue about it.
     """
     report = yield
     if call.when in {"setup", "call"}:
-        ended = call.excinfo is not None and isinstance(call.excinfo.value, NetworkAccessBlockedError)
+        ended = (
+            call.excinfo is not None
+            and isinstance(call.excinfo.value, NetworkAccessBlockedError)
+            and report.outcome == "failed"
+        )
         item.stash[_REFUSAL_ENDED_TEST] = item.stash.get(_REFUSAL_ENDED_TEST, default=False) or ended
     return report
 
@@ -227,8 +235,15 @@ def _block_network(request: pytest.FixtureRequest) -> None:
     `_overlapped.ConnectEx`. And it only sees a connection being opened: fsspec keeps one
     filesystem instance per key, and with it one aiohttp session and its keep-alive pool, for the
     life of the worker, so an unmarked test asking for a url a `remote` test has just fetched can
-    be served over a connection that is already up. Name resolution goes out regardless. So this
-    holds the suite to its own claim; it is not a sandbox.
+    be served over a connection that is already up. Name resolution goes out regardless.
+
+    And a fourth, which is pytest rather than this guard: a non-strict `@pytest.mark.xfail` absorbs
+    everything a test can report, the teardown check below included -- a bare `pytest.fail()` in a
+    fixture's teardown comes back as a second xfail and the run stays green. So a test that is both
+    unmarked and `xfail` can reach upstream and say nothing, and no check made per test can change
+    that. `test_benchmarks` was the one in the tree; it is marked now.
+
+    So this holds the suite to its own claim; it is not a sandbox.
     """
     if request.node.get_closest_marker("remote"):
         yield
