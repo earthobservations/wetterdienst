@@ -128,7 +128,9 @@ def test_a_blocked_download_says_so_rather_than_carrying_no_internet(
             cache_dir=tmp_path,
             ttl=CacheExpiry.NO_CACHE,
         )
-    assert blocked_network == [(UNREACHABLE, 443)]
+    # the set, as above: this path is retried too, and how many times is `_worth_retrying_download`'s
+    # business rather than this test's -- what it asserts is that nothing but this was reached
+    assert set(blocked_network) == {(UNREACHABLE, 443)}
 
 
 @pytest.mark.remote
