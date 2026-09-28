@@ -103,7 +103,7 @@
 | name                            | original name | description          | unit | constraints |
 |---------------------------------|---------------|----------------------|------|-------------|
 | {term}`temperature_air_mean_2m` | tt_ter        | 2m air temperature   | °C   |             |
-| {term}`humidity_relative`                | rf_ter        | 2m relative humidity | %    | >=0,<=100   |
+| {term}`humidity_relative`       | rf_ter        | 2m relative humidity | %    | >=0,<=100   |
 
 ### visibility
 

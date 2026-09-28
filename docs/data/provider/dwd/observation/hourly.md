@@ -313,7 +313,7 @@ Code (precipitation_form):
 | name                            | original name  | description          | unit | constraints |
 |---------------------------------|----------------|----------------------|------|-------------|
 | {term}`temperature_air_mean_2m` | lufttemperatur | 2m air temperature   | °C   | -           |
-| {term}`humidity_relative`                | rel_feuchte    | 2m relative humidity | %    | >=0,<=100   |
+| {term}`humidity_relative`       | rel_feuchte    | 2m relative humidity | %    | >=0,<=100   |
 
 ### urban_temperature_soil
 

@@ -25,7 +25,7 @@
 
 | name                                  | original name                            | description                      | unit | constraints |
 |---------------------------------------|------------------------------------------|----------------------------------|------|-------------|
-| {term}`humidity_relative`                      | relativeHumidity                         | mean humidity                    | %    | >=0,<=100   |
+| {term}`humidity_relative`             | relativeHumidity                         | mean humidity                    | %    | >=0,<=100   |
 | {term}`precipitation_type_flags`      | precipitationType                        | types of precipitation, as flags | -    | -           |
 | {term}`precipitation_amount`          | totalPrecipitationOrTotalWaterEquivalent | precipitation height             | mm   | >=0         |
 | {term}`precipitation_intensity`       | intensityOfPrecipitation                 | precipitation intensity          | mm/s | >=0         |
@@ -33,7 +33,7 @@
 | {term}`temperature_air_mean_2m`       | airTemperature                           | mean air temperature in 2m       | K    | -           |
 | {term}`temperature_dew_point_mean_2m` | dewpointTemperature                      | mean dew point temperature in 2m | K    | -           |
 | {term}`temperature_surface_mean`      | roadSurfaceTemperature                   | road surface temperature         | K    | -           |
-| {term}`visibility`              | horizontalVisibility                     | visibility range                 | m    | >=0         |
+| {term}`visibility`                    | horizontalVisibility                     | visibility range                 | m    | >=0         |
 | {term}`water_film_thickness`          | waterFilmThickness                       | thickness of water film          | m    | >=0         |
 | {term}`wind_direction`                | windDirection                            | mean direction of wind           | °    | >=0,<=360   |
 | {term}`wind_direction_gust_max`       | maximumWindGustDirection                 | direction of maximum wind gust   | °    | >=0,<=360   |

@@ -17,7 +17,7 @@
 |---------------------------------------|---------------|-------------------------------|-------|
 | {term}`temperature_air_mean_2m`       | T             | Temperature                   | °C    |
 | {term}`temperature_dew_point_mean_2m` | TD            | Dew point temperature         | °C    |
-| {term}`humidity_relative`                      | U             | Relative atmospheric humidity | %     |
+| {term}`humidity_relative`             | U             | Relative atmospheric humidity | %     |
 | {term}`wind_speed`                    | FH            | Mean wind speed               | m/s   |
 | {term}`wind_direction`                | DD            | Mean wind direction           | °     |
 | {term}`wind_gust_max`                 | FX            | Maximum wind gust             | m/s   |

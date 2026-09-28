@@ -29,7 +29,7 @@
 | {term}`cloud_cover_above_7km`                              | nh            | High cloud cover (>7 km)                                                        | %     | >=0,<=100   |
 | {term}`cloud_cover_below_500ft`                            | n05           | Cloud cover below 500 ft.                                                       | %     | >=0,<=100   |
 | {term}`cloud_cover_below_1000ft`                           | nl            | Low cloud cover (lower than 2 km)                                               | %     | >=0,<=100   |
-| {term}`cloud_cover_between_2km_and_7km`                     | nm            | Midlevel cloud cover (2-7 km)                                                   | %     | >=0,<=100   |
+| {term}`cloud_cover_between_2km_and_7km`                    | nm            | Midlevel cloud cover (2-7 km)                                                   | %     | >=0,<=100   |
 | {term}`cloud_cover_effective`                              | neff          | Effective cloud cover                                                           | %     | >=0,<=100   |
 | {term}`cloud_cover_total`                                  | n             | Total cloud cover                                                               | %     | >=0,<=100   |
 | {term}`precipitation_amount_significant_weather_last_1h`   | rr1c          | Total precipitation during the last hour consistent with significant weather    | kg/m² | >=0         |
@@ -56,7 +56,7 @@
 | {term}`temperature_air_mean_2m`                            | ttt           | Temperature 2m above surface                                                    | K     | -           |
 | {term}`temperature_air_min_2m`                             | tn            | Minimum temperature - within the last 12 hours                                  | K     | -           |
 | {term}`temperature_dew_point_mean_2m`                      | td            | Dewpoint 2m above surface                                                       | K     | -           |
-| {term}`visibility`                                   | vv            | Visibility                                                                      | m     | >=0         |
+| {term}`visibility`                                         | vv            | Visibility                                                                      | m     | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_1h`            | rrs1c         | Snow-Rain-Equivalent during the last hour                                       | kg/m² | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_3h`            | rrs3c         | Snow-Rain-Equivalent during the last 3 hours                                    | kg/m² | >=0         |
 | {term}`weather_last_6h`                                    | w1w2          | Past weather during the last 6 hours                                            | -     | -           |
@@ -87,7 +87,7 @@
 | {term}`cloud_cover_above_7km`                                    | nh            | High cloud cover (>7 km)                                                            | %     | >=0,<=100   |
 | {term}`cloud_cover_below_500ft`                                  | n05           | Cloud cover below 500 ft.                                                           | %     | >=0,<=100   |
 | {term}`cloud_cover_below_1000ft`                                 | nl            | Low cloud cover (lower than 2 km)                                                   | %     | >=0,<=100   |
-| {term}`cloud_cover_between_2km_and_7km`                           | nm            | Midlevel cloud cover (2-7 km)                                                       | %     | >=0,<=100   |
+| {term}`cloud_cover_between_2km_and_7km`                          | nm            | Midlevel cloud cover (2-7 km)                                                       | %     | >=0,<=100   |
 | {term}`cloud_cover_below_7km`                                    | nlm           | Cloud cover low and mid level clouds below 7000 m                                   | %     | >=0,<=100   |
 | {term}`cloud_cover_effective`                                    | neff          | Effective cloud cover                                                               | %     | >=0,<=100   |
 | {term}`cloud_cover_total`                                        | n             | Total cloud cover                                                                   | %     | >=0,<=100   |
@@ -189,7 +189,7 @@
 | {term}`temperature_air_min_0_05m_last_12h`                       | tg            | Minimum surface temperature at 5cm within the last 12 hours                         | K     | -           |
 | {term}`temperature_air_min_2m`                                   | tn            | Minimum temperature - within the last 12 hours                                      | K     | -           |
 | {term}`temperature_dew_point_mean_2m`                            | td            | Dewpoint 2m above surface                                                           | K     | -           |
-| {term}`visibility`                                         | vv            | Visibility                                                                          | m     | >=0         |
+| {term}`visibility`                                               | vv            | Visibility                                                                          | m     | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_1h`                  | rrs1c         | Snow-Rain-Equivalent during the last hour                                           | kg/m² | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_3h`                  | rrs3c         | Snow-Rain-Equivalent during the last 3 hours                                        | kg/m² | >=0         |
 | {term}`weather_last_6h`                                          | w1w2          | Past weather during the last 6 hours                                                | -     | -           |

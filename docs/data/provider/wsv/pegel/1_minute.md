@@ -34,7 +34,7 @@
 | {term}`flow_speed`              | VA                      | average flow speed during time scale                   | m/s   | -           |
 | {term}`groundwater_level`       | GRU                     | average groundwater level during time scale            | m     | -           |
 | {term}`wind_speed`              | WG                      | average wind speed during time scale                   | m/s   | -           |
-| {term}`humidity_relative`                | HL                      | average relative humidity of the air during time scale | %     | >=0,<=100   |
+| {term}`humidity_relative`       | HL                      | average relative humidity of the air during time scale | %     | >=0,<=100   |
 | {term}`oxygen_level`            | O2                      | average oxygen level during time scale                 | mg/l  | >=0         |
 | {term}`turbidity`               | TR                      | average turbidity during time scale                    | NTU   | -           |
 | {term}`flow_direction`          | R                       | direction of the water current                         | °     | >=0,<=360   |
@@ -42,7 +42,7 @@
 | {term}`precipitation_amount`    | NIEDERSCHLAG            | average precipitation height during time scale         | mm    | >=0         |
 | {term}`precipitation_intensity` | NIEDERSCHLAGSINTENSITÄT | average precipitation intensity during time scale      | mm/h  | >=0         |
 | {term}`wave_period`             | TP                      | average wave period during time scale                  | s     | >=0         |
-| {term}`wave_height_significant`        | SIGH                    | average significant wave height during time scale      | cm    | -           |
+| {term}`wave_height_significant` | SIGH                    | average significant wave height during time scale      | cm    | -           |
 | {term}`wave_height_max`         | MAXH                    | max wave height during time scale                      | cm    | -           |
 | {term}`ph_value`                | PH                      | average pH during time scale                           | -     | -           |
-| {term}`chloride_concentration`   | CL                      | average chloride concentration during time scale       | mg/l  | -           |
+| {term}`chloride_concentration`  | CL                      | average chloride concentration during time scale       | mg/l  | -           |
