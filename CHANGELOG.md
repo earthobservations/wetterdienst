@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.138.0] - 2026-09-28
+
 ### Added
 
 - `--if_exists` on `stations`, `values`, `interpolate` and `summarize`, taking `replace` (the
@@ -3209,7 +3211,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.137.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.138.0...HEAD
+[0.138.0]: https://github.com/earthobservations/wetterdienst/compare/v0.137.0...v0.138.0
 [0.137.0]: https://github.com/earthobservations/wetterdienst/compare/v0.136.0...v0.137.0
 [0.136.0]: https://github.com/earthobservations/wetterdienst/compare/v0.135.0...v0.136.0
 [0.135.0]: https://github.com/earthobservations/wetterdienst/compare/v0.134.0...v0.135.0
