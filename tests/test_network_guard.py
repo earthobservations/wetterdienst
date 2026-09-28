@@ -65,6 +65,25 @@ def test_resolving_a_name_off_this_machine_is_refused(blocked_network: list[obje
     assert blocked_network == [("opendata.dwd.de", 443)]
 
 
+@pytest.mark.parametrize("resolver", ["gethostbyname", "gethostbyname_ex"])
+def test_the_other_ways_in_to_the_resolver_are_refused_too(
+    resolver: str,
+    blocked_network: list[object],
+) -> None:
+    """`gethostbyname` is its own C entry point and never reaches `getaddrinfo`.
+
+    A caller resolving that way would have the address in hand and could then connect by the path
+    the connect patch does not see on Windows, which is what the name-level refusal is for.
+
+    Looked up by name at call time, not passed in as the function: parametrising on the attribute
+    captures it at collection, which is before the guard is installed, and the test then measures
+    the unpatched one and passes whatever the guard does.
+    """
+    with pytest.raises(NetworkAccessBlockedError, match=r"network access blocked: opendata\.dwd\.de"):
+        getattr(socket, resolver)("opendata.dwd.de")
+    assert blocked_network == [("opendata.dwd.de", None)]
+
+
 def test_resolving_a_name_given_as_bytes_is_refused_too(blocked_network: list[object]) -> None:
     """A bytes host is valid here, and asyncio hands it to the loop unchanged."""
     with pytest.raises(NetworkAccessBlockedError, match=r"network access blocked: opendata\.dwd\.de"):

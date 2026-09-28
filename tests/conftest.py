@@ -130,26 +130,28 @@ def _is_local_address(address: object) -> bool:
 _SOCKET_CONNECT = socket.socket.connect
 _SOCKET_CONNECT_EX = socket.socket.connect_ex
 _SOCKET_GETADDRINFO = socket.getaddrinfo
+_SOCKET_GETHOSTBYNAME = socket.gethostbyname
+_SOCKET_GETHOSTBYNAME_EX = socket.gethostbyname_ex
 
 
-def _guarded_getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-    """Refuse to resolve a name off this machine.
+def _refuse_name(host: Any, port: Any) -> None:  # noqa: ANN401
+    """Refuse a name that is not on this machine, and record it.
 
-    Refused here as well as at `connect`, because this is the step every platform shares. The
-    connect patch still holds for a synchronous `socket.connect` on Windows; what it does not see
-    there is asyncio, whose `ProactorEventLoop` goes through `_overlapped.ConnectEx` -- which is
-    the library's whole download path, so without this `-m "not remote"` would be green on Windows
-    for a test that fails everywhere else. Nothing resolves a host it is not about to talk to.
+    Refused at resolution as well as at `connect`, because this is the step every platform shares.
+    The connect patch still holds for a synchronous `socket.connect` on Windows; what it does not
+    see there is asyncio, whose `ProactorEventLoop` goes through `_overlapped.ConnectEx` -- which
+    is the library's whole download path, so without this `-m "not remote"` would be green on
+    Windows for a test that fails everywhere else. Nothing resolves a host it is not about to talk
+    to.
 
     It is also what puts the name in the message. aiohttp resolves before it connects, so a refusal
     at `connect` alone would say `('141.38.2.164', 443)` and leave the reader to work out whose
     server that is; refused at the name, it says `opendata.dwd.de`.
+
+    The host is decoded rather than asked whether it is a `str`: bytes are valid here and asyncio's
+    `_ensure_resolved` hands them to the loop unchanged. `None` is valid too, and means this
+    machine, which `_is_local_address` already answers for.
     """
-    # decoded rather than asked whether it is a `str`: a bytes host is valid here and asyncio's
-    # `_ensure_resolved` hands it to the loop unchanged, so a check for `str` alone waves it
-    # through -- and on Windows, where `connect` is not on the path, that is the whole download
-    # path unguarded again. `None` is valid too, and means this machine, which `_is_local_address`
-    # already answers for
     name = os.fsdecode(host) if isinstance(host, (str, bytes)) else None
     if name is not None and not _is_local_address((name, port)):
         msg = (
@@ -158,7 +160,30 @@ def _guarded_getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any) -> Any
         )
         _GUARD_STATE["refused"].append((name, port))
         raise NetworkAccessBlockedError(msg)
+
+
+def _guarded_getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+    """Resolve, once the name has been allowed."""
+    _refuse_name(host, port)
     return _SOCKET_GETADDRINFO(host, port, *args, **kwargs)
+
+
+def _guarded_gethostbyname(host: Any) -> Any:  # noqa: ANN401
+    """Guard the other way in: a separate C entry point that never reaches `getaddrinfo`.
+
+    Nothing in the tree resolves this way -- aiohttp's `ThreadedResolver` goes through
+    `loop.getaddrinfo` -- but a caller that did would have had a name resolved and could then
+    connect by a path the connect patch does not see on Windows, which is the hole the name-level
+    refusal exists to close.
+    """
+    _refuse_name(host, None)
+    return _SOCKET_GETHOSTBYNAME(host)
+
+
+def _guarded_gethostbyname_ex(host: Any) -> Any:  # noqa: ANN401
+    """As `_guarded_gethostbyname`, for the form that answers with aliases and a list."""
+    _refuse_name(host, None)
+    return _SOCKET_GETHOSTBYNAME_EX(host)
 
 
 class NetworkAccessBlockedError(Exception):
@@ -338,12 +363,16 @@ def _block_network(request: pytest.FixtureRequest) -> Generator[None]:
     socket.socket.connect = _guarded(_SOCKET_CONNECT)
     socket.socket.connect_ex = _guarded(_SOCKET_CONNECT_EX)
     socket.getaddrinfo = _guarded_getaddrinfo
+    socket.gethostbyname = _guarded_gethostbyname
+    socket.gethostbyname_ex = _guarded_gethostbyname_ex
     try:
         yield
     finally:
         socket.socket.connect = _SOCKET_CONNECT
         socket.socket.connect_ex = _SOCKET_CONNECT_EX
         socket.getaddrinfo = _SOCKET_GETADDRINFO
+        socket.gethostbyname = _SOCKET_GETHOSTBYNAME
+        socket.gethostbyname_ex = _SOCKET_GETHOSTBYNAME_EX
         refused = list(_GUARD_STATE["refused"])
         reported = request.node.stash.get(_REFUSAL_ENDED_TEST, default=False)
         if refused and not _GUARD_STATE["expected"] and not reported and _GUARD_STATE["alone"]:
