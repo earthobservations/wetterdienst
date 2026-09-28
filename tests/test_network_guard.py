@@ -6,6 +6,7 @@ import os
 import socket
 from pathlib import Path
 
+import aiohttp.resolver
 import pytest
 
 from tests.conftest import _SOCKET_CONNECT, NetworkAccessBlockedError, _is_local_address
@@ -33,6 +34,19 @@ def test_the_refusal_says_what_to_do_about_it(blocked_network: list[object]) -> 
     with socket.socket() as sock, pytest.raises(NetworkAccessBlockedError, match=r"pytest\.mark\.remote"):
         sock.connect_ex(("example.org", 80))
     assert blocked_network == [("example.org", 80)]
+
+
+def test_aiohttp_still_resolves_through_the_step_this_guards() -> None:
+    """The name-level refusal only reaches aiohttp while aiohttp resolves through `getaddrinfo`.
+
+    `DefaultResolver` is `AsyncResolver` the moment `aiodns` is merely importable -- it is
+    aiohttp's usual speedups dependency and can arrive transitively without anyone asking for it --
+    and `AsyncResolver` goes through c-ares, which this never sees. On Windows the `connect` patch
+    is already off the path, so that day the whole download path is unguarded and the offline
+    selection goes quietly green. Asserted rather than assumed, so the day it happens is a failure
+    here and someone decides what to do, instead of the guard going missing.
+    """
+    assert aiohttp.resolver.DefaultResolver is aiohttp.resolver.ThreadedResolver
 
 
 def test_resolving_a_name_off_this_machine_is_refused(blocked_network: list[object]) -> None:

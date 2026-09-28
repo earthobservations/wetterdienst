@@ -320,6 +320,9 @@ def _block_network(request: pytest.FixtureRequest) -> Generator[None]:
     # `blocked_network` would otherwise be handed the last unmarked test's refusals as its own
     _GUARD_STATE["refused"].clear()
     _GUARD_STATE["expected"] = False
+    # pytest-rerunfailures hands the same `Item` to every attempt, so a retry would otherwise read
+    # the first attempt's answer and skip the check
+    request.node.stash[_REFUSAL_ENDED_TEST] = False
     if request.node.get_closest_marker("remote"):
         yield
         return

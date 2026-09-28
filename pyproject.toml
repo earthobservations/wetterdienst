@@ -305,6 +305,8 @@ docs = "uv run --group docs sphinx-build --builder html docs docs/_build/html"
 # the cache and the fsspec session that a later unmarked test would otherwise be served from --
 # reading a url a `remote` test already fetched opens no socket, and the guard sees nothing to
 # refuse. Only a run without the remote tests in it asks the question this answers (GH-2003).
+# `explorer` is excluded as `test:parallel` excludes it -- those tests are not run in CI at all,
+# and there are none in the tree today; the offline claim is about what `-m "not remote"` selects
 "test:offline" = "uv run pytest --numprocesses=auto -m 'not (remote or cflake or explorer)'"
 # the two `cflake` tests the offline selection holds, run the way that marker asks for -- serially.
 # `test:offline` above runs under xdist, which is the concurrency they are flaky under
