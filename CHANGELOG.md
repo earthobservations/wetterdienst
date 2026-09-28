@@ -39,7 +39,7 @@ Types of changes:
   new name instead; a SQL filter still naming a `qn_` column fails with an error naming its
   `_quality` successor. A DuckDB, SQLite or PostgreSQL table `to_target` wrote before takes no
   append of the new columns: write it anew (GH-2030)
-- **Breaking:** 31 parameter names lose a misspelling, a German word or a mistranslation: `gras` is
+- **Breaking**: 31 parameter names lose a misspelling, a German word or a mistranslation: `gras` is
   `grass`, `chlorid` `chloride`, `loamysilt`/`loamysand`/`winterwheat` are split into words,
   `count_weather_type_ripe` is `count_weather_type_hoar_frost`, `thawing_thickness_plantstock*` is
   `thawing_thickness_plant_cover*`, `wave_height_sign` is `wave_height_significant`,

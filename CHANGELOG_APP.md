@@ -25,6 +25,9 @@ Types of changes:
   most providers' regions are not; each now uses its own word for region (GH-2026)
 - `[Explorer]` Values carry `timestamp` where they carried `date`: the column is headed
   `timestamp`, and the example queries group and order by it (GH-2028)
+- `[Explorer]` A saved or shared link naming a parameter renamed for 1.0 -- `wave_height_sign`,
+  say -- drops it, and with no parameter left the page selects the whole dataset; link the new
+  name instead (GH-2032)
 
 ### Fixed
 

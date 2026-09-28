@@ -45,4 +45,4 @@
 | {term}`wave_height_significant`        | SIGH                    | average significant wave height during time scale      | cm    | -           |
 | {term}`wave_height_max`         | MAXH                    | max wave height during time scale                      | cm    | -           |
 | {term}`ph_value`                | PH                      | average pH during time scale                           | -     | -           |
-| {term}`chloride_concentration`   | CL                      | average chlorid concentration during time scale        | mg/l  | -           |
+| {term}`chloride_concentration`   | CL                      | average chloride concentration during time scale       | mg/l  | -           |

@@ -57,7 +57,7 @@ _HUBEAU_RESOLUTIONS = ("5_minutes", "6_minutes", "10_minutes", "15_minutes", "ho
 # Pegelonline names each timeseries in German; the meaning below is the API's own ``longname`` for
 # that shortname, e.g. HL is LUFTFEUCHTE and SIGH SIGNIFIKANTEWELLENHÖHE.
 _WSV_PEGEL_PARAMETERS = {
-    "CL": "average chlorid concentration during time scale",
+    "CL": "average chloride concentration during time scale",
     "DFH": "average clearance height during time scale",
     "GRU": "average groundwater level during time scale",
     "HL": "average relative humidity of the air during time scale",
