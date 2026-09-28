@@ -3,7 +3,7 @@
 """Reader for DWD's MOSMIX station catalogue.
 
 The catalogue lists every station DWD runs MOSMIX for, with its ICAO id, name, position and
-height. It is shared by more than one network: ``dwd/mosmix`` forecasts for these stations and
+elevation. It is shared by more than one network: ``dwd/mosmix`` forecasts for these stations and
 ``dwd/poi`` publishes their observed weather reports, so both take their station list from here
 rather than parsing the same fixed-width file twice.
 
@@ -34,7 +34,7 @@ MOSMIX_STATION_CATALOGUE_URL = (
 )
 
 _COLUMN_SPECS = ((0, 5), (6, 9), (11, 30), (32, 38), (39, 46), (48, 56))
-_COLUMNS = ("station_id", "icao_id", "name", "latitude", "longitude", "height")
+_COLUMNS = ("station_id", "icao_id", "name", "latitude", "longitude", "elevation")
 
 
 def read_mosmix_station_catalogue(settings: Settings, url: str = MOSMIX_STATION_CATALOGUE_URL) -> pl.DataFrame:
@@ -67,5 +67,5 @@ def read_mosmix_station_catalogue(settings: Settings, url: str = MOSMIX_STATION_
         pl.col("icao_id").replace("----", None),
         pl.col("latitude").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
         pl.col("longitude").cast(float).map_batches(convert_dm_to_dd, return_dtype=pl.Float64),
-        pl.col("height").cast(int),
+        pl.col("elevation").cast(int),
     )

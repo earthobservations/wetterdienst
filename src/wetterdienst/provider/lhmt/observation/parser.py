@@ -39,7 +39,7 @@ def parse_lhmt_stations(content: bytes) -> pl.DataFrame:
     """Parse ``/v1/stations`` into one row per station.
 
     Each entry carries ``code`` (a slug used as the station id and in observation URLs), ``name``
-    and ``coordinates`` (``latitude``/``longitude``). The API exposes no elevation, so ``height`` is
+    and ``coordinates`` (``latitude``/``longitude``). The API exposes no elevation, so ``elevation`` is
     left for the framework to null-fill.
     """
     try:

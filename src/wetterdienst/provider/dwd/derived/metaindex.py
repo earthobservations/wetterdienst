@@ -28,7 +28,7 @@ DWD_COLUMN_NAMES_MAPPING = {
     "column_1": "station_id",
     "column_2": "start_date",
     "column_3": "end_date",
-    "column_4": "height",
+    "column_4": "elevation",
     "column_5": "latitude",
     "column_6": "longitude",
     "column_7": "name",
@@ -37,7 +37,7 @@ DWD_COLUMN_NAMES_MAPPING = {
 
 SOIL_COLUMN_NAMES_MAPPING = {
     "Stationsindex": "station_id",
-    "Höhe in m": "height",
+    "Höhe in m": "elevation",
     "Breite": "latitude",
     "Länge": "longitude",
     "Name": "name",
@@ -124,7 +124,7 @@ def _get_raw_station_data_from_plz_generator() -> pl.LazyFrame:
         pl.lit(None, dtype=pl.String).alias("state"),
         pl.lit(None, dtype=pl.Float64).alias("latitude"),
         pl.lit(None, dtype=pl.Float64).alias("longitude"),
-        pl.lit(None, dtype=pl.Float64).alias("height"),
+        pl.lit(None, dtype=pl.Float64).alias("elevation"),
         pl.lit(None, dtype=pl.Datetime(time_zone="UTC")).alias("start_date"),
         pl.lit(None, dtype=pl.Datetime(time_zone="UTC")).alias("end_date"),
     )
@@ -144,7 +144,7 @@ def _read_meta_df(dataset: DatasetModel, file: File) -> pl.LazyFrame:
             new_columns=list(SOIL_COLUMN_NAMES_MAPPING.values()),
             schema={
                 "station_id": pl.Int64,
-                "height": pl.Float64,
+                "elevation": pl.Float64,
                 "latitude": pl.Float64,
                 "longitude": pl.Float64,
                 "name": pl.String,
@@ -173,7 +173,7 @@ def _read_meta_df(dataset: DatasetModel, file: File) -> pl.LazyFrame:
                 "station_id": pl.Int64,
                 "start_date": str,
                 "end_date": str,
-                "height": pl.Float64,
+                "elevation": pl.Float64,
                 "latitude": pl.Float64,
                 "longitude": pl.Float64,
                 "name": str,

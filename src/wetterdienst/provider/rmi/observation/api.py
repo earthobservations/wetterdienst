@@ -251,7 +251,7 @@ class RmiObservationRequest(TimeseriesRequest):
             pl.col("properties").struct.field("name").alias("name"),
             pl.col("geometry").struct.field("coordinates").list.get(1).alias("latitude"),
             pl.col("geometry").struct.field("coordinates").list.get(0).alias("longitude"),
-            pl.col("properties").struct.field("altitude").alias("height"),
+            pl.col("properties").struct.field("altitude").alias("elevation"),
             _parse_utc_z(pl.col("properties").struct.field("date_begin")).alias("start_date"),
             # a null date_end marks a still-active station
             _parse_utc_z(pl.col("properties").struct.field("date_end")).alias("end_date"),

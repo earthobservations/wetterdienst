@@ -565,7 +565,7 @@ def test_radar_request_site_historic_pe_bufr_dataframe() -> None:
         "date",
         "latitude",
         "longitude",
-        "height",
+        "elevation",
         "projection_type",
         "picture_type",
         "value",

@@ -356,7 +356,7 @@ class EAHydrologyRequest(TimeseriesRequest):
             pl.col("end_date").str.to_datetime(format="%Y-%m-%d"),
             "latitude",
             "longitude",
-            pl.lit(None, pl.Float64).alias("height"),
+            pl.lit(None, pl.Float64).alias("elevation"),
             "name",
             pl.lit(None, pl.String).alias("state"),
         )

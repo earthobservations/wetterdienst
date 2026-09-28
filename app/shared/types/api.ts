@@ -86,8 +86,8 @@ export interface Station {
   state: string
   latitude: number
   longitude: number
-  /** Null where the provider reports no height for the station, which for several is every one. */
-  height: number | null
+  /** Null where the provider reports no elevation for the station, which for several is every one. */
+  elevation: number | null
   start_date?: string
   end_date?: string
 }

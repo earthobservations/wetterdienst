@@ -138,7 +138,7 @@ def read_radar_bufr(data: BytesIO, parameter: DwdRadarParameter) -> pl.DataFrame
         pl.lit(date).alias("date"),
         pl.lit(float(row["#1#latitude"])).alias("latitude"),
         pl.lit(float(row["#1#longitude"])).alias("longitude"),
-        pl.lit(float(row["#1#heightOfStation"])).alias("height"),
+        pl.lit(float(row["#1#heightOfStation"])).alias("elevation"),
         pl.lit(int(row["#1#projectionType"])).alias("projection_type"),
         pl.lit(int(row["#1#pictureType"])).alias("picture_type"),
         pl.col("value").fill_nan(None),

@@ -38,7 +38,7 @@ DROPPABLE_PARAMETERS = {
 COLUMNS_MAPPING = {
     "stations_id": "station_id",
     "mess_datum": "date",
-    "stationshoehe": "height",
+    "stationshoehe": "elevation",
     "geobreite": "latitude",
     "geogr.breite": "latitude",
     "geolaenge": "longitude",

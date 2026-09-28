@@ -446,7 +446,7 @@ class HubeauRequest(TimeseriesRequest):
                 "libelle_station": "name",
                 "longitude_station": "longitude",
                 "latitude_station": "latitude",
-                "altitude_ref_alti_station": "height",
+                "altitude_ref_alti_station": "elevation",
                 "libelle_departement": "state",
                 "date_ouverture_station": "start_date",
                 "date_fermeture_station": "end_date",

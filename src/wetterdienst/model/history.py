@@ -81,7 +81,7 @@ class _DeviceHistory(BaseModel):
     station_name: str | None = None
     longitude: float | None = None
     latitude: float | None = None
-    station_height: float | None = None
+    station_elevation: float | None = None
     device_height: float | None = None
     start_date: dt.datetime
     end_date: dt.datetime
@@ -92,7 +92,7 @@ class _GeographyHistory(BaseModel):
     """Model for geography history."""
 
     station_id: str
-    station_height: float | None = None
+    station_elevation: float | None = None
     latitude: float | None = None
     longitude: float | None = None
     start_date: dt.datetime

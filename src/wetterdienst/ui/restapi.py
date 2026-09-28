@@ -17,7 +17,7 @@ from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
-    NoStationsWithHeightError,
+    NoStationsWithElevationError,
     StartDateEndDateError,
 )
 
@@ -662,7 +662,7 @@ def _geo_values(
     """
     try:
         return get(api=api, request=request, settings=settings)
-    except NoStationsWithHeightError as e:
+    except NoStationsWithElevationError as e:
         # the message is the whole of it: which parameters lost their stations, and that asking
         # without an elevation gets them back
         log.info(f"Failed to {what}: {e}")

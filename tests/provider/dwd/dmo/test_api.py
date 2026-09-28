@@ -76,7 +76,7 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
         "longitude": 179.33,
         # Y0353 MONT BLANC, and Y0342 "ÄGYPT. WÜSTE" whose leading Ä sorts past Z -- both stations
         # the shared catalogue omits, described from the run instead (GH-1966)
-        "height": 4806.0,
+        "elevation": 4806.0,
         "name": "ÄGYPT. WÜSTE",
         "state": None,
     }
@@ -89,7 +89,7 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
         "end_date": None,
         "latitude": -78.45,
         "longitude": -176.17,
-        "height": -350.0,
+        "elevation": -350.0,
         "name": "16N55W",
         "state": None,
     }
@@ -212,7 +212,7 @@ def _stub_dmo_values(
                 "end_date": None,
                 "latitude": 52.5,
                 "longitude": 13.4,
-                "height": 40.0,
+                "elevation": 40.0,
                 "name": "Berlin",
                 "state": None,
             },
@@ -225,7 +225,7 @@ def _stub_dmo_values(
             "end_date": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
-            "height": pl.Float64,
+            "elevation": pl.Float64,
             "name": pl.String,
             "state": pl.String,
         },
@@ -739,7 +739,7 @@ def test_dmo_the_catalogue_upstream_needs_no_hardcoded_positions(default_setting
     # the value DWD's own KMZ placemarks carry for this station, which the patch missed by 11 km
     london = df.filter(station_id="03779")
     assert london.get_column("longitude").item() == pytest.approx(-0.1, abs=5e-3)
-    assert london.get_column("height").item() == pytest.approx(43, abs=1)
+    assert london.get_column("elevation").item() == pytest.approx(43, abs=1)
 
 
 def test_dmo_a_listing_that_names_no_station_is_not_believed(
@@ -864,7 +864,7 @@ def test_dmo_a_station_the_catalogue_omits_is_described_from_the_run(monkeypatch
     added = df.filter(station_id="Y0330").row(0, named=True)
     assert added["name"] == "KEHYTSCHIWKA"
     assert (added["latitude"], added["longitude"]) == pytest.approx((49.28, 35.75))
-    assert added["height"] == pytest.approx(152.0)
+    assert added["elevation"] == pytest.approx(152.0)
     # the run carries no ICAO id, which is why this fills the catalogue rather than replacing it
     assert added["icao_id"] is None
 

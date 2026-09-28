@@ -12,7 +12,7 @@ for daily). FMI caps a single sub-daily request at 168 hours (7 days), so longer
 ranges are transparently fetched in consecutive windows and stitched back together.
 
 Station metadata comes from the `fmi::ef::stations` catalogue. It does not expose station
-elevation, so `height` is always null. A station's `end_date` is null while it is still
+elevation, so `elevation` is always null. A station's `end_date` is null while it is still
 active.
 
 Not every station measures every parameter — a station/parameter combination that FMI

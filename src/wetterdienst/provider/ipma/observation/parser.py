@@ -46,7 +46,7 @@ def parse_ipma_stations(content: bytes) -> pl.DataFrame:
     ``FeatureCollection`` wrapper (``{"type": "FeatureCollection", "features": [...]}``) is accepted
     too. Each feature carries ``properties.idEstacao`` (the numeric station id) and
     ``properties.localEstacao`` (the name), plus a ``Point`` geometry as ``[longitude, latitude]``.
-    The catalogue exposes no elevation, so ``height`` is left for the framework to null-fill.
+    The catalogue exposes no elevation, so ``elevation`` is left for the framework to null-fill.
     """
     data = json.loads(content)
     features = data.get("features") if isinstance(data, dict) else data

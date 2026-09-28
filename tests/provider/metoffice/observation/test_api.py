@@ -42,7 +42,7 @@ def test_parse_station_metadata() -> None:
             "station_file_name": "foula",
             "latitude": 60.154,
             "longitude": -2.074,
-            "height": 22.0,
+            "elevation": 22.0,
             "start_date": dt.datetime(1989, 1, 1, tzinfo=UTC),
             "end_date": dt.datetime(2003, 12, 31, tzinfo=UTC),
         },

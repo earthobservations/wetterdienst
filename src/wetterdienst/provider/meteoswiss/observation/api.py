@@ -369,7 +369,7 @@ class MeteoswissObservationRequest(TimeseriesRequest):
             pl.col("station_canton").alias("state"),
             pl.col("station_coordinates_wgs84_lat").alias("latitude"),
             pl.col("station_coordinates_wgs84_lon").alias("longitude"),
-            pl.col("station_height_masl").alias("height"),
+            pl.col("station_height_masl").alias("elevation"),
             pl.col("station_data_since")
             .str.to_datetime("%d.%m.%Y", strict=False)
             .dt.replace_time_zone("UTC")

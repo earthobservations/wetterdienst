@@ -69,7 +69,7 @@ _PeriodsField = Annotated[
         "omitted, else every period those datasets publish.",
     ),
 ]
-# `height` is taken in these models by the image option, so the elevation is named for what it is
+# named like the station column the default is read from; `height` in these models is the image option
 _ElevationField = Annotated[
     float | None,
     Field(

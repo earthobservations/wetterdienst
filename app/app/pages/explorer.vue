@@ -116,9 +116,9 @@ function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelection
     else if (stationSel.interpolation.station) {
       q.interpolationStation = stationSel.interpolation.station.station_id
     }
-    // outside the branch: the box is shown for either source and sent for either, and a height
+    // outside the branch: the box is shown for either source and sent for either, and an elevation
     // the user typed over a station's is theirs rather than the station's. It survives the round
-    // trip only for a point given by coordinates: picking the station again names its own height,
+    // trip only for a point given by coordinates: picking the station again names its own elevation,
     // which is what choosing a station means
     if (stationSel.interpolation.elevation !== undefined)
       q.elevation = stationSel.interpolation.elevation.toString()

@@ -191,7 +191,7 @@ class SmhiObservationRequest(TimeseriesRequest):
                 pl.from_epoch("to", time_unit="ms").dt.replace_time_zone("UTC").alias("end_date"),
                 pl.col("latitude").cast(pl.Float64),
                 pl.col("longitude").cast(pl.Float64),
-                pl.col("height").cast(pl.Float64),
+                pl.col("height").cast(pl.Float64).alias("elevation"),
                 pl.col("name").cast(pl.String),
             )
             frames_by_group[(parameter.dataset.resolution.name, parameter.dataset.name)].append(df)
@@ -208,7 +208,7 @@ class SmhiObservationRequest(TimeseriesRequest):
                 pl.col("end_date").max(),
                 pl.col("latitude").first(),
                 pl.col("longitude").first(),
-                pl.col("height").first(),
+                pl.col("elevation").first(),
                 pl.col("name").first(),
             )
             for frames in frames_by_group.values()

@@ -149,7 +149,7 @@ _STATION_DISTANCE_HETEROGENEOUS = 20.0
 #:
 #: The table stops widening at 2.0 rather than following the correlation length up. Past a day,
 #: what binds is terrain and not correlation: the interpolation reads UTM x/y and never station
-#: height, so 40 km is as far as it may reach in complex ground -- the same bound the homogeneous
+#: elevation, so 40 km is as far as it may reach in complex ground -- the same bound the homogeneous
 #: radius is held to, which is why the two meet at `daily` with the defaults. Precipitation is more
 #: orographically driven than temperature, not less, so it does not get to reach farther.
 #:

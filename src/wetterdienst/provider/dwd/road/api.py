@@ -1158,7 +1158,7 @@ class DwdRoadRequest(TimeseriesRequest):
         "end_date",
         "latitude",
         "longitude",
-        "height",
+        "elevation",
         "name",
         "state",
         "station_group",
@@ -1182,7 +1182,7 @@ class DwdRoadRequest(TimeseriesRequest):
         """Streckenbelag (Register "Typen")""": "road_surface_type",
         "Breite (Dezimalangabe)": "latitude",
         "Länge (Dezimalangabe)": "longitude",
-        "Höhe in m über NN": "height",
+        "Höhe in m über NN": "elevation",
         "GDS-Verzeichnis": "station_group",
         "außer Betrieb (gemeldet)": "has_file",
     }
@@ -1197,7 +1197,7 @@ class DwdRoadRequest(TimeseriesRequest):
         "road_surface_type": pl.Int64,
         "latitude": pl.Float64,
         "longitude": pl.Float64,
-        "height": pl.Float64,
+        "elevation": pl.Float64,
         "station_group": pl.Utf8,
         "has_file": pl.Utf8,
     }

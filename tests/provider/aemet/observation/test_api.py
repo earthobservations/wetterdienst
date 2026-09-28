@@ -56,7 +56,7 @@ def test_aemet_observation_stations() -> None:
                 "end_date": None,
                 "latitude": 40.411389,
                 "longitude": -3.677778,
-                "height": 667.0,
+                "elevation": 667.0,
                 "name": "MADRID, RETIRO",
                 "state": "MADRID",
             }
@@ -69,7 +69,7 @@ def test_aemet_observation_stations() -> None:
             "end_date": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
-            "height": pl.Float64,
+            "elevation": pl.Float64,
             "name": pl.String,
             "state": pl.String,
         },

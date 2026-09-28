@@ -32,12 +32,12 @@ def plot_german_weather_stations() -> None:
     stations_df = stations.all().df
     fig, ax = plt.subplots()
     quantiles = [0.0, 0.16666667, 0.33333333, 0.5, 0.66666667, 0.83333333, 1.0]
-    bounds = [stations_df["height"].quantile(q) for q in quantiles]
+    bounds = [stations_df["elevation"].quantile(q) for q in quantiles]
     inferno = plt.get_cmap("inferno")
     cmap = ListedColormap([inferno(q) for q in quantiles])
     norm = colors.BoundaryNorm(bounds, cmap.N)
-    plot = ax.scatter(data=stations_df, x="longitude", y="latitude", c="height", s=10, cmap=cmap, norm=norm)
-    fig.colorbar(plot, ax=ax, label="Height / m")
+    plot = ax.scatter(data=stations_df, x="longitude", y="latitude", c="elevation", s=10, cmap=cmap, norm=norm)
+    fig.colorbar(plot, ax=ax, label="Elevation / m")
     ax.set_xlabel("Longitude / deg")
     ax.set_ylabel("Latitude / deg")
     ax.set_title("German weather stations")

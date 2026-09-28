@@ -345,7 +345,7 @@ function clear() {
                       {{ t('history.colLongitude') }}
                     </th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      {{ t('history.colHeightM') }}
+                      {{ t('history.colElevationM') }}
                     </th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       {{ t('history.colState') }}
@@ -367,7 +367,7 @@ function clear() {
                       {{ station.longitude != null ? station.longitude.toFixed(4) : '-' }}
                     </td>
                     <td class="px-4 py-2 text-sm">
-                      {{ station.height != null ? station.height.toFixed(1) : '-' }}
+                      {{ station.elevation != null ? station.elevation.toFixed(1) : '-' }}
                     </td>
                     <td class="px-4 py-2 text-sm">
                       {{ station.state || '-' }}
@@ -430,12 +430,12 @@ function clear() {
                             {{ history.longitude }}
                           </td>
                         </tr>
-                        <tr v-if="history.station_height != null">
+                        <tr v-if="history.station_elevation != null">
                           <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                            {{ t('history.rowStationHeight') }}
+                            {{ t('history.rowStationElevation') }}
                           </td>
                           <td class="px-4 py-2 text-sm">
-                            {{ history.station_height }} m
+                            {{ history.station_elevation }} m
                           </td>
                         </tr>
                       </table>
@@ -675,7 +675,7 @@ function clear() {
                                   {{ t('history.colLongitude') }}
                                 </th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  {{ t('history.rowStationHeight') }}
+                                  {{ t('history.rowStationElevation') }}
                                 </th>
                               </tr>
                             </thead>
@@ -694,7 +694,7 @@ function clear() {
                                   {{ entry.longitude || '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.station_height || '-' }}
+                                  {{ entry.station_elevation || '-' }}
                                 </td>
                               </tr>
                             </tbody>

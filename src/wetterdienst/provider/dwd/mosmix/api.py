@@ -329,7 +329,7 @@ class DwdMosmixRequest(TimeseriesRequest):
         "end_date",
         "latitude",
         "longitude",
-        "height",
+        "elevation",
         "name",
         "state",
     ]

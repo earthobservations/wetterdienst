@@ -371,6 +371,6 @@ class KnmiObservationRequest(TimeseriesRequest):
                     "name": [decode_str(name) for name in variables["stationname"][:]],
                     "latitude": variables["lat"][:].tolist(),
                     "longitude": variables["lon"][:].tolist(),
-                    "height": variables["height"][:].tolist(),
+                    "elevation": variables["height"][:].tolist(),
                 },
             )

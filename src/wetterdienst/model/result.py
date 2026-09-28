@@ -84,7 +84,7 @@ class _Station(TypedDict):
     end_date: str | None
     latitude: float
     longitude: float
-    height: float
+    elevation: float
     name: str
     state: str | None
 
@@ -298,7 +298,7 @@ class StationsResult(ExportMixin):
                         "coordinates": [
                             station["longitude"],
                             station["latitude"],
-                            station["height"],
+                            station["elevation"],
                         ],
                     },
                 },
@@ -608,7 +608,7 @@ class ValuesResult(_ValuesResult):
                         "coordinates": [
                             station["longitude"],
                             station["latitude"],
-                            station["height"],
+                            station["elevation"],
                         ],
                     },
                     "values": self._to_dict(df_values),

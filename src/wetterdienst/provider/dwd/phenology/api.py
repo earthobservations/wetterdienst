@@ -352,7 +352,7 @@ class DwdPhenologyRequest(TimeseriesRequest):
             pl.nth(1).str.strip_chars().alias("name"),
             pl.nth(2).str.strip_chars().cast(pl.Float64, strict=False).alias("latitude"),
             pl.nth(3).str.strip_chars().cast(pl.Float64, strict=False).alias("longitude"),
-            pl.nth(4).str.strip_chars().cast(pl.Float64, strict=False).alias("height"),
+            pl.nth(4).str.strip_chars().cast(pl.Float64, strict=False).alias("elevation"),
             # "Datum Stationsaufloesung", the day the station was dissolved; empty while it runs
             pl.nth(9).str.strip_chars().str.to_datetime("%d.%m.%Y", time_zone="UTC", strict=False).alias("end_date"),
             pl.nth(10).str.strip_chars().alias("state"),

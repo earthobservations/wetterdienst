@@ -19,7 +19,7 @@ _EMPTY_STATIONS_SCHEMA = {
     "station_file_name": pl.String,
     "latitude": pl.Float64,
     "longitude": pl.Float64,
-    "height": pl.Float64,
+    "elevation": pl.Float64,
     "start_date": pl.Datetime(time_unit="us", time_zone="UTC"),
     "end_date": pl.Datetime(time_unit="us", time_zone="UTC"),
 }
@@ -63,7 +63,7 @@ def parse_station_metadata(content: bytes) -> pl.DataFrame:
         pl.col("station_file_name").cast(pl.String),
         pl.col("station_latitude").cast(pl.Float64, strict=False).alias("latitude"),
         pl.col("station_longitude").cast(pl.Float64, strict=False).alias("longitude"),
-        pl.col("station_elevation").cast(pl.Float64, strict=False).alias("height"),
+        pl.col("station_elevation").cast(pl.Float64, strict=False).alias("elevation"),
         pl.date(pl.col("first_year").cast(pl.Int32, strict=False), 1, 1)
         .cast(pl.Datetime(time_unit="us"))
         .dt.replace_time_zone("UTC")

@@ -165,7 +165,7 @@ class GeosphereObservationRequest(TimeseriesRequest):
                     "Stationsname": "name",
                     "Länge [°E]": "longitude",
                     "Breite [°N]": "latitude",
-                    "Höhe [m]": "height",
+                    "Höhe [m]": "elevation",
                     "Startdatum": "start_date",
                     "Enddatum": "end_date",
                     "Bundesland": "state",

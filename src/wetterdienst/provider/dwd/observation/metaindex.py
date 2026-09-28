@@ -33,7 +33,7 @@ DWD_COLUMN_NAMES_MAPPING = {
     "column_1": "station_id",
     "column_2": "start_date",
     "column_3": "end_date",
-    "column_4": "height",
+    "column_4": "elevation",
     "column_5": "latitude",
     "column_6": "longitude",
     "column_7": "name",
@@ -87,7 +87,7 @@ def create_meta_index_for_climate_observations(
         "station_id",
         pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=strict_dates),
         pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=strict_dates),
-        pl.col("height").cast(pl.Float64),
+        pl.col("elevation").cast(pl.Float64),
         pl.col("latitude").cast(pl.Float64),
         pl.col("longitude").cast(pl.Float64),
         "name",
@@ -179,14 +179,14 @@ def _read_meta_df_urban(raw_lines: list[bytes]) -> pl.LazyFrame:
     geoBreite, geoLaenge, Stationsname, Bundesland[, Abgabe]) but frequently leave the optional
     von_datum/bis_datum (and, for the 10-minute lists, the trailing Bundesland/Abgabe) fields
     blank. Whitespace-splitting then yields a varying number of tokens, so the fields are located
-    by their content instead: latitude and longitude are the first two decimal tokens, the height
-    is the token before them, and any 8-digit tokens ahead of the height are the dates. Station and
+    by their content instead: latitude and longitude are the first two decimal tokens, the elevation
+    is the token before them, and any 8-digit tokens ahead of the elevation are the dates. Station and
     Bundesland names in these lists are single hyphenated tokens (e.g. "Freiburg-Mitte",
     "Baden-Wuerttemberg"), so the token right after longitude is the name and the remainder (if
     present, and after dropping a trailing "Frei" Abgabe marker) is the state.
 
     Raises MetaFileFormatError if a row does not match these content assumptions (fewer than two
-    decimal tokens, or a decimal-valued height) so a changed DWD layout fails loudly instead of
+    decimal tokens, or a decimal-valued elevation) so a changed DWD layout fails loudly instead of
     silently shifting every field.
     """
     records = []
@@ -200,11 +200,11 @@ def _read_meta_df_urban(raw_lines: list[bytes]) -> pl.LazyFrame:
             msg = f"Expected latitude and longitude as decimal tokens in climate_urban station row: {line!r}"
             raise MetaFileFormatError(msg)
         lat_idx, lon_idx = decimals[0], decimals[1]
-        height_idx = lat_idx - 1
-        if height_idx < 1 or "." in tokens[height_idx]:
-            msg = f"Expected an integer height before the coordinates in climate_urban station row: {line!r}"
+        elevation_idx = lat_idx - 1
+        if elevation_idx < 1 or "." in tokens[elevation_idx]:
+            msg = f"Expected an integer elevation before the coordinates in climate_urban station row: {line!r}"
             raise MetaFileFormatError(msg)
-        dates = [token for token in tokens[1:height_idx] if len(token) == 8 and token.isdigit()]
+        dates = [token for token in tokens[1:elevation_idx] if len(token) == 8 and token.isdigit()]
         trailing = tokens[lon_idx + 1 :]
         if trailing and trailing[-1] == "Frei":
             trailing = trailing[:-1]
@@ -213,14 +213,14 @@ def _read_meta_df_urban(raw_lines: list[bytes]) -> pl.LazyFrame:
                 "station_id": tokens[0],
                 "start_date": dates[0] if dates else "",
                 "end_date": dates[1] if len(dates) > 1 else "",
-                "height": tokens[height_idx],
+                "elevation": tokens[elevation_idx],
                 "latitude": tokens[lat_idx],
                 "longitude": tokens[lon_idx],
                 "name": trailing[0] if trailing else "",
                 "state": " ".join(trailing[1:]),
             }
         )
-    columns = ("station_id", "start_date", "end_date", "height", "latitude", "longitude", "name", "state")
+    columns = ("station_id", "start_date", "end_date", "elevation", "latitude", "longitude", "name", "state")
     return pl.DataFrame(records, schema=dict.fromkeys(columns, pl.String)).lazy()
 
 
@@ -314,7 +314,7 @@ def _parse_geo_metadata(file: File, station_id: str) -> pl.LazyFrame:
     df = df.rename(
         mapping={
             "Stations_id": "station_id",
-            "Stationshoehe": "height",
+            "Stationshoehe": "elevation",
             "Geogr.Breite": "latitude",
             "Geogr.Laenge": "longitude",
             "von_datum": "start_date",
@@ -328,7 +328,7 @@ def _parse_geo_metadata(file: File, station_id: str) -> pl.LazyFrame:
         pl.col("station_id"),
         pl.col("start_date"),
         pl.col("end_date"),
-        pl.col("height"),
+        pl.col("elevation"),
         pl.col("latitude"),
         pl.col("longitude"),
         pl.col("name"),

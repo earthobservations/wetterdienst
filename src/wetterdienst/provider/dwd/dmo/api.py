@@ -168,7 +168,7 @@ _PLACEMARK_COLUMNS = {
     "name": pl.String,
     "latitude": pl.Float64,
     "longitude": pl.Float64,
-    "height": pl.String,
+    "elevation": pl.String,
 }
 
 
@@ -224,7 +224,7 @@ def _placemark_row(station_id: str | None, name: str | None, coordinates: str | 
     """Turn one placemark's parts into a catalogue row, or None where they do not describe a station."""
     if not station_id or not coordinates:
         return None
-    longitude, latitude, height = ([*coordinates.strip().split(","), "", ""])[:3]
+    longitude, latitude, elevation = ([*coordinates.strip().split(","), "", ""])[:3]
     try:
         position = {"latitude": float(latitude), "longitude": float(longitude)}
     except ValueError:
@@ -235,7 +235,7 @@ def _placemark_row(station_id: str | None, name: str | None, coordinates: str | 
         "name": (name or "").strip() or None,
         **position,
         # left a string, as the catalogue's is: the base request casts it
-        "height": height or None,
+        "elevation": elevation or None,
     }
 
 
@@ -509,7 +509,7 @@ class DwdDmoRequest(TimeseriesRequest):
         "end_date",
         "latitude",
         "longitude",
-        "height",
+        "elevation",
         "name",
         "state",
     ]
@@ -825,7 +825,7 @@ class DwdDmoRequest(TimeseriesRequest):
             "name",
             "latitude",
             "longitude",
-            "height",
+            "elevation",
         ]
         df_raw = df_raw.with_columns(
             pl.col("icao_id").replace("----", None),

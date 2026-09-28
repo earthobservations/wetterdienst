@@ -18,7 +18,7 @@ const feldberg = {
   state: 'Baden-Württemberg',
   latitude: 47.9,
   longitude: 8.0,
-  height: 1000,
+  elevation: 1000,
 }
 
 registerEndpoint('/api/stations', () => ({ stations: [feldberg] }))
@@ -51,9 +51,9 @@ async function settle() {
 }
 
 describe('choosing the point an interpolation answers for', () => {
-  it('keeps the station\'s height when its own source button is clicked again', async () => {
+  it('keeps the station\'s elevation when its own source button is clicked again', async () => {
     // the button was treated as a change whichever source it named, so clicking the active one
-    // dropped the height of a station that stayed selected: nothing moved on screen and the next
+    // dropped the elevation of a station that stayed selected: nothing moved on screen and the next
     // answer came back uncorrected, which at 1000 m is six degrees of air temperature
     const { model, vm } = await selection('station')
     vm.selectedStation = feldberg
@@ -97,7 +97,7 @@ describe('choosing the point an interpolation answers for', () => {
     expect(model.value.station).toBeUndefined()
   })
 
-  it('names the station\'s height again on returning to it', async () => {
+  it('names the station\'s elevation again on returning to it', async () => {
     // the station never leaves the select, so its own watcher stays silent -- and the elevation
     // would otherwise stay empty against a form showing the station and its coordinates
     const { model, vm } = await selection('station')

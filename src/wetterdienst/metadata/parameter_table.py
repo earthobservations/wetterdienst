@@ -88,7 +88,7 @@ class CanonicalParameter:
     # how fast the quantity falls with height, in its own unit per metre, where that is a property
     # of the free atmosphere rather than of the place: air temperature drops about 0.65 K per 100 m
     # and a dew point about 0.2 K. Interpolation and summary use it to bring a station's reading to
-    # the height asked for, which is the difference between reading a valley station and a summit
+    # the elevation asked for, which is the difference between reading a valley station and a summit
     # one as if they stood at the same altitude. Left unset for everything measured in or on the
     # ground -- soil, concrete, the surface -- which follows the ground rather than the air, for the
     # comfort indices derived from several quantities at once, and for pressure, which falls

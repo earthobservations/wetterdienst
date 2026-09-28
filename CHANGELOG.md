@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the station column `height` is now `elevation`, in every stations frame and its
+  JSON, CSV and `with_stations` output. History's `station_height` is `station_elevation`, the DWD
+  radar BUFR frame's `height` is `elevation`, and `NoStationsWithHeightError` is
+  `NoStationsWithElevationError`. Read `elevation` instead; a SQL filter still naming `height` fails
+  with an error naming `elevation`. A DuckDB, SQLite or PostgreSQL table `to_target` wrote before
+  takes no append of `elevation`: write it anew (GH-2024)
+
 ## [0.138.0] - 2026-09-28
 
 ### Added

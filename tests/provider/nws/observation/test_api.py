@@ -131,16 +131,16 @@ def test_nws_stations_holds_the_stations_filed_under_a_state_code() -> None:
 
 
 @pytest.mark.remote
-def test_nws_stations_report_no_height_where_the_source_reports_none() -> None:
+def test_nws_stations_report_no_elevation_where_the_source_reports_none() -> None:
     """Test that a missing elevation reads as null rather than as 9999 m.
 
     MADIS writes a missing elevation as 9999, which was cast to a float and passed on unread --
-    and height is what interpolation weighs a neighbouring station by.
+    and interpolation brings a neighbouring station's readings from its elevation to the point's.
     """
-    heights = _request().all().df.get_column("height")
+    elevations = _request().all().df.get_column("elevation")
 
-    assert heights.is_null().sum() > 0
-    assert heights.drop_nulls().max() < 9999
+    assert elevations.is_null().sum() > 0
+    assert elevations.drop_nulls().max() < 9999
 
 
 @pytest.mark.remote
