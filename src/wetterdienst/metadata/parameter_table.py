@@ -2740,18 +2740,18 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter("turbidity", "turbidity", "Cloudiness of the water caused by suspended particles."),
     CanonicalParameter(
-        "visibility_range",
+        "visibility",
         "length_medium",
         "Horizontal distance at which an object can still be made out.",
         interpolation="heterogeneous",
     ),
     CanonicalParameter(
-        "visibility_range_index",
+        "visibility_index",
         "dimensionless",
         "Coded class the visibility range falls into, rather than a measured distance.",
     ),
     CanonicalParameter(
-        "visibility_range_measurement_method",
+        "visibility_measurement_method",
         "dimensionless",
         "Coded indicator of how the visibility range was determined, such as by a person or an instrument.",
     ),

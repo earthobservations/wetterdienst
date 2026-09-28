@@ -24,4 +24,4 @@
 | {term}`humidity_relative`                      | 6             | Relative humidity. Instantaneous value, once per hour.                               | %    |
 | {term}`pressure_air_sea_level`        | 9             | Air pressure reduced to sea level. At sea level, instantaneous value, once per hour. | hPa  |
 | {term}`cloud_cover_total`             | 16            | Total cloud amount. Instantaneous value, once per hour.                              | %    |
-| {term}`visibility_range`              | 12            | Visibility. Instantaneous value, once per hour.                                      | m    |
+| {term}`visibility`              | 12            | Visibility. Instantaneous value, once per hour.                                      | m    |

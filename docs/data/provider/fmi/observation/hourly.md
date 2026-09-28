@@ -24,4 +24,4 @@
 | {term}`precipitation_amount`          | r_1h          | Precipitation amount. Accumulated over 1 hour. | mm   |
 | {term}`snow_depth`                    | snow_aws      | Snow depth. Instantaneous value over 1 minute. | cm   |
 | {term}`pressure_air_sea_level`        | p_sea         | Pressure (msl). Mean over 1 minute.            | hPa  |
-| {term}`visibility_range`              | vis           | Horizontal visibility. Mean over 1 minute.     | m    |
+| {term}`visibility`              | vis           | Horizontal visibility. Mean over 1 minute.     | m    |

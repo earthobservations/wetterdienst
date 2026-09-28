@@ -115,7 +115,7 @@ DwdRoadMetadata = {
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "horizontalVisibility",
                             # BUFR 0 20 001 horizontalVisibility is metres, and nothing in this
                             # parser converts; the docs page already said m

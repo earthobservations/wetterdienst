@@ -73,7 +73,7 @@ _HOURLY_WEATHER_PARAMETERS = [
     {"name": "wind_speed", "name_original": "wind_speed", **_WIND_SPEED},
     {"name": "wind_gust_max", "name_original": "q10mnt_mxgst_spd", **_WIND_SPEED},
     # native decametres; scaled to metres in api.py (_SCALE)
-    {"name": "visibility_range", "name_original": "visibility", "unit": "meter"},
+    {"name": "visibility", "name_original": "visibility", "unit": "meter"},
     {"name": "pressure_air_sea_level", "name_original": "msl_pressure", **_PRESSURE},
     {"name": "pressure_air_site", "name_original": "stn_pres", **_PRESSURE},
     {"name": "temperature_air_mean_2m", "name_original": "air_temperature", **_TEMPERATURE},

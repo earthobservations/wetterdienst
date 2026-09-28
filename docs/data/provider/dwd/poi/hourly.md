@@ -53,7 +53,7 @@
 | {term}`temperature_air_min_0_05m_yesterday`        | minimum_of_temperature_at_5_cm_above_ground_for_previous_day     | Minimum air temperature at 5 cm above ground on the previous day.       | °C   |
 | {term}`temperature_dew_point_mean_2m`              | dew_point_temperature_at_2_meter_above_ground                    | Dew point temperature at 2 m above ground.                              | °C   |
 | {term}`temperature_water`                          | sea/water_temperature                                            | Temperature of the sea or lake water at the station.                    | °C   |
-| {term}`visibility_range`                           | horizontal_visibility                                            | Horizontal distance at which an object can still be made out.           | km   |
+| {term}`visibility`                           | horizontal_visibility                                            | Horizontal distance at which an object can still be made out.           | km   |
 | {term}`weather`                                    | present_weather                                                  | Coded present weather at the time of observation, on DWD's 1..31 scale. | -    |
 | {term}`weather_last_3h`                            | past_weather_1                                                   | Coded weather observed over the preceding 3 hours.                      | -    |
 | {term}`weather_secondary_last_3h`                  | past_weather_2                                                   | Second coded weather observed over the preceding 3 hours.               | -    |

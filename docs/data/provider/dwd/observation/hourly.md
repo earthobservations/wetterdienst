@@ -386,10 +386,10 @@ Code (precipitation_form):
 
 | name                           | original name | description                    | unit | constraints |
 |--------------------------------|---------------|--------------------------------|------|-------------|
-| {term}`visibility_range_measurement_method` | v_vv_i | Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
-| {term}`visibility_range` | v_vv | Visibility range. | m | >=0 |
+| {term}`visibility_measurement_method` | v_vv_i | Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
+| {term}`visibility` | v_vv | Visibility range. | m | >=0 |
 
-Code (visibility_range_measurement_method):
+Code (visibility_measurement_method):
 
 | value | source letter | meaning         |
 |-------|---------------|-----------------|

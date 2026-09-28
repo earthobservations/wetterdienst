@@ -56,7 +56,7 @@
 | {term}`temperature_air_mean_2m`                            | ttt           | Temperature 2m above surface                                                    | K     | -           |
 | {term}`temperature_air_min_2m`                             | tn            | Minimum temperature - within the last 12 hours                                  | K     | -           |
 | {term}`temperature_dew_point_mean_2m`                      | td            | Dewpoint 2m above surface                                                       | K     | -           |
-| {term}`visibility_range`                                   | vv            | Visibility                                                                      | m     | >=0         |
+| {term}`visibility`                                   | vv            | Visibility                                                                      | m     | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_1h`            | rrs1c         | Snow-Rain-Equivalent during the last hour                                       | kg/m² | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_3h`            | rrs3c         | Snow-Rain-Equivalent during the last 3 hours                                    | kg/m² | >=0         |
 | {term}`weather_last_6h`                                    | w1w2          | Past weather during the last 6 hours                                            | -     | -           |
@@ -189,7 +189,7 @@
 | {term}`temperature_air_min_0_05m_last_12h`                       | tg            | Minimum surface temperature at 5cm within the last 12 hours                         | K     | -           |
 | {term}`temperature_air_min_2m`                                   | tn            | Minimum temperature - within the last 12 hours                                      | K     | -           |
 | {term}`temperature_dew_point_mean_2m`                            | td            | Dewpoint 2m above surface                                                           | K     | -           |
-| {term}`visibility_range`                                         | vv            | Visibility                                                                          | m     | >=0         |
+| {term}`visibility`                                         | vv            | Visibility                                                                          | m     | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_1h`                  | rrs1c         | Snow-Rain-Equivalent during the last hour                                           | kg/m² | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_3h`                  | rrs3c         | Snow-Rain-Equivalent during the last 3 hours                                        | kg/m² | >=0         |
 | {term}`weather_last_6h`                                          | w1w2          | Past weather during the last 6 hours                                                | -     | -           |

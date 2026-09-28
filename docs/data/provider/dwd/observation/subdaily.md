@@ -120,7 +120,7 @@
 
 | name                     | original name | description      | unit | constraints |
 |--------------------------|---------------|------------------|------|-------------|
-| {term}`visibility_range_index` | vk_ter | Coded visibility class. | - | >=0 |
+| {term}`visibility_index` | vk_ter | Coded visibility class. | - | >=0 |
 
 ### wind
 

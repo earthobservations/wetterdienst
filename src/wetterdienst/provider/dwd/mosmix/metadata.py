@@ -174,7 +174,7 @@ DwdMosmixMetadata = {
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "vv",
                             "unit": "meter",
                         },
@@ -761,7 +761,7 @@ DwdMosmixMetadata = {
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "vv",
                             "unit": "meter",
                         },

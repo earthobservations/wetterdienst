@@ -30,7 +30,7 @@
 | {term}`humidity_relative`                      | relative_humidity | humidity                         | %    | >=0,<=100   |
 | {term}`precipitation_amount`          | precip_amount     | precipitation height             | mm   | >=0         |
 | {term}`pressure_air_site`             | station_pressure  | air pressure at site             | kPa  | >=0         |
-| {term}`visibility_range`              | visibility        | visibility range                 | km   | >=0         |
+| {term}`visibility`              | visibility        | visibility range                 | km   | >=0         |
 | {term}`wind_direction`                | wind_direction    | wind direction (source: 10s deg) | °    | >=0,<=360   |
 | {term}`wind_speed`                    | wind_speed        | wind speed                       | km/h | >=0         |
 | {term}`temperature_wind_chill`        | windchill         | wind chill temperature           | °C   | -           |

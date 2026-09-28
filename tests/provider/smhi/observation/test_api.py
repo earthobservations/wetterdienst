@@ -99,7 +99,7 @@ def test_smhi_observation_values_hourly() -> None:
     # humidity is reported by SMHI as percent, wetterdienst stores it as fraction
     assert value_at("humidity_relative", 0) == pytest.approx(0.86)
     assert value_at("pressure_air_sea_level", 0) == pytest.approx(997.1)
-    assert value_at("visibility_range", 0) == pytest.approx(13244.0)
+    assert value_at("visibility", 0) == pytest.approx(13244.0)
 
 
 @pytest.mark.remote

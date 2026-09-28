@@ -57,7 +57,7 @@ EcccObservationMetadata = {
                             "unit": "kilopascal",
                         },
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "visibility",
                             "unit": "kilometer",
                         },

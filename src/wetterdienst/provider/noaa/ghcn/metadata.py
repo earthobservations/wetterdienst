@@ -141,7 +141,7 @@ NoaaGhcnMetadata = {
                         },
                         # horizontal distance at which an object can be seen and identified (kilometers)
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "visibility",
                             "unit": "kilometer",
                         },

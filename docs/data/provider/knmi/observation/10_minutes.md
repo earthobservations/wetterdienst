@@ -32,6 +32,6 @@ values outside the requested `[start_date, end_date]` range are then trimmed as 
 | {term}`radiation_global_intensity`    | qg            | Global Solar Radiation Mean               | W/m² |
 | {term}`sunshine_duration`             | ss            | Sunshine Duration                         | min  |
 | {term}`cloud_cover_total`             | n             | Total Cloud Cover                         | 1/8  |
-| {term}`visibility_range`              | vv            | Horizontal Visibility Mean                | m    |
+| {term}`visibility`              | vv            | Horizontal Visibility Mean                | m    |
 | {term}`precipitation_intensity`       | rg            | Precipitation Intensity (Rain Gauge) Mean | mm/h |
 | {term}`precipitation_duration`        | dr            | Precipitation Duration (Rain Gauge)       | s    |

@@ -133,7 +133,7 @@ them as letters in files that are otherwise numeric: `P` for a human person, `I`
 
 - `cloud_cover_total_measurement_method` (`v_n_i`) in the **hourly cloud_type** and
   **hourly cloudiness** datasets
-- `visibility_range_measurement_method` (`v_vv_i`) in the **hourly visibility** dataset
+- `visibility_measurement_method` (`v_vv_i`) in the **hourly visibility** dataset
 
 Values in wetterdienst are numeric throughout, so a letter has nowhere to go. Both parameters are
 therefore decoded on the way in:

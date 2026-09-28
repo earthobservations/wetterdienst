@@ -68,9 +68,9 @@ export const parameters: Record<string, string> = {
   cloud_cover_total: 'Gesamtbedeckung',
   cloud_cover_total_measurement_method: 'Bedeckungsgrad, Messart',
   cloud_height_layer1: 'Wolkenuntergrenze (1. Schicht)',
-  visibility_range: 'Sichtweite',
-  visibility_range_index: 'Sichtweitenklasse',
-  visibility_range_measurement_method: 'Sichtweite, Messart',
+  visibility: 'Sichtweite',
+  visibility_index: 'Sichtweitenklasse',
+  visibility_measurement_method: 'Sichtweite, Messart',
 
   // Other
   soil_state_index: 'Erdbodenzustand',

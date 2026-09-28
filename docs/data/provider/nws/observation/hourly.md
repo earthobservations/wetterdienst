@@ -32,7 +32,7 @@
 | {term}`wind_gust_max`                   | windgust                  | maximum wind gust                                                                | km/h | >=0         |
 | {term}`pressure_air_site`               | barometricpressure        | air pressure at station height                                                   | Pa   | >=0         |
 | {term}`pressure_air_sea_level`          | sealevelpressure          | air pressure at sea level                                                        | Pa   | >=0         |
-| {term}`visibility_range`                | visibility                | visibility range                                                                 | m    | >=0         |
+| {term}`visibility`                | visibility                | visibility range                                                                 | m    | >=0         |
 | {term}`temperature_air_max_2m_last_24h` | maxtemperaturelast24hours | maximum air temperature in the last 24 hours                                     | °C   | -           |
 | {term}`temperature_air_min_2m_last_24h` | mintemperaturelast24hours | minimum air temperature in the last 24 hours                                     | °C   | -           |
 | {term}`precipitation_amount`            | precipitationlasthour     | precipitation height of last hour                                                | mm   | >=0         |

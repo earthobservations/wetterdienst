@@ -219,7 +219,7 @@ MeteoFranceObservationMetadata = {
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "VV",
                             "unit": "meter",
                         },
