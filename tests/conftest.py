@@ -306,10 +306,12 @@ def _block_network(request: pytest.FixtureRequest) -> Generator[None]:
     torn down first.
 
     Three things it does not cover, all of which would let a connection through rather than refuse
-    one wrongly. It is installed per test, so a connection opened at import time or by a
-    session-scoped fixture is made before it is in place. It patches `socket.connect`, which on
-    Windows is not the path asyncio's `ProactorEventLoop` takes -- that connects through
-    `_overlapped.ConnectEx`. And it only sees a connection being opened: fsspec keeps one
+    one wrongly. This is function-scoped and fixtures are set up widest first, so a connection made
+    at import time, or by any fixture scoped above `function` -- package, module and class as much
+    as session -- happens before it is in place, and is not recorded for the check below either. It
+    patches `socket.connect`, which on Windows is not the path asyncio's `ProactorEventLoop` takes
+    -- that connects through `_overlapped.ConnectEx`. And it only sees a connection being opened:
+    fsspec keeps one
     filesystem instance per key, and with it one aiohttp session and its keep-alive pool, for the
     life of the worker, so an unmarked test asking for a url a `remote` test has just fetched can
     be served over a connection that is already up. Name resolution goes out regardless.
