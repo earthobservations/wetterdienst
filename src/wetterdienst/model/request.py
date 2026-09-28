@@ -485,6 +485,12 @@ class TimeseriesRequest:
             StationsResult: Filtered stations.
 
         """
+        # checked before `all()` below, so a wrong type is answered without downloading the whole
+        # station index first -- rapidfuzz would raise the same TypeError, one station list later
+        if not isinstance(name, str):
+            msg = "'name' has to be a string."
+            raise TypeError(msg)
+
         rank = int(rank)
         if rank <= 0:
             msg = "'rank' has to be at least 1."

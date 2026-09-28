@@ -66,6 +66,7 @@ def test_dwd_road_weather() -> None:
     assert -40 <= values.get_column("value").min() <= 40  # approx. -+40 K
 
 
+@pytest.mark.remote
 @pytest.mark.xfail(reason="number of station groups may change")
 def test_dwd_road_weather_station_groups() -> None:
     """Test fetching of DWD road weather station groups."""

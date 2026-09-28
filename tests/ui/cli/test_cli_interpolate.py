@@ -404,6 +404,7 @@ def test_cli_interpolate_custom_units() -> None:
     ]
 
 
+@pytest.mark.remote
 @pytest.mark.parametrize(
     "fmt",
     [

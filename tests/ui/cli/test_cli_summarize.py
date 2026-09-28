@@ -187,6 +187,7 @@ def test_cli_summarize_custom_units() -> None:
     ]
 
 
+@pytest.mark.remote
 @pytest.mark.parametrize(
     "fmt",
     [

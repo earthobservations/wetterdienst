@@ -168,11 +168,17 @@ def test_dwd_observations_stations_filter_name_empty(default_request: Timeseries
 
 def test_dwd_observations_stations_wrong_types(default_request: TimeseriesRequest) -> None:
     """Test for wrong types."""
-    with pytest.raises(TypeError):
-        default_request.filter_by_station_id(name=123)
-
+    # `filter_by_station_id` took no part here: the call this used to make passed a keyword that
+    # method does not have, so the `TypeError` was Python binding the arguments. It validates no
+    # types of its own -- an int, a float and an object all go through -- so there is nothing of
+    # its own to assert
     with pytest.raises(TypeError):
         default_request.filter_by_name(name=123)
+
+    # `None` reached rapidfuzz, which answered it with no matches rather than a `TypeError`, so an
+    # empty result came back for what is a caller's mistake rather than a name nothing is called
+    with pytest.raises(TypeError):
+        default_request.filter_by_name(name=None)
 
 
 @pytest.mark.remote

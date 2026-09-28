@@ -17,6 +17,7 @@ from wetterdienst.provider.dwd.observation import (
 )
 
 
+@pytest.mark.remote
 def test_summary_by_station_id_answers_at_the_station_altitude(default_settings: Settings) -> None:
     """A summary named by a station is a summary at that station's altitude.
 
@@ -36,6 +37,7 @@ def test_summary_by_station_id_answers_at_the_station_altitude(default_settings:
     assert request.summarize_by_station_id(station_id="01050").elevation == height
 
 
+@pytest.mark.remote
 def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> None:
     """Test summarization of temperature_air_mean_2m."""
     request = DwdObservationRequest(
@@ -90,6 +92,7 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
         assert_frame_equal(given_df, expected_df)
 
 
+@pytest.mark.remote
 def test_not_summarizable_parameter(default_settings: Settings) -> None:
     """Test that a parameter that cannot be summarized is handled correctly."""
     request = DwdObservationRequest(

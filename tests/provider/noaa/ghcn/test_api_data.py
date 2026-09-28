@@ -13,6 +13,7 @@ from wetterdienst import Settings
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
 
 
+@pytest.mark.remote
 @pytest.mark.slow
 @pytest.mark.parametrize(
     ("start_date", "end_date"),
@@ -64,6 +65,7 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
     )
 
 
+@pytest.mark.remote
 @pytest.mark.slow
 def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
     """Hourly (GHCNh) values parse with correct timestamps from the ISO date column."""
