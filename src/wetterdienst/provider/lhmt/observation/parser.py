@@ -70,7 +70,7 @@ def parse_lhmt_stations(content: bytes) -> pl.DataFrame:
 
 
 def parse_lhmt_observations(content: bytes) -> pl.DataFrame:
-    """Parse a per-day ``/observations/{date}`` response into long ``(date, parameter, value)`` rows.
+    """Parse a per-day ``/observations/{date}`` response into long ``(timestamp, parameter, value)`` rows.
 
     The response is ``{"station": {...}, "observations": [{"observationTimeUtc": ..., <field>: ...}]}``
     with one entry per hour. Missing values are already ``null`` (no sentinel). Timestamps are UTC

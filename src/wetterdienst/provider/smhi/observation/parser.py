@@ -12,7 +12,7 @@ _EMPTY_PARSED_SCHEMA = {"timestamp": pl.Datetime(time_unit="us", time_zone="UTC"
 
 
 def parse_smhi_csv(text: str) -> pl.DataFrame:
-    """Parse an SMHI observation CSV into a two-column (date, value) DataFrame.
+    """Parse an SMHI observation CSV into a two-column (timestamp, value) DataFrame.
 
     SMHI's CSV files stack several metadata blocks (station info, parameter info,
     historical station-position info) before the actual data table, and reuse the data

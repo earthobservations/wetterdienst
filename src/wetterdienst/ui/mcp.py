@@ -98,7 +98,7 @@ format (csv/wide/pretty) or with unrelated flags; that just wastes calls.
     -> station_id "01975"
   values(provider="dwd", network="observation",
          parameters="daily/climate_summary/temperature_air_mean_2m", station="01975", periods="recent")
-    -> last item ≈ {"timestamp": "2026-07-25", "value": 19.2}  (i.e. 19.2 °C)
+    -> last item ≈ {"timestamp": "2026-07-25T00:00:00+00:00", "value": 19.2}  (i.e. 19.2 °C)
 """
 
 # Non-data endpoints that only add noise to an agent's tool list.

@@ -157,7 +157,7 @@ def extract_exception_text(content: bytes) -> str | None:
 
 
 def parse_fmi_observations(content: bytes) -> pl.DataFrame:
-    """Parse an FMI ``...::simple`` WFS response into a (date, parameter, value) DataFrame.
+    """Parse an FMI ``...::simple`` WFS response into a (timestamp, parameter, value) DataFrame.
 
     The simple stored queries return a flat list of ``BsWfsElement`` features, each holding a
     single ``Time`` / ``ParameterName`` / ``ParameterValue`` triple. Missing readings are

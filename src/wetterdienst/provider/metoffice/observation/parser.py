@@ -84,7 +84,7 @@ def parse_values(
     scale: dict[str, float] | None = None,
     period_count_column: str | None = None,
 ) -> pl.DataFrame:
-    """Parse a per-station-year data file into long ``(date, parameter, value, quality)`` rows.
+    """Parse a per-station-year data file into long ``(timestamp, parameter, value, quality)`` rows.
 
     Every reading is truncated to ``granularity`` (``1d`` for daily datasets, ``1h`` for hourly)
     and aggregated to one value per ``(timestamp, parameter)``. This collapses MIDAS's *multiple

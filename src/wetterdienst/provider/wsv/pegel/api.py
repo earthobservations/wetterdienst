@@ -376,10 +376,10 @@ class WsvPegelValues(TimeseriesValues):
         df = pl.read_json(file.content)
         if df.is_empty():
             # a listed timeseries between measurements answers `[]` with HTTP 200, and polars reads
-            # that as a frame with no columns at all -- so the timestamp parse below raises rather than the
-            # station dropping out of the result the way one that publishes nothing else does. The
-            # guards above cover no internet, a 404 and a timeseries the station does not publish;
-            # this is the same "no data here" for a body that parsed fine (GH-1987)
+            # that as a frame with no columns at all -- so the timestamp parse below raises rather
+            # than the station dropping out of the result the way one that publishes nothing else
+            # does. The guards above cover no internet, a 404 and a timeseries the station does not
+            # publish; this is the same "no data here" for a body that parsed fine (GH-1987)
             return pl.DataFrame()
 
         factors = _SOURCE_UNIT_FACTORS.get(name_original)

@@ -5,7 +5,7 @@
 Observation files come in three shapes: the ``daily`` files carry a ``TIMEFUNC``/``DT`` pair, the
 sub-daily (``10_minutes``/``hourly``) files a bare ``DT``, and the ``monthly``/``annual`` files a
 ``YEAR``(+``MONTH``)/``TIMEFUNCTION`` aggregate layout. Each parser normalises to a common
-``(date, parameter, value)`` frame.
+``(timestamp, parameter, value)`` frame.
 """
 
 from __future__ import annotations
