@@ -38,7 +38,7 @@
     "calendar": "proleptic_gregorian"
   },
   "dimension_names": [
-    "timestamp"
+    "date"
   ],
   "zarr_format": 3,
   "node_type": "array",

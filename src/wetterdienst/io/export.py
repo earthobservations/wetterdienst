@@ -250,8 +250,8 @@ class ExportMixin:
 
         # every timestamp the frame carries, not the values column alone (then `date`): a stations
         # frame has `start_date` and `end_date` and no `timestamp` at all, so the CLI's own
-        # `--sql "region=\'Sachsen\'"` --
-        # documented as a filter on station metadata -- died on a missing column
+        # `--sql "state=\'Sachsen\'"` (as it then was) -- documented as a filter on station metadata
+        # -- died on a missing column
         zones = {name: dtype.time_zone for name, dtype in df.schema.items() if isinstance(dtype, pl.Datetime)}
         df = df.with_columns(cs.datetime().dt.replace_time_zone(None))  # uses df from local scope
         sql = f"FROM df WHERE {sql}"
