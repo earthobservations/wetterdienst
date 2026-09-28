@@ -1440,7 +1440,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "snow_depth_excelled",
+                            "name": "snow_depth_sampled",
                             "name_original": "ash_6",
                             "unit": "centimeter",
                         },
@@ -1455,7 +1455,7 @@ DwdObservationMetadata = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "water_equivalent_snow_depth_excelled",
+                            "name": "water_equivalent_snow_depth_sampled",
                             "name_original": "waas_6",
                             "unit": "millimeter",
                         },

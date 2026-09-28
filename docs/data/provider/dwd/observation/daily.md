@@ -146,10 +146,10 @@ Codes (precipitation_form):
 
 | name                                         | original name | description                        | unit | constraints |
 |----------------------------------------------|---------------|------------------------------------|------|-------------|
-| {term}`snow_depth_excelled` | ash_6 | Height of the sampled snow pack. | cm | >=0 |
+| {term}`snow_depth_sampled` | ash_6 | Height of the sampled snow pack. | cm | >=0 |
 | {term}`snow_depth` | sh_tag | Height of the snow pack. | cm | >=0 |
 | {term}`water_equivalent_snow_depth` | wash_6 | Water equivalent of the total snow pack. | mm | >=0 |
-| {term}`water_equivalent_snow_depth_excelled` | waas_6 | Water equivalent of the sampled snow pack. | mm | >=0 |
+| {term}`water_equivalent_snow_depth_sampled` | waas_6 | Water equivalent of the sampled snow pack. | mm | >=0 |
 
 ### weather_phenomena
 
