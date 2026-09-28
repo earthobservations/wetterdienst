@@ -14,9 +14,13 @@ from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
-#: RFC 5737 TEST-NET-1, so the guard is asked about an address that needs no name resolution to
-#: reach and is routable nowhere. The refusal happens before a packet is sent either way.
-UNROUTABLE = "192.0.2.1"
+#: A name rather than an address, and one RFC 2606 reserves so that it resolves nowhere. An
+#: address would take the tests below down the `connect` patch alone -- aiohttp and asyncio both
+#: skip resolution for a literal -- and that patch is not on the path on Windows, where asyncio
+#: connects through `_overlapped.ConnectEx`. So they would pass here and fail there, having first
+#: waited out three real connect timeouts. Refused at the name, they ask the same question on every
+#: platform, and nothing is sent: the guard answers before the resolver is called.
+UNREACHABLE = "blocked.invalid"
 
 
 def test_an_unmarked_test_cannot_reach_upstream(blocked_network: list[object]) -> None:
@@ -99,12 +103,12 @@ def test_a_blocked_listing_says_so_rather_than_coming_back_empty(blocked_network
     """
     with pytest.raises(NetworkAccessBlockedError):
         list_remote_files_fsspec(
-            url=f"https://{UNROUTABLE}/some/directory/",
+            url=f"https://{UNREACHABLE}/some/directory/",
             settings=Settings(),
             cache_expiry=CacheExpiry.METAINDEX,
         )
     # more than one: the listing is wrapped in a stamina retry, which asks again before giving up
-    assert set(blocked_network) == {(UNROUTABLE, 443)}
+    assert set(blocked_network) == {(UNREACHABLE, 443)}
 
 
 def test_a_blocked_download_says_so_rather_than_carrying_no_internet(
@@ -120,11 +124,11 @@ def test_a_blocked_download_says_so_rather_than_carrying_no_internet(
     """
     with pytest.raises(NetworkAccessBlockedError):
         download_file(
-            url=f"https://{UNROUTABLE}/some/file.csv",
+            url=f"https://{UNREACHABLE}/some/file.csv",
             cache_dir=tmp_path,
             ttl=CacheExpiry.NO_CACHE,
         )
-    assert blocked_network == [(UNROUTABLE, 443)]
+    assert blocked_network == [(UNREACHABLE, 443)]
 
 
 @pytest.mark.remote

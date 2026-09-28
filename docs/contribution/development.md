@@ -74,6 +74,10 @@ that needs the internet therefore wants `@pytest.mark.remote`; one that only nee
 request would have downloaded is better built from a `StationsResult` over a literal frame, as
 the provider tests do.
 
+What the guard catches is a connection being made, not one already open or made before the
+per-test fixture is in place -- `tests/conftest.py` says what that leaves out. `poe test:offline`
+runs the selection on its own, which is how CI asks the question.
+
 ## Build OCI images
 
 Before building OCI images, you will need a recent wheel package. In order to
