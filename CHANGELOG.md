@@ -55,10 +55,11 @@ Types of changes:
   app labels said snow beyond the measuring range, which neither is. Request the new names; an old
   one in a request, or as a wide column in a SQL filter, is reported with its replacement. A wide
   DuckDB, SQLite or PostgreSQL table `to_target` wrote before takes no append of them (GH-2034)
-- **Breaking:** `humidity`, `humidity_max` and `humidity_min` are `humidity_relative`,
+- **Breaking**: `humidity`, `humidity_max` and `humidity_min` are `humidity_relative`,
   `humidity_relative_max` and `humidity_relative_min`; `humidity_absolute` is unchanged. Request the
-  new names; an old one in a request or as a `ts_geo_station_distance` key is reported with its
-  replacement (GH-2036)
+  new names; an old one in a request, as a `ts_geo_station_distance` key or as a wide column in a
+  SQL filter is reported with its replacement. A wide DuckDB, SQLite or PostgreSQL table
+  `to_target` wrote before takes no append of them (GH-2036)
 
 ## [0.138.0] - 2026-09-28
 
