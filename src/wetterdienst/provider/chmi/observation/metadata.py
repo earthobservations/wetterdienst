@@ -34,7 +34,7 @@ _CLIMATE_PARAMETERS = [
 
 _DAILY_PARAMETERS = [
     *_CLIMATE_PARAMETERS,
-    {"name": "humidity", "name_original": "H", **_HUMIDITY},
+    {"name": "humidity_relative", "name_original": "H", **_HUMIDITY},
     {"name": "pressure_air_site", "name_original": "P", **_PRESSURE},
     {"name": "wind_speed", "name_original": "F", **_WIND_SPEED},
     {"name": "wind_gust_max", "name_original": "Fmax", **_WIND_SPEED},
@@ -44,7 +44,7 @@ _DAILY_PARAMETERS = [
 
 _MINUTE_10_PARAMETERS = [
     {"name": "temperature_air_mean_2m", "name_original": "T", **_TEMPERATURE},
-    {"name": "humidity", "name_original": "H", **_HUMIDITY},
+    {"name": "humidity_relative", "name_original": "H", **_HUMIDITY},
     {"name": "pressure_air_site", "name_original": "P", **_PRESSURE},
     {"name": "wind_speed", "name_original": "F", **_WIND_SPEED},
 ]

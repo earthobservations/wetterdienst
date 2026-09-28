@@ -95,7 +95,7 @@ ImgwMeteorologyMetadata = {
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "średnia dobowa wilgotność względna",
                             "unit": "percent",
                         },
@@ -169,7 +169,7 @@ ImgwMeteorologyMetadata = {
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "średnia dobowa wilgotność względna",
                             "unit": "percent",
                         },
@@ -254,7 +254,7 @@ ImgwMeteorologyMetadata = {
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "średnia miesięczna wilgotność względna",
                             "unit": "percent",
                         },
@@ -338,7 +338,7 @@ ImgwMeteorologyMetadata = {
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "średnia miesięczna wilgotność względna",
                             "unit": "percent",
                         },

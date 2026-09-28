@@ -26,7 +26,7 @@
 | name                              | original name | description                  | unit  | constraints |
 |-----------------------------------|---------------|------------------------------|-------|-------------|
 | {term}`cloud_cover_total`         | bewm_mittel   | total cloud cover            | %     | >=0,<=100   |
-| {term}`humidity`                  | rf_mittel     | relative humidity            | %     | >=0,<=100   |
+| {term}`humidity_relative`                  | rf_mittel     | relative humidity            | %     | >=0,<=100   |
 | {term}`precipitation_height`      | rr            | precipitation height         | mm    | >=0         |
 | {term}`pressure_air_site`         | p_mittel      | air pressure at site         | hPa   | >=0         |
 | {term}`pressure_vapor`            | dampf_mittel  | vapor pressure               | hPa   | >=0         |

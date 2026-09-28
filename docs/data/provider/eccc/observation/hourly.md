@@ -27,7 +27,7 @@
 |---------------------------------------|-------------------|----------------------------------|------|-------------|
 | {term}`temperature_air_mean_2m`       | temp              | 2m air temperature               | °C   | -           |
 | {term}`temperature_dew_point_mean_2m` | dew_point_temp    | 2m dew point temperature         | °C   | -           |
-| {term}`humidity`                      | relative_humidity | humidity                         | %    | >=0,<=100   |
+| {term}`humidity_relative`                      | relative_humidity | humidity                         | %    | >=0,<=100   |
 | {term}`precipitation_height`          | precip_amount     | precipitation height             | mm   | >=0         |
 | {term}`pressure_air_site`             | station_pressure  | air pressure at site             | kPa  | >=0         |
 | {term}`visibility_range`              | visibility        | visibility range                 | km   | >=0         |

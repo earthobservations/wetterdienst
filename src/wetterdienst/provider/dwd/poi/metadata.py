@@ -80,7 +80,7 @@ DwdPoiMetadata = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "relative_humidity",
                             "unit": "percent",
                         },

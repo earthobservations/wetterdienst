@@ -320,7 +320,7 @@ def test_actual_percentage_is_zero_for_a_parameter_that_came_back_with_nothing()
     request = DwdObservationRequest(
         parameters=[
             ("hourly", "temperature_air", "temperature_air_mean_2m"),
-            ("hourly", "temperature_air", "humidity"),  # never arrives
+            ("hourly", "temperature_air", "humidity_relative"),  # never arrives
         ],
         start_date=start_date,
         end_date=end_date,

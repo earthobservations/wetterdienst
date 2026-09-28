@@ -29,7 +29,7 @@ NoaaGhcnMetadata = {
                         # Relative humidity is calculated from air (dry bulb) temperature and dewpoint temperature
                         # (whole percent)
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "relative_humidity",
                             "unit": "percent",
                         },

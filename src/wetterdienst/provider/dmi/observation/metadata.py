@@ -33,7 +33,7 @@ _BASE_PARAMETERS = [
         "unit": "degree_celsius",
     },
     {
-        "name": "humidity",
+        "name": "humidity_relative",
         "name_original": "mean_relative_hum",
         "unit": "percent",
     },
@@ -106,12 +106,12 @@ _MONTHLY_PARAMETERS = [
         "unit": "degree_celsius",
     },
     {
-        "name": "humidity_max",
+        "name": "humidity_relative_max",
         "name_original": "max_relative_hum",
         "unit": "percent",
     },
     {
-        "name": "humidity_min",
+        "name": "humidity_relative_min",
         "name_original": "min_relative_hum",
         "unit": "percent",
     },
@@ -125,7 +125,9 @@ _MONTHLY_PARAMETERS = [
 # Yearly aggregates match monthly minus the relative-humidity extremes (not published at
 # year resolution).
 _ANNUAL_PARAMETERS = [
-    parameter for parameter in _MONTHLY_PARAMETERS if parameter["name"] not in ("humidity_max", "humidity_min")
+    parameter
+    for parameter in _MONTHLY_PARAMETERS
+    if parameter["name"] not in ("humidity_relative_max", "humidity_relative_min")
 ]
 
 

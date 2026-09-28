@@ -78,7 +78,7 @@ _HOURLY_WEATHER_PARAMETERS = [
     {"name": "pressure_air_site", "name_original": "stn_pres", **_PRESSURE},
     {"name": "temperature_air_mean_2m", "name_original": "air_temperature", **_TEMPERATURE},
     {"name": "temperature_dew_point_mean_2m", "name_original": "dewpoint", **_TEMPERATURE},
-    {"name": "humidity", "name_original": "rltv_hum", **_HUMIDITY},
+    {"name": "humidity_relative", "name_original": "rltv_hum", **_HUMIDITY},
     {"name": "sunshine_duration", "name_original": "wmo_hr_sun_dur", **_SUNSHINE},
     {"name": "snow_depth", "name_original": "snow_depth", **_SNOW_DEPTH},
     {"name": "cloud_cover_total", "name_original": "cld_ttl_amt_id", "unit": "one_eighth"},

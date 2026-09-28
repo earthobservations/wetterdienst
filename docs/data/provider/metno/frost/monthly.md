@@ -22,7 +22,7 @@
 | {term}`precipitation_height` | sum(precipitation_amount P1M) | Monthly precipitation sum. | millimeter |
 | {term}`wind_speed` | mean(wind_speed P1M) | Monthly mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
 | {term}`wind_speed_rolling_mean_max` | max(wind_speed P1M) | Monthly maximum mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
-| {term}`humidity` | mean(relative_humidity P1M) | Monthly mean relative humidity. | percent |
+| {term}`humidity_relative` | mean(relative_humidity P1M) | Monthly mean relative humidity. | percent |
 | {term}`pressure_air_sea_level` | mean(air_pressure_at_sea_level P1M) | Monthly mean air pressure reduced to sea level. The parameter is usually called QFF in aviation and shows the measured air pressure reduced to mean sea level by applying actual atmospheric conditions. | hectopascal |
 | {term}`pressure_air_site` | mean(surface_air_pressure P1M) | Monthly mean air pressure at the station. The parameter is usually called QFE in aviation and shows the measured air pressure reduced to the reference height of the station. | hectopascal |
 | {term}`cloud_cover_total` | mean(cloud_area_fraction P1M) | Monthly mean cloud cover. The mean is an arithmetic mean of three daily observations (06, 12 and 18 UTC). | one_eighth |

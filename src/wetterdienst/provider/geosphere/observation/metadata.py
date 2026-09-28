@@ -28,7 +28,7 @@ GeosphereObservationMetadata = {
                     "grouped": False,
                     "parameters": [
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "rf",
                             "unit": "percent",
                         },
@@ -158,7 +158,7 @@ GeosphereObservationMetadata = {
                     "grouped": False,
                     "parameters": [
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "rf",
                             "unit": "percent",
                         },
@@ -274,7 +274,7 @@ GeosphereObservationMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "rf_mittel",
                             "unit": "percent",
                         },
@@ -370,7 +370,7 @@ GeosphereObservationMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "rf_mittel",
                             "unit": "percent",
                         },

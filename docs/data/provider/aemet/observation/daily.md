@@ -24,6 +24,6 @@
 | {term}`wind_gust_max` | racha | Maximum wind gust. | meter_per_second |
 | {term}`pressure_air_site_max` | presmax | Maximum pressure at the station's reference level. | hectopascal |
 | {term}`pressure_air_site_min` | presmin | Minimum pressure at the station's reference level. | hectopascal |
-| {term}`humidity` | hrmedia | Daily mean relative humidity. | percent |
-| {term}`humidity_max` | hrmax | Daily maximum relative humidity. | percent |
-| {term}`humidity_min` | hrmin | Daily minimum relative humidity. | percent |
+| {term}`humidity_relative` | hrmedia | Daily mean relative humidity. | percent |
+| {term}`humidity_relative_max` | hrmax | Daily maximum relative humidity. | percent |
+| {term}`humidity_relative_min` | hrmin | Daily minimum relative humidity. | percent |

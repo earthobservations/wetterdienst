@@ -46,7 +46,7 @@
 | {term}`pressure_air_site` | stn_pres | Station air pressure, as measured at station level. No correction for altitude is applied. | hPa |
 | {term}`temperature_air_mean_2m` | air_temperature | Air temperature, to the nearest 0.1 deg C. | °C |
 | {term}`temperature_dew_point_mean_2m` | dewpoint | Dewpoint temperature: the temperature to which the air must be cooled to produce saturation with respect to water at its existing pressure and humidity. | °C |
-| {term}`humidity` | rltv_hum | Calculated relative humidity. | % |
+| {term}`humidity_relative` | rltv_hum | Calculated relative humidity. | % |
 | {term}`sunshine_duration` | wmo_hr_sun_dur | Readings from the newer automatic sun sensor, which has replaced the Campbell Stokes recorder. | h |
 | {term}`snow_depth` | snow_depth | Snow depth, cm. | cm |
 | {term}`cloud_cover_total` | cld_ttl_amt_id | Total cloud amount code. | 1/8 |

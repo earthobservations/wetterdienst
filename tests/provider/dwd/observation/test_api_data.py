@@ -793,7 +793,7 @@ def test_dwd_observations_urban_values(default_settings: Settings) -> None:
                 "station_id": "00399",
                 "resolution": "hourly",
                 "dataset": "urban_temperature_air",
-                "parameter": "humidity",
+                "parameter": "humidity_relative",
                 "timestamp": dt.datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.83,
                 "quality": 3.0,
@@ -813,7 +813,7 @@ def test_dwd_observations_urban_values(default_settings: Settings) -> None:
         pl.col("station_id").cast(pl.Enum(["00399"])),
         pl.col("resolution").cast(pl.Enum(["hourly"])),
         pl.col("dataset").cast(pl.Enum(["urban_temperature_air"])),
-        pl.col("parameter").cast(pl.Enum(["humidity", "temperature_air_mean_2m"])),
+        pl.col("parameter").cast(pl.Enum(["humidity_relative", "temperature_air_mean_2m"])),
     )
     assert_frame_equal(given_df, expected_df)
 
@@ -1206,7 +1206,7 @@ def test_create_humanized_column_names_mapping() -> None:
         "vpm": "pressure_vapor",
         "pm": "pressure_air_site",
         "tmk": "temperature_air_mean_2m",
-        "upm": "humidity",
+        "upm": "humidity_relative",
         "txk": "temperature_air_max_2m",
         "tnk": "temperature_air_min_2m",
         "tgk": "temperature_air_min_0_05m",
@@ -1649,7 +1649,7 @@ def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
                 "station_id": "01048",
                 "resolution": "daily",
                 "dataset": "climate_summary",
-                "parameter": "humidity",
+                "parameter": "humidity_relative",
                 "timestamp": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 78.0,
                 "quality": 10.0,
@@ -1770,7 +1770,7 @@ def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
             "parameter": pl.Enum(
                 [
                     "cloud_cover_total",
-                    "humidity",
+                    "humidity_relative",
                     "precipitation_form",
                     "precipitation_height",
                     "pressure_air_site",

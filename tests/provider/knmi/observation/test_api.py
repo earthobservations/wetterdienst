@@ -464,5 +464,5 @@ def test_knmi_observation_values_10_minutes() -> None:
         return df.filter(pl.col("parameter").eq(parameter)).get_column("value").item()
 
     assert value_of("temperature_air_mean_2m") == pytest.approx(23.2)
-    assert value_of("humidity") == pytest.approx(0.32)
+    assert value_of("humidity_relative") == pytest.approx(0.32)
     assert value_of("wind_speed") == pytest.approx(3.01)

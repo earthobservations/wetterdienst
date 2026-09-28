@@ -32,7 +32,7 @@
 | {term}`temperature_dew_point_mean_2m`   | td            | Dew point at 2 m above ground, the temperature at which the air would become saturated.       | degree_kelvin    |
 | {term}`temperature_air_min_2m_last_24h` | tn24          | Minimum air temperature at 2 m above ground over the preceding 24 hours.                      | degree_kelvin    |
 | {term}`temperature_air_max_2m_last_24h` | tx24          | Maximum air temperature at 2 m above ground over the preceding 24 hours.                      | degree_kelvin    |
-| {term}`humidity`                        | u             | Relative humidity of the air, the fraction of the moisture it could hold at that temperature. | percent          |
+| {term}`humidity_relative`                        | u             | Relative humidity of the air, the fraction of the moisture it could hold at that temperature. | percent          |
 | {term}`visibility_range`                | vv            | Horizontal distance at which an object can still be made out.                                 | meter            |
 | {term}`cloud_cover_total`               | n             | Fraction of the sky covered by cloud of any kind.                                             | percent          |
 | {term}`pressure_air_site`               | pres          | Air pressure as measured at station height.                                                   | pascal           |

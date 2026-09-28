@@ -42,7 +42,7 @@ SmhiObservationMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "43",
                             "unit": "percent",
                         },
@@ -117,7 +117,7 @@ SmhiObservationMetadata = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "6",
                             "unit": "percent",
                         },

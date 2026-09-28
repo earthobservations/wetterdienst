@@ -210,7 +210,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
-                "parameter": "humidity",
+                "parameter": "humidity_relative",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.753,
                 "quality": None,
@@ -358,7 +358,7 @@ def test_imgw_meteorology_api_monthly() -> None:
             "parameter": pl.Enum(
                 [
                     "cloud_cover_total",
-                    "humidity",
+                    "humidity_relative",
                     "precipitation_height",
                     "precipitation_height_day",
                     "precipitation_height_max",
@@ -404,7 +404,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
-                "parameter": "humidity",
+                "parameter": "humidity_relative",
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.905,
                 "quality": None,
@@ -524,7 +524,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
             "dataset": pl.Enum(["synop"]),
             "parameter": pl.Enum(
                 [
-                    "humidity",
+                    "humidity_relative",
                     "precipitation_height",
                     "precipitation_height_day",
                     "precipitation_height_night",
@@ -858,7 +858,7 @@ def test_imgw_meteorology_values_match_the_upstream_column(
         # so the dataset used to answer 0 cm of snow cover for every day of a Polish January.
         ("daily", "precipitation", "snow_depth", "249180020", "2010-01-01", None),
         # 0 % relative humidity, from `.0` beside a status of "8" in k_m_t.
-        ("monthly", "climate", "humidity", "249180010", "2010-01-01", None),
+        ("monthly", "climate", "humidity_relative", "249180010", "2010-01-01", None),
     ],
 )
 def test_imgw_meteorology_values_read_the_status_column(

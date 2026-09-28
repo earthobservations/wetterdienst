@@ -24,4 +24,4 @@
 | {term}`precipitation_height_max` | p_max | Greatest daily precipitation of the year, and its date. | millimeter |
 
 AEMET does not report a humidity field in the annual aggregate (unlike monthly), so
-`humidity` is not available at this resolution.
+`humidity_relative` is not available at this resolution.

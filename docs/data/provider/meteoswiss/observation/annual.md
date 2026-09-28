@@ -42,5 +42,5 @@
 | {term}`temperature_soil_mean_0_05m`       | tso005y0      | Soil temperature at 5 cm depth; annual mean                    | degree_celsius        |
 | {term}`temperature_soil_mean_0_1m`        | tso010y0      | Soil temperature at 10 cm depth; annual mean                   | degree_celsius        |
 | {term}`temperature_soil_mean_0_2m`        | tso020y0      | Soil temperature at 20 cm depth; annual mean                   | degree_celsius        |
-| {term}`humidity`                          | ure200y0      | Relative air humidity 2 m above ground; annual mean            | percent               |
+| {term}`humidity_relative`                          | ure200y0      | Relative air humidity 2 m above ground; annual mean            | percent               |
 

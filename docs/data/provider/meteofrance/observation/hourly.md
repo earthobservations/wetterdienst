@@ -49,7 +49,7 @@
 | name                                  | original name | description                                                                                   | unit                        |
 |---------------------------------------|---------------|-----------------------------------------------------------------------------------------------|-----------------------------|
 | {term}`temperature_dew_point_mean_2m` | TD | Dew point temperature. | degree_celsius |
-| {term}`humidity` | U | Relative humidity. | percent |
+| {term}`humidity_relative` | U | Relative humidity. | percent |
 | {term}`pressure_air_sea_level` | PMER | Sea level pressure, only for stations at an altitude of 750 m or less. | hectopascal |
 | {term}`pressure_air_site` | PSTAT | Station pressure. | hectopascal |
 | {term}`cloud_cover_total` | N | Total cloud amount, in octas. 9 means the sky was invisible through fog or another weather phenomenon. | one_eighth |

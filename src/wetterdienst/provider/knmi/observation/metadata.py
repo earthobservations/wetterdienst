@@ -53,7 +53,7 @@ KnmiObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "rh",
                             "unit": "percent",
                         },
@@ -138,7 +138,7 @@ KnmiObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "U",
                             "unit": "percent",
                         },
@@ -218,7 +218,7 @@ KnmiObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "UG",
                             "unit": "percent",
                         },

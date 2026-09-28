@@ -23,7 +23,7 @@ values outside the requested `[start_date, end_date]` range are then trimmed as 
 | {term}`temperature_air_mean_0_1m`     | tg            | Air Temperature 10 cm Mean                | °C   |
 | {term}`temperature_dew_point_mean_2m` | td            | Dew Point Temperature 1 Min Mean          | °C   |
 | {term}`temperature_wet_mean_2m`       | tb            | Wet Bulb Temperature Mean                 | °C   |
-| {term}`humidity`                      | rh            | Relative Humidity 1 Min Mean              | %    |
+| {term}`humidity_relative`                      | rh            | Relative Humidity 1 Min Mean              | %    |
 | {term}`wind_speed`                    | ff            | Wind Speed at 10 m Mean with MD           | m/s  |
 | {term}`wind_direction`                | dd            | Wind Direction Mean with MD               | °    |
 | {term}`wind_gust_max`                 | fx            | Wind Gust at 10 m Maximum last Interval   | m/s  |

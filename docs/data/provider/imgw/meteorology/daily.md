@@ -26,7 +26,7 @@
 | name                               | original name                      | description                | unit | constraints |
 |------------------------------------|------------------------------------|----------------------------|------|-------------|
 | {term}`cloud_cover_total` | średnie dobowe zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
-| {term}`humidity` | średnia dobowa wilgotność względna | Humidity. | % | >=0,<=100 |
+| {term}`humidity_relative` | średnia dobowa wilgotność względna | Humidity. | % | >=0,<=100 |
 | {term}`precipitation_height`       | suma dobowa opadów                 | precipitation height       | mm   | >=0         |
 | {term}`snow_depth`                 | wysokość pokrywy śnieżnej          | snow depth                 | cm   | >=0         |
 | {term}`temperature_air_max_2m`     | maksymalna temperatura dobowa      | temperature air max 2m     | °C   | -           |
@@ -70,7 +70,7 @@
 | name                            | original name                  | description          | unit | constraints |
 |---------------------------------|--------------------------------|----------------------|------|-------------|
 | {term}`cloud_cover_total` | średnie dobowe zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
-| {term}`humidity` | średnia dobowa wilgotność względna | Humidity. | % | >=0,<=100 |
+| {term}`humidity_relative` | średnia dobowa wilgotność względna | Humidity. | % | >=0,<=100 |
 | {term}`precipitation_height` | suma dobowa opadów | precipitation height | mm | >=0 |
 | {term}`precipitation_height_day` | suma opadu dzień | Depth of precipitation collected during the daytime hours. | mm | >=0 |
 | {term}`precipitation_height_night` | suma opadu noc | Depth of precipitation collected during the night hours. | mm | >=0 |

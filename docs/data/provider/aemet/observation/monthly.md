@@ -22,4 +22,4 @@
 | {term}`temperature_air_min_2m_multiday` | ta_min | Absolute minimum temperature of the month, and its date. | degree_celsius |
 | {term}`precipitation_height` | p_mes | Total monthly precipitation. | millimeter |
 | {term}`precipitation_height_max` | p_max | Greatest daily precipitation of the month, and its date. | millimeter |
-| {term}`humidity` | hr | Monthly mean relative humidity. | percent |
+| {term}`humidity_relative` | hr | Monthly mean relative humidity. | percent |

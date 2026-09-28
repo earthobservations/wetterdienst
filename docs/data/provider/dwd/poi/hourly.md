@@ -28,7 +28,7 @@
 | {term}`cloud_cover_total`                          | cloud_cover_total                                                | Fraction of the sky covered by cloud of any kind.                       | %    |
 | {term}`cloud_height_layer1`                        | height_of_base_of_lowest_cloud_above_station                     | Height above the station of the base of the lowest cloud.               | m    |
 | {term}`evapotranspiration_last_24h`                | evaporation/evapotranspiration_last_24_hours                     | Evaporation and evapotranspiration in the preceding 24 hours.           | mm   |
-| {term}`humidity`                                   | relative_humidity                                                | Relative humidity of the air.                                           | %    |
+| {term}`humidity_relative`                                   | relative_humidity                                                | Relative humidity of the air.                                           | %    |
 | {term}`precipitation_height_last_1h`               | precipitation_amount_last_hour                                   | Precipitation collected in the preceding hour.                          | mm   |
 | {term}`precipitation_height_last_3h`               | precipitation_amount_last_3_hours                                | Precipitation collected in the preceding 3 hours.                       | mm   |
 | {term}`precipitation_height_last_6h`               | precipitation_amount_last_6_hours                                | Precipitation collected in the preceding 6 hours.                       | mm   |

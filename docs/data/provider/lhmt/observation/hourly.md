@@ -23,7 +23,7 @@
 | name                            | original name    | description                                                                                   | unit |
 |---------------------------------|------------------|-----------------------------------------------------------------------------------------------|------|
 | {term}`temperature_air_mean_2m` | airTemperature | Air temperature, °C. | °C |
-| {term}`humidity` | relativeHumidity | Relative humidity of the air, %. | % |
+| {term}`humidity_relative` | relativeHumidity | Relative humidity of the air, %. | % |
 | {term}`wind_speed` | windSpeed | Wind speed, m/s. | m/s |
 | {term}`wind_gust_max` | windGust | Wind gust, m/s. The maximum gust over the hour. | m/s |
 | {term}`wind_direction` | windDirection | Wind direction, °. Values: 0 is from the north, 180 is from the south, and so on. | ° |

@@ -110,7 +110,7 @@ NwsObservationMetadata = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "relativehumidity",
                             "unit": "percent",
                         },

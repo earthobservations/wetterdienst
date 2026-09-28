@@ -93,7 +93,7 @@ MeteoFranceObservationMetadata = {
                             "unit": "joule_per_square_centimeter",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "UM",
                             "unit": "percent",
                         },
@@ -199,7 +199,7 @@ MeteoFranceObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "U",
                             "unit": "percent",
                         },
@@ -281,7 +281,7 @@ MeteoFranceObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "UMM",
                             "unit": "percent",
                         },

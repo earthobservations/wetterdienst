@@ -45,6 +45,6 @@
 | {term}`temperature_soil_mean_0_05m`                    | tso005d0      | Soil temperature at 5 cm depth; daily mean                       | degree_celsius        |
 | {term}`temperature_soil_mean_0_1m`                     | tso010d0      | Soil temperature at 10 cm depth; daily mean                      | degree_celsius        |
 | {term}`temperature_soil_mean_0_2m`                     | tso020d0      | Soil temperature at 20 cm depth; daily mean                      | degree_celsius        |
-| {term}`humidity`                                       | ure200d0      | Relative air humidity 2 m above ground; daily mean               | percent               |
+| {term}`humidity_relative`                                       | ure200d0      | Relative air humidity 2 m above ground; daily mean               | percent               |
 | {term}`evapotranspiration_potential_grass_fao_last_24h` | erefaod0      | Reference evaporation from FAO; daily total                      | millimeter            |
 

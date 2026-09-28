@@ -41,7 +41,7 @@ EcccObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "relative_humidity",
                             "unit": "percent",
                         },
@@ -110,12 +110,12 @@ EcccObservationMetadata = {
                             "unit": "degree_celsius_day",
                         },
                         {
-                            "name": "humidity_max",
+                            "name": "humidity_relative_max",
                             "name_original": "max_rel_humidity",
                             "unit": "percent",
                         },
                         {
-                            "name": "humidity_min",
+                            "name": "humidity_relative_min",
                             "name_original": "min_rel_humidity",
                             "unit": "percent",
                         },
