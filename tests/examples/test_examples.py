@@ -14,7 +14,7 @@ from wetterdienst.util.url import ConnectionString
 
 @contextmanager
 def _leaves_untouched(path: Path) -> Iterator[None]:
-    """Fail if the block creates, removes or rewrites `path`, a file or a directory tree.
+    """Fail if the block leaves `path` -- a file or a directory tree -- created, removed or rewritten.
 
     The dumps are ignored by git (GH-2044), so `git status` no longer sees an example writing
     into the repository; the tree is compared directly.

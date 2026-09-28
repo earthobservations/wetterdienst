@@ -43,7 +43,7 @@ def main() -> None:
         with TemporaryDirectory() as directory:
             filepath = Path(directory) / ZARR_OUTPUT_PATH.name
             create_dwd_climate_summary_zarr_dump(filepath=filepath, test=test)
-            # closed before the directory is removed, which Windows will not do under an open store
+            # closed before its directory goes
             with xr.open_zarr(filepath) as ds:
                 print(ds)
         return
