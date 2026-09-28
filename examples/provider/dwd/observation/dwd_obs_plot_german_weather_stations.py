@@ -37,7 +37,7 @@ def plot_german_weather_stations() -> None:
     cmap = ListedColormap([inferno(q) for q in quantiles])
     norm = colors.BoundaryNorm(bounds, cmap.N)
     plot = ax.scatter(data=stations_df, x="longitude", y="latitude", c="elevation", s=10, cmap=cmap, norm=norm)
-    fig.colorbar(plot, ax=ax, label="Height / m")
+    fig.colorbar(plot, ax=ax, label="Elevation / m")
     ax.set_xlabel("Longitude / deg")
     ax.set_ylabel("Latitude / deg")
     ax.set_title("German weather stations")
