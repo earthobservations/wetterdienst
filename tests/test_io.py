@@ -1507,7 +1507,7 @@ def test_export_duckdb(settings_convert_units_false: Settings, tmp_path: Path) -
         FROM
             testdrive
         WHERE
-            date = '1939-07-26'
+            timestamp = '1939-07-26'
             AND
             parameter = 'temperature_air_min_2m'
     """

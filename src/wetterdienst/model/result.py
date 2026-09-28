@@ -416,7 +416,7 @@ class _ValuesItemDict(TypedDict):
     resolution: str
     dataset: str
     parameter: str
-    date: str
+    timestamp: str
     value: float | None
     quality: float | None
 
@@ -735,7 +735,7 @@ class _InterpolatedValuesItemDict(TypedDict):
     resolution: str
     dataset: str
     parameter: str
-    date: str
+    timestamp: str
     value: float | None
     distance_mean: float | None
     taken_station_ids: list[str]
@@ -938,7 +938,7 @@ class _SummarizedValuesItemDict(TypedDict):
     resolution: str
     dataset: str
     parameter: str
-    date: str
+    timestamp: str
     value: float | None
     distance: float | None
     taken_station_id: str | None
