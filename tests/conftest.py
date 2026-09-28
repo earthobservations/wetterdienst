@@ -141,12 +141,18 @@ def _guarded_getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any) -> Any
     at `connect` alone would say `('141.38.2.164', 443)` and leave the reader to work out whose
     server that is; refused at the name, it says `opendata.dwd.de`.
     """
-    if isinstance(host, str) and not _is_local_address((host, port)):
+    # decoded rather than asked whether it is a `str`: a bytes host is valid here and asyncio's
+    # `_ensure_resolved` hands it to the loop unchanged, so a check for `str` alone waves it
+    # through -- and on Windows, where `connect` is not on the path, that is the whole download
+    # path unguarded again. `None` is valid too, and means this machine, which `_is_local_address`
+    # already answers for
+    name = os.fsdecode(host) if isinstance(host, (str, bytes)) else None
+    if name is not None and not _is_local_address((name, port)):
         msg = (
-            f"network access blocked: {host}. A test that reaches the internet needs "
+            f"network access blocked: {name}. A test that reaches the internet needs "
             f"@pytest.mark.remote, or has to be rewritten to work without the network."
         )
-        _GUARD_STATE["refused"].append((host, port))
+        _GUARD_STATE["refused"].append((name, port))
         raise NetworkAccessBlockedError(msg)
     return _SOCKET_GETADDRINFO(host, port, *args, **kwargs)
 
@@ -281,7 +287,7 @@ def blocked_network() -> list[object]:
 
 
 @pytest.fixture(autouse=True)
-def _block_network(request: pytest.FixtureRequest) -> None:
+def _block_network(request: pytest.FixtureRequest) -> Generator[None]:
     """Refuse non-local socket connections for every test not marked ``remote``.
 
     ``-m "not remote"`` is documented as the offline selection, so nothing it selects may reach

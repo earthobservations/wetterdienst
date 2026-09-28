@@ -172,7 +172,10 @@ jobs:
   # passing on a warm cache. That only holds while something checks it: the jobs above all run the
   # remote tests too, which warm the cache and the connection pool a later unmarked test would be
   # served from, so none of them would notice the property going away. This one is the check, and
-  # unlike the matrix it is deterministic - no network, no upstream to be down - so it blocks.
+  # unlike the matrix it is deterministic: no network means no upstream to be down, so a red here
+  # is a real regression rather than a provider having a bad morning. It is not `continue-on-error`
+  # for that reason. Nothing in the repo's ruleset requires it, though - there is no
+  # `required_status_checks` rule - so it reports rather than stops a merge.
   offline:
     name: Offline selection on Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest

@@ -47,6 +47,19 @@ def test_resolving_a_name_off_this_machine_is_refused(blocked_network: list[obje
     assert blocked_network == [("opendata.dwd.de", 443)]
 
 
+def test_resolving_a_name_given_as_bytes_is_refused_too(blocked_network: list[object]) -> None:
+    """A bytes host is valid here, and asyncio hands it to the loop unchanged."""
+    with pytest.raises(NetworkAccessBlockedError, match=r"network access blocked: opendata\.dwd\.de"):
+        socket.getaddrinfo(b"opendata.dwd.de", 443)
+    assert blocked_network == [("opendata.dwd.de", 443)]
+
+
+def test_resolving_for_this_machine_is_not(blocked_network: list[object]) -> None:
+    """`getaddrinfo(None, port)` is how a local server asks for something to bind to."""
+    assert socket.getaddrinfo(None, 0)
+    assert blocked_network == []
+
+
 def test_resolving_a_local_name_is_not(blocked_network: list[object]) -> None:
     """The local-server fixtures resolve `localhost`, and xdist's workers are reached by name too."""
     assert socket.getaddrinfo("localhost", 0)
