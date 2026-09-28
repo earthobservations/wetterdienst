@@ -34,7 +34,7 @@ Types of changes:
   `start_date`/`end_date` keep their names. Read `timestamp` instead; a SQL filter on values still
   naming `date` fails with an error naming `timestamp`. A DuckDB, SQLite or PostgreSQL table
   `to_target` wrote before takes no append of `timestamp`: write it anew (GH-2028)
-- **Breaking:** in wide values, each parameter's quality column is `<parameter>_quality` rather than
+- **Breaking**: in wide values, each parameter's quality column is `<parameter>_quality` rather than
   `qn_<parameter>` (`<dataset>_<parameter>_quality` where several datasets are requested). Read the
   new name instead; a SQL filter still naming a `qn_` column fails with an error naming its
   `_quality` successor. A DuckDB, SQLite or PostgreSQL table `to_target` wrote before takes no

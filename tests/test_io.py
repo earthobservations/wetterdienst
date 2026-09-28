@@ -956,6 +956,10 @@ def test_filter_by_sql_names_a_renamed_wide_quality_column() -> None:
     # DuckDB matches identifiers regardless of case, and so does the hint
     with pytest.raises(duckdb.BinderException, match='was renamed to "temperature_air_mean_2m_quality"'):
         ExportMixin(df=df).filter_by_sql("QN_Temperature_Air_Mean_2m = 10")
+    # a frame whose columns carry case, as source names do with humanize off, is named in its own
+    df = pl.DataFrame({"TMK": [1.5], "TMK_quality": [10.0]})
+    with pytest.raises(duckdb.BinderException, match='column "qn_tmk" was renamed to "TMK_quality"'):
+        ExportMixin(df=df).filter_by_sql("qn_tmk = 10")
     # a `qn_` column whose successor the frame does not hold is simply not there
     with pytest.raises(duckdb.BinderException, match='Referenced column "qn_wind_speed" not found'):
         ExportMixin(df=df).filter_by_sql("qn_wind_speed = 10")
