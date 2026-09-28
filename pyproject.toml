@@ -304,19 +304,13 @@ docs = "uv run --group docs sphinx-build --builder html docs docs/_build/html"
 # names and addresses. Run on its own rather than as part of `test`, because the whole suite warms
 # the cache and the fsspec session that a later unmarked test would otherwise be served from --
 # reading a url a `remote` test already fetched opens no socket, and the guard sees nothing to
-# refuse. Only a run without the remote tests in it asks the question this answers (GH-2003).
-# `explorer` is excluded as `test:parallel` excludes it -- those tests are not run in CI at all,
-# and there are none in the tree today; the offline claim is about what `-m "not remote"` selects
-"test:offline" = "uv run pytest --numprocesses=auto -m 'not (remote or cflake or explorer)'"
-# the two `cflake` tests the offline selection holds, run the way that marker asks for -- serially.
-# `test:offline` above runs under xdist, which is the concurrency they are flaky under
-# exit 5 is pytest saying it collected nothing, which for this selection is an answer rather than
-# a failure: the two tests it holds could be marked `remote` or dropped, and the offline job going
-# red with "no tests ran" would read as the regression it is the job's whole point to distinguish
-"test:offline:cflakes".shell = "uv run pytest -m 'cflake and not (remote or explorer)'; status=$?; [ $status -eq 5 ] && exit 0; exit $status"
-# named rather than left to poe's default `sh`, which the Windows leg of the offline job has not got
-"test:offline:cflakes".interpreter = "bash"
-"test:offline:all" = ["test:offline", "test:offline:cflakes"]
+# refuse. Only a run without the remote tests in it asks the question this answers.
+#
+# Serial, unlike `test:parallel`: the selection holds two `cflake` tests, and xdist is the
+# concurrency they are flaky under. 30s that way against 13s split in two, which is not worth a
+# second task that could quietly collect nothing and still go green. `explorer` is excluded as
+# `test:parallel` excludes it -- no job here runs those, and nothing in the tree is marked (GH-2003)
+"test:offline" = "uv run pytest -m 'not (remote or explorer)'"
 test = ["test:parallel", "test:cflakes"]
 # For Windows CI
 test-slow = "uv run pytest"

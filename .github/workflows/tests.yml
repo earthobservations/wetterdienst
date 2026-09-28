@@ -228,4 +228,4 @@ jobs:
       # may reach a provider, so nothing it selects needs one
       - name: Run the offline selection
         run: |
-          uv run poe "test:offline:all"
+          uv run poe "test:offline"

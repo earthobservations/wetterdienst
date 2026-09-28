@@ -149,8 +149,9 @@ def _refuse_name(host: Any, port: Any) -> None:  # noqa: ANN401
     server that is; refused at the name, it says `opendata.dwd.de`.
 
     The host is decoded rather than asked whether it is a `str`: bytes are valid here and asyncio's
-    `_ensure_resolved` hands them to the loop unchanged. `None` is valid too, and means this
-    machine, which `_is_local_address` already answers for.
+    `_ensure_resolved` hands them to the loop unchanged. Anything that is neither -- `None`, which
+    is how a local server asks for something to bind to -- is left alone without being asked about,
+    there being no name in it to refuse.
     """
     name = os.fsdecode(host) if isinstance(host, (str, bytes)) else None
     if name is not None and not _is_local_address((name, port)):

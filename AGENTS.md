@@ -13,7 +13,7 @@ Wetterdienst is a Python library providing unified access to weather, climate an
 ```bash
 uv run poe test              # full suite (parallel + cflake)
 uv run poe "test:parallel"   # parallel only (faster for dev)
-uv run poe "test:offline:all" # the offline selection, on its own -- see the marker note below
+uv run poe "test:offline"    # the offline selection, on its own -- see the marker note below
 uv run poe coverage          # tests with coverage
 uv run poe format            # ruff format + lint --fix
 uv run poe lint              # check only, no fixes
@@ -113,6 +113,6 @@ Optional dependency groups include `export`, `interpolation`, `restapi`, `sql`, 
 - **Polars throughout**: use `pl.DataFrame`/`pl.LazyFrame`; avoid pandas in new code (it appears only in some export adapters).
 - **Parameters** are referenced as `"resolution/dataset"` or `"resolution/dataset/parameter"` strings, or as typed `ParameterModel`/`DatasetModel` objects.
 - **New providers**: follow the strict metadata dict schema — copy an existing `provider/*/metadata.py` before adding one.
-- **Test markers**: `remote` (needs internet), `slow`, `sql`, `explorer`, `cflake` (concurrency-flaky). Remote tests run by default locally; skip with `-m "not remote"`. That selection is offline and enforced: `tests/conftest.py` refuses non-local names and addresses for every unmarked test, so a test reaching upstream needs the marker or a rewrite that does without the network. It catches a connection being made, not one already open or made before the per-test fixture is in place; `tests/conftest.py` lists what that leaves out. Check a new test with `uv run poe "test:offline:all"` rather than `poe test`, which runs the remote tests too and so warms the cache and the connection an unmarked test would then be served from.
+- **Test markers**: `remote` (needs internet), `slow`, `sql`, `explorer`, `cflake` (concurrency-flaky). Remote tests run by default locally; skip with `-m "not remote"`. That selection is offline and enforced: `tests/conftest.py` refuses non-local names and addresses for every unmarked test, so a test reaching upstream needs the marker or a rewrite that does without the network. It catches a connection being made, not one already open or made before the per-test fixture is in place; `tests/conftest.py` lists what that leaves out. Check a new test with `uv run poe "test:offline"` rather than `poe test`, which runs the remote tests too and so warms the cache and the connection an unmarked test would then be served from.
 - **Ruff** is the linter/formatter, line length 120. **`ty`** is the type checker. Run `uv run poe format` before committing.
 - **Changelog**: entries record changes to wetterdienst that a caller can observe — behaviour, API, dependencies, security, and docs that stated a wrong fact. Not new tests, test helpers or docs consistency (notation, row order, padding). Say what changed and what it means for a caller, then `(GH-####)`; a breaking change also says what to do instead. Wrap at 100 columns and keep it to a few lines — the `[Unreleased]` entries run a median of 5 and none past 10. The reasoning for the change belongs in the commit body, not here.
