@@ -166,3 +166,44 @@ jobs:
       - name: Run tests
         run: |
           uv run poe test
+
+  # `-m "not remote"` is documented as the offline selection and the suite refuses non-local names
+  # and addresses for everything it selects, so a test that reaches upstream fails rather than
+  # passing on a warm cache. That only holds while something checks it: the jobs above all run the
+  # remote tests too, which warm the cache and the connection pool a later unmarked test would be
+  # served from, so none of them would notice the property going away. This one is the check, and
+  # unlike the matrix it is deterministic - no network, no upstream to be down - so it blocks.
+  offline:
+    name: Offline test selection
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Acquire sources
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Install project
+        run: uv sync
+
+      - name: Install eccodes
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libeccodes-dev
+
+      - name: Install extras for testing
+        run: .github/workflows/install.sh testing
+
+      # deliberately without the provider credentials the other jobs carry: nothing this selects
+      # may reach a provider, so nothing it selects needs one
+      - name: Run the offline selection
+        run: |
+          uv run poe "test:offline"

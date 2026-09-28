@@ -154,7 +154,9 @@ def _recording_getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any) -> A
     if isinstance(host, str):
         for *_, sockaddr in results:
             if isinstance(sockaddr, tuple) and sockaddr:
-                _RESOLVED.setdefault(str(sockaddr[0]), host)
+                # last writer wins: one address can front several names, and the one just asked
+                # for is a better answer than whichever was asked for first
+                _RESOLVED[str(sockaddr[0])] = host
     return results
 
 
@@ -303,6 +305,14 @@ def _block_network(request: pytest.FixtureRequest) -> None:
     fixture's teardown comes back as a second xfail and the run stays green. So a test that is both
     unmarked and `xfail` can reach upstream and say nothing, and no check made per test can change
     that. `test_benchmarks` was the one in the tree; it is marked now.
+
+    What it records is per process rather than per test, which is the one way it could be unfair
+    rather than lenient: a connection attempted by a thread an earlier `remote` test left running
+    -- fsspec cancels nothing on `FSTimeoutError`, and this suite sees enough of those to carry
+    `--only-rerun FSTimeoutError` -- is refused while whichever unmarked test is current owns the
+    record, and the teardown check below would read it as that test's. Nothing distinguishes the
+    two at the socket, so this is written down rather than worked around. `poe test:offline` runs
+    the selection on its own, where no `remote` test has run to leave anything behind.
 
     So this holds the suite to its own claim; it is not a sandbox.
     """
