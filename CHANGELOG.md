@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.139.0] - 2026-09-29
+
 ### Changed
 
 - **Breaking**: the station column `height` is now `elevation`, in every stations frame and its
@@ -3271,7 +3273,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.138.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.139.0...HEAD
+[0.139.0]: https://github.com/earthobservations/wetterdienst/compare/v0.138.0...v0.139.0
 [0.138.0]: https://github.com/earthobservations/wetterdienst/compare/v0.137.0...v0.138.0
 [0.137.0]: https://github.com/earthobservations/wetterdienst/compare/v0.136.0...v0.137.0
 [0.136.0]: https://github.com/earthobservations/wetterdienst/compare/v0.135.0...v0.136.0
