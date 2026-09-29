@@ -114,6 +114,19 @@ def _reader_missing_on_the_server(e: BufrReaderMissingError, what: str) -> HTTPE
     )
 
 
+# each output format by its media type; the rest are JSON. `image/{format}` named no registered type
+# for jpg or svg, and the stripes image sent `image/pdf` for a PDF (GH-2063)
+_MEDIA_TYPES = {
+    "csv": "text/csv",
+    "html": "text/html",
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "webp": "image/webp",
+    "svg": "image/svg+xml",
+    "pdf": "application/pdf",
+}
+
+
 @app.get("/")
 def index() -> HTMLResponse:
     """Provide index page."""
@@ -487,16 +500,7 @@ def stations(
 
     content = stations_.to_format(**kwargs)
 
-    if request.format == "csv":
-        media_type = "text/csv"
-    elif request.format == "html":
-        media_type = "text/html"
-    elif request.format in ("png", "jpg", "webp", "svg"):
-        media_type = f"image/{request.format}"
-    elif request.format == "pdf":
-        media_type = "application/pdf"
-    else:
-        media_type = "application/json"
+    media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
     return Response(content=content, media_type=media_type)
 
@@ -587,16 +591,7 @@ def values(
 
     content = values_.to_format(**kwargs)
 
-    if request.format == "csv":
-        media_type = "text/csv"
-    elif request.format == "html":
-        media_type = "text/html"
-    elif request.format in ("png", "jpg", "webp", "svg"):
-        media_type = f"image/{request.format}"
-    elif request.format == "pdf":
-        media_type = "application/pdf"
-    else:
-        media_type = "application/json"
+    media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
     return Response(content=content, media_type=media_type)
 
@@ -743,16 +738,7 @@ def interpolate(
 
     content = values_.to_format(**kwargs)
 
-    if request.format == "csv":
-        media_type = "text/csv"
-    elif request.format == "html":
-        media_type = "text/html"
-    elif request.format in ("png", "jpg", "webp", "svg"):
-        media_type = f"image/{request.format}"
-    elif request.format == "pdf":
-        media_type = "application/pdf"
-    else:
-        media_type = "application/json"
+    media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
     return Response(content=content, media_type=media_type)
 
@@ -809,16 +795,7 @@ def summarize(
 
     content = values_.to_format(**kwargs)
 
-    if request.format == "csv":
-        media_type = "text/csv"
-    elif request.format == "html":
-        media_type = "text/html"
-    elif request.format in ("png", "jpg", "webp", "svg"):
-        media_type = f"image/{request.format}"
-    elif request.format == "pdf":
-        media_type = "application/pdf"
-    else:
-        media_type = "application/json"
+    media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
     return Response(content=content, media_type=media_type)
 
@@ -895,8 +872,10 @@ def stripes_image(
     except Exception as e:
         log.exception("Failed to plot stripes")
         raise HTTPException(status_code=400, detail=str(e)) from e
-    media_type = f"image/{request.format}"
-    return Response(content=fig.to_image(request.format, scale=request.dpi / 100), media_type=media_type)
+    return Response(
+        content=fig.to_image(request.format, scale=request.dpi / 100),
+        media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
+    )
 
 
 @app.get("/api/history")

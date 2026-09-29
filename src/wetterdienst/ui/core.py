@@ -1215,7 +1215,8 @@ class StripesRequest(BaseModel):
         str | None,
         Field(description="Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."),
     ] = None
-    name_threshold: _NameThresholdField = 0.9
+    # as for stations and values, and the CLI's --name_threshold
+    name_threshold: _NameThresholdField = 0.8
     start_year: Annotated[int | None, Field(description="First year. Default: the station's first.")] = None
     end_year: Annotated[
         int | None,
@@ -1297,7 +1298,8 @@ CLIMATE_STRIPES_CONFIG: StripesConfig = {
     },
     "precipitation": {
         "request": _get_stripes_precipitation_request,
-        "color_map": "BrBG",
+        # reversed, as `value_scaled` puts the wettest year at 0: brown for dry, teal for wet (GH-2063)
+        "color_map": "BrBG_r",
     },
 }
 
@@ -1339,21 +1341,39 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     df = df.set_sorted("timestamp")
     df = df.select("timestamp", "value")
     df = df.upsample("timestamp", every="1y")
-    df = df.with_columns(
-        (1 - (pl.col("value") - pl.col("value").min()) / (pl.col("value").max() - pl.col("value").min())).alias(
-            "value_scaled",
-        ),
-        pl.when(pl.col("value").is_not_null()).then(-0.02).otherwise(None).alias("availability"),
-    )
-
-    if start_year:
+    recorded = df.filter(pl.col("value").is_not_null()).get_column("timestamp").dt.year()
+    if start_year is not None:
         df = df.filter(pl.col("timestamp").dt.year().ge(start_year))
-    if end_year:
+    if end_year is not None:
         df = df.filter(pl.col("timestamp").dt.year().le(end_year))
 
-    if len(df) == 1:
-        msg = "At least two years are required to create warming stripes."
+    # a range holding no year with data drew empty stripes, and one holding a single year stripes of
+    # one colour
+    years_with_data = df.filter(pl.col("value").is_not_null()).get_column("timestamp")
+    if len(years_with_data) < 2:
+        record = f"from {recorded.min()} to {recorded.max()}" if len(recorded) else "for no year"
+        msg = (
+            f"At least two years with data are required to create climate stripes; station "
+            f"{station['station_id']} has data {record}"
+        )
         raise ValueError(msg)
+    # from the first year with data to the last: a start or end year falling in a gap of the record
+    # would otherwise label the stripes with a year none of them shows
+    df = df.filter(pl.col("timestamp").is_between(years_with_data.min(), years_with_data.max()))
+
+    # scaled over the years asked for, so they span the whole colour map rather than the part the
+    # station's whole record would leave them; 0 is the highest value, 1 the lowest. Years all of one
+    # value take the middle of the map rather than dividing by a range of zero
+    value, lowest, highest = pl.col("value"), pl.col("value").min(), pl.col("value").max()
+    df = df.with_columns(
+        pl.when(value.is_null())
+        .then(None)
+        .when(highest == lowest)
+        .then(0.5)
+        .otherwise(1 - (value - lowest) / (highest - lowest))
+        .alias("value_scaled"),
+        pl.when(value.is_not_null()).then(-0.02).otherwise(None).alias("availability"),
+    )
 
     resolution = "annual"
     if kind == "temperature":

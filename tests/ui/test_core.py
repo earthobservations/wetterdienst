@@ -2,8 +2,11 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the request models the CLI, REST API and MCP share."""
 
+import datetime as dt
+from types import SimpleNamespace
 from typing import Any
 
+import polars as pl
 import pytest
 from pydantic import ValidationError
 
@@ -16,6 +19,7 @@ from wetterdienst.ui.core import (
     StripesValuesRequest,
     SummaryRequest,
     ValuesRequest,
+    _get_stripes_data,
     get_interpolate,
     get_summarize,
 )
@@ -251,6 +255,105 @@ def test_stripes_selection(
         model.model_validate(values)
         return
     assert _errors(model, values) == errors
+
+
+def _stripes_of(monkeypatch: pytest.MonkeyPatch, values: dict[int, float | None]) -> None:
+    """Serve these annual values, by year, as the one station any stripes request finds."""
+    frame = pl.DataFrame(
+        {
+            "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.timezone.utc) for year in values],
+            "value": list(values.values()),
+        },
+        schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
+    )
+    stations = SimpleNamespace(
+        to_dict=lambda: {"stations": [{"station_id": "01048", "name": "Dresden-Klotzsche"}]},
+        values=SimpleNamespace(all=lambda: SimpleNamespace(df=frame)),
+    )
+    request = SimpleNamespace(filter_by_station_id=lambda _station: stations)
+    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period: request)
+
+
+def test_stripes_are_scaled_over_the_years_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the colours span the requested years, not the station's whole record (GH-2063).
+
+    Scaled over 2000 to 2009 they left 2003 to 2005 in the middle of the colour map, a third of it
+    between them, and `value_scaled` went nowhere near 0 or 1 over the years returned.
+    """
+    _stripes_of(monkeypatch, {year: float(year - 1999) for year in range(2000, 2010)})
+    request = StripesValuesRequest(kind="temperature", station="01048", start_year=2003, end_year=2005)
+    df = _get_stripes_data(request).df
+    assert df.get_column("timestamp").dt.year().to_list() == [2003, 2004, 2005]
+    assert df.get_column("value_scaled").to_list() == [1.0, 0.5, 0.0]
+
+
+@pytest.mark.parametrize(
+    ("values", "years"),
+    [
+        # no year of the station's record in the range: empty stripes, answered as valid
+        ({2000: 1.0, 2001: 2.0}, (2090, 2095)),
+        # one year with data, the rest missing: stripes of a single colour
+        ({2000: 1.0, 2001: None, 2002: None}, (2000, 2002)),
+    ],
+)
+def test_stripes_need_two_years_with_data(
+    monkeypatch: pytest.MonkeyPatch,
+    values: dict[int, float | None],
+    years: tuple[int, int],
+) -> None:
+    """Test a range holding fewer than two years with data is refused, not drawn (GH-2063)."""
+    _stripes_of(monkeypatch, values)
+    request = StripesValuesRequest(kind="temperature", station="01048", start_year=years[0], end_year=years[1])
+    with pytest.raises(
+        ValueError,
+        match="At least two years with data are required to create climate stripes; station 01048 has data from 2000",
+    ):
+        _get_stripes_data(request)
+
+
+def test_stripes_of_one_value_take_the_middle_of_the_map(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test years all of one value are scaled to 0.5, not divided by a range of zero into NaN."""
+    _stripes_of(monkeypatch, {2019: 700.0, 2020: 700.0})
+    df = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048")).df
+    assert df.get_column("value_scaled").to_list() == [0.5, 0.5]
+
+
+def test_stripes_start_and_end_at_a_year_with_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a start or end year in a gap of the record does not label the stripes with a year without data.
+
+    A start year of 1991 in a record with no data from 1991 to 1994 kept four empty years in front of
+    the first stripe, and the image was labelled 1991.
+    """
+    _stripes_of(monkeypatch, {1990: 1.0, 1991: None, 1992: None, 1993: None, 1994: None, 1995: 2.0, 1996: 3.0})
+    request = StripesValuesRequest(kind="temperature", station="01048", start_year=1991, end_year=1999)
+    df = _get_stripes_data(request).df
+    assert df.get_column("timestamp").dt.year().to_list() == [1995, 1996]
+
+
+@pytest.mark.parametrize(
+    ("kind", "highest", "lowest"),
+    [
+        # warm is red, cool is blue
+        ("temperature", "rgb(103,0,31)", "rgb(5,48,97)"),
+        # wet is teal, dry is brown: reversed, the wettest year took brown (GH-2063)
+        ("precipitation", "rgb(0,60,48)", "rgb(84,48,5)"),
+    ],
+)
+def test_stripes_colour_the_highest_and_lowest_years_as_their_kind_reads(kind: str, highest: str, lowest: str) -> None:
+    """Test the colour map puts each kind's highest year, scaled to 0, and its lowest, scaled to 1, at the right end."""
+    # plotly is the `plotting` extra, which a stripes image needs and a stripes request does not
+    colors = pytest.importorskip("plotly.colors")
+    colours = colors.get_colorscale(core.CLIMATE_STRIPES_CONFIG[kind]["color_map"])
+    assert (colours[0][1], colours[-1][1]) == (highest, lowest)
+
+
+def test_stripes_match_a_name_as_stations_and_values_do() -> None:
+    """Test climate stripes default to the name threshold of the other requests and the CLI (GH-2063)."""
+    assert StripesValuesRequest(kind="temperature", name="Dresden").name_threshold == 0.8
+    assert (
+        StripesValuesRequest.model_fields["name_threshold"].default
+        == StationsRequest.model_fields["name_threshold"].default
+    )
 
 
 class _Recorder:
