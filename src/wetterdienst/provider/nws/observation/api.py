@@ -80,7 +80,7 @@ NwsObservationMetadata = {
                             "unit": "pascal",
                         },
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "visibility",
                             "unit": "meter",
                         },

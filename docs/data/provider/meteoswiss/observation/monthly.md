@@ -42,5 +42,5 @@
 | {term}`temperature_soil_mean_0_05m`       | tso005m0      | Soil temperature at 5 cm depth; monthly mean                    | degree_celsius        |
 | {term}`temperature_soil_mean_0_1m`        | tso010m0      | Soil temperature at 10 cm depth; monthly mean                   | degree_celsius        |
 | {term}`temperature_soil_mean_0_2m`        | tso020m0      | Soil temperature at 20 cm depth; monthly mean                   | degree_celsius        |
-| {term}`humidity_relative`                          | ure200m0      | Relative air humidity 2 m above ground; monthly mean            | percent               |
+| {term}`humidity_relative`                 | ure200m0      | Relative air humidity 2 m above ground; monthly mean            | percent               |
 

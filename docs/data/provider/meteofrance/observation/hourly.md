@@ -53,6 +53,6 @@
 | {term}`pressure_air_sea_level` | PMER | Sea level pressure, only for stations at an altitude of 750 m or less. | hectopascal |
 | {term}`pressure_air_site` | PSTAT | Station pressure. | hectopascal |
 | {term}`cloud_cover_total` | N | Total cloud amount, in octas. 9 means the sky was invisible through fog or another weather phenomenon. | one_eighth |
-| {term}`visibility_range` | VV | Visibility. | meter |
+| {term}`visibility` | VV | Visibility. | meter |
 | {term}`radiation_global` | GLO | Hourly global radiation, in UTC hours. | joule_per_square_centimeter |
 | {term}`sunshine_duration` | INS | Hourly sunshine duration, in UTC hours. | minute |

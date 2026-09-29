@@ -41,7 +41,7 @@
 | {term}`wind_direction` | wind_direction | Wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. | ° |
 | {term}`wind_speed` | wind_speed | Wind speed, knots. | kn |
 | {term}`wind_gust_max` | q10mnt_mxgst_spd | Maximum gust speed over 10 minutes, knots. | kn |
-| {term}`visibility_range` | visibility | Visibility, decametres. | m |
+| {term}`visibility` | visibility | Visibility, decametres. | m |
 | {term}`pressure_air_sea_level` | msl_pressure | Mean sea level air pressure, to the nearest 0.1 hPa. | hPa |
 | {term}`pressure_air_site` | stn_pres | Station air pressure, as measured at station level. No correction for altitude is applied. | hPa |
 | {term}`temperature_air_mean_2m` | air_temperature | Air temperature, to the nearest 0.1 deg C. | °C |

@@ -83,7 +83,7 @@ CLOUD_COVER_PARAMETERS = {
 CODED_STRING_PARAMETERS = {
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_measurement_method.name_original,
     DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
-    DwdObservationMetadata.hourly.visibility.visibility_range_measurement_method.name_original,
+    DwdObservationMetadata.hourly.visibility.visibility_measurement_method.name_original,
 }
 
 

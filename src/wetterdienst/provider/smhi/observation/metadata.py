@@ -52,7 +52,7 @@ SmhiObservationMetadata = {
                             "unit": "meter",
                         },
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "51",
                             "unit": "meter",
                         },
@@ -132,7 +132,7 @@ SmhiObservationMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "12",
                             "unit": "meter",
                         },

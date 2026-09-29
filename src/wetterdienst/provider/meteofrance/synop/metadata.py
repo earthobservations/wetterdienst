@@ -68,7 +68,7 @@ MeteoFranceSynopMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "vv",
                             "unit": "meter",
                         },

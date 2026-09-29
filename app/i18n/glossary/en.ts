@@ -68,9 +68,9 @@ export const parameters: Record<string, string> = {
   cloud_cover_total: 'Total cloud cover',
   cloud_cover_total_measurement_method: 'Cloud cover, how measured',
   cloud_height_layer1: 'Cloud base height (1st layer)',
-  visibility_range: 'Visibility',
-  visibility_range_index: 'Visibility class',
-  visibility_range_measurement_method: 'Visibility, how measured',
+  visibility: 'Visibility',
+  visibility_index: 'Visibility class',
+  visibility_measurement_method: 'Visibility, how measured',
 
   // Other
   soil_state_index: 'Ground state',

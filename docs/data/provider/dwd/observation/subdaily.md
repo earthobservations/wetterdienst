@@ -103,7 +103,7 @@
 | name                            | original name | description          | unit | constraints |
 |---------------------------------|---------------|----------------------|------|-------------|
 | {term}`temperature_air_mean_2m` | tt_ter        | 2m air temperature   | °C   |             |
-| {term}`humidity_relative`                | rf_ter        | 2m relative humidity | %    | >=0,<=100   |
+| {term}`humidity_relative`       | rf_ter        | 2m relative humidity | %    | >=0,<=100   |
 
 ### visibility
 
@@ -120,7 +120,7 @@
 
 | name                     | original name | description      | unit | constraints |
 |--------------------------|---------------|------------------|------|-------------|
-| {term}`visibility_range_index` | vk_ter | Coded visibility class. | - | >=0 |
+| {term}`visibility_index` | vk_ter | Coded visibility class. | - | >=0 |
 
 ### wind
 

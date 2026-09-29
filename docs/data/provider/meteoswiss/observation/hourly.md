@@ -44,6 +44,6 @@
 | {term}`temperature_soil_mean_0_05m`                | tso005hs      | Soil temperature at 5 cm depth; hourly current value           | degree_celsius        |
 | {term}`temperature_soil_mean_0_1m`                 | tso010hs      | Soil temperature at 10 cm depth; hourly current value          | degree_celsius        |
 | {term}`temperature_soil_mean_0_2m`                 | tso020hs      | Soil temperature at 20 cm depth; hourly current value          | degree_celsius        |
-| {term}`humidity_relative`                                   | ure200h0      | Relative air humidity 2 m above ground; hourly mean            | percent               |
+| {term}`humidity_relative`                          | ure200h0      | Relative air humidity 2 m above ground; hourly mean            | percent               |
 | {term}`temperature_dew_point_mean_2m`              | tde200h0      | Dew point 2 m above ground; hourly mean                        | degree_celsius        |
 

@@ -205,7 +205,7 @@ DwdPoiMetadata = {
                             **_TEMPERATURE,
                         },
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "horizontal_visibility",
                             "unit": "kilometer",
                         },

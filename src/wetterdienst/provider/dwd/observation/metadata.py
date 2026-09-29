@@ -827,12 +827,12 @@ DwdObservationMetadata = {
                         {
                             # v_vv_i is DWD's "visibility index, noting how the measurement is
                             # taken", a method indicator rather than a coded visibility
-                            "name": "visibility_range_measurement_method",
+                            "name": "visibility_measurement_method",
                             "name_original": "v_vv_i",
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "v_vv",
                             "unit": "meter",
                         },
@@ -1177,7 +1177,7 @@ DwdObservationMetadata = {
                         {
                             # "Terminwerte Sichtweite", unit CODE -- a visibility class, not a
                             # distance. Declared as metres it read "5 metres" for class 5.
-                            "name": "visibility_range_index",
+                            "name": "visibility_index",
                             "name_original": "vk_ter",
                             "unit": "dimensionless",
                         },

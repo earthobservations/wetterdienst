@@ -84,7 +84,7 @@ FmiObservationMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "visibility_range",
+                            "name": "visibility",
                             "name_original": "vis",
                             "unit": "meter",
                         },

@@ -1564,7 +1564,7 @@ def test_dwd_observation_data_1minute_precipitation_data_tidy(default_settings: 
 @pytest.mark.parametrize(
     ("dataset", "parameter"),
     [
-        ("visibility", "visibility_range_measurement_method"),
+        ("visibility", "visibility_measurement_method"),
         ("cloudiness", "cloud_cover_total_measurement_method"),
         ("cloud_type", "cloud_cover_total_measurement_method"),
     ],
