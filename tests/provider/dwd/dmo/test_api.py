@@ -11,7 +11,7 @@ import pytest
 
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
-from wetterdienst.provider.dwd.dmo.api import add_date_from_filename
+from wetterdienst.provider.dwd.dmo.api import _ELEVATION_IN_FEET, _placemark_row, add_date_from_filename
 
 
 @pytest.fixture
@@ -65,34 +65,44 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
     stations = DwdDmoRequest(parameters=[("hourly", "icon")], settings=default_settings)
     given_df = stations.all().df
     assert not given_df.is_empty()
-    assert given_df.select(pl.all().max()).to_dicts()[0] == {
+    # named stations rather than each column's maximum and minimum across the network, which any
+    # station a new run adds can move: the 137 `F9` stations of 2026-09-28 made the highest one
+    # 6296 m, and a run without Y0353 MONT BLANC had made it 4670 m the day before (GH-2017)
+    rows = {
+        row["station_id"]: row for row in given_df.filter(pl.col("station_id").is_in(["10637", "Y0353"])).to_dicts()
+    }
+    # from the catalogue, which alone gives an ICAO id
+    assert rows["10637"] == {
         "resolution": "hourly",
         "dataset": "icon",
-        "station_id": "Z949",
-        "icao_id": "ZYTX",
+        "station_id": "10637",
+        "icao_id": "EDDF",
         "start_date": None,
         "end_date": None,
-        "latitude": 79.98,
-        "longitude": 179.33,
-        # Y0353 MONT BLANC, and Y0342 "ÄGYPT. WÜSTE" whose leading Ä sorts past Z -- both stations
-        # the shared catalogue omits, described from the run instead (GH-1966)
+        "latitude": 50.05,
+        "longitude": 8.6,
+        "elevation": 111.0,
+        "name": "FRANKFURT/M",
+        "region": None,
+    }
+    # one the catalogue omits, described from the run's placemark instead (GH-1966)
+    assert rows["Y0353"] == {
+        "resolution": "hourly",
+        "dataset": "icon",
+        "station_id": "Y0353",
+        "icao_id": None,
+        "start_date": None,
+        "end_date": None,
+        "latitude": 45.82,
+        "longitude": 6.85,
         "elevation": 4806.0,
-        "name": "ÄGYPT. WÜSTE",
+        "name": "MONT BLANC",
         "region": None,
     }
-    assert given_df.select(pl.all().min()).to_dicts()[0] == {
-        "resolution": "hourly",
-        "dataset": "icon",
-        "station_id": "01001",
-        "icao_id": "AFDU",
-        "start_date": None,
-        "end_date": None,
-        "latitude": -78.45,
-        "longitude": -176.17,
-        "elevation": -350.0,
-        "name": "16N55W",
-        "region": None,
-    }
+    # its placemark gives 6296.0, the airport's 1919 m in feet; in metres whether converted here or
+    # corrected by DWD, which may round it otherwise (GH-2017)
+    queretaro = given_df.filter(pl.col("station_id") == "F9051").get_column("elevation").item()
+    assert 1900 < queretaro < 1940
     # by length and then by name: 248 stations share the longest name length, so sorting by length
     # alone leaves the ends of this list to whatever order the frame happened to be built in --
     # which is how appending the station patches used to decide it
@@ -1251,3 +1261,42 @@ def test_dmo_declares_the_elements_its_runs_carry(
     assert served_anywhere - declared == without_a_canonical_name, (
         f"{dataset} serves elements it does not declare: {sorted(served_anywhere - declared)}"
     )
+
+
+@pytest.mark.parametrize(
+    ("station_id", "coordinates", "elevation"),
+    [
+        # the airport is at 1919 m; the placemark gives 6296 ft
+        ("F9051", "-100.18,20.62,6296.0", "1919.0"),
+        ("F9051", "-100.18,20.62,6296", "1919.0"),
+        ("F9094", "141.37,40.70,119.0", "36.3"),
+        # DWD giving another value for a listed station has corrected it; converting would divide the
+        # corrected value a second time
+        ("F9051", "-100.18,20.62,1919.0", "1919.0"),
+        # a station not listed keeps its value, however high: F9001 FELIPE ANGELES INT is in metres
+        ("F9001", "-99.0,19.75,2246.0", "2246.0"),
+        ("Y0353", "6.85,45.82,4806.0", "4806.0"),
+        # nothing to convert: a placemark without an elevation, or one that is not a number
+        ("F9051", "-100.18,20.62", None),
+        ("F9051", "-100.18,20.62,n/a", "n/a"),
+    ],
+)
+def test_dmo_a_placemark_elevation_in_feet_is_read_in_metres(
+    station_id: str,
+    coordinates: str,
+    elevation: str | None,
+) -> None:
+    """Test the placemarks GH-2017 found giving feet are read in metres, and only while they do."""
+    row = _placemark_row(station_id, "NAME", coordinates)
+    assert row is not None
+    assert row["elevation"] == elevation
+
+
+def test_dmo_the_feet_table_lists_only_f9_stations_in_order() -> None:
+    """Test the table of elevations in feet names the F9 stations GH-2017 found, each once, sorted.
+
+    Sorted, so a station added from a later cross-match lands where a reader looks for it.
+    """
+    assert len(_ELEVATION_IN_FEET) == 32
+    assert all(station_id.startswith("F9") for station_id in _ELEVATION_IN_FEET)
+    assert list(_ELEVATION_IN_FEET) == sorted(_ELEVATION_IN_FEET)

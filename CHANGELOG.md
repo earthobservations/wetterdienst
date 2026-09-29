@@ -36,6 +36,10 @@ Types of changes:
 
 ### Fixed
 
+- DWD DMO returns in metres the elevation of 32 `F9` stations whose run gives it in feet:
+  `F9051` QUERETARO/GUTIERREZ is at 1919 m, not 6296 m. DWD describes these stations only in its
+  runs; each is converted while DWD publishes the known value in feet, and no longer once it
+  corrects it (GH-2017)
 - `interpolate` and `summarize` estimate for a point on the equator or the prime meridian. A
   latitude or longitude of 0 was taken for no point at all, and the request failed with "Either
   latitude and longitude or station must be provided" (GH-2056)

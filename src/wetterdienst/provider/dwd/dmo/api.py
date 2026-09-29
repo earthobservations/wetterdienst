@@ -172,6 +172,58 @@ _PLACEMARK_COLUMNS = {
 }
 
 
+# Run-only stations whose placemark gives the elevation in feet, each with the exact value it gives
+# (GH-2017). DWD's `F9` stations are described by nothing but the run, and 32 of them carry a third
+# coordinate 3.1 to 3.5 times the elevation NOAA's isd-history.csv gives for the same airport:
+# `F9051` QUERETARO/GUTIERREZ says 6296.0 for an airport at 1919 m, which is 6296 ft. Each is
+# converted only while DWD publishes exactly the value recorded here, so the correction stops by
+# itself when DWD fixes its data, rather than dividing a corrected value a second time.
+_ELEVATION_IN_FEET = {
+    "F9023": 254.0,
+    "F9032": 354.0,
+    "F9034": 1893.0,
+    "F9036": 1575.0,
+    "F9040": 504.0,
+    "F9041": 3671.0,
+    "F9042": 799.0,
+    "F9044": 1910.0,
+    "F9047": 6112.0,
+    "F9048": 6100.0,
+    "F9049": 627.0,
+    "F9051": 6296.0,
+    "F9052": 374.0,
+    "F9056": 126.0,
+    "F9060": 215.0,
+    "F9064": 176.0,
+    "F9067": 384.0,
+    "F9069": 505.0,
+    "F9072": 135.0,
+    "F9073": 230.0,
+    "F9076": 203.0,
+    "F9079": 292.0,
+    "F9084": 439.0,
+    "F9086": 718.0,
+    "F9091": 175.0,
+    "F9093": 152.0,
+    "F9094": 119.0,
+    "F9096": 292.0,
+    "F9101": 150.0,
+    "F9103": 256.0,
+    "F9106": 656.0,
+    "F9108": 1961.0,
+}
+_METRES_PER_FOOT = 0.3048
+
+
+def _elevation_in_metres(station_id: str, elevation: str) -> str:
+    """Return a placemark's elevation in metres, converting the values GH-2017 found in feet."""
+    try:
+        in_feet = float(elevation) == _ELEVATION_IN_FEET.get(station_id)
+    except ValueError:
+        return elevation
+    return str(round(float(elevation) * _METRES_PER_FOOT, 1)) if in_feet else elevation
+
+
 def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
     """Read station id, name and position from the placemarks of one DMO run.
 
@@ -235,7 +287,7 @@ def _placemark_row(station_id: str | None, name: str | None, coordinates: str | 
         "name": (name or "").strip() or None,
         **position,
         # left a string, as the catalogue's is: the base request casts it
-        "elevation": elevation or None,
+        "elevation": _elevation_in_metres(station_id, elevation) if elevation else None,
     }
 
 
