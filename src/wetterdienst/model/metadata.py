@@ -17,6 +17,7 @@ from pydantic_extra_types.timezone_name import (
 
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.period import Period  # noqa: TC001, needs to stay here for pydantic model to work
+from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
 from wetterdienst.metadata.resolution import Resolution  # noqa: TC001, needs to stay here for pydantic model to work
 
 if TYPE_CHECKING:
@@ -74,12 +75,18 @@ def _not_found(kind: str, item: str, models: Iterable[_NamedModel]) -> str:
 
     Names a close match where there is one, because the common failure is a typo or a name taken
     from another provider, and the available-names list alone leaves the user to spot the
-    difference themselves.
+    difference themselves. A parameter renamed for 1.0 is answered with its new name instead of a
+    guess, where this dataset has it.
     """
     models = list(models)
     candidates = sorted({name for model in models for name in _names(model)})
+    renamed = RENAMED_PARAMETERS.get(str(item).strip().lower()) if kind == "parameters" else None
     close = difflib.get_close_matches(str(item).strip().lower(), candidates, n=1, cutoff=_SUGGESTION_CUTOFF)
-    suggestion = f" Did you mean '{close[0]}'?" if close else ""
+    if renamed in candidates:
+        # a name this dataset had, renamed for 1.0: say so rather than guess at a near spelling
+        suggestion = f" It was renamed to '{renamed}'."
+    else:
+        suggestion = f" Did you mean '{close[0]}'?" if close else ""
     available = ", ".join(
         f"{model.name}/{model.name_original}" if model.name != model.name_original else model.name for model in models
     )

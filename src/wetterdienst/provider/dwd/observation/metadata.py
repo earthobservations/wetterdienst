@@ -1502,7 +1502,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_weather_type_ripe",
+                            "name": "count_weather_type_hoar_frost",
                             "name_original": "reif",
                             "unit": "dimensionless",
                         },

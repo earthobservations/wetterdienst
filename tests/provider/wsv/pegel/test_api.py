@@ -80,7 +80,7 @@ def test_wsv_wave_height_comes_back_in_centimetres() -> None:
     centimetres read as metres, which would put that station's median in the thousands. No sea state
     moves a median across either.
     """
-    request = WsvPegelRequest(parameters=[("1_minute", "data", "wave_height_sign")])
+    request = WsvPegelRequest(parameters=[("1_minute", "data", "wave_height_significant")])
     df = request.all().values.all().df.drop_nulls("value")
     assert not df.is_empty(), "no wave height data at any station"
     # every station offering the parameter, so a station added or dropped upstream is covered
@@ -149,13 +149,13 @@ def test_wsv_multiple_parameters_with_missing_data() -> None:
     width 0`.
     """
     request = WsvPegelRequest(
-        parameters=[("1_minute", "data", p) for p in ("wave_period", "flow_direction", "wave_height_sign")],
+        parameters=[("1_minute", "data", p) for p in ("wave_period", "flow_direction", "wave_height_significant")],
     )
     df = request.filter_by_station_id("9460041").values.all().df
     # flow_direction has no data at this station while the other two do, which is the whole point:
     # the empty one must not take the populated ones down with it
     assert not df.is_empty()
-    assert "wave_height_sign" in df.get_column("parameter").unique().to_list()
+    assert "wave_height_significant" in df.get_column("parameter").unique().to_list()
 
 
 def test_wsv_timeseries_meta_is_not_cached_when_the_listing_is_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:

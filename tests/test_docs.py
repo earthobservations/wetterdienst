@@ -1135,7 +1135,7 @@ def test_docs_parameter_tables_list_their_rows_in_declaration_order() -> None:
 
     The 41 were three habits and nine one-offs, which is why they could be fixed in one change rather
     than argued table by table: 25 put `quality` last where every dataset declares it first, five
-    `wsv/pegel` tables opened with `chlorid_concentration` ahead of `stage`, two `geosphere` ones
+    `wsv/pegel` tables opened with `chlorid_concentration` (as it was then) ahead of `stage`, two `geosphere` ones
     inverted `pressure_air_site` and `pressure_air_sea_level`, and ten of the 41 were simply
     alphabetical. Only the row order changed -- every cell of every row kept its own text (GH-1980).
     """

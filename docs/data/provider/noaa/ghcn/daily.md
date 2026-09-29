@@ -192,7 +192,7 @@
 | {term}`wind_direction_gust_max`                            | wdfg          | Direction of peak wind gust (degrees)                                                                                           | °    | >=0,<=360   |
 | {term}`wind_direction_gust_max_instant`                    | wdfi          | Direction of highest instantaneous wind (degrees)                                                                               | °    | >=0,<=360   |
 | {term}`wind_direction_gust_max_1mile` | wdfm | Fastest mile wind direction (degrees) | ° | >=0,<=360 |
-| {term}`wind_movement_24h`                                  | wdmv          | 24-hour wind movement (km or miles as per user preference, miles on Daily Form pdf file)                                        | km   | >=0         |
+| {term}`wind_movement`                                  | wdmv          | 24-hour wind movement (km or miles as per user preference, miles on Daily Form pdf file)                                        | km   | >=0         |
 | {term}`water_equivalent_snow_depth`                        | wesd          | Water equivalent of snow on the ground (inches or mm as per user preference)                                                    | mm   | >=0         |
 | {term}`water_equivalent_snow_depth_new`                    | wesf          | Water equivalent of snowfall (inches or mm as per user preference)                                                              | mm   | >=0         |
 | {term}`wind_gust_max_5sec`                                 | wsf5          | Fastest 5-second wind speed (miles per hour or  meters per second as per user preference)                                       | m/s  | >=0         |

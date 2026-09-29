@@ -373,7 +373,7 @@ MeteoswissObservationMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "evapotranspiration_potential_gras_fao_last_24h",
+                            "name": "evapotranspiration_potential_grass_fao_last_24h",
                             "name_original": "erefaod0",
                             "unit": "millimeter",
                         },

@@ -965,6 +965,43 @@ def test_filter_by_sql_names_a_renamed_wide_quality_column() -> None:
         ExportMixin(df=df).filter_by_sql("qn_wind_speed = 10")
 
 
+@pytest.mark.sql
+def test_filter_by_sql_names_a_renamed_parameter_column() -> None:
+    """A wide frame's column after a renamed parameter, and its quality column, name the new ones (GH-2032)."""
+    import duckdb  # noqa: PLC0415
+
+    df = pl.DataFrame({"wave_height_significant": [1.5], "wave_height_significant_quality": [10.0]})
+    for old in ("wave_height_sign", "wave_height_sign_quality", "qn_wave_height_sign"):
+        new = "wave_height_significant" if old == "wave_height_sign" else "wave_height_significant_quality"
+        with pytest.raises(duckdb.BinderException, match=f'column "{old}" was renamed to "{new}"'):
+            ExportMixin(df=df).filter_by_sql(f"{old} > 1")
+    # several datasets prefix each column with its dataset, and the rename follows the parameter
+    df = pl.DataFrame({"soil_thawing_thickness_bare_ground": [3.0]})
+    with pytest.raises(
+        duckdb.BinderException,
+        match='column "soil_thawing_thickness_bare" was renamed to "soil_thawing_thickness_bare_ground"',
+    ):
+        ExportMixin(df=df).filter_by_sql("soil_thawing_thickness_bare > 1")
+
+
+@pytest.mark.sql
+def test_filter_by_sql_keeps_duckdbs_error_for_a_column_that_was_not_renamed() -> None:
+    """A column the frame has, missing only where the query looks for it, gets DuckDB's own error.
+
+    So does a name that only looks renamed: a current parameter ending in a renamed name's
+    successor is no dataset prefix, so its `_24h` variant was never a column of any frame.
+    """
+    import duckdb  # noqa: PLC0415
+
+    df = pl.DataFrame({"station_id": ["01048"], "value": [1.0]})
+    with pytest.raises(duckdb.BinderException, match='Referenced column "value" not found') as error:
+        ExportMixin(df=df).filter_by_sql("true UNION ALL SELECT * FROM (SELECT 'b' s) WHERE value > 0")
+    assert "renamed" not in str(error.value)
+    df = pl.DataFrame({"count_days_multiday_wind_movement": [2.0]})
+    with pytest.raises(duckdb.BinderException, match='Referenced column "count_days_multiday_wind_movement_24h"'):
+        ExportMixin(df=df).filter_by_sql("count_days_multiday_wind_movement_24h > 0")
+
+
 @pytest.mark.parametrize("extension", ["csv", "json", "jsonl", "xlsx", "parquet", "feather"])
 def test_export_file_targets_take_a_stations_frame(
     df_stations: pl.DataFrame,

@@ -34,7 +34,7 @@ DwdDmoMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "cloud_cover_between_2km_to_7km",
+                            "name": "cloud_cover_between_2km_and_7km",
                             "name_original": "nm",
                             "unit": "percent",
                         },
@@ -136,7 +136,7 @@ DwdDmoMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "cloud_cover_between_2km_to_7km",
+                            "name": "cloud_cover_between_2km_and_7km",
                             "name_original": "nm",
                             "unit": "percent",
                         },

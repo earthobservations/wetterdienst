@@ -7,7 +7,7 @@ from wetterdienst.provider.dwd.metadata import _METADATA
 
 cooling_degree_hours_common_parameters = [
     {
-        "name": "number_of_hours_per_month",
+        "name": "count_hours_in_month",
         "name_original": "Anzahl Stunden",
         "unit": "dimensionless",
     },
@@ -122,12 +122,12 @@ DwdDerivedMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_loamysand_0_05m",
+                            "name": "temperature_soil_mean_loamy_sand_0_05m",
                             "name_original": "tsls05",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_loamysilt_0_05m",
+                            "name": "temperature_soil_mean_loamy_silt_0_05m",
                             "name_original": "tssl05",
                             "unit": "degree_celsius",
                         },
@@ -137,62 +137,63 @@ DwdDerivedMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "thawing_thickness_plantstock",  # Auftauschicht am Mittag unter Bestand (BEKLIMA)
+                            "name": "thawing_thickness_plant_cover",  # Auftauschicht am Mittag unter Bestand (BEKLIMA)
                             "name_original": "ztkmi",
                             "unit": "centimeter",
                         },
                         {
-                            "name": "thawing_thickness_bare",  # Auftauschicht am Mittag unter unbewachsenem Boden
+                            # Auftauschicht am Mittag unter unbewachsenem Boden
+                            "name": "thawing_thickness_bare_ground",
                             "name_original": "ztumi",
                             "unit": "centimeter",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_00cm_10cm",  # _silt_loam
+                            "name": "soil_moisture_grass_loamy_silt_00cm_10cm",  # _silt_loam
                             "name_original": "bfgl01_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_10cm_20cm",
+                            "name": "soil_moisture_grass_loamy_silt_10cm_20cm",
                             "name_original": "bfgl02_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_20cm_30cm",
+                            "name": "soil_moisture_grass_loamy_silt_20cm_30cm",
                             "name_original": "bfgl03_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_30cm_40cm",
+                            "name": "soil_moisture_grass_loamy_silt_30cm_40cm",
                             "name_original": "bfgl04_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_40cm_50cm",
+                            "name": "soil_moisture_grass_loamy_silt_40cm_50cm",
                             "name_original": "bfgl05_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_50cm_60cm",
+                            "name": "soil_moisture_grass_loamy_silt_50cm_60cm",
                             "name_original": "bfgl06_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_sand_00cm_60cm",
+                            "name": "soil_moisture_grass_sand_00cm_60cm",
                             "name_original": "bfgs_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_00cm_60cm",
+                            "name": "soil_moisture_grass_loamy_silt_00cm_60cm",
                             "name_original": "bfgl_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_winterwheat_sand_00cm_60cm",
+                            "name": "soil_moisture_winter_wheat_sand_00cm_60cm",
                             "name_original": "bfws_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_winterwheat_loamysilt_00cm_60cm",
+                            "name": "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
                             "name_original": "bfwl_ag",
                             "unit": "percent",
                         },
@@ -202,37 +203,37 @@ DwdDerivedMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_corn_loamysilt_00cm_60cm",
+                            "name": "soil_moisture_corn_loamy_silt_00cm_60cm",
                             "name_original": "bfml_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "evapotranspiration_potential_gras_fao_last_24h",
+                            "name": "evapotranspiration_potential_grass_fao_last_24h",
                             "name_original": "vpgfao",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evapotranspiration_potential_gras_haude_last_24h",
+                            "name": "evapotranspiration_potential_grass_haude_last_24h",
                             "name_original": "vpgh",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_height_gras_sand",
+                            "name": "evaporation_height_grass_sand",
                             "name_original": "vrgs_ag",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_height_gras_loamysilt",
+                            "name": "evaporation_height_grass_loamy_silt",
                             "name_original": "vrgl_ag",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_height_winterwheat_sand",
+                            "name": "evaporation_height_winter_wheat_sand",
                             "name_original": "vrws_ag",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_height_winterwheat_loamysilt",
+                            "name": "evaporation_height_winter_wheat_loamy_silt",
                             "name_original": "vrwl_ag",
                             "unit": "millimeter",
                         },
@@ -242,7 +243,7 @@ DwdDerivedMetadata = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_height_corn_loamysilt",
+                            "name": "evaporation_height_corn_loamy_silt",
                             "name_original": "vrml_ag",
                             "unit": "millimeter",
                         },
@@ -262,7 +263,7 @@ DwdDerivedMetadata = {
                     "grouped": False,
                     "parameters": [
                         {
-                            "name": "number_of_days_per_month",
+                            "name": "count_days_in_month",
                             "name_original": "Anzahl Tage",
                             "unit": "dimensionless",
                         },
@@ -341,12 +342,12 @@ DwdDerivedMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_loamysand_0_05m",
+                            "name": "temperature_soil_mean_loamy_sand_0_05m",
                             "name_original": "mittel von tsls05",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_loamysilt_0_05m",
+                            "name": "temperature_soil_mean_loamy_silt_0_05m",
                             "name_original": "mittel von tssl05",
                             "unit": "degree_celsius",
                         },
@@ -356,62 +357,62 @@ DwdDerivedMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "thawing_thickness_plantstock_max_month",
+                            "name": "thawing_thickness_plant_cover_max_month",
                             "name_original": "maximum von ztkmi",
                             "unit": "centimeter",
                         },
                         {
-                            "name": "thawing_thickness_bare_max_month",
+                            "name": "thawing_thickness_bare_ground_max_month",
                             "name_original": "maximum von ztumi",
                             "unit": "centimeter",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_00cm_10cm",
+                            "name": "soil_moisture_grass_loamy_silt_00cm_10cm",
                             "name_original": "mittel von bfgl01_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_10cm_20cm",
+                            "name": "soil_moisture_grass_loamy_silt_10cm_20cm",
                             "name_original": "mittel von bfgl02_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_20cm_30cm",
+                            "name": "soil_moisture_grass_loamy_silt_20cm_30cm",
                             "name_original": "mittel von bfgl03_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_30cm_40cm",
+                            "name": "soil_moisture_grass_loamy_silt_30cm_40cm",
                             "name_original": "mittel von bfgl04_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_40cm_50cm",
+                            "name": "soil_moisture_grass_loamy_silt_40cm_50cm",
                             "name_original": "mittel von bfgl05_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_50cm_60cm",
+                            "name": "soil_moisture_grass_loamy_silt_50cm_60cm",
                             "name_original": "mittel von bfgl06_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_sand_00cm_60cm",
+                            "name": "soil_moisture_grass_sand_00cm_60cm",
                             "name_original": "mittel von bfgs_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_gras_loamysilt_00cm_60cm",
+                            "name": "soil_moisture_grass_loamy_silt_00cm_60cm",
                             "name_original": "mittel von bfgl_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_winterwheat_sand_00cm_60cm",
+                            "name": "soil_moisture_winter_wheat_sand_00cm_60cm",
                             "name_original": "mittel von bfws_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_winterwheat_loamysilt_00cm_60cm",
+                            "name": "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
                             "name_original": "mittel von bfwl_ag",
                             "unit": "percent",
                         },
@@ -421,37 +422,37 @@ DwdDerivedMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_corn_loamysilt_00cm_60cm",
+                            "name": "soil_moisture_corn_loamy_silt_00cm_60cm",
                             "name_original": "mittel von bfml_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "evapotranspiration_potential_gras_fao_last_24h",
+                            "name": "evapotranspiration_potential_grass_fao_last_24h",
                             "name_original": "summe von vpgfao",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evapotranspiration_potential_gras_haude_last_24h",
+                            "name": "evapotranspiration_potential_grass_haude_last_24h",
                             "name_original": "summe von vpgh",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_height_gras_sand",
+                            "name": "evaporation_height_grass_sand",
                             "name_original": "summe von vrgs_ag",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_height_gras_loamysilt",
+                            "name": "evaporation_height_grass_loamy_silt",
                             "name_original": "summe von vrgl_ag",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_height_winterwheat_sand",
+                            "name": "evaporation_height_winter_wheat_sand",
                             "name_original": "summe von vrws_ag",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_height_winterwheat_loamysilt",
+                            "name": "evaporation_height_winter_wheat_loamy_silt",
                             "name_original": "summe von vrwl_ag",
                             "unit": "millimeter",
                         },
@@ -461,7 +462,7 @@ DwdDerivedMetadata = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_height_corn_loamysilt",
+                            "name": "evaporation_height_corn_loamy_silt",
                             "name_original": "summe von vrml_ag",
                             "unit": "millimeter",
                         },

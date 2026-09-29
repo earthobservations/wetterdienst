@@ -25,9 +25,16 @@ Types of changes:
   most providers' regions are not; each now uses its own word for region (GH-2026)
 - `[Explorer]` Values carry `timestamp` where they carried `date`: the column is headed
   `timestamp`, and the example queries group and order by it (GH-2028)
+- `[Explorer]` A saved or shared link naming a parameter renamed for 1.0 -- `wave_height_sign`,
+  say -- drops it, and with no parameter left the page selects the whole dataset; link the new
+  name instead (GH-2032)
 
 ### Fixed
 
+- `[Glossary]` `count_weather_type_hoar_frost` -- DWD's *Reif* -- was labelled as rime, a different
+  deposit, in English ("rime"), German (*Raureif*), Low German (*Ruhreep*), Czech (*námraza*),
+  Polish (*szadź*) and Italian (*galaverna*), and ambiguously in French (*givre*). Each now names
+  hoar frost: *Reif*, *Riep*, *jíní*, *szron*, *brina*, *gelée blanche* (GH-2032)
 - `[Glossary]` The German, Low German and Luxembourgish labels for `precipitation_type_flags` said
   `Flags`, the English word, where each of those catalogs already renders a flag as `Kennung` or
   `Kennen` -- sixteen times over, in its quality entries. They now use their own word. The other
