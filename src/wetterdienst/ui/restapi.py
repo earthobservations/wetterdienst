@@ -39,6 +39,8 @@ from wetterdienst.ui.core import (
     InterpolationRequest,
     IssuesRequest,
     StationsRequest,
+    StripesImageRequest,
+    StripesValuesRequest,
     SummaryRequest,
     ValuesRequest,
     _get_stripes_data,
@@ -844,54 +846,21 @@ def stripes_stations(
 
 @app.get("/api/stripes/values")
 def stripes_values(
-    kind: Annotated[Literal["temperature", "precipitation"], Query()],
-    station: Annotated[str | None, Query()] = None,
-    name: Annotated[str | None, Query()] = None,
-    start_year: Annotated[int | None, Query()] = None,
-    end_year: Annotated[int | None, Query()] = None,
-    name_threshold: Annotated[float, Query()] = 0.9,
-    fmt: Annotated[Literal["json", "csv"], Query(alias="format")] = "json",
-    pretty: Annotated[bool, Query()] = False,  # noqa: FBT002
-    debug: Annotated[bool, Query()] = False,  # noqa: FBT002
+    request: Annotated[StripesValuesRequest, Query()],
 ) -> Response:
     """Get climate stripes data values with timestamps and metadata."""
-    set_logging_level(debug=debug)
-
-    if not station and not name:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'station' or 'name' is required",
-        )
-    if station and name:
-        raise HTTPException(
-            status_code=400,
-            detail="Query arguments 'station' and 'name' are mutually exclusive",
-        )
-    if start_year and end_year and start_year >= end_year:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'start_year' must be less than 'end_year'",
-        )
-    if name_threshold < 0 or name_threshold > 1:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'name_threshold' must be between 0.0 and 1.0",
-        )
+    set_logging_level(debug=request.debug)
 
     try:
-        stripes_data = _get_stripes_data(
-            kind=kind,
-            station_id=station,
-            name=name,
-            start_year=start_year,
-            end_year=end_year,
-            name_threshold=name_threshold,
-        )
+        stripes_data = _get_stripes_data(request)
+    except AssertionError:
+        # a request its model should have refused: our bug, which FastAPI answers as a 500
+        raise
     except Exception as e:
         log.exception("Failed to get stripes data")
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    if fmt == "csv":
+    if request.format == "csv":
         content = stripes_data.df.write_csv()
         media_type = "text/csv"
     else:
@@ -905,7 +874,7 @@ def stripes_values(
                 for row in stripes_data.df.select("timestamp", "value").iter_rows(named=True)
             ],
         }
-        content = json.dumps(data, indent=4 if pretty else None)
+        content = json.dumps(data, indent=4 if request.pretty else None)
         media_type = "application/json"
 
     return Response(content=content, media_type=media_type)
@@ -913,60 +882,21 @@ def stripes_values(
 
 @app.get("/api/stripes/image")
 def stripes_image(
-    kind: Annotated[Literal["temperature", "precipitation"], Query()],
-    station: Annotated[str | None, Query()] = None,
-    name: Annotated[str | None, Query()] = None,
-    start_year: Annotated[int | None, Query()] = None,
-    end_year: Annotated[int | None, Query()] = None,
-    name_threshold: Annotated[float, Query()] = 0.9,
-    show_title: Annotated[bool, Query()] = True,  # noqa: FBT002
-    show_years: Annotated[bool, Query()] = True,  # noqa: FBT002
-    show_data_availability: Annotated[bool, Query()] = True,  # noqa: FBT002
-    fmt: Annotated[Literal["png", "jpg", "svg", "pdf"], Query(alias="format")] = "png",
-    dpi: Annotated[int, Query(gt=0)] = 300,
-    debug: Annotated[bool, Query()] = False,  # noqa: FBT002
+    request: Annotated[StripesImageRequest, Query()],
 ) -> Response:
     """Generate climate stripes image for a station."""
-    set_logging_level(debug=debug)
-
-    if not station and not name:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'station' or 'name' is required",
-        )
-    if station and name:
-        raise HTTPException(
-            status_code=400,
-            detail="Query arguments 'station' and 'name' are mutually exclusive",
-        )
-    if start_year and end_year and start_year >= end_year:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'start_year' must be less than 'end_year'",
-        )
-    if name_threshold < 0 or name_threshold > 1:
-        raise HTTPException(
-            status_code=400,
-            detail="Query argument 'name_threshold' must be between 0.0 and 1.0",
-        )
+    set_logging_level(debug=request.debug)
 
     try:
-        fig = _plot_stripes(
-            kind=kind,
-            station_id=station,
-            name=name,
-            start_year=start_year,
-            end_year=end_year,
-            name_threshold=name_threshold,
-            show_title=show_title,
-            show_years=show_years,
-            show_data_availability=show_data_availability,
-        )
+        fig = _plot_stripes(request)
+    except AssertionError:
+        # a request its model should have refused: our bug, which FastAPI answers as a 500
+        raise
     except Exception as e:
         log.exception("Failed to plot stripes")
         raise HTTPException(status_code=400, detail=str(e)) from e
-    media_type = f"image/{fmt}"
-    return Response(content=fig.to_image(fmt, scale=dpi / 100), media_type=media_type)
+    media_type = f"image/{request.format}"
+    return Response(content=fig.to_image(request.format, scale=request.dpi / 100), media_type=media_type)
 
 
 @app.get("/api/history")

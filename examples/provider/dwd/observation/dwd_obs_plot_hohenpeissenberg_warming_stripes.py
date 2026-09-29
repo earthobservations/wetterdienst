@@ -5,7 +5,7 @@
 import os
 from pathlib import Path
 
-from wetterdienst.ui.core import _plot_stripes
+from wetterdienst.ui.core import StripesImageRequest, _plot_stripes
 
 HERE = Path(__file__).parent
 ROOT = HERE.parent
@@ -24,15 +24,18 @@ def plot_hohenpeissenberg_warming_stripes() -> None:
 
     Source: https://matplotlib.org/matplotblog/posts/warming-stripes/
     """
-    fig = _plot_stripes(
+    request = StripesImageRequest(
         kind="temperature",
         name="Hohenpeissenberg",
+        # the threshold this example has always matched the name at; the request's default is 0.9
+        name_threshold=0.8,
         # bare stripes: this is the README's header image, where a title and an axis would only
         # repeat the sentence above it
         show_title=False,
         show_years=False,
         show_data_availability=False,
     )
+    fig = _plot_stripes(request)
     fig.update_layout(margin={"l": 0, "r": 0, "t": 0, "b": 0})
 
     if SAVE_PLOT:
