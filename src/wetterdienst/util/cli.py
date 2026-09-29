@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import logging
 import sys
-import textwrap
 
 
 def setup_logging(level: int = logging.INFO) -> None:
@@ -25,14 +24,3 @@ def setup_logging(level: int = logging.INFO) -> None:
     # Silence INFO messages from numexpr.
     numexpr_logger = logging.getLogger("numexpr")
     numexpr_logger.setLevel(logging.WARNING)
-
-
-def docstring_format_verbatim(text: str) -> str:
-    """Format docstring to be displayed verbatim as a help text by Click.
-
-    - https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
-    - https://github.com/pallets/click/issues/56
-    """
-    text = textwrap.dedent(text)
-    lines = [line if line.strip() else "\b" for line in text.splitlines()]
-    return "\n".join(lines)

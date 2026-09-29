@@ -594,13 +594,115 @@ def test_values_dwd_no_station(client: TestClient) -> None:
             "periods": "recent",
         },
     )
-    assert response.status_code == 400
-    assert (
-        "'Give one of the parameters: all (boolean), station (string), "
-        "name (string), latitude (float), longitude (float) and rank (integer), "
-        "latitude (float), longitude (float) and distance (float), "
-        "left (float), bottom (float), right (float), top (float)'" in response.text
+    assert response.status_code == 422
+    assert response.json()["detail"] == [
+        {
+            "type": "missing_one_of",
+            "loc": ["query"],
+            "msg": (
+                "Exactly one of all, station, name, (latitude and longitude), (left, bottom, right and top) or sql "
+                "is required"
+            ),
+            "input": None,
+            "ctx": {
+                "one_of": [
+                    ["all"],
+                    ["station"],
+                    ["name"],
+                    ["latitude", "longitude"],
+                    ["left", "bottom", "right", "top"],
+                    ["sql"],
+                ]
+            },
+        }
+    ]
+
+
+def test_history_no_station_selection(client: TestClient) -> None:
+    """Test a history request with neither station nor all is refused by the model, as a 422."""
+    response = client.get(
+        "/api/history",
+        params={"provider": "dwd", "network": "observation", "parameters": "daily/kl"},
     )
+    assert response.status_code == 422
+    assert response.json()["detail"] == [
+        {
+            "type": "missing_one_of",
+            "loc": ["query"],
+            "msg": "Exactly one of all or station is required",
+            "input": None,
+            "ctx": {"one_of": [["all"], ["station"]]},
+        }
+    ]
+
+
+@pytest.mark.parametrize("endpoint", ["/api/stations", "/api/values"])
+def test_two_station_selections_refused(client: TestClient, endpoint: str) -> None:
+    """Test a request making two station selections is refused, not answered for the first.
+
+    Given a station and a name, the REST API answered for the station and dropped the name without
+    a word; only the CLI refused it, because only its option parser checked.
+    """
+    response = client.get(
+        endpoint,
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl",
+            "station": "01048",
+            "name": "Hamburg-Fuhlsbüttel",
+        },
+    )
+    assert response.status_code == 422
+    # located at each query parameter involved, as FastAPI locates one parameter's error
+    assert response.json()["detail"] == [
+        {
+            "type": "mutually_exclusive",
+            "loc": ["query", "station"],
+            "msg": "Cannot be combined with name",
+            "input": ["01048"],
+            "ctx": {"conflicts_with": ["name"]},
+        },
+        {
+            "type": "mutually_exclusive",
+            "loc": ["query", "name"],
+            "msg": "Cannot be combined with station",
+            "input": "Hamburg-Fuhlsbüttel",
+            "ctx": {"conflicts_with": ["station"]},
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "lookup", "query"),
+    [
+        ("/api/stations", "get_stations", {"all": "true"}),
+        ("/api/values", "get_values", {"station": "01048"}),
+        ("/api/interpolate", "get_interpolate", {"station": "01048", "date": "2020-06-30"}),
+        ("/api/summarize", "get_summarize", {"station": "01048", "date": "2020-06-30"}),
+        ("/api/history", "get_stations", {"station": "01048"}),
+    ],
+)
+def test_unreachable_selection_is_a_server_error(
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    lookup: str,
+    query: dict[str, str],
+) -> None:
+    """Test a lookup that finds no selection its model let through answers 500, not a caller's 4xx.
+
+    get_stations, get_interpolate and get_summarize raise an AssertionError for it; each endpoint's
+    catch-all answered it as a 400 or 404 that blamed the caller for our bug.
+    """
+
+    def unreachable(**_kwargs: object) -> None:
+        msg = "StationsRequest selects no stations"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(restapi, lookup, unreachable)
+    params = {"provider": "dwd", "network": "observation", "parameters": "daily/kl/temperature_air_mean_2m", **query}
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(endpoint, params=params)
+    assert response.status_code == 500
 
 
 def test_values_dwd_no_valid_parameters(client: TestClient) -> None:
@@ -1270,7 +1372,7 @@ def test_get_stations_request_date_required_dataset_does_not_raise_for_stations_
 
     api = Wetterdienst("metno", "frost")
     settings = Settings(auth={"metno_frost": "fake-client-id"})
-    request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"])
+    request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"], all=True)
 
     # Must not raise StartDateEndDateError despite hourly/data having date_required=True
     stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
@@ -1341,7 +1443,7 @@ def test_get_stations_request_passes_periods_to_every_provider() -> None:
 
     api = Wetterdienst("metno", "frost")
     settings = Settings(auth={"metno_frost": "fake-client-id"})
-    request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"], periods="recent")
+    request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"], periods="recent", all=True)
 
     stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
     assert isinstance(stations_request, MetnoFrostRequest)
@@ -1367,6 +1469,7 @@ def test_get_stations_request_periods_on_a_single_period_dataset() -> None:
         network="derived",
         parameters=["monthly/climate_correction_factor"],
         periods="recent",
+        all=True,
     )
     assert _get_stations_request(api=api, request=request, date=None, settings=settings).periods == {Period.RECENT}
 
@@ -1375,6 +1478,7 @@ def test_get_stations_request_periods_on_a_single_period_dataset() -> None:
         network="derived",
         parameters=["monthly/climate_correction_factor"],
         periods="historical",
+        all=True,
     )
     with pytest.raises(NoPeriodsFoundError, match="Available periods: recent"):
         _get_stations_request(api=api, request=request, date=None, settings=settings)

@@ -16,8 +16,32 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the REST API and MCP refuse with a 422 a stations, values or history request they
+  answered before: one selecting stations in two ways, answered for the first (`station` with
+  `name` returned the station alone), and one sending `rank` or `distance` beside anything but a
+  point (or `rank` beside `name`), which was ignored. No selection, or half a point or bounding
+  box, is a 422 where it was a 400. Each error is located at the parameter it concerns, typed
+  `missing_one_of`, `mutually_exclusive`, `missing_with` or `requires`, the others in `ctx`. Send
+  exactly one of `all`, `station`, `name`, a point with `rank` or `distance`, a bounding box, or
+  `sql`, and drop a `rank` or `distance` left over from a point (GH-2056)
+- `wetterdienst` no longer depends on cloup. Each command's `--help` lists its options in one
+  list -- what is requested, which stations, then the output -- and ends with examples, and
+  `wetterdienst --help` is a short overview rather than a hand-kept copy of every option. The CLI
+  takes `--rank` beside `--name`, as the REST API does. A refused request is told in click's own
+  terms, a line per problem -- `Missing option '--longitude'`, `Options '--station' and '--name'
+  cannot be used together`, `Invalid value for '--distance'` with the value refused -- instead of
+  pydantic's echo of every option given (GH-2056)
+
 ### Fixed
 
+- `interpolate` and `summarize` estimate for a point on the equator or the prime meridian. A
+  latitude or longitude of 0 was taken for no point at all, and the request failed with "Either
+  latitude and longitude or station must be provided" (GH-2056)
+- `wetterdienst about fields` applies `--debug`, and for any network but DWD observation answers
+  with a usage error naming the one it describes; it ended in an `AttributeError` traceback
+  (GH-2056)
 - `wetterdienst radar --wmo_code` finds the site it names. The option was read as text and compared
   with the sites' integer WMO codes, so every lookup failed with a `KeyError` traceback. A code no
   site carries now answers `Error: Radar site not found` and exit status 1, and an ODIM code of the

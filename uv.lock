@@ -975,19 +975,6 @@ wheels = [
 ]
 
 [[package]]
-name = "cloup"
-version = "4.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "click" },
-    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/05/e2/d41446c6195eff0db3b671ddb202e39f42f9ea7c0dd15cd43fbf5cf0d7f7/cloup-4.0.0.tar.gz", hash = "sha256:83b0870ee863bcc85129e40e1b208bcfdebe4cd2142e9ce1d0daf7d276cab038", size = 252135, upload-time = "2026-09-12T03:23:39.698Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/2c/34/20224fd9d52e8ce7e3b319b5d6b7126da25e89d00cd1a5692b4b46ed2d26/cloup-4.0.0-py3-none-any.whl", hash = "sha256:0678744a3a2753e1d78dd3ea5c6e4cbbc3b41561fd7a7a7d075dbc8dad74f74f", size = 55776, upload-time = "2026-09-12T03:23:38.564Z" },
-]
-
-[[package]]
 name = "cmweather"
 version = "0.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -8345,7 +8332,6 @@ dependencies = [
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'" },
     { name = "certifi" },
     { name = "click" },
-    { name = "cloup" },
     { name = "diskcache" },
     { name = "fsspec", extra = ["http"] },
     { name = "lxml" },
@@ -8355,6 +8341,7 @@ dependencies = [
     { name = "portion" },
     { name = "pyarrow" },
     { name = "pydantic" },
+    { name = "pydantic-core" },
     { name = "pydantic-extra-types" },
     { name = "pydantic-settings" },
     { name = "python-dateutil" },
@@ -8498,7 +8485,6 @@ requires-dist = [
     { name = "backports-datetime-fromisoformat", marker = "python_full_version < '3.11'", specifier = ">=2" },
     { name = "certifi", specifier = ">=2024.2.2" },
     { name = "click", specifier = ">=8.2,<9" },
-    { name = "cloup", specifier = ">=3.0.1,<5" },
     { name = "diskcache", specifier = ">=5.6.3,<6" },
     { name = "duckdb", marker = "extra == 'duckdb'", specifier = ">=1,<2" },
     { name = "duckdb", marker = "extra == 'sql'", specifier = ">=1,<2" },
@@ -8533,6 +8519,7 @@ requires-dist = [
     { name = "pyarrow", specifier = ">=22.0.0" },
     { name = "pybufrkit", marker = "extra == 'radarplus'", specifier = ">=0.2,<1" },
     { name = "pydantic", specifier = ">=2.7.3,<3" },
+    { name = "pydantic-core", specifier = ">=2.18.4,<3" },
     { name = "pydantic-extra-types", specifier = ">=2.10.1,<3" },
     { name = "pydantic-settings", specifier = ">=2.7.0,<3" },
     { name = "pypdf", marker = "extra == 'pdf'", specifier = ">=3.12.1,<7" },

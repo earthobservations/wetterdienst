@@ -438,9 +438,10 @@ def stations(
     """Find weather stations and their `station_id` (step 1 of the station -> values workflow).
 
     Requires provider, network and parameters (e.g. provider="dwd", network="observation",
-    parameters="daily/kl"). Filter by `name` for a place (e.g. name="Hamburg Fuhlsbüttel"), by
-    `station` id(s), by lat/lon with `rank` or `distance`, by bounding box, or pass all=true for the
-    full list. Returns station metadata including `station_id`, which you pass to `values`.
+    parameters="daily/kl"), and exactly one way of selecting stations: `name` for a place (e.g.
+    name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `station` id(s),
+    lat/lon with `rank` or `distance`, a bounding box, `sql`, or all=true for the full list. Returns
+    station metadata including `station_id`, which you pass to `values`.
     """
     set_logging_level(debug=request.debug)
 
@@ -458,12 +459,10 @@ def stations(
             date=None,
             settings=Settings(),
         )
-    except StartDateEndDateError as e:
-        log.exception("Failed to get stations.")
-        raise HTTPException(
-            status_code=400,
-            detail=str(e),
-        ) from e
+    except AssertionError:
+        # a request its model should have refused reached the lookup: our bug, which FastAPI answers
+        # as a 500, not the caller's to fix
+        raise
     except Exception as e:
         log.exception("Failed to get stations.")
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -541,13 +540,13 @@ def values(
 ) -> Response:
     """Get measured values for station(s) (step 2 of the station -> values workflow).
 
-    Requires provider, network, parameters and a station selection. Use parameters as
-    "resolution/dataset/parameter" (e.g. "daily/climate_summary/temperature_air_mean_2m") to keep
-    the response small, and `station` with an id from `stations` (e.g. station="01975"). `periods`
-    is optional and provider-specific -- "recent" for dwd/observation, while a provider that
-    publishes under a single period rejects any other one. The response `values` array is sorted by
-    timestamp; the most recent reading for a parameter is the last item with that parameter. Do not
-    re-request in other formats.
+    Requires provider, network, parameters and exactly one station selection, as for `stations`.
+    Use parameters as "resolution/dataset/parameter" (e.g.
+    "daily/climate_summary/temperature_air_mean_2m") to keep the response small, and `station` with
+    an id from `stations` (e.g. station="01975"). `periods` is optional and provider-specific --
+    "recent" for dwd/observation, while a provider that publishes under a single period rejects any
+    other one. The response `values` array is sorted by timestamp; the most recent reading for a
+    parameter is the last item with that parameter. Do not re-request in other formats.
     """
     set_logging_level(debug=request.debug)
 
@@ -642,6 +641,10 @@ def _values(
         raise HTTPException(status_code=400, detail=str(e)) from e
     except BufrReaderMissingError as e:
         raise _reader_missing_on_the_server(e, "get values") from e
+    except AssertionError:
+        # a request its model should have refused reached the lookup: our bug, which FastAPI answers
+        # as a 500, not the caller's to fix
+        raise
     except Exception as e:
         log.exception("Failed to get values.")
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -674,6 +677,10 @@ def _geo_values(
         raise HTTPException(status_code=400, detail=str(e)) from e
     except BufrReaderMissingError as e:
         raise _reader_missing_on_the_server(e, what) from e
+    except AssertionError:
+        # a request its model should have refused reached the lookup: our bug, which FastAPI answers
+        # as a 500, not the caller's to fix
+        raise
     except Exception as e:
         log.exception(f"Failed to {what}")
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -982,12 +989,6 @@ def history(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
-    if not request.station and not request.all:
-        raise HTTPException(
-            status_code=400,
-            detail="Either 'station' or 'all' parameter must be provided to query history.",
-        )
-
     try:
         stations_ = get_stations(
             api=api,
@@ -995,6 +996,10 @@ def history(
             date=None,
             settings=Settings(),
         )
+    except AssertionError:
+        # a request its model should have refused reached the lookup: our bug, which FastAPI answers
+        # as a 500, not the caller's to fix
+        raise
     except Exception as e:
         log.exception("Failed to get stations for history.")
         raise HTTPException(status_code=400, detail=str(e)) from e

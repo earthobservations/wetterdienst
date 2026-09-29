@@ -26,24 +26,20 @@ def test_cli_help() -> None:
     assert "--help         Show this message and exit." in result.output
     commands = dedent(
         """
-        Basic:
-          cache        Display cache location.
-          info         Display project information.
-
-        Advanced:
-          restapi      Start the Wetterdienst REST API web service.
-
-        Data:
+        Commands:
           about        Get information about the data.
-          stations     Acquire stations.
-          issues       List available issue (model-run) datetimes for a station.
-          history      Acquire station history.
-          values       Acquire data.
-          interpolate  Interpolate data.
-          summarize    Summarize data.
-          radar        List radar stations.
           alerts       Acquire DWD weather alerts (CAP warnings).
+          cache        Display cache location.
+          history      Acquire station history.
+          info         Display project information.
+          interpolate  Interpolate data for a point from the stations around it.
+          issues       List available issue (model-run) datetimes for a station.
+          radar        List radar stations.
+          restapi      Start the Wetterdienst REST API web service.
+          stations     Acquire stations.
           stripes      Climate stripes.
+          summarize    Summarize data for a point: the nearest station's value.
+          values       Acquire data.
         """,
     )
     assert commands in result.output
@@ -63,13 +59,17 @@ def _declared(command: click.Command) -> set[str]:
     return {opt for param in command.params for opt in (*param.opts, *param.secondary_opts)} | {"--help"}
 
 
-def _help_examples() -> Iterator[str]:
-    """Yield each `wetterdienst ...` command of the top-level help, continuation lines joined on.
+# the top-level help and each command's own help and examples: every text a user reads options in
+_HELP_TEXTS = {
+    "wetterdienst": wetterdienst_help,
+    **{f"{path} (help)": command.help or "" for path, command in _commands(cli) if path != "wetterdienst"},
+    **{f"{path} (examples)": command.epilog for path, command in _commands(cli) if command.epilog},
+}
 
-    Including the one an `alias fetch="wetterdienst ..."` line defines, which kept a retired
-    `--resolution=daily --period=recent` long after the option was gone.
-    """
-    lines = iter(wetterdienst_help.splitlines())
+
+def _examples(text: str) -> Iterator[str]:
+    """Yield each `wetterdienst ...` line of a help text, continuation lines joined on."""
+    lines = iter(text.splitlines())
     for raw in lines:
         line = re.sub(r'^alias \w+="(wetterdienst .*)"$', r"\1", raw.strip())
         if not line.startswith("wetterdienst "):
@@ -80,29 +80,38 @@ def _help_examples() -> Iterator[str]:
 
 
 def test_cli_help_names_only_declared_options() -> None:
-    """Test every option the top-level help names is one some command declares.
+    """Test every option a command's help names is one that command declares.
 
-    It named `--si_units` and `--tidy` long after both were gone (GH-2021). Which command takes
-    which option is checked per example below.
+    The top-level help named `--si_units` and `--tidy` long after both were gone (GH-2021); it is
+    checked against every command, since it speaks of all of them.
     """
-    declared = set().union(*(_declared(command) for _, command in _commands(cli))) | {"--version"}
-    assert set(_OPTION.findall(wetterdienst_help)) - declared == set()
+    everything = set().union(*(_declared(command) for _, command in _commands(cli))) | {"--version"}
+    assert set(_OPTION.findall(wetterdienst_help)) - everything == set()
+    for path, command in _commands(cli):
+        if command is not cli:
+            assert set(_OPTION.findall(command.help or "")) - _declared(command) == set(), path
 
 
-@pytest.mark.parametrize("example", list(_help_examples()))
+@pytest.mark.parametrize(
+    "example",
+    [example for text in _HELP_TEXTS.values() for example in _examples(text)],
+)
 def test_cli_help_example_resolves(example: str) -> None:
-    """Test each example in the top-level help names a command, and only that command's options."""
+    """Test each example names a command, and only options that command takes."""
     tokens = example.split()[1:]
     command: click.Command = cli
     while tokens and isinstance(command, click.Group) and tokens[0] in command.commands:
         command = command.commands[tokens.pop(0)]
-    assert not (isinstance(command, click.Group) and tokens and tokens[0][0].isalpha()), f"no command {tokens[0]!r}"
-    assert set(_OPTION.findall(example)) - _declared(command) - {"--version"} == set()
+    assert not isinstance(command, click.Group), f"no command {tokens[0]!r}" if tokens else "no command"
+    assert set(_OPTION.findall(example)) - _declared(command) == set()
 
 
-@pytest.mark.parametrize("example", [example for example in _help_examples() if "--parameters=" in example])
+@pytest.mark.parametrize(
+    "example",
+    [example for text in _HELP_TEXTS.values() for example in _examples(text) if "--parameters=" in example],
+)
 def test_cli_help_example_parameters_exist(example: str) -> None:
-    """Test each parameter an example in the top-level help asks for exists in that network's metadata.
+    """Test each parameter an example asks for exists in that network's metadata.
 
     An example asked for `hourly/precipitation_more`, which DWD has only at daily and coarser
     resolutions; the parameter parsing only logs that and drops it, so the example still ran.
@@ -113,14 +122,19 @@ def test_cli_help_example_parameters_exist(example: str) -> None:
         assert parse_parameters(parameter, metadata), parameter
 
 
-def test_cli_help_example_continues() -> None:
+@pytest.mark.parametrize(
+    "name", [name for name in _HELP_TEXTS if name == "wetterdienst" or name.endswith("(examples)")]
+)
+def test_cli_help_example_continues(name: str) -> None:
     """Test an example's continuation line follows a backslash, so it pastes into a shell whole.
 
-    Without one the shell runs the first line alone and drops the options on the second, which
-    five examples did before GH-2021 and which the option checks above cannot see.
+    Without one the shell runs the first line alone, dropping the options on the second -- which
+    five examples did before GH-2021, and which the option check above cannot see.
     """
-    for previous, line in itertools.pairwise(wetterdienst_help.splitlines()):
-        if re.match(r"\s{8,}(--|>)", line):
+    lines = _HELP_TEXTS[name].splitlines()
+    for previous, line in itertools.pairwise(lines):
+        # any indentation: _examples dedents each block, leaving a continuation line at four spaces
+        if re.match(r"\s+(--|>)", line):
             assert previous.rstrip().endswith("\\"), previous
 
 
@@ -157,6 +171,37 @@ def test_cli_about_fields_dwd_observation() -> None:
     assert result.exit_code == 0
     assert "parameters" in result.output
     assert "quality_information" in result.output
+
+
+_ABOUT_FIELDS = ["about", "fields", "--resolution=daily", "--dataset=daily", "--period=historical"]
+
+
+def test_cli_about_fields_refuses_other_providers() -> None:
+    """Test about fields refuses a network without field descriptions, rather than failing on it.
+
+    Its check looked for an option the command does not have, so it never refused, and NOAA GHCN
+    ended in an AttributeError traceback.
+    """
+    runner = CliRunner()
+    result = runner.invoke(cli, [*_ABOUT_FIELDS, "--provider=noaa", "--network=ghcn"])
+    assert result.exit_code == 2, result.output
+    assert (
+        "Error: Fields are described for provider 'dwd', network 'observation' only, not noaa/ghcn.\n" in result.output
+    )
+
+
+def test_cli_about_fields_applies_debug(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test about fields applies --debug, which its `**kwargs` used to swallow."""
+    levels = []
+    monkeypatch.setattr("wetterdienst.ui.cli.set_logging_level", lambda *, debug: levels.append(debug))
+    monkeypatch.setattr(
+        "wetterdienst.provider.dwd.observation.DwdObservationRequest.describe_fields",
+        lambda **_kwargs: {"parameters": {}},
+    )
+    runner = CliRunner()
+    result = runner.invoke(cli, [*_ABOUT_FIELDS, "--provider=dwd", "--network=observation", "--debug"])
+    assert result.exit_code == 0, result.output
+    assert levels == [True]
 
 
 def test_no_combination_of_provider_and_network(caplog: pytest.CaptureFixture) -> None:
@@ -450,3 +495,110 @@ def test_if_exists_defaults_to_replace(command: str) -> None:
 
     assert option.default == "replace"
     assert set(option.type.choices) == {"replace", "append", "fail", "skip"}
+
+
+_DWD_KL = ["--provider=dwd", "--network=observation", "--parameters=daily/kl"]
+
+
+_RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo_code' or '--country_name'."
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (
+            ["stations", *_DWD_KL],
+            (
+                "Error: Missing option: one of '--all', '--station', '--name', ('--latitude' and '--longitude'), "
+                "('--left', '--bottom', '--right' and '--top') or '--sql'.\n"
+            ),
+        ),
+        (
+            ["stations", *_DWD_KL, "--station=01048", "--name=Hamburg"],
+            "Error: Options '--station' and '--name' cannot be used together.\n",
+        ),
+        (
+            ["values", *_DWD_KL, "--latitude=51.0", "--rank=5"],
+            "Error: Missing option '--longitude'. Required with '--latitude'.\n",
+        ),
+        (
+            ["values", *_DWD_KL, "--latitude=51.0", "--longitude=13.7"],
+            "Error: Missing option: one of '--rank' or '--distance', required with '--latitude' and '--longitude'.\n",
+        ),
+        (
+            ["values", *_DWD_KL, "--latitude=51.0", "--longitude=13.7", "--rank=5", "--distance=25"],
+            "Error: Options '--rank' and '--distance' cannot be used together.\n",
+        ),
+        (
+            ["stations", *_DWD_KL, "--left=13", "--top=52"],
+            (
+                "Error: Missing option '--bottom'. Required with '--left' and '--top'.\n"
+                "Missing option '--right'. Required with '--left' and '--top'.\n"
+            ),
+        ),
+        (
+            ["stations", *_DWD_KL, "--station=01048", "--rank=5"],
+            "Error: Option '--rank' requires ('--latitude' and '--longitude') or '--name'.\n",
+        ),
+        (
+            ["stations", *_DWD_KL, "--name=Dresden", "--distance=25"],
+            "Error: Option '--distance' requires '--latitude' and '--longitude'.\n",
+        ),
+        (["history", *_DWD_KL], "Error: Missing option: one of '--all' or '--station'.\n"),
+        (
+            ["interpolate", *_DWD_KL, "--date=2020-06-30", "--station=01048", "--latitude=51", "--longitude=13.7"],
+            "Error: Options '--station' and '--latitude' cannot be used together.\n",
+        ),
+        (
+            ["summarize", *_DWD_KL, "--date=2020-06-30"],
+            "Error: Missing option: one of '--station' or ('--latitude' and '--longitude').\n",
+        ),
+        (["radar"], f"Error: {_RADAR_ONE_OF}\n"),
+        (["radar", "--dwd", "--all"], "Error: Options '--dwd' and '--all' cannot be used together.\n"),
+        # an empty value, e.g. from an unset shell variable, selects nothing
+        (["radar", "--odim-code="], f"Error: {_RADAR_ONE_OF}\n"),
+        (["radar", "--country_name="], f"Error: {_RADAR_ONE_OF}\n"),
+        (["stripes", "values", "--kind=temperature"], "Error: Missing option: one of '--station' or '--name'.\n"),
+        (
+            ["stripes", "values", "--kind=temperature", "--station=1048", "--name=Dresden"],
+            "Error: Options '--station' and '--name' cannot be used together.\n",
+        ),
+        # a single value's error is told as click tells an invalid value, with the value refused;
+        # --sections is a set, so the position pydantic gives within it points nowhere and is left out
+        (
+            ["values", *_DWD_KL, "--station=01048", "--distance=-1"],
+            "Error: Invalid value for '--distance': Input should be greater than or equal to 0 (got -1.0).\n",
+        ),
+        (
+            ["history", *_DWD_KL, "--station=01048", "--sections=name,foo"],
+            (
+                "Error: Invalid value for '--sections': Input should be 'name', 'parameter', 'device', 'geography' "
+                "or 'missing_data' (got 'foo').\n"
+            ),
+        ),
+        (
+            ["values", *_DWD_KL, "--station=01048", '--unit_targets={"temperature": 5}'],
+            "Error: Invalid value for '--unit_targets': temperature: Input should be a valid string (got 5).\n",
+        ),
+        # a field validator's ValueError, told without pydantic's "Value error, " in front of it
+        (
+            ["values", *_DWD_KL, "--station=01048", "--unit_targets={bad"],
+            (
+                "Error: Invalid value for '--unit_targets': Expecting property name enclosed in double quotes: "
+                "line 1 column 2 (char 1) (got '{bad').\n"
+            ),
+        ),
+        (
+            ["about", "fields", "--provider=dwd", "--network=observation", "--resolution=daily", "--dataset=kl"],
+            "Error: Missing option '--period'.",
+        ),
+    ],
+)
+def test_cli_refuses_selection(args: list[str], message: str) -> None:
+    """Test each rule over several options is a usage error, before anything is fetched."""
+    runner = CliRunner()
+    result = runner.invoke(cli, args)
+    assert result.exit_code == 2, result.output
+    assert message in result.output
+    # one line per problem, without pydantic's echo of every option the command took
+    assert "input_value" not in result.output

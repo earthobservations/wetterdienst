@@ -7,15 +7,16 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from collections.abc import Mapping  # noqa: TC003
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from collections.abc import Mapping, Sequence  # noqa: TC003
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
 import polars as pl
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic_core import InitErrorDetails, PydanticCustomError
 
 # pydantic refuses typing.TypedDict as a response model on Python below 3.12, and GlossaryEntry
 # is one; model/result.py imports it from here for the same reason
-from typing_extensions import TypedDict
+from typing_extensions import LiteralString, TypedDict
 
 from wetterdienst.exceptions import InvalidTimeIntervalError, NoParametersFoundError, StartDateEndDateError
 from wetterdienst.metadata.period import Period
@@ -116,7 +117,10 @@ _LongitudeField = Annotated[
 ]
 _RankField = Annotated[
     int | None,
-    Field(ge=1, description="Return the N closest stations to the given latitude/longitude."),
+    Field(
+        ge=1,
+        description="With latitude/longitude, the N closest stations; with name, at most N matches (default 5).",
+    ),
 ]
 _DistanceField = Annotated[
     float | None,
@@ -242,6 +246,118 @@ def station_distance_radii(homogeneous: float | None, heterogeneous: float | Non
     return radii
 
 
+def _read_station_ids(value: str | list | None) -> list[str] | None:
+    """Read station ids from a comma-separated string or a list of them, None when there are none.
+
+    A blank id selects nothing: FastAPI reads an empty `station=` as `[""]`, which would count as a
+    station selection beside `all` or a point, and be refused as a second one.
+    """
+    items = [value] if isinstance(value, str) else (value or [])
+    ids = [station for item in items for station in read_list(item, separator=",") if station]
+    return ids or None
+
+
+def join_names(names: Sequence[str], last: str = "and") -> str:
+    """Join names as prose: `a`, `a and b`, `a, b and c`."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} {last} {names[-1]}"
+
+
+def describe_fields(groups: Sequence[Sequence[str]], spell: Callable[[str], str] = str) -> str:
+    """Name alternative groups of fields as prose: `all, (latitude and longitude) or sql`.
+
+    `spell` names a field; the CLI passes one that names its option instead.
+    """
+    names = [join_names([spell(field) for field in group]) for group in groups]
+    if len(groups) > 1:
+        names = [f"({name})" if len(group) > 1 else name for name, group in zip(names, groups, strict=True)]
+    return join_names(names, last="or")
+
+
+# the rules over several fields report the way pydantic reports one field's error: a type, the
+# field it is about as `loc` (none for a rule about no field in particular), the value refused as
+# `input`, and in `ctx` the other fields involved, which the CLI renders in click's own terms
+def _rule_error(
+    kind: LiteralString,
+    message: str,
+    loc: tuple[str, ...] = (),
+    value: Any = None,  # noqa: ANN401
+    **ctx: Any,  # noqa: ANN401
+) -> InitErrorDetails:
+    """Build one error of a rule over several fields."""
+    # pydantic fills a template's {placeholders} from ctx; the message names fields, which hold none
+    template = cast("LiteralString", message)
+    return InitErrorDetails(type=PydanticCustomError(kind, template, ctx), loc=loc, input=value)
+
+
+def _raise_rule_errors(request: BaseModel, errors: list[InitErrorDetails]) -> None:
+    """Raise the errors of a model's rules as a ValidationError, which pydantic passes on as it is."""
+    if errors:
+        raise ValidationError.from_exception_data(type(request).__name__, errors)
+
+
+def _is_set(request: BaseModel, field: str) -> bool:
+    """Tell whether a request gives a field: a coordinate of 0 is given, a False flag or an empty list is not."""
+    value = getattr(request, field)
+    return not (value is None or value is False or (isinstance(value, (str, list)) and not value))
+
+
+def _check_one_of(request: BaseModel, groups: Sequence[tuple[str, ...]]) -> list[InitErrorDetails]:
+    """Check a request gives exactly one of alternative groups of fields, and the whole of it."""
+    made = [group for group in groups if any(_is_set(request, field) for field in group)]
+    if not made:
+        message = f"Exactly one of {describe_fields(groups)} is required"
+        return [_rule_error("missing_one_of", message, one_of=[list(group) for group in groups])]
+    if len(made) > 1:
+        # each group by the first field it gives, the one the error is located at
+        firsts = [next(field for field in group if _is_set(request, field)) for group in made]
+        errors = []
+        for field in firsts:
+            others = [other for other in firsts if other != field]
+            message = f"Cannot be combined with {join_names(others)}"
+            errors.append(
+                _rule_error("mutually_exclusive", message, (field,), getattr(request, field), conflicts_with=others)
+            )
+        return errors
+    (group,) = made
+    given = [field for field in group if _is_set(request, field)]
+    return [
+        _rule_error("missing_with", f"Field required with {join_names(given)}", (field,), required_with=given)
+        for field in group
+        if field not in given
+    ]
+
+
+_POINT = ("latitude", "longitude")
+_STATION_SELECTIONS = (("all",), ("station",), ("name",), _POINT, ("left", "bottom", "right", "top"), ("sql",))
+
+
+def _check_station_selection(request: StationsRequest | ValuesRequest) -> list[InitErrorDetails]:
+    """Check the one station selection a stations or values request makes.
+
+    `get_stations` takes the first selection it finds, so a request making two was answered for
+    one of them and the other dropped without a word. The CLI's option parser refused that, but the
+    REST API and MCP build these models without it and answered. Checked here, all three share one
+    rule.
+
+    `rank` goes with `name` as well as with a point: there it caps the fuzzy matches.
+    """
+    errors = _check_one_of(request, _STATION_SELECTIONS)
+    if errors:
+        return errors
+    if _is_set(request, "latitude"):
+        if request.rank is None and request.distance is None:
+            message = f"Exactly one of rank or distance is required with {join_names(_POINT)}"
+            return [_rule_error("missing_one_of", message, one_of=[["rank"], ["distance"]], required_with=[*_POINT])]
+        return _check_one_of(request, (("rank",), ("distance",)))
+    if request.distance is not None:
+        message = f"Requires {describe_fields([_POINT])}"
+        errors.append(_rule_error("requires", message, ("distance",), request.distance, requires=[[*_POINT]]))
+    if request.rank is not None and not request.name:
+        message = f"Requires {describe_fields([_POINT, ('name',)])}"
+        errors.append(_rule_error("requires", message, ("rank",), request.rank, requires=[[*_POINT], ["name"]]))
+    return errors
+
+
 class StationsRequest(BaseModel):
     """Stations request with validated parameters."""
 
@@ -296,17 +412,7 @@ class StationsRequest(BaseModel):
     @classmethod
     def validate_station(cls, v: str | list | None) -> list[str] | None:
         """Validate station."""
-        if not v:
-            return None
-        if isinstance(v, str):
-            return read_list(v)
-        stations = []
-        for item in v:
-            if "," in item:
-                stations.extend(read_list(item, separator=","))
-            else:
-                stations.append(item)
-        return stations
+        return _read_station_ids(v)
 
     # station name
     name: _NameField = None
@@ -335,6 +441,12 @@ class StationsRequest(BaseModel):
     width: _WidthField = None
     height: _HeightField = None
     scale: _ScaleField = None
+
+    @model_validator(mode="after")
+    def check_station_selection(self) -> StationsRequest:
+        """Check that exactly one station selection is made."""
+        _raise_rule_errors(self, _check_station_selection(self))
+        return self
 
 
 class HistoryRequest(BaseModel):
@@ -374,17 +486,7 @@ class HistoryRequest(BaseModel):
     @classmethod
     def validate_station(cls, v: str | list | None) -> list[str] | None:
         """Validate station."""
-        if not v:
-            return None
-        if isinstance(v, str):
-            return read_list(v)
-        stations = []
-        for item in v:
-            if "," in item:
-                stations.extend(read_list(item, separator=","))
-            else:
-                stations.append(item)
-        return stations
+        return _read_station_ids(v)
 
     sections: _SectionsField = None
 
@@ -409,6 +511,12 @@ class HistoryRequest(BaseModel):
 
     pretty: _PrettyField = False
     debug: _DebugField = False
+
+    @model_validator(mode="after")
+    def check_station_selection(self) -> HistoryRequest:
+        """Check that exactly one of all or station is given."""
+        _raise_rule_errors(self, _check_one_of(self, (("all",), ("station",))))
+        return self
 
 
 class ValuesRequest(BaseModel):
@@ -466,17 +574,7 @@ class ValuesRequest(BaseModel):
     @classmethod
     def validate_station(cls, v: str | list | None) -> list[str] | None:
         """Validate station."""
-        if not v:
-            return None
-        if isinstance(v, str):
-            return read_list(v)
-        stations = []
-        for item in v:
-            if "," in item:
-                stations.extend(read_list(item, separator=","))
-            else:
-                stations.append(item)
-        return stations
+        return _read_station_ids(v)
 
     # station name
     name: _NameField = None
@@ -527,6 +625,12 @@ class ValuesRequest(BaseModel):
         if isinstance(v, dict):
             return v
         return json.loads(v)
+
+    @model_validator(mode="after")
+    def check_station_selection(self) -> ValuesRequest:
+        """Check that exactly one station selection is made."""
+        _raise_rule_errors(self, _check_station_selection(self))
+        return self
 
 
 class InterpolationRequest(BaseModel):
@@ -628,6 +732,12 @@ class InterpolationRequest(BaseModel):
     height: _HeightField = None
     scale: _ScaleField = None
 
+    @model_validator(mode="after")
+    def check_reference_point(self) -> InterpolationRequest:
+        """Check that exactly one of station or latitude/longitude is given."""
+        _raise_rule_errors(self, _check_one_of(self, (("station",), _POINT)))
+        return self
+
 
 class SummaryRequest(BaseModel):
     """Summary request with validated parameters."""
@@ -725,6 +835,12 @@ class SummaryRequest(BaseModel):
     width: _WidthField = None
     height: _HeightField = None
     scale: _ScaleField = None
+
+    @model_validator(mode="after")
+    def check_reference_point(self) -> SummaryRequest:
+        """Check that exactly one of station or latitude/longitude is given."""
+        _raise_rule_errors(self, _check_one_of(self, (("station",), _POINT)))
+        return self
 
 
 class IssuesRequest(BaseModel):
@@ -896,11 +1012,11 @@ def _get_stations_request(
 
 def get_stations(
     api: type[TimeseriesRequest],
-    request: StationsRequest | ValuesRequest | InterpolationRequest | HistoryRequest,
+    request: StationsRequest | ValuesRequest | HistoryRequest,
     date: str | None,
     settings: Settings,
 ) -> StationsResult:
-    """Get stations based on request."""
+    """Get stations based on request, by the one selection its model lets it make."""
     r = _get_stations_request(api=api, request=request, date=date, settings=settings)
 
     if getattr(request, "all", False):
@@ -922,7 +1038,6 @@ def get_stations(
     rank: int | None = getattr(request, "rank", None)
     distance: float | None = getattr(request, "distance", None)
 
-    # Use coordinates twice in main if-elif to get same KeyError
     if latitude is not None and longitude is not None and rank is not None:
         return r.filter_by_rank(latlon=(latitude, longitude), rank=rank)
 
@@ -940,16 +1055,9 @@ def get_stations(
     if sql:
         return r.filter_by_sql(sql)
 
-    param_options = [
-        "all (boolean)",
-        "station (string)",
-        "name (string)",
-        "latitude (float), longitude (float) and rank (integer)",
-        "latitude (float), longitude (float) and distance (float)",
-        "left (float), bottom (float), right (float), top (float)",
-    ]
-    msg = f"Give one of the parameters: {', '.join(param_options)}"
-    raise KeyError(msg)
+    # not reached: the request models refuse a request that selects no stations, and say why
+    msg = f"{type(request).__name__} selects no stations"
+    raise AssertionError(msg)
 
 
 def select_history_sections(history: dict[str, Any], sections: AbstractSet[str] | None) -> dict[str, Any]:
@@ -1025,13 +1133,14 @@ def get_interpolate(
     """Get interpolated values based on request."""
     r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
-    if request.latitude and request.longitude:
+    if request.latitude is not None and request.longitude is not None:
         values_ = r.interpolate((request.latitude, request.longitude), elevation=request.elevation)
     elif request.station:
         values_ = r.interpolate_by_station_id(request.station, elevation=request.elevation)
     else:
-        msg = "Either latitude and longitude or station must be provided"
-        raise ValueError(msg)
+        # not reached: the request model refuses a request with neither a point nor a station
+        msg = f"{type(request).__name__} gives neither a point nor a station"
+        raise AssertionError(msg)
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
@@ -1048,13 +1157,14 @@ def get_summarize(
     """Get summarized values based on request."""
     r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
-    if request.latitude and request.longitude:
+    if request.latitude is not None and request.longitude is not None:
         values_ = r.summarize((request.latitude, request.longitude), elevation=request.elevation)
     elif request.station:
         values_ = r.summarize_by_station_id(request.station, elevation=request.elevation)
     else:
-        msg = "Either latitude and longitude or station must be provided"
-        raise ValueError(msg)
+        # not reached: the request model refuses a request with neither a point nor a station
+        msg = f"{type(request).__name__} gives neither a point nor a station"
+        raise AssertionError(msg)
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
