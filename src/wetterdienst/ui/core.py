@@ -27,6 +27,7 @@ from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from collections.abc import Set as AbstractSet
 
     import plotly.graph_objs as go
 
@@ -946,6 +947,17 @@ def get_stations(
     ]
     msg = f"Give one of the parameters: {', '.join(param_options)}"
     raise KeyError(msg)
+
+
+def select_history_sections(history: dict[str, Any], sections: AbstractSet[str] | None) -> dict[str, Any]:
+    """Keep the requested sections of a dumped station history, all of them when none are requested.
+
+    In the history's own field order rather than the order of `sections`, which is a set, so the
+    same request always answers the same document.
+    """
+    if not sections:
+        return history
+    return {section: value for section, value in history.items() if section in sections}
 
 
 def limit_stations_to_rank(stations: StationsResult) -> StationsResult:

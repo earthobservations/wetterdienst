@@ -21,6 +21,9 @@ Types of changes:
 - `wetterdienst radar --wmo_code` finds the site it names. The option was read as text and compared
   with the sites' integer WMO codes, so every lookup failed with a `KeyError` traceback. A code no
   site carries now answers `Error: Radar site not found` and exit status 1 (GH-2023)
+- `wetterdienst history --sections` returns only the sections it names; it returned all five. The
+  REST API filtered already but in a random order, and both now keep the history's own order. A
+  section name the history does not have is a usage error rather than a traceback (GH-2022)
 
 ## [0.139.0] - 2026-09-29
 

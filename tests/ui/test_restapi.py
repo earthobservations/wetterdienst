@@ -1826,6 +1826,23 @@ def test_stripes_image_wrong_dpi(client: TestClient) -> None:
 
 
 @pytest.mark.remote
+def test_history_sections(client: TestClient) -> None:
+    """Test sections keeps only the sections asked for, in the history's own order."""
+    response = client.get(
+        "/api/history",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/climate_summary",
+            "station": "02564",
+            "sections": "geography,name",
+        },
+    )
+    assert response.status_code == 200
+    assert [list(history) for history in response.json()["histories"]] == [["name", "geography"]]
+
+
+@pytest.mark.remote
 def test_history_dwd_observation(client: TestClient) -> None:
     """Test dwd observation parameter."""
     response = client.get(

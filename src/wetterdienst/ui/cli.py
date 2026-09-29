@@ -42,6 +42,7 @@ from wetterdienst.ui.core import (
     get_summarize,
     get_values,
     limit_stations_to_rank,
+    select_history_sections,
     set_logging_level,
     station_distance_radii,
 )
@@ -1242,7 +1243,8 @@ def history(
         msg = "--target for history endpoint must end with .json"
         raise click.BadParameter(msg)
 
-    request = HistoryRequest.model_validate(
+    request = _validate_request(
+        HistoryRequest,
         {
             "provider": provider,
             "network": network,
@@ -1254,7 +1256,7 @@ def history(
             "with_stations": with_stations,
             "pretty": pretty,
             "debug": debug,
-        }
+        },
     )
 
     set_logging_level(debug=debug)
@@ -1273,7 +1275,7 @@ def history(
         log.exception("History not implemented for provider/network")
         sys.exit(1)
 
-    data = {}
+    data: dict[str, Any] = {}
     if request.with_metadata:
         data["metadata"] = stations_.get_metadata()
     if request.with_stations:
@@ -1282,7 +1284,7 @@ def history(
     try:
         for history_result in history_provider.query():
             history_result_data = history_result.history.model_dump(mode="python")
-            data["histories"].append(history_result_data)
+            data["histories"].append(select_history_sections(history_result_data, request.sections))
     except Exception:
         log.exception("Failed to collect station history")
         sys.exit(1)

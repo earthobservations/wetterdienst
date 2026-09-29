@@ -51,6 +51,7 @@ from wetterdienst.ui.core import (
     get_summarize,
     get_values,
     limit_stations_to_rank,
+    select_history_sections,
     set_logging_level,
     station_distance_radii,
 )
@@ -961,7 +962,7 @@ def stripes_image(
 
 
 @app.get("/api/history")
-def history(  # noqa: C901
+def history(
     request: Annotated[HistoryRequest, Query()],
 ) -> Response:
     """Return a station's metadata history -- how the station itself changed over time (not weather).
@@ -1015,9 +1016,7 @@ def history(  # noqa: C901
     try:
         for history_result in history_provider.query():
             history = history_result.history.model_dump()
-            if request.sections:
-                history = {section: history.get(section) for section in request.sections if section in history}
-            data["histories"].append(history)
+            data["histories"].append(select_history_sections(history, request.sections))
     except Exception as e:
         log.exception("Failed to collect station history")
         raise HTTPException(status_code=400, detail=str(e)) from e
