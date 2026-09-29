@@ -558,11 +558,14 @@ const downloadMenuItems = computed(() => {
       ],
     ]
   }
+  // a values download asks the backend again, for the current selection: with no station or point
+  // there is nothing to ask for, and an item that does nothing when chosen reads as broken
+  const disabled = !canFetchData.value
   return [
     [
-      { label: 'CSV', onSelect: () => downloadValues('csv', 'csv') },
-      { label: 'JSON', onSelect: () => downloadValues('json', 'json') },
-      { label: 'GeoJSON', onSelect: () => downloadValues('geojson', 'geojson') },
+      { label: 'CSV', disabled, onSelect: () => downloadValues('csv', 'csv') },
+      { label: 'JSON', disabled, onSelect: () => downloadValues('json', 'json') },
+      { label: 'GeoJSON', disabled, onSelect: () => downloadValues('geojson', 'geojson') },
     ],
   ]
 })
@@ -975,6 +978,7 @@ defineExpose({
   canFetchData,
   valuesPending,
   fetchErrorMessage,
+  downloadMenuItems,
 })
 
 // Set facet chart ref
