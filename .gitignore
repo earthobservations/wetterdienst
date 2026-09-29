@@ -21,3 +21,7 @@ htmlcov
 
 # working notes, not part of the distribution
 notes/
+
+# example dumps: the scripts write them outside the repository under pytest (GH-2044)
+examples/provider/dwd/dwd_obs_daily_climate_summary.duckdb
+examples/provider/dwd/observation/dwd_obs_climate_summary.zarr/

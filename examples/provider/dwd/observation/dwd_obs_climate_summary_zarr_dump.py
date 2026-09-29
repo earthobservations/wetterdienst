@@ -4,6 +4,7 @@
 
 import os
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import xarray as xr
 from tqdm import tqdm
@@ -36,6 +37,16 @@ def create_dwd_climate_summary_zarr_dump(filepath: Path, *, test: bool) -> None:
 def main() -> None:
     """Create a Zarr dump of DWD climate summary data."""
     test = "PYTEST_CURRENT_TEST" in os.environ
+    if test:
+        # somewhere that is not the repository: under pytest this is a smoke test that writes one
+        # station and throws it away, as the DuckDB example does (GH-2044)
+        with TemporaryDirectory() as directory:
+            filepath = Path(directory) / ZARR_OUTPUT_PATH.name
+            create_dwd_climate_summary_zarr_dump(filepath=filepath, test=test)
+            # closed before its directory goes
+            with xr.open_zarr(filepath) as ds:
+                print(ds)
+        return
     # this takes something like 15 min and will require roughly 1 gb on disk
     create_dwd_climate_summary_zarr_dump(filepath=ZARR_OUTPUT_PATH, test=test)
     ds = xr.open_zarr(ZARR_OUTPUT_PATH)
