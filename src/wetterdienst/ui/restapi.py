@@ -983,12 +983,6 @@ def history(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
-    if not request.station and not request.all:
-        raise HTTPException(
-            status_code=400,
-            detail="Either 'station' or 'all' parameter must be provided to query history.",
-        )
-
     try:
         stations_ = get_stations(
             api=api,

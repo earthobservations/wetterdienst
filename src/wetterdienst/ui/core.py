@@ -116,7 +116,10 @@ _LongitudeField = Annotated[
 ]
 _RankField = Annotated[
     int | None,
-    Field(ge=1, description="Return the N closest stations to the given latitude/longitude."),
+    Field(
+        ge=1,
+        description="With latitude/longitude, the N closest stations; with name, at most N matches (default 5).",
+    ),
 ]
 _DistanceField = Annotated[
     float | None,
@@ -1033,6 +1036,7 @@ def get_stations(
         "latitude (float), longitude (float) and rank (integer)",
         "latitude (float), longitude (float) and distance (float)",
         "left (float), bottom (float), right (float), top (float)",
+        "sql (string)",
     ]
     msg = f"Give one of the parameters: {', '.join(param_options)}"
     raise KeyError(msg)

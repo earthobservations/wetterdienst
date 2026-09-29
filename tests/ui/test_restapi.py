@@ -601,6 +601,16 @@ def test_values_dwd_no_station(client: TestClient) -> None:
     )
 
 
+def test_history_no_station_selection(client: TestClient) -> None:
+    """Test a history request with neither station nor all is refused by the model, as a 422."""
+    response = client.get(
+        "/api/history",
+        params={"provider": "dwd", "network": "observation", "parameters": "daily/kl"},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["msg"] == "Value error, Select stations by exactly one of all or station"
+
+
 @pytest.mark.parametrize("endpoint", ["/api/stations", "/api/values"])
 def test_two_station_selections_refused(client: TestClient, endpoint: str) -> None:
     """Test a request making two station selections is refused, not answered for the first.

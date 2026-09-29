@@ -122,7 +122,9 @@ def test_cli_help_example_parameters_exist(example: str) -> None:
         assert parse_parameters(parameter, metadata), parameter
 
 
-@pytest.mark.parametrize("name", list(_HELP_TEXTS))
+@pytest.mark.parametrize(
+    "name", [name for name in _HELP_TEXTS if name == "wetterdienst" or name.endswith("(examples)")]
+)
 def test_cli_help_example_continues(name: str) -> None:
     """Test an example's continuation line follows a backslash, so it pastes into a shell whole.
 
@@ -131,7 +133,8 @@ def test_cli_help_example_continues(name: str) -> None:
     """
     lines = _HELP_TEXTS[name].splitlines()
     for previous, line in itertools.pairwise(lines):
-        if re.match(r"\s{6,}(--|>)", line):
+        # any indentation: _examples dedents each block, leaving a continuation line at four spaces
+        if re.match(r"\s+(--|>)", line):
             assert previous.rstrip().endswith("\\"), previous
 
 
@@ -485,6 +488,9 @@ _DWD_KL = ["--provider=dwd", "--network=observation", "--parameters=daily/kl"]
         (["summarize", *_DWD_KL, "--date=2020-06-30"], "Give exactly one of station or latitude/longitude"),
         (["radar"], "Select radar sites by exactly one of --dwd, --all"),
         (["radar", "--dwd", "--all"], "Select radar sites by exactly one of --dwd, --all"),
+        # an empty value, e.g. from an unset shell variable, selects nothing
+        (["radar", "--odim-code="], "Select radar sites by exactly one of --dwd, --all"),
+        (["radar", "--country_name="], "Select radar sites by exactly one of --dwd, --all"),
         (["stripes", "values", "--kind=temperature"], "Select the station by exactly one of --station or --name"),
         (
             ["stripes", "values", "--kind=temperature", "--station=1048", "--name=Dresden"],

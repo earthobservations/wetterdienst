@@ -63,6 +63,7 @@ _DATE_HELP = (
 )
 
 _RequestT = TypeVar("_RequestT", bound=BaseModel)
+_CommandT = TypeVar("_CommandT", bound="Callable[..., Any]")
 
 appname = f"{__appname__} {__version__}"
 
@@ -118,13 +119,13 @@ start_date_opt = click.option(
     "--start-date",
     "start_date",
     type=click.STRING,
-    help="Start of a date range, instead of --date.",
+    help="Start of a date range, instead of --date. Given alone, it is a single date.",
 )
 end_date_opt = click.option(
     "--end-date",
     "end_date",
     type=click.STRING,
-    help="End of a date range. Given alone, or without --start-date, it is a single date.",
+    help="End of a date range. Given alone, it is a single date.",
 )
 
 # station selection for `stations` and `values`: exactly one of --all, --station, --name, a point
@@ -238,6 +239,65 @@ with_stations_opt = click.option(
 )
 debug_opt = click.option("--debug", is_flag=True, help="Log at debug level.")
 
+# the reference point `interpolate` and `summarize` estimate for: exactly one of a station or a point,
+# which their request models enforce
+reference_station_opt = click.option(
+    "--station",
+    type=click.STRING,
+    help="Station id whose location to estimate for, instead of --latitude/--longitude.",
+)
+elevation_opt = click.option(
+    "--elevation",
+    type=click.FLOAT,
+    help=(
+        "Elevation of the reference point in metres above sea level. Given, a quantity that "
+        "falls with height -- air temperature, dew point -- is brought from each station's "
+        "altitude to this one, which is what tells a valley reading from a summit one. "
+        "Applies to --station as well, where it is the elevation asked about rather than "
+        "the station's own."
+    ),
+)
+use_nearby_station_distance_opt = click.option(
+    "--use_nearby_station_distance",
+    type=click.FLOAT,
+    default=1,
+    help="Use a station's own values when it is within this many km of the point. Default: 1",
+)
+# a flag here, where stations/values/history take a value: changing either breaks invocations
+pretty_flag_opt = click.option("--pretty", is_flag=True, help="Pretty-print JSON with 4-space indentation.")
+
+
+def station_distance_opts(kind: str) -> Callable[[_CommandT], _CommandT]:
+    """Apply the `--<kind>_station_distance*` options, which each estimating command names after itself."""
+    options = [
+        click.option(
+            f"--{kind}_station_distance",
+            type=click.STRING,
+            help=(
+                "Per-parameter maximum station distance in km as JSON, overriding the radii. "
+                'Example: {"precipitation_amount":10}'
+            ),
+        ),
+        click.option(
+            f"--{kind}_station_distance_homogeneous",
+            type=click.FLOAT,
+            help="Maximum station distance in km for a parameter that varies slowly, such as air temperature. "
+            "Default: 40",
+        ),
+        click.option(
+            f"--{kind}_station_distance_heterogeneous",
+            type=click.FLOAT,
+            help="The same for one that decorrelates faster, such as precipitation, at hourly resolution. Default: 20",
+        ),
+    ]
+
+    def apply(command: _CommandT) -> _CommandT:
+        for option in reversed(options):
+            command = option(command)
+        return command
+
+    return apply
+
 
 def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
     """Get API for provider and network.
@@ -252,7 +312,7 @@ def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
 
 
 def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _RequestT:
-    """Build a request model, reporting a rejected value as a bad parameter rather than a traceback.
+    """Build a request model, reporting a rejected value as a usage error rather than a traceback.
 
     Every field here comes from a command option, so a validation error is the user's input being
     out of range -- a negative distance, say -- not a bug to show a stack trace for.
@@ -375,9 +435,11 @@ VALUES_EXAMPLES = r"""
         --parameters=hourly/precipitation/precipitation_amount,hourly/air_temperature/temperature_air_mean_2m \
         --date=2020-06-15T12/2020-06-16T12 --station=1048,4411 --shape=wide
 
-    # the days with a wind gust above 20 m/s
+    # the days with a wind gust above 20 m/s, one row per value or, filtering on the column, one per day
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
         --station=1048,4411 --sql_values="parameter='wind_gust_max' AND value > 20.0"
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
+        --station=1048,4411 --shape=wide --sql_values="wind_gust_max > 20.0"
 
     # the five stations closest to a point that have data for the date
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
@@ -1203,48 +1265,12 @@ def values(
 @end_date_opt
 @lead_time_opt
 @issue_opt
-@click.option(
-    "--station",
-    type=click.STRING,
-    help="Station id whose location to estimate for, instead of --latitude/--longitude.",
-)
+@reference_station_opt
 @latitude_opt
 @longitude_opt
-@click.option(
-    "--elevation",
-    type=click.FLOAT,
-    help=(
-        "Elevation of the reference point in metres above sea level. Given, a quantity that "
-        "falls with height -- air temperature, dew point -- is brought from each station's "
-        "altitude to this one, which is what tells a valley reading from a summit one. "
-        "Applies to --station as well, where it is the elevation asked about rather than "
-        "the station's own."
-    ),
-)
-@click.option(
-    "--interpolation_station_distance",
-    type=click.STRING,
-    help=(
-        "Per-parameter maximum station distance in km as JSON, overriding the radii. "
-        'Example: {"precipitation_amount":10}'
-    ),
-)
-@click.option(
-    "--interpolation_station_distance_homogeneous",
-    type=click.FLOAT,
-    help="Maximum station distance in km for a parameter that varies slowly, such as air temperature. Default: 40",
-)
-@click.option(
-    "--interpolation_station_distance_heterogeneous",
-    type=click.FLOAT,
-    help="The same for one that decorrelates faster, such as precipitation, at hourly resolution. Default: 20",
-)
-@click.option(
-    "--use_nearby_station_distance",
-    type=click.FLOAT,
-    default=1,
-    help="Use a station's own values when it is within this many km of the point. Default: 1",
-)
+@elevation_opt
+@station_distance_opts("interpolation")
+@use_nearby_station_distance_opt
 @sql_values_opt
 @convert_units_opt
 @unit_targets_opt
@@ -1252,7 +1278,7 @@ def values(
 @format_opt
 @target_opt
 @if_exists_opt
-@click.option("--pretty", is_flag=True, help="Pretty-print JSON with 4-space indentation.")
+@pretty_flag_opt
 @with_metadata_opt
 @with_stations_opt
 @debug_opt
@@ -1381,48 +1407,12 @@ def interpolate(
 @end_date_opt
 @lead_time_opt
 @issue_opt
-@click.option(
-    "--station",
-    type=click.STRING,
-    help="Station id whose location to estimate for, instead of --latitude/--longitude.",
-)
+@reference_station_opt
 @latitude_opt
 @longitude_opt
-@click.option(
-    "--elevation",
-    type=click.FLOAT,
-    help=(
-        "Elevation of the reference point in metres above sea level. Given, a quantity that "
-        "falls with height -- air temperature, dew point -- is brought from each station's "
-        "altitude to this one, which is what tells a valley reading from a summit one. "
-        "Applies to --station as well, where it is the elevation asked about rather than "
-        "the station's own."
-    ),
-)
-@click.option(
-    "--summary_station_distance",
-    type=click.STRING,
-    help=(
-        "Per-parameter maximum station distance in km as JSON, overriding the radii. "
-        'Example: {"precipitation_amount":10}'
-    ),
-)
-@click.option(
-    "--summary_station_distance_homogeneous",
-    type=click.FLOAT,
-    help="Maximum station distance in km for a parameter that varies slowly, such as air temperature. Default: 40",
-)
-@click.option(
-    "--summary_station_distance_heterogeneous",
-    type=click.FLOAT,
-    help="The same for one that decorrelates faster, such as precipitation, at hourly resolution. Default: 20",
-)
-@click.option(
-    "--use_nearby_station_distance",
-    type=click.FLOAT,
-    default=1,
-    help="Use a station's own values when it is within this many km of the point. Default: 1",
-)
+@elevation_opt
+@station_distance_opts("summary")
+@use_nearby_station_distance_opt
 @sql_values_opt
 @convert_units_opt
 @unit_targets_opt
@@ -1430,7 +1420,7 @@ def interpolate(
 @format_opt
 @target_opt
 @if_exists_opt
-@click.option("--pretty", is_flag=True, help="Pretty-print JSON with 4-space indentation.")
+@pretty_flag_opt
 @with_metadata_opt
 @with_stations_opt
 @debug_opt
@@ -1594,7 +1584,8 @@ def radar(
 
     Select the sites with exactly one of --dwd, --all, --odim-code, --wmo_code or --country_name.
     """
-    given = [dwd, all_, odim_code is not None, wmo_code is not None, country_name is not None]
+    # an empty code or country, e.g. from an unset shell variable, selects nothing rather than a lookup
+    given = [dwd, all_, bool(odim_code), wmo_code is not None, bool(country_name)]
     if sum(given) != 1:
         msg = "Select radar sites by exactly one of --dwd, --all, --odim-code, --wmo_code or --country_name"
         raise click.UsageError(msg)
