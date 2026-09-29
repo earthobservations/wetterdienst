@@ -12,6 +12,8 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from wetterdienst import Wetterdienst
+from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.ui.cli import cli, wetterdienst_help
 
 # Individual settings for observation and mosmix
@@ -96,6 +98,19 @@ def test_cli_help_example_resolves(example: str) -> None:
         command = command.commands[tokens.pop(0)]
     assert not (isinstance(command, click.Group) and tokens and tokens[0][0].isalpha()), f"no command {tokens[0]!r}"
     assert set(_OPTION.findall(example)) - _declared(command) - {"--version"} == set()
+
+
+@pytest.mark.parametrize("example", [example for example in _help_examples() if "--parameters=" in example])
+def test_cli_help_example_parameters_exist(example: str) -> None:
+    """Test each parameter an example in the top-level help asks for exists in that network's metadata.
+
+    An example asked for `hourly/precipitation_more`, which DWD has only at daily and coarser
+    resolutions; the parameter parsing only logs that and drops it, so the example still ran.
+    """
+    options = dict(re.findall(r"--(provider|network|parameters)=(\S+)", example))
+    metadata = Wetterdienst(options["provider"], options["network"]).metadata
+    for parameter in options["parameters"].split(","):
+        assert parse_parameters(parameter, metadata), parameter
 
 
 def test_cli_help_example_continues() -> None:

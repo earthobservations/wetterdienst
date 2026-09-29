@@ -389,7 +389,7 @@ Acquire observation data:
 
     # Acquire data for multiple given parameters
     wetterdienst values --provider=dwd --network=observation \\
-        --parameters=hourly/precipitation_more/precipitation_amount,hourly/air_temperature/temperature_air_mean_2m \\
+        --parameters=hourly/precipitation/precipitation_amount,hourly/air_temperature/temperature_air_mean_2m \\
         --date=2020-06-15T12/2020-06-16T12 --station=1048,4411
 
 Acquire MOSMIX data:
@@ -550,8 +550,9 @@ Acquire DWD weather alerts (CAP warnings):
     # Get warnings on district (Landkreis) basis as GeoJSON, in German
     wetterdienst alerts --granularity=district --language=de --format=geojson
 
-    # Get warnings active at a past point in time (within DWD's rolling ~48h window)
-    wetterdienst alerts --granularity=district --date=2026-07-26T10:00:00
+    # Get warnings active at a past point in time; replace YYYY-MM-DDTHH:MM with a time
+    # from the last ~48 hours, as DWD keeps no older snapshots
+    wetterdienst alerts --granularity=district --date=YYYY-MM-DDTHH:MM
 
     # Write current warnings to a GeoJSON file
     wetterdienst alerts --format=geojson --target=file://alerts.geojson
