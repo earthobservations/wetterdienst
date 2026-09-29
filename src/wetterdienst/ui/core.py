@@ -1031,11 +1031,11 @@ def _get_stations_request(
 
 def get_stations(
     api: type[TimeseriesRequest],
-    request: StationsRequest | ValuesRequest | InterpolationRequest | HistoryRequest,
+    request: StationsRequest | ValuesRequest | HistoryRequest,
     date: str | None,
     settings: Settings,
 ) -> StationsResult:
-    """Get stations based on request."""
+    """Get stations based on request, by the one selection its model lets it make."""
     r = _get_stations_request(api=api, request=request, date=date, settings=settings)
 
     if getattr(request, "all", False):
@@ -1075,17 +1075,9 @@ def get_stations(
     if sql:
         return r.filter_by_sql(sql)
 
-    param_options = [
-        "all (boolean)",
-        "station (string)",
-        "name (string)",
-        "latitude (float), longitude (float) and rank (integer)",
-        "latitude (float), longitude (float) and distance (float)",
-        "left (float), bottom (float), right (float), top (float)",
-        "sql (string)",
-    ]
-    msg = f"Give one of the parameters: {', '.join(param_options)}"
-    raise KeyError(msg)
+    # not reached: the request models refuse a request that selects no stations, and say why
+    msg = f"{type(request).__name__} selects no stations"
+    raise AssertionError(msg)
 
 
 def select_history_sections(history: dict[str, Any], sections: AbstractSet[str] | None) -> dict[str, Any]:
@@ -1166,8 +1158,9 @@ def get_interpolate(
     elif request.station:
         values_ = r.interpolate_by_station_id(request.station, elevation=request.elevation)
     else:
-        msg = "Either latitude and longitude or station must be provided"
-        raise ValueError(msg)
+        # not reached: the request model refuses a request with neither a point nor a station
+        msg = f"{type(request).__name__} gives neither a point nor a station"
+        raise AssertionError(msg)
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
@@ -1189,8 +1182,9 @@ def get_summarize(
     elif request.station:
         values_ = r.summarize_by_station_id(request.station, elevation=request.elevation)
     else:
-        msg = "Either latitude and longitude or station must be provided"
-        raise ValueError(msg)
+        # not reached: the request model refuses a request with neither a point nor a station
+        msg = f"{type(request).__name__} gives neither a point nor a station"
+        raise AssertionError(msg)
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
