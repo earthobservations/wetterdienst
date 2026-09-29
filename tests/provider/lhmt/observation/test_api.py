@@ -60,7 +60,7 @@ def test_parse_lhmt_observations() -> None:
     # feelsLikeTemperature and conditionCode are intentionally not mapped
     assert "feelsLikeTemperature" not in by_param
     assert "conditionCode" not in by_param
-    assert df["date"].to_list() == [dt.datetime(2020, 7, 1, 12, 0, tzinfo=UTC)] * len(df)
+    assert df["timestamp"].to_list() == [dt.datetime(2020, 7, 1, 12, 0, tzinfo=UTC)] * len(df)
 
 
 def test_parse_lhmt_observations_empty() -> None:
@@ -68,7 +68,7 @@ def test_parse_lhmt_observations_empty() -> None:
     content = b'{"station": {"code": "vilniaus-ams"}, "observations": []}'
     df = parse_lhmt_observations(content)
     assert df.is_empty()
-    assert df.columns == ["date", "parameter", "value"]
+    assert df.columns == ["timestamp", "parameter", "value"]
 
 
 def test_parse_lhmt_malformed_json_yields_empty() -> None:
@@ -88,7 +88,7 @@ def test_parse_lhmt_skips_malformed_items() -> None:
         b'{"observationTimeUtc": "2020-07-01 12:00:00", "airTemperature": 22.3}]}'
     )
     df = parse_lhmt_observations(obs)
-    assert df["date"].unique().to_list() == [dt.datetime(2020, 7, 1, 12, 0, tzinfo=UTC)]
+    assert df["timestamp"].unique().to_list() == [dt.datetime(2020, 7, 1, 12, 0, tzinfo=UTC)]
     temp = df.filter(pl.col("parameter") == "airTemperature")
     assert temp["value"].to_list() == [22.3]
 
@@ -179,7 +179,7 @@ def test_lhmt_observation_values() -> None:
     def value_at(parameter: str, hour: int) -> float:
         return df.filter(
             pl.col("parameter") == parameter,
-            pl.col("date") == dt.datetime(2020, 7, 1, hour, tzinfo=UTC),
+            pl.col("timestamp") == dt.datetime(2020, 7, 1, hour, tzinfo=UTC),
         )["value"].item()
 
     assert value_at("temperature_air_mean_2m", 12) == pytest.approx(22.3)

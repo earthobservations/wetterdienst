@@ -109,7 +109,7 @@ def test_aemet_observation_values_daily() -> None:
     assert df["resolution"].unique().to_list() == ["daily"]
 
     def value_on(parameter: str, date: dt.datetime) -> float:
-        row = df.filter(pl.col("parameter").eq(parameter), pl.col("date").eq(date))
+        row = df.filter(pl.col("parameter").eq(parameter), pl.col("timestamp").eq(date))
         return row.get_column("value").item()
 
     day1 = dt.datetime(2020, 1, 1, tzinfo=UTC)
@@ -131,7 +131,7 @@ def test_aemet_observation_values_daily() -> None:
     # rather than an actual direction. The parser must turn that into a null rather than
     # a bogus 990°; with the default ts_drop_nulls=True, a null value means no row at all.
     day2 = dt.datetime(2020, 1, 2, tzinfo=UTC)
-    assert df.filter(pl.col("parameter").eq("wind_direction"), pl.col("date").eq(day2)).is_empty()
+    assert df.filter(pl.col("parameter").eq("wind_direction"), pl.col("timestamp").eq(day2)).is_empty()
 
 
 @pytest.mark.remote
@@ -151,7 +151,7 @@ def test_aemet_observation_values_monthly() -> None:
     )
     assert df["station_id"].unique().to_list() == [MADRID_RETIRO]
     assert df["resolution"].unique().to_list() == ["monthly"]
-    assert df["date"].unique().to_list() == [dt.datetime(2020, 1, 1, tzinfo=UTC)]
+    assert df["timestamp"].unique().to_list() == [dt.datetime(2020, 1, 1, tzinfo=UTC)]
 
     def value_of(parameter: str) -> float:
         return df.filter(pl.col("parameter").eq(parameter)).get_column("value").item()
@@ -192,7 +192,7 @@ def test_aemet_observation_values_annual() -> None:
     )
     assert df["station_id"].unique().to_list() == [MADRID_RETIRO]
     assert df["resolution"].unique().to_list() == ["annual"]
-    assert df["date"].unique().to_list() == [dt.datetime(2020, 1, 1, tzinfo=UTC)]
+    assert df["timestamp"].unique().to_list() == [dt.datetime(2020, 1, 1, tzinfo=UTC)]
 
     def value_of(parameter: str) -> float:
         return df.filter(pl.col("parameter").eq(parameter)).get_column("value").item()
@@ -228,13 +228,13 @@ def test_aemet_observation_values_hourly_realtime() -> None:
     # no date range was passed (date_required=False for this resolution) and AEMET only
     # ever returns a recent rolling window, so the latest timestamp should be recent.
     now = dt.datetime.now(tz=UTC)
-    latest_date = df["date"].max()
+    latest_date = df["timestamp"].max()
     assert isinstance(latest_date, dt.datetime)
     assert latest_date >= now - dt.timedelta(hours=36)
     assert latest_date <= now + dt.timedelta(minutes=5)
 
     def latest(parameter: str) -> float:
-        return df.filter(pl.col("parameter").eq(parameter)).sort("date").get_column("value")[-1]
+        return df.filter(pl.col("parameter").eq(parameter)).sort("timestamp").get_column("value")[-1]
 
     assert -40 < latest("temperature_air_mean_2m") < 50
     assert 0.0 <= latest("humidity") <= 1.0

@@ -163,8 +163,8 @@ def test_nws_values_returns_the_requested_window_only() -> None:
 
     assert not df.is_empty()
     assert df.get_column("station_id").unique().to_list() == [DENVER]
-    assert df.get_column("date").min() >= start_date
-    assert df.get_column("date").max() <= end_date
+    assert df.get_column("timestamp").min() >= start_date
+    assert df.get_column("timestamp").max() <= end_date
     # degree_celsius, as the endpoint's own unitCode says -- Denver is not outside these
     values = df.get_column("value").drop_nulls()
     assert values.min() > -50

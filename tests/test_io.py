@@ -40,7 +40,7 @@ def dwd_climate_summary_tabular_columns() -> list[str]:
         "station_id",
         "resolution",
         "dataset",
-        "date",
+        "timestamp",
         "wind_gust_max",
         "qn_wind_gust_max",
         "wind_speed",
@@ -132,7 +132,7 @@ def df_values() -> pl.DataFrame:
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
                 "quality": None,
             },
@@ -141,7 +141,7 @@ def df_values() -> pl.DataFrame:
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": dt.datetime(2019, 12, 1, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(2019, 12, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.0,
                 "quality": None,
             },
@@ -150,7 +150,7 @@ def df_values() -> pl.DataFrame:
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": dt.datetime(2019, 12, 28, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(2019, 12, 28, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
                 "quality": None,
             },
@@ -159,7 +159,7 @@ def df_values() -> pl.DataFrame:
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 2.0,
                 "quality": None,
             },
@@ -168,7 +168,7 @@ def df_values() -> pl.DataFrame:
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": dt.datetime(2021, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(2021, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.0,
                 "quality": None,
             },
@@ -177,7 +177,7 @@ def df_values() -> pl.DataFrame:
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 4.0,
                 "quality": None,
             },
@@ -187,7 +187,7 @@ def df_values() -> pl.DataFrame:
             "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
         },
@@ -205,7 +205,7 @@ def df_interpolated_values() -> pl.DataFrame:
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
                 "distance_mean": 5.3,
                 "taken_station_ids": ["01048", "1050"],
@@ -216,7 +216,7 @@ def df_interpolated_values() -> pl.DataFrame:
             "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "distance_mean": pl.Float64,
             "taken_station_ids": pl.List(pl.String),
@@ -235,7 +235,7 @@ def df_summarized_values() -> pl.DataFrame:
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
                 "distance": 0.0,
                 "taken_station_id": "01048",
@@ -246,7 +246,7 @@ def df_summarized_values() -> pl.DataFrame:
             "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "distance": pl.Float64,
             "taken_station_id": pl.String,
@@ -394,7 +394,7 @@ def test_values_to_dict(df_values: pl.DataFrame) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_max_2m",
-            "date": "2019-01-01T00:00:00.000000+00:00",
+            "timestamp": "2019-01-01T00:00:00.000000+00:00",
             "value": 1.3,
             "quality": None,
         },
@@ -436,7 +436,7 @@ def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_resu
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": "2019-01-01T00:00:00.000000+00:00",
+                "timestamp": "2019-01-01T00:00:00.000000+00:00",
                 "value": 1.3,
                 "quality": None,
             },
@@ -477,7 +477,7 @@ def test_values_format_geojson(df_values: pl.DataFrame, stations_result_mock: St
         "resolution": "daily",
         "dataset": "climate_summary",
         "parameter": "temperature_air_max_2m",
-        "date": "2019-01-01T00:00:00.000000+00:00",
+        "timestamp": "2019-01-01T00:00:00.000000+00:00",
         "value": 1.3,
         "quality": None,
     }
@@ -487,7 +487,7 @@ def test_values_format_csv(df_values: pl.DataFrame) -> None:
     """Test export of DataFrame to csv."""
     output = ValuesResult(stations=None, values=None, df=df_values).to_csv().strip()
     lines = output.split("\n")
-    assert lines[0] == "station_id,resolution,dataset,parameter,date,value,quality"
+    assert lines[0] == "station_id,resolution,dataset,parameter,timestamp,value,quality"
     assert lines[-1] == "01048,daily,climate_summary,temperature_air_max_2m,2022-01-01T00:00:00.000000+00:00,4.0,"
 
 
@@ -508,7 +508,7 @@ def test_interpolated_values_to_dict(df_interpolated_values: pl.DataFrame) -> No
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_max_2m",
-            "date": "2019-01-01T00:00:00.000000+00:00",
+            "timestamp": "2019-01-01T00:00:00.000000+00:00",
             "value": 1.3,
             "distance_mean": 5.3,
             "taken_station_ids": ["01048", "1050"],
@@ -578,7 +578,7 @@ def test_interpolated_values_to_ogc_feature_collection(
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": "2019-01-01T00:00:00.000000+00:00",
+                "timestamp": "2019-01-01T00:00:00.000000+00:00",
                 "value": 1.3,
                 "distance_mean": 5.3,
                 "taken_station_ids": ["01048", "1050"],
@@ -612,7 +612,7 @@ def test_summarized_values_to_dict(df_summarized_values: pl.DataFrame) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "parameter": "temperature_air_max_2m",
-            "date": "2019-01-01T00:00:00.000000+00:00",
+            "timestamp": "2019-01-01T00:00:00.000000+00:00",
             "value": 1.3,
             "distance": 0.0,
             "taken_station_id": "01048",
@@ -679,7 +679,7 @@ def test_summarized_values_to_ogc_feature_collection(
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_max_2m",
-                "date": "2019-01-01T00:00:00.000000+00:00",
+                "timestamp": "2019-01-01T00:00:00.000000+00:00",
                 "value": 1.3,
                 "distance": 0.0,
                 "taken_station_id": "01048",
@@ -792,7 +792,7 @@ def test_values_plot_labels_the_unit_the_values_carry(
             "resolution": ["10_minutes"],
             "dataset": ["solar"],
             "parameter": [parameter_in_frame],
-            "date": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))],
+            "timestamp": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))],
             "value": [1.0],
         },
     )
@@ -825,7 +825,7 @@ def test_values_plot_labels_one_name_published_in_two_units() -> None:
             "resolution": ["10_minutes", "hourly"],
             "dataset": ["solar", "sun"],
             "parameter": ["sunshine_duration", "sunshine_duration"],
-            "date": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))] * 2,
+            "timestamp": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))] * 2,
             "value": [1.0, 2.0],
         },
     )
@@ -841,11 +841,11 @@ def df_hourly_values() -> pl.DataFrame:
     """Provide an hourly DataFrame, where a day is 24 readings rather than one."""
     return pl.DataFrame(
         {
-            "date": [dt.datetime(2019, 12, 28, hour, tzinfo=ZoneInfo("UTC")) for hour in range(24)]
+            "timestamp": [dt.datetime(2019, 12, 28, hour, tzinfo=ZoneInfo("UTC")) for hour in range(24)]
             + [dt.datetime(2019, 12, 15, tzinfo=ZoneInfo("UTC")), dt.datetime(2020, 1, 15, tzinfo=ZoneInfo("UTC"))],
             "value": [float(hour) for hour in range(24)] + [99.0, 111.0],
         },
-        schema={"date": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
+        schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
     )
 
 
@@ -914,8 +914,14 @@ def test_filter_by_sql_on_stations(df_stations: pl.DataFrame) -> None:
 
 @pytest.mark.sql
 def test_filter_by_sql_names_a_renamed_column(df_stations: pl.DataFrame, df_values: pl.DataFrame) -> None:
-    """A filter on a column renamed for 1.0 says what the column is called now (GH-2024, GH-2026)."""
+    """A filter on a column renamed for 1.0 says what the column is called now (GH-2024, GH-2026, GH-2028)."""
     import duckdb  # noqa: PLC0415
+
+    with pytest.raises(duckdb.BinderException, match='column "date" was renamed to "timestamp"'):
+        ExportMixin(df=df_values).filter_by_sql("date >= '2019-01-01'")
+    # a stations frame never had `date` and has no `timestamp` to be sent to either
+    with pytest.raises(duckdb.BinderException, match='Referenced column "date" not found'):
+        ExportMixin(df=df_stations).filter_by_sql("date >= '2019-01-01'")
 
     with pytest.raises(duckdb.BinderException, match='column "height" was renamed to "elevation"'):
         ExportMixin(df=df_stations).filter_by_sql("height > 500")
@@ -942,7 +948,7 @@ def test_export_file_targets_take_a_stations_frame(
     tmp_path: Path,
     extension: str,
 ) -> None:
-    """Every flat file target takes a frame without a `date` column."""
+    """Every flat file target takes a frame without a `timestamp` column."""
     filename = tmp_path.joinpath(f"stations.{extension}")
     ExportMixin(df=df_stations).to_target(f"file://{filename}")
     assert filename.exists()
@@ -970,7 +976,7 @@ def test_export_json_targets(df_values: pl.DataFrame, tmp_path: Path, extension:
     read = pl.read_ndjson(filename) if extension == "jsonl" else pl.read_json(filename)
     assert read.height == df_values.height
     # timestamps as ISO strings, as in every other flat format
-    assert read.get_column("date").to_list()[0].startswith("2019-01-01T00:00:00")
+    assert read.get_column("timestamp").to_list()[0].startswith("2019-01-01T00:00:00")
 
 
 def test_export_netcdf(df_interpolated_values: pl.DataFrame, tmp_path: Path) -> None:
@@ -980,7 +986,7 @@ def test_export_netcdf(df_interpolated_values: pl.DataFrame, tmp_path: Path) -> 
     filename = tmp_path.joinpath("values.nc")
     ExportMixin(df=df_interpolated_values).to_target(f"file://{filename}")
     dataset = xarray.open_dataset(filename, group="climate_summary")
-    assert str(dataset["date"].values[0]).startswith("2019-01-01T00:00:00")
+    assert str(dataset["timestamp"].values[0]).startswith("2019-01-01T00:00:00")
     assert dataset["taken_station_ids"].values[0] == "01048,1050"
 
 
@@ -993,7 +999,7 @@ def test_export_netcdf_keeps_gaps_as_gaps(df_values: pl.DataFrame, tmp_path: Pat
     xarray = pytest.importorskip("xarray")
     pytest.importorskip("h5netcdf")
     df = df_values.with_columns(
-        pl.when(pl.col("date").dt.year() == 2019).then(None).otherwise(pl.col("value")).alias("value"),
+        pl.when(pl.col("timestamp").dt.year() == 2019).then(None).otherwise(pl.col("value")).alias("value"),
     )
     filename = tmp_path.joinpath("values.nc")
     ExportMixin(df=df).to_target(f"file://{filename}")
@@ -1093,7 +1099,7 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "station_id",
         "resolution",
         "dataset",
-        "date",
+        "timestamp",
         "wind_gust_max",
         "qn_wind_gust_max",
         "wind_speed",
@@ -1130,7 +1136,7 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "station_id": "01048",
         "resolution": "daily",
         "dataset": "climate_summary",
-        "date": "2019-01-01T00:00:00.000000+00:00",
+        "timestamp": "2019-01-01T00:00:00.000000+00:00",
         "wind_gust_max": 19.9,
         "qn_wind_gust_max": 10,
         "wind_speed": 8.5,
@@ -1165,7 +1171,7 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "station_id": "01048",
         "resolution": "daily",
         "dataset": "climate_summary",
-        "date": "2020-01-01T00:00:00.000000+00:00",
+        "timestamp": "2020-01-01T00:00:00.000000+00:00",
         "wind_gust_max": 6.9,
         "qn_wind_gust_max": 10,
         "wind_speed": 3.2,
@@ -1227,9 +1233,9 @@ def test_export_parquet(
     assert table.column_names == dwd_climate_summary_tabular_columns
     # Validate content.
     data = table.to_pydict()
-    assert data["date"][0] == dt.datetime(2019, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
+    assert data["timestamp"][0] == dt.datetime(2019, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert data["temperature_air_min_0_05m"][0] == 1.5
-    assert data["date"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
+    assert data["timestamp"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert data["temperature_air_min_0_05m"][-1] == -4.6
 
 
@@ -1267,7 +1273,7 @@ def test_export_zarr(
     assert columns == set(dwd_climate_summary_tabular_columns)
     # Validate content.
     data = group
-    assert dt.datetime.fromtimestamp(int(data["date"][0]) / 1e9, tz=ZoneInfo("UTC")) == dt.datetime(
+    assert dt.datetime.fromtimestamp(int(data["timestamp"][0]) / 1e9, tz=ZoneInfo("UTC")) == dt.datetime(
         2019,
         1,
         1,
@@ -1276,7 +1282,7 @@ def test_export_zarr(
         tzinfo=ZoneInfo("UTC"),
     )
     assert data["temperature_air_min_0_05m"][0] == 1.5
-    assert dt.datetime.fromtimestamp(int(data["date"][-1]) / 1e9, tz=ZoneInfo("UTC")) == dt.datetime(
+    assert dt.datetime.fromtimestamp(int(data["timestamp"][-1]) / 1e9, tz=ZoneInfo("UTC")) == dt.datetime(
         2020,
         1,
         1,
@@ -1353,9 +1359,9 @@ def test_export_feather(
     assert table.column_names == dwd_climate_summary_tabular_columns
     # Validate content.
     data = table.to_pydict()
-    assert data["date"][0] == dt.datetime(2019, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
+    assert data["timestamp"][0] == dt.datetime(2019, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert data["temperature_air_min_0_05m"][0] == 1.5
-    assert data["date"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
+    assert data["timestamp"][-1] == dt.datetime(2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert data["temperature_air_min_0_05m"][-1] == -4.6
 
 
@@ -1501,7 +1507,7 @@ def test_export_duckdb(settings_convert_units_false: Settings, tmp_path: Path) -
         FROM
             testdrive
         WHERE
-            date = '1939-07-26'
+            timestamp = '1939-07-26'
             AND
             parameter = 'temperature_air_min_2m'
     """
@@ -2059,7 +2065,7 @@ def _one_row(station_id: str = "01048") -> ExportMixin:
                 "resolution": ["daily"],
                 "dataset": ["climate_summary"],
                 "parameter": ["temperature_air_mean_2m"],
-                "date": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))],
+                "timestamp": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))],
                 "value": [1.0],
                 "quality": [1.0],
             },
@@ -2139,8 +2145,8 @@ def test_duckdb_append_matches_columns_by_name(tmp_path: Path) -> None:
     """
     duckdb = pytest.importorskip("duckdb")
     target = f"duckdb:///{tmp_path / 'obs.duckdb'}?table=weather"
-    temperature = pl.DataFrame({"date": ["2020-01-01"], "temperature_air_mean_2m": [10.1]})
-    precipitation = pl.DataFrame({"date": ["2020-01-01"], "precipitation_height": [0.0]})
+    temperature = pl.DataFrame({"timestamp": ["2020-01-01"], "temperature_air_mean_2m": [10.1]})
+    precipitation = pl.DataFrame({"timestamp": ["2020-01-01"], "precipitation_height": [0.0]})
 
     ExportMixin(df=temperature).to_target(target)
     with pytest.raises(duckdb.BinderException, match='does not have a column with name "precipitation_height"'):

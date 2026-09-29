@@ -1166,10 +1166,10 @@ def _get_stripes_data(  # noqa: C901
         msg = f"No station with a {parameter} similar to '{station_id or name}' found"
         raise ValueError(msg) from e
 
-    df = stations.values.all().df.sort("date")
-    df = df.set_sorted("date")
-    df = df.select("date", "value")
-    df = df.upsample("date", every="1y")
+    df = stations.values.all().df.sort("timestamp")
+    df = df.set_sorted("timestamp")
+    df = df.select("timestamp", "value")
+    df = df.upsample("timestamp", every="1y")
     df = df.with_columns(
         (1 - (pl.col("value") - pl.col("value").min()) / (pl.col("value").max() - pl.col("value").min())).alias(
             "value_scaled",
@@ -1178,9 +1178,9 @@ def _get_stripes_data(  # noqa: C901
     )
 
     if start_year:
-        df = df.filter(pl.col("date").dt.year().ge(start_year))
+        df = df.filter(pl.col("timestamp").dt.year().ge(start_year))
     if end_year:
-        df = df.filter(pl.col("date").dt.year().le(end_year))
+        df = df.filter(pl.col("timestamp").dt.year().le(end_year))
 
     if len(df) == 1:
         msg = "At least two years are required to create warming stripes."
@@ -1242,7 +1242,7 @@ def _plot_stripes(
     # Add bar trace
     fig.add_trace(
         go.Bar(
-            x=df_without_nulls.get_column("date").dt.year(),
+            x=df_without_nulls.get_column("timestamp").dt.year(),
             y=[1.0] * len(df_without_nulls),
             marker={"color": df_without_nulls.get_column("value_scaled"), "colorscale": cmap, "cmin": 0, "cmax": 1},
             width=1.0,
@@ -1253,7 +1253,7 @@ def _plot_stripes(
     if show_data_availability:
         fig.add_trace(
             go.Scatter(
-                x=df.get_column("date").dt.year(),
+                x=df.get_column("timestamp").dt.year(),
                 y=df.get_column("availability"),
                 mode="lines",
                 marker={"color": "gold", "size": 5},
@@ -1261,7 +1261,7 @@ def _plot_stripes(
             ),
         )
         fig.add_annotation(
-            x=df.get_column("date").dt.year().min(),
+            x=df.get_column("timestamp").dt.year().min(),
             xanchor="left",
             y=-0.05,
             text="data availability",
@@ -1286,7 +1286,7 @@ def _plot_stripes(
         fig.add_annotation(
             x=0.05,
             y=-0.05,
-            text=str(df.get_column("date").min().year),  # ty: ignore[unresolved-attribute]
+            text=str(df.get_column("timestamp").min().year),  # ty: ignore[unresolved-attribute]
             showarrow=False,
             xref="paper",
             yref="paper",
@@ -1295,7 +1295,7 @@ def _plot_stripes(
         fig.add_annotation(
             x=0.95,
             y=-0.05,
-            text=str(df.get_column("date").max().year),  # ty: ignore[unresolved-attribute]
+            text=str(df.get_column("timestamp").max().year),  # ty: ignore[unresolved-attribute]
             showarrow=False,
             xref="paper",
             yref="paper",

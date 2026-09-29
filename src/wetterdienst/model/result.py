@@ -416,7 +416,7 @@ class _ValuesItemDict(TypedDict):
     resolution: str
     dataset: str
     parameter: str
-    date: str
+    timestamp: str
     value: float | None
     quality: float | None
 
@@ -446,7 +446,7 @@ class _ValuesResult(ExportMixin):
         """
         if not df.is_empty():
             df = df.with_columns(
-                pl.col("date").dt.to_string("iso:strict"),
+                pl.col("timestamp").dt.to_string("iso:strict"),
             )
         return df.to_dicts()  # ty: ignore[invalid-return-type]
 
@@ -669,7 +669,7 @@ class ValuesResult(_ValuesResult):
             )
         fig = px.line(
             df,
-            x="date",
+            x="timestamp",
             y="value",
             color="station_id",
             facet_row="parameter",
@@ -735,7 +735,7 @@ class _InterpolatedValuesItemDict(TypedDict):
     resolution: str
     dataset: str
     parameter: str
-    date: str
+    timestamp: str
     value: float | None
     distance_mean: float | None
     taken_station_ids: list[str]
@@ -886,7 +886,7 @@ class InterpolatedValuesResult(_ValuesResult):
             )
         fig = px.line(
             df,
-            x="date",
+            x="timestamp",
             y="value",
             color="station_id",
             facet_row="parameter",
@@ -938,7 +938,7 @@ class _SummarizedValuesItemDict(TypedDict):
     resolution: str
     dataset: str
     parameter: str
-    date: str
+    timestamp: str
     value: float | None
     distance: float | None
     taken_station_id: str | None
@@ -1088,7 +1088,7 @@ class SummarizedValuesResult(_ValuesResult):
             )
         fig = px.line(
             df,
-            x="date",
+            x="timestamp",
             y="value",
             color="station_id",
             facet_row="parameter",

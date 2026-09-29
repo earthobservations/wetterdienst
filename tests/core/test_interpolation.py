@@ -164,7 +164,7 @@ def df_interpolated_empty() -> pl.DataFrame:
             "resolution": pl.String,
             "dataset": pl.String,
             "parameter": pl.String,
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "distance_mean": pl.Float64,
             "taken_station_ids": pl.List(pl.String),
@@ -192,7 +192,7 @@ def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings
                 "resolution": "hourly",
                 "dataset": "temperature_air",
                 "parameter": "temperature_air_mean_2m",
-                "date": dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
                 "value": 4.56,
                 "distance_mean": 13.37,
                 "taken_station_ids": ["02480", "04411", "07341", "00917"],
@@ -219,7 +219,7 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
-                "date": dt.datetime(1986, 10, 31, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(1986, 10, 31, tzinfo=ZoneInfo("UTC")),
                 "value": 6.37,
                 "distance_mean": 16.99,
                 "taken_station_ids": ["00072", "02074", "02638", "04703"],
@@ -229,7 +229,7 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
-                "date": dt.datetime(1986, 11, 1, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(1986, 11, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 8.7,
                 "distance_mean": 0.0,
                 "taken_station_ids": ["00071"],
@@ -313,7 +313,7 @@ def test_interpolation_precipitation_height_minute_10(default_settings: Settings
                 "resolution": "10_minutes",
                 "dataset": "precipitation",
                 "parameter": "precipitation_height",
-                "date": dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC")),
                 "value": 0.03,
                 "distance_mean": 9.38,
                 "taken_station_ids": ["04230", "02480", "04411", "07341"],
@@ -505,7 +505,7 @@ def test_extract_station_values_says_whether_it_took_the_column() -> None:
     """
     from wetterdienst.core.util import _ParameterData, extract_station_values  # noqa: PLC0415
 
-    param_data = _ParameterData(pl.DataFrame({"date": [1, 2, 3]}))
+    param_data = _ParameterData(pl.DataFrame({"timestamp": [1, 2, 3]}))
     taken = extract_station_values(
         param_data,
         pl.Series("00001", [1.0, 2.0, 3.0]),
@@ -518,7 +518,7 @@ def test_extract_station_values_says_whether_it_took_the_column() -> None:
 
     # a parameter with its four stations, no gain from a fifth, and no room for another extra
     full = _ParameterData(
-        pl.DataFrame({"date": [1, 2, 3], "a": [1.0] * 3, "b": [1.0] * 3, "c": [1.0] * 3, "d": [1.0] * 3}),
+        pl.DataFrame({"timestamp": [1, 2, 3], "a": [1.0] * 3, "b": [1.0] * 3, "c": [1.0] * 3, "d": [1.0] * 3}),
         additional_station_counter=3,
     )
     taken = extract_station_values(

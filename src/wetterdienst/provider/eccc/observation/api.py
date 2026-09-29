@@ -59,7 +59,7 @@ class EcccObservationValues(TimeseriesValues):
     @staticmethod
     def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
         """Convert wide-format dataframe to long format, pairing value columns with their *_flag quality columns."""
-        # Normalize column names to lowercase and rename LOCAL_DATE -> date
+        # column names arrive lower-cased; `local_date` is the time axis, made `timestamp` further down
         schema_names = df.collect_schema().names()
         flag_columns = {col for col in schema_names if col.endswith("_flag")}
         value_columns = [col for col in schema_names if col != "local_date" and col not in flag_columns]
@@ -211,7 +211,7 @@ class EcccObservationValues(TimeseriesValues):
                 # all; both were unreachable while a request returned only a slice of the year
                 .dt.replace_time_zone(station_tz, ambiguous="earliest", non_existent="null")
                 .dt.convert_time_zone("UTC")
-                .alias("date"),
+                .alias("timestamp"),
                 "value",
                 pl.lit(None, dtype=pl.Float64).alias("quality"),
             )

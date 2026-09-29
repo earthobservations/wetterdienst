@@ -333,7 +333,7 @@ class MeteoswissObservationValues(TimeseriesValues):
             pl.col("reference_timestamp")
             .str.to_datetime("%d.%m.%Y %H:%M", strict=False)
             .dt.replace_time_zone("UTC")
-            .alias("date"),
+            .alias("timestamp"),
             pl.col("value").cast(pl.Float64, strict=False),
             pl.lit(None, pl.Float64).alias("quality"),
         )

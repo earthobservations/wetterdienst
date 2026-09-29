@@ -78,7 +78,7 @@ def _long(rows: list[tuple[str, str, str, int, float]]) -> pl.DataFrame:
             "resolution": [row[0] for row in rows],
             "dataset": [row[1] for row in rows],
             "parameter": [row[2] for row in rows],
-            "date": [dt.datetime(2026, 1, 1, 0, row[3], tzinfo=ZoneInfo("UTC")) for row in rows],
+            "timestamp": [dt.datetime(2026, 1, 1, 0, row[3], tzinfo=ZoneInfo("UTC")) for row in rows],
             "value": [row[4] for row in rows],
             "quality": [None] * len(rows),
         },
@@ -103,7 +103,7 @@ def test_widen_df_keeps_resolutions_on_their_own_rows() -> None:
 
     result = _values([("15_minutes", "data", "stage"), ("hourly", "data", "temperature_air_mean_2m")])._widen_df(df)  # noqa: SLF001
 
-    result = result.sort("resolution", "date")
+    result = result.sort("resolution", "timestamp")
     assert result.get_column("resolution").to_list() == ["15_minutes", "15_minutes", "hourly"]
     assert result.get_column("stage").to_list() == [1.0, 2.0, None]
     assert result.get_column("temperature_air_mean_2m").to_list() == [None, None, 20.0]
@@ -126,7 +126,7 @@ def test_widen_df_keeps_a_timestamp_one_parameter_is_missing() -> None:
 
     result = _values([("15_minutes", "data", "stage"), ("15_minutes", "data", "discharge")])._widen_df(df)  # noqa: SLF001
 
-    result = result.sort("date")
+    result = result.sort("timestamp")
     assert result.get_column("stage").to_list() == [1.0, 2.0]
     # discharge has no reading at 00:15 and must not take the whole timestamp out with it
     assert result.get_column("discharge").to_list() == [9.0, None]
@@ -223,7 +223,7 @@ def _hourly_long(dates: list[dt.datetime]) -> pl.DataFrame:
             "resolution": ["hourly"] * len(dates),
             "dataset": ["temperature_air"] * len(dates),
             "parameter": ["tt_tu"] * len(dates),
-            "date": dates,
+            "timestamp": dates,
             "value": [1.0] * len(dates),
             "quality": [None] * len(dates),
         },
@@ -303,7 +303,7 @@ def test_actual_percentage_counts_nulls_as_missing() -> None:
             dt.datetime(2026, 1, 1, 2, tzinfo=ZoneInfo("UTC")),
             dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC")),
         ],
-    ).with_columns(pl.when(pl.col("date").dt.hour() < 2).then(pl.col("value")).alias("value"))
+    ).with_columns(pl.when(pl.col("timestamp").dt.hour() < 2).then(pl.col("value")).alias("value"))
 
     assert _percentage(_hourly_values(start_date, end_date), df) == 0.5
 
@@ -424,7 +424,7 @@ def test_actual_percentage_reads_the_fallback_window_off_the_dataset_it_measures
                     "resolution": ["daily"] * len(daily_dates),
                     "dataset": ["climate_summary"] * len(daily_dates),
                     "parameter": ["rsk"] * len(daily_dates),
-                    "date": daily_dates,
+                    "timestamp": daily_dates,
                     "value": [1.0] * len(daily_dates),
                     "quality": [None] * len(daily_dates),
                 },
@@ -464,7 +464,7 @@ def test_actual_percentage_matches_a_parameter_name_in_the_provider_own_casing()
             "resolution": ["15_minutes"] * len(dates),
             "dataset": ["data"] * len(dates),
             "parameter": ["w"] * len(dates),  # the metadata declares `W`
-            "date": dates,
+            "timestamp": dates,
             "value": [1.0] * len(dates),
             "quality": [None] * len(dates),
         },
@@ -518,7 +518,7 @@ def _stub_dwd_daily(
         names = [parameter.name_original for parameter in dataset]
         return pl.DataFrame(
             {
-                "date": [dt.datetime(year, 1, day, tzinfo=utc) for day in range(1, 4) for _ in names],
+                "timestamp": [dt.datetime(year, 1, day, tzinfo=utc) for day in range(1, 4) for _ in names],
                 "parameter": names * 3,
                 "value": [1.0] * (3 * len(names)),
                 "quality": [1.0] * (3 * len(names)),
@@ -572,10 +572,10 @@ def test_a_request_that_collects_nothing_keeps_its_schema(monkeypatch: pytest.Mo
     df = request.filter_by_station_id("00001").values.all().df
 
     assert df.is_empty()
-    assert df.columns == ["station_id", "resolution", "dataset", "parameter", "date", "value", "quality"]
+    assert df.columns == ["station_id", "resolution", "dataset", "parameter", "timestamp", "value", "quality"]
     # a header rather than an empty file, and a column that can still be asked for
-    assert df.write_csv() == "station_id,resolution,dataset,parameter,date,value,quality\n"
-    assert df.get_column("date").is_empty()
+    assert df.write_csv() == "station_id,resolution,dataset,parameter,timestamp,value,quality\n"
+    assert df.get_column("timestamp").is_empty()
 
 
 def test_wide_empty_result_matches_the_shape_of_a_populated_one(monkeypatch: pytest.MonkeyPatch) -> None:

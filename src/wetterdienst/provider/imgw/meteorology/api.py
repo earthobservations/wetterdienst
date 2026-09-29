@@ -608,7 +608,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
             pl.col("station_id"),
-            pl.col("date").dt.replace_time_zone("UTC"),
+            pl.col("timestamp").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
             pl.col("quality"),
         )
@@ -645,7 +645,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             return pl.DataFrame()
         if df.is_empty():
             return pl.DataFrame()
-        return df.unique(subset=["parameter", "date"], keep="first")
+        return df.unique(subset=["parameter", "timestamp"], keep="first")
 
     @staticmethod
     def _parse_csv(
@@ -693,19 +693,19 @@ class ImgwMeteorologyValues(TimeseriesValues):
         quality = quality.with_columns(
             pl.col("quality").str.strip_chars().replace_strict(_STATUS_QUALITY, default=None, return_dtype=pl.Float64),
         )
-        return values.join(quality, on=["station_id", "date", "parameter"], how="left")
+        return values.join(quality, on=["station_id", "timestamp", "parameter"], how="left")
 
     @staticmethod
     def _unpivot(df: pl.DataFrame, resolution: Resolution, value_name: str) -> pl.DataFrame:
         """Turn the year/month[/day] columns into a date and the remaining columns into rows."""
         if resolution == Resolution.DAILY:
             exp1 = pl.all().exclude(["year", "month", "day"])
-            exp2 = pl.datetime("year", "month", "day").alias("date")
+            exp2 = pl.datetime("year", "month", "day").alias("timestamp")
         else:
             exp1 = pl.all().exclude(["year", "month"])
-            exp2 = pl.datetime("year", "month", 1).alias("date")
+            exp2 = pl.datetime("year", "month", 1).alias("timestamp")
         df = df.select(exp1, exp2)
-        return df.unpivot(index=["station_id", "date"], variable_name="parameter", value_name=value_name)
+        return df.unpivot(index=["station_id", "timestamp"], variable_name="parameter", value_name=value_name)
 
     def _get_urls(self, dataset: DatasetModel, station_id: str) -> list[str]:
         """Get URLs for the given dataset."""

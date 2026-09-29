@@ -108,7 +108,7 @@ def _(con, mo):
     _start_min, _start_max = con.execute("SELECT min(start_date)::date, max(start_date)::date FROM stations").fetchone()
     _active = con.execute("""
         SELECT count(DISTINCT station_id) FROM "values"
-        WHERE year(date) = 2024
+        WHERE year(timestamp) = 2024
     """).fetchone()[0]
 
     mo.hstack(
@@ -162,7 +162,7 @@ def _(alt, con):
         )
 
     _active_ids = {
-        r[0] for r in con.execute('SELECT DISTINCT station_id FROM "values" WHERE year(date) = 2024').fetchall()
+        r[0] for r in con.execute('SELECT DISTINCT station_id FROM "values" WHERE year(timestamp) = 2024').fetchall()
     }
 
     def _with_active(query):
@@ -222,10 +222,10 @@ def _(mo):
 def _(alt, con):
     _df = con.execute("""
         SELECT
-            date_trunc('year', date)::date AS year,
+            date_trunc('year', timestamp)::date AS year,
             count(DISTINCT station_id) AS active_stations
         FROM "values"
-        WHERE date < '2025-01-01'
+        WHERE timestamp < '2025-01-01'
         GROUP BY year
         ORDER BY year
     """).pl()
@@ -300,7 +300,7 @@ def _(alt, con):
 def _(con, mo):
     _total_rows = con.execute('SELECT count(*) FROM "values"').fetchone()[0]
     _total_stations = con.execute('SELECT count(DISTINCT station_id) FROM "values"').fetchone()[0]
-    _date_min, _date_max = con.execute('SELECT min(date)::date, max(date)::date FROM "values"').fetchone()
+    _date_min, _date_max = con.execute('SELECT min(timestamp)::date, max(timestamp)::date FROM "values"').fetchone()
     _total_params = con.execute('SELECT count(DISTINCT parameter) FROM "values"').fetchone()[0]
 
     mo.hstack(
@@ -332,10 +332,10 @@ def _(alt, con):
     _df = con.execute("""
         SELECT
             parameter,
-            min(date)::date AS first_date,
-            max(date)::date AS last_date,
+            min(timestamp)::date AS first_date,
+            max(timestamp)::date AS last_date,
             count(DISTINCT station_id) AS stations,
-            datediff('year', min(date)::date, max(date)::date) AS years_covered
+            datediff('year', min(timestamp)::date, max(timestamp)::date) AS years_covered
         FROM "values"
         GROUP BY parameter
         ORDER BY first_date
@@ -395,40 +395,40 @@ def _(alt, con):
             -- only use station+doy combos with at least 20 of the 30 reference years
             SELECT
                 station_id,
-                dayofyear(date) AS doy,
+                dayofyear(timestamp) AS doy,
                 avg(value)      AS baseline_mean
             FROM "values"
             WHERE parameter = 'temperature_air_mean_2m'
-              AND date BETWEEN '1961-01-01' AND '1990-12-31'
+              AND timestamp BETWEEN '1961-01-01' AND '1990-12-31'
             GROUP BY station_id, doy
-            HAVING count(DISTINCT year(date)) >= 24
+            HAVING count(DISTINCT year(timestamp)) >= 24
         ),
         station_year_coverage AS (
             -- keep only station+year combos with >= 90% day coverage
             SELECT
                 station_id,
-                year(date)  AS yr,
+                year(timestamp)  AS yr,
                 count(*)    AS days_present,
-                CASE WHEN year(date) % 4 = 0 AND (year(date) % 100 != 0 OR year(date) % 400 = 0)
+                CASE WHEN year(timestamp) % 4 = 0 AND (year(timestamp) % 100 != 0 OR year(timestamp) % 400 = 0)
                      THEN 366 ELSE 365 END AS days_in_year
             FROM "values"
             WHERE parameter = 'temperature_air_mean_2m'
-              AND date < '2025-01-01'
+              AND timestamp < '2025-01-01'
             GROUP BY station_id, yr
             HAVING days_present >= 0.9 * days_in_year
         ),
         anomalies AS (
             SELECT
-                date_trunc('year', v.date)::date AS year,
+                date_trunc('year', v.timestamp)::date AS year,
                 avg(v.value - b.baseline_mean)   AS mean_anomaly,
                 count(DISTINCT v.station_id)      AS stations
             FROM "values" v
             JOIN baseline b
-              ON v.station_id = b.station_id AND dayofyear(v.date) = b.doy
+              ON v.station_id = b.station_id AND dayofyear(v.timestamp) = b.doy
             JOIN station_year_coverage s
-              ON v.station_id = s.station_id AND year(v.date) = s.yr
+              ON v.station_id = s.station_id AND year(v.timestamp) = s.yr
             WHERE v.parameter = 'temperature_air_mean_2m'
-              AND v.date < '2025-01-01'
+              AND v.timestamp < '2025-01-01'
             GROUP BY year
         )
         SELECT
@@ -502,7 +502,7 @@ def _(con, mo):
 def _(con, mo):
     _df = con.execute("""
         SELECT
-            v.date::date  AS date,
+            v.timestamp::date  AS date,
             v.station_id,
             s.name        AS station,
             s.region,
@@ -536,17 +536,17 @@ def _(mo):
 def _(alt, con, mo):
     _df = con.execute("""
         SELECT
-            year(date)                                                          AS year,
+            year(timestamp)                                                          AS year,
             count(DISTINCT CASE WHEN value > 0 THEN station_id END)            AS stations_with_snow,
             count(DISTINCT station_id)                                          AS stations_reporting,
             100.0 * count(DISTINCT CASE WHEN value > 0 THEN station_id END)
                   / count(DISTINCT station_id)                                  AS pct_white_christmas
         FROM "values"
         WHERE parameter = 'snow_depth'
-          AND month(date) = 12
-          AND day(date) BETWEEN 24 AND 26
-          AND year(date) BETWEEN 1950 AND 2024
-        GROUP BY year(date)
+          AND month(timestamp) = 12
+          AND day(timestamp) BETWEEN 24 AND 26
+          AND year(timestamp) BETWEEN 1950 AND 2024
+        GROUP BY year(timestamp)
         ORDER BY year
     """).pl()
 
@@ -615,15 +615,15 @@ def _(alt, birthday, con, mo):
     _df = con.execute(
         """
         SELECT
-            year(date)  AS year,
+            year(timestamp)  AS year,
             avg(value)  AS mean_temp
         FROM "values"
         WHERE parameter = 'temperature_air_mean_2m'
-          AND month(date) = ?
-          AND day(date)   = ?
-          AND year(date) >= ?
+          AND month(timestamp) = ?
+          AND day(timestamp)   = ?
+          AND year(timestamp) >= ?
           AND value IS NOT NULL
-        GROUP BY year(date)
+        GROUP BY year(timestamp)
         ORDER BY year
     """,
         [_month, _day, _birth_year],

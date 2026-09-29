@@ -25,7 +25,7 @@ _EMPTY_STATIONS_SCHEMA = {
 }
 
 _EMPTY_VALUES_SCHEMA = {
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
     "quality": pl.Float64,
@@ -84,7 +84,7 @@ def parse_values(
     scale: dict[str, float] | None = None,
     period_count_column: str | None = None,
 ) -> pl.DataFrame:
-    """Parse a per-station-year data file into long ``(date, parameter, value, quality)`` rows.
+    """Parse a per-station-year data file into long ``(timestamp, parameter, value, quality)`` rows.
 
     Every reading is truncated to ``granularity`` (``1d`` for daily datasets, ``1h`` for hourly)
     and aggregated to one value per ``(timestamp, parameter)``. This collapses MIDAS's *multiple
@@ -147,7 +147,7 @@ def parse_values(
         if raw_column in scale:
             value = value * scale[raw_column]
         sub = df.select(
-            date.alias("date"),
+            date.alias("timestamp"),
             value.alias("value"),
             (
                 pl.col(quality_column).cast(pl.Float64, strict=False)
@@ -158,18 +158,18 @@ def parse_values(
         if sub.is_empty():
             continue
         if raw_column in min_columns:
-            aggregated = sub.group_by("date").agg(
+            aggregated = sub.group_by("timestamp").agg(
                 pl.col("value").min().alias("value"),
                 pl.col("quality").sort_by("value").first().alias("quality"),
             )
         else:
-            aggregated = sub.group_by("date").agg(
+            aggregated = sub.group_by("timestamp").agg(
                 pl.col("value").max().alias("value"),
                 pl.col("quality").sort_by("value").last().alias("quality"),
             )
         frames.append(
             aggregated.select(
-                pl.col("date"),
+                pl.col("timestamp"),
                 pl.lit(raw_column, dtype=pl.String).alias("parameter"),
                 pl.col("value"),
                 pl.col("quality"),

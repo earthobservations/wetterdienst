@@ -39,8 +39,8 @@ def _dates(station_id: str, step: int, count: int, *, offset: int = 0) -> list[t
 
 def _frame(*rows: tuple[str, dt.datetime]) -> pl.DataFrame:
     return pl.DataFrame(
-        {"station_id": [row[0] for row in rows], "date": [row[1] for row in rows]},
-        schema={"station_id": pl.String, "date": pl.Datetime(time_unit="us")},
+        {"station_id": [row[0] for row in rows], "timestamp": [row[1] for row in rows]},
+        schema={"station_id": pl.String, "timestamp": pl.Datetime(time_unit="us")},
     )
 
 
@@ -300,7 +300,7 @@ def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(defaul
 
     df = request.filter_by_station_id(station_id).values.all().df
 
-    steps = df.get_column("date").diff().drop_nulls().dt.total_minutes().to_list()
+    steps = df.get_column("timestamp").diff().drop_nulls().dt.total_minutes().to_list()
     assert steps, f"{station_id} returned no values to measure"
     assert max(set(steps), key=steps.count) == 15
     on_grid = sum(step % 15 == 0 for step in steps) / len(steps)

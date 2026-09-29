@@ -135,7 +135,7 @@ def read_radar_bufr(data: BytesIO, parameter: DwdRadarParameter) -> pl.DataFrame
     values = row[value_columns].astype("float64").tolist()
     return pl.DataFrame({"value": values}).select(
         pl.lit(str(row["#1#shortStationName"])).alias("station_id"),
-        pl.lit(date).alias("date"),
+        pl.lit(date).alias("timestamp"),
         pl.lit(float(row["#1#latitude"])).alias("latitude"),
         pl.lit(float(row["#1#longitude"])).alias("longitude"),
         pl.lit(float(row["#1#heightOfStation"])).alias("elevation"),

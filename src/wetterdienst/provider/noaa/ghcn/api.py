@@ -68,17 +68,17 @@ class NoaaGhcnValues(TimeseriesValues):
         df = df.rename(
             {
                 "STATION": "station_id",
-                "DATE": "date",
+                "DATE": "timestamp",
             },
         )
         parameters = [parameter.name_original for parameter in dataset]
         df = df.select(
             "station_id",
-            "date",
+            "timestamp",
             *parameters,
         )
         df = df.unpivot(
-            index=["station_id", "date"],
+            index=["station_id", "timestamp"],
             on=parameters,
             variable_name="parameter",
             value_name="value",
@@ -89,7 +89,7 @@ class NoaaGhcnValues(TimeseriesValues):
             pl.col("parameter").str.to_lowercase(),
             # GHCNh provides a ready-made ISO-8601 timestamp column; parse it directly rather than
             # reconstructing from the separate year/month/day/hour/minute fields
-            pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M:%S", time_zone="UTC"),
+            pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S", time_zone="UTC"),
             pl.col("value").replace("-None", None).cast(pl.Float64),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )
@@ -121,7 +121,7 @@ class NoaaGhcnValues(TimeseriesValues):
             separator=",",
             has_header=True,
         )
-        df = df.rename(str.lower)
+        df = df.rename(str.lower).rename({"date": "timestamp"})
         df = df.select(
             cs.exclude(
                 [
@@ -134,14 +134,14 @@ class NoaaGhcnValues(TimeseriesValues):
             ),
         )
         df = df.unpivot(
-            index=["station", "date"],
-            on=cs.exclude(["station", "date"]),
+            index=["station", "timestamp"],
+            on=cs.exclude(["station", "timestamp"]),
             variable_name="parameter",
             value_name="value",
         )
         df = df.select(
             pl.col("station").alias("station_id"),
-            pl.col("date").str.to_date("%Y-%m-%d"),
+            pl.col("timestamp").str.to_date("%Y-%m-%d"),
             pl.col("parameter").str.to_lowercase(),
             pl.col("value").str.strip_chars().cast(float),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
@@ -156,17 +156,17 @@ class NoaaGhcnValues(TimeseriesValues):
         # The result will be a datetime in UTC with the correct offset to local midnight time.
         time_zone = self._get_timezone_from_station(station_id)
         df = df.with_columns(
-            pl.col("date").cast(pl.Datetime(time_zone="UTC")).alias("date"),
-            pl.col("date").cast(pl.Datetime(time_zone=time_zone)).dt.base_utc_offset().alias("utc_offset"),
+            pl.col("timestamp").cast(pl.Datetime(time_zone="UTC")).alias("timestamp"),
+            pl.col("timestamp").cast(pl.Datetime(time_zone=time_zone)).dt.base_utc_offset().alias("utc_offset"),
         )
-        df = df.with_columns(pl.col("date").sub(pl.col("utc_offset")).cast(pl.Datetime(time_zone="UTC")))
+        df = df.with_columns(pl.col("timestamp").sub(pl.col("utc_offset")).cast(pl.Datetime(time_zone="UTC")))
         df = self._apply_daily_factors(df)
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             "parameter",
             "station_id",
-            "date",
+            "timestamp",
             "value",
             "quality",
         )

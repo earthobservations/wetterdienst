@@ -142,7 +142,7 @@ class DwdObservationValues(TimeseriesValues):
         # Only on the rank, and stably: a duplicate timestamp *within* one period -- the 1 minute
         # precipitation events share their boundary minutes -- has to keep being settled the way it
         # was, not resorted.
-        parameter_df = parameter_df.sort(_PERIOD_RANK, maintain_order=True).unique(subset=["date"], keep="first")
+        parameter_df = parameter_df.sort(_PERIOD_RANK, maintain_order=True).unique(subset=["timestamp"], keep="first")
         parameter_df = parameter_df.drop(_PERIOD_RANK)
         result = parameter_df.collect(background=False)
         if not isinstance(result, pl.DataFrame):
@@ -157,7 +157,7 @@ class DwdObservationValues(TimeseriesValues):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             "parameter",
             pl.col("station_id").str.pad_start(5, "0"),
-            pl.col("date").dt.replace_time_zone("UTC"),
+            pl.col("timestamp").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
             pl.col("quality").cast(pl.Float64),
         )
@@ -166,10 +166,10 @@ class DwdObservationValues(TimeseriesValues):
     def _fix_timestamps(df: pl.DataFrame) -> pl.DataFrame:
         """Fix timestamps for minute data."""
         return df.with_columns(
-            pl.when(pl.col("date").dt.year() < 2000)
-            .then(pl.col("date") - pl.duration(hours=1))
-            .otherwise(pl.col("date"))
-            .alias("date"),
+            pl.when(pl.col("timestamp").dt.year() < 2000)
+            .then(pl.col("timestamp") - pl.duration(hours=1))
+            .otherwise(pl.col("timestamp"))
+            .alias("timestamp"),
         )
 
     @staticmethod
@@ -183,7 +183,7 @@ class DwdObservationValues(TimeseriesValues):
             else:
                 df_parameter = df.select(
                     "station_id",
-                    "date",
+                    "timestamp",
                     pl.lit(column, dtype=pl.String).alias("parameter"),
                     pl.col(column).alias("value"),
                     series_quality.alias("quality"),

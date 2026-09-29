@@ -72,9 +72,9 @@ def test_parse_values_collapses_multiple_report_types() -> None:
     ).sort("parameter")
     assert df.to_dicts() == [
         # max over {4.8, 5.4, 5.1} == the 24h value 5.4; quality is that of the extreme row
-        {"date": dt.datetime(2000, 1, 1, tzinfo=UTC), "parameter": "max_air_temp", "value": 5.4, "quality": 4.0},
+        {"timestamp": dt.datetime(2000, 1, 1, tzinfo=UTC), "parameter": "max_air_temp", "value": 5.4, "quality": 4.0},
         # min over {0.3, 0.3, 2.8} == 0.3
-        {"date": dt.datetime(2000, 1, 1, tzinfo=UTC), "parameter": "min_air_temp", "value": 0.3, "quality": 6.0},
+        {"timestamp": dt.datetime(2000, 1, 1, tzinfo=UTC), "parameter": "min_air_temp", "value": 0.3, "quality": 6.0},
     ]
 
 
@@ -94,7 +94,7 @@ def test_parse_values_drops_multiday_accumulations() -> None:
         period_count_column="ob_day_cnt",
     )
     assert df.to_dicts() == [
-        {"date": dt.datetime(2000, 1, 2, tzinfo=UTC), "parameter": "prcp_amt", "value": 3.7, "quality": 2576.0},
+        {"timestamp": dt.datetime(2000, 1, 2, tzinfo=UTC), "parameter": "prcp_amt", "value": 3.7, "quality": 2576.0},
     ]
 
 
@@ -114,7 +114,7 @@ def test_parse_values_scales_visibility_to_metres() -> None:
     )
     assert df.to_dicts() == [
         {
-            "date": dt.datetime(2015, 7, 1, 13, 0, tzinfo=UTC),
+            "timestamp": dt.datetime(2015, 7, 1, 13, 0, tzinfo=UTC),
             "parameter": "visibility",
             "value": 19000.0,
             "quality": 6.0,
@@ -127,7 +127,7 @@ def test_parse_values_empty_input() -> None:
     content = _badc(b"Conventions,G,BADC-CSV,1\n", "ob_date,prcp_amt", b"")
     df = parse_values(content, time_column="ob_date", columns=["prcp_amt"], granularity="1d")
     assert df.is_empty()
-    assert df.columns == ["date", "parameter", "value", "quality"]
+    assert df.columns == ["timestamp", "parameter", "value", "quality"]
 
 
 def _fake_jwt(exp: float) -> str:
@@ -329,8 +329,8 @@ def test_metoffice_observation_values_daily_rain() -> None:
     assert df["resolution"].unique().to_list() == ["daily"]
     assert df["parameter"].unique().to_list() == ["precipitation_height"]
     # one value per day, timestamps truncated to midnight
-    assert (df["date"] == df["date"].dt.truncate("1d")).all()
-    assert df["date"].n_unique() == df.height
+    assert (df["timestamp"] == df["timestamp"].dt.truncate("1d")).all()
+    assert df["timestamp"].n_unique() == df.height
     assert df["value"].min() >= 0.0
 
 
@@ -349,10 +349,10 @@ def test_metoffice_observation_values_daily_temperature_one_row_per_day() -> Non
         .df
     )
     assert not df.is_empty()
-    # no (date, parameter) duplicates -> report types were collapsed
-    assert df.select("date", "parameter").is_unique().all()
+    # no (timestamp, parameter) duplicates -> report types were collapsed
+    assert df.select("timestamp", "parameter").is_unique().all()
     maxes = df.filter(pl.col("parameter") == "temperature_air_max_2m")
     mins = df.filter(pl.col("parameter") == "temperature_air_min_2m")
     if not maxes.is_empty() and not mins.is_empty():
-        joined = maxes.join(mins, on="date", suffix="_min")
+        joined = maxes.join(mins, on="timestamp", suffix="_min")
         assert (joined["value"] >= joined["value_min"]).all()

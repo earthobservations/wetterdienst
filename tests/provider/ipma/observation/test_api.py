@@ -84,7 +84,7 @@ def test_parse_ipma_observations_sentinel_and_wind_code() -> None:
     assert by_param["radiacao"] == 3151.3
     # intensidadeVentoKM is not a mapped parameter -> not emitted
     assert "intensidadeVentoKM" not in by_param
-    assert df["date"].to_list() == [dt.datetime(2026, 7, 29, 14, 0, tzinfo=UTC)] * len(df)
+    assert df["timestamp"].to_list() == [dt.datetime(2026, 7, 29, 14, 0, tzinfo=UTC)] * len(df)
 
 
 @pytest.mark.parametrize(

@@ -239,14 +239,14 @@ class KnmiObservationValues(TimeseriesValues):
         if not frames:
             return self._empty_df()
 
-        # every frame from parse_knmi_netcdf shares the same (date, parameter, value) schema
+        # every frame from parse_knmi_netcdf shares the same (timestamp, parameter, value) schema
         df = pl.concat(frames)
         return df.select(
             pl.lit(resolution.value, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("date"),
+            pl.col("timestamp"),
             pl.col("value"),
             pl.lit(None, pl.Float64).alias("quality"),
         )
@@ -259,7 +259,7 @@ class KnmiObservationValues(TimeseriesValues):
                 "dataset": pl.String,
                 "parameter": pl.String,
                 "station_id": pl.String,
-                "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+                "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
                 "value": pl.Float64,
                 "quality": pl.Float64,
             },

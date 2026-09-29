@@ -78,7 +78,7 @@ def test_metno_frost_values_hourly() -> None:
     assert df["resolution"].unique().to_list() == ["hourly"]
     assert df["parameter"].unique().to_list() == ["temperature_air_mean_2m"]
     first = df.row(0, named=True)
-    assert first["date"] == dt.datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
+    assert first["timestamp"] == dt.datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
     assert first["value"] == pytest.approx(3.4)
 
 
@@ -98,7 +98,7 @@ def test_metno_frost_values_daily() -> None:
     assert len(df) == 30
     assert df["resolution"].unique().to_list() == ["daily"]
     first = df.row(0, named=True)
-    assert first["date"] == dt.datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
+    assert first["timestamp"] == dt.datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
     assert first["value"] == pytest.approx(1.9)
 
 
@@ -118,7 +118,7 @@ def test_metno_frost_values_monthly() -> None:
     assert len(df) == 12
     assert df["resolution"].unique().to_list() == ["monthly"]
     first = df.row(0, named=True)
-    assert first["date"] == dt.datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
+    assert first["timestamp"] == dt.datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
     assert first["value"] == pytest.approx(2.7)
 
 
@@ -178,7 +178,7 @@ def test_metno_frost_values_6hour_fallback() -> None:
     assert len(df) == 2
     assert df["resolution"].unique().to_list() == ["6_hour"]
     assert df["parameter"].unique().to_list() == ["precipitation_height"]
-    dates = df["date"].to_list()
+    dates = df["timestamp"].to_list()
     assert dt.datetime(2005, 9, 7, 0, 0, 0, tzinfo=UTC) in dates
     assert dt.datetime(2005, 10, 13, 12, 0, 0, tzinfo=UTC) in dates
 

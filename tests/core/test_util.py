@@ -61,9 +61,9 @@ def test_build_date_grid_spans_the_window_at_the_resolution(
     """Test that the grid covers the window at the interval the resolution records at."""
     df = build_date_grid(resolution, start_date, end_date)
 
-    assert df.columns == ["date"]
+    assert df.columns == ["timestamp"]
     assert df.height == expected_height
-    assert df.get_column("date").min() == expected_first
+    assert df.get_column("timestamp").min() == expected_first
 
 
 def test_build_date_grid_snaps_an_off_phase_window_to_the_wall_clock() -> None:
@@ -79,8 +79,8 @@ def test_build_date_grid_snaps_an_off_phase_window_to_the_wall_clock() -> None:
         dt.datetime(2024, 1, 1, 6, 30, tzinfo=UTC),
     )
 
-    assert df.get_column("date").dt.minute().unique().to_list() == [0]
-    assert df.get_column("date").min() == dt.datetime(2024, 1, 1, 1, tzinfo=UTC)
+    assert df.get_column("timestamp").dt.minute().unique().to_list() == [0]
+    assert df.get_column("timestamp").min() == dt.datetime(2024, 1, 1, 1, tzinfo=UTC)
 
 
 def test_build_date_grid_treats_subdaily_as_hourly() -> None:

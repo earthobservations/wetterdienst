@@ -178,8 +178,8 @@ class DwdDerivedValues(TimeseriesValues):
 
         # Proper expression filtering only possible with DataFrame.
         return (
-            date_range.to_frame("date")
-            .filter(pl.col("date").is_between(earliest_date_with_available_file, latest_date_with_available_file))
+            date_range.to_frame("timestamp")
+            .filter(pl.col("timestamp").is_between(earliest_date_with_available_file, latest_date_with_available_file))
             .to_series()
         )
 
@@ -463,7 +463,7 @@ class DwdDerivedValues(TimeseriesValues):
 
         :param df: Data to be processed
         :param column_name_mapping: Mapping of column names (key: old name, value: new name)
-        :param date: Constant date that is stored in "date" column
+        :param date: Constant date that is stored in "timestamp" column
         :param parameter: Parameter to which input data belongs
         :return: Processed DataFrame
         """
@@ -475,7 +475,7 @@ class DwdDerivedValues(TimeseriesValues):
             pl.lit(parameter.dataset.resolution.name).alias("resolution"),
             pl.lit(parameter.dataset.name).alias("dataset"),
             pl.lit(parameter.name_original).alias("parameter"),
-            pl.lit(date).alias("date"),
+            pl.lit(date).alias("timestamp"),
             pl.lit(value).alias("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
@@ -592,7 +592,7 @@ class DwdDerivedValues(TimeseriesValues):
         except ValueError:
             return pl.DataFrame()
 
-        parameter_df = parameter_df.unique(subset=["date"])
+        parameter_df = parameter_df.unique(subset=["timestamp"])
         result = parameter_df.collect(background=False)
         if not isinstance(result, pl.DataFrame):
             msg = "Expected DataFrame, got InProcessQuery"
@@ -605,7 +605,7 @@ class DwdDerivedValues(TimeseriesValues):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             "parameter",
             pl.col("station_id").str.pad_start(5, "0"),
-            pl.col("date").dt.replace_time_zone("UTC"),
+            pl.col("timestamp").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
             pl.col("quality").cast(pl.Float64),
         )
@@ -615,7 +615,7 @@ class DwdDerivedValues(TimeseriesValues):
         """Tidy up the DataFrame by dropping unnecessary columns and renaming columns."""
         q_col_list = list(filter(lambda x: x.startswith(("qn", "qualitaet")), df.collect_schema().names()))
         q_col = q_col_list[0] if q_col_list else None
-        id_vars = ["station_id", "date"]
+        id_vars = ["station_id", "timestamp"]
         if q_col is not None:
             id_vars = [*id_vars, q_col]
         on = [col for col in df.collect_schema().names()[2:] if not col.startswith(("qn", "qualitaet"))]

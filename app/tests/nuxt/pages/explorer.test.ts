@@ -74,7 +74,7 @@ describe('explorer Page', () => {
       stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }],
     }))
     registerEndpoint('/api/values', () => ({
-      values: [{ station_id: '00001', dataset: 'climate_summary', parameter: 'temperature_air_max_200', date: '2020-01-01T00:00:00Z', value: 12.3, quality: null, unit: 'degree_celsius' }],
+      values: [{ station_id: '00001', dataset: 'climate_summary', parameter: 'temperature_air_max_200', timestamp: '2020-01-01T00:00:00Z', value: 12.3, quality: null, unit: 'degree_celsius' }],
     }))
 
     const wrapper = await mountSuspended(ExplorerWithApp, { attachTo: document.body })

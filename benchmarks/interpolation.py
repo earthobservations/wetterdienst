@@ -28,7 +28,7 @@ example:
 4      01424 2008-08-01 00:00:00+00:00 2022-02-11 00:00:00+00:00      124.0   50.1269     8.6694  Frankfurt/Main-Westend  Hessen  21.680660
 5      01420 1981-01-01 00:00:00+00:00 2022-02-11 00:00:00+00:00      100.0   50.0259     8.5213          Frankfurt/Main  Hessen  27.212977
 
-     station_id          dataset                 parameter                      date   value  quality
+     station_id          dataset                 parameter                 timestamp   value  quality
 24        02480  temperature_air  temperature_air_mean_2m 2022-01-02 00:00:00+00:00  278.15      1.0
 481       04411  temperature_air  temperature_air_mean_2m 2022-01-02 00:00:00+00:00  277.15      1.0
 938       07341  temperature_air  temperature_air_mean_2m 2022-01-02 00:00:00+00:00  278.35      1.0
@@ -83,7 +83,7 @@ def request_weather_data(
     print(df)
     # filters by one exact time and saves the given parameter per station at this time
     day_time = start_date + dt.timedelta(days=1)
-    filtered_df = df.filter(pl.col("date").eq(day_time))
+    filtered_df = df.filter(pl.col("timestamp").eq(day_time))
     print(filtered_df)
     values = filtered_df.get_column("value").to_list()
 

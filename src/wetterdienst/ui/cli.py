@@ -767,8 +767,8 @@ def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: 
     used to be inferred here: `fail` arrives from DuckDB as one exception and from the SQLAlchemy
     sinks as another, both classes are also how a sink breaks, and no rule over types and messages
     got that right for long. A `KeyError` from inside a sink was reported as advice and printed its
-    own argument and nothing else -- exporting a stations frame to InfluxDB pops a `date` column
-    that only values carry, and the whole report was `ERROR date`.
+    own argument and nothing else -- exporting a stations frame to InfluxDB pops a `timestamp` column
+    that only values carry, and the whole report was `ERROR date`, as the column was then called.
     """
     try:
         result.to_target(target, if_exists=if_exists)

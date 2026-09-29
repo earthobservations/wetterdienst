@@ -111,7 +111,7 @@ export interface Value {
   resolution: string
   dataset: string
   parameter: string
-  date: string
+  timestamp: string
   value: number | null
   quality: number | null
   taken_station_id?: string
@@ -199,7 +199,7 @@ export interface StripesStationsQuery {
 }
 
 export interface StripesValueItem {
-  date: string | null
+  timestamp: string | null
   value: number | null
 }
 

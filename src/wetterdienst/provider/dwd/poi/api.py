@@ -59,7 +59,7 @@ _EMPTY_VALUES_SCHEMA = {
     "dataset": pl.String,
     "parameter": pl.String,
     "station_id": pl.String,
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
     "quality": pl.Float64,
 }
@@ -135,16 +135,16 @@ class DwdPoiValues(TimeseriesValues):
             )
             .str.to_datetime("%d.%m.%y %H:%M", time_unit="us")
             .dt.replace_time_zone("UTC")
-            .alias("date"),
+            .alias("timestamp"),
             *[pl.col(column) for column in columns],
         )
-        df = df.unpivot(index=["date"], variable_name="parameter", value_name="value")
+        df = df.unpivot(index=["timestamp"], variable_name="parameter", value_name="value")
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("date"),
+            pl.col("timestamp"),
             # "---" marks a missing value and is cast away non-strictly, as is any other value DWD
             # cannot express as a number
             pl.col("value").str.replace(",", ".").cast(pl.Float64, strict=False),

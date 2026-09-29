@@ -60,7 +60,7 @@ _RECENT_YEARS = 4
 _EMPTY_VALUES_SCHEMA = {
     "station_id": pl.String,
     "parameter": pl.String,
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
     "quality": pl.Float64,
 }
@@ -145,7 +145,7 @@ def _parse_values(content: bytes, object_id: int) -> pl.DataFrame:
     return df.select(
         pl.col("station_id").cast(pl.String).str.pad_start(5, "0"),
         pl.col("phase_id").cast(pl.String).alias("parameter"),
-        pl.datetime(pl.col("year"), 1, 1, time_zone="UTC").alias("date"),
+        pl.datetime(pl.col("year"), 1, 1, time_zone="UTC").alias("timestamp"),
         pl.col("value"),
         pl.col("quality"),
     )
@@ -261,7 +261,7 @@ class DwdPhenologyValues(TimeseriesValues):
         periods = _periods_for(cast("set[Period] | None", stations.periods), dataset)
         # oldest period first: where the periods overlap -- and recent reaches back into the years
         # the last historical release already covers -- `_process_dataset` keeps the first row for a
-        # (parameter, date), and the historical file is the one carrying the final quality marks
+        # (parameter, timestamp), and the historical file is the one carrying the final quality marks
         frames = [
             df
             for period in sorted(periods)
@@ -275,7 +275,7 @@ class DwdPhenologyValues(TimeseriesValues):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
             pl.col("station_id"),
-            pl.col("date"),
+            pl.col("timestamp"),
             pl.col("value"),
             pl.col("quality"),
         )

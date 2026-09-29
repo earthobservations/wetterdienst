@@ -141,7 +141,7 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
             pl.all().exclude(["year", "month", "day", "hour"]),
             pl.concat_str([pl.col("year"), pl.col("month"), pl.col("day"), pl.col("hour"), pl.col("minute")])
             .str.to_datetime(format="%Y%m%d%H%M", time_zone=current_date.tzname())
-            .alias("date"),
+            .alias("timestamp"),
         ],
     )
 
@@ -373,7 +373,7 @@ class DwdDmoValues(TimeseriesValues):
             return df
         df = df.unpivot(
             index=[
-                "date",
+                "timestamp",
             ],
             variable_name="parameter",
             value_name="value",
@@ -383,7 +383,7 @@ class DwdDmoValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             "parameter",
-            pl.col("date").str.to_datetime(format="%Y-%m-%dT%H:%M:%S.000Z", time_zone="UTC"),
+            pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S.000Z", time_zone="UTC"),
             "value",
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
@@ -461,7 +461,7 @@ class DwdDmoValues(TimeseriesValues):
             raise IndexError(msg)
         df = add_date_from_filename(df, dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None))
         if date == DwdForecastDate.LATEST:
-            date = cast("dt.datetime", df.get_column("date").max())
+            date = cast("dt.datetime", df.get_column("timestamp").max())
         elif date.tzinfo is not None:
             # `available_issues` hands these out tz-aware, and the column built above is naive, so
             # comparing them raised `could not evaluate comparison between series 'date' of dtype:
@@ -470,7 +470,7 @@ class DwdDmoValues(TimeseriesValues):
             # it carries a zone: a naive datetime is already what this compares in, and
             # `astimezone` would read it as local time
             date = date.astimezone(dt.timezone.utc).replace(tzinfo=None)
-        df = df.filter(pl.col("date").eq(date))
+        df = df.filter(pl.col("timestamp").eq(date))
         if df.is_empty():
             msg = f"Unable to find {date} file within {url}"
             raise IndexError(msg)
@@ -602,7 +602,7 @@ class DwdDmoRequest(TimeseriesRequest):
             return []
         now_utc = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
         df = add_date_from_filename(df, now_utc)
-        return df.get_column("date").dt.replace_time_zone("UTC").unique().sort().to_list()
+        return df.get_column("timestamp").dt.replace_time_zone("UTC").unique().sort().to_list()
 
     def __post_init__(self) -> None:
         """Post-initialize the DwdDmoRequest class."""
@@ -733,7 +733,7 @@ class DwdDmoRequest(TimeseriesRequest):
             # the directory for the first hours of every month. `add_date_from_filename` is what the
             # values path reconstructs the month and year with, rollover included
             runs = add_date_from_filename(runs, dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None))
-            newest = cast("str", runs.sort("date").get_column("url").last())
+            newest = cast("str", runs.sort("timestamp").get_column("url").last())
             reader = KMLReader(station_ids=[], settings=settings)
             # the reader owns the open archive; parsing finishes before it goes out of scope
             return _placemark_metadata(reader.fetch(newest))

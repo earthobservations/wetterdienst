@@ -25,9 +25,9 @@ UTC = ZoneInfo("UTC")
 def _dates_for(from_value: str, resolution: Resolution) -> dt.datetime:
     """Evaluate the provider's date expression for a single DMI ``from`` timestamp."""
     df = pl.DataFrame({"from": [from_value]}).select(
-        dmi_api.DmiObservationValues._date_expression(resolution).alias("date"),  # noqa: SLF001
+        dmi_api.DmiObservationValues._date_expression(resolution).alias("timestamp"),  # noqa: SLF001
     )
-    return df.get_column("date").to_list()[0]
+    return df.get_column("timestamp").to_list()[0]
 
 
 def test_metadata_resolutions() -> None:
@@ -200,10 +200,10 @@ def test_dmi_observation_values_daily() -> None:
         end_date=dt.datetime(2023, 6, 5, tzinfo=UTC),
     ).filter_by_station_id([COPENHAGEN_LANDBOHOJSKOLEN])
     values = request.values.all().df
-    dates = values.get_column("date").sort().to_list()
+    dates = values.get_column("timestamp").sort().to_list()
     assert dates[0] == dt.datetime(2023, 6, 1, tzinfo=UTC)
     assert dates[-1] == dt.datetime(2023, 6, 5, tzinfo=UTC)
-    assert "UTC" in str(values.schema["date"])
+    assert "UTC" in str(values.schema["timestamp"])
     assert not values.drop_nulls(subset="value").is_empty()
 
 
@@ -216,7 +216,7 @@ def test_dmi_observation_values_hourly_utc() -> None:
         end_date=dt.datetime(2023, 6, 1, 6, tzinfo=UTC),
     ).filter_by_station_id([COPENHAGEN_LANDBOHOJSKOLEN])
     values = request.values.all().df
-    first_date = values.get_column("date").min()
+    first_date = values.get_column("timestamp").min()
     assert first_date == dt.datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
     assert not values.drop_nulls(subset="value").is_empty()
 

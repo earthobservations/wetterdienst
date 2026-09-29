@@ -46,7 +46,7 @@ def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false: Settings) -> Non
         "resolution",
         "dataset",
         "parameter",
-        "date",
+        "timestamp",
         "value",
         "quality",
     ]
@@ -195,7 +195,7 @@ def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false: Settings) -> Non
         "resolution",
         "dataset",
         "parameter",
-        "date",
+        "timestamp",
         "value",
         "quality",
     ]
@@ -283,7 +283,7 @@ def test_mosmix_l_parameters(settings_humanize_false_drop_nulls_false: Settings)
         "resolution",
         "dataset",
         "parameter",
-        "date",
+        "timestamp",
         "value",
         "quality",
     ]

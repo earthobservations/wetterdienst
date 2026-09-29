@@ -544,7 +544,7 @@ def values(
     the response small, and `station` with an id from `stations` (e.g. station="01975"). `periods`
     is optional and provider-specific -- "recent" for dwd/observation, while a provider that
     publishes under a single period rejects any other one. The response `values` array is sorted by
-    date; the most recent reading for a parameter is the last item with that parameter. Do not
+    timestamp; the most recent reading for a parameter is the last item with that parameter. Do not
     re-request in other formats.
     """
     set_logging_level(debug=request.debug)
@@ -890,10 +890,10 @@ def stripes_values(
             "metadata": stripes_data.metadata.model_dump(),
             "values": [
                 {
-                    "date": row["date"].isoformat() if row["date"] else None,
+                    "timestamp": row["timestamp"].isoformat() if row["timestamp"] else None,
                     "value": row["value"],
                 }
-                for row in stripes_data.df.select("date", "value").iter_rows(named=True)
+                for row in stripes_data.df.select("timestamp", "value").iter_rows(named=True)
             ],
         }
         content = json.dumps(data, indent=4 if pretty else None)

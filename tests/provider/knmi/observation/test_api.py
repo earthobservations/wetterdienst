@@ -241,7 +241,7 @@ def test_knmi_parse_netcdf_extracts_requested_station_and_parameters(netcdf_payl
     """Only the requested station's requested parameters come back."""
     moment = dt.datetime(2020, 1, 1, tzinfo=UTC)
     df = parse_knmi_netcdf(netcdf_payload, "06280", ["TG"], moment)
-    assert df.to_dicts() == [{"date": moment, "parameter": "TG", "value": 1.2}]
+    assert df.to_dicts() == [{"timestamp": moment, "parameter": "TG", "value": 1.2}]
 
 
 def test_knmi_parse_netcdf_uses_requested_moment_not_internal_time(netcdf_payload: bytes) -> None:
@@ -253,7 +253,7 @@ def test_knmi_parse_netcdf_uses_requested_moment_not_internal_time(netcdf_payloa
     """
     moment = dt.datetime(2020, 1, 1, tzinfo=UTC)
     df = parse_knmi_netcdf(netcdf_payload, "06260", ["TG"], moment)
-    assert df["date"].to_list() == [moment]
+    assert df["timestamp"].to_list() == [moment]
 
 
 def test_knmi_parse_netcdf_trace_precipitation_becomes_zero(netcdf_payload: bytes) -> None:
@@ -287,7 +287,7 @@ def test_knmi_parse_netcdf_missing_station_returns_empty(netcdf_payload: bytes) 
     moment = dt.datetime(2020, 1, 1, tzinfo=UTC)
     df = parse_knmi_netcdf(netcdf_payload, "999", ["TG"], moment)
     assert df.is_empty()
-    assert df.schema["date"] == pl.Datetime(time_unit="us", time_zone="UTC")
+    assert df.schema["timestamp"] == pl.Datetime(time_unit="us", time_zone="UTC")
 
 
 def test_knmi_parse_netcdf_unknown_parameter_skipped(netcdf_payload: bytes) -> None:
@@ -424,7 +424,7 @@ def test_knmi_observation_values_daily() -> None:
     )
     assert df["station_id"].unique().to_list() == [DE_BILT]
     assert df["resolution"].unique().to_list() == ["daily"]
-    assert df["date"].unique().to_list() == [dt.datetime(2020, 1, 1, tzinfo=UTC)]
+    assert df["timestamp"].unique().to_list() == [dt.datetime(2020, 1, 1, tzinfo=UTC)]
 
     def value_of(parameter: str) -> float:
         return df.filter(pl.col("parameter").eq(parameter)).get_column("value").item()
@@ -458,7 +458,7 @@ def test_knmi_observation_values_10_minutes() -> None:
     )
     assert df["station_id"].unique().to_list() == [DE_BILT]
     assert df["resolution"].unique().to_list() == ["10_minutes"]
-    assert df["date"].unique().to_list() == [dt.datetime(2020, 6, 1, 12, 10, tzinfo=UTC)]
+    assert df["timestamp"].unique().to_list() == [dt.datetime(2020, 6, 1, 12, 10, tzinfo=UTC)]
 
     def value_of(parameter: str) -> float:
         return df.filter(pl.col("parameter").eq(parameter)).get_column("value").item()

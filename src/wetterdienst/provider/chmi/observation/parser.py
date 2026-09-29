@@ -5,7 +5,7 @@
 Observation files come in three shapes: the ``daily`` files carry a ``TIMEFUNC``/``DT`` pair, the
 sub-daily (``10_minutes``/``hourly``) files a bare ``DT``, and the ``monthly``/``annual`` files a
 ``YEAR``(+``MONTH``)/``TIMEFUNCTION`` aggregate layout. Each parser normalises to a common
-``(date, parameter, value)`` frame.
+``(timestamp, parameter, value)`` frame.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ _EMPTY_STATIONS_SCHEMA = {
 }
 
 _EMPTY_VALUES_SCHEMA = {
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
 }
@@ -69,7 +69,7 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
 
 def _values(date: pl.Expr, element: str, df: pl.DataFrame) -> pl.DataFrame:
     return df.select(
-        date.alias("date"),
+        date.alias("timestamp"),
         pl.lit(element, dtype=pl.String).alias("parameter"),
         pl.col("VALUE").cast(pl.Float64, strict=False).alias("value"),
     )

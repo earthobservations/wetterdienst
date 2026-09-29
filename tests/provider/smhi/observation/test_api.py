@@ -58,7 +58,7 @@ def test_smhi_observation_values_daily() -> None:
     )
     assert df["station_id"].unique().to_list() == [ABISKO]
     assert df["resolution"].unique().to_list() == ["daily"]
-    assert df["date"].unique().to_list() == [dt.datetime(2020, 1, 1, tzinfo=UTC)]
+    assert df["timestamp"].unique().to_list() == [dt.datetime(2020, 1, 1, tzinfo=UTC)]
 
     def value_of(parameter: str) -> float:
         return df.filter(pl.col("parameter").eq(parameter)).get_column("value").item()
@@ -88,7 +88,7 @@ def test_smhi_observation_values_hourly() -> None:
 
     def value_at(parameter: str, hour: int) -> float:
         date = dt.datetime(2020, 1, 1, hour, tzinfo=UTC)
-        return df.filter(pl.col("parameter").eq(parameter), pl.col("date").eq(date)).get_column("value").item()
+        return df.filter(pl.col("parameter").eq(parameter), pl.col("timestamp").eq(date)).get_column("value").item()
 
     assert value_at("temperature_air_mean_2m", 0) == pytest.approx(-3.3)
     assert value_at("temperature_dew_point_mean_2m", 0) == pytest.approx(-5.3)
@@ -118,7 +118,7 @@ def test_smhi_observation_values_monthly() -> None:
     )
     assert df["station_id"].unique().to_list() == [ABISKO]
     assert df["resolution"].unique().to_list() == ["monthly"]
-    assert df["date"].unique().to_list() == [dt.datetime(2020, 1, 1, tzinfo=UTC)]
+    assert df["timestamp"].unique().to_list() == [dt.datetime(2020, 1, 1, tzinfo=UTC)]
 
     def value_of(parameter: str) -> float:
         return df.filter(pl.col("parameter").eq(parameter)).get_column("value").item()
@@ -141,7 +141,7 @@ def test_smhi_observation_values_minute_1() -> None:
     assert df["station_id"].unique().to_list() == [ABISKO]
     assert df["resolution"].unique().to_list() == ["1_minute"]
 
-    latest_date = df["date"].max()
+    latest_date = df["timestamp"].max()
     assert isinstance(latest_date, dt.datetime)
     now = dt.datetime.now(tz=UTC)
     # this is the rolling "latest-day" feed; allow up to a day of lag so transient upstream
@@ -149,7 +149,7 @@ def test_smhi_observation_values_minute_1() -> None:
     assert now - dt.timedelta(days=1) <= latest_date <= now
 
     def latest(parameter: str) -> float:
-        sub = df.filter(pl.col("parameter").eq(parameter)).sort("date")
+        sub = df.filter(pl.col("parameter").eq(parameter)).sort("timestamp")
         return sub.get_column("value").tail(1).item()
 
     assert -60.0 <= latest("temperature_air_mean_2m") <= 60.0

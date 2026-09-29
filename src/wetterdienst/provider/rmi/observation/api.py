@@ -50,7 +50,7 @@ _EMPTY_VALUES_SCHEMA = {
     "dataset": pl.String,
     "parameter": pl.String,
     "station_id": pl.String,
-    "date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
     "quality": pl.Float64,
 }
@@ -214,7 +214,7 @@ class RmiObservationValues(TimeseriesValues):
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            _parse_utc_z(pl.col("timestamp")).alias("date"),
+            _parse_utc_z(pl.col("timestamp")).alias("timestamp"),
             pl.col("value").cast(pl.Float64),
             pl.col("quality").cast(pl.Float64),
         )

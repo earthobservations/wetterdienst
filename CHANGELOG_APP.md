@@ -23,6 +23,8 @@ Types of changes:
 - `[Stations]` Stations carry `region` where they carried `state`. English labelled the field
   "State" and every other locale a federal state -- "Bundesland", "Kraj związkowy", "Land" -- which
   most providers' regions are not; each now uses its own word for region (GH-2026)
+- `[Explorer]` Values carry `timestamp` where they carried `date`: the column is headed
+  `timestamp`, and the example queries group and order by it (GH-2028)
 
 ### Fixed
 

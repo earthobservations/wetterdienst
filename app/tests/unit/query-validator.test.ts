@@ -83,8 +83,8 @@ describe('query-validator', () => {
   describe('validateColumns', () => {
     it('should accept matching columns', () => {
       const result = validateColumns(
-        ['station_id', 'value', 'date'],
-        ['station_id', 'value', 'date'],
+        ['station_id', 'value', 'timestamp'],
+        ['station_id', 'value', 'timestamp'],
       )
       expect(result.valid).toBe(true)
       expect(result.messageKey).toBeUndefined()
@@ -94,17 +94,17 @@ describe('query-validator', () => {
       // Query returns fewer columns than expected, so required columns are missing.
       const result = validateColumns(
         ['station_id', 'value'],
-        ['station_id', 'value', 'date', 'quality'],
+        ['station_id', 'value', 'timestamp', 'quality'],
       )
       expect(result.valid).toBe(false)
       expect(result.messageKey).toBe('validation.missingColumns')
-      expect(result.params?.missing).toContain('date')
+      expect(result.params?.missing).toContain('timestamp')
     })
 
     it('should reject missing required columns', () => {
       const result = validateColumns(
         ['station_id', 'temperature'],
-        ['station_id', 'value', 'date'],
+        ['station_id', 'value', 'timestamp'],
       )
       expect(result.valid).toBe(false)
       expect(result.messageKey).toBe('validation.missingColumns')

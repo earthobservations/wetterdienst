@@ -124,14 +124,14 @@ def filter_by_date(df: pl.DataFrame, date: str) -> pl.DataFrame:
 
         if date_to_end is None:
             # the end names one instant, so it is the last one kept
-            return df.filter(pl.col("date").is_between(date_from, date_to, closed="both"))
+            return df.filter(pl.col("timestamp").is_between(date_from, date_to, closed="both"))
 
-        return df.filter(pl.col("date").is_between(date_from, date_to_end, closed="left"))
+        return df.filter(pl.col("timestamp").is_between(date_from, date_to_end, closed="left"))
 
     # Filter by specific date.
     date_from, date_to_end = parse_date_span(date)
 
     if date_to_end is None:
-        return df.filter(pl.col("date").eq(date_from))
+        return df.filter(pl.col("timestamp").eq(date_from))
 
-    return df.filter(pl.col("date").is_between(date_from, date_to_end, closed="left"))
+    return df.filter(pl.col("timestamp").is_between(date_from, date_to_end, closed="left"))

@@ -47,7 +47,7 @@ class TimeseriesValues(ABC):
     unit_converter: UnitConverter = field(default_factory=UnitConverter)
 
     # Fields for date coercion
-    _date_fields: ClassVar = ["date", "start_date", "end_date"]
+    _date_fields: ClassVar = ["timestamp", "start_date", "end_date"]
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -67,7 +67,7 @@ class TimeseriesValues(ABC):
         "resolution": pl.String,
         "dataset": pl.String,
         "parameter": pl.String,
-        "date": pl.Datetime(time_zone="UTC"),
+        "timestamp": pl.Datetime(time_zone="UTC"),
         "value": pl.Float64,
         "quality": pl.Float64,
     }
@@ -80,7 +80,7 @@ class TimeseriesValues(ABC):
                 "station_id": pl.String,
                 "resolution": pl.String,
                 "dataset": pl.String,
-                "date": pl.Datetime(time_zone="UTC"),
+                "timestamp": pl.Datetime(time_zone="UTC"),
             }
         return dict(self._long_fields)
 
@@ -209,9 +209,9 @@ class TimeseriesValues(ABC):
             # 10-minute precipitation series came out shuffled into each other. `unique()` in
             # `_widen_df` leaves the wide rows in no particular order to begin with.
             sort_columns = (
-                ["resolution", "dataset", "parameter", "date"]
+                ["resolution", "dataset", "parameter", "timestamp"]
                 if self.sr.settings.ts_tidy
-                else ["resolution", "dataset", "date"]
+                else ["resolution", "dataset", "timestamp"]
             )
             df = df.sort(sort_columns)
             self.stations_counter += 1
@@ -241,12 +241,12 @@ class TimeseriesValues(ABC):
         """Cut a station's frame down to the window the request asked for, if it named one.
 
         A frame with nothing in it is handed back untouched: a station that delivered no data at
-        all comes back as a bare frame with no ``date`` column to filter on.
+        all comes back as a bare frame with no ``timestamp`` column to filter on.
         """
         if not self.sr.start_date or df.is_empty():
             return df
         return df.filter(
-            pl.col("date").is_between(
+            pl.col("timestamp").is_between(
                 self.sr.start_date,
                 self.sr.end_date,
                 closed="both",
@@ -329,7 +329,7 @@ class TimeseriesValues(ABC):
             return df
         if self.sr.settings.ts_convert_units:
             df = self._convert_units(df, dataset)
-        df = df.unique(subset=["resolution", "dataset", "parameter", "date"], maintain_order=True)
+        df = df.unique(subset=["resolution", "dataset", "parameter", "timestamp"], maintain_order=True)
         if self.sr.settings.ts_drop_nulls:
             df = df.drop_nulls(subset=["value"])
         return self._organize_df_columns(df, station_id, dataset)
@@ -346,22 +346,22 @@ class TimeseriesValues(ABC):
         """Widen a dataframe with each row having one timestamp, parameter, value and quality.
 
         Example:
-        date         parameter                  value   quality
+        timestamp    parameter                  value   quality
         1971-01-01   precipitation_height       0       0
         1971-01-01   temperature_air_mean_2m   10      0
 
         becomes
 
-        date         precipitation_height   qn_precipitation_height
+        timestamp    precipitation_height   qn_precipitation_height
         1971-01-01   0                      0
             temperature_air_mean_2m    ...
             10                          ...
 
         Args:
-            df: DataFrame with columns date, parameter, value and quality.
+            df: DataFrame with columns timestamp, parameter, value and quality.
 
         Returns:
-            DataFrame with columns date, parameter, value and quality as columns.
+            DataFrame with columns timestamp, parameter, value and quality as columns.
 
         """
         # if there is more than one dataset, we need to prefix parameter names with dataset names to avoid
@@ -409,13 +409,13 @@ class TimeseriesValues(ABC):
             if merged_resolutions
             else pl.col("dataset")
         )
-        df_wide = df.select(pl.col("station_id"), pl.col("resolution"), dataset, pl.col("date")).unique()
+        df_wide = df.select(pl.col("station_id"), pl.col("resolution"), dataset, pl.col("timestamp")).unique()
 
         if not df.is_empty():
             for (parameter,), df_parameter in df.group_by(["parameter"], maintain_order=True):
                 # Build quality column name
                 parameter_quality = f"qn_{parameter}"
-                df_parameter = df_parameter.select(["resolution", "date", "value", "quality"])
+                df_parameter = df_parameter.select(["resolution", "timestamp", "value", "quality"])
                 df_parameter = df_parameter.rename(
                     mapping={"value": parameter, "quality": parameter_quality},
                 )
@@ -424,7 +424,7 @@ class TimeseriesValues(ABC):
                 # out of the frame. Chained inner joins reduced the frame to the timestamps every
                 # requested parameter shared, which silently dropped readings that were asked for
                 # -- three quarters of a 15-minute series joined against an hourly one
-                df_wide = df_wide.join(df_parameter, on=["resolution", "date"], how="left")
+                df_wide = df_wide.join(df_parameter, on=["resolution", "timestamp"], how="left")
         else:
             for parameter in self.sr.parameters:
                 parameter_name = parameter.name_original if not self.sr.settings.ts_humanize else parameter.name
@@ -524,7 +524,7 @@ class TimeseriesValues(ABC):
             )
             start_date, end_date = self.sr.start_date, self.sr.end_date
             if (start_date is None or end_date is None) and not df_dataset.is_empty():
-                dates = df_dataset.get_column("date")
+                dates = df_dataset.get_column("timestamp")
                 start_date, end_date = cast("dt.datetime", dates.min()), cast("dt.datetime", dates.max())
             expected = (
                 count_readings(resolution.value, start_date, end_date)
@@ -544,7 +544,7 @@ class TimeseriesValues(ABC):
             # under, and its extra readings say nothing about the stretches of the window it was
             # silent for -- counted one by one, a station reporting every ten minutes through half
             # of an hourly window would cover it twice over and read as complete
-            covered = df_parameter.drop_nulls("value").get_column("date").dt.truncate(interval).n_unique()
+            covered = df_parameter.drop_nulls("value").get_column("timestamp").dt.truncate(interval).n_unique()
             percentages.append(min(covered / expected, 1.0))
         if not percentages:
             return 0.0

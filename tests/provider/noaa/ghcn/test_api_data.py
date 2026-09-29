@@ -43,7 +43,7 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_mean_2m",
-                "date": dt.datetime(2021, 1, 1, 23, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(2021, 1, 1, 23, tzinfo=ZoneInfo("UTC")),
                 "value": 3.7,
                 "quality": None,
             },
@@ -53,14 +53,14 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
             "resolution": pl.Enum(["daily"]),
             "dataset": pl.Enum(["data"]),
             "parameter": pl.Enum(["temperature_air_mean_2m"]),
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
         },
         orient="row",
     )
     assert_frame_equal(
-        given_df.filter(pl.col("date").eq(dt.datetime(2021, 1, 1, 23, tzinfo=ZoneInfo("UTC")))),
+        given_df.filter(pl.col("timestamp").eq(dt.datetime(2021, 1, 1, 23, tzinfo=ZoneInfo("UTC")))),
         expected_df,
     )
 
@@ -83,7 +83,7 @@ def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
                 "resolution": "hourly",
                 "dataset": "data",
                 "parameter": "temperature_air_mean_2m",
-                "date": dt.datetime(1977, 1, 10, 2, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(1977, 1, 10, 2, tzinfo=ZoneInfo("UTC")),
                 "value": 1.0,
                 "quality": None,
             },
@@ -93,13 +93,13 @@ def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
             "resolution": pl.Enum(["hourly"]),
             "dataset": pl.Enum(["data"]),
             "parameter": pl.Enum(["temperature_air_mean_2m"]),
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
         },
         orient="row",
     )
     assert_frame_equal(
-        given_df.filter(pl.col("date").eq(dt.datetime(1977, 1, 10, 2, tzinfo=ZoneInfo("UTC")))),
+        given_df.filter(pl.col("timestamp").eq(dt.datetime(1977, 1, 10, 2, tzinfo=ZoneInfo("UTC")))),
         expected_df,
     )

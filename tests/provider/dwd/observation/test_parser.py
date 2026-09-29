@@ -45,7 +45,7 @@ def test_parse_dwd_data() -> None:
     expected_df = pl.DataFrame(
         {
             "station_id": ["1", "1"],
-            "date": [
+            "timestamp": [
                 dt.datetime(1937, 1, 1, tzinfo=ZoneInfo("UTC")),
                 dt.datetime(1986, 6, 30, tzinfo=ZoneInfo("UTC")),
             ],
@@ -68,7 +68,7 @@ def test_parse_dwd_data() -> None:
         },
         schema={
             "station_id": pl.String,
-            "date": pl.Datetime(time_zone="UTC"),
+            "timestamp": pl.Datetime(time_zone="UTC"),
             "qn_3": pl.String,
             "fx": pl.String,
             "fm": pl.String,

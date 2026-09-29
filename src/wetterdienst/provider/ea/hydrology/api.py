@@ -258,7 +258,7 @@ class EAHydrologyValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             pl.lit(parameter_or_dataset.name_original).alias("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("dateTime").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC").alias("date"),
+            pl.col("dateTime").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC").alias("timestamp"),
             pl.col("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
