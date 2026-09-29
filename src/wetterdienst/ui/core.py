@@ -11,7 +11,7 @@ from collections.abc import Mapping  # noqa: TC003
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 import polars as pl
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # pydantic refuses typing.TypedDict as a response model on Python below 3.12, and GlossaryEntry
 # is one; model/result.py imports it from here for the same reason
@@ -242,6 +242,60 @@ def station_distance_radii(homogeneous: float | None, heterogeneous: float | Non
     return radii
 
 
+def _check_station_selection(request: StationsRequest | ValuesRequest) -> None:
+    """Enforce the one station selection a stations or values request makes, raising ValueError.
+
+    `get_stations` takes the first selection it finds, so a request making two was answered for
+    one of them and the other dropped without a word. The CLI's option parser refused that, but the
+    REST API and MCP build these models without it and answered. Checked here, all three share one
+    rule.
+
+    `rank` goes with `name` as well as with a point: there it caps the fuzzy matches.
+    """
+    point = request.latitude is not None or request.longitude is not None
+    bbox = (request.left, request.bottom, request.right, request.top)
+    selections = {
+        "all": bool(request.all),
+        "station": bool(request.station),
+        "name": bool(request.name),
+        "latitude/longitude": point,
+        "left/bottom/right/top": any(side is not None for side in bbox),
+        "sql": bool(request.sql),
+    }
+    given = [selection for selection, made in selections.items() if made]
+    if len(given) != 1:
+        got = f" (got {', '.join(given)})" if given else ""
+        msg = f"Select stations by exactly one of {', '.join(selections)}{got}"
+        raise ValueError(msg)
+    if point:
+        if request.latitude is None or request.longitude is None:
+            msg = "latitude and longitude go together"
+            raise ValueError(msg)
+        if (request.rank is None) == (request.distance is None):
+            msg = "latitude/longitude take exactly one of rank or distance"
+            raise ValueError(msg)
+    elif request.distance is not None:
+        msg = "distance applies to latitude/longitude"
+        raise ValueError(msg)
+    elif request.rank is not None and not request.name:
+        msg = "rank applies to latitude/longitude or name"
+        raise ValueError(msg)
+    if given == ["left/bottom/right/top"] and any(side is None for side in bbox):
+        msg = "left, bottom, right and top go together"
+        raise ValueError(msg)
+
+
+def _check_reference_point(request: InterpolationRequest | SummaryRequest) -> None:
+    """Enforce the one reference an interpolation or summary is made for, raising ValueError."""
+    point = request.latitude is not None or request.longitude is not None
+    if bool(request.station) == point:
+        msg = "Give exactly one of station or latitude/longitude"
+        raise ValueError(msg)
+    if point and (request.latitude is None or request.longitude is None):
+        msg = "latitude and longitude go together"
+        raise ValueError(msg)
+
+
 class StationsRequest(BaseModel):
     """Stations request with validated parameters."""
 
@@ -336,6 +390,12 @@ class StationsRequest(BaseModel):
     height: _HeightField = None
     scale: _ScaleField = None
 
+    @model_validator(mode="after")
+    def check_station_selection(self) -> StationsRequest:
+        """Check that exactly one station selection is made."""
+        _check_station_selection(self)
+        return self
+
 
 class HistoryRequest(BaseModel):
     """History request with validated parameters.
@@ -409,6 +469,14 @@ class HistoryRequest(BaseModel):
 
     pretty: _PrettyField = False
     debug: _DebugField = False
+
+    @model_validator(mode="after")
+    def check_station_selection(self) -> HistoryRequest:
+        """Check that exactly one of all or station is given."""
+        if bool(self.all) == bool(self.station):
+            msg = "Select stations by exactly one of all or station"
+            raise ValueError(msg)
+        return self
 
 
 class ValuesRequest(BaseModel):
@@ -528,6 +596,12 @@ class ValuesRequest(BaseModel):
             return v
         return json.loads(v)
 
+    @model_validator(mode="after")
+    def check_station_selection(self) -> ValuesRequest:
+        """Check that exactly one station selection is made."""
+        _check_station_selection(self)
+        return self
+
 
 class InterpolationRequest(BaseModel):
     """Interpolation request with validated parameters."""
@@ -628,6 +702,12 @@ class InterpolationRequest(BaseModel):
     height: _HeightField = None
     scale: _ScaleField = None
 
+    @model_validator(mode="after")
+    def check_reference_point(self) -> InterpolationRequest:
+        """Check that exactly one of station or latitude/longitude is given."""
+        _check_reference_point(self)
+        return self
+
 
 class SummaryRequest(BaseModel):
     """Summary request with validated parameters."""
@@ -725,6 +805,12 @@ class SummaryRequest(BaseModel):
     width: _WidthField = None
     height: _HeightField = None
     scale: _ScaleField = None
+
+    @model_validator(mode="after")
+    def check_reference_point(self) -> SummaryRequest:
+        """Check that exactly one of station or latitude/longitude is given."""
+        _check_reference_point(self)
+        return self
 
 
 class IssuesRequest(BaseModel):
@@ -1025,7 +1111,7 @@ def get_interpolate(
     """Get interpolated values based on request."""
     r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
-    if request.latitude and request.longitude:
+    if request.latitude is not None and request.longitude is not None:
         values_ = r.interpolate((request.latitude, request.longitude), elevation=request.elevation)
     elif request.station:
         values_ = r.interpolate_by_station_id(request.station, elevation=request.elevation)
@@ -1048,7 +1134,7 @@ def get_summarize(
     """Get summarized values based on request."""
     r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
 
-    if request.latitude and request.longitude:
+    if request.latitude is not None and request.longitude is not None:
         values_ = r.summarize((request.latitude, request.longitude), elevation=request.elevation)
     elif request.station:
         values_ = r.summarize_by_station_id(request.station, elevation=request.elevation)

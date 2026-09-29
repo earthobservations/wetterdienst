@@ -438,9 +438,10 @@ def stations(
     """Find weather stations and their `station_id` (step 1 of the station -> values workflow).
 
     Requires provider, network and parameters (e.g. provider="dwd", network="observation",
-    parameters="daily/kl"). Filter by `name` for a place (e.g. name="Hamburg Fuhlsbüttel"), by
-    `station` id(s), by lat/lon with `rank` or `distance`, by bounding box, or pass all=true for the
-    full list. Returns station metadata including `station_id`, which you pass to `values`.
+    parameters="daily/kl"), and exactly one way of selecting stations: `name` for a place (e.g.
+    name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `station` id(s),
+    lat/lon with `rank` or `distance`, a bounding box, `sql`, or all=true for the full list. Returns
+    station metadata including `station_id`, which you pass to `values`.
     """
     set_logging_level(debug=request.debug)
 
@@ -541,13 +542,13 @@ def values(
 ) -> Response:
     """Get measured values for station(s) (step 2 of the station -> values workflow).
 
-    Requires provider, network, parameters and a station selection. Use parameters as
-    "resolution/dataset/parameter" (e.g. "daily/climate_summary/temperature_air_mean_2m") to keep
-    the response small, and `station` with an id from `stations` (e.g. station="01975"). `periods`
-    is optional and provider-specific -- "recent" for dwd/observation, while a provider that
-    publishes under a single period rejects any other one. The response `values` array is sorted by
-    timestamp; the most recent reading for a parameter is the last item with that parameter. Do not
-    re-request in other formats.
+    Requires provider, network, parameters and exactly one station selection, as for `stations`.
+    Use parameters as "resolution/dataset/parameter" (e.g.
+    "daily/climate_summary/temperature_air_mean_2m") to keep the response small, and `station` with
+    an id from `stations` (e.g. station="01975"). `periods` is optional and provider-specific --
+    "recent" for dwd/observation, while a provider that publishes under a single period rejects any
+    other one. The response `values` array is sorted by timestamp; the most recent reading for a
+    parameter is the last item with that parameter. Do not re-request in other formats.
     """
     set_logging_level(debug=request.debug)
 

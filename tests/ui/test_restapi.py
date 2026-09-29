@@ -594,13 +594,32 @@ def test_values_dwd_no_station(client: TestClient) -> None:
             "periods": "recent",
         },
     )
-    assert response.status_code == 400
-    assert (
-        "'Give one of the parameters: all (boolean), station (string), "
-        "name (string), latitude (float), longitude (float) and rank (integer), "
-        "latitude (float), longitude (float) and distance (float), "
-        "left (float), bottom (float), right (float), top (float)'" in response.text
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["msg"] == (
+        "Value error, Select stations by exactly one of all, station, name, latitude/longitude, "
+        "left/bottom/right/top, sql"
     )
+
+
+@pytest.mark.parametrize("endpoint", ["/api/stations", "/api/values"])
+def test_two_station_selections_refused(client: TestClient, endpoint: str) -> None:
+    """Test a request making two station selections is refused, not answered for the first.
+
+    Given a station and a name, the REST API answered for the station and dropped the name without
+    a word; only the CLI refused it, because only its option parser checked.
+    """
+    response = client.get(
+        endpoint,
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl",
+            "station": "01048",
+            "name": "Hamburg-Fuhlsbüttel",
+        },
+    )
+    assert response.status_code == 422
+    assert "(got station, name)" in response.json()["detail"][0]["msg"]
 
 
 def test_values_dwd_no_valid_parameters(client: TestClient) -> None:
@@ -1270,7 +1289,7 @@ def test_get_stations_request_date_required_dataset_does_not_raise_for_stations_
 
     api = Wetterdienst("metno", "frost")
     settings = Settings(auth={"metno_frost": "fake-client-id"})
-    request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"])
+    request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"], all=True)
 
     # Must not raise StartDateEndDateError despite hourly/data having date_required=True
     stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
@@ -1341,7 +1360,7 @@ def test_get_stations_request_passes_periods_to_every_provider() -> None:
 
     api = Wetterdienst("metno", "frost")
     settings = Settings(auth={"metno_frost": "fake-client-id"})
-    request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"], periods="recent")
+    request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"], periods="recent", all=True)
 
     stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
     assert isinstance(stations_request, MetnoFrostRequest)
@@ -1367,6 +1386,7 @@ def test_get_stations_request_periods_on_a_single_period_dataset() -> None:
         network="derived",
         parameters=["monthly/climate_correction_factor"],
         periods="recent",
+        all=True,
     )
     assert _get_stations_request(api=api, request=request, date=None, settings=settings).periods == {Period.RECENT}
 
@@ -1375,6 +1395,7 @@ def test_get_stations_request_periods_on_a_single_period_dataset() -> None:
         network="derived",
         parameters=["monthly/climate_correction_factor"],
         periods="historical",
+        all=True,
     )
     with pytest.raises(NoPeriodsFoundError, match="Available periods: recent"):
         _get_stations_request(api=api, request=request, date=None, settings=settings)

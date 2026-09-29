@@ -16,7 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the REST API and MCP refuse a stations, values or history request that selects
+  stations in more than one way, as the CLI did; they answered for the first and dropped the rest,
+  so `station` with `name` returned the station alone. No selection, or half of one -- a latitude
+  without a longitude, three sides of a bounding box, `rank` without a point or `name` -- is a 422
+  where it was a 400. Send exactly one of `all`, `station`, `name`, a point with `rank` or
+  `distance`, a bounding box, or `sql` (GH-2056)
+
 ### Fixed
+
+- `interpolate` and `summarize` estimate for a point on the equator or the prime meridian. A
+  latitude or longitude of 0 was taken for no point at all, and the request failed with "Either
+  latitude and longitude or station must be provided" (GH-2056)
 
 - `wetterdienst radar --wmo_code` finds the site it names. The option was read as text and compared
   with the sites' integer WMO codes, so every lookup failed with a `KeyError` traceback. A code no
