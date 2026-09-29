@@ -24,7 +24,7 @@
 
 | name                            | original name | description                                                    | unit             |
 |---------------------------------|---------------|----------------------------------------------------------------|------------------|
-| {term}`precipitation_height` | RR1 | Precipitation amount over 1 hour. | millimeter |
+| {term}`precipitation_amount` | RR1 | Precipitation amount over 1 hour. | millimeter |
 | {term}`temperature_air_min_2m` | TN | Minimum air temperature under shelter within the hour. | degree_celsius |
 | {term}`temperature_air_max_2m` | TX | Maximum air temperature under shelter within the hour. | degree_celsius |
 | {term}`temperature_air_mean_2m` | T | Instantaneous air temperature under shelter. | degree_celsius |

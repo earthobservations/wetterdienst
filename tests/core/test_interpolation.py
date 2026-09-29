@@ -65,7 +65,7 @@ def test_occurrence_threshold_zeroes_sparse_precipitation() -> None:
         valid_groups,
         "daily",
         "climate_summary",
-        "precipitation_height",
+        "precipitation_amount",
         _UTM_X,
         _UTM_Y,
         [],
@@ -87,7 +87,7 @@ def test_occurrence_threshold_preserves_majority_precipitation() -> None:
         valid_groups,
         "daily",
         "climate_summary",
-        "precipitation_height",
+        "precipitation_amount",
         _UTM_X,
         _UTM_Y,
         [],
@@ -142,10 +142,10 @@ def test_occurrence_threshold_applies_to_snow_depth_new() -> None:
 def test_occurrence_based_parameters_set_contains_all_precipitation_variants() -> None:
     """Smoke-test that the zero-inflated flag covers core precipitation and new-snow parameters."""
     required = {
-        "precipitation_height",
-        "precipitation_height_liquid",
-        "precipitation_height_last_1h",
-        "precipitation_height_last_24h",
+        "precipitation_amount",
+        "precipitation_amount_liquid",
+        "precipitation_amount_last_1h",
+        "precipitation_amount_last_24h",
         "precipitation_duration",
         "precipitation_intensity",
         "snow_depth_new",
@@ -284,7 +284,7 @@ def test_search_radius_reaches_the_request(
 
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _record)
     request = DwdObservationRequest(
-        parameters=[(resolution, dataset, "precipitation_height")],
+        parameters=[(resolution, dataset, "precipitation_amount")],
         start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
         end_date=dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
     )
@@ -294,10 +294,10 @@ def test_search_radius_reaches_the_request(
 
 
 @pytest.mark.remote
-def test_interpolation_precipitation_height_minute_10(default_settings: Settings) -> None:
+def test_interpolation_precipitation_amount_minute_10(default_settings: Settings) -> None:
     """Test that the interpolation works with precipitation."""
     request = DwdObservationRequest(
-        parameters=[("minute_10", "precipitation", "precipitation_height")],
+        parameters=[("minute_10", "precipitation", "precipitation_amount")],
         start_date=dt.datetime(2021, 10, 1, tzinfo=ZoneInfo("UTC")),
         end_date=dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
@@ -312,7 +312,7 @@ def test_interpolation_precipitation_height_minute_10(default_settings: Settings
                 "station_id": "f674568e",
                 "resolution": "10_minutes",
                 "dataset": "precipitation",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC")),
                 "value": 0.03,
                 "distance_mean": 9.38,
@@ -620,8 +620,8 @@ def test_apply_interpolation_without_an_answer_gives_no_value() -> None:
     groups.put(("a", "b", "c", "d"))
     row = {"a": 1.0, "b": 2.0, "c": 3.0, "d": 4.0}
     # the point lies well outside the four, so the interpolation has nothing to say
-    result = apply_interpolation(row, stations, groups, "daily", "kl", "precipitation_height", -50.0, -50.0, [])
-    assert PARAMETERS["precipitation_height"].zero_inflated
+    result = apply_interpolation(row, stations, groups, "daily", "kl", "precipitation_amount", -50.0, -50.0, [])
+    assert PARAMETERS["precipitation_amount"].zero_inflated
     assert result[3] is None
     assert result[5] == []
 
@@ -715,9 +715,9 @@ def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_se
 @pytest.mark.remote
 def test_interpolation_increased_station_distance() -> None:
     """Test that the interpolation works with increased station distance."""
-    settings = Settings(ts_geo_station_distance={"precipitation_height": 25})
+    settings = Settings(ts_geo_station_distance={"precipitation_amount": 25})
     request = DwdObservationRequest(
-        parameters=[("hourly", "precipitation", "precipitation_height")],
+        parameters=[("hourly", "precipitation", "precipitation_amount")],
         start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
         end_date=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=settings,
@@ -823,7 +823,7 @@ def test_interpolation_at_an_elevation_names_the_parameter_it_lost(
     station a temperature loses.
     """
     request = DwdObservationRequest(
-        parameters=[("daily", "kl", "temperature_air_mean_2m"), ("daily", "kl", "precipitation_height")],
+        parameters=[("daily", "kl", "temperature_air_mean_2m"), ("daily", "kl", "precipitation_amount")],
         start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
         end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
@@ -833,14 +833,14 @@ def test_interpolation_at_an_elevation_names_the_parameter_it_lost(
         values = request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
     # of the values that are there, not of the rows: a parameter with a station collected for it
     # gets rows either way, so this is what says the other parameter really was answered
-    assert values.df.drop_nulls("value").get_column("parameter").unique().to_list() == ["precipitation_height"]
+    assert values.df.drop_nulls("value").get_column("parameter").unique().to_list() == ["precipitation_amount"]
     assert "daily/climate_summary/temperature_air_mean_2m" in caplog.text
 
 
 def test_interpolation_error_no_start_date() -> None:
     """Test that an error is raised when start_date is missing."""
     request = DwdObservationRequest(
-        parameters=[("hourly", "precipitation", "precipitation_height")],
+        parameters=[("hourly", "precipitation", "precipitation_amount")],
     )
     with pytest.raises(ValueError, match="start_date and end_date are required for interpolation"):
         request.interpolate(latlon=(52.8, 12.9))

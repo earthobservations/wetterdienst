@@ -69,7 +69,7 @@ FmiObservationMetadata = {
                             "unit": "degree",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "r_1h",
                             "unit": "millimeter",
                         },
@@ -119,7 +119,7 @@ FmiObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rrday",
                             "unit": "millimeter",
                         },

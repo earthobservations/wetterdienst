@@ -66,7 +66,7 @@ def test_smhi_observation_values_daily() -> None:
     assert value_of("temperature_air_mean_2m") == pytest.approx(-5.0)
     assert value_of("temperature_air_max_2m") == pytest.approx(-1.7)
     assert value_of("temperature_air_min_2m") == pytest.approx(-6.1)
-    assert value_of("precipitation_height") == pytest.approx(10.5)
+    assert value_of("precipitation_amount") == pytest.approx(10.5)
 
 
 @pytest.mark.remote
@@ -95,7 +95,7 @@ def test_smhi_observation_values_hourly() -> None:
     assert value_at("wind_speed", 0) == pytest.approx(2.8)
     assert value_at("wind_direction", 0) == pytest.approx(273.0)
     assert value_at("wind_gust_max", 0) == pytest.approx(6.9)
-    assert value_at("precipitation_height", 0) == pytest.approx(0.0)
+    assert value_at("precipitation_amount", 0) == pytest.approx(0.0)
     # humidity is reported by SMHI as percent, wetterdienst stores it as fraction
     assert value_at("humidity_relative", 0) == pytest.approx(0.86)
     assert value_at("pressure_air_sea_level", 0) == pytest.approx(997.1)
@@ -124,7 +124,7 @@ def test_smhi_observation_values_monthly() -> None:
         return df.filter(pl.col("parameter").eq(parameter)).get_column("value").item()
 
     assert value_of("temperature_air_mean_2m") == pytest.approx(-5.6)
-    assert value_of("precipitation_height") == pytest.approx(40.9)
+    assert value_of("precipitation_amount") == pytest.approx(40.9)
 
 
 @pytest.mark.remote

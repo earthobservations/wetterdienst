@@ -75,7 +75,7 @@ DwdRoadMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "totalPrecipitationOrTotalWaterEquivalent",
                             "unit": "millimeter",
                         },
@@ -88,9 +88,9 @@ DwdRoadMetadata = {
                             # one of the 96 messages a round of the whole network publishes, so read
                             # as mm/h the element could report at most 0.0255 mm/h -- no rain, ever.
                             # The station's gauge agrees: of the readings carrying both a positive
-                            # intensity and a positive 15-minute `precipitation_height`, the 39 in
+                            # intensity and a positive 15-minute `precipitation_amount`, the 39 in
                             # six hours of the network put the intensity times 900 seconds within a
-                            # median 0.8% of that height, 0.0056 against a reported 5.0 mm. It was
+                            # median 0.8% of that amount, 0.0056 against a reported 5.0 mm. It was
                             # declared `millimeter_per_hour` until GH-1984
                             "unit": "millimeter_per_second",
                         },

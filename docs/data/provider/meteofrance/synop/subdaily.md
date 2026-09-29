@@ -37,9 +37,9 @@
 | {term}`cloud_cover_total`               | n             | Fraction of the sky covered by cloud of any kind.                                             | percent          |
 | {term}`pressure_air_site`               | pres          | Air pressure as measured at station height.                                                   | pascal           |
 | {term}`pressure_air_sea_level`          | pmer          | Air pressure reduced to mean sea level, so that stations at different heights compare.        | pascal           |
-| {term}`precipitation_height_last_1h`    | rr1           | Depth of precipitation collected over the preceding hour.                                     | millimeter       |
-| {term}`precipitation_height_last_3h`    | rr3           | Depth of precipitation collected over the preceding 3 hours.                                  | millimeter       |
-| {term}`precipitation_height_last_6h`    | rr6           | Depth of precipitation collected over the preceding 6 hours.                                  | millimeter       |
-| {term}`precipitation_height_last_12h`   | rr12          | Depth of precipitation collected over the preceding 12 hours.                                 | millimeter       |
-| {term}`precipitation_height_last_24h`   | rr24          | Depth of precipitation collected over the preceding 24 hours.                                 | millimeter       |
+| {term}`precipitation_amount_last_1h`    | rr1           | Depth of precipitation collected over the preceding hour.                                     | millimeter       |
+| {term}`precipitation_amount_last_3h`    | rr3           | Depth of precipitation collected over the preceding 3 hours.                                  | millimeter       |
+| {term}`precipitation_amount_last_6h`    | rr6           | Depth of precipitation collected over the preceding 6 hours.                                  | millimeter       |
+| {term}`precipitation_amount_last_12h`   | rr12          | Depth of precipitation collected over the preceding 12 hours.                                 | millimeter       |
+| {term}`precipitation_amount_last_24h`   | rr24          | Depth of precipitation collected over the preceding 24 hours.                                 | millimeter       |
 

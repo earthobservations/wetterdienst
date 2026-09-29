@@ -27,7 +27,7 @@
 | {term}`wind_direction`                             | dkl010z0      | Wind direction; ten minutes mean                                 | degree                |
 | {term}`wind_speed`                                 | fkl010z0      | Wind speed scalar; ten minutes mean in m/s                       | meter_per_second      |
 | {term}`wind_gust_max`                              | fkl010z1      | Gust peak (one second); maximum in m/s                           | meter_per_second      |
-| {term}`precipitation_height`                       | rre150z0      | Precipitation; ten minutes total                                 | millimeter            |
+| {term}`precipitation_amount`                       | rre150z0      | Precipitation; ten minutes total                                 | millimeter            |
 | {term}`pressure_air_site`                          | prestas0      | Atmospheric pressure at barometric altitude (QFE); current value | hectopascal           |
 | {term}`pressure_air_sea_level`                     | pp0qffs0      | Atmospheric pressure reduced to sea level (QFF); current value   | hectopascal           |
 | {term}`pressure_vapor`                             | pva200s0      | Vapour pressure 2 m above ground; current value                  | hectopascal           |

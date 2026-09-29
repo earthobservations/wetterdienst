@@ -46,7 +46,7 @@ _SOIL_TEMPERATURE = [
 # Parameters common to every resolution (both sub-daily and daily).
 _COMMON = [
     {
-        "name": "precipitation_height",
+        "name": "precipitation_amount",
         "name_original": "precip_quantity",
         "unit": "millimeter",
     },

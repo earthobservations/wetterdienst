@@ -1097,7 +1097,7 @@ def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL) -> Dwd
 def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
     """Need this for displaying stations in the interactive app."""
     return DwdObservationRequest(
-        parameters=[("annual", "precipitation_more", "precipitation_height")],
+        parameters=[("annual", "precipitation_more", "precipitation_amount")],
         periods=periods,
     )
 
@@ -1192,7 +1192,7 @@ def _get_stripes_data(  # noqa: C901
         parameter = "temperature_air_mean_2m"
     else:
         dataset = "precipitation_more"
-        parameter = "precipitation_height"
+        parameter = "precipitation_amount"
 
     metadata = StripesMetadata(
         station=station,

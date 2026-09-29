@@ -209,7 +209,7 @@ _PARAMETERS = [
         "unit": "degree",
     },
     {
-        "name": "precipitation_height",
+        "name": "precipitation_amount",
         "name_original": "NIEDERSCHLAG",
         "unit": "millimeter",
     },

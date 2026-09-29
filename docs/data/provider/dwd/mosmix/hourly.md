@@ -32,20 +32,20 @@
 | {term}`cloud_cover_between_2km_and_7km`                     | nm            | Midlevel cloud cover (2-7 km)                                                   | %     | >=0,<=100   |
 | {term}`cloud_cover_effective`                              | neff          | Effective cloud cover                                                           | %     | >=0,<=100   |
 | {term}`cloud_cover_total`                                  | n             | Total cloud cover                                                               | %     | >=0,<=100   |
-| {term}`precipitation_height_significant_weather_last_1h`   | rr1c          | Total precipitation during the last hour consistent with significant weather    | kg/m² | >=0         |
-| {term}`precipitation_height_significant_weather_last_3h`   | rr3c          | Total precipitation during the last 3 hours consistent with significant weather | kg/m² | >=0         |
+| {term}`precipitation_amount_significant_weather_last_1h`   | rr1c          | Total precipitation during the last hour consistent with significant weather    | kg/m² | >=0         |
+| {term}`precipitation_amount_significant_weather_last_3h`   | rr3c          | Total precipitation during the last 3 hours consistent with significant weather | kg/m² | >=0         |
 | {term}`pressure_air_site_reduced`                          | pppp          | Surface pressure, reduced                                                       | Pa    | >=0         |
 | {term}`probability_fog_last_1h`                            | wwm           | Probability for fog within the last hour                                        | %     | >=0,<=100   |
 | {term}`probability_fog_last_6h`                            | wwm6          | Probability for fog within the last 6 hours                                     | %     | >=0,<=100   |
 | {term}`probability_fog_last_12h`                           | wwmh          | Probability for fog within the last 12 hours                                    | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_0mm_last_12h` | rh00          | Probability of precipitation > 0.0mm during the last 12 hours                   | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_2mm_last_6h`  | r602          | Probability of precipitation > 0.2mm during the last 6 hours                    | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_2mm_last_12h` | rh02          | Probability of precipitation > 0.2mm during the last 12 hours                   | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_2mm_last_24h` | rd02          | Probability of precipitation > 0.2mm during the last 24 hours                   | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_1mm_last_12h`   | rh10          | Probability of precipitation > 1.0mm during the last 12 hours                   | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_5mm_last_6h`    | r650          | Probability of precipitation > 5.0mm during the last 6 hours                    | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_5mm_last_12h`   | rh50          | Probability of precipitation > 5.0mm during the last 12 hours                   | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_5mm_last_24h`   | rd50          | Probability of precipitation > 5.0mm during the last 24 hours                   | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_0mm_last_12h` | rh00          | Probability of precipitation > 0.0mm during the last 12 hours                   | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_2mm_last_6h`  | r602          | Probability of precipitation > 0.2mm during the last 6 hours                    | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_2mm_last_12h` | rh02          | Probability of precipitation > 0.2mm during the last 12 hours                   | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_2mm_last_24h` | rd02          | Probability of precipitation > 0.2mm during the last 24 hours                   | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_1mm_last_12h`   | rh10          | Probability of precipitation > 1.0mm during the last 12 hours                   | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_5mm_last_6h`    | r650          | Probability of precipitation > 5.0mm during the last 6 hours                    | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_5mm_last_12h`   | rh50          | Probability of precipitation > 5.0mm during the last 12 hours                   | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_5mm_last_24h`   | rd50          | Probability of precipitation > 5.0mm during the last 24 hours                   | %     | >=0,<=100   |
 | {term}`probability_wind_gust_ge_25kn_last_12h`             | fxh25         | Probability of wind gusts >= 25kn within the last 12 hours                      | %     | >=0,<=100   |
 | {term}`probability_wind_gust_ge_40kn_last_12h`             | fxh40         | Probability of wind gusts >= 40kn within the last 12 hours                      | %     | >=0,<=100   |
 | {term}`probability_wind_gust_ge_55kn_last_12h`             | fxh55         | Probability of wind gusts >= 55kn within the last 12 hours                      | %     | >=0,<=100   |
@@ -98,17 +98,17 @@
 | {term}`error_absolute_wind_speed`                                | e_ff          | Absolute error wind speed 10m above surface                                         | m/s   | -           |
 | {term}`evapotranspiration_potential_last_24h`                    | pevap         | Potential evapotranspiration within the last 24 hours                               | kg/m² | >=0         |
 | {term}`precipitation_duration`                                   | drr1          | Duration of precipitation within the last hour                                      | s     | >=0         |
-| {term}`precipitation_height_last_1h`                             | rr1           | Total precipitation during the last hour                                            | kg/m² | >=0         |
-| {term}`precipitation_height_last_3h`                             | rr3           | Total precipitation during the last 3 hours                                         | kg/m² | >=0         |
-| {term}`precipitation_height_last_6h`                             | rr6           | Total precipitation during the last 6 hours                                         | kg/m² | >=0         |
-| {term}`precipitation_height_last_12h`                            | rrh           | Total precipitation during the last 12 hours                                        | kg/m² | >=0         |
-| {term}`precipitation_height_last_24h`                            | rrd           | Total precipitation during the last 24 hours                                        | kg/m² | >=0         |
-| {term}`precipitation_height_liquid_significant_weather_last_1h`  | rrl1c         | Total liquid precipitation during the last hour consistent with significant weather | kg/m² | >=0         |
-| {term}`precipitation_height_significant_weather_last_1h`         | rr1c          | Total precipitation during the last hour consistent with significant weather        | kg/m² | >=0         |
-| {term}`precipitation_height_significant_weather_last_3h`         | rr3c          | Total precipitation during the last 3 hours consistent with significant weather     | kg/m² | >=0         |
-| {term}`precipitation_height_significant_weather_last_6h`         | rr6c          | Total precipitation during the last 6 hours consistent with significant weather     | kg/m² | >=0         |
-| {term}`precipitation_height_significant_weather_last_12h`        | rrhc          | Total precipitation during the last 12 hours consistent with significant weather    | kg/m² | >=0         |
-| {term}`precipitation_height_significant_weather_last_24h`        | rrdc          | Total precipitation during the last 24 hours consistent with significant weather    | kg/m² | >=0         |
+| {term}`precipitation_amount_last_1h`                             | rr1           | Total precipitation during the last hour                                            | kg/m² | >=0         |
+| {term}`precipitation_amount_last_3h`                             | rr3           | Total precipitation during the last 3 hours                                         | kg/m² | >=0         |
+| {term}`precipitation_amount_last_6h`                             | rr6           | Total precipitation during the last 6 hours                                         | kg/m² | >=0         |
+| {term}`precipitation_amount_last_12h`                            | rrh           | Total precipitation during the last 12 hours                                        | kg/m² | >=0         |
+| {term}`precipitation_amount_last_24h`                            | rrd           | Total precipitation during the last 24 hours                                        | kg/m² | >=0         |
+| {term}`precipitation_amount_liquid_significant_weather_last_1h`  | rrl1c         | Total liquid precipitation during the last hour consistent with significant weather | kg/m² | >=0         |
+| {term}`precipitation_amount_significant_weather_last_1h`         | rr1c          | Total precipitation during the last hour consistent with significant weather        | kg/m² | >=0         |
+| {term}`precipitation_amount_significant_weather_last_3h`         | rr3c          | Total precipitation during the last 3 hours consistent with significant weather     | kg/m² | >=0         |
+| {term}`precipitation_amount_significant_weather_last_6h`         | rr6c          | Total precipitation during the last 6 hours consistent with significant weather     | kg/m² | >=0         |
+| {term}`precipitation_amount_significant_weather_last_12h`        | rrhc          | Total precipitation during the last 12 hours consistent with significant weather    | kg/m² | >=0         |
+| {term}`precipitation_amount_significant_weather_last_24h`        | rrdc          | Total precipitation during the last 24 hours consistent with significant weather    | kg/m² | >=0         |
 | {term}`pressure_air_site_reduced`                                | pppp          | Surface pressure, reduced                                                           | Pa    | >=0         |
 | {term}`probability_drizzle_last_1h`                              | wwz           | Probability: Occurrence of drizzle within the last hour                             | %     | >=0,<=100   |
 | {term}`probability_drizzle_last_6h`                              | wwz6          | Probability: Occurrence of drizzle within the last 6 hours                          | %     | >=0,<=100   |
@@ -123,30 +123,30 @@
 | {term}`probability_precipitation_freezing_last_1h`               | wwf           | Probability: Occurrence of freezing rain within the last hour                       | %     | >=0,<=100   |
 | {term}`probability_precipitation_freezing_last_6h`               | wwf6          | Probability: Occurrence of freezing rain within the last 6 hours                    | %     | >=0,<=100   |
 | {term}`probability_precipitation_freezing_last_12h`              | wwfh          | Probability: Occurrence of freezing rain within the last 12 hours                   | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_0mm_last_6h`        | r600          | Probability of precipitation > 0.0mm during the last 6 hours                        | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_0mm_last_12h`       | rh00          | Probability of precipitation > 0.0mm during the last 12 hours                       | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_0mm_last_24h`       | rd00          | Probability of precipitation > 0.0mm during the last 24 hours                       | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_1mm_last_1h`        | r101          | Probability of precipitation > 0.1 mm during the last hour                          | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_2mm_last_1h`        | r102          | Probability of precipitation > 0.2 mm during the last hour                          | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_2mm_last_6h`        | r602          | Probability of precipitation > 0.2mm during the last 6 hours                        | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_2mm_last_12h`       | rh02          | Probability of precipitation > 0.2mm during the last 12 hours                       | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_2mm_last_24h`       | rd02          | Probability of precipitation > 0.2mm during the last 24 hours                       | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_3mm_last_1h`        | r103          | Probability of precipitation > 0.3 mm during the last hour                          | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_5mm_last_1h`        | r105          | Probability of precipitation > 0.5 mm during the last hour                          | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_0_7mm_last_1h`        | r107          | Probability of precipitation > 0.7 mm during the last hour                          | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_1mm_last_1h`          | r110          | Probability of precipitation > 1.0 mm during the last hour                          | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_1mm_last_6h`          | r610          | Probability of precipitation > 1.0mm during the last 6 hours                        | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_1mm_last_12h`         | rh10          | Probability of precipitation > 1.0mm during the last 12 hours                       | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_1mm_last_24h`         | rd10          | Probability of precipitation > 1.0mm during the last 24 hours                       | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_2mm_last_1h`          | r120          | Probability of precipitation > 2.0mm during the last hour                           | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_3mm_last_1h`          | r130          | Probability of precipitation > 3.0 mm during the last hour                          | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_5mm_last_1h`          | r150          | Probability of precipitation > 5.0 mm during the last hour                          | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_5mm_last_6h`          | r650          | Probability of precipitation > 5.0mm during the last 6 hours                        | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_5mm_last_12h`         | rh50          | Probability of precipitation > 5.0mm during the last 12 hours                       | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_5mm_last_24h`         | rd50          | Probability of precipitation > 5.0mm during the last 24 hours                       | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_10mm_last_1h`         | rr1o1         | Probability of precipitation > 10.0 mm during the last hour                         | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_15mm_last_1h`         | rr1w1         | Probability of precipitation > 15.0 mm during the last hour                         | %     | >=0,<=100   |
-| {term}`probability_precipitation_height_gt_25mm_last_1h`         | rr1u1         | Probability of precipitation > 25.0 mm during the last hour                         | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_0mm_last_6h`        | r600          | Probability of precipitation > 0.0mm during the last 6 hours                        | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_0mm_last_12h`       | rh00          | Probability of precipitation > 0.0mm during the last 12 hours                       | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_0mm_last_24h`       | rd00          | Probability of precipitation > 0.0mm during the last 24 hours                       | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_1mm_last_1h`        | r101          | Probability of precipitation > 0.1 mm during the last hour                          | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_2mm_last_1h`        | r102          | Probability of precipitation > 0.2 mm during the last hour                          | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_2mm_last_6h`        | r602          | Probability of precipitation > 0.2mm during the last 6 hours                        | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_2mm_last_12h`       | rh02          | Probability of precipitation > 0.2mm during the last 12 hours                       | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_2mm_last_24h`       | rd02          | Probability of precipitation > 0.2mm during the last 24 hours                       | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_3mm_last_1h`        | r103          | Probability of precipitation > 0.3 mm during the last hour                          | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_5mm_last_1h`        | r105          | Probability of precipitation > 0.5 mm during the last hour                          | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_0_7mm_last_1h`        | r107          | Probability of precipitation > 0.7 mm during the last hour                          | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_1mm_last_1h`          | r110          | Probability of precipitation > 1.0 mm during the last hour                          | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_1mm_last_6h`          | r610          | Probability of precipitation > 1.0mm during the last 6 hours                        | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_1mm_last_12h`         | rh10          | Probability of precipitation > 1.0mm during the last 12 hours                       | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_1mm_last_24h`         | rd10          | Probability of precipitation > 1.0mm during the last 24 hours                       | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_2mm_last_1h`          | r120          | Probability of precipitation > 2.0mm during the last hour                           | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_3mm_last_1h`          | r130          | Probability of precipitation > 3.0 mm during the last hour                          | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_5mm_last_1h`          | r150          | Probability of precipitation > 5.0 mm during the last hour                          | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_5mm_last_6h`          | r650          | Probability of precipitation > 5.0mm during the last 6 hours                        | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_5mm_last_12h`         | rh50          | Probability of precipitation > 5.0mm during the last 12 hours                       | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_5mm_last_24h`         | rd50          | Probability of precipitation > 5.0mm during the last 24 hours                       | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_10mm_last_1h`         | rr1o1         | Probability of precipitation > 10.0 mm during the last hour                         | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_15mm_last_1h`         | rr1w1         | Probability of precipitation > 15.0 mm during the last hour                         | %     | >=0,<=100   |
+| {term}`probability_precipitation_amount_gt_25mm_last_1h`         | rr1u1         | Probability of precipitation > 25.0 mm during the last hour                         | %     | >=0,<=100   |
 | {term}`probability_precipitation_last_1h`                        | wwp           | Probability: Occurrence of precipitation within the last hour                       | %     | >=0,<=100   |
 | {term}`probability_precipitation_last_6h`                        | wwp6          | Probability: Occurrence of precipitation within the last 6 hours                    | %     | >=0,<=100   |
 | {term}`probability_precipitation_last_12h`                       | wwph          | Probability: Occurrence of precipitation within the last 12 hours                   | %     | >=0,<=100   |

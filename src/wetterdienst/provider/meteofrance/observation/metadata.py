@@ -31,7 +31,7 @@ MeteoFranceObservationMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "RR",
                             "unit": "millimeter",
                         },
@@ -125,7 +125,7 @@ MeteoFranceObservationMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "RR",
                             "unit": "millimeter",
                         },
@@ -147,7 +147,7 @@ MeteoFranceObservationMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "RR1",
                             "unit": "millimeter",
                         },
@@ -251,7 +251,7 @@ MeteoFranceObservationMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "RR",
                             "unit": "millimeter",
                         },

@@ -250,7 +250,7 @@ def test_dwd_observation_data_result_missing_data(settings_drop_nulls_false: Set
 def test_dwd_observation_data_result_all_missing_data(default_settings: Settings) -> None:
     """Test for DataFrame having empty values for dates where the station should not have values."""
     request = DwdObservationRequest(
-        parameters=[DwdObservationMetadata.minute_10.precipitation.precipitation_height],
+        parameters=[DwdObservationMetadata.minute_10.precipitation.precipitation_amount],
         start_date=dt.datetime(2021, 10, 4, tzinfo=ZoneInfo("UTC")),
         end_date=dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
@@ -366,7 +366,7 @@ def test_dwd_observation_data_result_wide_single_parameter(
     a station did not record is absent from the frame rather than spelled out as a row of nulls.
     """
     request = DwdObservationRequest(
-        parameters=[("daily", "climate_summary", "precipitation_height")],
+        parameters=[("daily", "climate_summary", "precipitation_amount")],
         start_date="1933-12-31",  # few days before official start
         end_date="1934-01-01",  # few days after official start,
         settings=settings_humanize_false_convert_units_false_wide_shape,
@@ -1062,7 +1062,7 @@ def test_dwd_observation_data_10_minutes_result_tidy(settings_humanize_false_con
 def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
     """Test for actual values (format) in metric units."""
     request = DwdObservationRequest(
-        parameters=[DwdObservationMetadata.monthly.climate_summary.precipitation_height],
+        parameters=[DwdObservationMetadata.monthly.climate_summary.precipitation_amount],
         start_date="2020-01-01T00:00:00",
         end_date="2020-12-01T00:00:00",
         settings=default_settings,
@@ -1074,7 +1074,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
                 "station_id": "00433",
                 "resolution": "monthly",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 34.0,
                 "quality": 9.0,
@@ -1083,7 +1083,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
                 "station_id": "00433",
                 "resolution": "monthly",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2020, 2, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 83.2,
                 "quality": 9.0,
@@ -1092,7 +1092,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
                 "station_id": "00433",
                 "resolution": "monthly",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2020, 3, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 30.3,
                 "quality": 9.0,
@@ -1101,7 +1101,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
                 "station_id": "00433",
                 "resolution": "monthly",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2020, 4, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 22.7,
                 "quality": 9.0,
@@ -1110,7 +1110,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
                 "station_id": "00433",
                 "resolution": "monthly",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2020, 5, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 33.3,
                 "quality": 9.0,
@@ -1119,7 +1119,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
                 "station_id": "00433",
                 "resolution": "monthly",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2020, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 35.8,
                 "quality": 9.0,
@@ -1128,7 +1128,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
                 "station_id": "00433",
                 "resolution": "monthly",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2020, 7, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 46.8,
                 "quality": 9.0,
@@ -1137,7 +1137,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
                 "station_id": "00433",
                 "resolution": "monthly",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2020, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 43.2,
                 "quality": 9.0,
@@ -1146,7 +1146,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
                 "station_id": "00433",
                 "resolution": "monthly",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2020, 9, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 52.8,
                 "quality": 9.0,
@@ -1155,7 +1155,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
                 "station_id": "00433",
                 "resolution": "monthly",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2020, 10, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 58.2,
                 "quality": 9.0,
@@ -1164,7 +1164,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
                 "station_id": "00433",
                 "resolution": "monthly",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2020, 11, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 16.4,
                 "quality": 9.0,
@@ -1173,7 +1173,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
                 "station_id": "00433",
                 "resolution": "monthly",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2020, 12, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 22.1,
                 "quality": 9.0,
@@ -1183,7 +1183,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
             "station_id": pl.Enum(["00433"]),
             "resolution": pl.Enum(["monthly"]),
             "dataset": pl.Enum(["climate_summary"]),
-            "parameter": pl.Enum(["precipitation_height"]),
+            "parameter": pl.Enum(["precipitation_amount"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
@@ -1198,7 +1198,7 @@ def test_create_humanized_column_names_mapping() -> None:
     kl_daily_hcnm = {
         "fx": "wind_gust_max",
         "fm": "wind_speed",
-        "rsk": "precipitation_height",
+        "rsk": "precipitation_amount",
         "rskf": "precipitation_form",
         "sdk": "sunshine_duration",
         "shk_tag": "snow_depth",
@@ -1474,7 +1474,7 @@ def test_dwd_observation_solar_hourly_timestamps_off(default_settings: Settings)
 def test_dwd_observation_data_10_minutes_missing_data(settings_humanize_false_convert_units_false: Settings) -> None:
     """Test for actual values with correctly dropped -999 values."""
     request = DwdObservationRequest(
-        parameters=[("minute_10", "precipitation", "precipitation_height")],
+        parameters=[("minute_10", "precipitation", "precipitation_amount")],
         start_date="1991-01-01 00:00",
         end_date="1992-12-31 23:00",
         settings=settings_humanize_false_convert_units_false,
@@ -1523,7 +1523,7 @@ def test_dwd_observation_data_subdaily_wind_extreme_data(default_settings: Setti
 def test_dwd_observation_data_5minute_precipitation_data(default_settings: Settings) -> None:
     """Test for DWD observation 5 minute precipitation data."""
     request = DwdObservationRequest(
-        parameters=[("minute_5", "precipitation", "precipitation_height")],
+        parameters=[("minute_5", "precipitation", "precipitation_amount")],
         start_date="2023-08-25 00:00",
         end_date="2023-08-27 00:00",
         settings=default_settings,
@@ -1537,8 +1537,8 @@ def test_dwd_observation_data_5minute_precipitation_data_recent(default_settings
     """Test for DWD observation 5 minute precipitation data with recent and now periods. This is actually missing."""
     request = DwdObservationRequest(
         parameters=[
-            ("minute_5", "precipitation", "precipitation_height_rocker"),
-            ("minute_5", "precipitation", "precipitation_height_droplet"),
+            ("minute_5", "precipitation", "precipitation_amount_rocker"),
+            ("minute_5", "precipitation", "precipitation_amount_droplet"),
         ],
         periods={"recent", "now"},
         settings=default_settings,
@@ -1551,7 +1551,7 @@ def test_dwd_observation_data_5minute_precipitation_data_recent(default_settings
 def test_dwd_observation_data_1minute_precipitation_data_tidy(default_settings: Settings) -> None:
     """Test for DWD observation 1 minute precipitation data."""
     request = DwdObservationRequest(
-        parameters=[("minute_1", "precipitation", "precipitation_height_droplet")],
+        parameters=[("minute_1", "precipitation", "precipitation_amount_droplet")],
         start_date="1990-01-01 00:00",
         end_date="1995-01-01 00:10",
         settings=default_settings,
@@ -1658,7 +1658,7 @@ def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
                 "station_id": "01048",
                 "resolution": "daily",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_form",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
                 "quality": 10.0,
@@ -1667,7 +1667,7 @@ def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
                 "station_id": "01048",
                 "resolution": "daily",
                 "dataset": "climate_summary",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_form",
                 "timestamp": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
                 "quality": 10.0,
@@ -1771,8 +1771,8 @@ def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
                 [
                     "cloud_cover_total",
                     "humidity_relative",
+                    "precipitation_amount",
                     "precipitation_form",
-                    "precipitation_height",
                     "pressure_air_site",
                     "pressure_vapor",
                     "snow_depth",
@@ -1896,12 +1896,12 @@ def test_dwd_observation_monthly_precipitation_indices(default_settings: Setting
     given_df = request.values.all().df
     given = dict(given_df.select("parameter", "value").iter_rows())
     assert given == {
-        "count_days_precipitation_height_ge_0_1mm": 10.0,
-        "count_days_precipitation_height_ge_1mm": 7.0,
-        "count_days_precipitation_height_ge_2_5mm": 4.0,
-        "count_days_precipitation_height_ge_5mm": 2.0,
-        "count_days_precipitation_height_ge_10mm": 1.0,
-        "count_days_precipitation_height_ge_20mm": 0.0,
+        "count_days_precipitation_amount_ge_0_1mm": 10.0,
+        "count_days_precipitation_amount_ge_1mm": 7.0,
+        "count_days_precipitation_amount_ge_2_5mm": 4.0,
+        "count_days_precipitation_amount_ge_5mm": 2.0,
+        "count_days_precipitation_amount_ge_10mm": 1.0,
+        "count_days_precipitation_amount_ge_20mm": 0.0,
         "count_days_snow_depth_ge_1cm": 0.0,
         "count_days_snow_depth_ge_5cm": 0.0,
     }

@@ -518,7 +518,7 @@ def group_parameters_by_dataset(
 
     Not ``itertools.groupby``, which only groups *consecutive* items: ``parse_parameters`` keeps
     the order the caller asked in, so datasets interleaved across parameters -- say
-    ``[daily/kl/temperature_air_mean_2m, daily/more_precip/..., daily/kl/precipitation_height]`` --
+    ``[daily/kl/temperature_air_mean_2m, daily/more_precip/..., daily/kl/precipitation_amount]`` --
     produce one group per run rather than one per dataset. Downstream that means a dataset fetched
     and parsed once per run instead of once, and, where the groups build a stations frame, one
     duplicated station row per extra run.

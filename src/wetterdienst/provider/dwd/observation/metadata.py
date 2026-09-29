@@ -28,17 +28,17 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rs_01",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_droplet",
+                            "name": "precipitation_amount_droplet",
                             "name_original": "rth_01",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_rocker",
+                            "name": "precipitation_amount_rocker",
                             "name_original": "rwh_01",
                             "unit": "millimeter",
                         },
@@ -73,17 +73,17 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rs_05",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_droplet",
+                            "name": "precipitation_amount_droplet",
                             "name_original": "rth_05",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_rocker",
+                            "name": "precipitation_amount_rocker",
                             "name_original": "rwh_05",
                             "unit": "millimeter",
                         },
@@ -113,7 +113,7 @@ DwdObservationMetadata = {
                             "unit": "minute",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rws_10",
                             "unit": "millimeter",
                         },
@@ -361,7 +361,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rr_st_10",
                             "unit": "millimeter",
                         },
@@ -654,7 +654,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "r1",
                             "unit": "millimeter",
                         },
@@ -920,7 +920,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "niederschlagshoehe",
                             "unit": "millimeter",
                         },
@@ -1266,7 +1266,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rsk",
                             "unit": "millimeter",
                         },
@@ -1334,7 +1334,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rs",
                             "unit": "millimeter",
                         },
@@ -1656,12 +1656,12 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "mo_rr",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_max",
+                            "name": "precipitation_amount_max",
                             "name_original": "mx_rs",
                             "unit": "millimeter",
                         },
@@ -1678,32 +1678,32 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_0_1mm",
+                            "name": "count_days_precipitation_amount_ge_0_1mm",
                             "name_original": "mo_rr_ge_0_1_mm",
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_1mm",
+                            "name": "count_days_precipitation_amount_ge_1mm",
                             "name_original": "mo_rr_ge_1_0_mm",
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_2_5mm",
+                            "name": "count_days_precipitation_amount_ge_2_5mm",
                             "name_original": "mo_rr_ge_2_5_mm",
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_5mm",
+                            "name": "count_days_precipitation_amount_ge_5mm",
                             "name_original": "mo_rr_ge_5_0_mm",
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_10mm",
+                            "name": "count_days_precipitation_amount_ge_10mm",
                             "name_original": "mo_rr_ge_10_0_mm",
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_20mm",
+                            "name": "count_days_precipitation_amount_ge_20mm",
                             "name_original": "mo_rr_ge_20_0_mm",
                             "unit": "dimensionless",
                         },
@@ -1735,7 +1735,7 @@ DwdObservationMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "mo_rr",
                             "unit": "millimeter",
                         },
@@ -1745,7 +1745,7 @@ DwdObservationMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "precipitation_height_max",
+                            "name": "precipitation_amount_max",
                             "name_original": "mx_rs",
                             "unit": "millimeter",
                         },
@@ -1909,12 +1909,12 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "ja_rr",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_max",
+                            "name": "precipitation_amount_max",
                             "name_original": "ja_mx_rs",
                             "unit": "millimeter",
                         },
@@ -1931,32 +1931,32 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_0_1mm",
+                            "name": "count_days_precipitation_amount_ge_0_1mm",
                             "name_original": "ja_rr_ge_0_1_mm",
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_1mm",
+                            "name": "count_days_precipitation_amount_ge_1mm",
                             "name_original": "ja_rr_ge_1_0_mm",
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_2_5mm",
+                            "name": "count_days_precipitation_amount_ge_2_5mm",
                             "name_original": "ja_rr_ge_2_5_mm",
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_5mm",
+                            "name": "count_days_precipitation_amount_ge_5mm",
                             "name_original": "ja_rr_ge_5_0_mm",
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_10mm",
+                            "name": "count_days_precipitation_amount_ge_10mm",
                             "name_original": "ja_rr_ge_10_0_mm",
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_20mm",
+                            "name": "count_days_precipitation_amount_ge_20mm",
                             "name_original": "ja_rr_ge_20_0_mm",
                             "unit": "dimensionless",
                         },
@@ -1988,7 +1988,7 @@ DwdObservationMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "ja_rr",
                             "unit": "millimeter",
                         },
@@ -1998,7 +1998,7 @@ DwdObservationMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "precipitation_height_max",
+                            "name": "precipitation_amount_max",
                             "name_original": "ja_mx_rs",
                             "unit": "millimeter",
                         },

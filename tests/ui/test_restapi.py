@@ -246,9 +246,9 @@ def test_coverage_dwd_observation(client: TestClient) -> None:
     assert len(data["1_minute"]["datasets"]["precipitation"]["parameters"]) > 0
     parameters = [item["name"] for item in data["1_minute"]["datasets"]["precipitation"]["parameters"]]
     assert parameters == [
-        "precipitation_height",
-        "precipitation_height_droplet",
-        "precipitation_height_rocker",
+        "precipitation_amount",
+        "precipitation_amount_droplet",
+        "precipitation_amount_rocker",
         "precipitation_index",
     ]
 
@@ -651,8 +651,8 @@ def test_values_dwd_sql_tabular(client: TestClient) -> None:
         "humidity_relative_quality": 10.0,
         "precipitation_form": 0.0,
         "precipitation_form_quality": 10.0,
-        "precipitation_height": 0.0,
-        "precipitation_height_quality": 10.0,
+        "precipitation_amount": 0.0,
+        "precipitation_amount_quality": 10.0,
         "pressure_air_site": 993.9,
         "pressure_air_site_quality": 10.0,
         "pressure_vapor": 4.6,
@@ -945,7 +945,7 @@ def test_geo_settings_radii_reach_the_settings() -> None:
             "date": "1986-10-31",
             "station": "00071",
             "interpolation_station_distance_homogeneous": 60.0,
-            "interpolation_station_distance": {"precipitation_height": 25.0},
+            "interpolation_station_distance": {"precipitation_amount": 25.0},
         },
     )
     settings = _geo_settings(
@@ -955,7 +955,7 @@ def test_geo_settings_radii_reach_the_settings() -> None:
         request.interpolation_station_distance_heterogeneous,
     )
     assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 60.0
-    assert settings.ts_geo_station_distance["precipitation_height"] == 25.0
+    assert settings.ts_geo_station_distance["precipitation_amount"] == 25.0
     # the radius that was not given keeps its default rather than being reset
     assert settings.ts_geo_station_distance["snow_depth_new"] == 20.0
 
@@ -1167,7 +1167,7 @@ def test_values_missing_empty(client: TestClient) -> None:
             "provider": "dwd",
             "network": "observation",
             "station": "00011",
-            "parameters": "1_minute/precipitation/precipitation_height",
+            "parameters": "1_minute/precipitation/precipitation_amount",
             "periods": "recent",
         },
     )

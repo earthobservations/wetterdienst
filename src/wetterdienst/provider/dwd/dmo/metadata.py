@@ -49,7 +49,7 @@ DwdDmoMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "precipitation_height_last_1h",
+                            "name": "precipitation_amount_last_1h",
                             "name_original": "rr1",
                             "unit": "millimeter",
                         },
@@ -151,12 +151,12 @@ DwdDmoMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "precipitation_height_last_1h",
+                            "name": "precipitation_amount_last_1h",
                             "name_original": "rr1",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_last_3h",
+                            "name": "precipitation_amount_last_3h",
                             "name_original": "rr3",
                             "unit": "millimeter",
                         },

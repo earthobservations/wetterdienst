@@ -66,7 +66,7 @@ IpmaObservationMetadata = {
                             "unit": "degree",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "precAcumulada",
                             "unit": "millimeter",
                         },

@@ -347,12 +347,12 @@ class TimeseriesValues(ABC):
 
         Example:
         timestamp    parameter                  value   quality
-        1971-01-01   precipitation_height       0       0
+        1971-01-01   precipitation_amount       0       0
         1971-01-01   temperature_air_mean_2m   10      0
 
         becomes
 
-        timestamp    precipitation_height   precipitation_height_quality
+        timestamp    precipitation_amount   precipitation_amount_quality
         1971-01-01   0                      0
             temperature_air_mean_2m    temperature_air_mean_2m_quality
             10                          0

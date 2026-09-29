@@ -100,7 +100,7 @@ ImgwMeteorologyMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "suma dobowa opadów",
                             "unit": "millimeter",
                         },
@@ -142,7 +142,7 @@ ImgwMeteorologyMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "suma dobowa opadów",
                             "unit": "millimeter",
                         },
@@ -174,17 +174,17 @@ ImgwMeteorologyMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "suma dobowa opadów",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_day",
+                            "name": "precipitation_amount_day",
                             "name_original": "suma opadu dzień",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_night",
+                            "name": "precipitation_amount_night",
                             "name_original": "suma opadu noc",
                             "unit": "millimeter",
                         },
@@ -259,12 +259,12 @@ ImgwMeteorologyMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "miesieczna suma opadów",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_max",
+                            "name": "precipitation_amount_max",
                             "name_original": "maksymalna dobowa suma opadów",
                             "unit": "millimeter",
                         },
@@ -316,12 +316,12 @@ ImgwMeteorologyMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "miesięczna suma opadów",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_max",
+                            "name": "precipitation_amount_max",
                             "name_original": "opad maksymalny",
                             "unit": "millimeter",
                         },
@@ -343,22 +343,22 @@ ImgwMeteorologyMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "miesięczna suma opadów",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_day",
+                            "name": "precipitation_amount_day",
                             "name_original": "suma opadu dzień",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_max",
+                            "name": "precipitation_amount_max",
                             "name_original": "maksymalna dobowa suma opadów",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_night",
+                            "name": "precipitation_amount_night",
                             "name_original": "suma opadu noc",
                             "unit": "millimeter",
                         },

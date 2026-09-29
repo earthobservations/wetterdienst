@@ -78,7 +78,7 @@ MetnoFrostMetadata = {
                             "unit": "degree",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "sum(precipitation_amount PT10M)",
                             "unit": "millimeter",
                         },
@@ -143,7 +143,7 @@ MetnoFrostMetadata = {
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "sum(precipitation_amount PT1H)",
                             "unit": "millimeter",
                         },
@@ -168,7 +168,7 @@ MetnoFrostMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "sum(precipitation_amount PT6H)",
                             "unit": "millimeter",
                         },
@@ -203,7 +203,7 @@ MetnoFrostMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "sum(precipitation_amount P1D)",
                             "unit": "millimeter",
                         },
@@ -283,7 +283,7 @@ MetnoFrostMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "sum(precipitation_amount P1M)",
                             "unit": "millimeter",
                         },
@@ -358,7 +358,7 @@ MetnoFrostMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "sum(precipitation_amount P1Y)",
                             "unit": "millimeter",
                         },

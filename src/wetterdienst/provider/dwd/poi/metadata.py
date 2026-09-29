@@ -85,27 +85,27 @@ DwdPoiMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "precipitation_height_last_1h",
+                            "name": "precipitation_amount_last_1h",
                             "name_original": "precipitation_amount_last_hour",
                             **_PRECIPITATION,
                         },
                         {
-                            "name": "precipitation_height_last_3h",
+                            "name": "precipitation_amount_last_3h",
                             "name_original": "precipitation_amount_last_3_hours",
                             **_PRECIPITATION,
                         },
                         {
-                            "name": "precipitation_height_last_6h",
+                            "name": "precipitation_amount_last_6h",
                             "name_original": "precipitation_amount_last_6_hours",
                             **_PRECIPITATION,
                         },
                         {
-                            "name": "precipitation_height_last_12h",
+                            "name": "precipitation_amount_last_12h",
                             "name_original": "precipitation_last_12_hours",
                             **_PRECIPITATION,
                         },
                         {
-                            "name": "precipitation_height_last_24h",
+                            "name": "precipitation_amount_last_24h",
                             "name_original": "precipitation_amount_last_24_hours",
                             **_PRECIPITATION,
                         },

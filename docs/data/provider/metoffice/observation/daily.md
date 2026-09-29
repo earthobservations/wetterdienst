@@ -22,7 +22,7 @@
 
 | name                         | original name | description                                       | unit |
 |------------------------------|---------------|---------------------------------------------------|------|
-| {term}`precipitation_height` | prcp_amt | Precipitation amount, reported to the nearest 0.1 mm. | mm |
+| {term}`precipitation_amount` | prcp_amt | Precipitation amount, reported to the nearest 0.1 mm. | mm |
 
 ### temperature
 

@@ -35,8 +35,8 @@
 | {term}`visibility_range`                | visibility                | visibility range                                                                 | m    | >=0         |
 | {term}`temperature_air_max_2m_last_24h` | maxtemperaturelast24hours | maximum air temperature in the last 24 hours                                     | °C   | -           |
 | {term}`temperature_air_min_2m_last_24h` | mintemperaturelast24hours | minimum air temperature in the last 24 hours                                     | °C   | -           |
-| {term}`precipitation_height`            | precipitationlasthour     | precipitation height of last hour                                                | mm   | >=0         |
-| {term}`precipitation_height_last_3h`    | precipitationlast3hours   | precipitation height of last three hours                                         | mm   | >=0         |
-| {term}`precipitation_height_last_6h`    | precipitationlast6hours   | precipitation height of last six hours                                           | mm   | >=0         |
+| {term}`precipitation_amount`            | precipitationlasthour     | precipitation height of last hour                                                | mm   | >=0         |
+| {term}`precipitation_amount_last_3h`    | precipitationlast3hours   | precipitation height of last three hours                                         | mm   | >=0         |
+| {term}`precipitation_amount_last_6h`    | precipitationlast6hours   | precipitation height of last six hours                                           | mm   | >=0         |
 | {term}`humidity_relative`                        | relativehumidity          | relative humidity                                                                | %    | >=0,<=100   |
 | {term}`temperature_wind_chill`          | windchill                 | wind chill temperature calculated by NWS (https://www.weather.gov/gjt/windchill) | °C   | -           |

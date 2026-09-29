@@ -29,5 +29,5 @@
 | {term}`wind_direction` | windDirection | Wind direction, °. Values: 0 is from the north, 180 is from the south, and so on. | ° |
 | {term}`cloud_cover_total` | cloudCover | Cloud cover, %. Values: 0 is clear, 100 is overcast. Where the cloud cover cannot be determined, for example because of fog, null is returned. | % |
 | {term}`pressure_air_sea_level` | seaLevelPressure | Pressure at sea level, hPa. | hPa |
-| {term}`precipitation_height` | precipitation | Precipitation amount, mm. The precipitation sum over the hour. | mm |
+| {term}`precipitation_amount` | precipitation | Precipitation amount, mm. The precipitation sum over the hour. | mm |
 | {term}`snow_depth` | snowDepth | Thickness of the snow cover, cm. | cm |

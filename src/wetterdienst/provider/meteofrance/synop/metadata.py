@@ -90,27 +90,27 @@ MeteoFranceSynopMetadata = {
                             "unit": "pascal",
                         },
                         {
-                            "name": "precipitation_height_last_1h",
+                            "name": "precipitation_amount_last_1h",
                             "name_original": "rr1",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_last_3h",
+                            "name": "precipitation_amount_last_3h",
                             "name_original": "rr3",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_last_6h",
+                            "name": "precipitation_amount_last_6h",
                             "name_original": "rr6",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_last_12h",
+                            "name": "precipitation_amount_last_12h",
                             "name_original": "rr12",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_last_24h",
+                            "name": "precipitation_amount_last_24h",
                             "name_original": "rr24",
                             "unit": "millimeter",
                         },

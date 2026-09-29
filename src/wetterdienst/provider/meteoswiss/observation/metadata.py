@@ -43,7 +43,7 @@ MeteoswissObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rre150z0",
                             "unit": "millimeter",
                         },
@@ -153,7 +153,7 @@ MeteoswissObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rre150h0",
                             "unit": "millimeter",
                         },
@@ -278,7 +278,7 @@ MeteoswissObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rre150d0",
                             "unit": "millimeter",
                         },
@@ -403,7 +403,7 @@ MeteoswissObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rre150m0",
                             "unit": "millimeter",
                         },
@@ -513,7 +513,7 @@ MeteoswissObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "rre150y0",
                             "unit": "millimeter",
                         },

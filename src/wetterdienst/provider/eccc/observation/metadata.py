@@ -46,7 +46,7 @@ EcccObservationMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "precip_amount",
                             "unit": "millimeter",
                         },
@@ -120,12 +120,12 @@ EcccObservationMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "total_precipitation",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "precipitation_height_liquid",
+                            "name": "precipitation_amount_liquid",
                             "name_original": "total_rain",
                             "unit": "millimeter",
                         },
@@ -222,7 +222,7 @@ EcccObservationMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "total_precipitation",
                             "unit": "millimeter",
                         },
@@ -232,7 +232,7 @@ EcccObservationMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "count_days_precipitation_height_ge_1mm",
+                            "name": "count_days_precipitation_amount_ge_1mm",
                             "name_original": "days_with_precip_ge_1mm",
                             "unit": "dimensionless",
                         },
@@ -252,7 +252,7 @@ EcccObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_valid_precipitation_height",
+                            "name": "count_days_valid_precipitation_amount",
                             "name_original": "days_with_valid_precip",
                             "unit": "dimensionless",
                         },
@@ -273,7 +273,7 @@ EcccObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "precipitation_height_normal",
+                            "name": "precipitation_amount_normal",
                             "name_original": "normal_precipitation",
                             "unit": "millimeter",
                         },

@@ -67,7 +67,7 @@ SmhiObservationMetadata = {
                             "unit": "degree",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "46",
                             "unit": "millimeter",
                         },
@@ -112,7 +112,7 @@ SmhiObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "7",
                             "unit": "millimeter",
                         },
@@ -167,7 +167,7 @@ SmhiObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "5",
                             "unit": "millimeter",
                         },
@@ -197,7 +197,7 @@ SmhiObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "precipitation_height",
+                            "name": "precipitation_amount",
                             "name_original": "23",
                             "unit": "millimeter",
                         },

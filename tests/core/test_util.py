@@ -130,7 +130,7 @@ def _answer(*rows: tuple[str, str, str, float | None]) -> pl.DataFrame:
 
 INTERPOLATABLE = DwdObservationRequest.interpolatable_parameters
 TEMPERATURE = ("daily", "climate_summary", "temperature_air_mean_2m")
-PRECIPITATION = ("daily", "climate_summary", "precipitation_height")
+PRECIPITATION = ("daily", "climate_summary", "precipitation_amount")
 
 
 def test_report_elevation_exclusions_raises_where_nothing_was_answered() -> None:
@@ -321,7 +321,7 @@ def test_count_stations_in_reach_asks_per_parameter_radius() -> None:
     metadata = DwdObservationRequest.metadata["hourly"]
     parameters = [
         metadata["temperature_air"]["temperature_air_mean_2m"],
-        metadata["precipitation"]["precipitation_height"],
+        metadata["precipitation"]["precipitation_amount"],
     ]
     df_stations_ranked = pl.concat(
         _ranked(dataset, rows)
@@ -339,7 +339,7 @@ def test_count_stations_in_reach_asks_per_parameter_radius() -> None:
     # 40 km for temperature: three stations, the furthest of them the only one with an elevation
     assert counts[("hourly", "temperature_air", "temperature_air_mean_2m")] == (3, 1, 35.0)
     # 20 km for precipitation: two stations, and the station that has an elevation is outside it
-    assert counts[("hourly", "precipitation", "precipitation_height")] == (2, 0, None)
+    assert counts[("hourly", "precipitation", "precipitation_amount")] == (2, 0, None)
 
 
 def test_unanswerable_at_elevation_names_what_no_walk_can_reach() -> None:
@@ -449,7 +449,7 @@ def test_no_elevation_in_reach_error_says_what_the_ranking_alone_can_say() -> No
     assert "no station near the point reports an elevation of its own" in str(error)
     assert "nothing can be brought to 200.0 m" in str(error)
     # both parameters named, in a settled order
-    assert "daily/climate_summary/precipitation_height, daily/climate_summary/temperature_air_mean_2m" in str(error)
+    assert "daily/climate_summary/precipitation_amount, daily/climate_summary/temperature_air_mean_2m" in str(error)
     # and the remedy that applies to a request named by a station id as much as one by coordinates
     assert "naming a station id instead asks at that station's own elevation" in str(error)
 

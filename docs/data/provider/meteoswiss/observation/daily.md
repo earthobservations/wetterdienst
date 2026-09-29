@@ -27,7 +27,7 @@
 | {term}`wind_direction`                                 | dkl010d0      | Wind direction; daily mean                                       | degree                |
 | {term}`wind_speed`                                     | fkl010d0      | Wind speed scalar; daily mean in m/s                             | meter_per_second      |
 | {term}`wind_gust_max`                                  | fkl010d1      | Gust peak (one second); daily maximum in m/s                     | meter_per_second      |
-| {term}`precipitation_height`                           | rre150d0      | Precipitation; daily total 6 UTC - 6 UTC following day           | millimeter            |
+| {term}`precipitation_amount`                           | rre150d0      | Precipitation; daily total 6 UTC - 6 UTC following day           | millimeter            |
 | {term}`pressure_air_site`                              | prestad0      | Atmospheric pressure at barometric altitude (QFE); daily mean    | hectopascal           |
 | {term}`pressure_air_sea_level`                         | pp0qffd0      | Atmospheric pressure reduced to sea level (QFF); daily mean      | hectopascal           |
 | {term}`pressure_vapor`                                 | pva200d0      | Vapour pressure 2 m above ground; daily mean                     | hectopascal           |

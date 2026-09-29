@@ -49,9 +49,9 @@
 | {term}`soil_moisture_corn_loamy_silt_00cm_60cm`           | bfml_ag       | soil moisture for corn on loamy silt 0-60cm            | %    | 0-100       |
 | {term}`evapotranspiration_potential_grass_fao_last_24h`   | vpgfao        | potential evapotranspiration for meadow (FAO method)   | mm   | >=0         |
 | {term}`evapotranspiration_potential_grass_haude_last_24h` | vpgh          | potential evapotranspiration for meadow (Haude method) | mm   | >=0         |
-| {term}`evaporation_height_grass_sand`                     | vrgs_ag       | evaporation height for meadow on sand                  | mm   | >=0         |
-| {term}`evaporation_height_grass_loamy_silt`                | vrgl_ag       | evaporation height for meadow on loamy silt            | mm   | >=0         |
-| {term}`evaporation_height_winter_wheat_sand`              | vrws_ag       | evaporation height for winter wheat on sand            | mm   | >=0         |
-| {term}`evaporation_height_winter_wheat_loamy_silt`         | vrwl_ag       | evaporation height for winter wheat on loamy silt      | mm   | >=0         |
-| {term}`evaporation_height_corn_sand`                     | vrms_ag       | evaporation height for corn on sand                    | mm   | >=0         |
-| {term}`evaporation_height_corn_loamy_silt`                | vrml_ag       | evaporation height for corn on loamy silt              | mm   | >=0         |
+| {term}`evaporation_amount_grass_sand`                     | vrgs_ag       | evaporation height for meadow on sand                  | mm   | >=0         |
+| {term}`evaporation_amount_grass_loamy_silt`                | vrgl_ag       | evaporation height for meadow on loamy silt            | mm   | >=0         |
+| {term}`evaporation_amount_winter_wheat_sand`              | vrws_ag       | evaporation height for winter wheat on sand            | mm   | >=0         |
+| {term}`evaporation_amount_winter_wheat_loamy_silt`         | vrwl_ag       | evaporation height for winter wheat on loamy silt      | mm   | >=0         |
+| {term}`evaporation_amount_corn_sand`                     | vrms_ag       | evaporation height for corn on sand                    | mm   | >=0         |
+| {term}`evaporation_amount_corn_loamy_silt`                | vrml_ag       | evaporation height for corn on loamy silt              | mm   | >=0         |

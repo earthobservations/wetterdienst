@@ -19,7 +19,7 @@
 | {term}`temperature_air_max_2m` | max(air_temperature P1M) | Highest recorded air temperature per month | degree_celsius |
 | {term}`temperature_air_min_2m` | min(air_temperature P1M) | Lowest recorded air temperature per month | degree_celsius |
 | {term}`temperature_dew_point_mean_2m` | mean(dew_point_temperature P1M) | Monthly mean dew-point temperature. Dew-point temperature is the temperature at which the air, when cooled, will become saturated (and dew is formed). | degree_celsius |
-| {term}`precipitation_height` | sum(precipitation_amount P1M) | Monthly precipitation sum. | millimeter |
+| {term}`precipitation_amount` | sum(precipitation_amount P1M) | Monthly precipitation sum. | millimeter |
 | {term}`wind_speed` | mean(wind_speed P1M) | Monthly mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
 | {term}`wind_speed_rolling_mean_max` | max(wind_speed P1M) | Monthly maximum mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
 | {term}`humidity_relative` | mean(relative_humidity P1M) | Monthly mean relative humidity. | percent |

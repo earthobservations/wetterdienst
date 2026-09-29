@@ -116,7 +116,7 @@ def test_aemet_observation_values_daily() -> None:
     assert value_on("temperature_air_mean_2m", day1) == pytest.approx(6.6)
     assert value_on("temperature_air_max_2m", day1) == pytest.approx(11.2)
     assert value_on("temperature_air_min_2m", day1) == pytest.approx(1.9)
-    assert value_on("precipitation_height", day1) == pytest.approx(0.0)
+    assert value_on("precipitation_amount", day1) == pytest.approx(0.0)
     assert value_on("wind_speed", day1) == pytest.approx(0.3)
     assert value_on("wind_gust_max", day1) == pytest.approx(3.3)
     assert value_on("wind_direction", day1) == pytest.approx(50.0)
@@ -163,8 +163,8 @@ def test_aemet_observation_values_monthly() -> None:
     # "15.7(31)" — the parser must strip that and keep just the number.
     assert value_of("temperature_air_max_2m_multiday") == pytest.approx(15.7)
     assert value_of("temperature_air_min_2m_multiday") == pytest.approx(-0.7)
-    assert value_of("precipitation_height") == pytest.approx(16.4)
-    assert value_of("precipitation_height_max") == pytest.approx(5.4)
+    assert value_of("precipitation_amount") == pytest.approx(16.4)
+    assert value_of("precipitation_amount_max") == pytest.approx(5.4)
     # humidity is reported by AEMET as percent, wetterdienst stores it as fraction
     assert value_of("humidity_relative") == pytest.approx(0.66)
 
@@ -203,8 +203,8 @@ def test_aemet_observation_values_annual() -> None:
     # annotation is "(27/jul)" here (day/month, not just day, unlike the monthly endpoint)
     assert value_of("temperature_air_max_2m_multiday") == pytest.approx(39.4)
     assert value_of("temperature_air_min_2m_multiday") == pytest.approx(-1.3)
-    assert value_of("precipitation_height") == pytest.approx(474.4)
-    assert value_of("precipitation_height_max") == pytest.approx(37.8)
+    assert value_of("precipitation_amount") == pytest.approx(474.4)
+    assert value_of("precipitation_amount_max") == pytest.approx(37.8)
     # AEMET's annual aggregate doesn't include a humidity field at all
     assert df.filter(pl.col("parameter").eq("humidity_relative")).is_empty()
 

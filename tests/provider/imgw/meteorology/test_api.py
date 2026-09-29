@@ -72,7 +72,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "station_id": "253160090",
                 "resolution": "daily",
                 "dataset": "climate",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
                 "quality": 9.0,
@@ -139,7 +139,7 @@ def test_imgw_meteorology_api_daily() -> None:
             "parameter": pl.Enum(
                 [
                     "cloud_cover_total",
-                    "precipitation_height",
+                    "precipitation_amount",
                     "snow_depth",
                     "temperature_air_max_2m",
                     "temperature_air_mean_2m",
@@ -219,7 +219,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 204.1,
                 "quality": None,
@@ -228,7 +228,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
-                "parameter": "precipitation_height_day",
+                "parameter": "precipitation_amount_day",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 136.4,
                 "quality": None,
@@ -237,7 +237,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
-                "parameter": "precipitation_height_max",
+                "parameter": "precipitation_amount_max",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 92.3,
                 "quality": None,
@@ -246,7 +246,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
-                "parameter": "precipitation_height_night",
+                "parameter": "precipitation_amount_night",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 67.7,
                 "quality": None,
@@ -359,10 +359,10 @@ def test_imgw_meteorology_api_monthly() -> None:
                 [
                     "cloud_cover_total",
                     "humidity_relative",
-                    "precipitation_height",
-                    "precipitation_height_day",
-                    "precipitation_height_max",
-                    "precipitation_height_night",
+                    "precipitation_amount",
+                    "precipitation_amount_day",
+                    "precipitation_amount_max",
+                    "precipitation_amount_night",
                     "pressure_air_sea_level",
                     "pressure_air_site",
                     "pressure_vapor",
@@ -413,7 +413,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
-                "parameter": "precipitation_height",
+                "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 4.9,
                 "quality": None,
@@ -422,7 +422,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
-                "parameter": "precipitation_height_day",
+                "parameter": "precipitation_amount_day",
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.1,
                 "quality": None,
@@ -431,7 +431,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
-                "parameter": "precipitation_height_night",
+                "parameter": "precipitation_amount_night",
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 4.8,
                 "quality": None,
@@ -525,9 +525,9 @@ def test_imgw_meteorology_api_daily_synop() -> None:
             "parameter": pl.Enum(
                 [
                     "humidity_relative",
-                    "precipitation_height",
-                    "precipitation_height_day",
-                    "precipitation_height_night",
+                    "precipitation_amount",
+                    "precipitation_amount_day",
+                    "precipitation_amount_night",
                     "pressure_air_sea_level",
                     "pressure_air_site",
                     "pressure_vapor",
@@ -688,7 +688,7 @@ def test_imgw_meteorology_reads_every_status_the_files_document() -> None:
     [
         # o_d for July 2024 leaves the value cell empty beside its "9"s: WARSZOWICE reported no rain
         # on the 2nd, which came back as no value at all rather than 0.0 mm.
-        ("precipitation", "precipitation_height", "249180020", "2024-07-02"),
+        ("precipitation", "precipitation_amount", "249180020", "2024-07-02"),
         # the same in s_d, for a parameter that is zero all winter: no snow cover on New Year's Day.
         ("synop", "snow_depth", "354150100", "2024-01-01"),
     ],
@@ -808,15 +808,15 @@ def test_imgw_meteorology_statusless_columns_agree_with_the_file_schema() -> Non
         # k_m_d column 19 is OPMX, "maksymalna dobowa suma opadow w miesiacu"; monthly/climate had
         # declared it under o_m's name for MAXO ("opad maksymalny"), so even spelling the rename
         # correctly would not have matched. PSZCZYNA, a klimat station: January 2010, 17.8 mm.
-        ("monthly", "climate", "249180010", "precipitation_height_max", 17.8),
+        ("monthly", "climate", "249180010", "precipitation_amount_max", 17.8),
         # s_m_d column 11 is TMNS; the rename map spelt it "minimalnaj". BIELSKO-BIALA, synop.
         ("monthly", "synop", "349190600", "temperature_air_min_2m_mean", 14.0),
         # o_d column 6 is SMDB, the daily precipitation total -- the reason the dataset exists. It
         # carried daily/climate's mean-temperature name. WARSZOWICE, an opad station.
-        ("daily", "precipitation", "249180020", "precipitation_height", 1.1),
+        ("daily", "precipitation", "249180020", "precipitation_amount", 1.1),
         # o_m field 9 is MAXO; field 7 is LDS, the count of days with snowfall. This one never
         # looked empty -- it published a day count as millimetres. WARSZOWICE, January 2010.
-        ("monthly", "precipitation", "249180020", "precipitation_height_max", 17.8),
+        ("monthly", "precipitation", "249180020", "precipitation_amount_max", 17.8),
     ],
 )
 def test_imgw_meteorology_values_match_the_upstream_column(
@@ -899,7 +899,7 @@ def test_imgw_meteorology_values_read_the_status_column(
         ("temperature_air_max_2m", -4.2),
         ("temperature_air_min_2m", -5.4),
         ("temperature_air_min_0_05m", -5.4),
-        ("precipitation_height", 0.0),
+        ("precipitation_amount", 0.0),
         ("snow_depth", 18.0),
     ],
 )

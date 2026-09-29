@@ -24,7 +24,7 @@
 
 | name                                | original name | description                                                                                   | unit                        |
 |-------------------------------------|---------------|-----------------------------------------------------------------------------------------------|-----------------------------|
-| {term}`precipitation_height` | RR | Monthly total of the precipitation depths. | millimeter |
+| {term}`precipitation_amount` | RR | Monthly total of the precipitation depths. | millimeter |
 | {term}`temperature_air_min_2m_mean` | TN | Monthly mean of the daily minimum temperatures (TN). | degree_celsius |
 | {term}`temperature_air_max_2m_mean` | TX | Monthly mean of the daily maximum temperatures (TX). | degree_celsius |
 | {term}`temperature_air_mean_2m` | TMM | Monthly mean of the daily mean temperatures (TM). | degree_celsius |

@@ -31,7 +31,7 @@
 | {term}`cloud_cover_between_2km_and_7km`          | nm            | Midlevel cloud cover (2-7 km)                  | %     | >=0,<=100   |
 | {term}`cloud_cover_effective`                   | neff          | Effective cloud cover                          | %     | >=0,<=100   |
 | {term}`cloud_cover_total`                       | n             | Total cloud cover                              | %     | >=0,<=100   |
-| {term}`precipitation_height_last_1h`            | rr1           | Total precipitation during the last hour       | kg/m² | >=0         |
+| {term}`precipitation_amount_last_1h`            | rr1           | Total precipitation during the last hour       | kg/m² | >=0         |
 | {term}`pressure_air_site_reduced`               | pppp          | Surface pressure, reduced                      | Pa    | >=0         |
 | {term}`radiation_global`                        | rad1h         | Global Irradiance                              | kJ/m² | >=0         |
 | {term}`temperature_air_max_2m`                  | tx            | Maximum temperature - within the last 12 hours | K     | -           |
@@ -67,8 +67,8 @@
 | {term}`cloud_cover_between_2km_and_7km`          | nm            | Midlevel cloud cover (2-7 km)                        | %     | >=0,<=100   |
 | {term}`cloud_cover_effective`                   | neff          | Effective cloud cover                                | %     | >=0,<=100   |
 | {term}`cloud_cover_total`                       | n             | Total cloud cover                                    | %     | >=0,<=100   |
-| {term}`precipitation_height_last_1h`            | rr1           | Total precipitation during the last hour             | kg/m² | >=0         |
-| {term}`precipitation_height_last_3h`            | rr3           | Total precipitation during the last 3 hours          | kg/m² | >=0         |
+| {term}`precipitation_amount_last_1h`            | rr1           | Total precipitation during the last hour             | kg/m² | >=0         |
+| {term}`precipitation_amount_last_3h`            | rr3           | Total precipitation during the last 3 hours          | kg/m² | >=0         |
 | {term}`pressure_air_site_reduced`               | pppp          | Surface pressure, reduced                            | Pa    | >=0         |
 | {term}`radiation_global`                        | rad1h         | Global Irradiance                                    | kJ/m² | >=0         |
 | {term}`radiation_global_last_3h`                | rads3         | Short wave radiation balance during the last 3 hours | kJ/m² | -           |

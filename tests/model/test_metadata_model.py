@@ -76,7 +76,7 @@ def test_parameter_search(value: str | ParameterModel, expected: ParameterModel)
         # original names
         ("1_minute/precipitation", [*DwdObservationMetadata.minute_1.precipitation]),
         ("daily/kl", [*DwdObservationMetadata.daily.climate_summary]),
-        ("daily/kl/rsk", [DwdObservationMetadata.daily.climate_summary.precipitation_height]),
+        ("daily/kl/rsk", [DwdObservationMetadata.daily.climate_summary.precipitation_amount]),
         # models
         (DwdObservationMetadata.daily.climate_summary, [*DwdObservationMetadata.daily.climate_summary]),
         (
@@ -216,8 +216,8 @@ def test_group_parameters_by_dataset_groups_a_dataset_asked_for_twice() -> None:
     parameters = parse_parameters(
         [
             "daily/kl/temperature_air_mean_2m",
-            "daily/more_precip/precipitation_height",
-            "daily/kl/precipitation_height",
+            "daily/more_precip/precipitation_amount",
+            "daily/kl/precipitation_amount",
         ],
         DwdObservationMetadata,
     )
@@ -225,6 +225,6 @@ def test_group_parameters_by_dataset_groups_a_dataset_asked_for_twice() -> None:
     groups = group_parameters_by_dataset(parameters)
 
     assert [(dataset.name, [parameter.name for parameter in grouped]) for dataset, grouped in groups] == [
-        ("climate_summary", ["temperature_air_mean_2m", "precipitation_height"]),
-        ("precipitation_more", ["precipitation_height"]),
+        ("climate_summary", ["temperature_air_mean_2m", "precipitation_amount"]),
+        ("precipitation_more", ["precipitation_amount"]),
     ]
