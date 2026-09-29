@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the command line interface."""
 
+import itertools
 import json
 import re
 from collections.abc import Iterator
@@ -61,10 +62,14 @@ def _declared(command: click.Command) -> set[str]:
 
 
 def _help_examples() -> Iterator[str]:
-    """Yield each `wetterdienst ...` line of the top-level help, continuation lines joined on."""
+    """Yield each `wetterdienst ...` command of the top-level help, continuation lines joined on.
+
+    Including the one an `alias fetch="wetterdienst ..."` line defines, which kept a retired
+    `--resolution=daily --period=recent` long after the option was gone.
+    """
     lines = iter(wetterdienst_help.splitlines())
     for raw in lines:
-        line = raw.strip()
+        line = re.sub(r'^alias \w+="(wetterdienst .*)"$', r"\1", raw.strip())
         if not line.startswith("wetterdienst "):
             continue
         while line.endswith("\\"):
@@ -75,7 +80,8 @@ def _help_examples() -> Iterator[str]:
 def test_cli_help_names_only_declared_options() -> None:
     """Test every option the top-level help names is one some command declares.
 
-    It named `--si_units` and `--tidy` long after both were gone (GH-2021).
+    It named `--si_units` and `--tidy` long after both were gone (GH-2021). Which command takes
+    which option is checked per example below.
     """
     declared = set().union(*(_declared(command) for _, command in _commands(cli))) | {"--version"}
     assert set(_OPTION.findall(wetterdienst_help)) - declared == set()
@@ -85,16 +91,22 @@ def test_cli_help_names_only_declared_options() -> None:
 def test_cli_help_example_resolves(example: str) -> None:
     """Test each example in the top-level help names a command, and only that command's options."""
     tokens = example.split()[1:]
-    if tokens[0].startswith("{"):
-        # a synopsis over several commands: `wetterdienst {stations,values}`
-        names = tokens[0].strip("{}").split(",")
-        assert set(names) <= set(cli.commands)
-        return
     command: click.Command = cli
     while tokens and isinstance(command, click.Group) and tokens[0] in command.commands:
         command = command.commands[tokens.pop(0)]
     assert not (isinstance(command, click.Group) and tokens and tokens[0][0].isalpha()), f"no command {tokens[0]!r}"
     assert set(_OPTION.findall(example)) - _declared(command) - {"--version"} == set()
+
+
+def test_cli_help_example_continues() -> None:
+    """Test an example's continuation line follows a backslash, so it pastes into a shell whole.
+
+    Without one the shell runs the first line alone and drops the options on the second, which
+    five examples did before GH-2021 and which the option checks above cannot see.
+    """
+    for previous, line in itertools.pairwise(wetterdienst_help.splitlines()):
+        if re.match(r"\s{8,}(--|>)", line):
+            assert previous.rstrip().endswith("\\"), previous
 
 
 def test_cli_about_parameters() -> None:
@@ -228,6 +240,15 @@ def test_cli_radar_stations_opera_not_found() -> None:
     assert result.exit_code == 1
     assert "Error: Radar site not found" in result.output
     assert not isinstance(result.exception, KeyError)
+
+
+def test_cli_radar_stations_opera_malformed_code() -> None:
+    """Test an ODIM code of the wrong shape is a usage error, not a traceback."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["radar", "--odim-code=de"])
+    assert result.exit_code == 2
+    assert "ODIM code must be three or five letters" in result.output
+    assert not isinstance(result.exception, ValueError)
 
 
 def test_cli_radar_stations_dwd() -> None:

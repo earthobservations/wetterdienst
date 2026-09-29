@@ -20,15 +20,18 @@ Types of changes:
 
 - `wetterdienst radar --wmo_code` finds the site it names. The option was read as text and compared
   with the sites' integer WMO codes, so every lookup failed with a `KeyError` traceback. A code no
-  site carries now answers `Error: Radar site not found` and exit status 1 (GH-2023)
+  site carries now answers `Error: Radar site not found` and exit status 1, and an ODIM code of the
+  wrong length is a usage error rather than a traceback (GH-2023)
 - `wetterdienst history --sections` returns only the sections it names; it returned all five. The
   REST API filtered already but in a random order, and both now keep the history's own order. A
-  section name the history does not have is a usage error rather than a traceback (GH-2022)
+  section name the history does not have is a usage error rather than a traceback, as is a request
+  with neither `--all` nor `--station` (GH-2022)
 - `wetterdienst --help` and the command help name only options and commands that exist:
   `--convert_units` for `--si_units`, no `--tidy`, `--wmo_code` and `--country_name` for `radar`,
   and `stripes values` for `warming_stripes`, the command's old name. `--convert_units` converts to
-  the unit targets, not to SI units: temperature stays in °C by default. The Python API page names
-  `ts_convert_units` rather than `ts_si_units` (GH-2021)
+  the unit targets, not to SI units: temperature stays in °C by default. The overview that listed
+  options under commands that do not take them is gone, the `--sql_values` example on a column
+  runs in the wide shape it needs, and the README counts nearly 600 parameters, not 514 (GH-2021)
 
 ## [0.139.0] - 2026-09-29
 

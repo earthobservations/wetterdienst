@@ -301,157 +301,6 @@ Usage
     wetterdienst info           Display project information
 
 
-Overview
-========
-
-This section roughly outlines the different families of command line
-options. More detailed information is available within subsequent sections
-of this page.
-
-Coverage information:
-
-    wetterdienst about coverage --provider=<provider> --network=<network>  [--resolutions=<resolutions>] [--datasets=<datasets>]
-
-    wetterdienst about fields --provider=<provider> --network=<network> --resolution=<resolution> \\
-        --dataset=<dataset> --period=<period> [--language=<language>]
-
-Data acquisition:
-
-    wetterdienst {stations,values}
-
-        # Selection options
-        --provider=<provider> --network=<network> --parameters=<resolution/parameter> [--periods=<periods>]
-
-        # Filtering options
-        --all
-        --date=<date>
-        --station=<station>
-        --name=<name>
-        --latitude=<latitude> --longitude=<longitude> --rank=<rank>
-        --latitude=<latitude> --longitude=<longitude> --distance=<distance>
-        --left=<left> --bottom=<bottom> --right=<right> --top=<top>
-        --sql=<sql>
-
-        # Output options
-        [--format=<format>] [--pretty]
-        [--shape=<shape>] [--humanize] [--convert_units]
-        [--drop_nulls] [--skip_empty] [--skip_threshold=0.95]
-
-        # Export options
-        [--target=<target>] [--if_exists=<if_exists>]
-
-Available model-run datetimes:
-
-    wetterdienst issues --provider=<provider> --network=<network> --station=<station>
-
-Data computation:
-
-    wetterdienst {interpolate,summarize}
-
-        # Selection options
-        --provider=<provider> --network=<network> --parameters=<resolution/parameter> --date=<date> [--periods=<periods>]
-
-        # Filtering options
-        --station=<station>
-        --latitude=<latitude> --longitude=<longitude>
-
-        # Interpolation options
-        --interpolation_station_distance=<distance>
-        --interpolation_station_distance_homogeneous=<distance>
-        --interpolation_station_distance_heterogeneous=<distance>
-        --use_nearby_station_distance=<distance>
-
-        # Output options
-        [--format=<format>] [--pretty]
-        [--shape=<shape>] [--humanize] [--convert_units]
-        [--drop_nulls] [--skip_empty] [--skip_threshold=0.95]
-
-        # Export options
-        [--target=<target>] [--if_exists=<if_exists>]
-
-Options
-=======
-
-This section explains all command line options in detail.
-
-Selection options:
-
-    --provider                  The data provider / organisation.
-                                Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere, meteofrance, meteoswiss
-
-    --network                   The network of the data provider
-                                Examples: observation, mosmix, radar, ghcn, pegel, hydrology
-
-    --parameters                The parameters to be requested concatenated by a slash.
-                                Examples: daily/climate_summary, daily/climate_summary/precipitation_amount
-
-    [--periods]                 Dataset periods
-                                Examples: "historical", "recent", "now"
-
-Filtering options:
-
-    --all                       Flag to process all data
-
-    --date                      Date for filtering data
-                                A single date(time) or interval in RFC3339/ISO8601 format.
-                                See also:
-                                - https://en.wikipedia.org/wiki/ISO_8601#Combined_date_and_time_representations
-                                - https://en.wikipedia.org/wiki/ISO_8601#Time_intervals
-
-    --start-date                Alternative to --date for specifying the start of a time range.
-                                Mutually exclusive with --date.
-
-    --end-date                  End of time range. Requires --start-date.
-                                If omitted, --start-date is used as both start and end.
-                                If only --end-date is given without --start-date, it is treated as a single date.
-
-    --name                      Name of station
-
-    --station                   Comma-separated list of station identifiers
-
-    --latitude                  Latitude of geolocation point for filtering stations or values
-    --longitude                 Longitude of geolocation point for filtering stations or values
-
-    --rank                      Rank of nearby stations when filtering by geolocation point
-                                To be used with `--latitude` and `--longitude`.
-
-    --distance                  Maximum distance in km when filtering by geolocation point
-                                To be used with `--latitude` and `--longitude`.
-
-    --left                      Left longitude of bounding box
-    --bottom                    Bottom latitude of bounding box
-    --right                     Right longitude of bounding box
-    --top                       Top latitude of bounding box
-
-    --sql                       SQL filter statement
-
-    --sql_values                SQL filter to apply to values
-
-Transformation options:
-    --shape                     Shape of DataFrame, "wide" or "long"
-    --humanize                  Humanize parameters
-    --convert_units             Convert to the unit targets (see --unit_targets)
-    --skip_empty                Skip stations covered less than ts_skip_threshold
-    --skip_threshold            Skip threshold for a station to be empty (0 < ts_skip_threshold <= 1) [Default: 0.95]
-    --drop_nulls                    Whether to drop nan values from the result
-
-Output options:
-    --format                    Output format. [Default: json]
-    --language                  Output language. [Default: en]
-    --pretty                    Pretty-print JSON
-
-Export options:
-    --target                    Output target for storing data into different data sinks.
-    --if_exists                 What to do when the target already holds data:
-                                replace, append, fail or skip. [Default: replace]
-
-Other options:
-    -h --help                   Show this screen
-    --debug                     Enable debug messages
-    --listen                    HTTP server listen address.
-    --reload                    Run service and dynamically reload changed files
-
-
 Examples
 ========
 
@@ -605,14 +454,13 @@ SQL filtering:
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
         --sql="regexp_matches(lower(name), lower('.*dresden.*'))"
 
-    # Filter values: Display daily climate observation readings where the maximum temperature is below two degrees celsius.
+    # Filter values: the days with a wind gust above 20 m/s, one column per parameter.
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --station=1048,4411 --sql_values="wind_gust_max > 20.0;"
+        --station=1048,4411 --shape=wide --sql_values="wind_gust_max > 20.0"
 
-    # Filter measurements: Same as above, but use long format.
+    # Filter measurements: the same in the default long shape, one row per value.
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --station=1048,4411 --shape="long" \\
-        --sql_values="parameter='wind_gust_max' AND value > 20.0"
+        --station=1048,4411 --sql_values="parameter='wind_gust_max' AND value > 20.0"
 
 Inquire metadata:
 
@@ -653,7 +501,7 @@ Export data to databases:
 
     # Shortcut command for fetching readings.
     # It will be used for the next invocations.
-    alias fetch="wetterdienst values --provider=dwd --network=observation --parameters=kl --resolution=daily --period=recent --station=1048,4411"
+    alias fetch="wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent --station=1048,4411"
 
     # Store readings to DuckDB
     fetch --target="duckdb:///observations.duckdb?table=weather"
@@ -1230,7 +1078,7 @@ def history(
     parameters: list[str],
     all_: bool,  # noqa: FBT001
     station: str,
-    sections: list[str],
+    sections: str | None,
     fmt: str,  # noqa: ARG001
     target: str,
     *,
@@ -1240,6 +1088,10 @@ def history(
     debug: bool,
 ) -> None:
     """Acquire station history."""
+    if all_ == bool(station):
+        # get_stations would otherwise fall through to its KeyError, a traceback here
+        msg = "Select stations by exactly one of --all or --station"
+        raise click.UsageError(msg)
     if target and not target.endswith(".json"):
         msg = "--target for history endpoint must end with .json"
         raise click.BadParameter(msg)
@@ -1892,6 +1744,9 @@ def radar(
     """List radar stations."""
     try:
         data = _radar_sites(dwd=dwd, all_=all_, odim_code=odim_code, wmo_code=wmo_code, country_name=country_name)
+    except ValueError as e:
+        # a code of the wrong shape, which by_odim_code refuses before looking
+        raise click.BadParameter(str(e)) from e
     except KeyError as e:
         # a lookup that finds nothing is an answer about the input, not a crash
         raise click.ClickException(e.args[0]) from e
