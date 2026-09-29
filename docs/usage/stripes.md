@@ -11,6 +11,10 @@ Wetterdienst can generate climate stripes from **DWD** daily observations for tw
 - `temperature` — based on the annual mean air temperature
 - `precipitation` — based on the annual precipitation sum
 
+The colours are scaled over the years shown: with `start_year` and `end_year`, the coolest and
+warmest of those years take the two ends of the colour map, and `value_scaled` runs from 0 to 1 over
+the years returned. At least two of them must have data.
+
 The feature is exposed via the [command line interface](#command-line-interface) and the
 [REST API](#rest-api). The hosted [web app](https://www.wetterdienst.eobs.org) also
 offers an interactive Climate Stripes view.

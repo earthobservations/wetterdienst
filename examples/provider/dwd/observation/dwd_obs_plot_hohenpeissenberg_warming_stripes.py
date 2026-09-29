@@ -27,8 +27,6 @@ def plot_hohenpeissenberg_warming_stripes() -> None:
     request = StripesImageRequest(
         kind="temperature",
         name="Hohenpeissenberg",
-        # the threshold this example has always matched the name at; the request's default is 0.9
-        name_threshold=0.8,
         # bare stripes: this is the README's header image, where a title and an axis would only
         # repeat the sentence above it
         show_title=False,

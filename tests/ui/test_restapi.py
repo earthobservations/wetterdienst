@@ -1737,6 +1737,36 @@ def test_stripes_values_csv_format(client: TestClient) -> None:
     assert b"timestamp,value" in response.content
 
 
+@pytest.mark.parametrize(
+    ("fmt", "media_type"),
+    [
+        ("png", "image/png"),
+        ("jpg", "image/jpeg"),
+        ("svg", "image/svg+xml"),
+        ("pdf", "application/pdf"),
+    ],
+)
+def test_stripes_image_is_sent_as_its_media_type(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    fmt: str,
+    media_type: str,
+) -> None:
+    """Test each stripes image format is sent as the media type registered for it (GH-2063).
+
+    `image/{format}` gave `image/jpg`, `image/svg` and `image/pdf`, none of them registered.
+    """
+
+    class _Figure:
+        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
+            return b"image"
+
+    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+    response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
+    assert response.status_code == 200
+    assert response.headers["content-type"] == media_type
+
+
 @pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
 @pytest.mark.parametrize(
     ("query", "detail"),

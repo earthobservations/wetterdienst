@@ -1215,7 +1215,8 @@ class StripesRequest(BaseModel):
         str | None,
         Field(description="Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."),
     ] = None
-    name_threshold: _NameThresholdField = 0.9
+    # as for stations and values, and the CLI's --name_threshold
+    name_threshold: _NameThresholdField = 0.8
     start_year: Annotated[int | None, Field(description="First year. Default: the station's first.")] = None
     end_year: Annotated[
         int | None,
@@ -1339,21 +1340,25 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     df = df.set_sorted("timestamp")
     df = df.select("timestamp", "value")
     df = df.upsample("timestamp", every="1y")
+    if start_year is not None:
+        df = df.filter(pl.col("timestamp").dt.year().ge(start_year))
+    if end_year is not None:
+        df = df.filter(pl.col("timestamp").dt.year().le(end_year))
+
+    # a range holding no year with data drew empty stripes, and one holding a single year stripes of
+    # one colour
+    if df.get_column("value").count() < 2:
+        msg = "At least two years with data are required to create warming stripes."
+        raise ValueError(msg)
+
+    # scaled over the years asked for, so they span the whole colour map rather than the part the
+    # station's whole record would leave them
     df = df.with_columns(
         (1 - (pl.col("value") - pl.col("value").min()) / (pl.col("value").max() - pl.col("value").min())).alias(
             "value_scaled",
         ),
         pl.when(pl.col("value").is_not_null()).then(-0.02).otherwise(None).alias("availability"),
     )
-
-    if start_year:
-        df = df.filter(pl.col("timestamp").dt.year().ge(start_year))
-    if end_year:
-        df = df.filter(pl.col("timestamp").dt.year().le(end_year))
-
-    if len(df) == 1:
-        msg = "At least two years are required to create warming stripes."
-        raise ValueError(msg)
 
     resolution = "annual"
     if kind == "temperature":
