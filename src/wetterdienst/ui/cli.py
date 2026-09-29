@@ -315,18 +315,31 @@ def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _Reques
     """Build a request model, reporting a rejected value as a usage error rather than a traceback.
 
     Every field here comes from a command option, so a validation error is the user's input being
-    out of range -- a negative distance, say -- not a bug to show a stack trace for.
+    out of range -- a negative distance, say -- not a bug to show a stack trace for. The error names
+    the option, not the field the REST API knows it by.
     """
+    # each field by the option that sets it: `format` comes from --format, whose parameter is `fmt`
+    options: dict[str, str] = {}
+    for param in click.get_current_context().command.params:
+        for opt in param.opts:
+            if opt.startswith("--"):
+                options.setdefault(opt.removeprefix("--").replace("-", "_"), opt)
     try:
-        return model.model_validate(values)
+        return model.model_validate(values, context={"field_names": options})
     except ValidationError as e:
         # one line per error, without pydantic's echo of the whole input, which for a rule over
         # several options -- which stations to select -- is every option the command took
         problems = []
         for error in e.errors(include_url=False):
             message = error["msg"].removeprefix("Value error, ")
-            location = ".".join(str(part) for part in error["loc"])
-            problems.append(f"{location}: {message}" if location else message)
+            if not error["loc"]:
+                problems.append(message)
+                continue
+            field, *within = error["loc"]
+            # a position within the value is left out: --sections is a set, so it points nowhere,
+            # and the rejected item is shown instead
+            where = "".join(f"[{part}]" for part in within if not isinstance(part, int))
+            problems.append(f"{options.get(str(field), field)}{where}: {message} (got {error['input']!r})")
         raise click.UsageError("\n".join(problems)) from e
 
 

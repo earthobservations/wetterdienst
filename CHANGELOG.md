@@ -28,7 +28,8 @@ Types of changes:
   list -- what is requested, which stations, then the output -- and ends with examples, and
   `wetterdienst --help` is a short overview rather than a hand-kept copy of every option. The CLI
   takes `--rank` beside `--name`, as the REST API does. A refused request names each problem on a
-  line of its own instead of echoing every option given (GH-2056)
+  line of its own, by the options involved and with the value refused, instead of echoing every
+  option given (GH-2056)
 
 ### Fixed
 

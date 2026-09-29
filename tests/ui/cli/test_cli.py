@@ -472,20 +472,30 @@ _DWD_KL = ["--provider=dwd", "--network=observation", "--parameters=daily/kl"]
 @pytest.mark.parametrize(
     ("args", "message"),
     [
-        (["stations", *_DWD_KL], "Select stations by exactly one of all, station, name"),
-        (["stations", *_DWD_KL, "--station=01048", "--name=Hamburg"], "(got station, name)"),
-        (["values", *_DWD_KL, "--latitude=51.0", "--rank=5"], "latitude and longitude go together"),
+        (
+            ["stations", *_DWD_KL],
+            (
+                "Select stations by exactly one of --all, --station, --name, --latitude/--longitude, "
+                "--left/--bottom/--right/--top, --sql"
+            ),
+        ),
+        (["stations", *_DWD_KL, "--station=01048", "--name=Hamburg"], "(got --station, --name)"),
+        (["values", *_DWD_KL, "--latitude=51.0", "--rank=5"], "--latitude and --longitude go together"),
         (
             ["values", *_DWD_KL, "--latitude=51.0", "--longitude=13.7"],
-            "latitude/longitude take exactly one of rank or distance",
+            "--latitude/--longitude take exactly one of --rank or --distance",
         ),
-        (["stations", *_DWD_KL, "--left=13", "--bottom=51", "--right=14"], "left, bottom, right and top go together"),
-        (["history", *_DWD_KL], "Select stations by exactly one of all or station"),
+        (
+            ["stations", *_DWD_KL, "--left=13", "--bottom=51", "--right=14"],
+            "--left, --bottom, --right and --top go together",
+        ),
+        (["stations", *_DWD_KL, "--station=01048", "--rank=5"], "--rank applies to --latitude/--longitude or --name"),
+        (["history", *_DWD_KL], "Select stations by exactly one of --all or --station"),
         (
             ["interpolate", *_DWD_KL, "--date=2020-06-30", "--station=01048", "--latitude=51", "--longitude=13.7"],
-            "Give exactly one of station or latitude/longitude",
+            "Give exactly one of --station or --latitude/--longitude",
         ),
-        (["summarize", *_DWD_KL, "--date=2020-06-30"], "Give exactly one of station or latitude/longitude"),
+        (["summarize", *_DWD_KL, "--date=2020-06-30"], "Give exactly one of --station or --latitude/--longitude"),
         (["radar"], "Select radar sites by exactly one of --dwd, --all"),
         (["radar", "--dwd", "--all"], "Select radar sites by exactly one of --dwd, --all"),
         # an empty value, e.g. from an unset shell variable, selects nothing
@@ -496,6 +506,12 @@ _DWD_KL = ["--provider=dwd", "--network=observation", "--parameters=daily/kl"]
             ["stripes", "values", "--kind=temperature", "--station=1048", "--name=Dresden"],
             "Select the station by exactly one of --station or --name",
         ),
+        # a single field's error names its option and the value it refused; --sections is a set,
+        # so the position pydantic gives within it points nowhere
+        (["values", *_DWD_KL, "--station=01048", "--distance=-1"], "--distance: Input should be greater"),
+        (["values", *_DWD_KL, "--station=01048", "--distance=-1"], "(got -1.0)"),
+        (["history", *_DWD_KL, "--station=01048", "--sections=name,foo"], "--sections: Input should be"),
+        (["history", *_DWD_KL, "--station=01048", "--sections=name,foo"], "(got 'foo')"),
         (
             ["about", "fields", "--provider=dwd", "--network=observation", "--resolution=daily", "--dataset=kl"],
             "Missing option '--period'",

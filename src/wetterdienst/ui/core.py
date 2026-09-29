@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from collections.abc import Set as AbstractSet
 
     import plotly.graph_objs as go
+    from pydantic import ValidationInfo
 
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import (
@@ -245,7 +246,17 @@ def station_distance_radii(homogeneous: float | None, heterogeneous: float | Non
     return radii
 
 
-def _check_station_selection(request: StationsRequest | ValuesRequest) -> None:
+def _spelling(info: ValidationInfo) -> Callable[[str], str]:
+    """Return how the caller spells a field, for the messages of the rules over several fields.
+
+    The CLI validates these models with `context={"field_names": {field: option}}`, so its
+    messages name `--all` where the REST API's and MCP's name `all`.
+    """
+    names: Mapping[str, str] = (info.context or {}).get("field_names", {})
+    return lambda field: names.get(field, field)
+
+
+def _check_station_selection(request: StationsRequest | ValuesRequest, spell: Callable[[str], str]) -> None:
     """Enforce the one station selection a stations or values request makes, raising ValueError.
 
     `get_stations` takes the first selection it finds, so a request making two was answered for
@@ -257,13 +268,15 @@ def _check_station_selection(request: StationsRequest | ValuesRequest) -> None:
     """
     point = request.latitude is not None or request.longitude is not None
     bbox = (request.left, request.bottom, request.right, request.top)
+    lat, lon, rank, distance = spell("latitude"), spell("longitude"), spell("rank"), spell("distance")
+    bbox_names = [spell(side) for side in ("left", "bottom", "right", "top")]
     selections = {
-        "all": bool(request.all),
-        "station": bool(request.station),
-        "name": bool(request.name),
-        "latitude/longitude": point,
-        "left/bottom/right/top": any(side is not None for side in bbox),
-        "sql": bool(request.sql),
+        spell("all"): bool(request.all),
+        spell("station"): bool(request.station),
+        spell("name"): bool(request.name),
+        f"{lat}/{lon}": point,
+        "/".join(bbox_names): any(side is not None for side in bbox),
+        spell("sql"): bool(request.sql),
     }
     given = [selection for selection, made in selections.items() if made]
     if len(given) != 1:
@@ -272,30 +285,31 @@ def _check_station_selection(request: StationsRequest | ValuesRequest) -> None:
         raise ValueError(msg)
     if point:
         if request.latitude is None or request.longitude is None:
-            msg = "latitude and longitude go together"
+            msg = f"{lat} and {lon} go together"
             raise ValueError(msg)
         if (request.rank is None) == (request.distance is None):
-            msg = "latitude/longitude take exactly one of rank or distance"
+            msg = f"{lat}/{lon} take exactly one of {rank} or {distance}"
             raise ValueError(msg)
     elif request.distance is not None:
-        msg = "distance applies to latitude/longitude"
+        msg = f"{distance} applies to {lat}/{lon}"
         raise ValueError(msg)
     elif request.rank is not None and not request.name:
-        msg = "rank applies to latitude/longitude or name"
+        msg = f"{rank} applies to {lat}/{lon} or {spell('name')}"
         raise ValueError(msg)
-    if given == ["left/bottom/right/top"] and any(side is None for side in bbox):
-        msg = "left, bottom, right and top go together"
+    if given == ["/".join(bbox_names)] and any(side is None for side in bbox):
+        msg = f"{', '.join(bbox_names[:-1])} and {bbox_names[-1]} go together"
         raise ValueError(msg)
 
 
-def _check_reference_point(request: InterpolationRequest | SummaryRequest) -> None:
+def _check_reference_point(request: InterpolationRequest | SummaryRequest, spell: Callable[[str], str]) -> None:
     """Enforce the one reference an interpolation or summary is made for, raising ValueError."""
     point = request.latitude is not None or request.longitude is not None
+    lat, lon = spell("latitude"), spell("longitude")
     if bool(request.station) == point:
-        msg = "Give exactly one of station or latitude/longitude"
+        msg = f"Give exactly one of {spell('station')} or {lat}/{lon}"
         raise ValueError(msg)
     if point and (request.latitude is None or request.longitude is None):
-        msg = "latitude and longitude go together"
+        msg = f"{lat} and {lon} go together"
         raise ValueError(msg)
 
 
@@ -394,9 +408,9 @@ class StationsRequest(BaseModel):
     scale: _ScaleField = None
 
     @model_validator(mode="after")
-    def check_station_selection(self) -> StationsRequest:
+    def check_station_selection(self, info: ValidationInfo) -> StationsRequest:
         """Check that exactly one station selection is made."""
-        _check_station_selection(self)
+        _check_station_selection(self, _spelling(info))
         return self
 
 
@@ -474,10 +488,11 @@ class HistoryRequest(BaseModel):
     debug: _DebugField = False
 
     @model_validator(mode="after")
-    def check_station_selection(self) -> HistoryRequest:
+    def check_station_selection(self, info: ValidationInfo) -> HistoryRequest:
         """Check that exactly one of all or station is given."""
         if bool(self.all) == bool(self.station):
-            msg = "Select stations by exactly one of all or station"
+            spell = _spelling(info)
+            msg = f"Select stations by exactly one of {spell('all')} or {spell('station')}"
             raise ValueError(msg)
         return self
 
@@ -600,9 +615,9 @@ class ValuesRequest(BaseModel):
         return json.loads(v)
 
     @model_validator(mode="after")
-    def check_station_selection(self) -> ValuesRequest:
+    def check_station_selection(self, info: ValidationInfo) -> ValuesRequest:
         """Check that exactly one station selection is made."""
-        _check_station_selection(self)
+        _check_station_selection(self, _spelling(info))
         return self
 
 
@@ -706,9 +721,9 @@ class InterpolationRequest(BaseModel):
     scale: _ScaleField = None
 
     @model_validator(mode="after")
-    def check_reference_point(self) -> InterpolationRequest:
+    def check_reference_point(self, info: ValidationInfo) -> InterpolationRequest:
         """Check that exactly one of station or latitude/longitude is given."""
-        _check_reference_point(self)
+        _check_reference_point(self, _spelling(info))
         return self
 
 
@@ -810,9 +825,9 @@ class SummaryRequest(BaseModel):
     scale: _ScaleField = None
 
     @model_validator(mode="after")
-    def check_reference_point(self) -> SummaryRequest:
+    def check_reference_point(self, info: ValidationInfo) -> SummaryRequest:
         """Check that exactly one of station or latitude/longitude is given."""
-        _check_reference_point(self)
+        _check_reference_point(self, _spelling(info))
         return self
 
 

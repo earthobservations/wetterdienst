@@ -74,6 +74,19 @@ def test_station_selection_refused(
         model.model_validate({**_BASE, **selection})
 
 
+def test_station_selection_spelled_as_given() -> None:
+    """Test the rules name each field as the validation context spells it, the field itself otherwise.
+
+    The CLI passes its options, so its user reads `--station` where the REST API's reads `station`.
+    """
+    selection = {**_BASE, "station": "01048", "rank": 5}
+    names = {"station": "--station", "rank": "--rank", "latitude": "--latitude", "longitude": "--longitude"}
+    with pytest.raises(ValidationError, match="--rank applies to --latitude/--longitude or name"):
+        StationsRequest.model_validate(selection, context={"field_names": names})
+    with pytest.raises(ValidationError, match="Value error, rank applies to latitude/longitude or name"):
+        StationsRequest.model_validate(selection)
+
+
 @pytest.mark.parametrize(
     ("selection", "accepted"),
     [
