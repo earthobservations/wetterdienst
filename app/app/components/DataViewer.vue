@@ -9,6 +9,7 @@ import QueryPanel from '~/components/QueryPanel.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
 import { describeApiError } from '~/utils/api-error'
 import { formatDate } from '~/utils/format'
+import { valuesToCsv, valuesToJson } from '~/utils/values-export'
 
 const props = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
@@ -218,6 +219,9 @@ const { data: valuesData, pending: valuesPending, error: valuesError, refresh: r
 
 const allValues = computed(() => valuesData.value?.values ?? [])
 
+// the request that filled the table, which a GeoJSON download asks for again; set once it answers
+const fetchedRequest = ref<{ endpoint: string, query: Record<string, unknown> } | null>(null)
+
 const fetchErrorMessage = computed(() => {
   const err = valuesError.value as { data?: unknown, message?: string } | undefined
   if (!err)
@@ -384,16 +388,8 @@ watch(pageSize, () => {
   currentPage.value = 1
 })
 
-function valuesToCsv(values: Value[]) {
-  if (!values.length)
-    return ''
-  const headers = selectedColumns.value
-  const rows = values.map(row => headers.map(h => row[h] ?? '').join(','))
-  return [headers.join(','), ...rows].join('\n')
-}
-
 async function copyCurrentPage() {
-  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value))
+  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, selectedColumns.value))
   toast.add({
     title: t('dataViewer.copied'),
     description: t('dataViewer.copiedRows', { count: paginatedValues.value.length }),
@@ -402,7 +398,7 @@ async function copyCurrentPage() {
 }
 
 async function copyAllValues() {
-  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value))
+  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, selectedColumns.value))
   toast.add({ title: t('dataViewer.copied'), description: t('dataViewer.copiedRows', { count: sortedValues.value.length }), color: 'success' })
 }
 
@@ -425,105 +421,59 @@ const canFetchData = computed(() => {
   }
 })
 
-async function downloadValues(format: string, extension: string) {
-  if (!canFetchData.value)
-    return
-  const ps = parameterSelection.value
-  const ss = stationSelection.value
-  const params = new URLSearchParams()
-  params.set('provider', ps.provider ?? '')
-  params.set('network', ps.network ?? '')
-  params.set('parameters', ps.parameters.map(parameter => `${ps.resolution}/${ps.dataset}/${parameter}`).join(','))
-  params.set('format', format)
+// the file each endpoint's values are saved as
+const DOWNLOAD_FILENAMES: Record<string, string> = {
+  '/api/values': 'values',
+  '/api/interpolate': 'interpolated',
+  '/api/summarize': 'summary',
+}
 
-  // Add date range if provided
-  if (ss.dateRange?.startDate) {
-    let dateParam = ss.dateRange.startDate
-    if (ss.dateRange.endDate) {
-      dateParam = `${ss.dateRange.startDate}/${ss.dateRange.endDate}`
-    }
-    params.set('date', dateParam)
+// A download saves what the table shows -- its rows, after the query panel and the sorting, in its
+// columns -- rather than asking the backend again for whatever is selected now: that answered a
+// different selection, or units, once either had changed since the table was filled (GH-2065).
+// GeoJSON needs the station positions the backend adds, so it is asked for again, but for the
+// request that filled the table.
+async function downloadValues(format: 'csv' | 'json' | 'geojson') {
+  const filename = DOWNLOAD_FILENAMES[fetchedRequest.value?.endpoint ?? apiEndpoint.value] ?? 'values'
+  let content: string
+  if (format === 'csv') {
+    content = valuesToCsv(sortedValues.value, selectedColumns.value)
   }
-
-  let endpoint = '/api/values'
-  let filename = 'values'
-  if (isInterpolationMode.value) {
-    endpoint = '/api/interpolate'
-    filename = 'interpolated'
-    const interp = ss.interpolation
-    if (interp?.latitude !== undefined)
-      params.set('latitude', interp.latitude.toString())
-    if (interp?.longitude !== undefined)
-      params.set('longitude', interp.longitude.toString())
-    if (interp?.elevation !== undefined)
-      params.set('elevation', interp.elevation.toString())
-    // Add interpolation settings
-    params.set('use_nearby_station_distance', props.settings.useNearbyStationDistance.toString())
-    const stationDistance = Object.entries(props.settings.useStationDistancePerParameter)
-      .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
-      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
-    if (Object.keys(stationDistance).length > 0) {
-      params.set('interpolation_station_distance', JSON.stringify(stationDistance))
-    }
-    for (const [key, value] of Object.entries(stationDistanceRadii('interpolation')))
-      params.set(key, value.toString())
-    if (props.settings.minGainOfValuePairs !== 0.10) {
-      params.set('min_gain_of_value_pairs', props.settings.minGainOfValuePairs.toString())
-    }
-    if (props.settings.numAdditionalStations !== 3) {
-      params.set('num_additional_stations', props.settings.numAdditionalStations.toString())
-    }
-  }
-  else if (isSummaryMode.value) {
-    endpoint = '/api/summarize'
-    filename = 'summary'
-    const interp = ss.interpolation
-    if (interp?.latitude !== undefined)
-      params.set('latitude', interp.latitude.toString())
-    if (interp?.longitude !== undefined)
-      params.set('longitude', interp.longitude.toString())
-    if (interp?.elevation !== undefined)
-      params.set('elevation', interp.elevation.toString())
-    // Add summary settings (uses same settings as interpolation)
-    params.set('use_nearby_station_distance', props.settings.useNearbyStationDistance.toString())
-    const stationDistance = Object.entries(props.settings.useStationDistancePerParameter)
-      .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
-      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
-    if (Object.keys(stationDistance).length > 0) {
-      params.set('summary_station_distance', JSON.stringify(stationDistance))
-    }
-    for (const [key, value] of Object.entries(stationDistanceRadii('summary')))
-      params.set(key, value.toString())
-    // Always send interpolation settings (backend has matching defaults)
-    params.set('min_gain_of_value_pairs', props.settings.minGainOfValuePairs.toString())
-    params.set('num_additional_stations', props.settings.numAdditionalStations.toString())
+  else if (format === 'json') {
+    content = valuesToJson(sortedValues.value, selectedColumns.value)
   }
   else {
-    params.set('station', ss.selection?.stations?.map(station => station.station_id).join(',') ?? '')
-  }
-
-  const response = await fetch(`${endpoint}?${params.toString()}`)
-  const data = await response.text()
-  // an error answer is told, not saved as the file asked for
-  if (!response.ok) {
-    let body: unknown = null
-    try {
-      body = JSON.parse(data)
+    const request = fetchedRequest.value
+    if (!request)
+      return
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries({ ...request.query, format: 'geojson' })) {
+      if (value !== undefined && value !== null)
+        params.set(key, String(value))
     }
-    catch {}
-    toast.add({
-      title: t('dataViewer.fetchErrorToastTitle'),
-      description: describeApiError(body) ?? `${response.status} ${response.statusText}`,
-      color: 'error',
-    })
-    return
+    const response = await fetch(`${request.endpoint}?${params.toString()}`)
+    content = await response.text()
+    // an error answer is told, not saved as the file asked for
+    if (!response.ok) {
+      let body: unknown = null
+      try {
+        body = JSON.parse(content)
+      }
+      catch {}
+      toast.add({
+        title: t('dataViewer.fetchErrorToastTitle'),
+        description: describeApiError(body) ?? `${response.status} ${response.statusText}`,
+        color: 'error',
+      })
+      return
+    }
   }
 
-  const blob = new Blob([data], { type: 'application/octet-stream' })
+  const blob = new Blob([content], { type: 'application/octet-stream' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `${filename}.${extension}`
+  link.download = `${filename}.${format}`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -558,33 +508,41 @@ const downloadMenuItems = computed(() => {
       ],
     ]
   }
-  // a values download asks the backend again, for the current selection: with no station or point
-  // there is nothing to ask for, and an item that does nothing when chosen reads as broken
-  const disabled = !canFetchData.value
+  // offered while the table shows rows to save; GeoJSON also needs the request that filled the table,
+  // and a table the query panel has rewritten is no longer what that request answers
+  const nothingShown = sortedValues.value.length === 0
   return [
     [
-      { label: 'CSV', disabled, onSelect: () => downloadValues('csv', 'csv') },
-      { label: 'JSON', disabled, onSelect: () => downloadValues('json', 'json') },
-      { label: 'GeoJSON', disabled, onSelect: () => downloadValues('geojson', 'geojson') },
+      { label: 'CSV', disabled: nothingShown, onSelect: () => downloadValues('csv') },
+      { label: 'JSON', disabled: nothingShown, onSelect: () => downloadValues('json') },
+      {
+        label: 'GeoJSON',
+        disabled: nothingShown || !fetchedRequest.value || isDataTransformed.value,
+        onSelect: () => downloadValues('geojson'),
+      },
     ],
   ]
 })
 
 // Manual fetch function
-function fetchData() {
+async function fetchData() {
   if (!canFetchData.value) {
     valuesData.value = { values: [] }
     valuesError.value = undefined
+    fetchedRequest.value = null
     return
   }
-  refreshValues()
+  const request = { endpoint: apiEndpoint.value, query: { ...apiQuery.value } }
   currentPage.value = 1
+  await refreshValues()
+  fetchedRequest.value = valuesError.value ? null : request
 }
 
 // Clear function to reset data
 function clearData() {
   valuesData.value = { values: [] }
   valuesError.value = undefined
+  fetchedRequest.value = null
   currentPage.value = 1
 }
 
@@ -978,7 +936,6 @@ defineExpose({
   canFetchData,
   valuesPending,
   fetchErrorMessage,
-  downloadMenuItems,
 })
 
 // Set facet chart ref
