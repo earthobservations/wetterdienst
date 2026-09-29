@@ -22,14 +22,17 @@ Types of changes:
   stations in more than one way, as the CLI did; they answered for the first and dropped the rest,
   so `station` with `name` returned the station alone. No selection, or half of one -- a latitude
   without a longitude, three sides of a bounding box, `rank` without a point or `name` -- is a 422
-  where it was a 400. Send exactly one of `all`, `station`, `name`, a point with `rank` or
-  `distance`, a bounding box, or `sql` (GH-2056)
+  where it was a 400. Each error is located at the query parameter it concerns, typed
+  `missing_one_of`, `mutually_exclusive`, `missing_with` or `requires`, with the other parameters
+  in `ctx`. Send exactly one of `all`, `station`, `name`, a point with `rank` or `distance`, a
+  bounding box, or `sql` (GH-2056)
 - `wetterdienst` no longer depends on cloup. Each command's `--help` lists its options in one
   list -- what is requested, which stations, then the output -- and ends with examples, and
   `wetterdienst --help` is a short overview rather than a hand-kept copy of every option. The CLI
-  takes `--rank` beside `--name`, as the REST API does. A refused request names each problem on a
-  line of its own, by the options involved and with the value refused, instead of echoing every
-  option given (GH-2056)
+  takes `--rank` beside `--name`, as the REST API does. A refused request is told in click's own
+  terms, a line per problem -- `Missing option '--longitude'`, `Options '--station' and '--name'
+  cannot be used together`, `Invalid value for '--distance'` with the value refused -- instead of
+  pydantic's echo of every option given (GH-2056)
 
 ### Fixed
 

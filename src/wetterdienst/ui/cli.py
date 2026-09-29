@@ -32,12 +32,14 @@ from wetterdienst.ui.core import (
     ValuesRequest,
     _get_stripes_stations,
     _plot_stripes,
+    describe_fields,
     get_glossary,
     get_interpolate,
     get_issues,
     get_stations,
     get_summarize,
     get_values,
+    join_names,
     limit_stations_to_rank,
     select_history_sections,
     set_logging_level,
@@ -49,6 +51,8 @@ from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from pydantic_core import ErrorDetails
 
     from wetterdienst.model.request import TimeseriesRequest
 
@@ -315,32 +319,90 @@ def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _Reques
     """Build a request model, reporting a rejected value as a usage error rather than a traceback.
 
     Every field here comes from a command option, so a validation error is the user's input being
-    out of range -- a negative distance, say -- not a bug to show a stack trace for. The error names
-    the option, not the field the REST API knows it by.
+    out of range -- a negative distance, say -- not a bug to show a stack trace for. It is told in
+    click's terms, by the options involved, as click tells its own errors.
+    """
+    try:
+        return model.model_validate(values)
+    except ValidationError as e:
+        ctx = click.get_current_context()
+        raise click.UsageError(_describe_validation_error(e, ctx), ctx=ctx) from e
+
+
+def _describe_validation_error(error: ValidationError, ctx: click.Context) -> str:
+    """Tell a request model's validation errors as click tells its own, a line each.
+
+    The model reports a rule over several fields -- which stations to select -- by its type, the
+    field it is located at and, in `ctx`, the other fields involved; each is named here by its
+    option. pydantic's echo of the whole input is left out, which for such a rule is every option
+    the command took.
     """
     # each field by the option that sets it: `format` comes from --format, whose parameter is `fmt`
-    options: dict[str, str] = {}
-    for param in click.get_current_context().command.params:
+    params: dict[str, click.Parameter] = {}
+    for param in ctx.command.params:
         for opt in param.opts:
             if opt.startswith("--"):
-                options.setdefault(opt.removeprefix("--").replace("-", "_"), opt)
-    try:
-        return model.model_validate(values, context={"field_names": options})
-    except ValidationError as e:
-        # one line per error, without pydantic's echo of the whole input, which for a rule over
-        # several options -- which stations to select -- is every option the command took
-        problems = []
-        for error in e.errors(include_url=False):
-            message = error["msg"].removeprefix("Value error, ")
-            if not error["loc"]:
-                problems.append(message)
-                continue
-            field, *within = error["loc"]
-            # a position within the value is left out: --sections is a set, so it points nowhere,
-            # and the rejected item is shown instead
-            where = "".join(f"[{part}]" for part in within if not isinstance(part, int))
-            problems.append(f"{options.get(str(field), field)}{where}: {message} (got {error['input']!r})")
-        raise click.UsageError("\n".join(problems)) from e
+                params.setdefault(opt.removeprefix("--").replace("-", "_"), param)
+    problems = error.errors(include_url=False)
+    # a conflict is reported at each field involved, and told once for them all
+    conflicting = [
+        field
+        for problem in problems
+        if problem["type"] == "mutually_exclusive"
+        for field in (str(problem["loc"][0]), *problem["ctx"]["conflicts_with"])
+    ]
+    lines = [_describe_problem(problem, params, ctx) for problem in problems if problem["type"] != "mutually_exclusive"]
+    if conflicting:
+        options = join_names([_option_hint(field, params, ctx) for field in dict.fromkeys(conflicting)])
+        lines.insert(0, f"Options {options} cannot be used together.")
+    return "\n".join(lines)
+
+
+def _option_hint(field: str, params: dict[str, click.Parameter], ctx: click.Context) -> str:
+    """Name a field by its option, quoted as click quotes one in an error."""
+    return params[field].get_error_hint(ctx) if field in params else repr(field)
+
+
+def _describe_problem(problem: ErrorDetails, params: dict[str, click.Parameter], ctx: click.Context) -> str:
+    """Tell one validation error in click's terms: a missing option, or an invalid value for one."""
+    kind, info = problem["type"], problem.get("ctx", {})
+    field = str(problem["loc"][0]) if problem["loc"] else ""
+
+    def hint(field: str) -> str:
+        return _option_hint(field, params, ctx)
+
+    if kind == "missing_one_of":
+        required_with = info.get("required_with")
+        suffix = f", required with {join_names([hint(f) for f in required_with])}" if required_with else ""
+        return f"Missing option: one of {describe_fields(info['one_of'], hint)}{suffix}."
+    if kind == "missing_with" and field in params:
+        message = f"Required with {join_names([hint(f) for f in info['required_with']])}."
+        return click.MissingParameter(message, ctx, params[field]).format_message()
+    if kind == "requires":
+        return f"Option {hint(field)} requires {describe_fields(info['requires'], hint)}."
+    if field in params:
+        # a position within the value is left out -- --sections is a set, so it points nowhere --
+        # and the value refused is shown instead; a key within a mapping stays
+        within = "".join(f"{part}: " for part in problem["loc"][1:] if not isinstance(part, int))
+        message = f"{within}{problem['msg']} (got {problem['input']!r})."
+        return click.BadParameter(message, ctx, params[field]).format_message()
+    return problem["msg"].removeprefix("Value error, ")
+
+
+def _require_one_of(**given: bool) -> None:
+    """Refuse none or several of alternative options, as a request model's refusal is told.
+
+    For the commands with no request model; each option is keyed by its parameter's name.
+    """
+    ctx = click.get_current_context()
+    hints = {param.name: param.get_error_hint(ctx) for param in ctx.command.params}
+    made = [hints[name] for name, is_set in given.items() if is_set]
+    if not made:
+        msg = f"Missing option: one of {join_names([hints[name] for name in given], last='or')}."
+        raise click.UsageError(msg, ctx)
+    if len(made) > 1:
+        msg = f"Options {join_names(made)} cannot be used together."
+        raise click.UsageError(msg, ctx)
 
 
 def _resolve_date(date: str | None, start_date: str | None, end_date: str | None) -> str | None:
@@ -1598,10 +1660,13 @@ def radar(
     Select the sites with exactly one of --dwd, --all, --odim-code, --wmo_code or --country_name.
     """
     # an empty code or country, e.g. from an unset shell variable, selects nothing rather than a lookup
-    given = [dwd, all_, bool(odim_code), wmo_code is not None, bool(country_name)]
-    if sum(given) != 1:
-        msg = "Select radar sites by exactly one of --dwd, --all, --odim-code, --wmo_code or --country_name"
-        raise click.UsageError(msg)
+    _require_one_of(
+        dwd=dwd,
+        all_=all_,
+        odim_code=bool(odim_code),
+        wmo_code=wmo_code is not None,
+        country_name=bool(country_name),
+    )
     try:
         data = _radar_sites(dwd=dwd, all_=all_, odim_code=odim_code, wmo_code=wmo_code, country_name=country_name)
     except ValueError as e:
@@ -1789,9 +1854,7 @@ def stripes_values(
 
     Select the station with exactly one of --station or --name.
     """
-    if bool(station) == bool(name):
-        msg = "Select the station by exactly one of --station or --name"
-        raise click.UsageError(msg)
+    _require_one_of(station=bool(station), name=bool(name))
     if target and not target.name.lower().endswith(fmt):
         msg = f"'target' must have extension '{fmt}'"
         raise click.ClickException(msg)

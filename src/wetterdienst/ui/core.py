@@ -7,15 +7,16 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from collections.abc import Mapping  # noqa: TC003
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from collections.abc import Mapping, Sequence  # noqa: TC003
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
 import polars as pl
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic_core import InitErrorDetails, PydanticCustomError
 
 # pydantic refuses typing.TypedDict as a response model on Python below 3.12, and GlossaryEntry
 # is one; model/result.py imports it from here for the same reason
-from typing_extensions import TypedDict
+from typing_extensions import LiteralString, TypedDict
 
 from wetterdienst.exceptions import InvalidTimeIntervalError, NoParametersFoundError, StartDateEndDateError
 from wetterdienst.metadata.period import Period
@@ -30,7 +31,6 @@ if TYPE_CHECKING:
     from collections.abc import Set as AbstractSet
 
     import plotly.graph_objs as go
-    from pydantic import ValidationInfo
 
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import (
@@ -246,18 +246,82 @@ def station_distance_radii(homogeneous: float | None, heterogeneous: float | Non
     return radii
 
 
-def _spelling(info: ValidationInfo) -> Callable[[str], str]:
-    """Return how the caller spells a field, for the messages of the rules over several fields.
+def join_names(names: Sequence[str], last: str = "and") -> str:
+    """Join names as prose: `a`, `a and b`, `a, b and c`."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} {last} {names[-1]}"
 
-    The CLI validates these models with `context={"field_names": {field: option}}`, so its
-    messages name `--all` where the REST API's and MCP's name `all`.
+
+def describe_fields(groups: Sequence[Sequence[str]], spell: Callable[[str], str] = str) -> str:
+    """Name alternative groups of fields as prose: `all, (latitude and longitude) or sql`.
+
+    `spell` names a field; the CLI passes one that names its option instead.
     """
-    names: Mapping[str, str] = (info.context or {}).get("field_names", {})
-    return lambda field: names.get(field, field)
+    names = [join_names([spell(field) for field in group]) for group in groups]
+    if len(groups) > 1:
+        names = [f"({name})" if len(group) > 1 else name for name, group in zip(names, groups, strict=True)]
+    return join_names(names, last="or")
 
 
-def _check_station_selection(request: StationsRequest | ValuesRequest, spell: Callable[[str], str]) -> None:
-    """Enforce the one station selection a stations or values request makes, raising ValueError.
+# the rules over several fields report the way pydantic reports one field's error: a type, the
+# field it is about as `loc` (none for a rule about no field in particular), the value refused as
+# `input`, and in `ctx` the other fields involved, which the CLI renders in click's own terms
+def _rule_error(
+    kind: LiteralString,
+    message: str,
+    loc: tuple[str, ...] = (),
+    value: Any = None,  # noqa: ANN401
+    **ctx: Any,  # noqa: ANN401
+) -> InitErrorDetails:
+    """Build one error of a rule over several fields."""
+    # pydantic fills a template's {placeholders} from ctx; the message names fields, which hold none
+    template = cast("LiteralString", message)
+    return InitErrorDetails(type=PydanticCustomError(kind, template, ctx), loc=loc, input=value)
+
+
+def _raise_rule_errors(request: BaseModel, errors: list[InitErrorDetails]) -> None:
+    """Raise the errors of a model's rules as a ValidationError, which pydantic passes on as it is."""
+    if errors:
+        raise ValidationError.from_exception_data(type(request).__name__, errors)
+
+
+def _is_set(request: BaseModel, field: str) -> bool:
+    """Tell whether a request gives a field: a coordinate of 0 is given, a False flag or an empty list is not."""
+    value = getattr(request, field)
+    return not (value is None or value is False or (isinstance(value, (str, list)) and not value))
+
+
+def _check_one_of(request: BaseModel, groups: Sequence[tuple[str, ...]]) -> list[InitErrorDetails]:
+    """Check a request gives exactly one of alternative groups of fields, and the whole of it."""
+    made = [group for group in groups if any(_is_set(request, field) for field in group)]
+    if not made:
+        message = f"Exactly one of {describe_fields(groups)} is required"
+        return [_rule_error("missing_one_of", message, one_of=[list(group) for group in groups])]
+    if len(made) > 1:
+        # each group by the first field it gives, the one the error is located at
+        firsts = [next(field for field in group if _is_set(request, field)) for group in made]
+        errors = []
+        for field in firsts:
+            others = [other for other in firsts if other != field]
+            message = f"Cannot be combined with {join_names(others)}"
+            errors.append(
+                _rule_error("mutually_exclusive", message, (field,), getattr(request, field), conflicts_with=others)
+            )
+        return errors
+    (group,) = made
+    given = [field for field in group if _is_set(request, field)]
+    return [
+        _rule_error("missing_with", f"Field required with {join_names(given)}", (field,), required_with=given)
+        for field in group
+        if field not in given
+    ]
+
+
+_POINT = ("latitude", "longitude")
+_STATION_SELECTIONS = (("all",), ("station",), ("name",), _POINT, ("left", "bottom", "right", "top"), ("sql",))
+
+
+def _check_station_selection(request: StationsRequest | ValuesRequest) -> list[InitErrorDetails]:
+    """Check the one station selection a stations or values request makes.
 
     `get_stations` takes the first selection it finds, so a request making two was answered for
     one of them and the other dropped without a word. The CLI's option parser refused that, but the
@@ -266,51 +330,21 @@ def _check_station_selection(request: StationsRequest | ValuesRequest, spell: Ca
 
     `rank` goes with `name` as well as with a point: there it caps the fuzzy matches.
     """
-    point = request.latitude is not None or request.longitude is not None
-    bbox = (request.left, request.bottom, request.right, request.top)
-    lat, lon, rank, distance = spell("latitude"), spell("longitude"), spell("rank"), spell("distance")
-    bbox_names = [spell(side) for side in ("left", "bottom", "right", "top")]
-    selections = {
-        spell("all"): bool(request.all),
-        spell("station"): bool(request.station),
-        spell("name"): bool(request.name),
-        f"{lat}/{lon}": point,
-        "/".join(bbox_names): any(side is not None for side in bbox),
-        spell("sql"): bool(request.sql),
-    }
-    given = [selection for selection, made in selections.items() if made]
-    if len(given) != 1:
-        got = f" (got {', '.join(given)})" if given else ""
-        msg = f"Select stations by exactly one of {', '.join(selections)}{got}"
-        raise ValueError(msg)
-    if point:
-        if request.latitude is None or request.longitude is None:
-            msg = f"{lat} and {lon} go together"
-            raise ValueError(msg)
-        if (request.rank is None) == (request.distance is None):
-            msg = f"{lat}/{lon} take exactly one of {rank} or {distance}"
-            raise ValueError(msg)
-    elif request.distance is not None:
-        msg = f"{distance} applies to {lat}/{lon}"
-        raise ValueError(msg)
-    elif request.rank is not None and not request.name:
-        msg = f"{rank} applies to {lat}/{lon} or {spell('name')}"
-        raise ValueError(msg)
-    if given == ["/".join(bbox_names)] and any(side is None for side in bbox):
-        msg = f"{', '.join(bbox_names[:-1])} and {bbox_names[-1]} go together"
-        raise ValueError(msg)
-
-
-def _check_reference_point(request: InterpolationRequest | SummaryRequest, spell: Callable[[str], str]) -> None:
-    """Enforce the one reference an interpolation or summary is made for, raising ValueError."""
-    point = request.latitude is not None or request.longitude is not None
-    lat, lon = spell("latitude"), spell("longitude")
-    if bool(request.station) == point:
-        msg = f"Give exactly one of {spell('station')} or {lat}/{lon}"
-        raise ValueError(msg)
-    if point and (request.latitude is None or request.longitude is None):
-        msg = f"{lat} and {lon} go together"
-        raise ValueError(msg)
+    errors = _check_one_of(request, _STATION_SELECTIONS)
+    if errors:
+        return errors
+    if _is_set(request, "latitude"):
+        if request.rank is None and request.distance is None:
+            message = f"Exactly one of rank or distance is required with {join_names(_POINT)}"
+            return [_rule_error("missing_one_of", message, one_of=[["rank"], ["distance"]], required_with=[*_POINT])]
+        return _check_one_of(request, (("rank",), ("distance",)))
+    if request.distance is not None:
+        message = f"Requires {describe_fields([_POINT])}"
+        errors.append(_rule_error("requires", message, ("distance",), request.distance, requires=[[*_POINT]]))
+    if request.rank is not None and not request.name:
+        message = f"Requires {describe_fields([_POINT, ('name',)])}"
+        errors.append(_rule_error("requires", message, ("rank",), request.rank, requires=[[*_POINT], ["name"]]))
+    return errors
 
 
 class StationsRequest(BaseModel):
@@ -408,9 +442,9 @@ class StationsRequest(BaseModel):
     scale: _ScaleField = None
 
     @model_validator(mode="after")
-    def check_station_selection(self, info: ValidationInfo) -> StationsRequest:
+    def check_station_selection(self) -> StationsRequest:
         """Check that exactly one station selection is made."""
-        _check_station_selection(self, _spelling(info))
+        _raise_rule_errors(self, _check_station_selection(self))
         return self
 
 
@@ -488,12 +522,9 @@ class HistoryRequest(BaseModel):
     debug: _DebugField = False
 
     @model_validator(mode="after")
-    def check_station_selection(self, info: ValidationInfo) -> HistoryRequest:
+    def check_station_selection(self) -> HistoryRequest:
         """Check that exactly one of all or station is given."""
-        if bool(self.all) == bool(self.station):
-            spell = _spelling(info)
-            msg = f"Select stations by exactly one of {spell('all')} or {spell('station')}"
-            raise ValueError(msg)
+        _raise_rule_errors(self, _check_one_of(self, (("all",), ("station",))))
         return self
 
 
@@ -615,9 +646,9 @@ class ValuesRequest(BaseModel):
         return json.loads(v)
 
     @model_validator(mode="after")
-    def check_station_selection(self, info: ValidationInfo) -> ValuesRequest:
+    def check_station_selection(self) -> ValuesRequest:
         """Check that exactly one station selection is made."""
-        _check_station_selection(self, _spelling(info))
+        _raise_rule_errors(self, _check_station_selection(self))
         return self
 
 
@@ -721,9 +752,9 @@ class InterpolationRequest(BaseModel):
     scale: _ScaleField = None
 
     @model_validator(mode="after")
-    def check_reference_point(self, info: ValidationInfo) -> InterpolationRequest:
+    def check_reference_point(self) -> InterpolationRequest:
         """Check that exactly one of station or latitude/longitude is given."""
-        _check_reference_point(self, _spelling(info))
+        _raise_rule_errors(self, _check_one_of(self, (("station",), _POINT)))
         return self
 
 
@@ -825,9 +856,9 @@ class SummaryRequest(BaseModel):
     scale: _ScaleField = None
 
     @model_validator(mode="after")
-    def check_reference_point(self, info: ValidationInfo) -> SummaryRequest:
+    def check_reference_point(self) -> SummaryRequest:
         """Check that exactly one of station or latitude/longitude is given."""
-        _check_reference_point(self, _spelling(info))
+        _raise_rule_errors(self, _check_one_of(self, (("station",), _POINT)))
         return self
 
 

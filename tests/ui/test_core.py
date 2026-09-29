@@ -45,93 +45,154 @@ def test_station_selection_accepted(model: type[StationsRequest | ValuesRequest]
     model.model_validate({**_BASE, **selection})
 
 
+def _errors(model: type[Any], values: dict[str, Any]) -> list[tuple[str, tuple, dict | None]]:
+    """Return each error a model reports for values, as its type, location and context."""
+    with pytest.raises(ValidationError) as info:
+        model.model_validate(values)
+    return [(error["type"], error["loc"], error.get("ctx")) for error in info.value.errors()]
+
+
+_ONE_OF_SELECTIONS = {
+    "one_of": [["all"], ["station"], ["name"], ["latitude", "longitude"], ["left", "bottom", "right", "top"], ["sql"]]
+}
+
+
 @pytest.mark.parametrize("model", [StationsRequest, ValuesRequest])
 @pytest.mark.parametrize(
-    ("selection", "message"),
+    ("selection", "errors"),
     [
-        ({}, "Select stations by exactly one of all, station, name, latitude/longitude, left/bottom/right/top, sql"),
+        ({}, [("missing_one_of", (), _ONE_OF_SELECTIONS)]),
         # the REST API answered this for the station and dropped the name without a word
-        ({"station": "01048", "name": "Hamburg"}, "(got station, name)"),
-        ({"all": True, "sql": "region='Sachsen'"}, "(got all, sql)"),
-        ({"latitude": 51.0, "rank": 5}, "latitude and longitude go together"),
-        ({"latitude": 51.0, "longitude": 13.7}, "latitude/longitude take exactly one of rank or distance"),
+        (
+            {"station": "01048", "name": "Hamburg"},
+            [
+                ("mutually_exclusive", ("station",), {"conflicts_with": ["name"]}),
+                ("mutually_exclusive", ("name",), {"conflicts_with": ["station"]}),
+            ],
+        ),
+        # a bounding box conflicts by the first side it gives
+        (
+            {"all": True, **_BBOX, "sql": "region='Sachsen'"},
+            [
+                ("mutually_exclusive", ("all",), {"conflicts_with": ["left", "sql"]}),
+                ("mutually_exclusive", ("left",), {"conflicts_with": ["all", "sql"]}),
+                ("mutually_exclusive", ("sql",), {"conflicts_with": ["all", "left"]}),
+            ],
+        ),
+        ({"latitude": 51.0, "rank": 5}, [("missing_with", ("longitude",), {"required_with": ["latitude"]})]),
+        (
+            {"latitude": 51.0, "longitude": 13.7},
+            [("missing_one_of", (), {"one_of": [["rank"], ["distance"]], "required_with": ["latitude", "longitude"]})],
+        ),
         (
             {"latitude": 51.0, "longitude": 13.7, "rank": 5, "distance": 25},
-            "latitude/longitude take exactly one of rank or distance",
+            [
+                ("mutually_exclusive", ("rank",), {"conflicts_with": ["distance"]}),
+                ("mutually_exclusive", ("distance",), {"conflicts_with": ["rank"]}),
+            ],
         ),
-        ({"left": 13.0, "bottom": 51.0, "right": 14.0}, "left, bottom, right and top go together"),
-        ({"station": "01048", "rank": 5}, "rank applies to latitude/longitude or name"),
-        ({"name": "Dresden", "distance": 25}, "distance applies to latitude/longitude"),
+        (
+            {"left": 13.0, "bottom": 51.0, "right": 14.0},
+            [("missing_with", ("top",), {"required_with": ["left", "bottom", "right"]})],
+        ),
+        (
+            {"station": "01048", "rank": 5},
+            [("requires", ("rank",), {"requires": [["latitude", "longitude"], ["name"]]})],
+        ),
+        ({"name": "Dresden", "distance": 25}, [("requires", ("distance",), {"requires": [["latitude", "longitude"]]})]),
     ],
 )
 def test_station_selection_refused(
     model: type[StationsRequest | ValuesRequest],
     selection: dict[str, Any],
-    message: str,
+    errors: list[tuple[str, tuple, dict]],
 ) -> None:
-    """Test a request making no station selection, or more than one, or half of one, is refused."""
-    with pytest.raises(ValidationError, match=message.replace("(", r"\(").replace(")", r"\)")):
-        model.model_validate({**_BASE, **selection})
+    """Test a request making no station selection, or more than one, or half of one, is refused.
 
-
-def test_station_selection_spelled_as_given() -> None:
-    """Test the rules name each field as the validation context spells it, the field itself otherwise.
-
-    The CLI passes its options, so its user reads `--station` where the REST API's reads `station`.
+    Each error is located at the field it is about, as pydantic locates one field's error, so the
+    REST API reports it at that query parameter and the CLI can name the option.
     """
-    selection = {**_BASE, "station": "01048", "rank": 5}
-    names = {"station": "--station", "rank": "--rank", "latitude": "--latitude", "longitude": "--longitude"}
-    with pytest.raises(ValidationError, match="--rank applies to --latitude/--longitude or name"):
-        StationsRequest.model_validate(selection, context={"field_names": names})
-    with pytest.raises(ValidationError, match="Value error, rank applies to latitude/longitude or name"):
-        StationsRequest.model_validate(selection)
+    assert _errors(model, {**_BASE, **selection}) == errors
 
 
 @pytest.mark.parametrize(
-    ("selection", "accepted"),
+    ("selection", "message"),
     [
-        ({"all": True}, True),
-        ({"station": "01048"}, True),
-        ({}, False),
-        ({"all": True, "station": "01048"}, False),
+        (
+            {},
+            (
+                "Exactly one of all, station, name, (latitude and longitude), (left, bottom, right and top) or sql "
+                "is required"
+            ),
+        ),
+        ({"station": "01048", "name": "Hamburg"}, "Cannot be combined with name"),
+        ({"latitude": 51.0, "rank": 5}, "Field required with latitude"),
+        (
+            {"latitude": 51.0, "longitude": 13.7},
+            "Exactly one of rank or distance is required with latitude and longitude",
+        ),
+        ({"station": "01048", "rank": 5}, "Requires (latitude and longitude) or name"),
     ],
 )
-def test_history_station_selection(selection: dict[str, Any], *, accepted: bool) -> None:
+def test_station_selection_message(selection: dict[str, Any], message: str) -> None:
+    """Test the first error's message is worded as pydantic words its own, naming the fields."""
+    with pytest.raises(ValidationError) as info:
+        StationsRequest.model_validate({**_BASE, **selection})
+    assert info.value.errors()[0]["msg"] == message
+
+
+@pytest.mark.parametrize(
+    ("selection", "errors"),
+    [
+        ({"all": True}, None),
+        ({"station": "01048"}, None),
+        ({}, [("missing_one_of", (), {"one_of": [["all"], ["station"]]})]),
+        (
+            {"all": True, "station": "01048"},
+            [
+                ("mutually_exclusive", ("all",), {"conflicts_with": ["station"]}),
+                ("mutually_exclusive", ("station",), {"conflicts_with": ["all"]}),
+            ],
+        ),
+    ],
+)
+def test_history_station_selection(selection: dict[str, Any], errors: list | None) -> None:
     """Test a history request selects its stations by exactly one of all or station."""
-    if accepted:
+    if errors is None:
         HistoryRequest.model_validate({**_BASE, **selection})
         return
-    with pytest.raises(ValidationError, match="Select stations by exactly one of all or station"):
-        HistoryRequest.model_validate({**_BASE, **selection})
+    assert _errors(HistoryRequest, {**_BASE, **selection}) == errors
 
 
 @pytest.mark.parametrize("model", [InterpolationRequest, SummaryRequest])
 @pytest.mark.parametrize(
-    ("reference", "message"),
+    ("reference", "errors"),
     [
         ({"station": "01048"}, None),
         ({"latitude": 51.0, "longitude": 13.7}, None),
         ({"latitude": 0.0, "longitude": 0.0}, None),
-        ({}, "Give exactly one of station or latitude/longitude"),
+        ({}, [("missing_one_of", (), {"one_of": [["station"], ["latitude", "longitude"]]})]),
         (
             {"station": "01048", "latitude": 51.0, "longitude": 13.7},
-            "Give exactly one of station or latitude/longitude",
+            [
+                ("mutually_exclusive", ("station",), {"conflicts_with": ["latitude"]}),
+                ("mutually_exclusive", ("latitude",), {"conflicts_with": ["station"]}),
+            ],
         ),
-        ({"latitude": 51.0}, "latitude and longitude go together"),
+        ({"latitude": 51.0}, [("missing_with", ("longitude",), {"required_with": ["latitude"]})]),
     ],
 )
 def test_reference_point(
     model: type[InterpolationRequest | SummaryRequest],
     reference: dict[str, Any],
-    message: str | None,
+    errors: list | None,
 ) -> None:
     """Test an interpolation or summary is made for exactly one of a station or a point."""
     values = {**_BASE, "date": "2020-06-30", **reference}
-    if message is None:
+    if errors is None:
         model.model_validate(values)
         return
-    with pytest.raises(ValidationError, match=message):
-        model.model_validate(values)
+    assert _errors(model, values) == errors
 
 
 class _Recorder:

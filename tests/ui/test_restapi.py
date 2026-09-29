@@ -595,10 +595,27 @@ def test_values_dwd_no_station(client: TestClient) -> None:
         },
     )
     assert response.status_code == 422
-    assert response.json()["detail"][0]["msg"] == (
-        "Value error, Select stations by exactly one of all, station, name, latitude/longitude, "
-        "left/bottom/right/top, sql"
-    )
+    assert response.json()["detail"] == [
+        {
+            "type": "missing_one_of",
+            "loc": ["query"],
+            "msg": (
+                "Exactly one of all, station, name, (latitude and longitude), (left, bottom, right and top) or sql "
+                "is required"
+            ),
+            "input": None,
+            "ctx": {
+                "one_of": [
+                    ["all"],
+                    ["station"],
+                    ["name"],
+                    ["latitude", "longitude"],
+                    ["left", "bottom", "right", "top"],
+                    ["sql"],
+                ]
+            },
+        }
+    ]
 
 
 def test_history_no_station_selection(client: TestClient) -> None:
@@ -608,7 +625,15 @@ def test_history_no_station_selection(client: TestClient) -> None:
         params={"provider": "dwd", "network": "observation", "parameters": "daily/kl"},
     )
     assert response.status_code == 422
-    assert response.json()["detail"][0]["msg"] == "Value error, Select stations by exactly one of all or station"
+    assert response.json()["detail"] == [
+        {
+            "type": "missing_one_of",
+            "loc": ["query"],
+            "msg": "Exactly one of all or station is required",
+            "input": None,
+            "ctx": {"one_of": [["all"], ["station"]]},
+        }
+    ]
 
 
 @pytest.mark.parametrize("endpoint", ["/api/stations", "/api/values"])
@@ -629,7 +654,23 @@ def test_two_station_selections_refused(client: TestClient, endpoint: str) -> No
         },
     )
     assert response.status_code == 422
-    assert "(got station, name)" in response.json()["detail"][0]["msg"]
+    # located at each query parameter involved, as FastAPI locates one parameter's error
+    assert response.json()["detail"] == [
+        {
+            "type": "mutually_exclusive",
+            "loc": ["query", "station"],
+            "msg": "Cannot be combined with name",
+            "input": ["01048"],
+            "ctx": {"conflicts_with": ["name"]},
+        },
+        {
+            "type": "mutually_exclusive",
+            "loc": ["query", "name"],
+            "msg": "Cannot be combined with station",
+            "input": "Hamburg-Fuhlsbüttel",
+            "ctx": {"conflicts_with": ["station"]},
+        },
+    ]
 
 
 def test_values_dwd_no_valid_parameters(client: TestClient) -> None:

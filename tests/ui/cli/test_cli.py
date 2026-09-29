@@ -469,52 +469,89 @@ def test_if_exists_defaults_to_replace(command: str) -> None:
 _DWD_KL = ["--provider=dwd", "--network=observation", "--parameters=daily/kl"]
 
 
+_RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo_code' or '--country_name'."
+
+
 @pytest.mark.parametrize(
     ("args", "message"),
     [
         (
             ["stations", *_DWD_KL],
             (
-                "Select stations by exactly one of --all, --station, --name, --latitude/--longitude, "
-                "--left/--bottom/--right/--top, --sql"
+                "Error: Missing option: one of '--all', '--station', '--name', ('--latitude' and '--longitude'), "
+                "('--left', '--bottom', '--right' and '--top') or '--sql'.\n"
             ),
         ),
-        (["stations", *_DWD_KL, "--station=01048", "--name=Hamburg"], "(got --station, --name)"),
-        (["values", *_DWD_KL, "--latitude=51.0", "--rank=5"], "--latitude and --longitude go together"),
+        (
+            ["stations", *_DWD_KL, "--station=01048", "--name=Hamburg"],
+            "Error: Options '--station' and '--name' cannot be used together.\n",
+        ),
+        (
+            ["values", *_DWD_KL, "--latitude=51.0", "--rank=5"],
+            "Error: Missing option '--longitude'. Required with '--latitude'.\n",
+        ),
         (
             ["values", *_DWD_KL, "--latitude=51.0", "--longitude=13.7"],
-            "--latitude/--longitude take exactly one of --rank or --distance",
+            "Error: Missing option: one of '--rank' or '--distance', required with '--latitude' and '--longitude'.\n",
         ),
         (
-            ["stations", *_DWD_KL, "--left=13", "--bottom=51", "--right=14"],
-            "--left, --bottom, --right and --top go together",
+            ["values", *_DWD_KL, "--latitude=51.0", "--longitude=13.7", "--rank=5", "--distance=25"],
+            "Error: Options '--rank' and '--distance' cannot be used together.\n",
         ),
-        (["stations", *_DWD_KL, "--station=01048", "--rank=5"], "--rank applies to --latitude/--longitude or --name"),
-        (["history", *_DWD_KL], "Select stations by exactly one of --all or --station"),
+        (
+            ["stations", *_DWD_KL, "--left=13", "--top=52"],
+            (
+                "Error: Missing option '--bottom'. Required with '--left' and '--top'.\n"
+                "Missing option '--right'. Required with '--left' and '--top'.\n"
+            ),
+        ),
+        (
+            ["stations", *_DWD_KL, "--station=01048", "--rank=5"],
+            "Error: Option '--rank' requires ('--latitude' and '--longitude') or '--name'.\n",
+        ),
+        (
+            ["stations", *_DWD_KL, "--name=Dresden", "--distance=25"],
+            "Error: Option '--distance' requires '--latitude' and '--longitude'.\n",
+        ),
+        (["history", *_DWD_KL], "Error: Missing option: one of '--all' or '--station'.\n"),
         (
             ["interpolate", *_DWD_KL, "--date=2020-06-30", "--station=01048", "--latitude=51", "--longitude=13.7"],
-            "Give exactly one of --station or --latitude/--longitude",
+            "Error: Options '--station' and '--latitude' cannot be used together.\n",
         ),
-        (["summarize", *_DWD_KL, "--date=2020-06-30"], "Give exactly one of --station or --latitude/--longitude"),
-        (["radar"], "Select radar sites by exactly one of --dwd, --all"),
-        (["radar", "--dwd", "--all"], "Select radar sites by exactly one of --dwd, --all"),
+        (
+            ["summarize", *_DWD_KL, "--date=2020-06-30"],
+            "Error: Missing option: one of '--station' or ('--latitude' and '--longitude').\n",
+        ),
+        (["radar"], f"Error: {_RADAR_ONE_OF}\n"),
+        (["radar", "--dwd", "--all"], "Error: Options '--dwd' and '--all' cannot be used together.\n"),
         # an empty value, e.g. from an unset shell variable, selects nothing
-        (["radar", "--odim-code="], "Select radar sites by exactly one of --dwd, --all"),
-        (["radar", "--country_name="], "Select radar sites by exactly one of --dwd, --all"),
-        (["stripes", "values", "--kind=temperature"], "Select the station by exactly one of --station or --name"),
+        (["radar", "--odim-code="], f"Error: {_RADAR_ONE_OF}\n"),
+        (["radar", "--country_name="], f"Error: {_RADAR_ONE_OF}\n"),
+        (["stripes", "values", "--kind=temperature"], "Error: Missing option: one of '--station' or '--name'.\n"),
         (
             ["stripes", "values", "--kind=temperature", "--station=1048", "--name=Dresden"],
-            "Select the station by exactly one of --station or --name",
+            "Error: Options '--station' and '--name' cannot be used together.\n",
         ),
-        # a single field's error names its option and the value it refused; --sections is a set,
-        # so the position pydantic gives within it points nowhere
-        (["values", *_DWD_KL, "--station=01048", "--distance=-1"], "--distance: Input should be greater"),
-        (["values", *_DWD_KL, "--station=01048", "--distance=-1"], "(got -1.0)"),
-        (["history", *_DWD_KL, "--station=01048", "--sections=name,foo"], "--sections: Input should be"),
-        (["history", *_DWD_KL, "--station=01048", "--sections=name,foo"], "(got 'foo')"),
+        # a single value's error is told as click tells an invalid value, with the value refused;
+        # --sections is a set, so the position pydantic gives within it points nowhere and is left out
+        (
+            ["values", *_DWD_KL, "--station=01048", "--distance=-1"],
+            "Error: Invalid value for '--distance': Input should be greater than or equal to 0 (got -1.0).\n",
+        ),
+        (
+            ["history", *_DWD_KL, "--station=01048", "--sections=name,foo"],
+            (
+                "Error: Invalid value for '--sections': Input should be 'name', 'parameter', 'device', 'geography' "
+                "or 'missing_data' (got 'foo').\n"
+            ),
+        ),
+        (
+            ["values", *_DWD_KL, "--station=01048", '--unit_targets={"temperature": 5}'],
+            "Error: Invalid value for '--unit_targets': temperature: Input should be a valid string (got 5).\n",
+        ),
         (
             ["about", "fields", "--provider=dwd", "--network=observation", "--resolution=daily", "--dataset=kl"],
-            "Missing option '--period'",
+            "Error: Missing option '--period'.",
         ),
     ],
 )
