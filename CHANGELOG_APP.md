@@ -43,6 +43,14 @@ Types of changes:
   borrowed the English "Flags" -- *Niederschlagsart-Flags* -- where each catalog calls a flag
   *Kennung* or *Kennen* in its quality entries. They now use that word (GH-1919)
 
+### Security
+
+- `[Build]` The 11 `pnpm audit` advisories (3 high, 8 moderate) are resolved: ReDoS and prototype
+  pollution in Tiptap, script bypasses in `svgo`, and denial of service in `js-yaml`, `qs`,
+  `devalue` and `undici`, plus a file read in the dev-only `vitest`. Dependencies are refreshed
+  within their ranges -- `@nuxt/ui` 4.11, `vue` 3.5.43, `zod` 4.6 -- and `pnpm audit` is clean
+  (GH-2049)
+
 ## [0.16.0] - 2026-09-18
 
 ### Added

@@ -1,18 +1,22 @@
-dangerouslyAllowAllBuilds: true
-confirmModulesPurge: false
 # Supply-chain cooldown: refuse versions published less than three days ago, so a
 # compromised release has time to be caught and pulled before it reaches us. 4320
 # minutes matches the cooldown Dependabot already applies by default to the uv,
 # docker and github-actions ecosystems in .github/dependabot.yml, so both halves of
 # the repo wait the same length of time. pnpm 11's own default is a shorter 1440.
 minimumReleaseAge: 4320
+minimumReleaseAgeExcludePrune: true
+confirmModulesPurge: false
+
 minimumReleaseAgeExclude:
   - '@nuxt/kit@3.21.10'
   - '@nuxt/test-utils@4.1.0'
   - esbuild@0.28.1
   - brace-expansion@5.0.8
-shellEmulator: true
+
 trustPolicy: no-downgrade
+dangerouslyAllowAllBuilds: true
+shellEmulator: true
+
 overrides:
   # Security overrides: force patched versions of two transitive deps that intermediate
   # packages pin below the fix -- brace-expansion (ReDoS) and esbuild (dev-server file
