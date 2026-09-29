@@ -7,7 +7,7 @@ import type { StationSelectionState } from '~/types/station-selection-state.type
 import { h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
-import { describeApiError } from '~/utils/api-error'
+import { describeFetchError } from '~/utils/api-error'
 import { formatDate } from '~/utils/format'
 import { exportColumns, valuesToCsv, valuesToJson } from '~/utils/values-export'
 
@@ -205,31 +205,27 @@ const apiQuery = computed(() => {
   }
 })
 
+// The request behind the table: set by Fetch alone, and the one the table's values are fetched with,
+// so the table, its error and a GeoJSON download of it answer to the same request whatever is
+// selected since. Bound to the live selection instead, the fetch kept a request of its own beside
+// this one, which a selection changed mid-fetch, or Clear, could part from what the table showed.
+const fetchedRequest = ref<{ endpoint: string, query: Record<string, unknown> } | null>(null)
+
 const { data: valuesData, pending: valuesPending, error: valuesError, refresh: refreshValues } = useFetch<ValuesResponse>(
-  apiEndpoint,
+  () => fetchedRequest.value?.endpoint ?? '/api/values',
   {
     method: 'GET',
-    query: apiQuery,
+    query: computed(() => fetchedRequest.value?.query ?? {}),
     lazy: true,
     immediate: false,
-    watch: false, // Prevent automatic refetch when query changes
+    watch: false, // fetched by Fetch alone, not on every change to the request
     default: () => ({ values: [] }),
   },
 )
 
 const allValues = computed(() => valuesData.value?.values ?? [])
 
-// the request that filled the table, which a GeoJSON download asks for again; set once it answers
-const fetchedRequest = ref<{ endpoint: string, query: Record<string, unknown> } | null>(null)
-// fetches started, so the one that finishes last does not take the place of the one started last
-let fetchCount = 0
-
-const fetchErrorMessage = computed(() => {
-  const err = valuesError.value as { data?: unknown, message?: string } | undefined
-  if (!err)
-    return null
-  return describeApiError(err.data) ?? err.message ?? String(err)
-})
+const fetchErrorMessage = computed(() => valuesError.value ? describeFetchError(valuesError.value) : null)
 
 const toast = useToast()
 
@@ -390,8 +386,15 @@ watch(pageSize, () => {
   currentPage.value = 1
 })
 
+// The columns a copy or a download writes: the table's own, as it shows them, then whatever the
+// rows carry that it has no column for -- a wide shape's parameters, a query panel's aggregates
+function columnsOf(values: Value[]): string[] {
+  const shown = columnDefinitions.filter(c => selectedColumns.value.includes(c.key)).map(c => c.key)
+  return exportColumns(values, shown, columnDefinitions.map(c => c.key))
+}
+
 async function copyCurrentPage() {
-  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, selectedColumns.value))
+  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, columnsOf(paginatedValues.value)))
   toast.add({
     title: t('dataViewer.copied'),
     description: t('dataViewer.copiedRows', { count: paginatedValues.value.length }),
@@ -400,7 +403,7 @@ async function copyCurrentPage() {
 }
 
 async function copyAllValues() {
-  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, selectedColumns.value))
+  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, columnsOf(sortedValues.value)))
   toast.add({ title: t('dataViewer.copied'), description: t('dataViewer.copiedRows', { count: sortedValues.value.length }), color: 'success' })
 }
 
@@ -438,13 +441,12 @@ const DOWNLOAD_FILENAMES: Record<string, string> = {
 async function downloadValues(format: 'csv' | 'json' | 'geojson') {
   const request = fetchedRequest.value
   const filename = (request && DOWNLOAD_FILENAMES[request.endpoint]) ?? 'values'
-  const columns = exportColumns(sortedValues.value, selectedColumns.value)
   let content: string
   if (format === 'csv') {
-    content = valuesToCsv(sortedValues.value, columns)
+    content = valuesToCsv(sortedValues.value, columnsOf(sortedValues.value))
   }
   else if (format === 'json') {
-    content = valuesToJson(sortedValues.value, columns)
+    content = valuesToJson(sortedValues.value, columnsOf(sortedValues.value))
   }
   else {
     if (!request)
@@ -457,21 +459,8 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
       })
     }
     catch (error) {
-      // an error answer, or none at all, is told rather than saved as the file asked for. Asked for
-      // as text, the body of an error answer comes as text too, JSON to be read before telling
-      const fetchError = error as { data?: unknown, message?: string }
-      let body = fetchError.data
-      if (typeof body === 'string') {
-        try {
-          body = JSON.parse(body)
-        }
-        catch {}
-      }
-      toast.add({
-        title: t('dataViewer.fetchErrorToastTitle'),
-        description: describeApiError(body) ?? fetchError.message ?? String(error),
-        color: 'error',
-      })
+      // an error answer, or none at all, is told rather than saved as the file asked for
+      toast.add({ title: t('dataViewer.fetchErrorToastTitle'), description: describeFetchError(error), color: 'error' })
       return
     }
   }
@@ -524,7 +513,7 @@ const downloadMenuItems = computed(() => {
       { label: 'JSON', disabled: nothingShown, onSelect: () => downloadValues('json') },
       {
         label: 'GeoJSON',
-        disabled: nothingShown || !fetchedRequest.value || isDataTransformed.value,
+        disabled: nothingShown || !fetchedRequest.value || Boolean(valuesError.value) || isDataTransformed.value,
         onSelect: () => downloadValues('geojson'),
       },
     ],
@@ -534,26 +523,22 @@ const downloadMenuItems = computed(() => {
 // Manual fetch function
 async function fetchData() {
   if (!canFetchData.value) {
+    fetchedRequest.value = null
     valuesData.value = { values: [] }
     valuesError.value = undefined
-    fetchedRequest.value = null
     return
   }
-  const request = { endpoint: apiEndpoint.value, query: { ...apiQuery.value } }
-  const thisFetch = ++fetchCount
+  fetchedRequest.value = { endpoint: apiEndpoint.value, query: { ...apiQuery.value } }
   currentPage.value = 1
   await refreshValues()
-  // a fetch started later supersedes this one, and its answer is the one the table shows, however
-  // the two finish
-  if (thisFetch === fetchCount)
-    fetchedRequest.value = valuesError.value ? null : request
 }
 
 // Clear function to reset data
 function clearData() {
+  // a fetch still under way answers the request it was made for, which the table no longer follows
+  fetchedRequest.value = null
   valuesData.value = { values: [] }
   valuesError.value = undefined
-  fetchedRequest.value = null
   currentPage.value = 1
 }
 

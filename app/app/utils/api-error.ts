@@ -34,3 +34,24 @@ export function describeApiError(body: unknown): string | null {
   })
   return lines.length ? lines.join('; ') : null
 }
+
+/**
+ * Describe a failed request as one line of text: the REST API's `detail` when it answered, the
+ * error's own message when it did not.
+ *
+ * A request asked for as text gets its error body as text as well, so a JSON body is read first.
+ *
+ * @param error - What the request threw, or the error useFetch holds
+ * @returns The description
+ */
+export function describeFetchError(error: unknown): string {
+  const failed = error as { data?: unknown, message?: string } | null | undefined
+  let body = failed?.data
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body)
+    }
+    catch {}
+  }
+  return describeApiError(body) ?? failed?.message ?? String(error)
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describeApiError } from '../../app/utils/api-error'
+import { describeApiError, describeFetchError } from '../../app/utils/api-error'
 
 describe('describeApiError', () => {
   it('passes on the string detail of an error an endpoint raises itself', () => {
@@ -32,5 +32,24 @@ describe('describeApiError', () => {
     expect(describeApiError(null)).toBeNull()
     expect(describeApiError('Internal Server Error')).toBeNull()
     expect(describeApiError({ detail: [] })).toBeNull()
+  })
+})
+
+describe('describeFetchError', () => {
+  const refusal = { detail: [{ loc: ['query', 'station'], msg: 'Cannot be combined with name' }] }
+
+  it('tells the detail of an error answer', () => {
+    expect(describeFetchError({ data: refusal, message: '[GET] /api/values: 422' })).toBe('station: Cannot be combined with name')
+  })
+
+  it('reads a body that came as text, as it does for a request asked for as text', () => {
+    expect(describeFetchError({ data: JSON.stringify(refusal), message: '[GET] /api/values: 422' })).toBe(
+      'station: Cannot be combined with name',
+    )
+  })
+
+  it('falls back to the error\'s own message where there is no answer to read', () => {
+    expect(describeFetchError({ data: undefined, message: 'fetch failed' })).toBe('fetch failed')
+    expect(describeFetchError({ data: 'Bad Gateway', message: '[GET] /api/values: 502' })).toBe('[GET] /api/values: 502')
   })
 })

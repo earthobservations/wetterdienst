@@ -39,11 +39,13 @@ describe('valuesToJson', () => {
   })
 })
 
+const TABLE_COLUMNS = ['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality']
+
 describe('exportColumns', () => {
-  it('keeps the columns the table shows first, then every other column the rows carry', () => {
+  it('keeps the columns the table shows, then every column it has no place for', () => {
     // a wide-shaped answer: one column per parameter, and no parameter or value column
     const wide = [{ station_id: '01048', timestamp: '2020-01-01', temperature_air_mean_2m: 1.5, precipitation_amount: 0.2 }]
-    expect(exportColumns(wide, ['station_id', 'parameter', 'timestamp', 'value'])).toEqual([
+    expect(exportColumns(wide, ['station_id', 'parameter', 'timestamp', 'value'], TABLE_COLUMNS)).toEqual([
       'station_id',
       'timestamp',
       'temperature_air_mean_2m',
@@ -53,10 +55,20 @@ describe('exportColumns', () => {
 
   it('keeps a column the query panel added', () => {
     const grouped = [{ timestamp: '2020-01-01', parameter: 'temperature_air_mean_2m', avg_value: 1.5 }]
-    expect(exportColumns(grouped, ['station_id', 'parameter', 'timestamp', 'value'])).toEqual([
-      'parameter',
-      'timestamp',
-      'avg_value',
-    ])
+    expect(exportColumns(grouped, ['parameter', 'timestamp'], TABLE_COLUMNS)).toEqual(['parameter', 'timestamp', 'avg_value'])
+  })
+
+  it('leaves out a column taken out of the column picker', () => {
+    expect(exportColumns(rows, ['station_id', 'timestamp', 'value'], TABLE_COLUMNS)).toEqual(['station_id', 'timestamp', 'value'])
+  })
+})
+
+describe('valuesToJson with a query panel\'s count', () => {
+  it('writes a BigInt as the number it is', () => {
+    // DuckDB answers COUNT(*) as a BigInt, which JSON.stringify refuses
+    const counted = [{ parameter: 'temperature_air_mean_2m', count: 42n }]
+    expect(JSON.parse(valuesToJson(counted, ['parameter', 'count']))).toEqual({
+      values: [{ parameter: 'temperature_air_mean_2m', count: 42 }],
+    })
   })
 })

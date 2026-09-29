@@ -190,6 +190,48 @@ describe('dataViewer downloads', () => {
     expect(asked[0]!.station).toBe('04411')
   })
 
+  it('keeps a cleared table empty when a fetch under way answers', async () => {
+    // the answer is to a request the table no longer follows once it is cleared
+    registerEndpoint('/api/values', async () => {
+      await new Promise(resolve => setTimeout(resolve, 100))
+      return { values: [row] }
+    })
+    const { wrapper, viewer } = await mountDataViewer()
+    const fetching = fetchData(viewer)
+    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    await fetching
+    await new Promise(resolve => setTimeout(resolve, 150))
+    expect(wrapper.text()).not.toContain('1.5')
+    expect(offered(await openDownloads(wrapper))).toEqual([['CSV', false], ['JSON', false], ['GeoJSON', false]])
+  })
+
+  it('downloads GeoJSON for the station the table shows when the selection moved during the fetch', async () => {
+    // the table showed one answer while GeoJSON asked for another
+    const asked: Record<string, unknown>[] = []
+    registerEndpoint('/api/values', async (event) => {
+      const query = getQuery(event)
+      if (query.format === 'geojson') {
+        asked.push(query)
+        return { type: 'FeatureCollection', features: [] }
+      }
+      await new Promise(resolve => setTimeout(resolve, 50))
+      return { values: [{ ...row, station_id: String(query.station) }] }
+    })
+    const { wrapper, viewer, stationSelection } = await mountDataViewer()
+    const fetching = fetchData(viewer)
+    stationSelection.value = byStation('04411')
+    await wrapper.vm.$nextTick()
+    await fetching
+    await wrapper.vm.$nextTick()
+    // the table shows the station the fetch was made for, and GeoJSON asks for that one
+    expect(wrapper.text()).toContain('01048')
+    const saved = catchDownload()
+    const items = await openDownloads(wrapper)
+    items[2]!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    expect(asked[0]!.station).toBe('01048')
+  })
+
   it('tells a GeoJSON request the backend refuses, and saves nothing', async () => {
     registerEndpoint('/api/values', (event) => {
       // answered as FastAPI answers a refused request: the entries under `detail`, nothing around them

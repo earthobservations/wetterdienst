@@ -17,21 +17,26 @@ function csvField(value: unknown): string {
 }
 
 /**
- * The columns to export: those the table shows, in its order, then every other column the rows
- * carry, in the order they first appear.
+ * The columns to export: those the table shows, in the table's order, then every column the rows
+ * carry that the table has no column for, in the order they first appear.
  *
- * The table shows a fixed set of columns, which a wide-shaped answer (one column per parameter)
- * or a query panel's own columns (`avg_value`) go past; exporting only what it shows lost them.
+ * The table's columns are a fixed set, which a wide-shaped answer (one column per parameter) or a
+ * query panel's own columns (`avg_value`) go past: those are exported although the table cannot
+ * show them. A column the table has but hides, because it was taken out of the column picker,
+ * stays out, and so does one no row carries, such as `value` in a wide shape.
  *
  * @param values - The rows, as the table holds them
- * @param shown - The columns the table shows
+ * @param shown - The columns the table shows, in its order
+ * @param known - Every column the table can show
  * @returns The columns, each once
  */
-export function exportColumns(values: Row[], shown: string[]): string[] {
+export function exportColumns(values: Row[], shown: string[], known: string[]): string[] {
   const columns = new Set(shown.filter(column => values.some(row => column in row)))
   for (const row of values) {
-    for (const column of Object.keys(row))
-      columns.add(column)
+    for (const column of Object.keys(row)) {
+      if (!known.includes(column))
+        columns.add(column)
+    }
   }
   return [...columns]
 }
@@ -62,5 +67,7 @@ export function valuesToCsv(values: Row[], columns: string[]): string {
  */
 export function valuesToJson(values: Row[], columns: string[]): string {
   const rows = values.map(row => Object.fromEntries(columns.map(column => [column, field(row, column) ?? null])))
-  return JSON.stringify({ values: rows })
+  // a query panel's COUNT(*) comes back from DuckDB as a BigInt, which JSON has no way to write;
+  // a count is far below where a number loses precision
+  return JSON.stringify({ values: rows }, (_key, value) => typeof value === 'bigint' ? Number(value) : value)
 }
