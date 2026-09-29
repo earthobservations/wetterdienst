@@ -272,26 +272,34 @@ def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
                 point = next((c for c in child if _is_tag(c, "coordinates")), None)
                 coordinates = point.text if point is not None else None
         element.clear()
-        row = _placemark_row(station_id, name, coordinates, drifted)
-        if row is None:
+        read = _placemark_row(station_id, name, coordinates)
+        if read is None:
             # skipped rather than raised, for the same reason: the stations this run describes are
             # only reachable through it, and one malformed placemark should not cost the rest
             unreadable += 1
             continue
+        row, drift = read
         rows.append(row)
+        if drift:
+            drifted.append(row["station_id"])
     if unreadable:
         log.warning(
             f"{unreadable} placemarks of this DMO run describe no station that could be read; "
             f"any station only they name stays unreachable",
         )
+    _report_drift(drifted)
+    return pl.DataFrame(rows, schema=_PLACEMARK_COLUMNS, orient="row")
+
+
+def _report_drift(drifted: list[str]) -> None:
+    """Warn of the stations GH-2017 recorded in feet that give another elevation, each once a process."""
     unreported = sorted(set(drifted) - _REPORTED_DRIFT)
     if unreported:
         _REPORTED_DRIFT.update(unreported)
         log.warning(
-            f"DMO stations {', '.join(unreported)} no longer give the elevation GH-2017 recorded in "
-            f"feet for them, and are taken as metres; check whether DWD corrected them",
+            f"DMO stations {', '.join(unreported)} give another elevation than the one GH-2017 "
+            f"recorded in feet for them; if DWD corrected them, _ELEVATION_IN_FEET should drop them",
         )
-    return pl.DataFrame(rows, schema=_PLACEMARK_COLUMNS, orient="row")
 
 
 def _is_tag(element: object, name: str) -> bool:
@@ -300,16 +308,14 @@ def _is_tag(element: object, name: str) -> bool:
     return isinstance(tag, str) and tag.endswith(f"}}{name}")
 
 
-def _placemark_row(
-    station_id: str | None,
-    name: str | None,
-    coordinates: str | None,
-    drifted: list[str] | None = None,
-) -> dict | None:
+def _placemark_row(station_id: str | None, name: str | None, coordinates: str | None) -> tuple[dict, bool] | None:
     """Turn one placemark's parts into a catalogue row, or None where they do not describe a station.
 
-    A station GH-2017 recorded in feet that gives another elevation is appended to `drifted`.
+    Given with it is whether the station is one GH-2017 recorded in feet that gives another
+    elevation, as `_elevation_in_metres` decides.
     """
+    # stripped, as a pretty-printed run pads it, and the table of elevations in feet is looked up by it
+    station_id = (station_id or "").strip()
     if not station_id or not coordinates:
         return None
     longitude, latitude, elevation = ([*coordinates.strip().split(","), "", ""])[:3]
@@ -317,10 +323,8 @@ def _placemark_row(
         position = {"latitude": float(latitude), "longitude": float(longitude)}
     except ValueError:
         return None
-    in_metres, drift = _elevation_in_metres(station_id, elevation) if elevation.strip() else (None, False)
-    if drift and drifted is not None:
-        drifted.append(station_id)
-    return {
+    in_metres, drift = _elevation_in_metres(station_id, elevation)
+    row = {
         "station_id": station_id,
         "icao_id": None,
         "name": (name or "").strip() or None,
@@ -328,6 +332,7 @@ def _placemark_row(
         # left a string, as the catalogue's is: the base request casts it
         "elevation": in_metres,
     }
+    return row, drift
 
 
 def _dm_degrees(column: str) -> pl.Expr:

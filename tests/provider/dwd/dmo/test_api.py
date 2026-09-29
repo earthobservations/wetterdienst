@@ -1300,9 +1300,18 @@ def test_dmo_a_placemark_elevation_in_feet_is_read_in_metres(
     elevation: str | None,
 ) -> None:
     """Test the placemarks GH-2017 found giving feet are read in metres, and only while they do."""
-    row = _placemark_row(station_id, "NAME", coordinates)
-    assert row is not None
+    read = _placemark_row(station_id, "NAME", coordinates)
+    assert read is not None
+    row, _ = read
     assert row["elevation"] == elevation
+
+
+def test_dmo_a_padded_placemark_name_is_still_found_in_feet() -> None:
+    """Test a station id a pretty-printed run pads is stripped, so the table of feet still finds it."""
+    read = _placemark_row(" F9051 \n", "QUERETARO/GUTIERREZ", "-100.18,20.62,6296.0")
+    assert read is not None
+    row, drift = read
+    assert (row["station_id"], row["elevation"], drift) == ("F9051", "1919.0", False)
 
 
 def test_dmo_the_feet_table_lists_only_f9_stations_in_order() -> None:
@@ -1364,7 +1373,7 @@ def test_dmo_a_listed_station_no_longer_in_feet_is_reported_once(caplog: pytest.
     }
     warnings = [record.getMessage() for record in caplog.records]
     assert len(warnings) == 1
-    assert "DMO stations F9047, F9048 no longer give the elevation GH-2017 recorded in feet" in warnings[0]
+    assert "DMO stations F9047, F9048 give another elevation than the one GH-2017 recorded in feet" in warnings[0]
 
 
 @pytest.mark.usefixtures("unreported_drift")
