@@ -24,46 +24,55 @@ const settings: DataSettings = {
   numAdditionalStations: 3,
 }
 
-const parameterSelection: ParameterSelection = {
-  provider: 'dwd',
-  network: 'observation',
-  resolution: 'daily',
-  dataset: 'climate_summary',
-  parameters: ['temperature_air_mean_2m'],
+function parameterSelection(parameters: string[]): ParameterSelection {
+  return { provider: 'dwd', network: 'observation', resolution: 'daily', dataset: 'climate_summary', parameters }
 }
 
-function stationSelection(stations: { station_id: string }[]): StationSelectionState {
-  return {
-    mode: 'station',
-    selection: { stations },
-    interpolation: { source: 'manual', latitude: undefined, longitude: undefined, elevation: undefined, station: undefined },
-    dateRange: { startDate: undefined, endDate: undefined },
-  } as unknown as StationSelectionState
+// the explorer mounts DataViewer only once a station or a point is chosen, so each of these has one
+const station = { station_id: '01048', name: 'Dresden-Klotzsche' } as StationSelectionState['selection']['stations'][number]
+
+const byStation: StationSelectionState = {
+  mode: 'station',
+  selection: { stations: [station] },
+  interpolation: { source: 'manual' },
+  dateRange: {},
+}
+
+const byPoint: StationSelectionState = {
+  mode: 'interpolation',
+  selection: { stations: [] },
+  interpolation: { source: 'manual', latitude: 51.13, longitude: 13.75 },
+  dateRange: {},
 }
 
 // DataViewer's copy buttons use UTooltip, which needs the TooltipProvider app.vue's <UApp> supplies
-async function mountDataViewer(stations: { station_id: string }[]) {
+async function valuesDownloads(stationSelection: StationSelectionState, parameters: string[]) {
   const wrapper = await mountSuspended(defineComponent({
     setup: () => () => h(UApp, null, {
-      default: () => h(DataViewer, { parameterSelection, stationSelection: stationSelection(stations), settings }),
+      default: () => h(DataViewer, { parameterSelection: parameterSelection(parameters), stationSelection, settings }),
     }),
   }))
-  return wrapper.findComponent(DataViewer).vm as unknown as { downloadMenuItems: { label: string, disabled: boolean }[][] }
+  const vm = wrapper.findComponent(DataViewer).vm as unknown as { downloadMenuItems: { label: string, disabled: boolean }[][] }
+  return vm.downloadMenuItems[0]!.map(item => [item.label, item.disabled])
 }
 
 describe('dataViewer downloads', () => {
-  it('disables the values downloads while there is no station or point to ask for', async () => {
-    // they asked the backend again for the current selection, and with none did nothing when chosen
-    const vm = await mountDataViewer([])
-    expect(vm.downloadMenuItems[0]!.map(item => [item.label, item.disabled])).toEqual([
-      ['CSV', true],
-      ['JSON', true],
-      ['GeoJSON', true],
-    ])
+  it.each([
+    ['a station', byStation],
+    ['a point', byPoint],
+  ])('disables the values downloads for %s with no parameter selected', async (_, stationSelection) => {
+    // a values download asks the backend again, and with no parameter did nothing when chosen
+    expect(await valuesDownloads(stationSelection, [])).toEqual([['CSV', true], ['JSON', true], ['GeoJSON', true]])
   })
 
-  it('offers the values downloads once a station is selected', async () => {
-    const vm = await mountDataViewer([{ station_id: '01048' }])
-    expect(vm.downloadMenuItems[0]!.every(item => !item.disabled)).toBe(true)
+  it.each([
+    ['a station', byStation],
+    ['a point', byPoint],
+  ])('offers the values downloads for %s with a parameter selected', async (_, stationSelection) => {
+    expect(await valuesDownloads(stationSelection, ['temperature_air_mean_2m'])).toEqual([
+      ['CSV', false],
+      ['JSON', false],
+      ['GeoJSON', false],
+    ])
   })
 })
