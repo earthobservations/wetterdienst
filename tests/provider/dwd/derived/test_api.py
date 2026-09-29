@@ -252,7 +252,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
         "dataset",
         "timestamp",
         "heating_degree_day",
-        "qn_heating_degree_day",
+        "heating_degree_day_quality",
     ]
     expected_df = pl.DataFrame(
         {
@@ -269,7 +269,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
                 98.5,
                 93.0,
             ],
-            "qn_heating_degree_day": [
+            "heating_degree_day_quality": [
                 None,
                 None,
                 None,
@@ -281,7 +281,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
             "dataset": pl.Enum(["heating_degreedays"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "heating_degree_day": pl.Float64,
-            "qn_heating_degree_day": pl.Float64,
+            "heating_degree_day_quality": pl.Float64,
         },
         orient="col",
     )

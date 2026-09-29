@@ -611,6 +611,8 @@ def test_wide_empty_result_matches_the_shape_of_a_populated_one(monkeypatch: pyt
     # including the dataset prefix the populated frame carries, which the empty one used to omit
     assert empty.columns == populated.columns
     assert "climate_summary_temperature_air_mean_2m" in empty.columns
+    # and its quality column after it, both branches alike (GH-2030)
+    assert "climate_summary_temperature_air_mean_2m_quality" in empty.columns
 
 
 def test_a_station_that_started_after_the_window_is_not_downloaded(monkeypatch: pytest.MonkeyPatch) -> None:
