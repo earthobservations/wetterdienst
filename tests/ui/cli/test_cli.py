@@ -2,13 +2,19 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the command line interface."""
 
+import itertools
 import json
+import re
+from collections.abc import Iterator
 from textwrap import dedent
 
+import click
 import pytest
 from click.testing import CliRunner
 
-from wetterdienst.ui.cli import cli
+from wetterdienst import Wetterdienst
+from wetterdienst.model.metadata import parse_parameters
+from wetterdienst.ui.cli import cli, wetterdienst_help
 
 # Individual settings for observation and mosmix
 
@@ -41,6 +47,81 @@ def test_cli_help() -> None:
         """,
     )
     assert commands in result.output
+
+
+_OPTION = re.compile(r"(?<![\w-])--[a-z][a-z0-9_-]*")
+
+
+def _commands(command: click.Command, path: tuple[str, ...] = ("wetterdienst",)) -> Iterator[tuple[str, click.Command]]:
+    yield " ".join(path), command
+    if isinstance(command, click.Group):
+        for name, sub in command.commands.items():
+            yield from _commands(sub, (*path, name))
+
+
+def _declared(command: click.Command) -> set[str]:
+    return {opt for param in command.params for opt in (*param.opts, *param.secondary_opts)} | {"--help"}
+
+
+def _help_examples() -> Iterator[str]:
+    """Yield each `wetterdienst ...` command of the top-level help, continuation lines joined on.
+
+    Including the one an `alias fetch="wetterdienst ..."` line defines, which kept a retired
+    `--resolution=daily --period=recent` long after the option was gone.
+    """
+    lines = iter(wetterdienst_help.splitlines())
+    for raw in lines:
+        line = re.sub(r'^alias \w+="(wetterdienst .*)"$', r"\1", raw.strip())
+        if not line.startswith("wetterdienst "):
+            continue
+        while line.endswith("\\"):
+            line = f"{line[:-1].rstrip()} {next(lines).strip()}"
+        yield line
+
+
+def test_cli_help_names_only_declared_options() -> None:
+    """Test every option the top-level help names is one some command declares.
+
+    It named `--si_units` and `--tidy` long after both were gone (GH-2021). Which command takes
+    which option is checked per example below.
+    """
+    declared = set().union(*(_declared(command) for _, command in _commands(cli))) | {"--version"}
+    assert set(_OPTION.findall(wetterdienst_help)) - declared == set()
+
+
+@pytest.mark.parametrize("example", list(_help_examples()))
+def test_cli_help_example_resolves(example: str) -> None:
+    """Test each example in the top-level help names a command, and only that command's options."""
+    tokens = example.split()[1:]
+    command: click.Command = cli
+    while tokens and isinstance(command, click.Group) and tokens[0] in command.commands:
+        command = command.commands[tokens.pop(0)]
+    assert not (isinstance(command, click.Group) and tokens and tokens[0][0].isalpha()), f"no command {tokens[0]!r}"
+    assert set(_OPTION.findall(example)) - _declared(command) - {"--version"} == set()
+
+
+@pytest.mark.parametrize("example", [example for example in _help_examples() if "--parameters=" in example])
+def test_cli_help_example_parameters_exist(example: str) -> None:
+    """Test each parameter an example in the top-level help asks for exists in that network's metadata.
+
+    An example asked for `hourly/precipitation_more`, which DWD has only at daily and coarser
+    resolutions; the parameter parsing only logs that and drops it, so the example still ran.
+    """
+    options = dict(re.findall(r"--(provider|network|parameters)=(\S+)", example))
+    metadata = Wetterdienst(options["provider"], options["network"]).metadata
+    for parameter in options["parameters"].split(","):
+        assert parse_parameters(parameter, metadata), parameter
+
+
+def test_cli_help_example_continues() -> None:
+    """Test an example's continuation line follows a backslash, so it pastes into a shell whole.
+
+    Without one the shell runs the first line alone and drops the options on the second, which
+    five examples did before GH-2021 and which the option checks above cannot see.
+    """
+    for previous, line in itertools.pairwise(wetterdienst_help.splitlines()):
+        if re.match(r"\s{8,}(--|>)", line):
+            assert previous.rstrip().endswith("\\"), previous
 
 
 def test_cli_about_parameters() -> None:
@@ -155,6 +236,34 @@ def test_cli_radar_stations_opera() -> None:
     response = json.loads(result.output)
     assert isinstance(response, dict)
     assert response["location"] == "Dean Hill"
+
+
+def test_cli_radar_stations_opera_wmo_code() -> None:
+    """Test cli radar stations looked up by WMO code, which the sites hold as an integer."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["radar", "--wmo_code=11038"])
+    assert result.exit_code == 0
+    response = json.loads(result.output)
+    assert response["odimcode"] == "atrau"
+    assert response["wmocode"] == 11038
+
+
+def test_cli_radar_stations_opera_not_found() -> None:
+    """Test cli radar stations reports a code no site carries as an error, not a traceback."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["radar", "--wmo_code=99999"])
+    assert result.exit_code == 1
+    assert "Error: Radar site not found" in result.output
+    assert not isinstance(result.exception, KeyError)
+
+
+def test_cli_radar_stations_opera_malformed_code() -> None:
+    """Test an ODIM code of the wrong shape is a usage error, not a traceback."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["radar", "--odim-code=de"])
+    assert result.exit_code == 2
+    assert "ODIM code must be three or five letters" in result.output
+    assert not isinstance(result.exception, ValueError)
 
 
 def test_cli_radar_stations_dwd() -> None:

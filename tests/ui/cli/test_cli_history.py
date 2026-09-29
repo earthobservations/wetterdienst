@@ -110,3 +110,53 @@ def test_history_dwd_observation() -> None:
         "station_id": "02564",
         "station_name": "Kiel-Holtenau",
     }
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize("sections", ["geography,name", "name,geography"])
+def test_history_sections(sections: str) -> None:
+    """Test --sections keeps only the sections asked for, in the history's own order."""
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "history",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary",
+            "--station=02564",
+            f"--sections={sections}",
+        ],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert [list(history) for history in data["histories"]] == [["name", "geography"]]
+
+
+def test_history_sections_unknown() -> None:
+    """Test a section the history does not have is a usage error, not a traceback."""
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "history",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary",
+            "--station=02564",
+            "--sections=geo",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "Input should be 'name', 'parameter', 'device', 'geography' or 'missing_data'" in result.output
+
+
+def test_history_no_station_selection() -> None:
+    """Test a history request with neither --all nor --station is a usage error, not a traceback."""
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["history", "--provider=dwd", "--network=observation", "--parameters=daily/climate_summary"],
+    )
+    assert result.exit_code == 2
+    assert "Select stations by exactly one of --all or --station" in result.output

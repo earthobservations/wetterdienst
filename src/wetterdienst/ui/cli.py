@@ -42,6 +42,7 @@ from wetterdienst.ui.core import (
     get_summarize,
     get_values,
     limit_stations_to_rank,
+    select_history_sections,
     set_logging_level,
     station_distance_radii,
 )
@@ -300,157 +301,6 @@ Usage
     wetterdienst info           Display project information
 
 
-Overview
-========
-
-This section roughly outlines the different families of command line
-options. More detailed information is available within subsequent sections
-of this page.
-
-Coverage information:
-
-    wetterdienst about coverage --provider=<provider> --network=<network>  [--resolutions=<resolutions>] [--datasets=<datasets>]
-
-    wetterdienst about fields --provider=<provider> --network=<network> --resolution=<resolution>
-        --dataset=<dataset> --period=<period> [--language=<language>]
-
-Data acquisition:
-
-    wetterdienst {stations,values}
-
-        # Selection options
-        --provider=<provider> --network=<network> --parameters=<resolution/parameter> [--periods=<periods>]
-
-        # Filtering options
-        --all
-        --date=<date>
-        --station=<station>
-        --name=<name>
-        --latitude=<latitude> --longitude=<longitude> --rank=<rank>
-        --latitude=<latitude> --longitude=<longitude> --distance=<distance>
-        --left=<left> --bottom=<bottom> --right=<right> --top=<top>
-        --sql=<sql>
-
-        # Output options
-        [--format=<format>] [--pretty]
-        [--shape=<shape>] [--humanize] [--si_units]
-        [--drop_nulls] [--skip_empty] [--skip_threshold=0.95]
-
-        # Export options
-        [--target=<target>] [--if_exists=<if_exists>]
-
-Available model-run datetimes:
-
-    wetterdienst issues --provider=<provider> --network=<network> --station=<station>
-
-Data computation:
-
-    wetterdienst {interpolate,summarize}
-
-        # Selection options
-        --provider=<provider> --network=<network> --parameters=<resolution/parameter> --date=<date> [--periods=<periods>]
-
-        # Filtering options
-        --station=<station>
-        --latitude=<latitude> --longitude=<longitude>
-
-        # Interpolation options
-        --interpolation_station_distance=<distance>
-        --interpolation_station_distance_homogeneous=<distance>
-        --interpolation_station_distance_heterogeneous=<distance>
-        --use_nearby_station_distance=<distance>
-
-        # Output options
-        [--format=<format>] [--pretty]
-        [--shape=<shape>] [--humanize] [--si_units]
-        [--drop_nulls] [--skip_empty] [--skip_threshold=0.95]
-
-        # Export options
-        [--target=<target>] [--if_exists=<if_exists>]
-
-Options
-=======
-
-This section explains all command line options in detail.
-
-Selection options:
-
-    --provider                  The data provider / organisation.
-                                Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere, meteofrance, meteoswiss
-
-    --network                   The network of the data provider
-                                Examples: observation, mosmix, radar, ghcn, pegel, hydrology
-
-    --parameters                The parameters to be requested concatenated by a slash.
-                                Examples: daily/climate_summary, daily/climate_summary/precipitation_amount
-
-    [--periods]                 Dataset periods
-                                Examples: "historical", "recent", "now"
-
-Filtering options:
-
-    --all                       Flag to process all data
-
-    --date                      Date for filtering data
-                                A single date(time) or interval in RFC3339/ISO8601 format.
-                                See also:
-                                - https://en.wikipedia.org/wiki/ISO_8601#Combined_date_and_time_representations
-                                - https://en.wikipedia.org/wiki/ISO_8601#Time_intervals
-
-    --start-date                Alternative to --date for specifying the start of a time range.
-                                Mutually exclusive with --date.
-
-    --end-date                  End of time range. Requires --start-date.
-                                If omitted, --start-date is used as both start and end.
-                                If only --end-date is given without --start-date, it is treated as a single date.
-
-    --name                      Name of station
-
-    --station                   Comma-separated list of station identifiers
-
-    --latitude                  Latitude of geolocation point for filtering stations or values
-    --longitude                 Longitude of geolocation point for filtering stations or values
-
-    --rank                      Rank of nearby stations when filtering by geolocation point
-                                To be used with `--latitude` and `--longitude`.
-
-    --distance                  Maximum distance in km when filtering by geolocation point
-                                To be used with `--latitude` and `--longitude`.
-
-    --left                      Left longitude of bounding box
-    --bottom                    Bottom latitude of bounding box
-    --right                     Right longitude of bounding box
-    --top                       Top latitude of bounding box
-
-    --sql                       SQL filter statement
-
-    --sql_values                SQL filter to apply to values
-
-Transformation options:
-    --shape                     Shape of DataFrame, "wide" or "long"
-    --humanize                  Humanize parameters
-    --si_units                  Convert to SI units
-    --skip_empty                Skip stations covered less than ts_skip_threshold
-    --skip_threshold            Skip threshold for a station to be empty (0 < ts_skip_threshold <= 1) [Default: 0.95]
-    --drop_nulls                    Whether to drop nan values from the result
-
-Output options:
-    --format                    Output format. [Default: json]
-    --language                  Output language. [Default: en]
-    --pretty                    Pretty-print JSON
-
-Export options:
-    --target                    Output target for storing data into different data sinks.
-    --if_exists                 What to do when the target already holds data:
-                                replace, append, fail or skip. [Default: replace]
-
-Other options:
-    -h --help                   Show this screen
-    --debug                     Enable debug messages
-    --listen                    HTTP server listen address.
-    --reload                    Run service and dynamically reload changed files
-
-
 Examples
 ========
 
@@ -510,27 +360,27 @@ Acquire observation data:
         --start-date=2020-05-01 --end-date=2020-05-05 --station=1048
 
     # Limit output to specified date range in ISO-8601 time interval format
-    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --date=2020-05-01/2020-05-05
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --date=2020-05-01/2020-05-05 \\
         --station=1048
 
     # The real power horse: Acquire data across historical+recent data sets
-    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --date=1969-01-01/2020-06-11
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --date=1969-01-01/2020-06-11 \\
         --station=1048
 
     # Acquire single data point for month 2020-05
-    wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl --tidy --date=2020-05
+    wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl --date=2020-05 \\
         --station=1048
 
     # Acquire monthly data from 2017 to 2019
-    wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl --tidy \\
+    wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl \\
         --date=2017/2019 --station=1048,4411
 
     # Acquire annual data for 2019
-    wetterdienst values --provider=dwd --network=observation --parameters=annual/kl --tidy --date=2019
+    wetterdienst values --provider=dwd --network=observation --parameters=annual/kl --date=2019 \\
         --station=1048,4411
 
     # Acquire annual data from 2010 to 2020
-    wetterdienst values --provider=dwd --network=observation --parameters=annual/kl --tidy \\
+    wetterdienst values --provider=dwd --network=observation --parameters=annual/kl \\
         --date=2010/2020 --station=1048
 
     # Acquire hourly data for a given time range
@@ -539,7 +389,7 @@ Acquire observation data:
 
     # Acquire data for multiple given parameters
     wetterdienst values --provider=dwd --network=observation \\
-        --parameters=hourly/precipitation_more/precipitation_amount,hourly/air_temperature/temperature_air_mean_2m \\
+        --parameters=hourly/precipitation/precipitation_amount,hourly/air_temperature/temperature_air_mean_2m \\
         --date=2020-06-15T12/2020-06-16T12 --station=1048,4411
 
 Acquire MOSMIX data:
@@ -604,14 +454,13 @@ SQL filtering:
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
         --sql="regexp_matches(lower(name), lower('.*dresden.*'))"
 
-    # Filter values: Display daily climate observation readings where the maximum temperature is below two degrees celsius.
+    # Filter values: the days with a wind gust above 20 m/s, one column per parameter.
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --station=1048,4411 --sql_values="wind_gust_max > 20.0;"
+        --station=1048,4411 --shape=wide --sql_values="wind_gust_max > 20.0"
 
-    # Filter measurements: Same as above, but use long format.
+    # Filter measurements: the same in the default long shape, one row per value.
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \\
-        --station=1048,4411 --shape="long" \\
-        --sql_values="parameter='wind_gust_max' AND value > 20.0"
+        --station=1048,4411 --sql_values="parameter='wind_gust_max' AND value > 20.0"
 
 Inquire metadata:
 
@@ -652,7 +501,7 @@ Export data to databases:
 
     # Shortcut command for fetching readings.
     # It will be used for the next invocations.
-    alias fetch="wetterdienst values --provider=dwd --network=observation --parameters=kl --resolution=daily --period=recent --station=1048,4411"
+    alias fetch="wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent --station=1048,4411"
 
     # Store readings to DuckDB
     fetch --target="duckdb:///observations.duckdb?table=weather"
@@ -684,14 +533,14 @@ Explore OPERA radar stations:
     wetterdienst radar --all
 
     # Display radar stations filtered by country.
-    wetterdienst radar --country-name=france
+    wetterdienst radar --country_name=france
 
     # Display OPERA radar stations operated by DWD.
     wetterdienst radar --dwd
 
     # Display radar station with specific ODIM- or WMO-code.
     wetterdienst radar --odim-code=deasb
-    wetterdienst radar --wmo-code=10103
+    wetterdienst radar --wmo_code=10103
 
 Acquire DWD weather alerts (CAP warnings):
 
@@ -701,25 +550,27 @@ Acquire DWD weather alerts (CAP warnings):
     # Get warnings on district (Landkreis) basis as GeoJSON, in German
     wetterdienst alerts --granularity=district --language=de --format=geojson
 
-    # Get warnings active at a past point in time (within DWD's rolling ~48h window)
-    wetterdienst alerts --granularity=district --date=2026-07-26T10:00:00
+    # Get warnings active at a past point in time; replace YYYY-MM-DDTHH:MM with a time
+    # from the last ~48 hours, as DWD keeps no older snapshots
+    wetterdienst alerts --granularity=district --date=YYYY-MM-DDTHH:MM
 
     # Write current warnings to a GeoJSON file
     wetterdienst alerts --format=geojson --target=file://alerts.geojson
 
-Create warming stripes (only DWD Observation data):
+Create climate stripes (DWD observation data only):
 
     # Create warming stripes for a specific station
-    wetterdienst warming_stripes --station=1048 > warming_stripes.png
+    wetterdienst stripes values --kind=temperature --station=1048 > warming_stripes.png
 
     # Create warming stripes for a specific station with approximate name
-    wetterdienst warming_stripes --name=Dresden-Klotzsche  --name_treshold=70 > warming_stripes.png
+    wetterdienst stripes values --kind=temperature --name=Dresden-Klotzsche --name_threshold=0.7 > warming_stripes.png
 
     # Create warming stripes for a specific station for years 2000 to 2020
-    wetterdienst warming_stripes --station=1048 --start_year=2000 --end_year=2020 > warming_stripes.png
+    wetterdienst stripes values --kind=temperature --station=1048 --start_year=2000 --end_year=2020 \\
+        > warming_stripes.png
 
-    # Create warming stripes for a specific station and write to file
-    wetterdienst warming_stripes --station=1048 --target=warming_stripes.png
+    # Create precipitation stripes for a specific station and write to file
+    wetterdienst stripes values --kind=precipitation --station=1048 --target=precipitation_stripes.png
 """  # noqa: E501
 
 
@@ -923,7 +774,7 @@ def coverage(
     click.option(
         "--limit",
         type=click.IntRange(min=1),
-        help="Return at most this many entries; the full vocabulary is 504 parameters.",
+        help="Return at most this many entries; the full vocabulary runs to several hundred parameters.",
     ),
 )
 @debug_opt
@@ -1228,7 +1079,7 @@ def history(
     parameters: list[str],
     all_: bool,  # noqa: FBT001
     station: str,
-    sections: list[str],
+    sections: str | None,
     fmt: str,  # noqa: ARG001
     target: str,
     *,
@@ -1238,11 +1089,16 @@ def history(
     debug: bool,
 ) -> None:
     """Acquire station history."""
+    if all_ == bool(station):
+        # get_stations would otherwise fall through to its KeyError, a traceback here
+        msg = "Select stations by exactly one of --all or --station"
+        raise click.UsageError(msg)
     if target and not target.endswith(".json"):
         msg = "--target for history endpoint must end with .json"
         raise click.BadParameter(msg)
 
-    request = HistoryRequest.model_validate(
+    request = _validate_request(
+        HistoryRequest,
         {
             "provider": provider,
             "network": network,
@@ -1254,7 +1110,7 @@ def history(
             "with_stations": with_stations,
             "pretty": pretty,
             "debug": debug,
-        }
+        },
     )
 
     set_logging_level(debug=debug)
@@ -1273,7 +1129,7 @@ def history(
         log.exception("History not implemented for provider/network")
         sys.exit(1)
 
-    data = {}
+    data: dict[str, Any] = {}
     if request.with_metadata:
         data["metadata"] = stations_.get_metadata()
     if request.with_stations:
@@ -1282,7 +1138,7 @@ def history(
     try:
         for history_result in history_provider.query():
             history_result_data = history_result.history.model_dump(mode="python")
-            data["histories"].append(history_result_data)
+            data["histories"].append(select_history_sections(history_result_data, request.sections))
     except Exception:
         log.exception("Failed to collect station history")
         sys.exit(1)
@@ -1351,7 +1207,7 @@ def history(
     "--convert_units",
     type=click.BOOL,
     default=True,
-    help="Convert values to SI units (e.g. °C → K). Default: true",
+    help="Convert values to the unit targets: the defaults, overridden per quantity by --unit_targets. Default: true",
 )
 @cloup.option(
     "--unit_targets",
@@ -1841,11 +1697,37 @@ def summarize(
     return
 
 
+def _radar_sites(
+    *,
+    dwd: bool,
+    all_: bool,
+    odim_code: str | None,
+    wmo_code: int | None,
+    country_name: str | None,
+) -> dict | list[dict]:
+    """Look up the radar sites the one given selector names, raising KeyError where none match."""
+    from wetterdienst.provider.dwd.radar.api import DwdRadarSites  # noqa: PLC0415
+    from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites  # noqa: PLC0415
+
+    if dwd:
+        return DwdRadarSites().all()
+    if all_:
+        return OperaRadarSites().all()
+    if odim_code:
+        return OperaRadarSites().by_odim_code(odim_code)
+    if wmo_code is not None:
+        return OperaRadarSites().by_wmo_code(wmo_code)
+    if country_name:
+        return OperaRadarSites().by_country_name(country_name)
+    msg = "No valid option provided"
+    raise KeyError(msg)
+
+
 @cli.command("radar", section=data_section)
 @cloup.option("--dwd", is_flag=True)
 @cloup.option("--all", "all_", is_flag=True)
 @cloup.option("--odim-code", type=click.STRING)
-@cloup.option("--wmo_code", type=click.STRING)
+@cloup.option("--wmo_code", type=click.INT)
 @cloup.option("--country_name", type=click.STRING)
 @cloup.constraint(
     RequireExactly(1),
@@ -1855,28 +1737,20 @@ def summarize(
 def radar(
     dwd: bool,  # noqa: FBT001
     all_: bool,  # noqa: FBT001
-    odim_code: str,
-    wmo_code: int,
-    country_name: str,
+    odim_code: str | None,
+    wmo_code: int | None,
+    country_name: str | None,
     indent: int,
 ) -> None:
     """List radar stations."""
-    from wetterdienst.provider.dwd.radar.api import DwdRadarSites  # noqa: PLC0415
-    from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites  # noqa: PLC0415
-
-    if dwd:
-        data = DwdRadarSites().all()
-    elif all_:
-        data = OperaRadarSites().all()
-    elif odim_code:
-        data = OperaRadarSites().by_odim_code(odim_code)
-    elif wmo_code:
-        data = OperaRadarSites().by_wmo_code(wmo_code)
-    elif country_name:
-        data = OperaRadarSites().by_country_name(country_name)
-    else:
-        msg = "No valid option provided"
-        raise KeyError(msg)
+    try:
+        data = _radar_sites(dwd=dwd, all_=all_, odim_code=odim_code, wmo_code=wmo_code, country_name=country_name)
+    except ValueError as e:
+        # a code of the wrong shape, which by_odim_code refuses before looking
+        raise click.BadParameter(str(e)) from e
+    except KeyError as e:
+        # a lookup that finds nothing is an answer about the input, not a crash
+        raise click.ClickException(e.args[0]) from e
 
     output = json.dumps(data, indent=indent)
 

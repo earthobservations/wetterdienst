@@ -58,7 +58,7 @@ you need is what tells us what to build next. Hand in an issue or a PR.
 | [SMHI](https://www.smhi.se/)                                                                   | 🇸🇪 Sweden      | observations                                                          |
 | [WSV](https://www.pegelonline.wsv.de/)                                                         | 🇩🇪 Germany     | hydrology (Pegelonline)                                               |
 
-Across those: **514 canonical parameters**, resolutions from **1 minute to annual**, and archives
+Across those: **nearly 600 canonical parameters**, resolutions from **1 minute to annual**, and archives
 reaching back centuries where the service keeps them. Every provider is reached the same way, and a
 parameter means the same thing whichever service reports it — `temperature_air_mean_2m` is the mean
 air temperature at 2 m, converted to the same unit, everywhere.

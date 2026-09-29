@@ -388,7 +388,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst import Settings
 
 # if no settings are provided, default settings are used which are
-# Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)
+# Settings(ts_shape="long", ts_humanize=True, ts_convert_units=True)
 request = DwdObservationRequest(
     parameters=[("daily", "kl"), ("daily", "solar")],
     start_date="1990-01-01",
@@ -416,7 +416,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst import Settings
 
 # if no settings are provided, default settings are used which are
-# Settings(ts_shape="long", ts_humanize=True, ts_si_units=True)
+# Settings(ts_shape="long", ts_humanize=True, ts_convert_units=True)
 request = DwdObservationRequest(
     parameters=[("daily", "kl"), ("daily", "solar")],
     start_date="1990-01-01",
