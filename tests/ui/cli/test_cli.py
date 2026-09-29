@@ -157,6 +157,25 @@ def test_cli_radar_stations_opera() -> None:
     assert response["location"] == "Dean Hill"
 
 
+def test_cli_radar_stations_opera_wmo_code() -> None:
+    """Test cli radar stations looked up by WMO code, which the sites hold as an integer."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["radar", "--wmo_code=11038"])
+    assert result.exit_code == 0
+    response = json.loads(result.output)
+    assert response["odimcode"] == "atrau"
+    assert response["wmocode"] == 11038
+
+
+def test_cli_radar_stations_opera_not_found() -> None:
+    """Test cli radar stations reports a code no site carries as an error, not a traceback."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["radar", "--wmo_code=99999"])
+    assert result.exit_code == 1
+    assert "Error: Radar site not found" in result.output
+    assert not isinstance(result.exception, KeyError)
+
+
 def test_cli_radar_stations_dwd() -> None:
     """Test cli radar stations."""
     runner = CliRunner()

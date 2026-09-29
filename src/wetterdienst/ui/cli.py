@@ -1841,11 +1841,37 @@ def summarize(
     return
 
 
+def _radar_sites(
+    *,
+    dwd: bool,
+    all_: bool,
+    odim_code: str | None,
+    wmo_code: int | None,
+    country_name: str | None,
+) -> dict | list[dict]:
+    """Look up the radar sites the one given selector names, raising KeyError where none match."""
+    from wetterdienst.provider.dwd.radar.api import DwdRadarSites  # noqa: PLC0415
+    from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites  # noqa: PLC0415
+
+    if dwd:
+        return DwdRadarSites().all()
+    if all_:
+        return OperaRadarSites().all()
+    if odim_code:
+        return OperaRadarSites().by_odim_code(odim_code)
+    if wmo_code is not None:
+        return OperaRadarSites().by_wmo_code(wmo_code)
+    if country_name:
+        return OperaRadarSites().by_country_name(country_name)
+    msg = "No valid option provided"
+    raise KeyError(msg)
+
+
 @cli.command("radar", section=data_section)
 @cloup.option("--dwd", is_flag=True)
 @cloup.option("--all", "all_", is_flag=True)
 @cloup.option("--odim-code", type=click.STRING)
-@cloup.option("--wmo_code", type=click.STRING)
+@cloup.option("--wmo_code", type=click.INT)
 @cloup.option("--country_name", type=click.STRING)
 @cloup.constraint(
     RequireExactly(1),
@@ -1855,28 +1881,17 @@ def summarize(
 def radar(
     dwd: bool,  # noqa: FBT001
     all_: bool,  # noqa: FBT001
-    odim_code: str,
-    wmo_code: int,
-    country_name: str,
+    odim_code: str | None,
+    wmo_code: int | None,
+    country_name: str | None,
     indent: int,
 ) -> None:
     """List radar stations."""
-    from wetterdienst.provider.dwd.radar.api import DwdRadarSites  # noqa: PLC0415
-    from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites  # noqa: PLC0415
-
-    if dwd:
-        data = DwdRadarSites().all()
-    elif all_:
-        data = OperaRadarSites().all()
-    elif odim_code:
-        data = OperaRadarSites().by_odim_code(odim_code)
-    elif wmo_code:
-        data = OperaRadarSites().by_wmo_code(wmo_code)
-    elif country_name:
-        data = OperaRadarSites().by_country_name(country_name)
-    else:
-        msg = "No valid option provided"
-        raise KeyError(msg)
+    try:
+        data = _radar_sites(dwd=dwd, all_=all_, odim_code=odim_code, wmo_code=wmo_code, country_name=country_name)
+    except KeyError as e:
+        # a lookup that finds nothing is an answer about the input, not a crash
+        raise click.ClickException(e.args[0]) from e
 
     output = json.dumps(data, indent=indent)
 

@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `wetterdienst radar --wmo_code` finds the site it names. The option was read as text and compared
+  with the sites' integer WMO codes, so every lookup failed with a `KeyError` traceback. A code no
+  site carries now answers `Error: Radar site not found` and exit status 1 (GH-2023)
+
 ## [0.139.0] - 2026-09-29
 
 ### Changed
