@@ -18,14 +18,14 @@ Types of changes:
 
 ### Changed
 
-- **Breaking**: the REST API and MCP refuse a stations, values or history request that selects
-  stations in more than one way, as the CLI did; they answered for the first and dropped the rest,
-  so `station` with `name` returned the station alone. No selection, or half of one -- a latitude
-  without a longitude, three sides of a bounding box, `rank` without a point or `name` -- is a 422
-  where it was a 400. Each error is located at the query parameter it concerns, typed
-  `missing_one_of`, `mutually_exclusive`, `missing_with` or `requires`, with the other parameters
-  in `ctx`. Send exactly one of `all`, `station`, `name`, a point with `rank` or `distance`, a
-  bounding box, or `sql` (GH-2056)
+- **Breaking**: the REST API and MCP refuse with a 422 a stations, values or history request they
+  answered before: one selecting stations in two ways, answered for the first (`station` with
+  `name` returned the station alone), and one sending `rank` or `distance` beside anything but a
+  point (or `rank` beside `name`), which was ignored. No selection, or half a point or bounding
+  box, is a 422 where it was a 400. Each error is located at the parameter it concerns, typed
+  `missing_one_of`, `mutually_exclusive`, `missing_with` or `requires`, the others in `ctx`. Send
+  exactly one of `all`, `station`, `name`, a point with `rank` or `distance`, a bounding box, or
+  `sql`, and drop a `rank` or `distance` left over from a point (GH-2056)
 - `wetterdienst` no longer depends on cloup. Each command's `--help` lists its options in one
   list -- what is requested, which stations, then the output -- and ends with examples, and
   `wetterdienst --help` is a short overview rather than a hand-kept copy of every option. The CLI

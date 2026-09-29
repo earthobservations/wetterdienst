@@ -580,6 +580,14 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo_
             ["values", *_DWD_KL, "--station=01048", '--unit_targets={"temperature": 5}'],
             "Error: Invalid value for '--unit_targets': temperature: Input should be a valid string (got 5).\n",
         ),
+        # a field validator's ValueError, told without pydantic's "Value error, " in front of it
+        (
+            ["values", *_DWD_KL, "--station=01048", "--unit_targets={bad"],
+            (
+                "Error: Invalid value for '--unit_targets': Expecting property name enclosed in double quotes: "
+                "line 1 column 2 (char 1) (got '{bad').\n"
+            ),
+        ),
         (
             ["about", "fields", "--provider=dwd", "--network=observation", "--resolution=daily", "--dataset=kl"],
             "Error: Missing option '--period'.",

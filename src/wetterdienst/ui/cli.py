@@ -385,7 +385,8 @@ def _describe_problem(problem: ErrorDetails, params: dict[str, click.Parameter],
         # a position within the value is left out -- --sections is a set, so it points nowhere --
         # and the value refused is shown instead; a key within a mapping stays
         within = "".join(f"{part}: " for part in problem["loc"][1:] if not isinstance(part, int))
-        message = f"{within}{problem['msg']} (got {problem['input']!r})."
+        # a field validator's ValueError comes with pydantic's prefix, which says nothing click would
+        message = f"{within}{problem['msg'].removeprefix('Value error, ')} (got {problem['input']!r})."
         return click.BadParameter(message, ctx, params[field]).format_message()
     return problem["msg"].removeprefix("Value error, ")
 

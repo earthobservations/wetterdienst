@@ -246,6 +246,17 @@ def station_distance_radii(homogeneous: float | None, heterogeneous: float | Non
     return radii
 
 
+def _read_station_ids(value: str | list | None) -> list[str] | None:
+    """Read station ids from a comma-separated string or a list of them, None when there are none.
+
+    A blank id selects nothing: FastAPI reads an empty `station=` as `[""]`, which would count as a
+    station selection beside `all` or a point, and be refused as a second one.
+    """
+    items = [value] if isinstance(value, str) else (value or [])
+    ids = [station for item in items for station in read_list(item, separator=",") if station]
+    return ids or None
+
+
 def join_names(names: Sequence[str], last: str = "and") -> str:
     """Join names as prose: `a`, `a and b`, `a, b and c`."""
     return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} {last} {names[-1]}"
@@ -401,17 +412,7 @@ class StationsRequest(BaseModel):
     @classmethod
     def validate_station(cls, v: str | list | None) -> list[str] | None:
         """Validate station."""
-        if not v:
-            return None
-        if isinstance(v, str):
-            return read_list(v)
-        stations = []
-        for item in v:
-            if "," in item:
-                stations.extend(read_list(item, separator=","))
-            else:
-                stations.append(item)
-        return stations
+        return _read_station_ids(v)
 
     # station name
     name: _NameField = None
@@ -485,17 +486,7 @@ class HistoryRequest(BaseModel):
     @classmethod
     def validate_station(cls, v: str | list | None) -> list[str] | None:
         """Validate station."""
-        if not v:
-            return None
-        if isinstance(v, str):
-            return read_list(v)
-        stations = []
-        for item in v:
-            if "," in item:
-                stations.extend(read_list(item, separator=","))
-            else:
-                stations.append(item)
-        return stations
+        return _read_station_ids(v)
 
     sections: _SectionsField = None
 
@@ -583,17 +574,7 @@ class ValuesRequest(BaseModel):
     @classmethod
     def validate_station(cls, v: str | list | None) -> list[str] | None:
         """Validate station."""
-        if not v:
-            return None
-        if isinstance(v, str):
-            return read_list(v)
-        stations = []
-        for item in v:
-            if "," in item:
-                stations.extend(read_list(item, separator=","))
-            else:
-                stations.append(item)
-        return stations
+        return _read_station_ids(v)
 
     # station name
     name: _NameField = None
@@ -1057,7 +1038,6 @@ def get_stations(
     rank: int | None = getattr(request, "rank", None)
     distance: float | None = getattr(request, "distance", None)
 
-    # Use coordinates twice in main if-elif to get same KeyError
     if latitude is not None and longitude is not None and rank is not None:
         return r.filter_by_rank(latlon=(latitude, longitude), rank=rank)
 

@@ -45,6 +45,26 @@ def test_station_selection_accepted(model: type[StationsRequest | ValuesRequest]
     model.model_validate({**_BASE, **selection})
 
 
+@pytest.mark.parametrize("model", [StationsRequest, ValuesRequest, HistoryRequest])
+@pytest.mark.parametrize("blank", ["", [""], ",", ["", " , "]])
+def test_blank_station_selects_nothing(
+    model: type[StationsRequest | ValuesRequest | HistoryRequest], blank: str | list[str]
+) -> None:
+    """Test a blank station id is no selection, so `all` beside it stands on its own.
+
+    FastAPI reads an empty `station=` as `[""]`, which counted as a station selection and refused
+    `all=true&station=` as two.
+    """
+    request = model.model_validate({**_BASE, "all": True, "station": blank})
+    assert request.station is None
+
+
+def test_station_ids_read_from_every_item() -> None:
+    """Test station ids are read from a comma-separated string and from each item of a list."""
+    request = StationsRequest.model_validate({**_BASE, "station": ["01048, ", "04411,00011"]})
+    assert request.station == ["01048", "04411", "00011"]
+
+
 def _errors(model: type[Any], values: dict[str, Any]) -> list[tuple[str, tuple, dict | None]]:
     """Return each error a model reports for values, as its type, location and context."""
     with pytest.raises(ValidationError) as info:

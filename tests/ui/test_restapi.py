@@ -673,6 +673,38 @@ def test_two_station_selections_refused(client: TestClient, endpoint: str) -> No
     ]
 
 
+@pytest.mark.parametrize(
+    ("endpoint", "lookup", "query"),
+    [
+        ("/api/stations", "get_stations", {"all": "true"}),
+        ("/api/values", "get_values", {"station": "01048"}),
+        ("/api/interpolate", "get_interpolate", {"station": "01048", "date": "2020-06-30"}),
+        ("/api/summarize", "get_summarize", {"station": "01048", "date": "2020-06-30"}),
+        ("/api/history", "get_stations", {"station": "01048"}),
+    ],
+)
+def test_unreachable_selection_is_a_server_error(
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    lookup: str,
+    query: dict[str, str],
+) -> None:
+    """Test a lookup that finds no selection its model let through answers 500, not a caller's 4xx.
+
+    get_stations, get_interpolate and get_summarize raise an AssertionError for it; each endpoint's
+    catch-all answered it as a 400 or 404 that blamed the caller for our bug.
+    """
+
+    def unreachable(**_kwargs: object) -> None:
+        msg = "StationsRequest selects no stations"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(restapi, lookup, unreachable)
+    params = {"provider": "dwd", "network": "observation", "parameters": "daily/kl/temperature_air_mean_2m", **query}
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(endpoint, params=params)
+    assert response.status_code == 500
+
+
 def test_values_dwd_no_valid_parameters(client: TestClient) -> None:
     """Test that a parameter the provider does not have is answered with the request it was asked of."""
     response = client.get(

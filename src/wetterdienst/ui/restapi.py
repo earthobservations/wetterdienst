@@ -459,12 +459,10 @@ def stations(
             date=None,
             settings=Settings(),
         )
-    except StartDateEndDateError as e:
-        log.exception("Failed to get stations.")
-        raise HTTPException(
-            status_code=400,
-            detail=str(e),
-        ) from e
+    except AssertionError:
+        # a request its model should have refused reached the lookup: our bug, which FastAPI answers
+        # as a 500, not the caller's to fix
+        raise
     except Exception as e:
         log.exception("Failed to get stations.")
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -643,6 +641,10 @@ def _values(
         raise HTTPException(status_code=400, detail=str(e)) from e
     except BufrReaderMissingError as e:
         raise _reader_missing_on_the_server(e, "get values") from e
+    except AssertionError:
+        # a request its model should have refused reached the lookup: our bug, which FastAPI answers
+        # as a 500, not the caller's to fix
+        raise
     except Exception as e:
         log.exception("Failed to get values.")
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -675,6 +677,10 @@ def _geo_values(
         raise HTTPException(status_code=400, detail=str(e)) from e
     except BufrReaderMissingError as e:
         raise _reader_missing_on_the_server(e, what) from e
+    except AssertionError:
+        # a request its model should have refused reached the lookup: our bug, which FastAPI answers
+        # as a 500, not the caller's to fix
+        raise
     except Exception as e:
         log.exception(f"Failed to {what}")
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -990,6 +996,10 @@ def history(
             date=None,
             settings=Settings(),
         )
+    except AssertionError:
+        # a request its model should have refused reached the lookup: our bug, which FastAPI answers
+        # as a 500, not the caller's to fix
+        raise
     except Exception as e:
         log.exception("Failed to get stations for history.")
         raise HTTPException(status_code=400, detail=str(e)) from e
