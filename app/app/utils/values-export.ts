@@ -30,12 +30,12 @@ function csvField(value: unknown): string {
  * @returns The columns, each once
  */
 export function exportColumns(values: Row[], order: string[]): string[] {
-  const columns = new Set(order.filter(column => values.some(row => column in row)))
-  for (const row of values) {
-    for (const column of Object.keys(row))
-      columns.add(column)
-  }
-  return [...columns]
+  // the rows of one answer, or of one query, share their columns, so the first row names them all
+  const first = values[0]
+  if (!first)
+    return []
+  const carried = Object.keys(first)
+  return [...order.filter(column => carried.includes(column)), ...carried.filter(column => !order.includes(column))]
 }
 
 /**

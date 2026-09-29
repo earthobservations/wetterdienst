@@ -234,6 +234,35 @@ describe('dataViewer downloads', () => {
     expect(asked[0]!.station).toBe('01048')
   })
 
+  it('copies the columns the picker shows, where a download writes them all', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const copied: string[] = []
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (text: string) => void copied.push(text) }, configurable: true })
+    // "copy all", the second of the two buttons beside the table's tooltip triggers
+    await wrapper.findAll('button[data-grace-area-trigger]')[1]!.trigger('click')
+    await vi.waitFor(() => expect(copied).toHaveLength(1))
+    // the picker's defaults: resolution and dataset hidden
+    expect(copied[0]!.split('\n')[0]).toBe('station_id,parameter,timestamp,value,quality')
+  })
+
+  it('does not offer GeoJSON again while one is being downloaded', async () => {
+    // a second choice sent a second request and saved a second file
+    registerEndpoint('/api/values', async (event) => {
+      if (getQuery(event).format === 'geojson')
+        await new Promise(resolve => setTimeout(resolve, 200))
+      return getQuery(event).format === 'geojson' ? { type: 'FeatureCollection', features: [] } : { values: [row] }
+    })
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const saved = catchDownload()
+    ;(await openDownloads(wrapper))[2]!.click()
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(offered(await openDownloads(wrapper))[2]).toEqual(['GeoJSON', false])
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+  })
+
   it('tells a GeoJSON request the backend refuses, and saves nothing', async () => {
     registerEndpoint('/api/values', (event) => {
       // answered as FastAPI answers a refused request: the entries under `detail`, nothing around them

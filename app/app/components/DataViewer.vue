@@ -217,10 +217,17 @@ const apiQuery = computed(() => {
 // selected since. Bound to the live selection instead, the fetch kept a request of its own beside
 // this one, which a selection changed mid-fetch, or Clear, could part from what the table showed.
 const fetchedRequest = ref<{ endpoint: string, filename: string, query: Record<string, unknown> } | null>(null)
+// Each Fetch and each Clear moves the table to a data entry of its own, keyed by this: an answer to
+// a fetch that Clear or a newer Fetch has overtaken lands in its old entry, never the table's. Keyed
+// instead by a hash of the request, as useFetch is by default, that held only while nothing kept an
+// entry past its key -- a cache, or an explicit key -- and two Fetches of one request shared one.
+const fetchGeneration = ref(0)
+const valuesKey = `${useId()}-values`
 
 const { data: valuesData, pending: valuesPending, error: valuesError, refresh: refreshValues } = useFetch<ValuesResponse>(
   () => fetchedRequest.value?.endpoint ?? '/api/values',
   {
+    key: computed(() => `${valuesKey}-${fetchGeneration.value}`),
     method: 'GET',
     query: computed(() => fetchedRequest.value?.query ?? {}),
     lazy: true,
@@ -362,8 +369,15 @@ watch([isInterpolationMode, isSummaryMode], () => {
   selectedColumns.value = [...defaultColumns.value]
 })
 
+// A download writes every column the rows carry, those the table knows in its order first, whatever
+// the column picker shows -- which follows the mode selected now, not the one the rows came from
+const TABLE_ORDER = columnDefinitions.map(c => c.key)
+
+// A copy writes what the table shows: the columns the picker leaves visible, in the table's order
+const visibleColumnKeys = computed(() => columnDefinitions.filter(c => selectedColumns.value.includes(c.key)).map(c => c.key))
+
 const columns = computed(() =>
-  columnDefinitions.filter(c => selectedColumns.value.includes(c.key)).map((c) => {
+  columnDefinitions.filter(c => visibleColumnKeys.value.includes(c.key)).map((c) => {
     const key = c.key
     return {
       ...c.column,
@@ -393,17 +407,8 @@ watch(pageSize, () => {
   currentPage.value = 1
 })
 
-// The table's columns in its order, which a copy or a download writes first
-const TABLE_ORDER = columnDefinitions.map(c => c.key)
-
-// The columns a copy or a download writes: every column the rows carry, whatever the column picker
-// shows, which follows the mode selected now rather than the one the rows were fetched in
-function columnsOf(values: Value[]): string[] {
-  return exportColumns(values, TABLE_ORDER)
-}
-
 async function copyCurrentPage() {
-  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, columnsOf(paginatedValues.value)))
+  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, visibleColumnKeys.value))
   toast.add({
     title: t('dataViewer.copied'),
     description: t('dataViewer.copiedRows', { count: paginatedValues.value.length }),
@@ -412,7 +417,7 @@ async function copyCurrentPage() {
 }
 
 async function copyAllValues() {
-  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, columnsOf(sortedValues.value)))
+  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, visibleColumnKeys.value))
   toast.add({ title: t('dataViewer.copied'), description: t('dataViewer.copiedRows', { count: sortedValues.value.length }), color: 'success' })
 }
 
@@ -435,25 +440,28 @@ const canFetchData = computed(() => {
   }
 })
 
+// a GeoJSON download under way, which the menu does not offer again until it is saved
+const downloadingGeojson = ref(false)
+
 // A download saves what the table holds -- its rows, after the query panel and the sorting, with
 // the columns it shows first and then any others they carry -- rather than asking the backend again
 // for whatever is selected now: that answered a different selection, or units, once either had
 // changed since the table was filled (GH-2065). GeoJSON needs the station positions the backend
 // adds, so it is asked for again, but for the request that filled the table.
 async function downloadValues(format: 'csv' | 'json' | 'geojson') {
+  // the menu is offered only while the table holds rows, which a request filled
   const request = fetchedRequest.value
-  // rows are only shown once a request filled the table, which names the file
-  const filename = request?.filename ?? ENDPOINTS.values.filename
+  if (!request)
+    return
   let content: string
   if (format === 'csv') {
-    content = valuesToCsv(sortedValues.value, columnsOf(sortedValues.value))
+    content = valuesToCsv(sortedValues.value, exportColumns(sortedValues.value, TABLE_ORDER))
   }
   else if (format === 'json') {
-    content = valuesToJson(sortedValues.value, columnsOf(sortedValues.value))
+    content = valuesToJson(sortedValues.value, exportColumns(sortedValues.value, TABLE_ORDER))
   }
   else {
-    if (!request)
-      return
+    downloadingGeojson.value = true
     try {
       // as the table's own request was sent, so the query reads the same
       content = await $fetch<string>(request.endpoint, {
@@ -466,13 +474,16 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
       toast.add({ title: t('dataViewer.fetchErrorToastTitle'), description: describeFetchError(error), color: 'error' })
       return
     }
+    finally {
+      downloadingGeojson.value = false
+    }
   }
 
   const blob = new Blob([content], { type: 'application/octet-stream' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `${filename}.${format}`
+  link.download = `${request.filename}.${format}`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -516,7 +527,7 @@ const downloadMenuItems = computed(() => {
       { label: 'JSON', disabled: nothingShown, onSelect: () => downloadValues('json') },
       {
         label: 'GeoJSON',
-        disabled: nothingShown || !fetchedRequest.value || isDataTransformed.value,
+        disabled: nothingShown || !fetchedRequest.value || isDataTransformed.value || downloadingGeojson.value,
         onSelect: () => downloadValues('geojson'),
       },
     ],
@@ -527,19 +538,22 @@ const downloadMenuItems = computed(() => {
 async function fetchData() {
   if (!canFetchData.value) {
     fetchedRequest.value = null
+    fetchGeneration.value++
     valuesData.value = { values: [] }
     valuesError.value = undefined
     return
   }
   fetchedRequest.value = { ...selectedEndpoint.value, query: { ...apiQuery.value } }
+  fetchGeneration.value++
   currentPage.value = 1
   await refreshValues()
 }
 
 // Clear function to reset data
 function clearData() {
-  // a fetch still under way answers the request it was made for, which the table no longer follows
+  // a fetch still under way answers into the entry it was made for, which the table has left
   fetchedRequest.value = null
+  fetchGeneration.value++
   valuesData.value = { values: [] }
   valuesError.value = undefined
   currentPage.value = 1
