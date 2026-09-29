@@ -3,6 +3,8 @@
 """Tests for DWD DMO API."""
 
 import datetime as dt
+import io
+import logging
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -11,7 +13,12 @@ import pytest
 
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
-from wetterdienst.provider.dwd.dmo.api import add_date_from_filename
+from wetterdienst.provider.dwd.dmo.api import (
+    _ELEVATION_IN_FEET,
+    _placemark_metadata,
+    _placemark_row,
+    add_date_from_filename,
+)
 
 
 @pytest.fixture
@@ -65,34 +72,41 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
     stations = DwdDmoRequest(parameters=[("hourly", "icon")], settings=default_settings)
     given_df = stations.all().df
     assert not given_df.is_empty()
-    assert given_df.select(pl.all().max()).to_dicts()[0] == {
-        "resolution": "hourly",
-        "dataset": "icon",
-        "station_id": "Z949",
-        "icao_id": "ZYTX",
-        "start_date": None,
-        "end_date": None,
-        "latitude": 79.98,
-        "longitude": 179.33,
-        # Y0353 MONT BLANC, and Y0342 "ÄGYPT. WÜSTE" whose leading Ä sorts past Z -- both stations
-        # the shared catalogue omits, described from the run instead (GH-1966)
-        "elevation": 4806.0,
-        "name": "ÄGYPT. WÜSTE",
-        "region": None,
-    }
-    assert given_df.select(pl.all().min()).to_dicts()[0] == {
-        "resolution": "hourly",
-        "dataset": "icon",
-        "station_id": "01001",
-        "icao_id": "AFDU",
-        "start_date": None,
-        "end_date": None,
-        "latitude": -78.45,
-        "longitude": -176.17,
-        "elevation": -350.0,
-        "name": "16N55W",
-        "region": None,
-    }
+    # every station plausibly placed: on the globe, and between the Dead Sea shore and Everest. The
+    # network's own extremes move with any station a run adds, so they are bounded, not pinned: the
+    # 137 `F9` stations of 2026-09-28 made the highest one 6296 m, a height in feet (GH-2017), and a
+    # run without Y0353 MONT BLANC had made it 4670 m the day before
+    implausible = given_df.filter(
+        ~pl.col("latitude").is_between(-90, 90)
+        | ~pl.col("longitude").is_between(-180, 180)
+        | ~pl.col("elevation").is_between(-450, 8849),
+    )
+    assert implausible.is_empty(), implausible.select("station_id", "name", "latitude", "longitude", "elevation")
+    # named stations instead: one from the catalogue, one only a run describes, and one converted
+    # from feet. The last two need the run and its listing, which fall back to the catalogue alone,
+    # with a warning, when DWD refuses them
+    named = ["10637", "Y0353", "F9051"]
+    rows = {row["station_id"]: row for row in given_df.filter(pl.col("station_id").is_in(named)).to_dicts()}
+    missing = sorted(set(named) - set(rows))
+    assert not missing, f"{missing} missing: was the DMO run or its station listing unreachable?"
+    # the fields that tell where each came from, exactly; the ones DWD may re-survey or respell, only
+    # to the place they describe
+    frankfurt, mont_blanc = rows["10637"], rows["Y0353"]
+    # from the catalogue, which alone gives an ICAO id
+    assert (frankfurt["resolution"], frankfurt["dataset"], frankfurt["icao_id"]) == ("hourly", "icon", "EDDF")
+    assert "FRANKFURT" in frankfurt["name"]
+    assert frankfurt["latitude"] == pytest.approx(50.05, abs=0.1)
+    assert frankfurt["longitude"] == pytest.approx(8.6, abs=0.1)
+    assert 90 < frankfurt["elevation"] < 130
+    # one the catalogue omits, described from the run's placemark instead (GH-1966): no ICAO id
+    assert (mont_blanc["resolution"], mont_blanc["dataset"], mont_blanc["icao_id"]) == ("hourly", "icon", None)
+    assert "MONT BLANC" in mont_blanc["name"]
+    assert mont_blanc["latitude"] == pytest.approx(45.83, abs=0.1)
+    assert mont_blanc["longitude"] == pytest.approx(6.86, abs=0.1)
+    assert 4700 < mont_blanc["elevation"] < 4850
+    # its placemark gives 6296.0, the airport's 1919 m in feet; in metres whether converted here or
+    # corrected by DWD, which may round it otherwise (GH-2017)
+    assert 1900 < rows["F9051"]["elevation"] < 1940
     # by length and then by name: 248 stations share the longest name length, so sorting by length
     # alone leaves the ends of this list to whatever order the frame happened to be built in --
     # which is how appending the station patches used to decide it
@@ -1251,3 +1265,122 @@ def test_dmo_declares_the_elements_its_runs_carry(
     assert served_anywhere - declared == without_a_canonical_name, (
         f"{dataset} serves elements it does not declare: {sorted(served_anywhere - declared)}"
     )
+
+
+@pytest.mark.parametrize(
+    ("station_id", "coordinates", "elevation"),
+    [
+        # the airport is at 1919 m; the placemark gives 6296 ft
+        ("F9051", "-100.18,20.62,6296.0", "1919.0"),
+        ("F9051", "-100.18,20.62,6296", "1919.0"),
+        ("F9094", "141.37,40.70,119.0", "36.3"),
+        # DWD giving another value for a listed station has corrected it; converting would divide the
+        # corrected value a second time
+        ("F9051", "-100.18,20.62,1919.0", "1919.0"),
+        # a station not listed keeps its value, however high: F9001 FELIPE ANGELES INT is in metres
+        ("F9001", "-99.0,19.75,2246.0", "2246.0"),
+        ("Y0353", "6.85,45.82,4806.0", "4806.0"),
+        # KML allows spaces after the commas; `float` reads ' 4806.0' and polars' cast does not, so
+        # the number is given on, not the text
+        ("Y0353", "6.85, 45.82, 4806.0", "4806.0"),
+        ("F9051", "-100.18, 20.62, 6296.0", "1919.0"),
+        # no elevation to give: a placemark without one, or with one that is not a finite number,
+        # which passed on as given would fail the cast of every station's elevation
+        ("F9051", "-100.18,20.62", None),
+        ("F9051", "-100.18,20.62,", None),
+        ("F9051", "-100.18,20.62,n/a", None),
+        ("Y0353", "6.85,45.82,n/a", None),
+        ("Y0353", "6.85,45.82,nan", None),
+        ("Y0353", "6.85,45.82,inf", None),
+    ],
+)
+def test_dmo_a_placemark_elevation_in_feet_is_read_in_metres(
+    station_id: str,
+    coordinates: str,
+    elevation: str | None,
+) -> None:
+    """Test the placemarks GH-2017 found giving feet are read in metres, and only while they do."""
+    read = _placemark_row(station_id, "NAME", coordinates)
+    assert read is not None
+    row, _ = read
+    assert row["elevation"] == elevation
+
+
+def test_dmo_a_padded_placemark_name_is_still_found_in_feet() -> None:
+    """Test a station id a pretty-printed run pads is stripped, so the table of feet still finds it."""
+    read = _placemark_row(" F9051 \n", "QUERETARO/GUTIERREZ", "-100.18,20.62,6296.0")
+    assert read is not None
+    row, drift = read
+    assert (row["station_id"], row["elevation"], drift) == ("F9051", "1919.0", False)
+
+
+def test_dmo_the_feet_table_lists_only_f9_stations_in_order() -> None:
+    """Test the table of elevations in feet names only F9 stations, sorted.
+
+    Only F9: GH-2017 found no station outside that series in feet. Sorted, so a station added from a
+    later cross-match lands where a reader looks for it. A key given twice cannot be seen here, as
+    the dict keeps only the last; ruff's F601 refuses it.
+    """
+    assert all(station_id.startswith("F9") for station_id in _ELEVATION_IN_FEET)
+    assert list(_ELEVATION_IN_FEET) == sorted(_ELEVATION_IN_FEET)
+
+
+def _run_of_placemarks(*placemarks: tuple[str, str]) -> io.BytesIO:
+    """Return a DMO run's KML holding a placemark for each station id and coordinates given."""
+    body = "".join(
+        f"<kml:Placemark><kml:name>{station_id}</kml:name><kml:description>NAME</kml:description>"
+        f"<kml:Point><kml:coordinates>{coordinates}</kml:coordinates></kml:Point></kml:Placemark>"
+        for station_id, coordinates in placemarks
+    )
+    return io.BytesIO(
+        f'<kml:kml xmlns:kml="http://www.opengis.net/kml/2.2"><kml:Document>{body}</kml:Document></kml:kml>'.encode()
+    )
+
+
+@pytest.fixture
+def unreported_drift(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Forget which stations' drift this process has reported, as a new process would."""
+    monkeypatch.setattr("wetterdienst.provider.dwd.dmo.api._REPORTED_DRIFT", set())
+
+
+@pytest.mark.usefixtures("unreported_drift")
+def test_dmo_a_listed_station_no_longer_in_feet_is_reported_once(caplog: pytest.LogCaptureFixture) -> None:
+    """Test a listed station giving another value is taken as metres and named in one warning.
+
+    DWD re-surveying or correcting a station ends its conversion without a word otherwise, and the
+    table would go on listing stations it no longer converts. Correcting it to exactly the metres
+    it converts to is such a change too. A second run naming the same stations says nothing more:
+    every request reads the run afresh, and the table is for maintainers to revisit.
+    """
+    run = [
+        ("F9051", "-100.18,20.62,6296.0"),
+        # corrected by DWD, one to exactly the metres the conversion gives
+        ("F9047", "-102.32,21.70,1862.9"),
+        ("F9048", "-104.52,24.12,1860.5"),
+        # no elevation is a null, not a drift
+        ("F9049", "-110.95,29.10"),
+        ("F9001", "-99.0,19.75,2246.0"),
+    ]
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.dmo.api"):
+        df = _placemark_metadata(_run_of_placemarks(*run))
+        _placemark_metadata(_run_of_placemarks(*run))
+    assert dict(df.select("station_id", "elevation").iter_rows()) == {
+        "F9051": "1919.0",
+        "F9047": "1862.9",
+        "F9048": "1860.5",
+        "F9049": None,
+        "F9001": "2246.0",
+    }
+    warnings = [record.getMessage() for record in caplog.records]
+    assert len(warnings) == 1
+    assert "DMO stations F9047, F9048 give another elevation than the one GH-2017 recorded in feet" in warnings[0]
+
+
+@pytest.mark.usefixtures("unreported_drift")
+def test_dmo_a_run_in_feet_as_recorded_says_nothing(caplog: pytest.LogCaptureFixture) -> None:
+    """Test a run giving every listed station its recorded value converts them without a warning."""
+    run = _run_of_placemarks(*((station_id, f"0,0,{feet}") for station_id, feet in _ELEVATION_IN_FEET.items()))
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.dmo.api"):
+        df = _placemark_metadata(run)
+    assert df.height == len(_ELEVATION_IN_FEET)
+    assert caplog.records == []

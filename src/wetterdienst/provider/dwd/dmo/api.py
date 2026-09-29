@@ -8,6 +8,7 @@ import contextlib
 import dataclasses
 import datetime as dt
 import logging
+import math
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -172,6 +173,77 @@ _PLACEMARK_COLUMNS = {
 }
 
 
+# Run-only stations whose placemark gives the elevation in feet, each with the exact value it gives
+# (GH-2017). DWD's `F9` stations are described by nothing but the run, and 32 of them carry a third
+# coordinate 3.1 to 3.5 times the elevation NOAA's isd-history.csv gives for the same airport:
+# `F9051` QUERETARO/GUTIERREZ says 6296.0 for an airport at 1919 m, which is 6296 ft. Each is
+# converted only while DWD publishes exactly the value recorded here, so the correction stops by
+# itself when DWD fixes its data, rather than dividing a corrected value a second time.
+_ELEVATION_IN_FEET = {
+    "F9023": 254.0,
+    "F9032": 354.0,
+    "F9034": 1893.0,
+    "F9036": 1575.0,
+    "F9040": 504.0,
+    "F9041": 3671.0,
+    "F9042": 799.0,
+    "F9044": 1910.0,
+    "F9047": 6112.0,
+    "F9048": 6100.0,
+    "F9049": 627.0,
+    "F9051": 6296.0,
+    "F9052": 374.0,
+    "F9056": 126.0,
+    "F9060": 215.0,
+    "F9064": 176.0,
+    "F9067": 384.0,
+    "F9069": 505.0,
+    "F9072": 135.0,
+    "F9073": 230.0,
+    "F9076": 203.0,
+    "F9079": 292.0,
+    "F9084": 439.0,
+    "F9086": 718.0,
+    "F9091": 175.0,
+    "F9093": 152.0,
+    "F9094": 119.0,
+    "F9096": 292.0,
+    "F9101": 150.0,
+    "F9103": 256.0,
+    "F9106": 656.0,
+    "F9108": 1961.0,
+}
+_METRES_PER_FOOT = 0.3048
+
+
+# the stations whose drift from _ELEVATION_IN_FEET has been reported: once per process, as every
+# request that describes stations reads the run afresh, and the table is for maintainers to revisit
+_REPORTED_DRIFT: set[str] = set()
+
+
+def _elevation_in_metres(station_id: str, elevation: str) -> tuple[str | None, bool]:
+    """Return a placemark's elevation in metres, and whether a listed station gave another value.
+
+    The values GH-2017 found in feet are converted. A listed station giving any other number was
+    re-surveyed or corrected by DWD and is taken as metres; the second value says so. Anything
+    that is not a finite number is None: the base request casts every station's elevation at once
+    and more strictly than `float`, which also takes `' 4806.0'` or `1_000`, so one such placemark
+    passed on as given would fail every station.
+    """
+    try:
+        value = float(elevation)
+    except ValueError:
+        return None, False
+    if not math.isfinite(value):
+        return None, False
+    in_feet = _ELEVATION_IN_FEET.get(station_id)
+    if in_feet is None:
+        return str(value), False
+    if value == in_feet:
+        return str(round(value * _METRES_PER_FOOT, 1)), False
+    return str(value), True
+
+
 def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
     """Read station id, name and position from the placemarks of one DMO run.
 
@@ -183,6 +255,7 @@ def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
     """
     rows = []
     unreadable = 0
+    drifted: list[str] = []
     for _, element in iterparse(handle, events=("end",), resolve_entities=False):
         # a comment or processing instruction carries a callable as its tag rather than a name, so
         # `endswith` on it raises -- and one anywhere in the document would otherwise discard every
@@ -199,19 +272,34 @@ def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
                 point = next((c for c in child if _is_tag(c, "coordinates")), None)
                 coordinates = point.text if point is not None else None
         element.clear()
-        row = _placemark_row(station_id, name, coordinates)
-        if row is None:
+        read = _placemark_row(station_id, name, coordinates)
+        if read is None:
             # skipped rather than raised, for the same reason: the stations this run describes are
             # only reachable through it, and one malformed placemark should not cost the rest
             unreadable += 1
             continue
+        row, drift = read
         rows.append(row)
+        if drift:
+            drifted.append(row["station_id"])
     if unreadable:
         log.warning(
             f"{unreadable} placemarks of this DMO run describe no station that could be read; "
             f"any station only they name stays unreachable",
         )
+    _report_drift(drifted)
     return pl.DataFrame(rows, schema=_PLACEMARK_COLUMNS, orient="row")
+
+
+def _report_drift(drifted: list[str]) -> None:
+    """Warn of the stations GH-2017 recorded in feet that give another elevation, each once a process."""
+    unreported = sorted(set(drifted) - _REPORTED_DRIFT)
+    if unreported:
+        _REPORTED_DRIFT.update(unreported)
+        log.warning(
+            f"DMO stations {', '.join(unreported)} give another elevation than the one GH-2017 "
+            f"recorded in feet for them; if DWD corrected them, _ELEVATION_IN_FEET should drop them",
+        )
 
 
 def _is_tag(element: object, name: str) -> bool:
@@ -220,8 +308,14 @@ def _is_tag(element: object, name: str) -> bool:
     return isinstance(tag, str) and tag.endswith(f"}}{name}")
 
 
-def _placemark_row(station_id: str | None, name: str | None, coordinates: str | None) -> dict | None:
-    """Turn one placemark's parts into a catalogue row, or None where they do not describe a station."""
+def _placemark_row(station_id: str | None, name: str | None, coordinates: str | None) -> tuple[dict, bool] | None:
+    """Turn one placemark's parts into a catalogue row, or None where they do not describe a station.
+
+    Given with it is whether the station is one GH-2017 recorded in feet that gives another
+    elevation, as `_elevation_in_metres` decides.
+    """
+    # stripped, as a pretty-printed run pads it, and the table of elevations in feet is looked up by it
+    station_id = (station_id or "").strip()
     if not station_id or not coordinates:
         return None
     longitude, latitude, elevation = ([*coordinates.strip().split(","), "", ""])[:3]
@@ -229,14 +323,16 @@ def _placemark_row(station_id: str | None, name: str | None, coordinates: str | 
         position = {"latitude": float(latitude), "longitude": float(longitude)}
     except ValueError:
         return None
-    return {
+    in_metres, drift = _elevation_in_metres(station_id, elevation)
+    row = {
         "station_id": station_id,
         "icao_id": None,
         "name": (name or "").strip() or None,
         **position,
         # left a string, as the catalogue's is: the base request casts it
-        "elevation": elevation or None,
+        "elevation": in_metres,
     }
+    return row, drift
 
 
 def _dm_degrees(column: str) -> pl.Expr:
