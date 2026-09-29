@@ -1298,7 +1298,8 @@ CLIMATE_STRIPES_CONFIG: StripesConfig = {
     },
     "precipitation": {
         "request": _get_stripes_precipitation_request,
-        "color_map": "BrBG",
+        # reversed, as `value_scaled` puts the wettest year at 0: brown for dry, teal for wet (GH-2063)
+        "color_map": "BrBG_r",
     },
 }
 
@@ -1347,17 +1348,26 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
 
     # a range holding no year with data drew empty stripes, and one holding a single year stripes of
     # one colour
-    if df.get_column("value").count() < 2:
+    years_with_data = df.filter(pl.col("value").is_not_null()).get_column("timestamp")
+    if len(years_with_data) < 2:
         msg = "At least two years with data are required to create warming stripes."
         raise ValueError(msg)
+    # from the first year with data to the last: a start or end year falling in a gap of the record
+    # would otherwise label the stripes with a year none of them shows
+    df = df.filter(pl.col("timestamp").is_between(years_with_data.min(), years_with_data.max()))
 
     # scaled over the years asked for, so they span the whole colour map rather than the part the
-    # station's whole record would leave them
+    # station's whole record would leave them; 0 is the highest value, 1 the lowest. Years all of one
+    # value take the middle of the map rather than dividing by a range of zero
+    value, lowest, highest = pl.col("value"), pl.col("value").min(), pl.col("value").max()
     df = df.with_columns(
-        (1 - (pl.col("value") - pl.col("value").min()) / (pl.col("value").max() - pl.col("value").min())).alias(
-            "value_scaled",
-        ),
-        pl.when(pl.col("value").is_not_null()).then(-0.02).otherwise(None).alias("availability"),
+        pl.when(value.is_null())
+        .then(None)
+        .when(highest == lowest)
+        .then(0.5)
+        .otherwise(1 - (value - lowest) / (highest - lowest))
+        .alias("value_scaled"),
+        pl.when(value.is_not_null()).then(-0.02).otherwise(None).alias("availability"),
     )
 
     resolution = "annual"

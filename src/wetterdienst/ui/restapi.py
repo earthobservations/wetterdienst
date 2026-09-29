@@ -874,7 +874,7 @@ def stripes_image(
         raise HTTPException(status_code=400, detail=str(e)) from e
     return Response(
         content=fig.to_image(request.format, scale=request.dpi / 100),
-        media_type=_MEDIA_TYPES[request.format],
+        media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
     )
 
 

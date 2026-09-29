@@ -4,6 +4,7 @@
 
 import json
 import logging
+from typing import get_args
 
 import pytest
 from dirty_equals import IsApprox, IsNumber, IsStr
@@ -12,8 +13,18 @@ from starlette.testclient import TestClient
 from wetterdienst import Settings, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.ui import restapi
-from wetterdienst.ui.core import get_glossary
+from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
+
+# the media type each image format is registered as, spelled out rather than read from the REST API's
+# own table, which the tests would then only repeat (GH-2063)
+_IMAGE_MEDIA_TYPES = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "webp": "image/webp",
+    "svg": "image/svg+xml",
+    "pdf": "application/pdf",
+}
 
 
 @pytest.fixture
@@ -476,7 +487,7 @@ def test_stations_dwd_obs_image(client: TestClient, fmt: str) -> None:
     )
     assert response.status_code == 200
     assert response.content
-    assert response.headers["Content-Type"] == f"image/{fmt}"
+    assert response.headers["Content-Type"] == _IMAGE_MEDIA_TYPES[fmt]
 
 
 @pytest.mark.remote
@@ -989,7 +1000,7 @@ def test_interpolate_dwd_image(client: TestClient, fmt: str) -> None:
     )
     assert response.status_code == 200
     assert response.content
-    assert response.headers["Content-Type"] == f"image/{fmt}"
+    assert response.headers["Content-Type"] == _IMAGE_MEDIA_TYPES[fmt]
 
 
 @pytest.mark.remote
@@ -1203,7 +1214,7 @@ def test_summarize_dwd_image(client: TestClient, fmt: str) -> None:
     )
     assert response.status_code == 200
     assert response.content
-    assert response.headers["Content-Type"] == f"image/{fmt}"
+    assert response.headers["Content-Type"] == _IMAGE_MEDIA_TYPES[fmt]
 
 
 @pytest.mark.remote
@@ -1609,7 +1620,7 @@ def test_values_dwd_observation_climate_summary_image(client: TestClient, fmt: s
     )
     assert response.status_code == 200
     assert response.content
-    assert response.headers["Content-Type"] == f"image/{fmt}"
+    assert response.headers["Content-Type"] == _IMAGE_MEDIA_TYPES[fmt]
 
 
 @pytest.mark.remote
@@ -1735,6 +1746,21 @@ def test_stripes_values_csv_format(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
     assert b"timestamp,value" in response.content
+
+
+@pytest.mark.parametrize(
+    "fmt",
+    sorted(
+        {*get_args(get_args(_FormatField)[0]), *get_args(StripesImageRequest.model_fields["format"].annotation)}
+        - {"json", "geojson", "csv", "html"},
+    ),
+)
+def test_every_image_format_has_its_media_type(fmt: str) -> None:
+    """Test each image format a request model allows is sent as its registered media type.
+
+    A format added to a model without a media type would otherwise go out under a guessed one.
+    """
+    assert restapi._MEDIA_TYPES[fmt] == _IMAGE_MEDIA_TYPES[fmt]  # noqa: SLF001
 
 
 @pytest.mark.parametrize(

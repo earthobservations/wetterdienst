@@ -308,6 +308,42 @@ def test_stripes_need_two_years_with_data(
         _get_stripes_data(request)
 
 
+def test_stripes_of_one_value_take_the_middle_of_the_map(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test years all of one value are scaled to 0.5, not divided by a range of zero into NaN."""
+    _stripes_of(monkeypatch, {2019: 700.0, 2020: 700.0})
+    df = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048")).df
+    assert df.get_column("value_scaled").to_list() == [0.5, 0.5]
+
+
+def test_stripes_start_and_end_at_a_year_with_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a start or end year in a gap of the record does not label the stripes with a year without data.
+
+    A start year of 1991 in a record with no data from 1991 to 1994 kept four empty years in front of
+    the first stripe, and the image was labelled 1991.
+    """
+    _stripes_of(monkeypatch, {1990: 1.0, 1991: None, 1992: None, 1993: None, 1994: None, 1995: 2.0, 1996: 3.0})
+    request = StripesValuesRequest(kind="temperature", station="01048", start_year=1991, end_year=1999)
+    df = _get_stripes_data(request).df
+    assert df.get_column("timestamp").dt.year().to_list() == [1995, 1996]
+
+
+@pytest.mark.parametrize(
+    ("kind", "highest", "lowest"),
+    [
+        # warm is red, cool is blue
+        ("temperature", "rgb(103,0,31)", "rgb(5,48,97)"),
+        # wet is teal, dry is brown: reversed, the wettest year took brown (GH-2063)
+        ("precipitation", "rgb(0,60,48)", "rgb(84,48,5)"),
+    ],
+)
+def test_stripes_colour_the_highest_and_lowest_years_as_their_kind_reads(kind: str, highest: str, lowest: str) -> None:
+    """Test the colour map puts each kind's highest year, scaled to 0, and its lowest, scaled to 1, at the right end."""
+    # plotly is the `plotting` extra, which a stripes image needs and a stripes request does not
+    colors = pytest.importorskip("plotly.colors")
+    colours = colors.get_colorscale(core.CLIMATE_STRIPES_CONFIG[kind]["color_map"])
+    assert (colours[0][1], colours[-1][1]) == (highest, lowest)
+
+
 def test_stripes_match_a_name_as_stations_and_values_do() -> None:
     """Test climate stripes default to the name threshold of the other requests and the CLI (GH-2063)."""
     assert StripesValuesRequest(kind="temperature", name="Dresden").name_threshold == 0.8

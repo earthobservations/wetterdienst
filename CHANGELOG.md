@@ -18,11 +18,12 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `/api/stripes/*` and MCP match a stripes `name` at a threshold of 0.8 by default,
+  as the CLI and the stations and values requests do; it was 0.9, so a name may now find a station
+  where it found none. Pass `name_threshold=0.9` to match as before (GH-2063)
 - Climate stripes are coloured over the years asked for: with `start_year` and `end_year`, the
-  coolest and warmest of them take the ends of the colour map, and `value_scaled` runs from 0 to 1
-  over the years returned. They were scaled over the station's whole record. `/api/stripes/*` and
-  MCP match a `name` at a threshold of 0.8 by default, as the CLI and the stations and values
-  requests do; it was 0.9 (GH-2063)
+  lowest and highest of them take the ends of the colour map, and `value_scaled` runs from 0 to 1
+  over the years returned. They were scaled over the station's whole record (GH-2063)
 - **Breaking**: `/api/stripes/values` and `/api/stripes/image` refuse neither or both of `station`
   and `name`, an `end_year` not after `start_year`, or a `name_threshold` outside 0 to 1 with a 422
   of typed entries, as the other endpoints do, where they answered a 400 with a string `detail`.
@@ -47,10 +48,12 @@ Types of changes:
 
 ### Fixed
 
-- Climate stripes refuse a year range holding fewer than two years with data; a range beyond the
-  station's record answered with no values and an empty image. Images are sent as `image/jpeg`,
-  `image/svg+xml` and `application/pdf`, where charts and stripes were sent as `image/jpg` and
-  `image/svg`, and stripes as `image/pdf` (GH-2063)
+- Precipitation stripes colour dry years brown and wet years teal; they were the other way round.
+  A year range holding fewer than two years with data is refused, where one beyond the station's
+  record answered with no values and an empty image, and stripes start and end at a year with data.
+  Years all of one value take the middle colour rather than none (GH-2063)
+- Images are sent as `image/jpeg`, `image/svg+xml` and `application/pdf`, where charts and stripes
+  were sent as `image/jpg` and `image/svg`, and stripes as `image/pdf` (GH-2063)
 - DWD DMO returns in metres the elevation of 32 `F9` stations that DWD gives in feet: `F9051`
   QUERETARO/GUTIERREZ is at 1919 m, not 6296 m. A warning names such a station once DWD gives it
   another value. An elevation in a run that is not a number is returned as null; it previously
