@@ -215,13 +215,24 @@ _ELEVATION_IN_FEET = {
 _METRES_PER_FOOT = 0.3048
 
 
-def _elevation_in_metres(station_id: str, elevation: str) -> str:
-    """Return a placemark's elevation in metres, converting the values GH-2017 found in feet."""
+def _elevation_in_metres(station_id: str, elevation: str) -> str | None:
+    """Return a placemark's elevation in metres, converting the values GH-2017 found in feet.
+
+    None for a value that is not a number: the base request casts the whole column at once, so one
+    placemark's `n/a` passed on as given would fail every station.
+    """
     try:
-        in_feet = float(elevation) == _ELEVATION_IN_FEET.get(station_id)
+        value = float(elevation)
     except ValueError:
-        return elevation
-    return str(round(float(elevation) * _METRES_PER_FOOT, 1)) if in_feet else elevation
+        return None
+    if value == _ELEVATION_IN_FEET.get(station_id):
+        return _converted(value)
+    return elevation
+
+
+def _converted(in_feet: float) -> str:
+    """Return an elevation in feet as the metres a placemark row carries, a string like the catalogue's."""
+    return str(round(in_feet * _METRES_PER_FOOT, 1))
 
 
 def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
@@ -262,6 +273,19 @@ def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
         log.warning(
             f"{unreadable} placemarks of this DMO run describe no station that could be read; "
             f"any station only they name stays unreachable",
+        )
+    # a listed station that no longer gives its recorded value was re-surveyed or corrected by DWD,
+    # and is taken as metres; said once for the run, as it means the table wants revisiting
+    drifted = sorted(
+        row["station_id"]
+        for row in rows
+        if row["station_id"] in _ELEVATION_IN_FEET
+        and row["elevation"] != _converted(_ELEVATION_IN_FEET[row["station_id"]])
+    )
+    if drifted:
+        log.warning(
+            f"DMO stations {', '.join(drifted)} no longer give the elevation GH-2017 recorded in feet "
+            f"for them, and are taken as metres; check whether DWD corrected them",
         )
     return pl.DataFrame(rows, schema=_PLACEMARK_COLUMNS, orient="row")
 
