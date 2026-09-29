@@ -109,12 +109,19 @@ function stationDistanceRadii(prefix: 'interpolation' | 'summary'): Record<strin
   return radii
 }
 
-const apiEndpoint = computed(() => {
+// each mode's endpoint, and the name its values are saved under
+const ENDPOINTS = {
+  values: { endpoint: '/api/values', filename: 'values' },
+  interpolate: { endpoint: '/api/interpolate', filename: 'interpolated' },
+  summarize: { endpoint: '/api/summarize', filename: 'summary' },
+} as const
+
+const selectedEndpoint = computed(() => {
   if (isInterpolationMode.value)
-    return '/api/interpolate'
+    return ENDPOINTS.interpolate
   if (isSummaryMode.value)
-    return '/api/summarize'
-  return '/api/values'
+    return ENDPOINTS.summarize
+  return ENDPOINTS.values
 })
 
 const apiQuery = computed(() => {
@@ -209,7 +216,7 @@ const apiQuery = computed(() => {
 // so the table, its error and a GeoJSON download of it answer to the same request whatever is
 // selected since. Bound to the live selection instead, the fetch kept a request of its own beside
 // this one, which a selection changed mid-fetch, or Clear, could part from what the table showed.
-const fetchedRequest = ref<{ endpoint: string, query: Record<string, unknown> } | null>(null)
+const fetchedRequest = ref<{ endpoint: string, filename: string, query: Record<string, unknown> } | null>(null)
 
 const { data: valuesData, pending: valuesPending, error: valuesError, refresh: refreshValues } = useFetch<ValuesResponse>(
   () => fetchedRequest.value?.endpoint ?? '/api/values',
@@ -386,11 +393,13 @@ watch(pageSize, () => {
   currentPage.value = 1
 })
 
-// The columns a copy or a download writes: the table's own, as it shows them, then whatever the
-// rows carry that it has no column for -- a wide shape's parameters, a query panel's aggregates
+// The table's columns in its order, which a copy or a download writes first
+const TABLE_ORDER = columnDefinitions.map(c => c.key)
+
+// The columns a copy or a download writes: every column the rows carry, whatever the column picker
+// shows, which follows the mode selected now rather than the one the rows were fetched in
 function columnsOf(values: Value[]): string[] {
-  const shown = columnDefinitions.filter(c => selectedColumns.value.includes(c.key)).map(c => c.key)
-  return exportColumns(values, shown, columnDefinitions.map(c => c.key))
+  return exportColumns(values, TABLE_ORDER)
 }
 
 async function copyCurrentPage() {
@@ -426,13 +435,6 @@ const canFetchData = computed(() => {
   }
 })
 
-// the file each endpoint's values are saved as
-const DOWNLOAD_FILENAMES: Record<string, string> = {
-  '/api/values': 'values',
-  '/api/interpolate': 'interpolated',
-  '/api/summarize': 'summary',
-}
-
 // A download saves what the table holds -- its rows, after the query panel and the sorting, with
 // the columns it shows first and then any others they carry -- rather than asking the backend again
 // for whatever is selected now: that answered a different selection, or units, once either had
@@ -440,7 +442,8 @@ const DOWNLOAD_FILENAMES: Record<string, string> = {
 // adds, so it is asked for again, but for the request that filled the table.
 async function downloadValues(format: 'csv' | 'json' | 'geojson') {
   const request = fetchedRequest.value
-  const filename = (request && DOWNLOAD_FILENAMES[request.endpoint]) ?? 'values'
+  // rows are only shown once a request filled the table, which names the file
+  const filename = request?.filename ?? ENDPOINTS.values.filename
   let content: string
   if (format === 'csv') {
     content = valuesToCsv(sortedValues.value, columnsOf(sortedValues.value))
@@ -513,7 +516,7 @@ const downloadMenuItems = computed(() => {
       { label: 'JSON', disabled: nothingShown, onSelect: () => downloadValues('json') },
       {
         label: 'GeoJSON',
-        disabled: nothingShown || !fetchedRequest.value || Boolean(valuesError.value) || isDataTransformed.value,
+        disabled: nothingShown || !fetchedRequest.value || isDataTransformed.value,
         onSelect: () => downloadValues('geojson'),
       },
     ],
@@ -528,7 +531,7 @@ async function fetchData() {
     valuesError.value = undefined
     return
   }
-  fetchedRequest.value = { endpoint: apiEndpoint.value, query: { ...apiQuery.value } }
+  fetchedRequest.value = { ...selectedEndpoint.value, query: { ...apiQuery.value } }
   currentPage.value = 1
   await refreshValues()
 }
@@ -1001,13 +1004,13 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             <template v-if="viewMode === 'table'">
               <UTooltip :text="t('dataViewer.copyCurrentPage')">
                 <UButton
-                  size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending"
+                  size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending || !sortedValues.length"
                   @click="copyCurrentPage"
                 />
               </UTooltip>
               <UTooltip :text="t('dataViewer.copyAllValues')">
                 <UButton
-                  size="xs" variant="ghost" icon="i-lucide-copy-check" :disabled="valuesPending"
+                  size="xs" variant="ghost" icon="i-lucide-copy-check" :disabled="valuesPending || !sortedValues.length"
                   @click="copyAllValues"
                 />
               </UTooltip>

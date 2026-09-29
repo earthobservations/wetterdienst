@@ -17,26 +17,23 @@ function csvField(value: unknown): string {
 }
 
 /**
- * The columns to export: those the table shows, in the table's order, then every column the rows
- * carry that the table has no column for, in the order they first appear.
+ * The columns to export: every column the rows carry, those the table knows in its order first, then
+ * the rest in the order they first appear.
  *
- * The table's columns are a fixed set, which a wide-shaped answer (one column per parameter) or a
- * query panel's own columns (`avg_value`) go past: those are exported although the table cannot
- * show them. A column the table has but hides, because it was taken out of the column picker,
- * stays out, and so does one no row carries, such as `value` in a wide shape.
+ * All of them, whatever the column picker shows: the picker hides `resolution` and `dataset` by
+ * default and follows the mode selected now rather than the one the rows were fetched in, and a
+ * file that left out what it hid lost fields the REST API's answer always had. A wide-shaped
+ * answer (one column per parameter) and a query panel's own columns (`avg_value`) come after.
  *
  * @param values - The rows, as the table holds them
- * @param shown - The columns the table shows, in its order
- * @param known - Every column the table can show
+ * @param order - The columns the table knows, in its order
  * @returns The columns, each once
  */
-export function exportColumns(values: Row[], shown: string[], known: string[]): string[] {
-  const columns = new Set(shown.filter(column => values.some(row => column in row)))
+export function exportColumns(values: Row[], order: string[]): string[] {
+  const columns = new Set(order.filter(column => values.some(row => column in row)))
   for (const row of values) {
-    for (const column of Object.keys(row)) {
-      if (!known.includes(column))
-        columns.add(column)
-    }
+    for (const column of Object.keys(row))
+      columns.add(column)
   }
   return [...columns]
 }
@@ -55,7 +52,8 @@ export function valuesToCsv(values: Row[], columns: string[]): string {
   if (!values.length)
     return ''
   const rows = values.map(row => columns.map(column => csvField(field(row, column))).join(','))
-  return [columns.join(','), ...rows].join('\n')
+  // a query panel names an unaliased column after its expression, `round(avg("value"), 2)`
+  return [columns.map(csvField).join(','), ...rows].join('\n')
 }
 
 /**

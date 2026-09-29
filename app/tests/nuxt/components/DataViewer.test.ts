@@ -121,6 +121,8 @@ describe('dataViewer downloads', () => {
     await vi.waitFor(() => expect(saved).toHaveLength(1))
     expect(fetchSpy).not.toHaveBeenCalled()
     const text = await saved[0]!.text()
+    // every column the rows carry, those the column picker hides by default included
+    expect(text.split('\n')[0]).toBe('station_id,resolution,dataset,parameter,timestamp,value,quality')
     expect(text.split('\n')[1]).toContain('01048')
     expect(text.split('\n')[1]).toContain('1.5')
   })
