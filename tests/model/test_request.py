@@ -121,7 +121,7 @@ def test_dwd_observation_data_whole_dataset(default_settings: Settings) -> None:
         DwdObservationMetadata.daily.climate_summary.pressure_vapor,
         DwdObservationMetadata.daily.climate_summary.pressure_air_site,
         DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m,
-        DwdObservationMetadata.daily.climate_summary.humidity,
+        DwdObservationMetadata.daily.climate_summary.humidity_relative,
         DwdObservationMetadata.daily.climate_summary.temperature_air_max_2m,
         DwdObservationMetadata.daily.climate_summary.temperature_air_min_2m,
         DwdObservationMetadata.daily.climate_summary.temperature_air_min_0_05m,

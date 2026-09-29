@@ -38,5 +38,5 @@
 | {term}`precipitation_height`            | precipitationlasthour     | precipitation height of last hour                                                | mm   | >=0         |
 | {term}`precipitation_height_last_3h`    | precipitationlast3hours   | precipitation height of last three hours                                         | mm   | >=0         |
 | {term}`precipitation_height_last_6h`    | precipitationlast6hours   | precipitation height of last six hours                                           | mm   | >=0         |
-| {term}`humidity`                        | relativehumidity          | relative humidity                                                                | %    | >=0,<=100   |
+| {term}`humidity_relative`                        | relativehumidity          | relative humidity                                                                | %    | >=0,<=100   |
 | {term}`temperature_wind_chill`          | windchill                 | wind chill temperature calculated by NWS (https://www.weather.gov/gjt/windchill) | °C   | -           |

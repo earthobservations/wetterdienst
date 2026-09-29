@@ -97,7 +97,7 @@ def test_smhi_observation_values_hourly() -> None:
     assert value_at("wind_gust_max", 0) == pytest.approx(6.9)
     assert value_at("precipitation_height", 0) == pytest.approx(0.0)
     # humidity is reported by SMHI as percent, wetterdienst stores it as fraction
-    assert value_at("humidity", 0) == pytest.approx(0.86)
+    assert value_at("humidity_relative", 0) == pytest.approx(0.86)
     assert value_at("pressure_air_sea_level", 0) == pytest.approx(997.1)
     assert value_at("visibility_range", 0) == pytest.approx(13244.0)
 
@@ -153,7 +153,7 @@ def test_smhi_observation_values_minute_1() -> None:
         return sub.get_column("value").tail(1).item()
 
     assert -60.0 <= latest("temperature_air_mean_2m") <= 60.0
-    assert 0.0 <= latest("humidity") <= 1.0
+    assert 0.0 <= latest("humidity_relative") <= 1.0
     assert 0 <= latest("wind_direction") <= 360
     assert 0.0 <= latest("wind_speed") <= 100.0
     assert 800 < latest("pressure_air_sea_level") < 1100

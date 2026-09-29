@@ -34,7 +34,7 @@
 | {term}`flow_speed`              | VA                      | average flow speed during time scale                   | m/s   | -           |
 | {term}`groundwater_level`       | GRU                     | average groundwater level during time scale            | m     | -           |
 | {term}`wind_speed`              | WG                      | average wind speed during time scale                   | m/s   | -           |
-| {term}`humidity`                | HL                      | average relative humidity of the air during time scale | %     | >=0,<=100   |
+| {term}`humidity_relative`                | HL                      | average relative humidity of the air during time scale | %     | >=0,<=100   |
 | {term}`oxygen_level`            | O2                      | average oxygen level during time scale                 | mg/l  | >=0         |
 | {term}`turbidity`               | TR                      | average turbidity during time scale                    | NTU   | -           |
 | {term}`flow_direction`          | R                       | direction of the water current                         | °     | >=0,<=360   |

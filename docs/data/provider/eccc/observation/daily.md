@@ -27,8 +27,8 @@
 |-------------------------------------|---------------------------|-------------------------------------|------|-------------|
 | {term}`cooling_degree_day`          | cooling_degree_days       | cooling degree days                 | °Cd  | >=0         |
 | {term}`heating_degree_day`          | heating_degree_days       | heating degree days                 | °Cd  | >=0         |
-| {term}`humidity_max` | max_rel_humidity | Highest relative humidity over the period. | %       | - |
-| {term}`humidity_min` | min_rel_humidity | Lowest relative humidity over the period. | %       | - |
+| {term}`humidity_relative_max` | max_rel_humidity | Highest relative humidity over the period. | %       | - |
+| {term}`humidity_relative_min` | min_rel_humidity | Lowest relative humidity over the period. | %       | - |
 | {term}`precipitation_height` | total_precipitation | Total precipitation. | mm | >=0 |
 | {term}`precipitation_height_liquid` | total_rain | Total liquid precipitation. | mm | >=0 |
 | {term}`snow_depth` | snow_on_ground | Total snow depth. | cm | >=0 |

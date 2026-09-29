@@ -53,6 +53,10 @@ RENAMED_PARAMETERS: dict[str, str] = {
     # GH-2034: DWD's ausgestochene Schneehöhe, the sampled snow, read as snow beyond a range
     "snow_depth_excelled": "snow_depth_sampled",
     "water_equivalent_snow_depth_excelled": "water_equivalent_snow_depth_sampled",
+    # GH-2036: humidity says relative everywhere else, and humidity_absolute stands beside it
+    "humidity": "humidity_relative",
+    "humidity_max": "humidity_relative_max",
+    "humidity_min": "humidity_relative_min",
 }
 
 

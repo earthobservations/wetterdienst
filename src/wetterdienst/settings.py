@@ -24,6 +24,7 @@ from pydantic import (
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
+from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.unit import UnitConverter
 
@@ -300,6 +301,11 @@ class Settings(BaseSettings):
         unknown = sorted(set(values) - PARAMETERS.keys())
         if unknown:
             msg = f"Invalid parameters in ts_geo_station_distance: {unknown} not in the canonical parameters"
+            renamed = [
+                f"'{name}' is now '{RENAMED_PARAMETERS[name]}'" for name in unknown if name in RENAMED_PARAMETERS
+            ]
+            if renamed:
+                msg += f" ({', '.join(renamed)})"
             raise ValueError(msg)
         never_interpolated = sorted(name for name in values if not PARAMETERS[name].interpolation)
         if never_interpolated:

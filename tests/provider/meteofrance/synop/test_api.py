@@ -42,7 +42,7 @@ def test_meteofrance_synop_api_values() -> None:
     [
         "wind_speed",
         "wind_direction",
-        "humidity",
+        "humidity_relative",
         "pressure_air_sea_level",
         "precipitation_height_last_3h",
         "cloud_cover_total",

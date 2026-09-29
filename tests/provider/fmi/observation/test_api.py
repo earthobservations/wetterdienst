@@ -168,7 +168,7 @@ def test_fmi_observation_values_hourly() -> None:
     assert value_at("wind_direction", 0) == pytest.approx(36.0)
     assert value_at("precipitation_height", 0) == pytest.approx(0.0)
     # humidity is reported by FMI as percent, wetterdienst stores it as fraction
-    assert value_at("humidity", 0) == pytest.approx(0.84)
+    assert value_at("humidity_relative", 0) == pytest.approx(0.84)
     assert value_at("pressure_air_sea_level", 0) == pytest.approx(1020.1)
     assert value_at("visibility_range", 0) == pytest.approx(10730.0)
 

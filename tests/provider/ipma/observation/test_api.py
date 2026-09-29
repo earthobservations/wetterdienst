@@ -155,7 +155,7 @@ def test_ipma_observation_values() -> None:
     assert df["resolution"].unique().to_list() == ["hourly"]
     assert set(df["parameter"].unique().to_list()) <= {
         "temperature_air_mean_2m",
-        "humidity",
+        "humidity_relative",
         "pressure_air_sea_level",
         "wind_speed",
         "wind_direction",

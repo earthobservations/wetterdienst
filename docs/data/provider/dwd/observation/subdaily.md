@@ -49,7 +49,7 @@
 | {term}`pressure_vapor` | vp_ter | Vapor pressure. | hPa | >=0 |
 | {term}`temperature_wet_ice_formation` | e_tf_ter | Ice on the wet bulb thermometer. | - |  |
 | {term}`temperature_wet_mean_2m`    | tf_ter        | 2m wet bulb temperature | °C |           |
-| {term}`humidity` | rf_ter | 2m relative humidity. | % | >=0,<=100 |
+| {term}`humidity_relative` | rf_ter | 2m relative humidity. | % | >=0,<=100 |
 
 ### pressure
 
@@ -103,7 +103,7 @@
 | name                            | original name | description          | unit | constraints |
 |---------------------------------|---------------|----------------------|------|-------------|
 | {term}`temperature_air_mean_2m` | tt_ter        | 2m air temperature   | °C   |             |
-| {term}`humidity`                | rf_ter        | 2m relative humidity | %    | >=0,<=100   |
+| {term}`humidity_relative`                | rf_ter        | 2m relative humidity | %    | >=0,<=100   |
 
 ### visibility
 

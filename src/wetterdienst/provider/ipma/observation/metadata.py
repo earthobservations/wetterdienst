@@ -46,7 +46,7 @@ IpmaObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "humidade",
                             "unit": "percent",
                         },

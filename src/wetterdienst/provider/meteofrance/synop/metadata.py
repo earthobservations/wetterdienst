@@ -63,7 +63,7 @@ MeteoFranceSynopMetadata = {
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "u",
                             "unit": "percent",
                         },

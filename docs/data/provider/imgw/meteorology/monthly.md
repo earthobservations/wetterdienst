@@ -26,7 +26,7 @@
 | name                                | original name                        | description                 | unit | constraints |
 |-------------------------------------|--------------------------------------|-----------------------------|------|-------------|
 | {term}`cloud_cover_total` | średnie miesięczne zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
-| {term}`humidity` | średnia miesięczna wilgotność względna | Humidity. | % | >=0,<=100 |
+| {term}`humidity_relative` | średnia miesięczna wilgotność względna | Humidity. | % | >=0,<=100 |
 | {term}`precipitation_height` | miesieczna suma opadów | precipitation height | mm | >=0 |
 | {term}`precipitation_height_max` | maksymalna dobowa suma opadów | precipitation height max | mm | >=0 |
 | {term}`snow_depth_max` | maksymalna wysokość pokrywy śnieżnej | snow depth max | cm | >=0 |
@@ -72,7 +72,7 @@
 | name                                | original name                                   | description                 | unit | constraints |
 |-------------------------------------|-------------------------------------------------|-----------------------------|------|-------------|
 | {term}`cloud_cover_total` | średnie miesięczne zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
-| {term}`humidity` | średnia miesięczna wilgotność względna | Humidity. | % | >=0,<=100 |
+| {term}`humidity_relative` | średnia miesięczna wilgotność względna | Humidity. | % | >=0,<=100 |
 | {term}`precipitation_height` | miesięczna suma opadów | precipitation height | mm | >=0 |
 | {term}`precipitation_height_day` | suma opadu dzień | Depth of precipitation collected during the daytime hours. | mm | >=0 |
 | {term}`precipitation_height_max` | maksymalna dobowa suma opadów | precipitation height max | mm | >=0 |

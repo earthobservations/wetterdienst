@@ -46,14 +46,14 @@ _MONTHLY_ANNUAL_PARAMETERS = [
         "unit": "millimeter",
     },
     {
-        "name": "humidity",
+        "name": "humidity_relative",
         "name_original": "hr",
         "unit": "percent",
     },
 ]
 
 # AEMET's annual aggregate doesn't include a humidity field at all (unlike monthly).
-_ANNUAL_PARAMETERS = [parameter for parameter in _MONTHLY_ANNUAL_PARAMETERS if parameter["name"] != "humidity"]
+_ANNUAL_PARAMETERS = [parameter for parameter in _MONTHLY_ANNUAL_PARAMETERS if parameter["name"] != "humidity_relative"]
 
 AemetObservationMetadata = {
     "name_short": "AEMET",
@@ -133,7 +133,7 @@ AemetObservationMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "hr",
                             "unit": "percent",
                         },
@@ -200,17 +200,17 @@ AemetObservationMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "hrmedia",
                             "unit": "percent",
                         },
                         {
-                            "name": "humidity_max",
+                            "name": "humidity_relative_max",
                             "name_original": "hrmax",
                             "unit": "percent",
                         },
                         {
-                            "name": "humidity_min",
+                            "name": "humidity_relative_min",
                             "name_original": "hrmin",
                             "unit": "percent",
                         },

@@ -123,7 +123,7 @@ Code (cloud_cover_total_measurement_method):
 | {term}`temperature_wet_mean_2m` | tf_std | Computed hourly value of wet bulb temperature. | °C | - |
 | {term}`pressure_air_site` | p_std | Hourly value of barometric pressure. | hPa | >=0 |
 | {term}`temperature_air_mean_2m` | tt_std | Air temperatur in 2m above ground. | °C | - |
-| {term}`humidity` | rf_std | Relative humidity. | % | >=0,<=100 |
+| {term}`humidity_relative` | rf_std | Relative humidity. | % | >=0,<=100 |
 | {term}`temperature_dew_point_mean_2m` | td_std | Dew point temperature in 2m above ground. | °C | - |
 
 ### precipitation
@@ -238,7 +238,7 @@ Code (precipitation_form):
 | name                            | original name | description          | unit | constraints |
 |---------------------------------|---------------|----------------------|------|-------------|
 | {term}`temperature_air_mean_2m` | tt_tu | Air temperature 2 m above ground. | °C | - |
-| {term}`humidity` | rf_tu | Relative humidity. | % | >=0,<=100 |
+| {term}`humidity_relative` | rf_tu | Relative humidity. | % | >=0,<=100 |
 
 ### temperature_soil
 
@@ -313,7 +313,7 @@ Code (precipitation_form):
 | name                            | original name  | description          | unit | constraints |
 |---------------------------------|----------------|----------------------|------|-------------|
 | {term}`temperature_air_mean_2m` | lufttemperatur | 2m air temperature   | °C   | -           |
-| {term}`humidity`                | rel_feuchte    | 2m relative humidity | %    | >=0,<=100   |
+| {term}`humidity_relative`                | rel_feuchte    | 2m relative humidity | %    | >=0,<=100   |
 
 ### urban_temperature_soil
 

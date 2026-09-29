@@ -25,7 +25,7 @@ export const parameters: Record<string, string> = {
   temperature_soil_mean_1m: 'Bodentemperatur (1 m)',
 
   // Humidity & moisture
-  humidity: 'Relative Luftfeuchte',
+  humidity_relative: 'Relative Luftfeuchte',
   humidity_absolute: 'Absolute Luftfeuchte',
   pressure_vapor: 'Dampfdruck',
 
@@ -438,8 +438,8 @@ export const parameters: Record<string, string> = {
   groundwater_level_max: 'Höchster Grundwasserstand',
   groundwater_level_min: 'Niedrigster Grundwasserstand',
   heating_degree_day: 'Heizgradtage',
-  humidity_max: 'Höchste relative Feuchte',
-  humidity_min: 'Niedrigste relative Feuchte',
+  humidity_relative_max: 'Höchste relative Feuchte',
+  humidity_relative_min: 'Niedrigste relative Feuchte',
   ice_on_water_thickness: 'Eisdicke auf dem Wasser',
   count_days_in_month: 'Erfasste Tage im Monat',
   count_hours_in_month: 'Erfasste Stunden im Monat',

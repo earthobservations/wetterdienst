@@ -123,9 +123,9 @@ def test_aemet_observation_values_daily() -> None:
     assert value_on("pressure_air_site_max", day1) == pytest.approx(954.2)
     assert value_on("pressure_air_site_min", day1) == pytest.approx(952.0)
     # humidity is reported by AEMET as percent, wetterdienst stores it as fraction
-    assert value_on("humidity", day1) == pytest.approx(0.65)
-    assert value_on("humidity_max", day1) == pytest.approx(0.80)
-    assert value_on("humidity_min", day1) == pytest.approx(0.48)
+    assert value_on("humidity_relative", day1) == pytest.approx(0.65)
+    assert value_on("humidity_relative_max", day1) == pytest.approx(0.80)
+    assert value_on("humidity_relative_min", day1) == pytest.approx(0.48)
 
     # 2020-01-02 has dir=99 (calm/variable), which AEMET encodes with a sentinel value
     # rather than an actual direction. The parser must turn that into a null rather than
@@ -166,7 +166,7 @@ def test_aemet_observation_values_monthly() -> None:
     assert value_of("precipitation_height") == pytest.approx(16.4)
     assert value_of("precipitation_height_max") == pytest.approx(5.4)
     # humidity is reported by AEMET as percent, wetterdienst stores it as fraction
-    assert value_of("humidity") == pytest.approx(0.66)
+    assert value_of("humidity_relative") == pytest.approx(0.66)
 
 
 @pytest.mark.remote
@@ -206,7 +206,7 @@ def test_aemet_observation_values_annual() -> None:
     assert value_of("precipitation_height") == pytest.approx(474.4)
     assert value_of("precipitation_height_max") == pytest.approx(37.8)
     # AEMET's annual aggregate doesn't include a humidity field at all
-    assert df.filter(pl.col("parameter").eq("humidity")).is_empty()
+    assert df.filter(pl.col("parameter").eq("humidity_relative")).is_empty()
 
 
 @pytest.mark.remote
@@ -237,7 +237,7 @@ def test_aemet_observation_values_hourly_realtime() -> None:
         return df.filter(pl.col("parameter").eq(parameter)).sort("timestamp").get_column("value")[-1]
 
     assert -40 < latest("temperature_air_mean_2m") < 50
-    assert 0.0 <= latest("humidity") <= 1.0
+    assert 0.0 <= latest("humidity_relative") <= 1.0
     # unlike the daily endpoint's coded 0-36 direction, real-time direction is already in
     # plain degrees — this would fail if the daily parser's *10 scaling was wrongly reused.
     assert 0 <= latest("wind_direction") <= 360

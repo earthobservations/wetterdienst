@@ -51,7 +51,7 @@ def test_settings_envs(caplog: pytest.LogCaptureFixture) -> None:
     """Test default settings but with multiple envs set."""
     os.environ["WD_CACHE_DISABLE"] = "1"
     os.environ["WD_TS_SHAPE"] = "wide"
-    os.environ["WD_TS_GEO_STATION_DISTANCE"] = '{"precipitation_height":40.0,"humidity":42}'
+    os.environ["WD_TS_GEO_STATION_DISTANCE"] = '{"precipitation_height":40.0,"humidity_relative":42}'
     caplog.set_level(logging.INFO)
     settings = Settings()
     assert (
@@ -62,7 +62,7 @@ def test_settings_envs(caplog: pytest.LogCaptureFixture) -> None:
     assert settings.ts_shape == "wide"
     # user-supplied overrides are respected; other defaults remain; fallback returns 40 km
     assert settings.ts_geo_station_distance["precipitation_height"] == 40.0
-    assert settings.ts_geo_station_distance["humidity"] == 42.0
+    assert settings.ts_geo_station_distance["humidity_relative"] == 42.0
     assert settings.ts_geo_station_distance["snow_depth_new"] == 20.0
     # default dict returns 40.0 for any other key
     assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 40.0
@@ -73,7 +73,7 @@ def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
     """Test mixed settings."""
     os.environ["WD_CACHE_DISABLE"] = "1"
     os.environ["WD_TS_SKIP_THRESHOLD"] = "0.89"
-    os.environ["WD_TS_GEO_STATION_DISTANCE"] = '{"precipitation_height":40.0,"humidity":42}'
+    os.environ["WD_TS_GEO_STATION_DISTANCE"] = '{"precipitation_height":40.0,"humidity_relative":42}'
     caplog.set_level(logging.INFO)
     settings = Settings(
         ts_skip_threshold=0.81,
@@ -88,7 +88,7 @@ def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
     # user-supplied overrides win; other pre-populated defaults remain; fallback returns 40 km
     # the argument and the env variable are merged, key by key
     assert settings.ts_geo_station_distance["precipitation_height"] == 40.0
-    assert settings.ts_geo_station_distance["humidity"] == 42.0
+    assert settings.ts_geo_station_distance["humidity_relative"] == 42.0
     assert settings.ts_geo_station_distance["wind_speed"] == 43.0
     assert settings.ts_geo_station_distance["snow_depth_new"] == 20.0
     # default dict returns 40.0 for any other key
@@ -108,7 +108,7 @@ def test_settings_geo_station_distance_radii() -> None:
     assert settings.ts_geo_station_distance["snow_depth_new"] == 30.0
     # homogeneous, from the defaultdict fallback
     assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 50.0
-    assert settings.ts_geo_station_distance["humidity"] == 50.0
+    assert settings.ts_geo_station_distance["humidity_relative"] == 50.0
 
 
 def test_settings_geo_station_distance_radii_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -321,6 +321,12 @@ def test_settings_geo_station_distance_rejects_unknown_parameter() -> None:
     """Test that a parameter name that is not canonical is rejected rather than silently ignored."""
     with pytest.raises(ValidationError, match=r"\['precipitation_heigt'\] not in the canonical parameters"):
         Settings(ts_geo_station_distance={"precipitation_heigt": 25.0})
+
+
+def test_settings_geo_station_distance_names_a_renamed_parameter() -> None:
+    """A key renamed for 1.0 is refused with the name it has now (GH-2036)."""
+    with pytest.raises(ValidationError, match=r"'humidity' is now 'humidity_relative'"):
+        Settings(ts_geo_station_distance={"humidity": 25.0})
 
 
 def test_settings_geo_station_distance_rejects_default_key() -> None:

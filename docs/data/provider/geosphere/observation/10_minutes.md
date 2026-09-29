@@ -25,7 +25,7 @@
 
 | name                                               | original name | description                      | unit | constraints |
 |----------------------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`humidity`                                   | rf            | relative humidity                | %    | >=0,<=100   |
+| {term}`humidity_relative`                                   | rf            | relative humidity                | %    | >=0,<=100   |
 | {term}`precipitation_duration`                     | rrm           | precipitation duration           | min  | >=0         |
 | {term}`precipitation_height`                       | rr            | precipitation height             | mm   | >=0         |
 | {term}`pressure_air_sea_level`                     | pred          | air pressure at sea level        | hPa  | >=0         |

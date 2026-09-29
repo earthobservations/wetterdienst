@@ -511,7 +511,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "humidity",
+        "humidity_relative",
         "fraction",
         "Relative humidity of the air, the fraction of the moisture it could hold at that temperature.",
         interpolation="homogeneous",
@@ -523,10 +523,10 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "humidity_max", "fraction", "Highest relative humidity over the period.", interpolation="homogeneous"
+        "humidity_relative_max", "fraction", "Highest relative humidity over the period.", interpolation="homogeneous"
     ),
     CanonicalParameter(
-        "humidity_min", "fraction", "Lowest relative humidity over the period.", interpolation="homogeneous"
+        "humidity_relative_min", "fraction", "Lowest relative humidity over the period.", interpolation="homogeneous"
     ),
     CanonicalParameter("ice_on_water_thickness", "length_short", "Thickness of the ice covering the water surface."),
     CanonicalParameter("count_days_in_month", "dimensionless", "Number of days in the month the record covers."),

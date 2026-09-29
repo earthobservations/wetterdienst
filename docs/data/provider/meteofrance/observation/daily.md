@@ -51,7 +51,7 @@
 | {term}`pressure_vapor` | TSVM | Mean vapour pressure. | hectopascal |
 | {term}`sunshine_duration` | INST | Daily sunshine duration. | minute |
 | {term}`radiation_global` | GLOT | Daily global radiation. | joule_per_square_centimeter |
-| {term}`humidity` | UM | Daily mean of the hourly relative humidities. | percent |
+| {term}`humidity_relative` | UM | Daily mean of the hourly relative humidities. | percent |
 | {term}`snow_depth` | NEIGETOT06 | Total depth of snow on the ground measured at 06h. | centimeter |
 | {term}`snow_depth_new` | HNEIGEF | Depth of fresh snow fallen over 24 hours, from 06h UTC on day J to 06h UTC on day J+1, that remains on the ground at 06h UTC. | centimeter |
 

@@ -181,7 +181,7 @@ DwdObservationMetadata = {
                             "name_original": "tm5_10",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity", "name_original": "rf_10", "unit": "percent"},
+                        {"name": "humidity_relative", "name_original": "rf_10", "unit": "percent"},
                         {
                             "name": "temperature_dew_point_mean_2m",
                             "name_original": "td_10",
@@ -292,7 +292,7 @@ DwdObservationMetadata = {
                             "name_original": "tt_st_10",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity", "name_original": "rf_st_10", "unit": "percent"},
+                        {"name": "humidity_relative", "name_original": "rf_st_10", "unit": "percent"},
                         {
                             # "Strahlungstemperatur" -- radiant temperature at 2 m
                             "name": "temperature_radiant_mean_2m",
@@ -635,7 +635,7 @@ DwdObservationMetadata = {
                             "name_original": "tt_std",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity", "name_original": "rf_std", "unit": "percent"},
+                        {"name": "humidity_relative", "name_original": "rf_std", "unit": "percent"},
                         {
                             "name": "temperature_dew_point_mean_2m",
                             "name_original": "td_std",
@@ -769,7 +769,7 @@ DwdObservationMetadata = {
                             "name_original": "tt_tu",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity", "name_original": "rf_tu", "unit": "percent"},
+                        {"name": "humidity_relative", "name_original": "rf_tu", "unit": "percent"},
                     ],
                 },
                 {
@@ -981,7 +981,7 @@ DwdObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "rel_feuchte",
                             "unit": "percent",
                         },
@@ -1107,7 +1107,7 @@ DwdObservationMetadata = {
                             "name_original": "tf_ter",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity", "name_original": "rf_ter", "unit": "percent"},
+                        {"name": "humidity_relative", "name_original": "rf_ter", "unit": "percent"},
                     ],
                 },
                 {
@@ -1161,7 +1161,7 @@ DwdObservationMetadata = {
                             "name_original": "tt_ter",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity", "name_original": "rf_ter", "unit": "percent"},
+                        {"name": "humidity_relative", "name_original": "rf_ter", "unit": "percent"},
                     ],
                 },
                 {
@@ -1305,7 +1305,7 @@ DwdObservationMetadata = {
                             "name_original": "tmk",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity", "name_original": "upm", "unit": "percent"},
+                        {"name": "humidity_relative", "name_original": "upm", "unit": "percent"},
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "txk",

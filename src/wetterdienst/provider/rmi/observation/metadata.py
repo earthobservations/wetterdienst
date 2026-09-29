@@ -68,7 +68,7 @@ _COMMON = [
         "unit": "meter_per_second",
     },
     {
-        "name": "humidity",
+        "name": "humidity_relative",
         "name_original": "humidity_rel_shelter_avg",
         "unit": "percent",
     },

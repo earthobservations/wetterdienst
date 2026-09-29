@@ -762,8 +762,8 @@ def get_glossary(
 
     `parameter` matches as a substring, since the useful question over 504 names is usually
     "everything about radiation" rather than one exact name. An exact name deliberately does *not*
-    short-circuit to a single entry: `humidity` is both a parameter and the prefix of
-    `humidity_max`, `humidity_min` and `humidity_absolute`, and hiding those would be the more
+    short-circuit to a single entry: `humidity_relative` is both a parameter and the prefix of
+    `humidity_relative_max` and `humidity_relative_min`, and hiding those would be the more
     surprising behaviour. Use `limit` to bound the result instead.
 
     The unit reported is the one a values request would actually return, so `ts_unit_targets` is

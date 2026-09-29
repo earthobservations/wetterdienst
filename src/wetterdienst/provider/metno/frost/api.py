@@ -58,12 +58,12 @@ MetnoFrostMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_max",
+                            "name": "humidity_relative_max",
                             "name_original": "max(relative_humidity PT10M)",
                             "unit": "percent",
                         },
                         {
-                            "name": "humidity_min",
+                            "name": "humidity_relative_min",
                             "name_original": "min(relative_humidity PT10M)",
                             "unit": "percent",
                         },
@@ -108,7 +108,7 @@ MetnoFrostMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "relative_humidity",
                             "unit": "percent",
                         },
@@ -218,7 +218,7 @@ MetnoFrostMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "mean(relative_humidity P1D)",
                             "unit": "percent",
                         },
@@ -298,7 +298,7 @@ MetnoFrostMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "mean(relative_humidity P1M)",
                             "unit": "percent",
                         },

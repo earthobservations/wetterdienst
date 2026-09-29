@@ -918,7 +918,7 @@ async function renderChartActual() {
   const cloudLowKey = findFirstAvailable(['cloud_cover_below_1000ft', 'nl'], available)
   const cloudMidKey = findFirstAvailable(['cloud_cover_between_2km_and_7km', 'cloud_cover_2_7km', 'nm'], available)
   const cloudHighKey = findFirstAvailable(['cloud_cover_above_7km', 'nh'], available)
-  const humidityKey = findFirstAvailable(['relative_humidity', 'rh', 'r'], available)
+  const humidityKey = findFirstAvailable(['humidity_relative', 'relative_humidity', 'rh', 'r'], available)
   const dewKey = findFirstAvailable(['temperature_dew_point_mean_2m', 'dew_point', 'td', 'tdt', 'dew_point_2m'], available)
   const pressureKey = findFirstAvailable(['pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'], available)
   const tempStdKey = findFirstAvailable(['temperature_standard_deviation', 'ttt_sd', 'temperature_sd', 'ttt_std', 'temperature_std', 'ttt_sigma'], available)

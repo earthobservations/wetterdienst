@@ -18,7 +18,7 @@
 | {term}`temperature_air_mean_2m`               | TG            | Mean temperature                       | °C    |
 | {term}`temperature_air_min_2m`                | TN            | Minimum temperature                    | °C    |
 | {term}`temperature_air_max_2m`                | TX            | Maximum temperature                    | °C    |
-| {term}`humidity`                              | UG            | Mean relative atmospheric humidity     | %     |
+| {term}`humidity_relative`                              | UG            | Mean relative atmospheric humidity     | %     |
 | {term}`wind_speed`                            | FG            | Mean wind speed                        | m/s   |
 | {term}`wind_gust_max`                         | FXX           | Maximum wind gust                      | m/s   |
 | {term}`precipitation_height`                  | RH            | Precipitation amount                   | mm    |

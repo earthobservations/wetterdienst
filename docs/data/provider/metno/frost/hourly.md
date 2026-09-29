@@ -17,7 +17,7 @@
 |---------------------------------------|------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|
 | {term}`temperature_air_mean_2m` | air_temperature | Air temperature (default 2 m above ground), present value | degree_celsius |
 | {term}`temperature_dew_point_mean_2m` | dew_point_temperature | Dew-point temperature - the temperature at which the air, when cooled, will become saturated (and dew is formed) | degree_celsius |
-| {term}`humidity` | relative_humidity | Relative humidity | percent |
+| {term}`humidity_relative` | relative_humidity | Relative humidity | percent |
 | {term}`wind_speed` | wind_speed | Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the observation time. (default: 10 meters above ground, some stations have measurements at 2 meters) | meter_per_second |
 | {term}`wind_direction` | wind_from_direction | Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 degrees is east. | degree |
 | {term}`pressure_air_sea_level` | air_pressure_at_sea_level | Air pressure reduced to mean sea level. The parameter is usually called QFF in aviation and shows the measured air pressure reduced to mean sea level by applying actual atmospheric conditions. | hectopascal |

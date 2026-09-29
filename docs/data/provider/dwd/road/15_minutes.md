@@ -25,7 +25,7 @@
 
 | name                                  | original name                            | description                      | unit | constraints |
 |---------------------------------------|------------------------------------------|----------------------------------|------|-------------|
-| {term}`humidity`                      | relativeHumidity                         | mean humidity                    | %    | >=0,<=100   |
+| {term}`humidity_relative`                      | relativeHumidity                         | mean humidity                    | %    | >=0,<=100   |
 | {term}`precipitation_type_flags`      | precipitationType                        | types of precipitation, as flags | -    | -           |
 | {term}`precipitation_height`          | totalPrecipitationOrTotalWaterEquivalent | precipitation height             | mm   | >=0         |
 | {term}`precipitation_intensity`       | intensityOfPrecipitation                 | precipitation intensity          | mm/s | >=0         |
@@ -43,7 +43,7 @@
 :::{note}
 The `unit` column above is the unit this network **publishes** in, not the one a request returns,
 the parser labelling the BUFR units of what it decodes and converting nothing itself. Six rows
-differ from what comes back under the default targets: {term}`humidity` is published `%` and
+differ from what comes back under the default targets: {term}`humidity_relative` is published `%` and
 returned as a decimal, so 87 % reads 0.87; the three temperatures read `K` and come back in °C;
 {term}`precipitation_intensity` is per second and comes back per hour; and
 {term}`water_film_thickness` is metres and comes back centimetres. `WD_TS_UNIT_TARGETS` decides that

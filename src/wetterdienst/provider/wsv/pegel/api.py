@@ -184,7 +184,7 @@ _PARAMETERS = [
         "unit": "meter_per_second",
     },
     {
-        "name": "humidity",
+        "name": "humidity_relative",
         "name_original": "HL",
         "unit": "percent",
     },

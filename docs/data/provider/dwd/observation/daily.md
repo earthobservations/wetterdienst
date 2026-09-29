@@ -37,7 +37,7 @@
 | {term}`pressure_vapor` | vpm | Daily mean of vapor pressure. | hPa | >=0 |
 | {term}`pressure_air_site` | pm | Daily mean of pressure. | hPa | >=0 |
 | {term}`temperature_air_mean_2m` | tmk | Daily mean of temperature. | °C | - |
-| {term}`humidity` | upm | Daily mean of relative humidity. | % | >=0,<=100 |
+| {term}`humidity_relative` | upm | Daily mean of relative humidity. | % | >=0,<=100 |
 | {term}`temperature_air_max_2m` | txk | Daily maximum of temperature at 2 m height. | °C | - |
 | {term}`temperature_air_min_2m` | tnk | Daily minimum of temperature at 2m height. | °C | - |
 | {term}`temperature_air_min_0_05m` | tgk | Daily minimum of air temperature at 5 cm above ground. | °C | - |

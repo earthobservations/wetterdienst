@@ -113,7 +113,7 @@ MeteoswissObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "ure200s0",
                             "unit": "percent",
                         },
@@ -238,7 +238,7 @@ MeteoswissObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "ure200h0",
                             "unit": "percent",
                         },
@@ -368,7 +368,7 @@ MeteoswissObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "ure200d0",
                             "unit": "percent",
                         },
@@ -483,7 +483,7 @@ MeteoswissObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "ure200m0",
                             "unit": "percent",
                         },
@@ -593,7 +593,7 @@ MeteoswissObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity",
+                            "name": "humidity_relative",
                             "name_original": "ure200y0",
                             "unit": "percent",
                         },

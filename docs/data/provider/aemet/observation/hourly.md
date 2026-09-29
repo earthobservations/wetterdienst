@@ -30,4 +30,4 @@ observations (typically the last ~24h) it currently holds for the station.
 | {term}`wind_gust_max` | vmax | Maximum wind speed, the highest wind sustained for 3 seconds recorded in the 60 minutes preceding the observation time 'fint' (m/s). | meter_per_second |
 | {term}`pressure_air_site` | pres | Instantaneous pressure at the level where the barometer is installed, at the time given by 'fint' (hPa). | hectopascal |
 | {term}`pressure_air_sea_level` | pres_nmar | Pressure reduced to sea level, for stations at an altitude of 750 metres or less, at the time given by 'fint' (hPa). | hectopascal |
-| {term}`humidity` | hr | Instantaneous relative humidity of the air at the time given by 'fint' (%). | percent |
+| {term}`humidity_relative` | hr | Instantaneous relative humidity of the air at the time given by 'fint' (%). | percent |
