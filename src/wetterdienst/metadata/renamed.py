@@ -50,6 +50,9 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "thawing_thickness_plantstock_max_month": "thawing_thickness_plant_cover_max_month",
     "wave_height_sign": "wave_height_significant",
     "wind_movement_24h": "wind_movement",
+    # GH-2034: DWD's ausgestochene Schneehöhe, the sampled snow, read as snow beyond a range
+    "snow_depth_excelled": "snow_depth_sampled",
+    "water_equivalent_snow_depth_excelled": "water_equivalent_snow_depth_sampled",
 }
 
 

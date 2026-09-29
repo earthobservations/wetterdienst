@@ -1492,9 +1492,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "snow_depth", "length_short", "Depth of the snow lying on the ground.", interpolation="homogeneous"
     ),
     CanonicalParameter(
-        "snow_depth_excelled",
+        "snow_depth_sampled",
         "length_short",
-        "Depth of the snow cover where it exceeded the measuring range.",
+        "Depth of the snow cut out as a sample to measure its water equivalent.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -2762,9 +2762,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "water_equivalent_snow_depth_excelled",
+        "water_equivalent_snow_depth_sampled",
         "precipitation",
-        "Water equivalent of the snow cover where it exceeded the gauge range.",
+        "Water equivalent of the snow cut out as a sample.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(

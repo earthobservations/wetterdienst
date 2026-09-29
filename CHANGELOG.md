@@ -49,6 +49,12 @@ Types of changes:
   old one in a request, or as a wide column in a SQL filter, is reported with its replacement. A
   wide DuckDB, SQLite or PostgreSQL table `to_target` wrote before takes no append of them
   (GH-2032)
+- **Breaking**: `dwd/observation` `snow_depth_excelled` and `water_equivalent_snow_depth_excelled`
+  are `snow_depth_sampled` and `water_equivalent_snow_depth_sampled`. They are DWD's *ausgestochene
+  Schneehöhe*, the snow cut out as a sample to measure its water equivalent; their descriptions and
+  app labels said snow beyond the measuring range, which neither is. Request the new names; an old
+  one in a request, or as a wide column in a SQL filter, is reported with its replacement. A wide
+  DuckDB, SQLite or PostgreSQL table `to_target` wrote before takes no append of them (GH-2034)
 
 ## [0.138.0] - 2026-09-28
 
