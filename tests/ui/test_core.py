@@ -304,7 +304,10 @@ def test_stripes_need_two_years_with_data(
     """Test a range holding fewer than two years with data is refused, not drawn (GH-2063)."""
     _stripes_of(monkeypatch, values)
     request = StripesValuesRequest(kind="temperature", station="01048", start_year=years[0], end_year=years[1])
-    with pytest.raises(ValueError, match="At least two years with data are required"):
+    with pytest.raises(
+        ValueError,
+        match="At least two years with data are required to create climate stripes; station 01048 has data from 2000",
+    ):
         _get_stripes_data(request)
 
 

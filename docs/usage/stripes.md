@@ -3,8 +3,8 @@
 Climate stripes (also known as
 ["warming stripes"](https://en.wikipedia.org/wiki/Warming_stripes)) are a minimalistic
 visualization popularized by Ed Hawkins that encodes the long-term trend of a climate
-variable as a sequence of coloured bars — one bar per year, coloured from blue (cooler /
-drier) to red (warmer / wetter).
+variable as a sequence of coloured bars — one bar per year, coloured from blue (cooler) to red
+(warmer) for temperature, and from brown (drier) to teal (wetter) for precipitation.
 
 Wetterdienst can generate climate stripes from **DWD** daily observations for two kinds:
 
@@ -12,9 +12,9 @@ Wetterdienst can generate climate stripes from **DWD** daily observations for tw
 - `precipitation` — based on the annual precipitation sum
 
 The colours are scaled over the years shown: with `start_year` and `end_year`, the lowest and
-highest of those years take the two ends of the colour map -- red and blue for temperature, teal and
-brown for precipitation -- and `value_scaled` runs from 0 for the highest to 1 for the lowest. At
-least two of them must have data.
+highest of those years take the two ends of the colour map, so the coolest is blue and the warmest
+red, or the driest brown and the wettest teal. At least two of the years must have data. The CSV of
+`/api/stripes/values` gives each year's `value_scaled`, from 0 for the highest to 1 for the lowest.
 
 The feature is exposed via the [command line interface](#command-line-interface) and the
 [REST API](#rest-api). The hosted [web app](https://www.wetterdienst.eobs.org) also

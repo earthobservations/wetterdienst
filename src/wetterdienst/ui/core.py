@@ -1341,6 +1341,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     df = df.set_sorted("timestamp")
     df = df.select("timestamp", "value")
     df = df.upsample("timestamp", every="1y")
+    recorded = df.filter(pl.col("value").is_not_null()).get_column("timestamp").dt.year()
     if start_year is not None:
         df = df.filter(pl.col("timestamp").dt.year().ge(start_year))
     if end_year is not None:
@@ -1350,7 +1351,11 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     # one colour
     years_with_data = df.filter(pl.col("value").is_not_null()).get_column("timestamp")
     if len(years_with_data) < 2:
-        msg = "At least two years with data are required to create warming stripes."
+        record = f"from {recorded.min()} to {recorded.max()}" if len(recorded) else "for no year"
+        msg = (
+            f"At least two years with data are required to create climate stripes; station "
+            f"{station['station_id']} has data {record}"
+        )
         raise ValueError(msg)
     # from the first year with data to the last: a start or end year falling in a gap of the record
     # would otherwise label the stripes with a year none of them shows

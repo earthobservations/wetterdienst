@@ -22,8 +22,9 @@ Types of changes:
   as the CLI and the stations and values requests do; it was 0.9, so a name may now find a station
   where it found none. Pass `name_threshold=0.9` to match as before (GH-2063)
 - Climate stripes are coloured over the years asked for: with `start_year` and `end_year`, the
-  lowest and highest of them take the ends of the colour map, and `value_scaled` runs from 0 to 1
-  over the years returned. They were scaled over the station's whole record (GH-2063)
+  lowest and highest of them take the ends of the colour map, and `value_scaled` in the CSV of
+  `/api/stripes/values` runs from 0 to 1 over the years returned. They were scaled over the
+  station's whole record (GH-2063)
 - **Breaking**: `/api/stripes/values` and `/api/stripes/image` refuse neither or both of `station`
   and `name`, an `end_year` not after `start_year`, or a `name_threshold` outside 0 to 1 with a 422
   of typed entries, as the other endpoints do, where they answered a 400 with a string `detail`.
