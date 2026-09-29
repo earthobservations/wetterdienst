@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-09-29
+
 ### Changed
 
 - `[Stations]` Stations carry `elevation` where they carried `height`, as the backend now returns
@@ -681,7 +683,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.16.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.17.0...HEAD
+[0.17.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.16.0...app-v0.17.0
 [0.16.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.15.0...app-v0.16.0
 [0.15.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.14.1...app-v0.15.0
 [0.14.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.14.0...app-v0.14.1

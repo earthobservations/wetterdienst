@@ -104,7 +104,7 @@ gh release create app-v1.1.0 --title "App v1.1.0" --notes "Release notes..."
 ## Version Management
 
 - **Backend**: Version in `pyproject.toml` (currently `0.139.0`)
-- **App**: Version in `app/package.json` (currently `0.16.0`; the package is also marked `private`)
+- **App**: Version in `app/package.json` (currently `0.17.0`; the package is also marked `private`)
 - Both can be versioned independently
 - Consider semantic versioning for both
 
