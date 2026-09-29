@@ -110,7 +110,6 @@ dependencies = [
     "backports-datetime-fromisoformat>=2; python_version<'3.11'",
     "certifi>=2024.2.2",
     "click>=8.2,<9",
-    "cloup>=3.0.1,<5",
     "fsspec[http]>=2024.6",
     "lxml>=4.9.1,<7",
     "measurement>=3.2,<4",

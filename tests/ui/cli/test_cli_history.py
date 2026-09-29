@@ -159,4 +159,4 @@ def test_history_no_station_selection() -> None:
         ["history", "--provider=dwd", "--network=observation", "--parameters=daily/climate_summary"],
     )
     assert result.exit_code == 2
-    assert "Select stations by exactly one of --all or --station" in result.output
+    assert "Select stations by exactly one of all or station" in result.output

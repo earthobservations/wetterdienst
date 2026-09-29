@@ -24,6 +24,11 @@ Types of changes:
   without a longitude, three sides of a bounding box, `rank` without a point or `name` -- is a 422
   where it was a 400. Send exactly one of `all`, `station`, `name`, a point with `rank` or
   `distance`, a bounding box, or `sql` (GH-2056)
+- `wetterdienst` no longer depends on cloup. Each command's `--help` lists its options in one
+  list -- what is requested, which stations, then the output -- and ends with examples, and
+  `wetterdienst --help` is a short overview rather than a hand-kept copy of every option. The CLI
+  takes `--rank` beside `--name`, as the REST API does. A refused request names each problem on a
+  line of its own instead of echoing every option given (GH-2056)
 
 ### Fixed
 

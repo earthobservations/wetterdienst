@@ -96,7 +96,7 @@ All HTTP goes through `util/network.py`, wrapping fsspec with TTL caching and `s
 
 ### UI layer
 
-- **CLI** (`ui/cli.py`): click/cloup-based.
+- **CLI** (`ui/cli.py`): click-based.
 - **REST API** (`ui/restapi.py`): FastAPI app mirroring the CLI; starts via `wetterdienst restapi`.
 - **MCP** (`ui/mcp.py`): Model Context Protocol server exposing the same tools.
 - **App** (`app/`): Nuxt 3 SPA (SSR disabled) calling the REST API; `NUXT_PUBLIC_API_BASE` sets the backend URL.
