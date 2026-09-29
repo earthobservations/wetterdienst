@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Explorer]` A refused request is told in the error toast by each parameter and what is wrong
+  with it -- "station: Cannot be combined with name" -- where a 422 showed `[object Object]`. A
+  download the backend refuses shows that toast instead of saving the error as the file and
+  reporting it downloaded, and a download with no station or point selected sends nothing (GH-2056)
+
 ## [0.17.0] - 2026-09-29
 
 ### Changed

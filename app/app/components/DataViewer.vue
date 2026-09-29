@@ -7,6 +7,7 @@ import type { StationSelectionState } from '~/types/station-selection-state.type
 import { h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
+import { describeApiError } from '~/utils/api-error'
 import { formatDate } from '~/utils/format'
 
 const props = defineProps<{
@@ -218,10 +219,10 @@ const { data: valuesData, pending: valuesPending, error: valuesError, refresh: r
 const allValues = computed(() => valuesData.value?.values ?? [])
 
 const fetchErrorMessage = computed(() => {
-  const err = valuesError.value as { data?: { detail?: string }, message?: string } | undefined
+  const err = valuesError.value as { data?: unknown, message?: string } | undefined
   if (!err)
     return null
-  return err.data?.detail ?? err.message ?? String(err)
+  return describeApiError(err.data) ?? err.message ?? String(err)
 })
 
 const toast = useToast()
@@ -405,7 +406,28 @@ async function copyAllValues() {
   toast.add({ title: t('dataViewer.copied'), description: t('dataViewer.copiedRows', { count: sortedValues.value.length }), color: 'success' })
 }
 
+const canFetchData = computed(() => {
+  const ps = parameterSelection.value
+  const ss = stationSelection.value
+  // Safety checks for props
+  if (!ps.parameters?.length)
+    return false
+
+  if (!ss.mode)
+    return false
+
+  if (ss.mode === 'station') {
+    return (ss.selection?.stations?.length ?? 0) > 0
+  }
+  else {
+    const interp = ss.interpolation
+    return interp?.latitude !== undefined && interp?.longitude !== undefined
+  }
+})
+
 async function downloadValues(format: string, extension: string) {
+  if (!canFetchData.value)
+    return
   const ps = parameterSelection.value
   const ss = stationSelection.value
   const params = new URLSearchParams()
@@ -482,6 +504,20 @@ async function downloadValues(format: string, extension: string) {
 
   const response = await fetch(`${endpoint}?${params.toString()}`)
   const data = await response.text()
+  // an error answer is told, not saved as the file asked for
+  if (!response.ok) {
+    let body: unknown = null
+    try {
+      body = JSON.parse(data)
+    }
+    catch {}
+    toast.add({
+      title: t('dataViewer.fetchErrorToastTitle'),
+      description: describeApiError(body) ?? `${response.status} ${response.statusText}`,
+      color: 'error',
+    })
+    return
+  }
 
   const blob = new Blob([data], { type: 'application/octet-stream' })
   const url = URL.createObjectURL(blob)
@@ -529,25 +565,6 @@ const downloadMenuItems = computed(() => {
       { label: 'GeoJSON', onSelect: () => downloadValues('geojson', 'geojson') },
     ],
   ]
-})
-
-const canFetchData = computed(() => {
-  const ps = parameterSelection.value
-  const ss = stationSelection.value
-  // Safety checks for props
-  if (!ps.parameters?.length)
-    return false
-
-  if (!ss.mode)
-    return false
-
-  if (ss.mode === 'station') {
-    return (ss.selection?.stations?.length ?? 0) > 0
-  }
-  else {
-    const interp = ss.interpolation
-    return interp?.latitude !== undefined && interp?.longitude !== undefined
-  }
 })
 
 // Manual fetch function
