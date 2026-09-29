@@ -9,7 +9,7 @@ import QueryPanel from '~/components/QueryPanel.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
 import { describeApiError } from '~/utils/api-error'
 import { formatDate } from '~/utils/format'
-import { valuesToCsv, valuesToJson } from '~/utils/values-export'
+import { exportColumns, valuesToCsv, valuesToJson } from '~/utils/values-export'
 
 const props = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
@@ -221,6 +221,8 @@ const allValues = computed(() => valuesData.value?.values ?? [])
 
 // the request that filled the table, which a GeoJSON download asks for again; set once it answers
 const fetchedRequest = ref<{ endpoint: string, query: Record<string, unknown> } | null>(null)
+// fetches started, so the one that finishes last does not take the place of the one started last
+let fetchCount = 0
 
 const fetchErrorMessage = computed(() => {
   const err = valuesError.value as { data?: unknown, message?: string } | undefined
@@ -428,41 +430,46 @@ const DOWNLOAD_FILENAMES: Record<string, string> = {
   '/api/summarize': 'summary',
 }
 
-// A download saves what the table shows -- its rows, after the query panel and the sorting, in its
-// columns -- rather than asking the backend again for whatever is selected now: that answered a
-// different selection, or units, once either had changed since the table was filled (GH-2065).
-// GeoJSON needs the station positions the backend adds, so it is asked for again, but for the
-// request that filled the table.
+// A download saves what the table holds -- its rows, after the query panel and the sorting, with
+// the columns it shows first and then any others they carry -- rather than asking the backend again
+// for whatever is selected now: that answered a different selection, or units, once either had
+// changed since the table was filled (GH-2065). GeoJSON needs the station positions the backend
+// adds, so it is asked for again, but for the request that filled the table.
 async function downloadValues(format: 'csv' | 'json' | 'geojson') {
-  const filename = DOWNLOAD_FILENAMES[fetchedRequest.value?.endpoint ?? apiEndpoint.value] ?? 'values'
+  const request = fetchedRequest.value
+  const filename = (request && DOWNLOAD_FILENAMES[request.endpoint]) ?? 'values'
+  const columns = exportColumns(sortedValues.value, selectedColumns.value)
   let content: string
   if (format === 'csv') {
-    content = valuesToCsv(sortedValues.value, selectedColumns.value)
+    content = valuesToCsv(sortedValues.value, columns)
   }
   else if (format === 'json') {
-    content = valuesToJson(sortedValues.value, selectedColumns.value)
+    content = valuesToJson(sortedValues.value, columns)
   }
   else {
-    const request = fetchedRequest.value
     if (!request)
       return
-    const params = new URLSearchParams()
-    for (const [key, value] of Object.entries({ ...request.query, format: 'geojson' })) {
-      if (value !== undefined && value !== null)
-        params.set(key, String(value))
+    try {
+      // as the table's own request was sent, so the query reads the same
+      content = await $fetch<string>(request.endpoint, {
+        query: { ...request.query, format: 'geojson' },
+        responseType: 'text',
+      })
     }
-    const response = await fetch(`${request.endpoint}?${params.toString()}`)
-    content = await response.text()
-    // an error answer is told, not saved as the file asked for
-    if (!response.ok) {
-      let body: unknown = null
-      try {
-        body = JSON.parse(content)
+    catch (error) {
+      // an error answer, or none at all, is told rather than saved as the file asked for. Asked for
+      // as text, the body of an error answer comes as text too, JSON to be read before telling
+      const fetchError = error as { data?: unknown, message?: string }
+      let body = fetchError.data
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body)
+        }
+        catch {}
       }
-      catch {}
       toast.add({
         title: t('dataViewer.fetchErrorToastTitle'),
-        description: describeApiError(body) ?? `${response.status} ${response.statusText}`,
+        description: describeApiError(body) ?? fetchError.message ?? String(error),
         color: 'error',
       })
       return
@@ -533,9 +540,13 @@ async function fetchData() {
     return
   }
   const request = { endpoint: apiEndpoint.value, query: { ...apiQuery.value } }
+  const thisFetch = ++fetchCount
   currentPage.value = 1
   await refreshValues()
-  fetchedRequest.value = valuesError.value ? null : request
+  // a fetch started later supersedes this one, and its answer is the one the table shows, however
+  // the two finish
+  if (thisFetch === fetchCount)
+    fetchedRequest.value = valuesError.value ? null : request
 }
 
 // Clear function to reset data

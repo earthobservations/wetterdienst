@@ -1,6 +1,6 @@
 import type { Value } from '#shared/types/api'
 import { describe, expect, it } from 'vitest'
-import { valuesToCsv, valuesToJson } from '../../app/utils/values-export'
+import { exportColumns, valuesToCsv, valuesToJson } from '../../app/utils/values-export'
 
 const rows: Value[] = [
   { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', timestamp: '2020-01-01T00:00:00Z', value: 1.5, quality: 10 },
@@ -36,5 +36,27 @@ describe('valuesToJson', () => {
         { station_id: '04411', value: null },
       ],
     })
+  })
+})
+
+describe('exportColumns', () => {
+  it('keeps the columns the table shows first, then every other column the rows carry', () => {
+    // a wide-shaped answer: one column per parameter, and no parameter or value column
+    const wide = [{ station_id: '01048', timestamp: '2020-01-01', temperature_air_mean_2m: 1.5, precipitation_amount: 0.2 }]
+    expect(exportColumns(wide, ['station_id', 'parameter', 'timestamp', 'value'])).toEqual([
+      'station_id',
+      'timestamp',
+      'temperature_air_mean_2m',
+      'precipitation_amount',
+    ])
+  })
+
+  it('keeps a column the query panel added', () => {
+    const grouped = [{ timestamp: '2020-01-01', parameter: 'temperature_air_mean_2m', avg_value: 1.5 }]
+    expect(exportColumns(grouped, ['station_id', 'parameter', 'timestamp', 'value'])).toEqual([
+      'parameter',
+      'timestamp',
+      'avg_value',
+    ])
   })
 })
