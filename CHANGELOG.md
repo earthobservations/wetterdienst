@@ -39,7 +39,9 @@ Types of changes:
 - `interpolate` and `summarize` estimate for a point on the equator or the prime meridian. A
   latitude or longitude of 0 was taken for no point at all, and the request failed with "Either
   latitude and longitude or station must be provided" (GH-2056)
-
+- `wetterdienst about fields` applies `--debug`, and for any network but DWD observation answers
+  with a usage error naming the one it describes; it ended in an `AttributeError` traceback
+  (GH-2056)
 - `wetterdienst radar --wmo_code` finds the site it names. The option was read as text and compared
   with the sites' integer WMO codes, so every lookup failed with a `KeyError` traceback. A code no
   site carries now answers `Error: Radar site not found` and exit status 1, and an ODIM code of the

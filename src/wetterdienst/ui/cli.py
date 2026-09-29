@@ -23,6 +23,7 @@ from wetterdienst.exceptions import (
     NoStationsWithElevationError,
 )
 from wetterdienst.metadata.unit_type import UnitType
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
@@ -830,18 +831,21 @@ def fields(
     dataset: str,
     resolution: str,
     period: str,
-    language: str,
-    **kwargs: dict,
+    language: Literal["en", "de"],
+    debug: bool,  # noqa: FBT001
 ) -> None:
-    """Get information about fields."""
-    api = get_api(provider, network)
+    """Describe the fields of a dataset's files, from the provider's own documentation.
 
-    if not (api.metadata.name_short == "DWD" and api.metadata.kind == "observation") and kwargs.get("fields"):
-        msg = "'fields' command only available for provider 'DWD'"
-        raise click.BadParameter(msg)
+    DWD observation only: no other provider publishes such a description.
+    """
+    set_logging_level(debug=debug)
+    api = get_api(provider, network)
+    if not issubclass(api, DwdObservationRequest):
+        msg = f"Fields are described for provider 'dwd', network 'observation' only, not {provider}/{network}."
+        raise click.UsageError(msg)
 
     try:
-        metadata = api.describe_fields(  # ty: ignore[unresolved-attribute]
+        metadata = api.describe_fields(
             dataset=(resolution, dataset),
             period=period,
             language=language,

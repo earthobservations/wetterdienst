@@ -173,6 +173,37 @@ def test_cli_about_fields_dwd_observation() -> None:
     assert "quality_information" in result.output
 
 
+_ABOUT_FIELDS = ["about", "fields", "--resolution=daily", "--dataset=daily", "--period=historical"]
+
+
+def test_cli_about_fields_refuses_other_providers() -> None:
+    """Test about fields refuses a network without field descriptions, rather than failing on it.
+
+    Its check looked for an option the command does not have, so it never refused, and NOAA GHCN
+    ended in an AttributeError traceback.
+    """
+    runner = CliRunner()
+    result = runner.invoke(cli, [*_ABOUT_FIELDS, "--provider=noaa", "--network=ghcn"])
+    assert result.exit_code == 2, result.output
+    assert (
+        "Error: Fields are described for provider 'dwd', network 'observation' only, not noaa/ghcn.\n" in result.output
+    )
+
+
+def test_cli_about_fields_applies_debug(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test about fields applies --debug, which its `**kwargs` used to swallow."""
+    levels = []
+    monkeypatch.setattr("wetterdienst.ui.cli.set_logging_level", lambda *, debug: levels.append(debug))
+    monkeypatch.setattr(
+        "wetterdienst.provider.dwd.observation.DwdObservationRequest.describe_fields",
+        lambda **_kwargs: {"parameters": {}},
+    )
+    runner = CliRunner()
+    result = runner.invoke(cli, [*_ABOUT_FIELDS, "--provider=dwd", "--network=observation", "--debug"])
+    assert result.exit_code == 0, result.output
+    assert levels == [True]
+
+
 def test_no_combination_of_provider_and_network(caplog: pytest.CaptureFixture) -> None:
     """Test cli coverage of dwd parameters."""
     runner = CliRunner()
