@@ -1197,6 +1197,69 @@ class StripesData(BaseModel):
 StripesKind = Literal["temperature", "precipitation"]
 
 
+class StripesRequest(BaseModel):
+    """The station and the years climate stripes are made for, shared by their values and their image.
+
+    Like the other request models, it states its rules once for the CLI, the REST API and MCP, which
+    each checked them by hand before, and answered a refusal in a shape of their own (GH-2060).
+    """
+
+    model_config = {"extra": "forbid"}
+
+    kind: Annotated[
+        StripesKind,
+        Field(description="temperature (annual mean air temperature) or precipitation (annual amount)."),
+    ]
+    station: Annotated[str | None, Field(description="Station id, e.g. '01048'; give this or name.")] = None
+    name: Annotated[
+        str | None,
+        Field(description="Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."),
+    ] = None
+    name_threshold: _NameThresholdField = 0.9
+    start_year: Annotated[int | None, Field(description="First year. Default: the station's first.")] = None
+    end_year: Annotated[
+        int | None,
+        Field(description="Last year, after start_year. Default: the station's last."),
+    ] = None
+    debug: _DebugField = False
+
+    @model_validator(mode="after")
+    def check_station_and_years(self) -> StripesRequest:
+        """Check exactly one of station or name is given, and a year range that ends after it starts."""
+        errors = _check_one_of(self, (("station",), ("name",)))
+        if self.start_year is not None and self.end_year is not None and self.end_year <= self.start_year:
+            message = f"Input should be greater than start_year ({self.start_year})"
+            errors.append(
+                _rule_error(
+                    "greater_than_field",
+                    message,
+                    ("end_year",),
+                    self.end_year,
+                    field="start_year",
+                    gt=self.start_year,
+                ),
+            )
+        _raise_rule_errors(self, errors)
+        return self
+
+
+class StripesValuesRequest(StripesRequest):
+    """A request for the values climate stripes are made of."""
+
+    format: Annotated[Literal["json", "csv"], Field(description="Output format.")] = "json"
+    pretty: _PrettyField = False
+
+
+class StripesImageRequest(StripesRequest):
+    """A request for a climate stripes image."""
+
+    show_title: Annotated[bool, Field(description="Show the station name.")] = True
+    show_years: Annotated[bool, Field(description="Show the first and last year.")] = True
+    show_data_availability: Annotated[bool, Field(description="Mark the years without data.")] = True
+    format: Annotated[Literal["png", "jpg", "svg", "pdf"], Field(description="Image format.")] = "png"
+    dpi: Annotated[int, Field(gt=0, description="Resolution in dots per inch.")] = 300
+
+
 class StripesConfigItem(TypedDict):
     """Configuration item for climate stripes."""
 
@@ -1248,47 +1311,28 @@ def _get_stripes_stations(kind: StripesKind, *, active: bool = True) -> Stations
     return stations
 
 
-def _get_stripes_data(  # noqa: C901
-    kind: StripesKind,
-    station_id: str | None = None,
-    name: _NameField = None,
-    start_year: int | None = None,
-    end_year: int | None = None,
-    name_threshold: float = 0.8,
-) -> StripesData:
-    """Get stripes data for station in Germany.
+def _get_stripes_data(stripes: StripesRequest) -> StripesData:
+    """Get stripes data for station in Germany, for a request its model has checked.
 
     Returns StripesData with metadata and dataframe.
     """
-    if kind not in ["temperature", "precipitation"]:
-        msg = "kind must be either 'temperature' or 'precipitation'"
-        raise ValueError(msg)
-    if start_year and end_year and start_year >= end_year:
-        msg = "start_year must be less than end_year"
-        raise ValueError(msg)
-    if name_threshold < 0 or name_threshold > 1:
-        msg = "name_threshold must be between 0.0 and 1.0"
-        raise ValueError(msg)
-
+    kind, start_year, end_year = stripes.kind, stripes.start_year, stripes.end_year
     request = CLIMATE_STRIPES_CONFIG[kind]["request"](Period.HISTORICAL)
 
-    if station_id:
-        stations = request.filter_by_station_id(station_id)
-    elif name:
-        stations = request.filter_by_name(name, threshold=name_threshold)
+    if stripes.station:
+        stations = request.filter_by_station_id(stripes.station)
+    elif stripes.name:
+        stations = request.filter_by_name(stripes.name, threshold=stripes.name_threshold)
     else:
-        param_options = [
-            "station (string)",
-            "name (string)",
-        ]
-        msg = f"Give one of the parameters: {', '.join(param_options)}"
-        raise KeyError(msg)
+        # not reached: the request model refuses a request with neither
+        msg = f"{type(stripes).__name__} gives neither a station nor a name"
+        raise AssertionError(msg)
 
     try:
         station = stations.to_dict()["stations"][0]
     except IndexError as e:
-        parameter = "station_id" if station_id else "name"
-        msg = f"No station with a {parameter} similar to '{station_id or name}' found"
+        parameter = "station_id" if stripes.station else "name"
+        msg = f"No station with a {parameter} similar to '{stripes.station or stripes.name}' found"
         raise ValueError(msg) from e
 
     df = stations.values.all().df.sort("timestamp")
@@ -1329,32 +1373,20 @@ def _get_stripes_data(  # noqa: C901
     return StripesData(metadata=metadata, df=df)
 
 
-def _plot_stripes(
-    kind: StripesKind,
-    station_id: str | None = None,
-    name: _NameField = None,
-    start_year: int | None = None,
-    end_year: int | None = None,
-    name_threshold: float = 0.8,
-    *,
-    show_title: bool = True,
-    show_years: bool = True,
-    show_data_availability: bool = True,
-) -> go.Figure:
-    """Create warming stripes for station in Germany.
+def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
+    """Create warming stripes for station in Germany, for a request its model has checked.
 
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
     """
     import plotly.graph_objects as go  # noqa: PLC0415
 
-    stripes_data = _get_stripes_data(
-        kind=kind,
-        station_id=station_id,
-        name=name,
-        start_year=start_year,
-        end_year=end_year,
-        name_threshold=name_threshold,
+    kind = stripes.kind
+    show_title, show_years, show_data_availability = (
+        stripes.show_title,
+        stripes.show_years,
+        stripes.show_data_availability,
     )
+    stripes_data = _get_stripes_data(stripes)
 
     df = stripes_data.df
     station_dict = stripes_data.metadata.station

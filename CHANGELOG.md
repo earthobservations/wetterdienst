@@ -18,6 +18,12 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `/api/stripes/values` and `/api/stripes/image` refuse neither or both of `station`
+  and `name`, an `end_year` not after `start_year`, or a `name_threshold` outside 0 to 1 with a 422
+  located at each parameter involved, as the other endpoints do, where they answered a 400 with a
+  string `detail`. An unknown query parameter is a 422 as well. Match on the entries' `type` and
+  `loc`. `wetterdienst stripes values` tells the same refusals in click's terms, with exit status
+  2 where it was 1 (GH-2060)
 - **Breaking**: the REST API and MCP refuse with a 422 a stations, values or history request they
   answered before: one selecting stations in two ways, answered for the first (`station` with
   `name` returned the station alone), and one sending `rank` or `distance` beside anything but a

@@ -29,6 +29,7 @@ from wetterdienst.ui.core import (
     InterpolationRequest,
     IssuesRequest,
     StationsRequest,
+    StripesImageRequest,
     SummaryRequest,
     ValuesRequest,
     _get_stripes_stations,
@@ -379,6 +380,9 @@ def _describe_problem(problem: ErrorDetails, params: dict[str, click.Parameter],
     if kind == "missing_with" and field in params:
         message = f"Required with {join_names([hint(f) for f in info['required_with']])}."
         return click.MissingParameter(message, ctx, params[field]).format_message()
+    if kind == "greater_than_field" and field in params:
+        message = f"Input should be greater than {hint(info['field'])} ({info['gt']}) (got {problem['input']!r})."
+        return click.BadParameter(message, ctx, params[field]).format_message()
     if kind == "requires":
         return f"Option {hint(field)} requires {describe_fields(info['requires'], hint)}."
     if field in params:
@@ -1859,7 +1863,23 @@ def stripes_values(
 
     Select the station with exactly one of --station or --name.
     """
-    _require_one_of(station=bool(station), name=bool(name))
+    request = _validate_request(
+        StripesImageRequest,
+        {
+            "kind": kind,
+            "station": station,
+            "name": name,
+            "name_threshold": name_threshold,
+            "start_year": start_year,
+            "end_year": end_year,
+            "show_title": show_title,
+            "show_years": show_years,
+            "show_data_availability": show_data_availability,
+            "format": fmt,
+            "dpi": dpi,
+            "debug": debug,
+        },
+    )
     if target and not target.name.lower().endswith(fmt):
         msg = f"'target' must have extension '{fmt}'"
         raise click.ClickException(msg)
@@ -1867,17 +1887,7 @@ def stripes_values(
     set_logging_level(debug=debug)
 
     try:
-        fig = _plot_stripes(
-            kind=kind,
-            station_id=station,
-            name=name,
-            start_year=start_year,
-            end_year=end_year,
-            name_threshold=name_threshold,
-            show_title=show_title,
-            show_years=show_years,
-            show_data_availability=show_data_availability,
-        )
+        fig = _plot_stripes(request)
     except Exception as e:
         log.exception("Error while plotting warming stripes")
         raise click.ClickException(str(e)) from e

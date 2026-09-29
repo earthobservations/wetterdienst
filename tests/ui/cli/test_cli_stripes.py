@@ -69,28 +69,31 @@ def test_stripes_values_non_defaults(params: dict) -> None:
     assert result.stdout
 
 
-@pytest.mark.remote
 def test_stripes_values_start_year_ge_end_year() -> None:
-    """Test the summarize command with start_year greater than end_year."""
+    """Test an end year not after the start year is a usage error, before anything is fetched."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
         ["stripes", "values", "--kind=precipitation", "--station=1048", "--start_year=2020", "--end_year=2019"],
     )
-    assert result.exit_code == 1
-    assert "Error: start_year must be less than end_year" in result.stderr
+    assert result.exit_code == 2
+    assert (
+        "Error: Invalid value for '--end_year': Input should be greater than '--start_year' (2020) (got 2019).\n"
+        in (result.stderr)
+    )
 
 
-@pytest.mark.remote
 def test_stripes_values_wrong_name_threshold() -> None:
-    """Test the summarize command with wrong name_threshold."""
+    """Test a name threshold above 1 is a usage error, before anything is fetched."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
         ["stripes", "values", "--kind=precipitation", "--station=1048", "--name_threshold=1.01"],
     )
-    assert result.exit_code == 1
-    assert "Error: name_threshold must be between 0.0 and 1.0" in result.stderr
+    assert result.exit_code == 2
+    assert "Error: Invalid value for '--name_threshold': Input should be less than or equal to 1 (got 1.01).\n" in (
+        result.stderr
+    )
 
 
 @pytest.mark.remote

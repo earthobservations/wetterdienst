@@ -1737,35 +1737,82 @@ def test_stripes_values_csv_format(client: TestClient) -> None:
     assert b"timestamp,value" in response.content
 
 
-@pytest.mark.remote
-def test_stripes_values_start_year_ge_end_year(client: TestClient) -> None:
-    """Test start_year greater or equal to end_year."""
-    response = client.get(
-        "/api/stripes/values",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-            "start_year": "2021",
-            "end_year": "2020",
-        },
-    )
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Query argument 'start_year' must be less than 'end_year'"}
+@pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
+@pytest.mark.parametrize(
+    ("query", "detail"),
+    [
+        (
+            {},
+            [
+                {
+                    "type": "missing_one_of",
+                    "loc": ["query"],
+                    "msg": "Exactly one of station or name is required",
+                    "input": None,
+                    "ctx": {"one_of": [["station"], ["name"]]},
+                },
+            ],
+        ),
+        (
+            {"station": "01048", "name": "Dresden-Klotzsche"},
+            [
+                {
+                    "type": "mutually_exclusive",
+                    "loc": ["query", "station"],
+                    "msg": "Cannot be combined with name",
+                    "input": "01048",
+                    "ctx": {"conflicts_with": ["name"]},
+                },
+                {
+                    "type": "mutually_exclusive",
+                    "loc": ["query", "name"],
+                    "msg": "Cannot be combined with station",
+                    "input": "Dresden-Klotzsche",
+                    "ctx": {"conflicts_with": ["station"]},
+                },
+            ],
+        ),
+        (
+            {"station": "01048", "start_year": "2021", "end_year": "2020"},
+            [
+                {
+                    "type": "greater_than_field",
+                    "loc": ["query", "end_year"],
+                    "msg": "Input should be greater than start_year (2021)",
+                    "input": 2020,
+                    "ctx": {"field": "start_year", "gt": 2021},
+                },
+            ],
+        ),
+        (
+            {"name": "Dresden-Klotzsche", "name_threshold": "1.01"},
+            [
+                {
+                    "type": "less_than_equal",
+                    "loc": ["query", "name_threshold"],
+                    "msg": "Input should be less than or equal to 1",
+                    "input": "1.01",
+                    "ctx": {"le": 1.0},
+                },
+            ],
+        ),
+    ],
+)
+def test_stripes_refused_as_the_other_endpoints_refuse(
+    client: TestClient,
+    endpoint: str,
+    query: dict[str, str],
+    detail: list[dict],
+) -> None:
+    """Test a stripes request is refused with FastAPI's 422, located at each parameter involved.
 
-
-@pytest.mark.remote
-def test_stripes_values_wrong_name_threshold(client: TestClient) -> None:
-    """Test wrong name_threshold value."""
-    response = client.get(
-        "/api/stripes/values",
-        params={
-            "kind": "temperature",
-            "name": "Dresden-Klotzsche",
-            "name_threshold": 1.01,
-        },
-    )
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Query argument 'name_threshold' must be between 0.0 and 1.0"}
+    Both endpoints checked these by hand and answered a string 400 --
+    "Query arguments 'station' and 'name' are mutually exclusive" -- where the other endpoints answer
+    the same rule with typed entries (GH-2060). Refused before anything is fetched.
+    """
+    response = client.get(endpoint, params={"kind": "temperature", **query})
+    assert response.status_code == 422
+    assert response.json()["detail"] == detail
 
 
 @pytest.mark.remote
@@ -1852,37 +1899,6 @@ def test_stripes_image_non_defaults(client: TestClient, params: dict) -> None:
     )
     assert response.status_code == 200
     assert response.content
-
-
-@pytest.mark.remote
-def test_stripes_image_start_year_ge_end_year(client: TestClient) -> None:
-    """Test start_year greater or equal to end_year."""
-    response = client.get(
-        "/api/stripes/image",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-            "start_year": "2021",
-            "end_year": "2020",
-        },
-    )
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Query argument 'start_year' must be less than 'end_year'"}
-
-
-@pytest.mark.remote
-def test_stripes_image_wrong_name_threshold(client: TestClient) -> None:
-    """Test wrong name_threshold value."""
-    response = client.get(
-        "/api/stripes/image",
-        params={
-            "kind": "temperature",
-            "name": "Dresden-Klotzsche",
-            "name_threshold": 1.01,
-        },
-    )
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Query argument 'name_threshold' must be between 0.0 and 1.0"}
 
 
 @pytest.mark.remote

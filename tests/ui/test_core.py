@@ -12,6 +12,8 @@ from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
     StationsRequest,
+    StripesImageRequest,
+    StripesValuesRequest,
     SummaryRequest,
     ValuesRequest,
     get_interpolate,
@@ -209,6 +211,42 @@ def test_reference_point(
 ) -> None:
     """Test an interpolation or summary is made for exactly one of a station or a point."""
     values = {**_BASE, "date": "2020-06-30", **reference}
+    if errors is None:
+        model.model_validate(values)
+        return
+    assert _errors(model, values) == errors
+
+
+@pytest.mark.parametrize("model", [StripesValuesRequest, StripesImageRequest])
+@pytest.mark.parametrize(
+    ("given", "errors"),
+    [
+        ({"station": "01048"}, None),
+        ({"name": "Dresden"}, None),
+        ({"station": "01048", "start_year": 2000, "end_year": 2001}, None),
+        ({}, [("missing_one_of", (), {"one_of": [["station"], ["name"]]})]),
+        (
+            {"station": "01048", "name": "Dresden"},
+            [
+                ("mutually_exclusive", ("station",), {"conflicts_with": ["name"]}),
+                ("mutually_exclusive", ("name",), {"conflicts_with": ["station"]}),
+            ],
+        ),
+        # a range ending where it starts holds one year, and stripes need two
+        (
+            {"station": "01048", "start_year": 2000, "end_year": 2000},
+            [("greater_than_field", ("end_year",), {"field": "start_year", "gt": 2000})],
+        ),
+        ({"station": "01048", "name_threshold": 1.01}, [("less_than_equal", ("name_threshold",), {"le": 1.0})]),
+    ],
+)
+def test_stripes_selection(
+    model: type[StripesValuesRequest | StripesImageRequest],
+    given: dict[str, Any],
+    errors: list | None,
+) -> None:
+    """Test climate stripes are made for exactly one of a station or a name, over a range of years."""
+    values = {"kind": "temperature", **given}
     if errors is None:
         model.model_validate(values)
         return
