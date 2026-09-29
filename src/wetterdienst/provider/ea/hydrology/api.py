@@ -358,7 +358,7 @@ class EAHydrologyRequest(TimeseriesRequest):
             "longitude",
             pl.lit(None, pl.Float64).alias("elevation"),
             "name",
-            pl.lit(None, pl.String).alias("state"),
+            pl.lit(None, pl.String).alias("region"),
         )
         # the listing carries one row per measure, so a station recording two of the requested
         # parameters -- or, at daily, two statistics of one of them, which share the parameter and

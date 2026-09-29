@@ -15,7 +15,7 @@ const parameterSelection = {
 const feldberg = {
   station_id: '02290',
   name: 'Feldberg',
-  state: 'Baden-Württemberg',
+  region: 'Baden-Württemberg',
   latitude: 47.9,
   longitude: 8.0,
   elevation: 1000,

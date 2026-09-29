@@ -78,7 +78,7 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
         # the shared catalogue omits, described from the run instead (GH-1966)
         "elevation": 4806.0,
         "name": "ÄGYPT. WÜSTE",
-        "state": None,
+        "region": None,
     }
     assert given_df.select(pl.all().min()).to_dicts()[0] == {
         "resolution": "hourly",
@@ -91,7 +91,7 @@ def test_dwd_dmo_stations(default_settings: Settings) -> None:
         "longitude": -176.17,
         "elevation": -350.0,
         "name": "16N55W",
-        "state": None,
+        "region": None,
     }
     # by length and then by name: 248 stations share the longest name length, so sorting by length
     # alone leaves the ends of this list to whatever order the frame happened to be built in --
@@ -214,7 +214,7 @@ def _stub_dmo_values(
                 "longitude": 13.4,
                 "elevation": 40.0,
                 "name": "Berlin",
-                "state": None,
+                "region": None,
             },
         ],
         schema={
@@ -227,7 +227,7 @@ def _stub_dmo_values(
             "longitude": pl.Float64,
             "elevation": pl.Float64,
             "name": pl.String,
-            "state": pl.String,
+            "region": pl.String,
         },
         orient="row",
     )

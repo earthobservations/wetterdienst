@@ -290,7 +290,7 @@ def test_cli_values_json_with_metadata_with_stations(metadata: dict) -> None:
             "longitude": 13.7274,
             "elevation": 112.0,
             "name": "Dresden (Mitte)",
-            "state": "Sachsen",
+            "region": "Sachsen",
         },
         {
             "resolution": "daily",
@@ -302,7 +302,7 @@ def test_cli_values_json_with_metadata_with_stations(metadata: dict) -> None:
             "longitude": 13.7543,
             "elevation": 228.0,
             "name": "Dresden-Klotzsche",
-            "state": "Sachsen",
+            "region": "Sachsen",
         },
     ]
 
@@ -375,7 +375,7 @@ def test_cli_values_geojson(metadata: dict) -> None:
                     "dataset": "climate_summary",
                     "id": "01048",
                     "name": "Dresden-Klotzsche",
-                    "state": "Sachsen",
+                    "region": "Sachsen",
                     "start_date": "1934-01-01T00:00:00.000000+00:00",
                     "end_date": IsStr,
                 },

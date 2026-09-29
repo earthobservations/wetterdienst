@@ -663,7 +663,7 @@ class DwdDerivedRequest(TimeseriesRequest):
             pl.col("latitude"),
             pl.col("longitude"),
             "name",
-            "state",
+            "region",
         )
 
         return stations_data.sort(by=["station_id"])

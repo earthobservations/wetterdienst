@@ -310,7 +310,7 @@ class MetOfficeObservationRequest(TimeseriesRequest):
             )
         if not frames:
             return pl.LazyFrame()
-        # TimeseriesRequest.all() selects _base_columns and fills any the catalogue omits (state)
+        # TimeseriesRequest.all() selects _base_columns and fills any the catalogue omits (region)
         # with null; historic_county/station_file_name are dropped there and re-resolved from the
         # same station-metadata.csv (cached) in MetOfficeObservationValues when needed.
         return pl.concat(frames).lazy()

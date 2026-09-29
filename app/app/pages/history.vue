@@ -348,7 +348,7 @@ function clear() {
                       {{ t('history.colElevationM') }}
                     </th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      {{ t('history.colState') }}
+                      {{ t('history.colRegion') }}
                     </th>
                   </tr>
                 </thead>
@@ -370,7 +370,7 @@ function clear() {
                       {{ station.elevation != null ? station.elevation.toFixed(1) : '-' }}
                     </td>
                     <td class="px-4 py-2 text-sm">
-                      {{ station.state || '-' }}
+                      {{ station.region || '-' }}
                     </td>
                   </tr>
                 </tbody>

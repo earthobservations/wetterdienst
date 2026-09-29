@@ -99,7 +99,7 @@ DF_STATIONS_MINIMUM_COLUMNS = {
     "longitude",
     "elevation",
     "name",
-    "state",
+    "region",
 }
 DF_VALUES_MINIMUM_COLUMNS = {"resolution", "dataset", "station_id", "parameter", "date", "value", "quality"}
 
@@ -532,7 +532,7 @@ def test_api_dwd_mosmix(default_settings: Settings) -> None:
     request = DwdMosmixRequest(parameters=[("hourly", "large")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "region"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -552,7 +552,7 @@ def test_api_dwd_dmo_icon_single_stations(default_settings: Settings) -> None:
     ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "region"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -572,7 +572,7 @@ def test_api_dwd_dmo_icon_all_stations(default_settings: Settings) -> None:
     ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "region"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -592,7 +592,7 @@ def test_api_dwd_dmo_icon_eu_single_stations(default_settings: Settings) -> None
     ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "region"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -612,7 +612,7 @@ def test_api_dwd_dmo_icon_eu_all_stations(default_settings: Settings) -> None:
     ).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "region"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -687,8 +687,8 @@ def test_api_rmi_observation(default_settings: Settings) -> None:
     ).filter_by_station_id(["6447"])
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    # RMI stations carry no region/state, and Uccle is still active (null end_date).
-    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "state"})
+    # RMI stations carry no region, and Uccle is still active (null end_date).
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "region"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -768,7 +768,7 @@ def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "region"})
     first_start_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -810,7 +810,7 @@ def test_api_wsv_pegel(default_settings: Settings) -> None:
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
     assert _is_complete_stations_df(
         request.df,
-        exclude_columns={"start_date", "end_date", "latitude", "longitude", "elevation", "state"},
+        exclude_columns={"start_date", "end_date", "latitude", "longitude", "elevation", "region"},
     )
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
@@ -829,7 +829,7 @@ def test_api_ea_hydrology(default_settings: Settings) -> None:
     request = EAHydrologyRequest(parameters=[("daily", "data", "discharge_max")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state", "elevation"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "region", "elevation"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -850,7 +850,7 @@ def test_api_nws_observation(default_settings: Settings) -> None:
     ).filter_by_station_id("KBHM")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "region"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -940,7 +940,7 @@ def test_api_meteofrance_synop(default_settings: Settings) -> None:
     ).filter_by_station_id("07005")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "state"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "region"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -967,7 +967,7 @@ def test_api_meteofrance_observation(default_settings: Settings) -> None:
     # end_date is legitimately null here: station "31069001" (Toulouse-Blagnac) is still open, and
     # the canonical Météo-France station registry (unlike the per-department archive scan this
     # used to derive dates from) reports null end_date for still-open stations
-    assert _is_complete_stations_df(request.df, exclude_columns={"state", "end_date"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"region", "end_date"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
     values = next(request.values.query()).df
@@ -1037,8 +1037,8 @@ def test_api_chmi_observation(default_settings: Settings) -> None:
     ).filter_by_station_id("0-20000-0-11406")  # Cheb
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    # CHMI's station catalogue provides no state/region and no end_date for active stations.
-    assert _is_complete_stations_df(request.df, exclude_columns={"state", "end_date"})
+    # CHMI's station catalogue provides no region and no end_date for active stations.
+    assert _is_complete_stations_df(request.df, exclude_columns={"region", "end_date"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -1061,7 +1061,7 @@ def test_api_smhi_observation(default_settings: Settings) -> None:
     ).filter_by_station_id("188790")
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "state"})
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_date", "region"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
@@ -1112,8 +1112,8 @@ def test_api_knmi_observation(default_settings: Settings) -> None:
     ).filter_by_station_id("06260")  # De Bilt (WMO station number, from WSI 0-20000-0-06260)
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    # KNMI's station inventory provides neither start_date/end_date nor a state.
-    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "state"})
+    # KNMI's station inventory provides neither start_date/end_date nor a region.
+    assert _is_complete_stations_df(request.df, exclude_columns={"start_date", "end_date", "region"})
     first_date = request.df.get_column("start_date").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")

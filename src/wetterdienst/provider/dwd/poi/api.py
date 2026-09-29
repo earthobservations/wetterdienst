@@ -170,7 +170,7 @@ class DwdPoiRequest(TimeseriesRequest):
         "longitude",
         "elevation",
         "name",
-        "state",
+        "region",
     )
 
     def _all(self) -> pl.LazyFrame:
@@ -193,6 +193,6 @@ class DwdPoiRequest(TimeseriesRequest):
             pl.lit(resolution.datasets[0].name, pl.String).alias("dataset"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
             pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
-            pl.lit(None, pl.String).alias("state"),
+            pl.lit(None, pl.String).alias("region"),
         )
         return df.select(self._base_columns).lazy()

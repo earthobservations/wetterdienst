@@ -86,7 +86,7 @@ class _Station(TypedDict):
     longitude: float
     elevation: float
     name: str
-    state: str | None
+    region: str | None
 
 
 class _StationsDict(TypedDict):
@@ -103,7 +103,7 @@ class _OgcFeatureProperties(TypedDict):
     dataset: str
     id: str
     name: str
-    state: str | None
+    region: str | None
     start_date: str | None
     end_date: str | None
 
@@ -285,7 +285,7 @@ class StationsResult(ExportMixin):
                         "dataset": station["dataset"],
                         "id": station["station_id"],
                         "name": station["name"],
-                        "state": station["state"],
+                        "region": station["region"],
                         "start_date": station["start_date"],
                         "end_date": station["end_date"],
                     },
@@ -595,7 +595,7 @@ class ValuesResult(_ValuesResult):
                         "dataset": station["dataset"],
                         "id": station["station_id"],
                         "name": station["name"],
-                        "state": station["state"],
+                        "region": station["region"],
                         "start_date": station["start_date"],
                         "end_date": station["end_date"],
                     },

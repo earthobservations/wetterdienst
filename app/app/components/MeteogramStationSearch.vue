@@ -25,7 +25,7 @@ interface StationItem { label: string, value: string, station: Station }
 
 const stationItems = computed<StationItem[]>(() =>
   (data.value?.stations ?? []).map(s => ({
-    label: s.state ? `${s.name} (${s.station_id}) — ${s.state}` : `${s.name} (${s.station_id})`,
+    label: s.region ? `${s.name} (${s.station_id}) — ${s.region}` : `${s.name} (${s.station_id})`,
     value: s.station_id,
     station: s,
   })),

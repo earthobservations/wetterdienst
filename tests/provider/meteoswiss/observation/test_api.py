@@ -19,7 +19,7 @@ def test_meteoswiss_observation_api_stations() -> None:
     df = request.df
     assert not df.is_empty()
     assert df.get_column("name").to_list() == ["Adelboden"]
-    assert df.get_column("state").to_list() == ["BE"]
+    assert df.get_column("region").to_list() == ["BE"]
 
 
 @pytest.mark.remote

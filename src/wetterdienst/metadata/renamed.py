@@ -9,6 +9,7 @@ from collections.abc import Collection
 #: frame columns, old name to new
 RENAMED_COLUMNS: dict[str, str] = {
     "height": "elevation",  # GH-2024
+    "state": "region",  # GH-2026
 }
 
 

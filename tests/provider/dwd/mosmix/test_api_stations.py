@@ -34,7 +34,7 @@ def mosmix_stations_schema() -> dict:
         "longitude": pl.Float64,
         "elevation": pl.Float64,
         "name": pl.String,
-        "state": pl.String,
+        "region": pl.String,
     }
 
 
@@ -61,7 +61,7 @@ def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations
                 "longitude": -8.67,
                 "elevation": 10.0,
                 "name": "JAN MAYEN",
-                "state": None,
+                "region": None,
             },
             {
                 "resolution": "hourly",
@@ -74,7 +74,7 @@ def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations
                 "longitude": 13.02,
                 "elevation": 1200.0,
                 "name": "JENNER",
-                "state": None,
+                "region": None,
             },
         ],
         schema=mosmix_stations_schema,
@@ -100,7 +100,7 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
         "longitude": 179.33,
         "elevation": 4670.0,
         "name": "ZWOENITZ",
-        "state": None,
+        "region": None,
     }
     assert given_df.select(pl.all().min()).to_dicts()[0] == {
         "station_id": "01001",
@@ -111,7 +111,7 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
         "longitude": -176.17,
         "elevation": -350.0,
         "name": "16N55W",
-        "state": None,
+        "region": None,
     }
     station_names_sorted = given_df.sort(pl.col("name").str.len_chars()).get_column("name").to_list()
     assert station_names_sorted[:5] == ["ELM", "PAU", "SAL", "AUE", "HOF"]
@@ -136,7 +136,7 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
                 "longitude": -8.67,
                 "elevation": 10.0,
                 "name": "JAN MAYEN",
-                "state": None,
+                "region": None,
             },
             {
                 "station_id": "72306",
@@ -147,7 +147,7 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
                 "longitude": -78.78,
                 "elevation": 132.0,
                 "name": "RALEIGH/DURHAM NC.",
-                "state": None,
+                "region": None,
             },
             {
                 "station_id": "83891",
@@ -158,7 +158,7 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
                 "longitude": -50.33,
                 "elevation": 937.0,
                 "name": "LAGES",
-                "state": None,
+                "region": None,
             },
             {
                 "station_id": "94767",
@@ -169,7 +169,7 @@ def test_dwd_mosmix_stations_filtered(default_settings: Settings, mosmix_station
                 "longitude": 151.18,
                 "elevation": 6.0,
                 "name": "SYDNEY AIRPORT",
-                "state": None,
+                "region": None,
             },
         ],
         schema=mosmix_stations_schema,

@@ -173,7 +173,7 @@ stations for the requested datasets/parameters. The listing includes:
 - end_date
 - elevation
 - name
-- state
+- region
 - latitude
 - longitude
 

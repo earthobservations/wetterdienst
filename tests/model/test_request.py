@@ -32,7 +32,7 @@ def expected_stations_df() -> pl.DataFrame:
                 "longitude": 8.993,
                 "elevation": 108.0,
                 "name": "Kahl/Main",
-                "state": "Bayern",
+                "region": "Bayern",
                 "distance": 9.759384982994229,
             },
             {
@@ -44,7 +44,7 @@ def expected_stations_df() -> pl.DataFrame:
                 "longitude": 8.9672,
                 "elevation": 155.0,
                 "name": "Schaafheim-Schlierbach",
-                "state": "Hessen",
+                "region": "Hessen",
                 "distance": 10.160326,
             },
             {
@@ -56,7 +56,7 @@ def expected_stations_df() -> pl.DataFrame:
                 "longitude": 8.7862,
                 "elevation": 119.0,
                 "name": "Offenbach-Wetterpark",
-                "state": "Hessen",
+                "region": "Hessen",
                 "distance": 12.891318342515483,
             },
         ],
@@ -69,7 +69,7 @@ def expected_stations_df() -> pl.DataFrame:
             "longitude": pl.Float64,
             "elevation": pl.Float64,
             "name": pl.String,
-            "state": pl.String,
+            "region": pl.String,
             "distance": pl.Float64,
         },
         orient="row",
@@ -301,7 +301,7 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
         "longitude": 13.1666,
         "elevation": 78.0,
         "name": "Holzdorf-Bernsdorf",
-        "state": "Brandenburg",
+        "region": "Brandenburg",
     }
     # station in climate_summary and temperature_air
     assert df_stations.filter(pl.col("station_id") == "01050").sort(["resolution"]).select(
@@ -316,7 +316,7 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
             "longitude": 13.847,
             "elevation": 112.0,
             "name": "Dresden-Hosterwitz",
-            "state": "Sachsen",
+            "region": "Sachsen",
         },
         {
             "resolution": "hourly",
@@ -327,7 +327,7 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
             "longitude": 13.847,
             "elevation": 112.0,
             "name": "Dresden-Hosterwitz",
-            "state": "Sachsen",
+            "region": "Sachsen",
         },
     ]
     # station in temperature_air
@@ -341,7 +341,7 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
             "longitude": 10.6988,
             "elevation": 278.0,
             "name": "Gotha",
-            "state": "Thüringen",
+            "region": "Thüringen",
         },
     ]
     df_values = request.values.all().df

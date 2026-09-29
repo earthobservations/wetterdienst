@@ -72,7 +72,7 @@ describe('stripes Page', () => {
   })
 
   it('clicking Show plots the stripes, and clicking Reset clears the plot', async () => {
-    const station = { station_id: '1048', name: 'Berlin-Tempelhof', state: 'Berlin', start_date: '1950-01-01', end_date: '2020-01-01' }
+    const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', start_date: '1950-01-01', end_date: '2020-01-01' }
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
       metadata: { station },

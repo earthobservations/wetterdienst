@@ -16,7 +16,7 @@ const { t } = useI18n()
 const stationTableColumns = computed<TableColumn<Station>[]>(() => [
   { accessorKey: 'station_id', header: t('stationTable.stationId') },
   { accessorKey: 'name', header: t('stationTable.name') },
-  { accessorKey: 'state', header: t('stationTable.state') },
+  { accessorKey: 'region', header: t('stationTable.region') },
   { accessorKey: 'latitude', header: t('stationTable.latitude') },
   { accessorKey: 'longitude', header: t('stationTable.longitude') },
   { accessorKey: 'start_date', header: t('stationTable.startDate') },

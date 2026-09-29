@@ -32,7 +32,7 @@ def expected_data() -> list[dict]:
             "longitude": 13.4020,
             "elevation": 48.0,
             "name": "Berlin-Tempelhof",
-            "state": "Berlin",
+            "region": "Berlin",
         },
     ]
 
@@ -58,7 +58,7 @@ def test_dwd_derived_soil_stations_filter(default_settings: Settings) -> None:
             "longitude": 8.12,
             "elevation": 215.0,
             "name": "Alzey",
-            "state": "Rheinland-Pfalz",
+            "region": "Rheinland-Pfalz",
         },
         {
             "resolution": "monthly",
@@ -70,7 +70,7 @@ def test_dwd_derived_soil_stations_filter(default_settings: Settings) -> None:
             "longitude": 13.57,
             "elevation": 97.0,
             "name": "Doberlug-Kirchhain",
-            "state": "Brandenburg",
+            "region": "Brandenburg",
         },
     ]
     assert stations.df.to_dicts() == expected_data
@@ -97,7 +97,7 @@ def test_dwd_derived_radiation_stations_filter(default_settings: Settings) -> No
             "longitude": 8.5205,
             "elevation": 680.0,
             "name": "Donaueschingen (Landeplatz)_DUETT",
-            "state": "Baden-Württemberg",
+            "region": "Baden-Württemberg",
         },
         {
             "resolution": "hourly",
@@ -109,7 +109,7 @@ def test_dwd_derived_radiation_stations_filter(default_settings: Settings) -> No
             "longitude": 9.388,
             "elevation": 48.0,
             "name": "Wacken_DUETT",
-            "state": "Schleswig-Holstein",
+            "region": "Schleswig-Holstein",
         },
     ]
     assert stations.df.to_dicts() == expected_data
@@ -182,7 +182,7 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "longitude": 13.4344,
                 "elevation": 42.0,
                 "name": "Arkona",
-                "state": "Mecklenburg-Vorpommern",
+                "region": "Mecklenburg-Vorpommern",
             },
         ),
         IsDict(
@@ -196,7 +196,7 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "longitude": 9.0997,
                 "elevation": 453.0,
                 "name": "Michelstadt-Vielbrunn",
-                "state": "Hessen",
+                "region": "Hessen",
             },
         ),
         IsDict(
@@ -210,7 +210,7 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "longitude": 11.0880,
                 "elevation": 370.0,
                 "name": "Stadtilm",
-                "state": "Thüringen",
+                "region": "Thüringen",
             },
         ),
         IsDict(
@@ -224,7 +224,7 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "longitude": 9.3880,
                 "elevation": 48.0,
                 "name": "Wacken",
-                "state": "Schleswig-Holstein",
+                "region": "Schleswig-Holstein",
             },
         ),
     ]

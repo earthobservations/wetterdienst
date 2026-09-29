@@ -388,7 +388,7 @@ def _stub_mosmix_stations() -> StationsResult:
                 "longitude": -8.67,
                 "elevation": 10.0,
                 "name": "JAN MAYEN",
-                "state": None,
+                "region": None,
             },
         ],
         schema={
@@ -401,7 +401,7 @@ def _stub_mosmix_stations() -> StationsResult:
             "longitude": pl.Float64,
             "elevation": pl.Float64,
             "name": pl.String,
-            "state": pl.String,
+            "region": pl.String,
         },
         orient="row",
     )

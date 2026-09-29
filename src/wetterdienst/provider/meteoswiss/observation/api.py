@@ -366,7 +366,7 @@ class MeteoswissObservationRequest(TimeseriesRequest):
         df = df.select(
             pl.col("station_abbr").alias("station_id"),
             pl.col("station_name").alias("name"),
-            pl.col("station_canton").alias("state"),
+            pl.col("station_canton").alias("region"),
             pl.col("station_coordinates_wgs84_lat").alias("latitude"),
             pl.col("station_coordinates_wgs84_lon").alias("longitude"),
             pl.col("station_height_masl").alias("elevation"),

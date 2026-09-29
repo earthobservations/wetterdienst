@@ -153,7 +153,7 @@ def _(alt, con):
                 order=alt.Order("active:N", sort="descending"),
                 tooltip=[
                     "name:N",
-                    "state:N",
+                    "region:N",
                     alt.Tooltip("start_date:T", title="Since", format="%Y"),
                     "active:N",
                 ],
@@ -175,15 +175,15 @@ def _(alt, con):
         )
 
     _df_1900 = _with_active(
-        "SELECT station_id, name, state, latitude, longitude, start_date FROM stations WHERE start_date <= '1900-12-31'"
+        "SELECT station_id, name, region, latitude, longitude, start_date FROM stations WHERE start_date <= '1900-12-31'"
     )
     _df_1950 = _with_active(
-        "SELECT station_id, name, state, latitude, longitude, start_date FROM stations WHERE start_date <= '1950-12-31'"
+        "SELECT station_id, name, region, latitude, longitude, start_date FROM stations WHERE start_date <= '1950-12-31'"
     )
     _df_1980 = _with_active(
-        "SELECT station_id, name, state, latitude, longitude, start_date FROM stations WHERE start_date <= '1980-12-31'"
+        "SELECT station_id, name, region, latitude, longitude, start_date FROM stations WHERE start_date <= '1980-12-31'"
     )
-    _df_all = _with_active("SELECT station_id, name, state, latitude, longitude, start_date FROM stations")
+    _df_all = _with_active("SELECT station_id, name, region, latitude, longitude, start_date FROM stations")
 
     _active_1900 = (_df_1900["active"] == "active").sum()
     _active_1950 = (_df_1950["active"] == "active").sum()
@@ -505,7 +505,7 @@ def _(con, mo):
             v.date::date  AS date,
             v.station_id,
             s.name        AS station,
-            s.state,
+            s.region,
             v.value       AS precipitation_height_mm,
             v.quality
         FROM "values" v

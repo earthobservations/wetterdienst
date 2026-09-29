@@ -12,7 +12,7 @@ const parameterSelection = {
 }
 
 const stationsResponse = {
-  stations: [{ station_id: '00001', name: 'Test Station', state: 'Berlin', latitude: 52.5, longitude: 13.4 }],
+  stations: [{ station_id: '00001', name: 'Test Station', region: 'Berlin', latitude: 52.5, longitude: 13.4 }],
 }
 
 describe('stationSelection', () => {

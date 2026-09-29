@@ -132,7 +132,7 @@ def test_fmi_observation_stations() -> None:
             "dataset": "data",
             "station_id": HELSINKI_KAISANIEMI,
             "name": "Helsinki Kaisaniemi",
-            "state": "Helsinki",
+            "region": "Helsinki",
         },
     ]
     # assert coordinates with a tolerance -- FMI may adjust these slightly over time

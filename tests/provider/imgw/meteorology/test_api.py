@@ -38,7 +38,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "longitude": 16.104444,
                 "elevation": 137.0,
                 "name": "WIERZCHOWO",
-                "state": "Drawa (1888)",
+                "region": "Drawa (1888)",
             },
         ],
         schema={
@@ -51,7 +51,7 @@ def test_imgw_meteorology_api_daily() -> None:
             "longitude": pl.Float64,
             "elevation": pl.Float64,
             "name": pl.String,
-            "state": pl.String,
+            "region": pl.String,
         },
         orient="row",
     )
@@ -176,7 +176,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "longitude": 19.002222222222223,
                 "elevation": 396.0,
                 "name": "Bielsko-Biała",
-                "state": "Biała (2114)",
+                "region": "Biała (2114)",
             },
         ],
         schema={
@@ -189,7 +189,7 @@ def test_imgw_meteorology_api_monthly() -> None:
             "longitude": pl.Float64,
             "elevation": pl.Float64,
             "name": pl.String,
-            "state": pl.String,
+            "region": pl.String,
         },
         orient="row",
     )

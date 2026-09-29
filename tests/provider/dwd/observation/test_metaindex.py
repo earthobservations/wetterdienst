@@ -100,7 +100,7 @@ def test_create_csv_line() -> None:
 
 
 def test_read_meta_df_urban() -> None:
-    """climate_urban station lists are parsed by content, tolerating blank date/state fields.
+    """climate_urban station lists are parsed by content, tolerating blank date/region fields.
 
     The two leading lines are the header and its dashes ruler and are dropped. Data rows vary in
     token count because von_datum/bis_datum and (for the 10-minute lists) the trailing
@@ -109,11 +109,11 @@ def test_read_meta_df_urban() -> None:
     raw_lines = [
         b"Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland Abgabe\n",
         b"----------- --------- --------- ------------- --------- --------- ----------- ---------- ------\n",
-        # 10-minute row: blank dates and blank state
+        # 10-minute row: blank dates and blank region
         b"13667 269 48.0006 7.8342 Freiburg-Mitte\n",
-        # dates present, state still blank
+        # dates present, region still blank
         b"00399 20040701 20260724 100 52.5447 13.4046 Berlin-Alexanderplatz\n",
-        # full hourly row: dates, state and a trailing "Frei" Abgabe marker
+        # full hourly row: dates, region and a trailing "Frei" Abgabe marker
         b"13667 20080101 20260724 269 48.0006 7.8342 Freiburg-Mitte Baden-Wuerttemberg Frei\n",
         # blank line is skipped
         b"\n",

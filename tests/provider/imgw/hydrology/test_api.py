@@ -26,7 +26,7 @@ def _expected_station(resolution: str) -> pl.DataFrame:
                 "longitude": 19.185556,
                 "elevation": None,
                 "name": "ŁAGISZA",
-                "state": None,
+                "region": None,
             },
         ],
         schema={
@@ -39,7 +39,7 @@ def _expected_station(resolution: str) -> pl.DataFrame:
             "longitude": pl.Float64,
             "elevation": pl.Float64,
             "name": pl.String,
-            "state": pl.String,
+            "region": pl.String,
         },
         orient="row",
     )

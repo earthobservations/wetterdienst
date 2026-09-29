@@ -470,7 +470,7 @@ class AemetObservationRequest(TimeseriesRequest):
             return pl.LazyFrame()
 
         df = pl.DataFrame(json.loads(payload.decode("latin-1")))
-        df = df.rename({"indicativo": "station_id", "nombre": "name", "provincia": "state"})
+        df = df.rename({"indicativo": "station_id", "nombre": "name", "provincia": "region"})
         df = df.with_columns(
             pl.col("altitud").cast(pl.Float64, strict=False).alias("elevation"),
             parse_dms_coordinate("latitud").alias("latitude"),

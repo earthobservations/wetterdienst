@@ -40,7 +40,7 @@ def test_metno_frost_stations() -> None:
                 "longitude": 10.72,
                 "elevation": 94.0,
                 "name": "OSLO - BLINDERN",
-                "state": "OSLO",
+                "region": "OSLO",
             }
         ],
         schema={
@@ -53,7 +53,7 @@ def test_metno_frost_stations() -> None:
             "longitude": pl.Float64,
             "elevation": pl.Float64,
             "name": pl.String,
-            "state": pl.String,
+            "region": pl.String,
         },
         orient="row",
     )

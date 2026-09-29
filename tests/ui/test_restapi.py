@@ -387,7 +387,7 @@ def test_stations_dwd_basic(client: TestClient) -> None:
         "longitude": 8.5205,
         "elevation": 680.0,
         "name": "Donaueschingen (Landeplatz)",
-        "state": "Baden-Württemberg",
+        "region": "Baden-Württemberg",
     }
 
 
@@ -418,7 +418,7 @@ def test_stations_dwd_geo(client: TestClient) -> None:
         "longitude": 10.2759,
         "elevation": 806.0,
         "name": "Oberstdorf",
-        "state": "Bayern",
+        "region": "Bayern",
         "distance": 207.0831,
     }
 
@@ -448,7 +448,7 @@ def test_stations_dwd_sql(client: TestClient) -> None:
         "longitude": 13.7543,
         "elevation": 228.0,
         "name": "Dresden-Klotzsche",
-        "state": "Sachsen",
+        "region": "Sachsen",
     }
 
 
@@ -1200,7 +1200,7 @@ def test_stations_missing_null(client: TestClient) -> None:
         "longitude": 18.92,
         "elevation": 10.0,
         "name": "TROMSOE",
-        "state": None,
+        "region": None,
     }
 
 
@@ -1381,21 +1381,22 @@ def test_get_stations_request_periods_on_a_single_period_dataset() -> None:
 
 
 @pytest.mark.parametrize("schema_name", ["_Station", "_OgcFeatureProperties"])
-def test_stations_output_schemas_allow_null_state(schema_name: str) -> None:
-    """The stations output schemas must type ``state`` as string-or-null (regression).
+def test_stations_output_schemas_allow_null_region(schema_name: str) -> None:
+    """The stations output schemas must type ``region`` as string-or-null (regression).
 
-    MOSMIX/DMO stations have no state and serialise ``state`` as null. The MCP server validates every
+    MOSMIX/DMO stations have no region and serialise ``region`` as null. The MCP server validates every
     tool result against the output schema derived from these ``response_model`` types (via FastMCP).
-    When ``state`` was typed ``str`` the schema required a string, so listing mosmix/dmo stations
-    failed with "Output validation error: None is not of type 'string'". The field must be nullable.
+    When the field (then ``state``) was typed ``str`` the schema required a string, so listing
+    mosmix/dmo stations failed with "Output validation error: None is not of type 'string'". The
+    field must be nullable.
     """
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
 
     properties = app.openapi()["components"]["schemas"][schema_name]["properties"]
-    # state is typed as string-or-null (anyOf includes a null branch)
-    branches = properties["state"].get("anyOf", [properties["state"]])
-    assert any(branch.get("type") == "null" for branch in branches), f"{schema_name}.state not nullable"
-    assert any(branch.get("type") == "string" for branch in branches), f"{schema_name}.state not string"
+    # region is typed as string-or-null (anyOf includes a null branch)
+    branches = properties["region"].get("anyOf", [properties["region"]])
+    assert any(branch.get("type") == "null" for branch in branches), f"{schema_name}.region not nullable"
+    assert any(branch.get("type") == "string" for branch in branches), f"{schema_name}.region not string"
 
 
 @pytest.mark.remote

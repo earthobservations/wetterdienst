@@ -1160,7 +1160,7 @@ class DwdRoadRequest(TimeseriesRequest):
         "longitude",
         "elevation",
         "name",
-        "state",
+        "region",
         "station_group",
         "road_name",
         "road_sector",
@@ -1174,7 +1174,7 @@ class DwdRoadRequest(TimeseriesRequest):
     _column_mapping: ClassVar = {
         "Kennung": "station_id",
         "GMA-Name": "name",
-        "Bundesland  ": "state",
+        "Bundesland  ": "region",
         "Straße / Fahrtrichtung": "road_name",
         "Strecken-kilometer 100 m": "road_sector",
         """Streckentyp (Register "Typen")""": "road_type",
@@ -1189,7 +1189,7 @@ class DwdRoadRequest(TimeseriesRequest):
     _dtypes: ClassVar = {
         "station_id": pl.String,
         "name": pl.String,
-        "state": pl.String,
+        "region": pl.String,
         "road_name": pl.String,
         "road_sector": pl.Utf8,
         "road_type": pl.Int64,

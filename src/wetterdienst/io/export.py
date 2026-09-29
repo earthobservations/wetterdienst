@@ -249,7 +249,7 @@ class ExportMixin:
         import duckdb  # noqa: PLC0415
 
         # every timestamp the frame carries, not `date` alone: a stations frame has `start_date`
-        # and `end_date` and no `date` at all, so the CLI's own `--sql "state=\'Sachsen\'"` --
+        # and `end_date` and no `date` at all, so the CLI's own `--sql "region=\'Sachsen\'"` --
         # documented as a filter on station metadata -- died on a missing column
         zones = {name: dtype.time_zone for name, dtype in df.schema.items() if isinstance(dtype, pl.Datetime)}
         df = df.with_columns(cs.datetime().dt.replace_time_zone(None))  # uses df from local scope

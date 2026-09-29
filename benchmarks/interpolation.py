@@ -20,13 +20,13 @@ pl.Config.set_tbl_width_chars(400)
 """
 example:
 
-  station_id                 start_date                   end_date  elevation  latitude  longitude                    name   state   distance
-0      02480 2004-09-01 00:00:00+00:00 2022-02-11 00:00:00+00:00   108.0   50.0643     8.9930               Kahl/Main  Bayern   9.759385
-1      04411 2002-01-24 00:00:00+00:00 2022-02-11 00:00:00+00:00   155.0   49.9195     8.9671  Schaafheim-Schlierbach  Hessen  10.156943
-2      07341 2005-07-16 00:00:00+00:00 2022-02-11 00:00:00+00:00   119.0   50.0899     8.7862    Offenbach-Wetterpark  Hessen  12.882694
-3      00917 2004-09-01 00:00:00+00:00 2022-02-11 00:00:00+00:00   162.0   49.8809     8.6779               Darmstadt  Hessen  20.688403
-4      01424 2008-08-01 00:00:00+00:00 2022-02-11 00:00:00+00:00   124.0   50.1269     8.6694  Frankfurt/Main-Westend  Hessen  21.680660
-5      01420 1981-01-01 00:00:00+00:00 2022-02-11 00:00:00+00:00   100.0   50.0259     8.5213          Frankfurt/Main  Hessen  27.212977
+  station_id                 start_date                   end_date  elevation  latitude  longitude                    name  region   distance
+0      02480 2004-09-01 00:00:00+00:00 2022-02-11 00:00:00+00:00      108.0   50.0643     8.9930               Kahl/Main  Bayern   9.759385
+1      04411 2002-01-24 00:00:00+00:00 2022-02-11 00:00:00+00:00      155.0   49.9195     8.9671  Schaafheim-Schlierbach  Hessen  10.156943
+2      07341 2005-07-16 00:00:00+00:00 2022-02-11 00:00:00+00:00      119.0   50.0899     8.7862    Offenbach-Wetterpark  Hessen  12.882694
+3      00917 2004-09-01 00:00:00+00:00 2022-02-11 00:00:00+00:00      162.0   49.8809     8.6779               Darmstadt  Hessen  20.688403
+4      01424 2008-08-01 00:00:00+00:00 2022-02-11 00:00:00+00:00      124.0   50.1269     8.6694  Frankfurt/Main-Westend  Hessen  21.680660
+5      01420 1981-01-01 00:00:00+00:00 2022-02-11 00:00:00+00:00      100.0   50.0259     8.5213          Frankfurt/Main  Hessen  27.212977
 
      station_id          dataset                 parameter                      date   value  quality
 24        02480  temperature_air  temperature_air_mean_2m 2022-01-02 00:00:00+00:00  278.15      1.0
