@@ -312,7 +312,7 @@ Coverage information:
 
     wetterdienst about coverage --provider=<provider> --network=<network>  [--resolutions=<resolutions>] [--datasets=<datasets>]
 
-    wetterdienst about fields --provider=<provider> --network=<network> --resolution=<resolution>
+    wetterdienst about fields --provider=<provider> --network=<network> --resolution=<resolution> \\
         --dataset=<dataset> --period=<period> [--language=<language>]
 
 Data acquisition:
@@ -334,7 +334,7 @@ Data acquisition:
 
         # Output options
         [--format=<format>] [--pretty]
-        [--shape=<shape>] [--humanize] [--si_units]
+        [--shape=<shape>] [--humanize] [--convert_units]
         [--drop_nulls] [--skip_empty] [--skip_threshold=0.95]
 
         # Export options
@@ -363,7 +363,7 @@ Data computation:
 
         # Output options
         [--format=<format>] [--pretty]
-        [--shape=<shape>] [--humanize] [--si_units]
+        [--shape=<shape>] [--humanize] [--convert_units]
         [--drop_nulls] [--skip_empty] [--skip_threshold=0.95]
 
         # Export options
@@ -430,7 +430,7 @@ Filtering options:
 Transformation options:
     --shape                     Shape of DataFrame, "wide" or "long"
     --humanize                  Humanize parameters
-    --si_units                  Convert to SI units
+    --convert_units             Convert to the unit targets (see --unit_targets)
     --skip_empty                Skip stations covered less than ts_skip_threshold
     --skip_threshold            Skip threshold for a station to be empty (0 < ts_skip_threshold <= 1) [Default: 0.95]
     --drop_nulls                    Whether to drop nan values from the result
@@ -511,27 +511,27 @@ Acquire observation data:
         --start-date=2020-05-01 --end-date=2020-05-05 --station=1048
 
     # Limit output to specified date range in ISO-8601 time interval format
-    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --date=2020-05-01/2020-05-05
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --date=2020-05-01/2020-05-05 \\
         --station=1048
 
     # The real power horse: Acquire data across historical+recent data sets
-    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --date=1969-01-01/2020-06-11
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --date=1969-01-01/2020-06-11 \\
         --station=1048
 
     # Acquire single data point for month 2020-05
-    wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl --tidy --date=2020-05
+    wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl --date=2020-05 \\
         --station=1048
 
     # Acquire monthly data from 2017 to 2019
-    wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl --tidy \\
+    wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl \\
         --date=2017/2019 --station=1048,4411
 
     # Acquire annual data for 2019
-    wetterdienst values --provider=dwd --network=observation --parameters=annual/kl --tidy --date=2019
+    wetterdienst values --provider=dwd --network=observation --parameters=annual/kl --date=2019 \\
         --station=1048,4411
 
     # Acquire annual data from 2010 to 2020
-    wetterdienst values --provider=dwd --network=observation --parameters=annual/kl --tidy \\
+    wetterdienst values --provider=dwd --network=observation --parameters=annual/kl \\
         --date=2010/2020 --station=1048
 
     # Acquire hourly data for a given time range
@@ -685,14 +685,14 @@ Explore OPERA radar stations:
     wetterdienst radar --all
 
     # Display radar stations filtered by country.
-    wetterdienst radar --country-name=france
+    wetterdienst radar --country_name=france
 
     # Display OPERA radar stations operated by DWD.
     wetterdienst radar --dwd
 
     # Display radar station with specific ODIM- or WMO-code.
     wetterdienst radar --odim-code=deasb
-    wetterdienst radar --wmo-code=10103
+    wetterdienst radar --wmo_code=10103
 
 Acquire DWD weather alerts (CAP warnings):
 
@@ -708,19 +708,20 @@ Acquire DWD weather alerts (CAP warnings):
     # Write current warnings to a GeoJSON file
     wetterdienst alerts --format=geojson --target=file://alerts.geojson
 
-Create warming stripes (only DWD Observation data):
+Create climate stripes (DWD observation data only):
 
     # Create warming stripes for a specific station
-    wetterdienst warming_stripes --station=1048 > warming_stripes.png
+    wetterdienst stripes values --kind=temperature --station=1048 > warming_stripes.png
 
     # Create warming stripes for a specific station with approximate name
-    wetterdienst warming_stripes --name=Dresden-Klotzsche  --name_treshold=70 > warming_stripes.png
+    wetterdienst stripes values --kind=temperature --name=Dresden-Klotzsche --name_threshold=0.7 > warming_stripes.png
 
     # Create warming stripes for a specific station for years 2000 to 2020
-    wetterdienst warming_stripes --station=1048 --start_year=2000 --end_year=2020 > warming_stripes.png
+    wetterdienst stripes values --kind=temperature --station=1048 --start_year=2000 --end_year=2020 \\
+        > warming_stripes.png
 
-    # Create warming stripes for a specific station and write to file
-    wetterdienst warming_stripes --station=1048 --target=warming_stripes.png
+    # Create precipitation stripes for a specific station and write to file
+    wetterdienst stripes values --kind=precipitation --station=1048 --target=precipitation_stripes.png
 """  # noqa: E501
 
 
@@ -924,7 +925,7 @@ def coverage(
     click.option(
         "--limit",
         type=click.IntRange(min=1),
-        help="Return at most this many entries; the full vocabulary is 504 parameters.",
+        help="Return at most this many entries; the full vocabulary runs to several hundred parameters.",
     ),
 )
 @debug_opt
@@ -1353,7 +1354,7 @@ def history(
     "--convert_units",
     type=click.BOOL,
     default=True,
-    help="Convert values to SI units (e.g. °C → K). Default: true",
+    help="Convert values to the unit targets: the defaults, overridden per quantity by --unit_targets. Default: true",
 )
 @cloup.option(
     "--unit_targets",

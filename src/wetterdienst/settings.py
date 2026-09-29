@@ -191,7 +191,7 @@ def _build_geo_station_distance(
     Which names get the shorter radius used to be written out here, a copy of a classification the
     table already holds. Only those names are put in the dict; the default factory answers for
     every other parameter, so the setting a user sees and overrides stays the short list of
-    exceptions rather than all 514 names.
+    exceptions rather than every name in the table.
     """
     d: defaultdict[str, float] = defaultdict(lambda: homogeneous)
     for parameter in PARAMETER_TABLE:

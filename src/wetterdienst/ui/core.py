@@ -157,7 +157,10 @@ _ShapeField = Annotated[
     Field(description="Output shape: 'long' (one row per value) or 'wide' (one column per parameter)."),
 ]
 _HumanizeField = Annotated[bool, Field(description="Use human-readable parameter names instead of raw dataset codes.")]
-_ConvertUnitsField = Annotated[bool, Field(description="Convert values to SI units.")]
+_ConvertUnitsField = Annotated[
+    bool,
+    Field(description="Convert values to the unit targets: the defaults, overridden per quantity by unit_targets."),
+]
 _UnitTargetsField = Annotated[
     dict[str, str] | None,
     Field(
@@ -761,7 +764,7 @@ def get_glossary(
     `coverage` answers which parameters a given provider offers; this answers what any of them
     means and which unit it comes back in, neither of which coverage reports.
 
-    `parameter` matches as a substring, since the useful question over 504 names is usually
+    `parameter` matches as a substring, since the useful question over several hundred names is usually
     "everything about radiation" rather than one exact name. An exact name deliberately does *not*
     short-circuit to a single entry: `humidity_relative` is both a parameter and the prefix of
     `humidity_relative_max` and `humidity_relative_min`, and hiding those would be the more

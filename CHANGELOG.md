@@ -24,6 +24,11 @@ Types of changes:
 - `wetterdienst history --sections` returns only the sections it names; it returned all five. The
   REST API filtered already but in a random order, and both now keep the history's own order. A
   section name the history does not have is a usage error rather than a traceback (GH-2022)
+- `wetterdienst --help` and the command help name only options and commands that exist:
+  `--convert_units` for `--si_units`, no `--tidy`, `--wmo_code` and `--country_name` for `radar`,
+  and `stripes values` for `warming_stripes`, the command's old name. `--convert_units` converts to
+  the unit targets, not to SI units: temperature stays in °C by default. The Python API page names
+  `ts_convert_units` rather than `ts_si_units` (GH-2021)
 
 ## [0.139.0] - 2026-09-29
 

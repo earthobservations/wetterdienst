@@ -411,8 +411,9 @@ def glossary(
 
     Filter with parameter="radiation" to match names containing that text, or
     unit_type="temperature" for every parameter of one quantity. Both can be combined. Use limit to
-    cap the number of entries: the vocabulary is 504 parameters, so an unfiltered call is a large
-    response and a broad filter can still be a wide one (parameter="temperature" matches 184).
+    cap the number of entries: the vocabulary runs to several hundred parameters, so an unfiltered call is a
+    large response and a broad filter can still be a wide one (parameter="temperature" matches
+    nearly two hundred).
 
     This complements coverage: coverage says which parameters a given provider offers, this says
     what any of them means. The unit reported is the one a values request would actually return,
