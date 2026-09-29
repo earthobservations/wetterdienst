@@ -72,6 +72,9 @@ Types of changes:
   `ts_geo_station_distance` key or as a wide column in a SQL filter is reported with its
   replacement. A wide DuckDB, SQLite or PostgreSQL table `to_target` wrote before takes no append
   of them (GH-2040)
+- Locked dependencies refreshed to their latest compatible versions -- 41 packages, among them
+  fastmcp 4.0.10, fsspec 2026.9, SQLAlchemy 2.1 on Python 3.11 and later and zarr 3.4 on 3.12 and
+  later; each older Python keeps the release line that still supports it (GH-2050)
 
 ## [0.138.0] - 2026-09-28
 
