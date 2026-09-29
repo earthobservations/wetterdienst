@@ -8,6 +8,7 @@ import contextlib
 import dataclasses
 import datetime as dt
 import logging
+import math
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -215,24 +216,32 @@ _ELEVATION_IN_FEET = {
 _METRES_PER_FOOT = 0.3048
 
 
-def _elevation_in_metres(station_id: str, elevation: str) -> str | None:
-    """Return a placemark's elevation in metres, converting the values GH-2017 found in feet.
+# the stations whose drift from _ELEVATION_IN_FEET has been reported: once per process, as every
+# request that describes stations reads the run afresh, and the table is for maintainers to revisit
+_REPORTED_DRIFT: set[str] = set()
 
-    None for a value that is not a number: the base request casts the whole column at once, so one
-    placemark's `n/a` passed on as given would fail every station.
+
+def _elevation_in_metres(station_id: str, elevation: str) -> tuple[str | None, bool]:
+    """Return a placemark's elevation in metres, and whether a listed station gave another value.
+
+    The values GH-2017 found in feet are converted. A listed station giving any other number was
+    re-surveyed or corrected by DWD and is taken as metres; the second value says so. Anything
+    that is not a finite number is None: the base request casts every station's elevation at once
+    and more strictly than `float`, which also takes `' 4806.0'` or `1_000`, so one such placemark
+    passed on as given would fail every station.
     """
     try:
         value = float(elevation)
     except ValueError:
-        return None
-    if value == _ELEVATION_IN_FEET.get(station_id):
-        return _converted(value)
-    return elevation
-
-
-def _converted(in_feet: float) -> str:
-    """Return an elevation in feet as the metres a placemark row carries, a string like the catalogue's."""
-    return str(round(in_feet * _METRES_PER_FOOT, 1))
+        return None, False
+    if not math.isfinite(value):
+        return None, False
+    in_feet = _ELEVATION_IN_FEET.get(station_id)
+    if in_feet is None:
+        return str(value), False
+    if value == in_feet:
+        return str(round(value * _METRES_PER_FOOT, 1)), False
+    return str(value), True
 
 
 def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
@@ -246,6 +255,7 @@ def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
     """
     rows = []
     unreadable = 0
+    drifted: list[str] = []
     for _, element in iterparse(handle, events=("end",), resolve_entities=False):
         # a comment or processing instruction carries a callable as its tag rather than a name, so
         # `endswith` on it raises -- and one anywhere in the document would otherwise discard every
@@ -262,7 +272,7 @@ def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
                 point = next((c for c in child if _is_tag(c, "coordinates")), None)
                 coordinates = point.text if point is not None else None
         element.clear()
-        row = _placemark_row(station_id, name, coordinates)
+        row = _placemark_row(station_id, name, coordinates, drifted)
         if row is None:
             # skipped rather than raised, for the same reason: the stations this run describes are
             # only reachable through it, and one malformed placemark should not cost the rest
@@ -274,18 +284,12 @@ def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
             f"{unreadable} placemarks of this DMO run describe no station that could be read; "
             f"any station only they name stays unreachable",
         )
-    # a listed station that no longer gives its recorded value was re-surveyed or corrected by DWD,
-    # and is taken as metres; said once for the run, as it means the table wants revisiting
-    drifted = sorted(
-        row["station_id"]
-        for row in rows
-        if row["station_id"] in _ELEVATION_IN_FEET
-        and row["elevation"] != _converted(_ELEVATION_IN_FEET[row["station_id"]])
-    )
-    if drifted:
+    unreported = sorted(set(drifted) - _REPORTED_DRIFT)
+    if unreported:
+        _REPORTED_DRIFT.update(unreported)
         log.warning(
-            f"DMO stations {', '.join(drifted)} no longer give the elevation GH-2017 recorded in feet "
-            f"for them, and are taken as metres; check whether DWD corrected them",
+            f"DMO stations {', '.join(unreported)} no longer give the elevation GH-2017 recorded in "
+            f"feet for them, and are taken as metres; check whether DWD corrected them",
         )
     return pl.DataFrame(rows, schema=_PLACEMARK_COLUMNS, orient="row")
 
@@ -296,8 +300,16 @@ def _is_tag(element: object, name: str) -> bool:
     return isinstance(tag, str) and tag.endswith(f"}}{name}")
 
 
-def _placemark_row(station_id: str | None, name: str | None, coordinates: str | None) -> dict | None:
-    """Turn one placemark's parts into a catalogue row, or None where they do not describe a station."""
+def _placemark_row(
+    station_id: str | None,
+    name: str | None,
+    coordinates: str | None,
+    drifted: list[str] | None = None,
+) -> dict | None:
+    """Turn one placemark's parts into a catalogue row, or None where they do not describe a station.
+
+    A station GH-2017 recorded in feet that gives another elevation is appended to `drifted`.
+    """
     if not station_id or not coordinates:
         return None
     longitude, latitude, elevation = ([*coordinates.strip().split(","), "", ""])[:3]
@@ -305,13 +317,16 @@ def _placemark_row(station_id: str | None, name: str | None, coordinates: str | 
         position = {"latitude": float(latitude), "longitude": float(longitude)}
     except ValueError:
         return None
+    in_metres, drift = _elevation_in_metres(station_id, elevation) if elevation.strip() else (None, False)
+    if drift and drifted is not None:
+        drifted.append(station_id)
     return {
         "station_id": station_id,
         "icao_id": None,
         "name": (name or "").strip() or None,
         **position,
         # left a string, as the catalogue's is: the base request casts it
-        "elevation": _elevation_in_metres(station_id, elevation) if elevation else None,
+        "elevation": in_metres,
     }
 
 
