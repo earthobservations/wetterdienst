@@ -21,6 +21,7 @@ export interface CoverageParameter {
   name: string
   name_original?: string
   unit?: string
+  unit_original?: string
   description?: string | null
 }
 
