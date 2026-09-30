@@ -291,17 +291,19 @@ function handleDataTransformed(data: Value[]) {
   isDataTransformed.value = data.length > 0 && data !== allValues.value
 }
 
-const columnDefinitions: { key: keyof Value, column: TableColumn<Value> }[] = [
-  { key: 'station_id', column: { accessorKey: 'station_id', header: 'station_id' } },
-  { key: 'resolution', column: { accessorKey: 'resolution', header: 'resolution' } },
-  { key: 'dataset', column: { accessorKey: 'dataset', header: 'dataset' } },
-  { key: 'parameter', column: { accessorKey: 'parameter', header: 'parameter' } },
+// The table's own columns, in its order, each with the cell it shows where that is other than the
+// value's text
+const columnDefinitions: { key: keyof Value, cell?: TableColumn<Value>['cell'] }[] = [
+  { key: 'station_id' },
+  { key: 'resolution' },
+  { key: 'dataset' },
+  { key: 'parameter' },
   // a query's null timestamp empty, as the other cells show a missing value, where formatDate threw on it
-  { key: 'timestamp', column: { accessorKey: 'timestamp', header: 'timestamp', cell: ({ row }) => formatDate(fieldText(row.original.timestamp)) } },
-  { key: 'value', column: { accessorKey: 'value', header: 'value' } },
-  { key: 'quality', column: { accessorKey: 'quality', header: 'quality' } },
-  { key: 'taken_station_id', column: { accessorKey: 'taken_station_id', header: 'taken_station_id' } },
-  { key: 'taken_station_ids', column: { accessorKey: 'taken_station_ids', header: 'taken_station_ids' } },
+  { key: 'timestamp', cell: ({ row }) => formatDate(fieldText(row.original.timestamp)) },
+  { key: 'value' },
+  { key: 'quality' },
+  { key: 'taken_station_id' },
+  { key: 'taken_station_ids' },
 ]
 
 // Sorting
@@ -431,13 +433,14 @@ watch(rowsMode, () => {
 
 const columns = computed(() =>
   selectedColumns.value.map((key) => {
-    // a column of the rows' own is read by its name as it is: an accessorKey reads `a.b` as a path.
-    // A query's struct or list is shown as a copy writes it, where the table's cell wrote
-    // `[object Object]`
-    const column = columnDefinitions.find(c => c.key === key)?.column
-      ?? { id: key, accessorFn: (row: Value) => fieldText(field(row, key)) }
+    // every column is read by its name as it is -- an accessorKey reads `a.b` as a path -- and shown
+    // as a copy writes it: a query's struct or list as its text, under one of the table's own names as
+    // under a name of its own, where the table's cell wrote `[object Object]`
+    const cell = columnDefinitions.find(c => c.key === key)?.cell
     return {
-      ...column,
+      id: key,
+      accessorFn: (row: Value) => fieldText(field(row, key)),
+      ...(cell ? { cell } : {}),
       header: () => h('span', {
         class: 'cursor-pointer select-none flex items-center gap-1',
         onClick: () => toggleSort(key),

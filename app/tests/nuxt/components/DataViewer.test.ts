@@ -1095,3 +1095,17 @@ describe('dataViewer rows without a timestamp', () => {
     expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
   })
 })
+
+describe('dataViewer query structs under the table\'s own names', () => {
+  it('shows a struct under a fixed column as the text a copy writes', async () => {
+    // `SELECT parameter, {'min': min(value), 'max': max(value)} AS value FROM data GROUP BY parameter`
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [{ parameter: 'temperature_air_mean_2m', value: { min: 1, max: 2 } }])
+    await wrapper.vm.$nextTick()
+    expect(headers(wrapper)).toEqual(['parameter', 'value'])
+    // it showed `[object Object]`, where a column of the query's own name showed the text
+    expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(['temperature_air_mean_2m', '{"min":1,"max":2}'])
+  })
+})
