@@ -147,6 +147,12 @@ Types of changes:
   against the rows queried. It refused every query without `parameter`, `value` and `quality`, so
   none could run on wide, interpolated or summarized rows, nor an aggregate on any. Example queries
   are offered only where the rows carry the columns they read (GH-2122)
+- `[Explorer]` A chart changed while its facets are still being drawn shows the last change in
+  every facet. The drawing under way went on to the facets it had left with what it read at its
+  start, such as a trendline unticked since, over the newer drawing (GH-2131)
+- `[Explorer]` A chart image chosen after the chart failed to draw, as when Plotly failed to load,
+  draws the chart again and saves it, or says the chart could not be drawn. It saved an empty
+  figure and reported it downloaded (GH-2140)
 
 ## [0.17.0] - 2026-09-29
 

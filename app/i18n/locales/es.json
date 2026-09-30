@@ -560,6 +560,7 @@
     "downloadedValues": "Valores descargados como {format}",
     "downloadCancelled": "Descarga cancelada: la tabla cambió",
     "downloadedChart": "Gráfico descargado como {format}",
+    "chartNotDrawn": "No se pudo dibujar el gráfico",
     "axisDate": "Fecha",
     "axisValue": "Valor",
     "paramLabelParameter": "Parámetro",
