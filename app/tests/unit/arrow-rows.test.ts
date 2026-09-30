@@ -190,6 +190,10 @@ describe('plainRows of a map with a NaN or an infinite key', () => {
     expect(plain[0]).toEqual({ m: { NaN: 0, Infinity: 0 } })
     expect(plain[4999]).toEqual({ m: { 'NaN': 4999, '-Infinity': -4999 } })
   })
+
+  it('reads a map with an infinite timestamp key, which Arrow\'s getter cannot', () => {
+    expect(() => rows('SELECT MAP {\'infinity\'::TIMESTAMP: 1, \'-infinity\'::TIMESTAMP: 2} AS m')).not.toThrow()
+  })
 })
 
 describe('plainRows of a GEOMETRY', () => {

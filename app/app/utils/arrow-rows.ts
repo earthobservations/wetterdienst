@@ -194,11 +194,12 @@ function plainColumn(vector: Vector, field: Field): unknown[] {
       const keys = plainColumn(keyVector, keyField!)
       const values = plainColumn(entries.getChildAt(1)!, valueField!)
       // a NaN or an infinite key, which is made null as any value is, by its own name, so that each
-      // stays apart (GH-2116)
-      const keyText = (key: unknown, at: number) => {
-        const raw = key === null ? keyVector.get(at) : key
-        return typeof raw === 'number' && !Number.isFinite(raw) ? String(raw) : typeof key === 'string' ? key : JSON.stringify(key)
-      }
+      // stays apart (GH-2116). Only a float key is read so: Arrow's getter throws on an infinite
+      // timestamp, and a key is never NULL
+      const floatKeys = keyVector.type.typeId === Type.Float
+      const keyText = (key: unknown, at: number) => key === null && floatKeys
+        ? String(keyVector.get(at))
+        : typeof key === 'string' ? key : JSON.stringify(key)
       return childRanges(vector).map(range => range && Object.fromEntries(keys.slice(...range).map((key, index) =>
         [keyText(key, range[0] + index), values[range[0] + index]])))
     }
