@@ -63,6 +63,10 @@ Types of changes:
   the selected mode only while it is empty. Selecting another mode without fetching reset the picker
   to that mode's columns, hiding the `taken_station_ids` of interpolated rows, or the
   `taken_station_id` of summarized rows, still shown (GH-2069)
+- `[Explorer]` The column picker offers every column the rows carry, a wide table's parameters, an
+  interpolation's `distance_mean` or a query's `avg_value`, and the table and copies show them
+  unless unticked. Only the nine fixed columns were known: a wide table showed empty `parameter`,
+  `value` and `quality` columns and no measurement, and a query's own columns never showed (GH-2074)
 
 ## [0.17.0] - 2026-09-29
 
