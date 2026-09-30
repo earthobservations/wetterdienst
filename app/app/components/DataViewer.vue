@@ -393,9 +393,9 @@ watch(allValues, () => {
 
 // The mode the rows on screen were fetched in, and the selected one only while the table is empty:
 // the query panel and the chart describe the rows shown, which a mode selected since has not
-// fetched, and the column picker shows its default columns again when it changes. The request sent
-// once its answer is in, which the fetch sets together with its rows: fetchedRequest follows a few
-// microtasks later, and the new rows were drawn in the mode of the request before until then
+// fetched, and the column picker hides only its default columns again when it changes. The request
+// sent once its answer is in, which the fetch sets together with its rows: fetchedRequest follows a
+// few microtasks later, and the new rows were drawn in the mode of the request before until then
 const rowsMode = computed((): StationMode => {
   const answered = valuesStatus.value === 'success' ? sentRequest.value : fetchedRequest.value
   const request = allValues.value.length ? answered : null
