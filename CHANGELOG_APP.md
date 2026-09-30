@@ -143,6 +143,10 @@ Types of changes:
 - `[Explorer]` The query panel's table has every column any row carries, each numeric when all
   its values are numbers. A column null in the first row, such as `value` or `quality`, was text,
   so `avg(value)` failed, and a column the first row lacked was missing from the table (GH-2136)
+- `[Explorer]` The query panel runs a query whatever columns it returns, and notes those it lacks
+  against the rows queried. It refused every query without `parameter`, `value` and `quality`, so
+  none could run on wide, interpolated or summarized rows, nor an aggregate on any. Example queries
+  are offered only where the rows carry the columns they read (GH-2122)
 
 ## [0.17.0] - 2026-09-29
 

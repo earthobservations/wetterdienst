@@ -725,9 +725,7 @@ describe('dataViewer columns', () => {
     // checked the rows against them
     expect(picked(wrapper)).toContain(column)
     expect(headers(wrapper)).toContain(column)
-    const panel = wrapper.findComponent(QueryPanel)
-    expect(panel.props('mode')).toBe(mode)
-    expect(panel.props('expectedColumns')).toContain(column)
+    expect(wrapper.findComponent(QueryPanel).props('expectedColumns')).toContain(column)
   })
 
   it('takes the columns of the station rows a Fetch replaces interpolated rows with', async () => {
@@ -740,7 +738,7 @@ describe('dataViewer columns', () => {
     await fetchData(viewer)
     await wrapper.vm.$nextTick()
     expect(picked(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
-    expect(wrapper.findComponent(QueryPanel).props('mode')).toBe('station')
+    expect(wrapper.findComponent(QueryPanel).props('expectedColumns')).not.toContain('taken_station_ids')
   })
 
   it('follows the selected mode once Clear has emptied the table', async () => {

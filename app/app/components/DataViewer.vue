@@ -1196,7 +1196,6 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         v-if="allValues.length > 0"
         :data="allValues"
         :expected-columns="queryColumns"
-        :mode="rowsMode"
         @data-transformed="handleDataTransformed"
       />
 
