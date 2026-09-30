@@ -1028,21 +1028,35 @@ const plotlyConfig: Partial<PlotlyConfig> = {
   modeBarButtonsToRemove: ['lasso2d', 'select2d'],
 }
 
+// A chart's renders, numbered as they start. A render started while another is under way draws the
+// change it was started for, and the older one stops before it draws again, where it would draw what
+// it read at its start over the newer drawing
+interface ChartRenders { started: number }
+const mainRenders: ChartRenders = { started: 0 }
+const facetRenders: ChartRenders = { started: 0 }
+
+function startRender(renders: ChartRenders, draw: (newest: () => boolean) => Promise<void>) {
+  const number = ++renders.started
+  return tracked(draw(() => number === renders.started))
+}
+
 function renderMainChart() {
-  return tracked(drawMainChart())
+  return startRender(mainRenders, drawMainChart)
 }
 
 function renderFacetedCharts() {
-  return tracked(drawFacetedCharts())
+  return startRender(facetRenders, drawFacetedCharts)
 }
 
 // Render chart helper functions
-async function drawMainChart() {
+async function drawMainChart(newest: () => boolean) {
   if (viewMode.value !== 'graph' || facetByParameter.value)
     return
   const plotly = await ensurePlotly()
 
   await nextTick()
+  if (!newest())
+    return
   if (chartRef.value && chartTraces.value.length > 0) {
     // Use newPlot for clean initialization
     plotly.purge(chartRef.value)
@@ -1050,13 +1064,15 @@ async function drawMainChart() {
   }
 }
 
-async function drawFacetedCharts() {
+async function drawFacetedCharts(newest: () => boolean) {
   if (viewMode.value !== 'graph' || !facetByParameter.value)
     return
   const plotly = await ensurePlotly()
 
   await nextTick()
   for (const facet of facetedChartData.value) {
+    if (!newest())
+      return
     const el = facetChartRefs.value.get(facet.parameter)
     if (el) {
       // Ensure y-axis title does not overflow by enabling automargin and using standoff

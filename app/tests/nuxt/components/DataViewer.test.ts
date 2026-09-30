@@ -1401,3 +1401,39 @@ describe('dataViewer chart of the rows it can plot', () => {
     expect([traces[0]!.mode, layout.hovermode]).toEqual(['lines', 'closest'])
   })
 })
+
+describe('dataViewer chart renders in order', () => {
+  // two days of two parameters: a facet each, a series each long enough for a trendline
+  const twoDays = [...twoParameters, ...twoParameters.map(value => ({ ...value, timestamp: '2020-01-02T00:00:00Z', value: value.value + 1 }))]
+
+  async function toggleTrendline(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
+    const label = wrapper.findAll('label').find(label => label.text() === 'Trendline')!
+    await wrapper.find(`#${label.attributes('for')}`).trigger('click')
+  }
+
+  it('draws each facet as last changed where an older drawing goes on after a newer one', async () => {
+    // the older drawing went on to the facets it had left, with the trendline it read at its start
+    registerEndpoint('/api/values', () => ({ values: twoDays }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, true)
+    const drawn = plotly.react.getMockImplementation()!
+    const held = gate()
+    plotly.react.mockImplementationOnce(async (...args) => {
+      await held.opened
+      return drawn(...args)
+    })
+    const calls = plotly.react.mock.calls.length
+    // ticked: the first facet's drawing held
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(calls + 1))
+    // unticked again: both facets drawn without it
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(calls + 3))
+    held.open()
+    await flushPromises()
+    // each facet's series as last drawn
+    const last = new Map(plotly.react.mock.calls.slice(calls).map(([chart, traces]) => [chart, (traces as { name: string }[]).map(trace => trace.name)]))
+    expect([...last.values()]).toEqual([['01048'], ['01048']])
+  })
+})
