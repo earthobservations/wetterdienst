@@ -13,6 +13,16 @@ function jsonValue(_key: string, value: unknown): unknown {
   return typeof value === 'bigint' ? bigintValue(value) : value
 }
 
+// A list of plain values -- an interpolation's `taken_station_ids`, which the REST API answers as a
+// list -- is written with commas between them, as the REST API's own CSV writes it; anything nested
+// deeper, a query panel's struct, as its JSON text, as the JSON download writes it, rather than as
+// `[object Object]`
+function csvText(value: object): string {
+  if (Array.isArray(value) && value.every(item => item === null || typeof item !== 'object'))
+    return value.map(item => item ?? '').join(',')
+  return JSON.stringify(value, jsonValue)
+}
+
 function field(row: Row, column: string): unknown {
   return (row as Record<string, unknown>)[column]
 }
@@ -24,9 +34,7 @@ function field(row: Row, column: string): unknown {
 function csvField(value: unknown): string {
   if (value === null || value === undefined)
     return ''
-  // a query panel's struct or list is written as its JSON text, as the JSON download writes it, not
-  // as `[object Object]`
-  const text = typeof value === 'object' ? JSON.stringify(value, jsonValue) : String(value)
+  const text = typeof value === 'object' ? csvText(value) : String(value)
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 

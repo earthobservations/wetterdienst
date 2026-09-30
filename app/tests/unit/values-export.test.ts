@@ -60,9 +60,15 @@ describe('exportColumns', () => {
 })
 
 describe('valuesToCsv with a query panel\'s nested values', () => {
-  it('writes a struct or a list as its JSON text, quoted, not as [object Object]', () => {
-    const nested = [{ station_id: '01048', s: { a: 1, n: 2n }, l: [1, 2] }]
-    expect(valuesToCsv(nested, ['station_id', 's', 'l'])).toBe('station_id,s,l\n01048,"{""a"":1,""n"":2}","[1,2]"')
+  it('writes a struct as its JSON text, quoted, not as [object Object]', () => {
+    const nested = [{ station_id: '01048', s: { a: 1, n: 2n } }]
+    expect(valuesToCsv(nested, ['station_id', 's'])).toBe('station_id,s\n01048,"{""a"":1,""n"":2}"')
+  })
+
+  it('writes a list of plain values with commas, as the REST API\'s CSV writes taken_station_ids', () => {
+    // the REST API answers an interpolation's taken_station_ids as a list, as the table holds it
+    const interpolated = [{ station_id: 'a87a7c43', taken_station_ids: ['00011', '00012'] }]
+    expect(valuesToCsv(interpolated, ['station_id', 'taken_station_ids'])).toBe('station_id,taken_station_ids\na87a7c43,"00011,00012"')
   })
 })
 
