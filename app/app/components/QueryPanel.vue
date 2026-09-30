@@ -268,6 +268,8 @@ watch(query, () => {
 
 // Execute query
 async function executeQuery() {
+  // the rows the query runs on, which a Fetch can replace before it answers
+  const rows = props.data
   error.value = null
   warning.value = null
   columnValidationMessage.value = null
@@ -304,6 +306,10 @@ async function executeQuery() {
   try {
     const result = await conn.query(query.value)
     const resultArray = result.toArray().map((row: any) => row.toJSON())
+
+    // a result of rows the table no longer holds would replace the newer ones Fetch put there
+    if (rows !== props.data)
+      return
 
     // Validate columns
     if (resultArray.length > 0) {

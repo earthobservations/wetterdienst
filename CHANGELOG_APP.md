@@ -52,6 +52,9 @@ Types of changes:
 - `[Stations]` A station without a region, such as every DWD MOSMIX station, is labelled by its
   name and id in the station picker and on the map, as `JAN MAYEN (ID: 01001)`, where it read
   `JAN MAYEN (ID: 01001, null)` (GH-2046)
+- `[Explorer]` A query still running when a Fetch answers no longer replaces the new rows with its
+  result: the table showed the query result of the rows fetched before under the new request, and
+  CSV and JSON downloads saved it (GH-2072)
 
 ## [0.17.0] - 2026-09-29
 

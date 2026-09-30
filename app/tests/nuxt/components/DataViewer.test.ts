@@ -11,6 +11,29 @@ import { useToast } from '#imports'
 import DataViewer from '~/components/DataViewer.vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 
+// DuckDB, as far as Run Query reaches it: the query itself is answered by the test's `answer`,
+// every statement loading the table at once. It gives no result schema, which the check of an
+// edited query reads
+const duckdb = vi.hoisted(() => ({ answer: async (_sql: string): Promise<Record<string, unknown>[]> => [] }))
+vi.mock('@duckdb/duckdb-wasm', () => ({
+  getJsDelivrBundles: () => ({}),
+  selectBundle: async () => ({ mainWorker: 'worker.js', mainModule: 'duckdb.wasm', pthreadWorker: null }),
+  ConsoleLogger: class {},
+  AsyncDuckDB: class {
+    async instantiate() {}
+    async terminate() {}
+    async connect() {
+      return {
+        close: async () => {},
+        query: async (sql: string) => {
+          const rows = /^(?:DROP|CREATE|INSERT) /.test(sql) ? [] : await duckdb.answer(sql)
+          return { toArray: () => rows.map(row => ({ toJSON: () => row })) }
+        },
+      }
+    }
+  },
+}))
+
 const settings: DataSettings = {
   humanize: true,
   convertUnits: true,
@@ -134,6 +157,9 @@ afterEach(() => {
   else
     delete (navigator as { clipboard?: unknown }).clipboard
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  // a test's own answer, which would answer the next test's queries
+  duckdb.answer = async () => []
   // toasts are the app's, not a viewer's: one left over would be shown, and found, in the next test
   useToast().clear()
   document.body.innerHTML = ''
@@ -610,5 +636,36 @@ describe('dataViewer pages', () => {
     expect(shown.page).toBe('1')
     expect(shown.rows).toHaveLength(50)
     expect(shown.rows.every(text => text.includes('01048'))).toBe(true)
+  })
+})
+
+describe('dataViewer query panel', () => {
+  it('keeps the rows a newer Fetch put in the table when a query started before it answers', async () => {
+    // the query's result, of the station fetched before, replaced them
+    registerEndpoint('/api/values', event => ({ values: rows(3, String(getQuery(event).station)) }))
+    // the worker DuckDB is started in, from a script made on the spot
+    vi.stubGlobal('Worker', class {})
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:worker')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const hold = gate()
+    let asked = false
+    duckdb.answer = async () => {
+      asked = true
+      await hold.opened
+      return rows(1, '01048').map(row => ({ ...row, value: 99 }))
+    }
+    const { wrapper, viewer, stationSelection } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.findAll('button').find(button => button.text() === 'Transform with SQL Query')!.trigger('click')
+    await wrapper.findAll('button').find(button => button.text() === 'Run Query')!.trigger('click')
+    await vi.waitFor(() => expect(asked).toBe(true))
+    stationSelection.value = byStation('04411')
+    await wrapper.vm.$nextTick()
+    await fetchData(viewer)
+    hold.open()
+    await flushPromises()
+    const shown = pageShown(wrapper)
+    expect(shown.rows).toHaveLength(3)
+    expect(shown.rows.every(text => text.includes('04411'))).toBe(true)
   })
 })
