@@ -122,7 +122,7 @@ describe('history Page', () => {
     vm.clear()
     await wrapper.vm.$nextTick()
 
-    expect(vm.data).toEqual({ histories: [] })
+    expect(vm.data).toEqual({ histories: [], stations: [] })
   })
 
   it('clicking the about toggle reveals the explanatory text', async () => {
@@ -256,6 +256,45 @@ describe('history Page', () => {
     vm.selectedSections = ['parameter', 'name']
     await wrapper.vm.$nextTick()
     expect(vm.canFetch).toBe(false)
+  })
+
+  it('lists the stations the histories shown were fetched for, not the live selection', async () => {
+    // each answer is for the station asked for, and held until the test lets it go
+    const gates: Array<() => void> = []
+    const { wrapper, vm, showButton } = await mountWithSelection(async (event) => {
+      const station = String(getQuery(event).station)
+      await new Promise<void>(resolve => gates.push(resolve))
+      return { histories: [{ parameter: [{ ...HISTORY.histories[0]!.parameter[0], station_id: station }] }] }
+    })
+    // the id and name of each station in the Selected stations overview
+    const overview = () => {
+      const heading = wrapper.findAll('h3').find(h => h.text() === 'Selected stations')
+      return heading
+        ? [...heading.element.parentElement!.querySelectorAll('tbody tr')].map(tr =>
+            [...tr.querySelectorAll('td')].slice(0, 2).map(td => td.textContent!.trim()).join(' '))
+        : []
+    }
+
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(gates).toHaveLength(1), { timeout: 5000 })
+    gates[0]!()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
+    expect(overview()).toEqual(['00001 Test'])
+
+    vm.stationSelectionState.selection.stations = [{ station_id: '00044', name: 'Other' }]
+    await wrapper.vm.$nextTick()
+    expect(overview()).toEqual(['00001 Test'])
+
+    // nor while the next fetch is under way, beside the answer before it
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(gates).toHaveLength(2), { timeout: 5000 })
+    expect(overview()).toEqual(['00001 Test'])
+    // and the answer is for the stations sent, whatever is selected by the time it comes
+    vm.stationSelectionState.selection.stations = [{ station_id: '00099', name: 'Third' }]
+    await wrapper.vm.$nextTick()
+    gates[1]!()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00044'), { timeout: 5000 })
+    expect(overview()).toEqual(['00044 Other'])
   })
 
   it('shows the answer to a fetch under way when the selection changes before it answers', async () => {

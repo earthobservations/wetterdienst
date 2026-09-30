@@ -147,7 +147,9 @@ function historyQuery() {
   }
 }
 const selectedQuery = computed(historyQuery)
-const sentQuery = shallowRef<ReturnType<typeof historyQuery> | null>(null)
+type Stations = StationSelectionState['selection']['stations']
+// what Show sent last: the request, and the stations it was sent for
+const sent = shallowRef<{ query: ReturnType<typeof historyQuery>, stations: Stations } | null>(null)
 
 // One key for the page's histories, whatever the request. Keyed by its query instead, as useFetch is by
 // default, the fetch moved to another entry whenever the query changed: that aborted a fetch under way,
@@ -158,8 +160,11 @@ const { data, pending, status, refresh, clear: clearHistories, error } = useFetc
   immediate: false,
   // fetched by Show alone, not whenever the selection changes
   watch: false,
-  query: computed(() => sentQuery.value ?? {}),
-  default: () => ({ histories: [] }),
+  query: computed(() => sent.value?.query ?? {}),
+  // the answer carries the stations it was fetched for: the overview lists them, not the live selection,
+  // which may have moved on since. Only the last Show's fetch answers, one Show superseded is cancelled.
+  transform: (answer: any) => ({ ...answer, stations: sent.value?.stations ?? [] }),
+  default: () => ({ histories: [], stations: [] }),
 })
 
 // the last fetch's error, gone once Show or Reset is pressed: a new fetch keeps `error` until it answers
@@ -170,8 +175,8 @@ const fetchErrorMessage = computed(() =>
 // that failed, or one Clear cleared, holds nothing, so Fetch is offered again for the same selection.
 const holdsSelection = computed(() =>
   (status.value === 'pending' || status.value === 'success')
-  && sentQuery.value !== null
-  && JSON.stringify(sentQuery.value) === JSON.stringify(selectedQuery.value))
+  && sent.value !== null
+  && JSON.stringify(sent.value.query) === JSON.stringify(selectedQuery.value))
 
 const canFetch = computed(() => Boolean(resolution.value && dataset.value && stationIds.value) && !holdsSelection.value)
 
@@ -179,7 +184,7 @@ function run() {
   if (!canFetch.value) {
     return
   }
-  sentQuery.value = historyQuery()
+  sent.value = { query: historyQuery(), stations: [...stationSelectionState.value.selection.stations] }
   refresh()
 }
 
@@ -297,7 +302,7 @@ function clear() {
         </div>
         <div v-else class="space-y-6">
           <!-- Selected Stations Overview -->
-          <div v-if="stationSelectionState.selection.stations.length > 0">
+          <div v-if="data.stations?.length > 0">
             <h3 class="text-base font-bold mb-3">
               {{ t('history.selectedStations') }}
             </h3>
@@ -326,7 +331,7 @@ function clear() {
                   </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                  <tr v-for="station in stationSelectionState.selection.stations" :key="station.station_id">
+                  <tr v-for="station in data.stations" :key="station.station_id">
                     <td class="px-4 py-2 text-sm font-medium">
                       {{ station.station_id }}
                     </td>
