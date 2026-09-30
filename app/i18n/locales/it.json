@@ -581,7 +581,7 @@
     "noColumns": "La query non ha restituito alcuna colonna",
     "missingColumns": "Ai risultati della query mancano colonne previste: {missing}. Colonne previste: {expected}",
     "extraColumns": "I risultati della query contengono colonne aggiuntive: {extra}",
-    "misreadTypes": "Il DuckDB del browser legge male BIT, TIME WITH TIME ZONE (lo scostamento va perso) e i valori UHUGEINT da 2^127 in su (diventano negativi). Converti una tale colonna in testo: CAST(colonna AS VARCHAR)."
+    "misreadTypes": "Il DuckDB del browser legge male BIT, TIME WITH TIME ZONE (lo scostamento va perso) e i valori UHUGEINT da 2^127 in su (diventano negativi) e mostra una GEOMETRY come i suoi byte WKB. Converti una tale colonna in testo: CAST(colonna AS VARCHAR)."
   },
   "history": {
     "title": "Cronologia delle stazioni",

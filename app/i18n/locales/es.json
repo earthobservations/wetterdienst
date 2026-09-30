@@ -581,7 +581,7 @@
     "noColumns": "La consulta no devolvió ninguna columna",
     "missingColumns": "A los resultados de la consulta les faltan columnas esperadas: {missing}. Columnas esperadas: {expected}",
     "extraColumns": "Los resultados de la consulta contienen columnas adicionales: {extra}",
-    "misreadTypes": "DuckDB en el navegador lee mal BIT, TIME WITH TIME ZONE (se pierde el desfase) y los valores UHUGEINT desde 2^127 (se vuelven negativos). Convierta esa columna a texto: CAST(columna AS VARCHAR)."
+    "misreadTypes": "DuckDB en el navegador lee mal BIT, TIME WITH TIME ZONE (se pierde el desfase) y los valores UHUGEINT desde 2^127 (se vuelven negativos) y muestra una GEOMETRY como sus bytes WKB. Convierta esa columna a texto: CAST(columna AS VARCHAR)."
   },
   "history": {
     "title": "Historial de estaciones",
