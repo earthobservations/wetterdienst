@@ -124,6 +124,9 @@ Types of changes:
 - `[Explorer]` A query that fails or is refused hands the table back to the fetched rows, where the
   table went on showing the previous query's rows under the new query's error, as if they were its
   output (GH-2138)
+- `[Explorer]` Cancel, or a Fetch, stops the query under way in the query panel, where DuckDB ran it
+  on to its end and the next run, and the syntax check, waited behind it. The syntax check no longer
+  waits for a run's query either (GH-2143)
 
 ## [0.17.0] - 2026-09-29
 

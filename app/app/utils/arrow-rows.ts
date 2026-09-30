@@ -1,4 +1,4 @@
-import type { DataType, Decimal, Field, FixedSizeList, Struct, Table, Time, Timestamp, Union, Vector } from 'apache-arrow'
+import type { DataType, Decimal, Field, FixedSizeList, RecordBatch, Struct, Table, Time, Timestamp, Union, Vector } from 'apache-arrow'
 import { TimeUnit, Type } from 'apache-arrow/enum'
 
 // A time's ticks in a second, by the unit of its type
@@ -231,10 +231,10 @@ function plainColumn(vector: Vector, field: Field): unknown[] {
  *
  * A name given to two columns holds the last one's value, as `toJSON()` keeps.
  *
- * @param table - The result, as DuckDB answers a query
+ * @param table - The result, or a batch of it, as DuckDB answers a query
  * @returns One object per row, keyed by column name
  */
-export function plainRows(table: Table): Record<string, unknown>[] {
+export function plainRows(table: Table | RecordBatch): Record<string, unknown>[] {
   // DuckDB answers a result of no rows with an empty batch whose nested columns have no children to read
   if (table.numRows === 0)
     return []

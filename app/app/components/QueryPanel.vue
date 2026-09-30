@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { RecordBatch } from 'apache-arrow'
 import type { Value } from '#shared/types/api'
 import { plainRows } from '~/utils/arrow-rows'
 import { validateColumns, validateQuery } from '~/utils/query-validator'
@@ -328,6 +329,36 @@ watch(query, () => {
 // changes nothing: no result handed on, no error, no spinner stopped under a newer run
 let currentRun = 0
 
+// The connection of the run whose query DuckDB is running, which leaving that run cancels
+let sending: any = null
+
+// A query sent on a connection of its own, which DuckDB runs a slice at a time between polls, so
+// that leaving its run can cancel it (GH-2143): `query()` held DuckDB until the query ended, and the
+// next run and the syntax check waited for it. Its own, as a statement on the connection of a query
+// under way ends that query, and a later run's query on it would meet this one's result being read
+async function sendQuery(sql: string, left: () => boolean) {
+  const connection = await db.connect()
+  try {
+    if (left())
+      return null
+    sending = connection
+    const reader = await connection.send(sql)
+    return await reader.readAll()
+  }
+  finally {
+    if (sending === connection)
+      sending = null
+    connection.close().catch(() => {})
+  }
+}
+
+// Leave the run under way: it hands on no result, and tells no error, when it answers, and DuckDB
+// cancels its query rather than run it to an end nobody waits for
+function leaveRun() {
+  currentRun++
+  sending?.cancelSent().catch(() => {})
+}
+
 // A run that failed: its error, over the fetched rows rather than the rows of the query before it,
 // which would read as its own (GH-2138)
 function fail(message: string) {
@@ -392,17 +423,17 @@ async function executeQuery() {
     if (run !== currentRun)
       return
 
-    const result = await conn.query(sql)
+    const batches = await sendQuery(sql, () => run !== currentRun)
 
     // left by Cancel, or by a Fetch whose newer rows the result would replace
-    if (run !== currentRun)
+    if (!batches || run !== currentRun)
       return
 
     // each value made plain by its column's type, as the REST API would answer it, where Arrow's own
     // toJSON() left BigInts, milliseconds since the epoch and its own nested rows (GH-2068, GH-2071).
     // Typed as values, as the panel has always handed its rows on; validateColumns checks below that
     // they carry the columns a value needs
-    const resultArray = plainRows(result) as unknown as Value[]
+    const resultArray = batches.flatMap((batch: RecordBatch) => plainRows(batch)) as unknown as Value[]
 
     // Validate columns
     if (resultArray.length > 0) {
@@ -446,8 +477,7 @@ function enableQueryMode() {
 }
 
 function disableQueryMode() {
-  // the run under way is left: it hands on no result, and tells no error, when it answers
-  currentRun++
+  leaveRun()
   isExecuting.value = false
   isQueryMode.value = false
   queryResults.value = []
