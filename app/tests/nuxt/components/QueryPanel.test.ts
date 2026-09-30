@@ -380,6 +380,17 @@ describe('queryPanel unmounted', () => {
     wrapper.unmount()
     await vi.waitFor(() => expect(terminate).toHaveBeenCalledTimes(1))
   })
+
+  it('logs a database that fails to end, rather than fail the unmount', async () => {
+    const terminate = vi.spyOn(AsyncDuckDB.prototype, 'terminate').mockRejectedValueOnce(new Error('lost'))
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    unwatched.push(() => terminate.mockRestore(), () => logged.mockRestore())
+    const wrapper = await unmountable()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    wrapper.unmount()
+    await vi.waitFor(() => expect(logged).toHaveBeenCalledWith('Failed to terminate DuckDB:', expect.any(Error)))
+  })
 })
 
 describe('queryPanel failed start or load', () => {
@@ -422,9 +433,9 @@ describe('queryPanel failed start or load', () => {
     expect(instantiate).toHaveBeenCalledTimes(2)
   })
 
-  it('loads the table again for the next run after its load failed', async () => {
+  it('loads the table again for the next run after its load failed, not for the syntax check', async () => {
     let failed = false
-    watchStatements((sql) => {
+    const statements = watchStatements((sql) => {
       if (!failed && sql.startsWith('CREATE TABLE')) {
         failed = true
         return Promise.reject(new Error('lost'))
@@ -435,9 +446,40 @@ describe('queryPanel failed start or load', () => {
     await runButton(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to load data: lost'))
     await vi.waitFor(() => expect(runButton(wrapper).attributes('disabled')).toBeUndefined())
+    // the check leaves it to the run, rather than load every row again at every pause in typing
+    await editNow(wrapper, 'SELECT * FROM data LIMIT 50')
+    await flushPromises()
+    expect(creates(statements)).toHaveLength(1)
     await runButton(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
     expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(data)
+  })
+
+  it('starts no load for rows a Fetch replaced while it waited for the load before it', async () => {
+    // it dropped and created the table for rows nobody would query, once the load before it ended
+    const older = Array.from({ length: 250 }, (_, i) => ({ ...data[0]!, value: i }))
+    const hold = gate()
+    let held = false
+    const statements = watchStatements((sql) => {
+      if (!held && sql.startsWith('INSERT')) {
+        held = true
+        return hold.opened
+      }
+      return undefined
+    })
+    const wrapper = await queryMode(older)
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(held).toBe(true))
+    for (const rows of [[...older], data]) {
+      await wrapper.setProps({ data: rows })
+      await buttonLabelled(wrapper, 'Transform with SQL Query').trigger('click')
+      await runButton(wrapper).trigger('click')
+    }
+    hold.open()
+    // each Fetch's rows handed back as query mode was left, then the last run's result
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(3))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![2]![0]).toEqual(data)
+    expect(verbs(statements.ran)).toEqual(['DROP', 'CREATE', 'INSERT', 'DROP', 'CREATE', 'INSERT'])
   })
 
   it.each([
@@ -549,6 +591,20 @@ describe('queryPanel syntax check', () => {
     expect(spinner()).toBe(true)
     explained.open()
     await vi.waitFor(() => expect(spinner()).toBe(false))
+  })
+
+  it('asks for no schema for a check left behind while DuckDB explained it', async () => {
+    const older = 'SELECT * FROM data LIMIT 10'
+    const explained = gate()
+    const statements = watchStatements(sql => sql === `EXPLAIN ${older}` ? explained.opened : undefined)
+    const wrapper = await queryMode()
+    await editNow(wrapper, older)
+    await vi.waitFor(() => expect(statements).toContain(`EXPLAIN ${older}`))
+    await editNow(wrapper, 'SELECT * FROM data LIMIT 20')
+    explained.open()
+    await vi.waitFor(() => expect(statements).toContain('SELECT * FROM (SELECT * FROM data LIMIT 20) LIMIT 0'))
+    await flushPromises()
+    expect(statements).not.toContain(`SELECT * FROM (${older}) LIMIT 0`)
   })
 })
 

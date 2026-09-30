@@ -142,8 +142,11 @@ async function startDuckDB() {
   }
 }
 
-// Load rows into DuckDB's `data` table, stopping before its next batch once `superseded`
+// Load rows into DuckDB's `data` table, stopping before its next batch once `superseded`, or not
+// starting when superseded while it waited for the load before it
 async function loadDataIntoDB(rows: Value[], superseded: () => boolean) {
+  if (superseded())
+    return
   // Drop table if exists
   await conn.query('DROP TABLE IF EXISTS data')
 
@@ -184,17 +187,17 @@ async function loadDataIntoDB(rows: Value[], superseded: () => boolean) {
 // The load of the panel's rows into the table, which a run and the syntax check await rather than
 // load it each, their statements interleaved. A load of newer rows starts once the one before it
 // has ended, which stops before its next batch rather than insert rows nobody will query. A load
-// that failed is tried again by whoever asks next
-let tableLoad: { rows: Value[], done: Promise<void> } | null = null
+// that failed is tried again by the next run (`again`), not by the syntax check at every pause in
+// typing
+let tableLoad: { rows: Value[], done: Promise<void>, failed: boolean } | null = null
 
-function loadTable(rows: Value[]): Promise<void> {
-  if (tableLoad?.rows !== rows) {
+function loadTable(rows: Value[], { again = false } = {}): Promise<void> {
+  if (tableLoad?.rows !== rows || (again && tableLoad.failed)) {
     const before = tableLoad?.done.catch(() => {}) ?? Promise.resolve()
-    const load = { rows, done: Promise.resolve() }
+    const load = { rows, done: Promise.resolve(), failed: false }
     load.done = before.then(() => loadDataIntoDB(rows, () => tableLoad !== load))
     load.done.catch(() => {
-      if (tableLoad === load)
-        tableLoad = null
+      load.failed = true
     })
     tableLoad = load
   }
@@ -262,6 +265,8 @@ async function validateQuerySyntax() {
 
     // Try to explain the query - this validates syntax
     await conn.query(`EXPLAIN ${sql}`)
+    if (!current())
+      return
 
     // Validate output columns by running query with LIMIT 0
     // This returns schema without fetching data - very fast!
@@ -359,7 +364,7 @@ async function executeQuery() {
     }
 
     try {
-      await loadTable(rows)
+      await loadTable(rows, { again: true })
     }
     catch (err: any) {
       if (run === currentRun) {
@@ -373,15 +378,16 @@ async function executeQuery() {
       return
 
     const result = await conn.query(sql)
+
+    // left by Cancel, or by a Fetch whose newer rows the result would replace
+    if (run !== currentRun)
+      return
+
     // each value made plain by its column's type, as the REST API would answer it, where Arrow's own
     // toJSON() left BigInts, milliseconds since the epoch and its own nested rows (GH-2068, GH-2071).
     // Typed as values, as the panel has always handed its rows on; validateColumns checks below that
     // they carry the columns a value needs
     const resultArray = plainRows(result) as unknown as Value[]
-
-    // left by Cancel, or by a Fetch whose newer rows the result would replace
-    if (run !== currentRun)
-      return
 
     // Validate columns
     if (resultArray.length > 0) {
@@ -458,7 +464,7 @@ onUnmounted(async () => {
   // the database is ended even when its connection fails to close
   await conn?.close().catch((err: unknown) => console.error('Failed to close DuckDB connection:', err))
   conn = null
-  await db?.terminate()
+  await db?.terminate().catch((err: unknown) => console.error('Failed to terminate DuckDB:', err))
   db = null
 })
 </script>
