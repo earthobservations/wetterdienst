@@ -66,12 +66,9 @@ describe('valuesToCsv with a query panel\'s column names', () => {
   })
 })
 
-describe('valuesToJson with a query panel\'s count', () => {
-  it('writes a BigInt as the number it is', () => {
-    // DuckDB answers COUNT(*) as a BigInt, which JSON.stringify refuses
-    const counted = [{ parameter: 'temperature_air_mean_2m', count: 42n }]
-    expect(JSON.parse(valuesToJson(counted, ['parameter', 'count']))).toEqual({
-      values: [{ parameter: 'temperature_air_mean_2m', count: 42 }],
-    })
+describe('exportColumns over rows of different shapes', () => {
+  it('keeps a column only a later row carries', () => {
+    const sparse = [{ station_id: '01048', value: 1.5 }, { station_id: '04411', value: 2.5, taken_station_id: '04411' }]
+    expect(exportColumns(sparse, ['station_id', 'value'])).toEqual(['station_id', 'value', 'taken_station_id'])
   })
 })

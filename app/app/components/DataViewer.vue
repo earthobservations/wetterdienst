@@ -217,23 +217,23 @@ const apiQuery = computed(() => {
 // selected since. Bound to the live selection instead, the fetch kept a request of its own beside
 // this one, which a selection changed mid-fetch, or Clear, could part from what the table showed.
 const fetchedRequest = ref<{ endpoint: string, filename: string, query: Record<string, unknown> } | null>(null)
-// Each Fetch and each Clear moves the table to a data entry of its own, keyed by this: an answer to
-// a fetch that Clear or a newer Fetch has overtaken lands in its old entry, never the table's. Keyed
-// instead by a hash of the request, as useFetch is by default, that held only while nothing kept an
-// entry past its key -- a cache, or an explicit key -- and two Fetches of one request shared one.
+// Fetches and Clears so far: a GeoJSON download started before the latest is for a table gone since
 const fetchGeneration = ref(0)
-const valuesKey = `${useId()}-values`
 
-const { data: valuesData, pending: valuesPending, error: valuesError, refresh: refreshValues } = useFetch<ValuesResponse>(
+// One key for the table's values, whatever the request: a newer Fetch cancels one still under way
+// (useFetch's `dedupe: 'cancel'`) and Clear aborts it (`clear`), so an answer they overtook never
+// reaches the table. Keyed by the request instead, as useFetch is by default, each request left an
+// entry behind for the rest of the session.
+const { data: valuesData, pending: valuesPending, error: valuesError, refresh: refreshValues, clear: clearValues } = useFetch<ValuesResponse>(
   () => fetchedRequest.value?.endpoint ?? '/api/values',
   {
-    key: computed(() => `${valuesKey}-${fetchGeneration.value}`),
+    key: `${useId()}-values`,
+    dedupe: 'cancel',
     method: 'GET',
     query: computed(() => fetchedRequest.value?.query ?? {}),
     lazy: true,
     immediate: false,
-    // fetched by Fetch alone: a key or request that changes -- Clear moves the key on -- does not fetch
-    // by itself, which without this would send an empty query on every Clear
+    // fetched by Fetch alone, not whenever the request it reads changes
     watch: false,
     default: () => ({ values: [] }),
   },
@@ -444,7 +444,8 @@ const canFetchData = computed(() => {
 })
 
 // a GeoJSON download under way, which the menu does not offer again until it is saved
-const downloadingGeojson = ref(false)
+const geojsonDownload = shallowRef<AbortController | null>(null)
+const downloadingGeojson = computed(() => geojsonDownload.value !== null)
 
 // A download saves what the table holds -- its rows, after the query panel and the sorting, with
 // the columns it shows first and then any others they carry -- rather than asking the backend again
@@ -476,22 +477,24 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  // later, not at once: some browsers start the download after the click returns, and a large file
+  // whose URL is already gone fails
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
 
   toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedValues', { format: format.toUpperCase() }), color: 'success' })
 }
 
 // the GeoJSON download under way, aborted once the table no longer holds what it describes
-let geojsonDownload: AbortController | null = null
-watch([fetchGeneration, isDataTransformed], () => geojsonDownload?.abort())
+// aborted once the table no longer holds what it describes, or the viewer is gone
+watch([fetchGeneration, isDataTransformed], () => geojsonDownload.value?.abort())
+onScopeDispose(() => geojsonDownload.value?.abort())
 
 // Ask again for the request that filled the table, as GeoJSON; null where there is nothing to save:
 // the answer failed, which is told, or the table moved on -- Fetch, Clear, the query panel -- which
 // aborts it and is not
 async function fetchGeojson(request: NonNullable<typeof fetchedRequest.value>): Promise<string | null> {
   const download = new AbortController()
-  geojsonDownload = download
-  downloadingGeojson.value = true
+  geojsonDownload.value = download
   try {
     // as the table's own request was sent, so the query reads the same; once, as a failed answer is
     // told at once rather than asked for again
@@ -510,8 +513,7 @@ async function fetchGeojson(request: NonNullable<typeof fetchedRequest.value>): 
     return null
   }
   finally {
-    downloadingGeojson.value = false
-    geojsonDownload = null
+    geojsonDownload.value = null
   }
 }
 
@@ -571,11 +573,10 @@ async function fetchData() {
 
 // Clear function to reset data
 function clearData() {
-  // a fetch still under way answers into the entry it was made for, which the table has left
+  // aborts a fetch still under way, and empties the table and its error
   fetchedRequest.value = null
   fetchGeneration.value++
-  valuesData.value = { values: [] }
-  valuesError.value = undefined
+  clearValues()
   currentPage.value = 1
 }
 

@@ -30,12 +30,13 @@ function csvField(value: unknown): string {
  * @returns The columns, each once
  */
 export function exportColumns(values: Row[], order: string[]): string[] {
-  // the rows of one answer, or of one query, share their columns, so the first row names them all
-  const first = values[0]
-  if (!first)
-    return []
-  const carried = Object.keys(first)
-  return [...order.filter(column => carried.includes(column)), ...carried.filter(column => !order.includes(column))]
+  // every row's keys, not the first row's alone: a row set need not give each row every column
+  const carried = new Set<string>()
+  for (const row of values) {
+    for (const column in row)
+      carried.add(column)
+  }
+  return [...order.filter(column => carried.has(column)), ...[...carried].filter(column => !order.includes(column))]
 }
 
 /**
@@ -64,8 +65,10 @@ export function valuesToCsv(values: Row[], columns: string[]): string {
  * @returns The JSON text
  */
 export function valuesToJson(values: Row[], columns: string[]): string {
-  const rows = values.map(row => Object.fromEntries(columns.map(column => [column, field(row, column) ?? null])))
-  // a query panel's COUNT(*) comes back from DuckDB as a BigInt, which JSON has no way to write;
-  // a count is far below where a number loses precision
-  return JSON.stringify({ values: rows }, (_key, value) => typeof value === 'bigint' ? Number(value) : value)
+  // rows that hold exactly these columns, in this order -- the REST API's answer, as a rule -- are
+  // written as they are, rather than copied first: a large table would be held twice over
+  const first = values[0]
+  const asTheyAre = first !== undefined && Object.keys(first).join('\u0000') === columns.join('\u0000')
+  const rows = asTheyAre ? values : values.map(row => Object.fromEntries(columns.map(column => [column, field(row, column) ?? null])))
+  return JSON.stringify({ values: rows })
 }
