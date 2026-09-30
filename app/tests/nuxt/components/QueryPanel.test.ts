@@ -54,7 +54,7 @@ afterEach(() => {
 
 // the rows the panel hands on for a query
 async function transform(query: string) {
-  const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
+  const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!) } })
   mounted.push(wrapper)
   await wrapper.find('button').trigger('click')
   await wrapper.find('textarea').setValue(query)
@@ -143,7 +143,7 @@ function watchStatements(hold: (sql: string) => Promise<void> | undefined = () =
 
 // a panel in query mode on `rows`
 async function queryMode(rows = data) {
-  const wrapper = await mountSuspended(QueryPanel, { props: { data: rows, expectedColumns: Object.keys(rows[0]!), mode: 'station' } })
+  const wrapper = await mountSuspended(QueryPanel, { props: { data: rows, expectedColumns: Object.keys(rows[0]!) } })
   mounted.push(wrapper)
   await wrapper.find('button').trigger('click')
   return wrapper
@@ -336,7 +336,7 @@ describe('queryPanel run left behind', () => {
 describe('queryPanel unmounted', () => {
   // a panel in query mode, left out of `mounted`, as the test unmounts it itself
   async function unmountable() {
-    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
+    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!) } })
     await wrapper.find('button').trigger('click')
     return wrapper
   }
@@ -685,7 +685,7 @@ describe('queryPanel note on misread types', () => {
   it('names the types the browser\'s DuckDB misreads and the cast that reads them', async () => {
     // a BIT reads as DuckDB's bytes, a TIME WITH TIME ZONE without its offset, a UHUGEINT of 2^127
     // or more as negative
-    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
+    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!) } })
     mounted.push(wrapper)
     await wrapper.find('button').trigger('click')
     const text = wrapper.text()
@@ -694,10 +694,101 @@ describe('queryPanel note on misread types', () => {
   })
 })
 
+describe('queryPanel table columns', () => {
+  it('types a column by all its values and keeps a column only later rows carry', async () => {
+    // a column null in the first row was VARCHAR, which `avg` refused and which handed `quality`
+    // on as text, and a column the first row lacked was no column at all
+    const rows = [
+      { ...data[0]!, value: null, quality: null },
+      { ...data[0]!, timestamp: '2020-01-02T00:00:00.000000+00:00', value: 2.5, quality: 10, distance: 1.25 },
+    ] as Value[]
+    const wrapper = await queryMode(rows)
+    await wrapper.find('textarea').setValue('SELECT *, avg(value) OVER () AS mean FROM data ORDER BY timestamp')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual([
+      { ...rows[0], distance: null, mean: 2.5 },
+      { ...rows[1], mean: 2.5 },
+    ])
+  })
+
+  it('keeps a column with no value at all as text, which compares with a string', async () => {
+    // a summary that found no station has no `taken_station_id` in any row; as a DOUBLE, matching it
+    // against a pattern failed
+    const rows = [{ ...data[0]!, taken_station_id: null }] as unknown as Value[]
+    const wrapper = await queryMode(rows)
+    await wrapper.find('textarea').setValue('SELECT * FROM data WHERE taken_station_id IS NULL OR taken_station_id LIKE \'01%\'')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(rows)
+  })
+})
+
+describe('queryPanel columns of the rows queried', () => {
+  const { parameter: _parameter, value: _value, quality: _quality, ...key } = data[0]!
+  // each shape of row the panel queries, as the REST API answers it, and the examples it offers
+  const shapes = [
+    {
+      shape: 'long',
+      rows: data,
+      examples: ['All data (limited)', 'Filter by parameter', 'Aggregate by timestamp', 'Filter by value range', 'Recent data only'],
+    },
+    {
+      shape: 'wide',
+      rows: [{ ...key, temperature_air_mean_2m: 1.5 }],
+      examples: ['All data (limited)', 'Recent data only'],
+    },
+    {
+      shape: 'interpolated',
+      rows: [{ ...key, parameter: 'temperature_air_mean_2m', value: 1.5, distance_mean: 3.25, taken_station_ids: ['01048', '04411'] }],
+      examples: ['All data (limited)', 'Filter by parameter', 'Aggregate by timestamp', 'Filter by value range', 'Recent data only', 'Group by source stations'],
+    },
+    {
+      shape: 'summarized',
+      rows: [{ ...key, parameter: 'temperature_air_mean_2m', value: 1.5, distance: 1.25, taken_station_id: '01048' }],
+      examples: ['All data (limited)', 'Filter by parameter', 'Aggregate by timestamp', 'Filter by value range', 'Recent data only', 'Group by source station'],
+    },
+  ] as unknown as { shape: string, rows: Value[], examples: string[] }[]
+
+  it.each(shapes)('offers the examples the $shape rows carry the columns of, and runs each', async ({ rows, examples }) => {
+    // every query was refused unless it returned the long rows' parameter, value and quality, and an
+    // example on a column the rows lack failed on it
+    const wrapper = await queryMode(rows)
+    expect(wrapper.text()).not.toContain('Required columns')
+    expect(wrapper.findAll('details button').map(button => button.text())).toEqual(examples)
+    // a run refused, or failed, hands nothing on
+    for (const [i, example] of examples.entries()) {
+      await buttonLabelled(wrapper, example).trigger('click')
+      await runButton(wrapper).trigger('click')
+      await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(i + 1))
+    }
+  })
+
+  it('tells no syntax error for a query returning columns of its own', async () => {
+    // the check refused a result without the long rows' columns, and Run Query stayed disabled
+    const sql = 'SELECT timestamp, temperature_air_mean_2m * 2 AS doubled FROM data LIMIT 10'
+    const statements = watchStatements()
+    const wrapper = await queryMode(shapes[1]!.rows)
+    await editNow(wrapper, sql)
+    await vi.waitFor(() => expect(statements).toContain(`SELECT * FROM (${sql}) LIMIT 0`))
+    await vi.waitFor(() => expect(wrapper.find('div.absolute.top-2.right-2').exists()).toBe(false))
+    expect(wrapper.text()).not.toContain('Syntax Error')
+    expect(runButton(wrapper).attributes('disabled')).toBeUndefined()
+  })
+
+  it('notes the columns a result lacks against the rows queried, and hands it on', async () => {
+    const wrapper = await queryMode()
+    await wrapper.find('textarea').setValue('SELECT parameter, avg(value) AS mean FROM data GROUP BY parameter')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual([{ parameter: 'temperature_air_mean_2m', mean: 1.5 }])
+    expect(wrapper.text()).toContain('missing expected columns: station_id, resolution, dataset, timestamp, value, quality')
+  })
+})
+
 describe('queryPanel failed run', () => {
   it.each([
     { failure: 'DuckDB refusing it', sql: 'SELECT * FROM data WHERE valu > 1', told: 'Query error' },
-    { failure: 'its columns', sql: 'SELECT station_id FROM data', told: 'missing expected columns' },
     { failure: 'the validator refusing it', sql: 'DELETE FROM data', told: 'Only SELECT queries' },
   ])('hands back the fetched rows for a query failing by $failure, not the query\'s before it', async ({ sql, told }) => {
     // the table went on showing the previous query's rows under the new query's error, as its output
@@ -749,7 +840,7 @@ describe('queryPanel query left running', () => {
   })
 
   it('cancels the query of a run under way as the panel goes', async () => {
-    // the worker was terminated with the query's send unanswered, which never settled
+    // it ran on until the worker was terminated
     const statements = watchStatements(sql => sql === opening ? new Promise<void>(() => {}) : undefined)
     const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
     await wrapper.find('button').trigger('click')

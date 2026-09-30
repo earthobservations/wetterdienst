@@ -729,9 +729,7 @@ describe('dataViewer columns', () => {
     // checked the rows against them
     expect(picked(wrapper)).toContain(column)
     expect(headers(wrapper)).toContain(column)
-    const panel = wrapper.findComponent(QueryPanel)
-    expect(panel.props('mode')).toBe(mode)
-    expect(panel.props('expectedColumns')).toContain(column)
+    expect(wrapper.findComponent(QueryPanel).props('expectedColumns')).toContain(column)
   })
 
   it('takes the columns of the station rows a Fetch replaces interpolated rows with', async () => {
@@ -744,7 +742,7 @@ describe('dataViewer columns', () => {
     await fetchData(viewer)
     await wrapper.vm.$nextTick()
     expect(picked(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
-    expect(wrapper.findComponent(QueryPanel).props('mode')).toBe('station')
+    expect(wrapper.findComponent(QueryPanel).props('expectedColumns')).toEqual(Object.keys(row))
   })
 
   it('follows the selected mode once Clear has emptied the table', async () => {
@@ -1302,5 +1300,108 @@ describe('dataViewer chart images while drawn', () => {
       const svg = new DOMParser().parseFromString(await saved[0]!.text(), 'image/svg+xml').documentElement
       expect([...svg.children].map(chart => chart.textContent)).toEqual(['temperature_air_mean_2m', 'precipitation_height'])
     }
+  })
+})
+
+// a query's rows, as the query panel hands them over
+async function withChartQuery(query: unknown[]) {
+  registerEndpoint('/api/values', () => ({ values: [row] }))
+  const mountedViewer = await mountDataViewer()
+  await fetchData(mountedViewer.viewer)
+  mountedViewer.wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', query)
+  await mountedViewer.wrapper.vm.$nextTick()
+  return mountedViewer
+}
+
+// the traces and layout the chart was last drawn with: the single chart's, or the last facet's
+function lastDrawn(faceted: boolean) {
+  const draw = faceted ? plotly.react : plotly.newPlot
+  const [, traces, layout] = draw.mock.lastCall as unknown as [HTMLElement, { name: string, x: string[], y: number[], mode: string }[], { hovermode: string }]
+  return { traces, layout }
+}
+
+describe('dataViewer chart of a query\'s timestamps that are no date', () => {
+  it.each([
+    // `CAST(timestamp AS TIME) AS timestamp`: the chart was not drawn, its traces throwing a RangeError
+    { timestamp: '01:00:00.000000', faceted: false },
+    { timestamp: '01:00:00.000000', faceted: true },
+    { timestamp: 'n/a', faceted: false },
+    { timestamp: 'n/a', faceted: true },
+    // text a browser reads as a date by rules of its own: 2001-01-01 and the year 1048 in Chrome
+    { timestamp: '1', faceted: false },
+    { timestamp: '1', faceted: true },
+    { timestamp: '01048', faceted: false },
+    { timestamp: '01048', faceted: true },
+    // `epoch(timestamp) AS timestamp`: read as milliseconds, drawn on 1970-01-19
+    { timestamp: 1577836800, faceted: false },
+    { timestamp: 1577836800, faceted: true },
+  ])('leaves out a row whose timestamp is $timestamp, faceted: $faceted', async ({ timestamp, faceted }) => {
+    plotly.newPlot.mockClear()
+    plotly.react.mockClear()
+    const { wrapper } = await withChartQuery([row, { ...row, timestamp, value: 9 }])
+    await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect((faceted ? plotly.react : plotly.newPlot)).toHaveBeenCalled())
+    const [trace] = lastDrawn(faceted).traces
+    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
+  })
+})
+
+describe('dataViewer chart of the rows it can plot', () => {
+  // a parameter whose rows have no value, and one whose rows have no timestamp, beside one plotted
+  const unplotted = [
+    row,
+    { ...row, parameter: 'precipitation_height', value: null },
+    { ...row, parameter: 'wind_speed', timestamp: null, value: 3.1 },
+  ]
+
+  it('draws no series for the rows it leaves out', async () => {
+    // each was an empty trace with a legend entry
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery(unplotted)
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    expect(lastDrawn(false).traces.map(trace => trace.name)).toEqual(['01048 - temperature_air_mean_2m'])
+  })
+
+  it('draws no facet for the rows it leaves out', async () => {
+    // each was an empty panel of its own, which the stacked image took in
+    plotly.react.mockClear()
+    const { wrapper } = await withChartQuery(unplotted)
+    await showChart(wrapper, true)
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalled())
+    expect(wrapper.findAll('h4').map(heading => heading.text())).toEqual(['temperature_air_mean_2m'])
+    expect(plotly.react).toHaveBeenCalledOnce()
+  })
+
+  it.each([false, true])('says there is no chart and offers no image where no row can be plotted, faceted: %s', async (faceted) => {
+    // an empty chart was drawn, and its image offered
+    const { wrapper } = await withChartQuery(unplotted.slice(1))
+    await showChart(wrapper, faceted)
+    expect(wrapper.text()).toContain('No data available for chart')
+    expect(offered(await openDownloads(wrapper))).toEqual([['PNG', false], ['JPEG', false], ['SVG', false]])
+  })
+
+  // a day's row each, from 2020-01-01 on
+  const days = (count: number) => Array.from({ length: count }, (_, day) => ({ ...row, timestamp: new Date(Date.UTC(2020, 0, day + 1)).toISOString() }))
+
+  it.each([false, true])('draws the points of a large result as a small one where most rows are left out, faceted: %s', async (faceted) => {
+    // the rows left out were counted: drawn as thin lines without markers, hovered point by point
+    plotly.newPlot.mockClear()
+    plotly.react.mockClear()
+    const { wrapper } = await withChartQuery([...days(10), ...days(600).map(day => ({ ...day, value: null }))])
+    await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
+    const { traces, layout } = lastDrawn(faceted)
+    expect([traces[0]!.mode, layout.hovermode]).toEqual(['lines+markers', 'x unified'])
+  })
+
+  it.each([false, true])('draws the points of a large result as a large one, faceted: %s', async (faceted) => {
+    plotly.newPlot.mockClear()
+    plotly.react.mockClear()
+    const { wrapper } = await withChartQuery(days(501))
+    await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
+    const { traces, layout } = lastDrawn(faceted)
+    expect([traces[0]!.mode, layout.hovermode]).toEqual(['lines', 'closest'])
   })
 })

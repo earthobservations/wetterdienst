@@ -581,7 +581,7 @@
     "noColumns": "Dotaz nevrátil žádné sloupce",
     "missingColumns": "Ve výsledcích dotazu chybí očekávané sloupce: {missing}. Očekávané sloupce: {expected}",
     "extraColumns": "Výsledky dotazu obsahují další sloupce: {extra}",
-    "misreadTypes": "DuckDB v prohlížeči čte chybně BIT, TIME WITH TIME ZONE (posun se ztratí) a hodnoty UHUGEINT od 2^127 (stanou se zápornými). Převeďte takový sloupec na text: CAST(sloupec AS VARCHAR)."
+    "misreadTypes": "DuckDB v prohlížeči čte chybně BIT, TIME WITH TIME ZONE (posun se ztratí) a hodnoty UHUGEINT od 2^127 (stanou se zápornými) a GEOMETRY zobrazuje jako bajty WKB. Převeďte takový sloupec na text: CAST(sloupec AS VARCHAR)."
   },
   "history": {
     "title": "Historie stanic",

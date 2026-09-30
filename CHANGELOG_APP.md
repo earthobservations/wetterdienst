@@ -86,6 +86,9 @@ Types of changes:
   gives it, where it showed no name whenever the name section was fetched, which it is by default.
   The name is shown once, beside the station id, and no longer repeated in a row of its own below
   (GH-2092)
+- `[History]` A station's card takes its station id from the name and missing data sections too, so
+  it shows one when only those are fetched and hold records, where its header read `Station ID:`
+  with nothing after it (GH-2120)
 - `[Explorer]` The query panel's "Available columns" lists the columns of the rows it queries, in a
   download's order: a wide table's parameters, and an interpolation's `distance_mean` or a summary's
   `distance`. It listed the mode's fixed columns, among them a `quality` that interpolated and
@@ -121,6 +124,29 @@ Types of changes:
   one that is a MAP's own key or value. The query panel notes that the browser's DuckDB misreads
   BIT, TIME WITH TIME ZONE (dropping the offset) and UHUGEINT values of 2^127 or more (turning
   them negative), and that `CAST(column AS VARCHAR)` reads them as text (GH-2102)
+- `[Explorer]` A query's row whose timestamp is not text beginning with an ISO date, such as
+  `2020-01-01`, is left out of the chart: a time of day or `'n/a'` stopped the chart from being
+  drawn, text such as `'1'` was drawn at a date the browser made of it, and a number, read as
+  milliseconds whatever it counts, drew `epoch(timestamp)` in January 1970 (GH-2124)
+- `[Explorer]` The chart draws no series or facet for rows it cannot plot, those without a value or
+  a date, where each was an empty trace with a legend entry, or an empty panel; with no row to plot
+  it says there is no chart data and offers no image. A large result counts only the points drawn,
+  so a few among many such rows are drawn with markers (GH-2125)
+- `[Explorer]` A query's MAP with NaN, infinite and negative infinite keys keeps each of them, as
+  `NaN`, `Infinity` and `-Infinity`. All three were keyed `null`, so only the last one's value was
+  shown and downloaded (GH-2116)
+- `[Explorer]` A query's MAP with DOUBLE or FLOAT keys of NaN, infinity and negative infinity keeps
+  each of them, as `NaN`, `Infinity` and `-Infinity`. All three were keyed `null`, so only the
+  last one's value was shown and downloaded (GH-2116)
+- `[Explorer]` The query panel's note on the types the browser's DuckDB misreads names GEOMETRY,
+  which comes as its WKB bytes, and `CAST(column AS VARCHAR)` reads it as text (GH-2134)
+- `[Explorer]` The query panel's table has every column any row carries, each numeric when all
+  its values are numbers. A column null in the first row, such as `value` or `quality`, was text,
+  so `avg(value)` failed, and a column the first row lacked was missing from the table (GH-2136)
+- `[Explorer]` The query panel runs a query whatever columns it returns, and notes those it lacks
+  against the rows queried. It refused every query without `parameter`, `value` and `quality`, so
+  none could run on wide, interpolated or summarized rows, nor an aggregate on any. Example queries
+  are offered only where the rows carry the columns they read (GH-2122)
 - `[Explorer]` A query that fails or is refused hands the table back to the fetched rows, where the
   table went on showing the previous query's rows under the new query's error, as if they were its
   output (GH-2138)
