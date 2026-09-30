@@ -1401,3 +1401,198 @@ describe('dataViewer chart of the rows it can plot', () => {
     expect([traces[0]!.mode, layout.hovermode]).toEqual(['lines', 'closest'])
   })
 })
+
+// the chart drawn again, as the trendline is ticked or unticked
+async function toggleTrendline(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
+  const label = wrapper.findAll('label').find(label => label.text() === 'Trendline')!
+  await wrapper.find(`#${label.attributes('for')}`).trigger('click')
+}
+
+// the next drawing Plotly is handed, held until the test opens the gate
+function holdNextDraw(draw: typeof plotly.react) {
+  const drawn = draw.getMockImplementation()!
+  const held = gate()
+  draw.mockImplementationOnce(async (...args) => {
+    await held.opened
+    return drawn(...args)
+  })
+  return held
+}
+
+describe('dataViewer chart renders in order', () => {
+  // two days of two parameters: a facet each, a series each long enough for a trendline
+  const twoDays = [...twoParameters, ...twoParameters.map(value => ({ ...value, timestamp: '2020-01-02T00:00:00Z', value: value.value + 1 }))]
+
+  it('draws each facet as last changed where an older drawing goes on after a newer one', async () => {
+    // the older drawing went on to the facets it had left, with the trendline it read at its start
+    registerEndpoint('/api/values', () => ({ values: twoDays }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, true)
+    const held = holdNextDraw(plotly.react)
+    const calls = plotly.react.mock.calls.length
+    // ticked: the first facet's drawing held
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(calls + 1))
+    // unticked again: both facets drawn without it
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(calls + 3))
+    held.open()
+    await flushPromises()
+    // each facet's series as last drawn
+    const last = new Map(plotly.react.mock.calls.slice(calls).map(([chart, traces]) => [chart, (traces as { name: string }[]).map(trace => trace.name)]))
+    expect([...last.values()]).toEqual([['01048'], ['01048']])
+  })
+})
+
+describe('dataViewer chart images after a failed drawing', () => {
+  // what draws a chart, and what exports it: the single chart's newPlot and Plotly's own download, or
+  // each facet's react and toImage
+  const draws = (faceted: boolean) => faceted ? plotly.react : plotly.newPlot
+  const exports = (faceted: boolean) => faceted ? plotly.toImage : plotly.downloadImage
+
+  const failed = new Error('drawing failed')
+
+  // the chart shown, and drawn again as the trendline is ticked, where Plotly throws for as many of
+  // its drawings as given: the failure is told in the console
+  async function shownAndFailing(faceted: boolean, failures: number) {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const mountedViewer = await mountDataViewer()
+    await fetchData(mountedViewer.viewer)
+    await showChart(mountedViewer.wrapper, faceted)
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    for (let failure = 0; failure < failures; failure++)
+      draws(faceted).mockRejectedValueOnce(failed)
+    const calls = draws(faceted).mock.calls.length
+    await toggleTrendline(mountedViewer.wrapper)
+    await vi.waitFor(() => expect(draws(faceted)).toHaveBeenCalledTimes(calls + 1))
+    await flushPromises()
+    expect(logged).toHaveBeenCalledWith('The chart could not be drawn', failed)
+    exports(faceted).mockClear()
+    return { ...mountedViewer, calls: calls + 1 }
+  }
+
+  it.each([false, true])('draws the chart again before saving it where its drawing failed, faceted: %s', async (faceted) => {
+    // the chart Plotly had failed to draw was exported, an empty figure, and reported downloaded
+    const { wrapper, calls } = await shownAndFailing(faceted, 1)
+    catchDownload()
+    ;(await openDownloads(wrapper))[0]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
+    expect(draws(faceted)).toHaveBeenCalledTimes(calls + (faceted ? 2 : 1))
+    expect(exports(faceted)).toHaveBeenCalledTimes(faceted ? 2 : 1)
+    expect(draws(faceted).mock.invocationCallOrder.at(-1)).toBeLessThan(exports(faceted).mock.invocationCallOrder[0]!)
+  })
+
+  it.each([false, true])('says the chart could not be drawn where drawing it again fails too, faceted: %s', async (faceted) => {
+    const { wrapper } = await shownAndFailing(faceted, 2)
+    const saved = catchDownload()
+    ;(await openDownloads(wrapper))[0]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('The chart could not be drawn'))
+    expect(document.body.textContent).not.toContain('Chart downloaded')
+    expect(exports(faceted)).not.toHaveBeenCalled()
+    expect(saved).toHaveLength(0)
+  })
+
+  it.each([false, true])('draws the chart again where its newest drawing failed and an older one finished after it, faceted: %s', async (faceted) => {
+    // the older drawing, finished last, stands for the chart as drawn only while it is the newest
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    const draw = draws(faceted)
+    const held = holdNextDraw(draw)
+    draw.mockRejectedValueOnce(failed)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const calls = draw.mock.calls.length
+    // ticked: held; unticked again: failed
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 1))
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 2))
+    held.open()
+    await flushPromises()
+    catchDownload()
+    exports(faceted).mockClear()
+    ;(await openDownloads(wrapper))[0]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
+    expect(draw).toHaveBeenCalledTimes(calls + 2 + (faceted ? 2 : 1))
+    expect(draw.mock.invocationCallOrder.at(-1)).toBeLessThan(exports(faceted).mock.invocationCallOrder[0]!)
+  })
+
+  it.each([false, true])('tells no failure of a drawing a newer one has replaced, faceted: %s', async (faceted) => {
+    // the console said the chart could not be drawn, where the newer drawing had drawn it
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    const draw = draws(faceted)
+    const held = gate()
+    draw.mockImplementationOnce(async () => {
+      await held.opened
+      throw failed
+    })
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const calls = draw.mock.calls.length
+    // ticked: held, to fail; unticked again: drawn
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 1))
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + (faceted ? 3 : 2)))
+    held.open()
+    await flushPromises()
+    expect(logged).not.toHaveBeenCalled()
+  })
+})
+
+describe('dataViewer chart images after Plotly failed to load', () => {
+  // The chart shown while Plotly's chunk fails to load, as after a redeploy under an open tab: the
+  // viewer loads Plotly itself, when its chart is first shown. Taken as shown once the failure is
+  // told, where a load still under way could be answered by the next load's module
+  async function shownWithoutPlotly(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper'], faceted: boolean) {
+    vi.doMock('plotly.js-basic-dist-min', () => {
+      throw new Error('chunk failed to load')
+    })
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect(logged).toHaveBeenCalledWith('The chart could not be drawn', expect.any(Error)))
+  }
+
+  function loadPlotly() {
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+  }
+
+  afterEach(loadPlotly)
+
+  it.each([false, true])('loads Plotly again and saves the chart once drawn, faceted: %s', async (faceted) => {
+    // the chart never drawn was exported, an empty figure, and reported downloaded
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const draw = faceted ? plotly.react : plotly.newPlot
+    draw.mockClear()
+    await shownWithoutPlotly(wrapper, faceted)
+    expect(draw).not.toHaveBeenCalled()
+    loadPlotly()
+    catchDownload()
+    ;(await openDownloads(wrapper))[0]!.click()
+    // the module loaded anew, which a busy runner can take a while over
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'), { timeout: 5000 })
+    expect(draw).toHaveBeenCalledTimes(faceted ? 2 : 1)
+  })
+
+  it.each([false, true])('says there is no chart where Clear emptied it after the menu was opened, faceted: %s', async (faceted) => {
+    // the failed chart was drawn again, which failed as well, and told as not drawn
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await shownWithoutPlotly(wrapper, faceted)
+    const saved = catchDownload()
+    const items = await openDownloads(wrapper)
+    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    items[0]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('No data available for chart'))
+    await flushPromises()
+    expect(document.body.textContent).not.toContain('The chart could not be drawn')
+    expect(saved).toHaveLength(0)
+  })
+})

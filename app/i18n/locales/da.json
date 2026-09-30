@@ -560,6 +560,7 @@
     "downloadedValues": "Værdier downloadet som {format}",
     "downloadCancelled": "Download annulleret: tabellen er ændret",
     "downloadedChart": "Diagram downloadet som {format}",
+    "chartNotDrawn": "Diagrammet kunne ikke tegnes",
     "axisDate": "Dato",
     "axisValue": "Værdi",
     "paramLabelParameter": "Parameter",

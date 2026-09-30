@@ -560,6 +560,7 @@
     "downloadedValues": "Waarden gedownload als {format}",
     "downloadCancelled": "Download geannuleerd: de tabel is gewijzigd",
     "downloadedChart": "Grafiek gedownload als {format}",
+    "chartNotDrawn": "De grafiek kon niet worden getekend",
     "axisDate": "Datum",
     "axisValue": "Waarde",
     "paramLabelParameter": "Parameter",
