@@ -121,9 +121,9 @@ Types of changes:
   one that is a MAP's own key or value. The query panel notes that the browser's DuckDB misreads
   BIT, TIME WITH TIME ZONE (dropping the offset) and UHUGEINT values of 2^127 or more (turning
   them negative), and that `CAST(column AS VARCHAR)` reads them as text (GH-2102)
-- `[Explorer]` The station map shows the markers of the current station list only. A list that
-  changed while the markers were still being built could leave the previous dataset's markers on
-  the map, and clicking one selected a station of that dataset (GH-2132)
+- `[Explorer/History/Stripes/Meteogram]` The station map shows the markers of the current station
+  list only. A list that changed while the markers were still being built could leave the previous
+  list's markers on the map, and clicking one selected a station of that list (GH-2132)
 - `[Explorer]` A station without a position, such as a postcode of dwd/derived
   climate_correction_factor, is no longer offered as the point to interpolate or summarize for,
   where choosing it left Fetch disabled with nothing saying why. The map's centre button counts
