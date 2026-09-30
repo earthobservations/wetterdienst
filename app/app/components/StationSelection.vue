@@ -15,16 +15,9 @@ const { t } = useI18n()
 
 const MapStations = defineAsyncComponent(() => import('./MapStations.vue'))
 
-declare const L: typeof import('leaflet')
-
 const selectedStations = ref<Station[]>(props.modelValue?.stations ?? [])
 
-const map = ref(null) as any
-let markerClusterGroup: any = null
-const markersMap: Map<string, any> = new Map() // station_id -> marker
-
 const showMap = ref(false)
-const centerOnSelectedStations = ref(false)
 
 watch(selectedStations, (newVal, oldVal) => {
   if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
@@ -199,147 +192,6 @@ function removeStation(station: Station) {
     ]
   }
 }
-
-// map features
-// Check if a station is selected
-function isSelected(stationId: string) {
-  return selectedStations.value.some(s => s.station_id === stationId)
-}
-
-const _mapCenter = computed<[number, number]>(() => {
-  if (!allStations.value.length)
-    return [51.1657, 10.4515] // Center of Germany
-  const latSum = allStations.value.reduce((a, s) => a + s.latitude, 0)
-  const lngSum = allStations.value.reduce((a, s) => a + s.longitude, 0)
-  return [latSum / allStations.value.length, lngSum / allStations.value.length]
-})
-
-const mapBounds = computed(() => {
-  if (!allStations.value.length)
-    return null
-  if (!centerOnSelectedStations.value) {
-    const latitudes = allStations.value.map(s => s.latitude)
-    const longitudes = allStations.value.map(s => s.longitude)
-    return L.latLngBounds(
-      L.latLng(Math.min(...latitudes), Math.min(...longitudes)),
-      L.latLng(Math.max(...latitudes), Math.max(...longitudes)),
-    )
-  }
-  else {
-    if (!selectedStations.value.length)
-      return null
-    const latitudes = selectedStations.value.map(s => s.latitude)
-    const longitudes = selectedStations.value.map(s => s.longitude)
-    return L.latLngBounds(
-      L.latLng(Math.min(...latitudes), Math.min(...longitudes)),
-      L.latLng(Math.max(...latitudes), Math.max(...longitudes)),
-    )
-  }
-})
-
-async function createMarkers() {
-  if (!map.value?.leafletObject)
-    return
-  if (!allStations.value.length)
-    return
-
-  // Remove existing cluster if it exists
-  if (markerClusterGroup) {
-    map.value.leafletObject.removeLayer(markerClusterGroup)
-    markerClusterGroup = null
-    markersMap.clear()
-  }
-
-  const result = await useLMarkerCluster({
-    leafletObject: map.value.leafletObject,
-    markers: allStations.value.map(station => ({
-      name: station.name,
-      lat: station.latitude,
-      lng: station.longitude,
-      options: {
-        title: stationLabel(station),
-      },
-    })),
-  })
-
-  markerClusterGroup = result.markerCluster
-
-  // Store markers and add click handlers
-  result.markers.forEach((marker, index) => {
-    const station = allStations.value[index]
-    if (station) {
-      markersMap.set(station.station_id, marker)
-      marker.on('click', () => {
-        if (isSelected(station.station_id)) {
-          removeStation(station)
-        }
-        else {
-          selectedStations.value = [...selectedStations.value, station]
-        }
-      })
-    }
-  })
-}
-
-function updateMarkerIcons() {
-  if (!markerClusterGroup)
-    return
-
-  const defaultIcon = L.icon({
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-  })
-
-  const selectedIcon = L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-  })
-
-  markersMap.forEach((marker, stationId) => {
-    const icon = isSelected(stationId) ? selectedIcon : defaultIcon
-    marker.setIcon(icon)
-  })
-
-  // Refresh clusters to update display
-  markerClusterGroup.refreshClusters()
-}
-
-// When the map is ready, initialize clustering
-async function _onMapReady() {
-  await createMarkers()
-  updateMarkerIcons()
-  // Restore bounds if centering on selected stations
-  if (centerOnSelectedStations.value && mapBounds.value) {
-    map.value.leafletObject.fitBounds(mapBounds.value)
-  }
-}
-
-// Watch for selection changes and update marker icons
-watch(() => selectedStations, () => {
-  updateMarkerIcons()
-}, { deep: true })
-
-// Watch for centerOnSelectedStations changes and fit bounds
-watch(() => centerOnSelectedStations.value, () => {
-  if (map.value?.leafletObject && mapBounds.value) {
-    map.value.leafletObject.fitBounds(mapBounds.value)
-  }
-})
-
-// Also fit bounds when selected stations change (if centering on selected)
-watch(() => selectedStations.value, () => {
-  if (centerOnSelectedStations.value && map.value?.leafletObject && mapBounds.value) {
-    map.value.leafletObject.fitBounds(mapBounds.value)
-  }
-}, { deep: true })
 </script>
 
 <template>
@@ -380,7 +232,7 @@ watch(() => selectedStations.value, () => {
           class="cursor-pointer"
           @click="removeStation(station)"
         >
-          {{ station.name }} ({{ station.station_id }})
+          {{ stationShortLabel(station) }}
           <span class="ml-1">×</span>
         </UBadge>
       </div>
@@ -412,8 +264,3 @@ watch(() => selectedStations.value, () => {
     </UCollapsible>
   </div>
 </template>
-
-<style>
-@import 'leaflet.markercluster/dist/MarkerCluster.css';
-@import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-</style>

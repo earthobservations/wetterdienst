@@ -113,3 +113,18 @@ describe('choosing the point an interpolation answers for', () => {
     expect(model.value.elevation).toBe(1000)
   })
 })
+
+describe('the interpolation\'s station picker with postcode stations', () => {
+  it('labels a station without a name by its id', async () => {
+    // dwd/derived climate_correction_factor's stations are postcodes, sent with a null name
+    const postcode = { station_id: '01067', name: null, region: null, latitude: null, longitude: null, elevation: null }
+    const { wrapper, vm } = await selection('station')
+    vm.stationsData = { stations: [postcode, feldberg] }
+    vm.selectedStation = postcode
+    await settle()
+
+    expect(vm.stationItems.map((i: { label: string }) => i.label)).toEqual(['01067', 'Feldberg (02290)'])
+    expect(vm.selectedStationItem.label).toBe('01067')
+    wrapper.unmount()
+  })
+})

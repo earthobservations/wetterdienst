@@ -111,3 +111,35 @@ describe('the point an interpolation answers for', () => {
     expect(wrapper.vm.modelValue.elevation).toBeUndefined()
   })
 })
+
+describe('the point of a station without a position', () => {
+  // dwd/derived climate_correction_factor's stations are postcodes, sent with null coordinates.
+  // A null point is not undefined: it passed the checks for a point and reached `.toFixed()`
+  const postcode = { station_id: '01067', name: null, region: null, latitude: null, longitude: null, elevation: null }
+
+  it('is left unset, not null', async () => {
+    // the first station chosen: the boxes are empty already, so nothing rewrites the model from them
+    const wrapper = await mountSuspended(harness({ source: 'station' }))
+    expect(wrapper.vm.pointFromStation(postcode as never)).toEqual({
+      station: postcode,
+      latitude: undefined,
+      longitude: undefined,
+      elevation: undefined,
+    })
+    wrapper.vm.fromStation(postcode as never)
+    await settle()
+    expect(wrapper.vm.modelValue.latitude).toBeUndefined()
+    expect(wrapper.vm.modelValue.longitude).toBeUndefined()
+  })
+
+  it('replaces the previous station\'s', async () => {
+    const wrapper = await mountSuspended(harness({ source: 'station' }))
+    wrapper.vm.fromStation(station as never)
+    await settle()
+    wrapper.vm.fromStation(postcode as never)
+    await settle()
+    expect(wrapper.vm.modelValue.latitude).toBeUndefined()
+    expect(wrapper.vm.modelValue.longitude).toBeUndefined()
+    expect(wrapper.vm.modelValue.elevation).toBeUndefined()
+  })
+})

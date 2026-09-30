@@ -51,7 +51,7 @@ const allStations = computed(() => stationsData.value?.stations ?? [])
 
 const stationItems = computed(() =>
   allStations.value.map(station => ({
-    label: `${station.name} (${station.station_id})`,
+    label: stationShortLabel(station),
     value: station.station_id,
   })),
 )
@@ -59,7 +59,7 @@ const stationItems = computed(() =>
 const selectedStationItem = computed({
   get: () => selectedStation.value
     ? {
-        label: `${selectedStation.value.name} (${selectedStation.value.station_id})`,
+        label: stationShortLabel(selectedStation.value),
         value: selectedStation.value.station_id,
       }
     : undefined,

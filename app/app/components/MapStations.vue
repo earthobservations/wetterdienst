@@ -29,50 +29,51 @@ function isSelected(stationId: string) {
   return props.selectedStations.some((s: any) => s.station_id === stationId)
 }
 
+// A station without a position, e.g. a postcode of dwd/derived climate_correction_factor, has
+// no place on the map: it is left off it, and out of its centre and bounds.
+function positioned(stations: any[]) {
+  return stations.filter(s => s.latitude != null && s.longitude != null)
+}
+
+const mappedStations = computed(() => positioned(props.stations))
+
 const mapCenter = computed<[number, number]>(() => {
-  if (!props.stations.length)
+  const stations = mappedStations.value
+  if (!stations.length)
     return [51.1657, 10.4515]
-  const latSum = props.stations.reduce((a, s) => a + s.latitude, 0)
-  const lngSum = props.stations.reduce((a, s) => a + s.longitude, 0)
-  return [latSum / props.stations.length, lngSum / props.stations.length]
+  const latSum = stations.reduce((a, s) => a + s.latitude, 0)
+  const lngSum = stations.reduce((a, s) => a + s.longitude, 0)
+  return [latSum / stations.length, lngSum / stations.length]
 })
 
 const mapBounds = computed(() => {
-  if (!props.stations.length)
+  const stations = centerOnSelectedStations.value ? positioned(props.selectedStations) : mappedStations.value
+  if (!stations.length)
     return null
-  if (!centerOnSelectedStations.value) {
-    const latitudes = props.stations.map(s => s.latitude)
-    const longitudes = props.stations.map(s => s.longitude)
-    return L.latLngBounds(
-      L.latLng(Math.min(...latitudes), Math.min(...longitudes)),
-      L.latLng(Math.max(...latitudes), Math.max(...longitudes)),
-    )
-  }
-  else {
-    if (!props.selectedStations.length)
-      return null
-    const latitudes = props.selectedStations.map(s => s.latitude)
-    const longitudes = props.selectedStations.map(s => s.longitude)
-    return L.latLngBounds(
-      L.latLng(Math.min(...latitudes), Math.min(...longitudes)),
-      L.latLng(Math.max(...latitudes), Math.max(...longitudes)),
-    )
-  }
+  const latitudes = stations.map(s => s.latitude)
+  const longitudes = stations.map(s => s.longitude)
+  return L.latLngBounds(
+    L.latLng(Math.min(...latitudes), Math.min(...longitudes)),
+    L.latLng(Math.max(...latitudes), Math.max(...longitudes)),
+  )
 })
 
 async function createMarkers() {
   if (!map.value?.leafletObject)
     return
-  if (!props.stations.length)
-    return
+  // The previous list's markers go first, even when the new list has none to show: left in
+  // place, a dataset whose stations have no position would show, and select, another's.
   if (markerClusterGroup) {
     map.value.leafletObject.removeLayer(markerClusterGroup)
     markerClusterGroup = null
     markersMap.clear()
   }
+  const stations = mappedStations.value
+  if (!stations.length)
+    return
   const result = await useLMarkerCluster({
     leafletObject: map.value.leafletObject,
-    markers: props.stations.map(station => ({
+    markers: stations.map(station => ({
       name: station.name,
       lat: station.latitude,
       lng: station.longitude,
@@ -83,7 +84,7 @@ async function createMarkers() {
   })
   markerClusterGroup = result.markerCluster
   result.markers.forEach((marker, index) => {
-    const station = props.stations[index]
+    const station = stations[index]
     if (station) {
       markersMap.set(station.station_id, marker)
       marker.on('click', () => {

@@ -232,3 +232,35 @@ describe('stationSelection', () => {
     expect(calls).toBe(0)
   })
 })
+
+describe('stationSelection with postcode stations', () => {
+  // dwd/derived monthly/climate_correction_factor has no station list: its stations are the
+  // German postcodes, sent with a null name, region, latitude, longitude and elevation.
+  const derivedSelection = {
+    provider: 'dwd',
+    network: 'derived',
+    resolution: 'monthly' as const,
+    dataset: 'climate_correction_factor',
+    parameters: ['climate_correction_factor'],
+  }
+  const postcode = { station_id: '01067', name: null, region: null, latitude: null, longitude: null, elevation: null }
+
+  it.each([true, false])('labels a station without a name by its id (multiple: %s)', async (multiple) => {
+    registerEndpoint('/api/stations', () => ({ stations: [postcode, { ...postcode, station_id: '01069' }] }))
+
+    const wrapper = await mountSuspended(StationSelection, {
+      props: { parameterSelection: derivedSelection, initialStationIds: ['01067'], multiple },
+      attachTo: document.body,
+    })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStations).toHaveLength(1))
+
+    expect(vm.stationItems.map((i: { label: string }) => i.label)).toEqual(['ID: 01067', 'ID: 01069'])
+    expect(vm.selectedItems).toEqual([{ label: 'ID: 01067', value: '01067' }])
+    // the chip of a chosen station, which a named station shows as "name (id)"
+    const chip = wrapper.findAll('.cursor-pointer').find(c => c.text().includes('01067'))
+    expect(chip!.text()).toBe('01067 ×')
+    expect(wrapper.text()).not.toContain('null')
+  })
+})
