@@ -707,13 +707,18 @@ function calculateLinearRegression(xData: Date[], yData: number[]): { x: Date[],
 // Performance threshold - use WebGL and simplified rendering for large datasets
 const LARGE_DATASET_THRESHOLD = 500
 
+// A timestamp's text begins with its calendar date, as the REST API and a query's timestamps and
+// dates write it, a year of six digits signed
+const ISO_DATE = /^(?:\d{4}|[+-]\d{6})-\d{2}-\d{2}/
+
 // The date a row is placed at on the chart, or null for a row the chart has no place for. A query
 // can put anything under `timestamp`: null; text that is no date, as a time of day or 'n/a', which
-// left an Invalid Date that threw once written as ISO text, and the chart was not drawn; or a
-// number, as epoch seconds, which a Date reads as milliseconds, and the point went to 1970
+// left an Invalid Date that threw once written as ISO text, and the chart was not drawn, or which a
+// browser reads as a date by rules of its own, '1' as 2001-01-01 in Chrome; or a number, as epoch
+// seconds, which a Date reads as milliseconds, and the point went to 1970
 function rowDate(row: Value): Date | null {
   const timestamp: unknown = row.timestamp
-  if (typeof timestamp !== 'string')
+  if (typeof timestamp !== 'string' || !ISO_DATE.test(timestamp))
     return null
   const date = new Date(timestamp)
   return Number.isNaN(date.getTime()) ? null : date

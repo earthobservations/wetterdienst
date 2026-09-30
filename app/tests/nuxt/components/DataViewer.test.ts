@@ -1325,6 +1325,11 @@ describe('dataViewer chart of a query\'s timestamps that are no date', () => {
     { timestamp: '01:00:00.000000', faceted: true },
     { timestamp: 'n/a', faceted: false },
     { timestamp: 'n/a', faceted: true },
+    // text a browser reads as a date by rules of its own: 2001-01-01 and the year 1048 in Chrome
+    { timestamp: '1', faceted: false },
+    { timestamp: '1', faceted: true },
+    { timestamp: '01048', faceted: false },
+    { timestamp: '01048', faceted: true },
     // `epoch(timestamp) AS timestamp`: read as milliseconds, drawn on 1970-01-19
     { timestamp: 1577836800, faceted: false },
     { timestamp: 1577836800, faceted: true },
