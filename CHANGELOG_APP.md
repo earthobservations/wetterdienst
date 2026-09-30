@@ -121,6 +121,10 @@ Types of changes:
   one that is a MAP's own key or value. The query panel notes that the browser's DuckDB misreads
   BIT, TIME WITH TIME ZONE (dropping the offset) and UHUGEINT values of 2^127 or more (turning
   them negative), and that `CAST(column AS VARCHAR)` reads them as text (GH-2102)
+- `[Explorer]` Sorting a query's column that holds both numbers and text, such as a BIGINT whose
+  values past 2^53 come as their digits, puts the numbers first and the text after, each in its
+  own order, in every browser. A number was compared with text as text, which gave no one order,
+  so the rows, the copies and the downloads came in an order each browser made up (GH-2126)
 
 ## [0.17.0] - 2026-09-29
 

@@ -351,14 +351,20 @@ const sortedValues = computed(() => {
     if (aMissing || bMissing)
       return Number(aMissing) - Number(bMissing)
 
-    let comparison = 0
-    if (typeof aVal === 'number' && typeof bVal === 'number') {
-      comparison = aVal - bVal
-    }
-    else {
+    // the numbers before the text, each compared within its kind: a number and text compared as text
+    // left no one order (2 < 10, '10000000000000000000' < 2, 10 < '10000000000000000000') for a
+    // query's column holding both, such as a BIGINT whose values past 2^53 come as their digits.
+    // A NaN reaches no row, plainRows makes it null
+    const aNumber = typeof aVal === 'number'
+    const bNumber = typeof bVal === 'number'
+    let comparison: number
+    if (aNumber !== bNumber)
+      comparison = Number(bNumber) - Number(aNumber)
+    else if (aNumber)
+      comparison = (aVal as number) - (bVal as number)
+    else
       // a query's struct by its JSON text, as a column of the rows' own shows it
       comparison = fieldText(aVal).localeCompare(fieldText(bVal))
-    }
 
     return sortDirection.value === 'asc' ? comparison : -comparison
   })

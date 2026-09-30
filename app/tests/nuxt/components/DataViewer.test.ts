@@ -1300,3 +1300,31 @@ describe('dataViewer chart images while drawn', () => {
     }
   })
 })
+
+describe('dataViewer sort of numbers and text in one column', () => {
+  // a query's BIGINT column, whose value past 2^53 comes as its digits
+  const big = '10000000000000000000'
+  const mixed = [{ id: big }, { id: 10 }, { id: 2 }]
+
+  it('sorts the numbers before the text, each within its kind, in either direction', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', mixed)
+    await wrapper.vm.$nextTick()
+    const id = () => wrapper.findAll('thead th span').find(span => span.text().replace(/[↕↑↓]/g, '') === 'id')!
+    const sort = vi.spyOn(Array.prototype, 'sort')
+    await id().trigger('click')
+    expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(['2', '10', big])
+    // an order the comparator itself holds to, where comparing a number with text as text made the
+    // three a cycle, 2 < 10 < big < 2, whose order each engine's sort makes something else of
+    const table = (sort.mock.contexts as unknown[][]).findIndex(sorted => sorted.some(r => (r as { id?: unknown } | null)?.id === big))
+    const compare = sort.mock.calls[table]![0]!
+    expect(compare(mixed[2], mixed[1])).toBeLessThan(0)
+    expect(compare(mixed[1], mixed[0])).toBeLessThan(0)
+    expect(compare(mixed[2], mixed[0])).toBeLessThan(0)
+    expect(compare(mixed[0], mixed[2])).toBeGreaterThan(0)
+    await id().trigger('click')
+    expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual([big, '10', '2'])
+  })
+})
