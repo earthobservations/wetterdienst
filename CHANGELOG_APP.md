@@ -54,9 +54,9 @@ Types of changes:
   `JAN MAYEN (ID: 01001, null)` (GH-2046)
 - `[Stations]` A station without a name or position, such as the postcodes dwd/derived
   `climate_correction_factor` has for stations, is labelled by its id, `ID: 01067` in the station
-  picker and `01067` on its chip and in the interpolation's station picker, where it read `null`,
-  and left off the map, where it was drawn at 0°N 0°E. Choosing one no longer fails the explorer's
-  station details table, or the point an interpolation takes from its station (GH-2098)
+  picker and `01067` on its chip, where it read `null`, and left off the map, where it was drawn at
+  0°N 0°E. Choosing one no longer fails the explorer's station details table, or the point an
+  interpolation takes from its station (GH-2098)
 - `[Explorer]` A query still running when a Fetch answers no longer replaces the new rows with its
   result: the table showed the query result of the rows fetched before under the new request, and
   CSV and JSON downloads saved it (GH-2072)
@@ -132,9 +132,6 @@ Types of changes:
   a date, where each was an empty trace with a legend entry, or an empty panel; with no row to plot
   it says there is no chart data and offers no image. A large result counts only the points drawn,
   so a few among many such rows are drawn with markers (GH-2125)
-- `[Explorer]` A query's MAP with NaN, infinite and negative infinite keys keeps each of them, as
-  `NaN`, `Infinity` and `-Infinity`. All three were keyed `null`, so only the last one's value was
-  shown and downloaded (GH-2116)
 - `[Explorer]` A query's MAP with DOUBLE or FLOAT keys of NaN, infinity and negative infinity keeps
   each of them, as `NaN`, `Infinity` and `-Infinity`. All three were keyed `null`, so only the
   last one's value was shown and downloaded (GH-2116)
