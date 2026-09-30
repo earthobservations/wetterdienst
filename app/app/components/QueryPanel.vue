@@ -335,7 +335,9 @@ let sending: any = null
 // A query sent on a connection of its own, which DuckDB runs a slice at a time between polls, so
 // that leaving its run can cancel it (GH-2143): `query()` held DuckDB until the query ended, and the
 // next run and the syntax check waited for it. Its own, as a statement on the connection of a query
-// under way ends that query, and a later run's query on it would meet this one's result being read
+// under way ends that query, and a later run's query on it would meet this one's result being read.
+// The result is read a batch at a time, and no further once the run is left, which a cancel, once
+// the query has ended, no longer stops
 async function sendQuery(sql: string, left: () => boolean) {
   const connection = await db.connect()
   try {
@@ -343,7 +345,13 @@ async function sendQuery(sql: string, left: () => boolean) {
       return null
     sending = connection
     const reader = await connection.send(sql)
-    return await reader.readAll()
+    const batches: RecordBatch[] = []
+    for await (const batch of reader) {
+      if (left())
+        return null
+      batches.push(batch)
+    }
+    return batches
   }
   finally {
     if (sending === connection)
@@ -503,7 +511,7 @@ onUnmounted(async () => {
   if (validationTimeout)
     clearTimeout(validationTimeout)
   // a run or check under way loads no table into the database being closed, nor queries it, and a
-  // run's query is cancelled, where the terminated worker would leave its send unanswered
+  // run's query is cancelled, as leaving the run any other way cancels it
   leaveRun()
   currentCheck++
   // and a table load under way stops before its next batch

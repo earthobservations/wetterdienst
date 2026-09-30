@@ -804,6 +804,43 @@ describe('queryPanel query left running', () => {
     expect(sent).toEqual([])
   })
 
+  it('reads no more of a result once its run is left', async () => {
+    // a Cancel once the query had ended, which a cancel no longer stops, left every batch to be read
+    const connect = AsyncDuckDB.prototype.connect
+    const hold = gate()
+    let read = 0
+    const spy = vi.spyOn(AsyncDuckDB.prototype, 'connect').mockImplementation(async function (this: AsyncDuckDB) {
+      const conn = await connect.call(this)
+      const send = conn.send.bind(conn)
+      return Object.assign(conn, {
+        // the result's batches, the second held until the test opens it
+        send: async (sql: string) => {
+          const reader = await send(sql)
+          return (async function* () {
+            for (const batch of reader) {
+              if (read === 1)
+                await hold.opened
+              read++
+              yield batch
+            }
+          })()
+        },
+      })
+    })
+    unwatched.push(() => spy.mockRestore())
+    // three batches of 2048 rows at most
+    const rows = Array.from({ length: 5000 }, (_, i) => ({ ...data[0]!, value: i }))
+    const wrapper = await queryMode(rows)
+    await wrapper.find('textarea').setValue('SELECT * FROM data')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(read).toBe(1))
+    await buttonLabelled(wrapper, 'Cancel').trigger('click')
+    hold.open()
+    await flushPromises()
+    expect(read).toBe(2)
+    expect(wrapper.emitted('dataTransformed')).toEqual([[rows]])
+  })
+
   it('hands on every batch of a result DuckDB sends in several', async () => {
     // a sent query's result is read a batch at a time, 2048 rows each
     const rows = Array.from({ length: 3000 }, (_, i) => ({ ...data[0]!, value: i }))

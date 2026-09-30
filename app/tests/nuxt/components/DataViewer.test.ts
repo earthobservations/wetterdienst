@@ -32,10 +32,7 @@ vi.mock('@duckdb/duckdb-wasm', () => ({
         close: async () => {},
         query,
         // the run's query, read as the batches of the table it answers
-        send: async (sql: string) => {
-          const table = await query(sql)
-          return { schema: table.schema, readAll: async () => table.batches }
-        },
+        send: async (sql: string) => (await query(sql)).batches,
         cancelSent: async () => false,
       }
     }
