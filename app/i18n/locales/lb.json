@@ -580,7 +580,8 @@
     "noLimit": "D'Ufro enthält keng LIMIT-Klausel. Grouss Resultatssätz kënnen d'Leeschtung beaflossen.",
     "noColumns": "D'Ufro huet keng Kolonne zréckginn",
     "missingColumns": "An den Ufroresultater feelen erwaart Kolonnen: {missing}. Erwaart Kolonnen: {expected}",
-    "extraColumns": "D'Ufroresultater enthalen zousätzlech Kolonnen: {extra}"
+    "extraColumns": "D'Ufroresultater enthalen zousätzlech Kolonnen: {extra}",
+    "misreadTypes": "D'DuckDB am Browser liest BIT, TIME WITH TIME ZONE (den Offset fält ewech) an UHUGEINT-Wäerter vun 2^127 un (si ginn negativ) falsch. Konvertéiert esou eng Kolonn an Text: CAST(kolonn AS VARCHAR)."
   },
   "history": {
     "title": "Statioune-Historique",

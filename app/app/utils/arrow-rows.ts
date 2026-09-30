@@ -1,4 +1,4 @@
-import type { DataType, Decimal, FixedSizeList, Struct, Table, Time, Timestamp, Union, Vector } from 'apache-arrow'
+import type { DataType, Decimal, Field, FixedSizeList, Struct, Table, Time, Timestamp, Union, Vector } from 'apache-arrow'
 import { TimeUnit, Type } from 'apache-arrow/enum'
 
 // A time's ticks in a second, by the unit of its type
@@ -69,6 +69,31 @@ function intervalValue(months: number, days: number, nanos: bigint): string {
   return date || time ? `P${date}${time && `T${time}`}` : 'PT0S'
 }
 
+// Whether a column holds DuckDB's BIGNUM (VARINT), which DuckDB hands over as its own bytes under
+// Arrow's opaque extension type, named in the field's metadata
+function isBignum(field: Field): boolean {
+  if (field.metadata.get('ARROW:extension:name') !== 'arrow.opaque')
+    return false
+  try {
+    const { type_name, vendor_name } = JSON.parse(field.metadata.get('ARROW:extension:metadata') ?? '')
+    return type_name === 'bignum' && vendor_name === 'DuckDB'
+  }
+  catch {
+    return false
+  }
+}
+
+// A BIGNUM from DuckDB's bytes, as integerValue writes an integer: a three-byte header whose top bit
+// is set for a number of no sign, then the magnitude's bytes, big-endian. A negative one has all its
+// bytes inverted
+function bignumValue(bytes: Uint8Array): number | string {
+  const negative = (bytes[0]! & 0x80) === 0
+  // read at once from its hex digits, where a shift a byte would copy the growing number each time
+  const hex = Array.from(bytes.subarray(3), byte => (negative ? ~byte & 0xFF : byte).toString(16).padStart(2, '0'))
+  const magnitude = BigInt(`0x${hex.join('')}`)
+  return integerValue(negative ? -magnitude : magnitude)
+}
+
 // A decimal, which Arrow gives as its unscaled integer (a DecimalBigNum, whose text is that integer's
 // digits): one of no scale as integerValue writes it, and one with a scale as the double nearest it,
 // as the REST API's values are doubles
@@ -131,8 +156,10 @@ function childRanges(vector: Vector): ([number, number] | null)[] {
  * timestamp is read from its column's 64-bit integers: Arrow's getter gives it as a double of
  * milliseconds, which holds the microseconds only near 1970.
  */
-function plainColumn(vector: Vector): unknown[] {
+function plainColumn(vector: Vector, field: Field): unknown[] {
   const type = vector.type
+  if (type.typeId === Type.Binary && isBignum(field))
+    return Array.from(vector, value => value === null ? null : bignumValue(value as Uint8Array))
   switch (type.typeId) {
     case Type.Timestamp: {
       const perSecond = TICKS_PER_SECOND[(type as Timestamp).unit]
@@ -147,21 +174,24 @@ function plainColumn(vector: Vector): unknown[] {
     case Type.Struct: {
       // by position, as a field may be named anything, `toJSON` included
       const fields = (type as Struct).children
-      const columns = fields.map((_, index) => plainColumn(vector.getChildAt(index)!))
+      const columns = fields.map((child, index) => plainColumn(vector.getChildAt(index)!, child))
       return Array.from({ length: vector.length }, (_, row) => vector.isValid(row)
-        ? Object.fromEntries(fields.map((field, index) => [field.name, columns[index]![row]]))
+        ? Object.fromEntries(fields.map((child, index) => [child.name, columns[index]![row]]))
         : null)
     }
     case Type.List:
     case Type.FixedSizeList: {
-      const values = plainColumn(vector.getChildAt(0)!)
+      const values = plainColumn(vector.getChildAt(0)!, type.children[0]!)
       return childRanges(vector).map(range => range && values.slice(...range))
     }
     case Type.Map: {
-      // an object, the shape DuckDB's to_json gives a map, keyed by the plain key's text
+      // an object, the shape DuckDB's to_json gives a map, keyed by the plain key's text. A BIGNUM
+      // that is the map's own key or value stays DuckDB's bytes: these two fields lose the extension
+      // type it is told by, which a list, a struct or a union inside them keeps
       const entries = vector.getChildAt(0)!
-      const keys = plainColumn(entries.getChildAt(0)!)
-      const values = plainColumn(entries.getChildAt(1)!)
+      const [keyField, valueField] = entries.type.children as Field[]
+      const keys = plainColumn(entries.getChildAt(0)!, keyField!)
+      const values = plainColumn(entries.getChildAt(1)!, valueField!)
       return childRanges(vector).map(range => range && Object.fromEntries(keys.slice(...range).map((key, index) =>
         [typeof key === 'string' ? key : JSON.stringify(key), values[range[0] + index]])))
     }
@@ -182,7 +212,7 @@ function plainColumn(vector: Vector): unknown[] {
       // DuckDB's unions are sparse: each member a column as long as the union, the row's type id naming
       // the one that holds its value
       const union = type as Union
-      const members = union.children.map((_, index) => plainColumn(vector.getChildAt(index)!))
+      const members = union.children.map((member, index) => plainColumn(vector.getChildAt(index)!, member))
       return vector.data.flatMap(data => Array.from(data.typeIds as Int8Array))
         .map((typeId, row) => members[union.typeIdToChildIndex[typeId]!]![row])
     }
@@ -192,11 +222,12 @@ function plainColumn(vector: Vector): unknown[] {
 
 /**
  * Turn a query result into the rows the table, the chart and the downloads read, each value made
- * plain by its column's type (GH-2068, GH-2071): a BIGINT or a decimal as a number (an integer type
- * or a decimal of no scale past 2^53 as its digits), a timestamp or a date as ISO text, a time of day
- * as its text, an interval as an ISO 8601 duration, a list as an array and a struct or a map as an
- * object, at any depth, and a NaN or an infinity as null (GH-2111). Arrow's own `toJSON()` left
- * BigInts, milliseconds since the epoch, unscaled decimals and its own rows and vectors.
+ * plain by its column's type (GH-2068, GH-2071): a BIGINT, a BIGNUM or a decimal as a number (an
+ * integer type or a decimal of no scale past 2^53 as its digits), a timestamp or a date as ISO text,
+ * a time of day as its text, an interval as an ISO 8601 duration, a list as an array and a struct or
+ * a map as an object, at any depth, and a NaN or an infinity as null (GH-2111). Arrow's own
+ * `toJSON()` left BigInts, milliseconds since the epoch, unscaled decimals, DuckDB's bytes of a
+ * BIGNUM (GH-2102) and its own rows and vectors.
  *
  * A name given to two columns holds the last one's value, as `toJSON()` keeps.
  *
@@ -207,7 +238,7 @@ export function plainRows(table: Table): Record<string, unknown>[] {
   // DuckDB answers a result of no rows with an empty batch whose nested columns have no children to read
   if (table.numRows === 0)
     return []
-  const columns = table.schema.fields.map((field, index) => [field.name, plainColumn(table.getChildAt(index)!)] as const)
+  const columns = table.schema.fields.map((field, index) => [field.name, plainColumn(table.getChildAt(index)!, field)] as const)
   return Array.from({ length: table.numRows }, (_, row) =>
     Object.fromEntries(columns.map(([name, values]) => [name, values[row]])))
 }

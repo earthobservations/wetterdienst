@@ -580,7 +580,8 @@
     "noLimit": "Query does not contain a LIMIT clause. Large result sets may impact performance.",
     "noColumns": "Query returned no columns",
     "missingColumns": "Query results are missing expected columns: {missing}. Expected columns: {expected}",
-    "extraColumns": "Query results contain additional columns: {extra}"
+    "extraColumns": "Query results contain additional columns: {extra}",
+    "misreadTypes": "The browser's DuckDB misreads BIT, TIME WITH TIME ZONE (the offset is dropped) and UHUGEINT values of 2^127 or more (they turn negative). Cast such a column to text: CAST(column AS VARCHAR)."
   },
   "history": {
     "title": "Station history",

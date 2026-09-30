@@ -650,3 +650,16 @@ describe('queryPanel syntax check', () => {
 function verbs(statements: string[]) {
   return statements.map(sql => sql.split(' ')[0]).filter(verb => verb !== 'SELECT' && verb !== 'EXPLAIN')
 }
+
+describe('queryPanel note on misread types', () => {
+  it('names the types the browser\'s DuckDB misreads and the cast that reads them', async () => {
+    // a BIT reads as DuckDB's bytes, a TIME WITH TIME ZONE without its offset, a UHUGEINT of 2^127
+    // or more as negative
+    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
+    mounted.push(wrapper)
+    await wrapper.find('button').trigger('click')
+    const text = wrapper.text()
+    for (const part of ['BIT', 'TIME WITH TIME ZONE', 'UHUGEINT', '2^127', 'CAST(column AS VARCHAR)'])
+      expect(text).toContain(part)
+  })
+})

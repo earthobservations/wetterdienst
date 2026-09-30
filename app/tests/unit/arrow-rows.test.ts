@@ -150,3 +150,28 @@ describe('plainRows with a NaN or an infinity', () => {
     expect(fieldText(plain[0]!.n)).toBe('')
   })
 })
+
+describe('plainRows of a BIGNUM', () => {
+  it('writes a BIGNUM as the integer it is, not as DuckDB\'s bytes', () => {
+    // DuckDB hands one over as its own bytes: 123 as [128, 0, 1, 123]
+    expect(rows('SELECT 0::VARINT AS z, 123::VARINT AS p, -123::VARINT AS n, -256::VARINT AS m, NULL::VARINT AS x')).toEqual([
+      { z: 0, p: 123, n: -123, m: -256, x: null },
+    ])
+    expect(value('SELECT 9007199254740993::VARINT')).toBe('9007199254740993')
+    expect(value(`SELECT '-${'9'.repeat(50)}'::VARINT`)).toBe(`-${'9'.repeat(50)}`)
+  })
+
+  it('writes a BIGNUM inside a list, an array, a struct or a union as the integer it is', () => {
+    expect(value('SELECT [1::VARINT, NULL, -2::VARINT]')).toEqual([1, null, -2])
+    expect(value('SELECT [1::VARINT]::VARINT[1]')).toEqual([1])
+    expect(value('SELECT {\'v\': 300::VARINT}')).toEqual({ v: 300 })
+    expect(value('SELECT union_value(v := 5::VARINT)::UNION(v VARINT, s VARCHAR)')).toBe(5)
+    // inside a map's key or value, where these keep the extension type the map's own fields lose
+    const inMap = 'SELECT MAP {[2::VARINT]: {\'s\': 3::VARINT}} AS a, MAP {1: [4::VARINT]::VARINT[1]} AS b, MAP {1: union_value(v := 5::VARINT)::UNION(v VARINT, s VARCHAR)} AS c'
+    expect(rows(inMap)).toEqual([{ a: { '[2]': { s: 3 } }, b: { 1: [4] }, c: { 1: 5 } }])
+  })
+
+  it('leaves a BLOB of the same bytes as its bytes', () => {
+    expect(value('SELECT \'\\x80\\x00\\x01\\x7B\'::BLOB')).toEqual([128, 0, 1, 123])
+  })
+})
