@@ -464,8 +464,8 @@ const canFetchData = computed(() => {
   }
 })
 
-// A download saves what the table holds -- its rows, after the query panel and the sorting, with
-// the columns it shows first and then any others they carry -- rather than asking the backend again
+// A download saves what the table holds -- its rows, after the query panel and the sorting, with every
+// column they carry, the table's own in its order first -- rather than asking the backend again
 // for whatever is selected now: that answered a different selection, or units, once either had
 // changed since the table was filled (GH-2065). GeoJSON needs the station positions the backend
 // adds, so it is asked for again, but for the request that filled the table.
@@ -479,6 +479,12 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
     const fetched = await fetchGeojson(request)
     if (fetched === null)
       return
+    // an answer that came in the same tick as a change to the table is past the abort; the table is
+    // looked at once more before the file is saved
+    if (fetchedRequest.value !== request || isDataTransformed.value) {
+      toast.add({ title: t('dataViewer.downloadCancelled'), color: 'warning' })
+      return
+    }
     content = fetched
   }
   else {
@@ -1067,7 +1073,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             <template v-if="viewMode === 'table'">
               <UTooltip :text="t('dataViewer.copyCurrentPage')">
                 <UButton
-                  size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending || !sortedValues.length"
+                  size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending || !paginatedValues.length"
                   @click="copyCurrentPage"
                 />
               </UTooltip>
