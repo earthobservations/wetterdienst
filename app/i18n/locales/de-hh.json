@@ -580,7 +580,8 @@
     "noLimit": "Die Abfrage enthält keine LIMIT-Klausel. Große Ergebnismengen können die Leistung beeinträchtigen.",
     "noColumns": "Die Abfrage hat keine Spalten zurückgegeben",
     "missingColumns": "In den Ergebnissen fehlen erwartete Spalten: {missing}. Erwartete Spalten: {expected}",
-    "extraColumns": "Die Ergebnisse enthalten zusätzliche Spalten: {extra}"
+    "extraColumns": "Die Ergebnisse enthalten zusätzliche Spalten: {extra}",
+    "misreadTypes": "Das DuckDB im Browser liest BIT, TIME WITH TIME ZONE (der Offset fällt weg) und UHUGEINT-Werte ab 2^127 (die werden negativ) falsch. Wandel so eine Spalte in Text um: CAST(spalte AS VARCHAR)."
   },
   "history": {
     "title": "Stationschronik",

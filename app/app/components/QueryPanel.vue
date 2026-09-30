@@ -554,6 +554,11 @@ onUnmounted(async () => {
           </div>
         </div>
 
+        <!-- DuckDB-wasm hands these types over as others, which no conversion can undo (GH-2102) -->
+        <p class="text-xs text-gray-500">
+          {{ t('validation.misreadTypes') }}
+        </p>
+
         <!-- Example Queries -->
         <details class="text-sm">
           <summary class="cursor-pointer font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
