@@ -387,23 +387,6 @@ const isDateRangeValid = computed(() => {
 // Reference to DataViewer for accessing exposed stats
 const dataViewerRef = ref<InstanceType<typeof DataViewer> | null>(null)
 
-// Track last fetched parameters to prevent redundant fetches
-const lastFetchedParams = ref<{
-  provider?: string
-  network?: string
-  resolution?: string
-  dataset?: string
-  parameters: string
-  mode: string
-  stations: string
-  interpolationLat?: number
-  interpolationLon?: number
-  interpolationElevation?: number
-  startDate?: string
-  endDate?: string
-  settings: string
-} | null>(null)
-
 // Check if we can fetch
 const canFetch = computed(() => {
   if (!dataViewerRef.value?.canFetchData)
@@ -415,89 +398,19 @@ const canFetch = computed(() => {
   if (dateRangeRequired.value && !isDateRangeValid.value)
     return false
 
-  // Check if parameters have changed since last fetch
-  if (lastFetchedParams.value) {
-    const ps = parameterSelectionState.value.selection
-    const ss = stationSelectionState.value
-
-    const currentParams = {
-      provider: ps.provider,
-      network: ps.network,
-      resolution: ps.resolution,
-      dataset: ps.dataset,
-      parameters: ps.parameters.join(','),
-      mode: ss.mode,
-      stations: ss.mode === 'station'
-        ? ss.selection.stations.map(s => s.station_id).join(',')
-        : '',
-      interpolationLat: ss.interpolation.latitude,
-      interpolationLon: ss.interpolation.longitude,
-      interpolationElevation: ss.interpolation.elevation,
-      startDate: ss.dateRange.startDate,
-      endDate: ss.dateRange.endDate,
-      settings: JSON.stringify(dataSettings.value),
-    }
-
-    const unchanged
-      = currentParams.provider === lastFetchedParams.value.provider
-        && currentParams.network === lastFetchedParams.value.network
-        && currentParams.resolution === lastFetchedParams.value.resolution
-        && currentParams.dataset === lastFetchedParams.value.dataset
-        && currentParams.parameters === lastFetchedParams.value.parameters
-        && currentParams.mode === lastFetchedParams.value.mode
-        && currentParams.stations === lastFetchedParams.value.stations
-        && currentParams.interpolationLat === lastFetchedParams.value.interpolationLat
-        && currentParams.interpolationLon === lastFetchedParams.value.interpolationLon
-        && currentParams.interpolationElevation === lastFetchedParams.value.interpolationElevation
-        && currentParams.startDate === lastFetchedParams.value.startDate
-        && currentParams.endDate === lastFetchedParams.value.endDate
-        && currentParams.settings === lastFetchedParams.value.settings
-
-    if (unchanged) {
-      return false
-    }
-  }
-
-  return true
+  // Nothing new to fetch where the selection is what Fetch sent last, still under way or answered. The
+  // viewer holds that, so a fetch that failed, Reset and a viewer mounted afresh offer Fetch again
+  return !dataViewerRef.value.holdsSelection
 })
 
 function fetchData() {
   if (!canFetch.value || !dataViewerRef.value)
     return
-
-  const ps = parameterSelectionState.value.selection
-  const ss = stationSelectionState.value
-
-  // Store current parameters
-  lastFetchedParams.value = {
-    provider: ps.provider,
-    network: ps.network,
-    resolution: ps.resolution,
-    dataset: ps.dataset,
-    parameters: ps.parameters.join(','),
-    mode: ss.mode,
-    stations: ss.mode === 'station'
-      ? ss.selection.stations.map(s => s.station_id).join(',')
-      : '',
-    interpolationLat: ss.interpolation.latitude,
-    interpolationLon: ss.interpolation.longitude,
-    interpolationElevation: ss.interpolation.elevation,
-    startDate: ss.dateRange.startDate,
-    endDate: ss.dateRange.endDate,
-    settings: JSON.stringify(dataSettings.value),
-  }
-
-  // Trigger fetch
   dataViewerRef.value.fetchData()
 }
 
 function clear() {
-  // Clear the fetched results
-  lastFetchedParams.value = null
-  // Clear data in DataViewer if it exists
-  if (dataViewerRef.value) {
-    dataViewerRef.value.clearData()
-  }
+  dataViewerRef.value?.clearData()
 }
 
 // Get list of selected parameters for validation

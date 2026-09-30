@@ -212,6 +212,9 @@ const apiQuery = computed(() => {
   }
 })
 
+// the request the selection makes: what Fetch sends, and what holdsSelection compares with
+const selectedRequest = computed(() => ({ ...selectedEndpoint.value, query: apiQuery.value }))
+
 // The request behind the table: set by Fetch alone, and the one the table's values are fetched with,
 // so the table, its error and a GeoJSON download of it answer to the same request whatever is
 // selected since. Bound to the live selection instead, the fetch kept a request of its own beside
@@ -240,7 +243,7 @@ onScopeDispose(() => abortGeojson('unmounted'))
 // (useFetch's default `dedupe: 'cancel'`) and Clear aborts it (`clear`), so an answer they overtook never
 // reaches the table. Keyed by the request instead, as useFetch is by default, each request left an
 // entry behind for the rest of the session.
-const { data: valuesData, pending: valuesPending, error: valuesError, refresh: refreshValues, clear: clearValues } = useFetch<ValuesResponse>(
+const { data: valuesData, pending: valuesPending, error: valuesError, status: valuesStatus, refresh: refreshValues, clear: clearValues } = useFetch<ValuesResponse>(
   () => sentRequest.value?.endpoint ?? '/api/values',
   {
     key: `${useId()}-values`,
@@ -592,15 +595,34 @@ async function fetchData() {
     clearData()
     return
   }
-  const request = { ...selectedEndpoint.value, query: { ...apiQuery.value } }
+  // a request of its own, so a Fetch of the same selection again is told apart by the checks below, with
+  // a query of its own, so nothing done to the one sent reaches the selection it is compared with
+  const request = { ...selectedRequest.value, query: { ...selectedRequest.value.query } }
   sentRequest.value = request
   currentPage.value = 1
   await refreshValues()
   // a newer Fetch or a Clear since has its own; this one answers for the table only if it is still the
   // last one sent
   if (sentRequest.value === request)
-    fetchedRequest.value = valuesError.value ? null : request
+    fetchedRequest.value = valuesStatus.value === 'success' ? request : null
 }
+
+// A request as it compares with another: the query is built in one fixed order, and a field left unset
+// is dropped. Values compare as they are, so a number and its text differ where the URL would not, but
+// NaN and the infinities as the URL writes them, where JSON would make each of them null
+function requestKey(request: { endpoint: string, query: Record<string, unknown> }) {
+  return JSON.stringify([request.endpoint, request.query], (_, value) =>
+    typeof value === 'number' && !Number.isFinite(value) ? String(value) : value)
+}
+
+// Whether what is selected is already asked for: the request Fetch sent last, while it is under way or
+// once it has answered without error. A fetch that failed or was aborted, Clear and a viewer mounted
+// afresh hold none, so the selection can be fetched again. Read from the fetch's own status rather than
+// fetchedRequest, which is set a few microtasks after it
+const holdsSelection = computed(() => {
+  const request = valuesStatus.value === 'pending' || valuesStatus.value === 'success' ? sentRequest.value : null
+  return request !== null && requestKey(request) === requestKey(selectedRequest.value)
+})
 
 // Clear function to reset data
 function clearData() {
@@ -999,6 +1021,7 @@ defineExpose({
   fetchData,
   clearData,
   canFetchData,
+  holdsSelection,
   valuesPending,
   fetchErrorMessage,
 })
