@@ -947,9 +947,8 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
     await chartsDrawn()
   // a chart whose render failed holds no drawing either: it is drawn again, and where that fails too,
   // the image is not saved
-  const shownRenders = () => facetByParameter.value ? facetRenders : mainRenders
   if (shownRenders().failed) {
-    void (facetByParameter.value ? renderFacetedCharts() : renderMainChart())
+    void renderShownChart()
     await chartsDrawn()
     if (shownRenders().failed) {
       toast.add({ title: t('dataViewer.chartNotDrawn'), color: 'error' })
@@ -1068,6 +1067,15 @@ function renderFacetedCharts() {
   return startRender(facetRenders, drawFacetedCharts)
 }
 
+// the chart the page shows, faceted or single, and its renders
+function renderShownChart() {
+  return facetByParameter.value ? renderFacetedCharts() : renderMainChart()
+}
+
+function shownRenders() {
+  return facetByParameter.value ? facetRenders : mainRenders
+}
+
 // Render chart helper functions
 async function drawMainChart(newest: () => boolean) {
   if (viewMode.value !== 'graph' || facetByParameter.value)
@@ -1117,12 +1125,7 @@ async function drawFacetedCharts(newest: () => boolean) {
 // Render whatever the current view calls for. In table view -- the default -- this does no work
 // and, importantly, does not reach for Plotly.
 onMounted(async () => {
-  if (facetByParameter.value) {
-    await renderFacetedCharts()
-  }
-  else {
-    await renderMainChart()
-  }
+  await renderShownChart()
 })
 
 // Render main chart when data changes

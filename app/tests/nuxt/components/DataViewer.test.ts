@@ -1402,14 +1402,29 @@ describe('dataViewer chart of the rows it can plot', () => {
   })
 })
 
+  })
+})
+
+// the chart drawn again, as the trendline is ticked or unticked
+async function toggleTrendline(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
+  const label = wrapper.findAll('label').find(label => label.text() === 'Trendline')!
+  await wrapper.find(`#${label.attributes('for')}`).trigger('click')
+}
+
+// the next drawing Plotly is handed, held until the test opens the gate
+function holdNextDraw(draw: typeof plotly.react) {
+  const drawn = draw.getMockImplementation()!
+  const held = gate()
+  draw.mockImplementationOnce(async (...args) => {
+    await held.opened
+    return drawn(...args)
+  })
+  return held
+}
+
 describe('dataViewer chart renders in order', () => {
   // two days of two parameters: a facet each, a series each long enough for a trendline
   const twoDays = [...twoParameters, ...twoParameters.map(value => ({ ...value, timestamp: '2020-01-02T00:00:00Z', value: value.value + 1 }))]
-
-  async function toggleTrendline(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
-    const label = wrapper.findAll('label').find(label => label.text() === 'Trendline')!
-    await wrapper.find(`#${label.attributes('for')}`).trigger('click')
-  }
 
   it('draws each facet as last changed where an older drawing goes on after a newer one', async () => {
     // the older drawing went on to the facets it had left, with the trendline it read at its start
@@ -1417,12 +1432,7 @@ describe('dataViewer chart renders in order', () => {
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, true)
-    const drawn = plotly.react.getMockImplementation()!
-    const held = gate()
-    plotly.react.mockImplementationOnce(async (...args) => {
-      await held.opened
-      return drawn(...args)
-    })
+    const held = holdNextDraw(plotly.react)
     const calls = plotly.react.mock.calls.length
     // ticked: the first facet's drawing held
     await toggleTrendline(wrapper)
@@ -1443,12 +1453,6 @@ describe('dataViewer chart images after a failed drawing', () => {
   // each facet's react and toImage
   const draws = (faceted: boolean) => faceted ? plotly.react : plotly.newPlot
   const exports = (faceted: boolean) => faceted ? plotly.toImage : plotly.downloadImage
-
-  // the chart drawn again, as the trendline is ticked or unticked
-  async function toggleTrendline(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
-    const label = wrapper.findAll('label').find(label => label.text() === 'Trendline')!
-    await wrapper.find(`#${label.attributes('for')}`).trigger('click')
-  }
 
   const failed = new Error('drawing failed')
 
@@ -1499,12 +1503,7 @@ describe('dataViewer chart images after a failed drawing', () => {
     await fetchData(viewer)
     await showChart(wrapper, faceted)
     const draw = draws(faceted)
-    const drawn = draw.getMockImplementation()!
-    const held = gate()
-    draw.mockImplementationOnce(async (...args) => {
-      await held.opened
-      return drawn(...args)
-    })
+    const held = holdNextDraw(draw)
     draw.mockRejectedValueOnce(failed)
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const calls = draw.mock.calls.length
