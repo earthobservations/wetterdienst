@@ -340,10 +340,13 @@ const sortedValues = computed(() => {
     const aVal = field(a, column)
     const bVal = field(b, column)
 
-    if (aVal === null || aVal === undefined)
-      return 1
-    if (bVal === null || bVal === undefined)
-      return -1
+    // a missing value last in either direction, and two of them equal, so they keep their order: one
+    // compared as the greater both ways round left it to each engine's sort, which V8 keeps and
+    // SpiderMonkey reverses
+    const aMissing = aVal === null || aVal === undefined
+    const bMissing = bVal === null || bVal === undefined
+    if (aMissing || bMissing)
+      return Number(aMissing) - Number(bMissing)
 
     let comparison = 0
     if (typeof aVal === 'number' && typeof bVal === 'number') {

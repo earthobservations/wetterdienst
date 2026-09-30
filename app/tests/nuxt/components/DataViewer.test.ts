@@ -1024,3 +1024,37 @@ describe('dataViewer query panel columns', () => {
     expect(await availableColumns(wrapper)).toEqual(['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality'])
   })
 })
+
+describe('dataViewer sort of missing values', () => {
+  // two rows without a value among two with one, each known by its station
+  const withGaps = [
+    { ...row, station_id: 'a', value: null },
+    { ...row, station_id: 'b', value: 2 },
+    { ...row, station_id: 'c', value: null },
+    { ...row, station_id: 'd', value: 1 },
+  ]
+
+  // the stations of the rows shown, in their order
+  function stations(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
+    return wrapper.findAll('tbody tr').map(tr => tr.findAll('td')[0]!.text())
+  }
+
+  it('puts the missing values last in either direction, in the order they came', async () => {
+    registerEndpoint('/api/values', () => ({ values: withGaps }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    const value = () => wrapper.findAll('thead th span').find(span => span.text().replace(/[↕↑↓]/g, '') === 'value')!
+    const sort = vi.spyOn(Array.prototype, 'sort')
+    await value().trigger('click')
+    expect(stations(wrapper)).toEqual(['d', 'b', 'a', 'c'])
+    // the order two missing values are left in is the engine's own where they compare unequal: V8
+    // keeps it, SpiderMonkey reverses it, so it is the comparator that is asked
+    const table = (sort.mock.contexts as unknown[][]).findIndex(sorted => sorted.some(r => (r as { station_id?: string } | null)?.station_id === 'a'))
+    const compare = sort.mock.calls[table]![0]!
+    expect(compare(withGaps[0], withGaps[2])).toBe(0)
+    expect(compare(withGaps[2], withGaps[0])).toBe(0)
+    await value().trigger('click')
+    expect(stations(wrapper)).toEqual(['b', 'd', 'a', 'c'])
+  })
+})

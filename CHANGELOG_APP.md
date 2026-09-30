@@ -91,6 +91,9 @@ Types of changes:
   `distance`. It listed the mode's fixed columns, among them a `quality` that interpolated and
   summarized rows lack, and a wide table's `parameter` and `value`, which a query written from the
   hint then failed on (GH-2109)
+- `[Explorer]` Sorting the table keeps rows without a value in the order they came, last in either
+  direction, in every browser. Firefox reversed them, and the copies and downloads wrote that order
+  (GH-2112)
 
 ## [0.17.0] - 2026-09-29
 
