@@ -2,6 +2,7 @@
 import type { Value } from '#shared/types/api'
 import { plainRows } from '~/utils/arrow-rows'
 import { validateColumns, validateQuery } from '~/utils/query-validator'
+import { exportColumns, field } from '~/utils/values-export'
 
 const props = defineProps<{
   data: Value[]
@@ -153,13 +154,16 @@ async function loadDataIntoDB(rows: Value[], superseded: () => boolean) {
   // Drop table if exists
   await conn.query('DROP TABLE IF EXISTS data')
 
-  // Create table based on first row structure
-  const firstRow = rows[0]!
-  const columns = Object.keys(firstRow)
+  // Every column any row carries, in the order they first appear, each a DOUBLE where every value
+  // given in it is a number: the first row alone left out a column only later rows carry, and made
+  // a column it held no value in VARCHAR, which `avg` refuses and `>` compares as text
+  const columns = exportColumns(rows, [])
   const columnDefs = columns.map((col) => {
-    const value = firstRow[col as keyof typeof firstRow]
-    const type = typeof value === 'number' ? 'DOUBLE' : 'VARCHAR'
-    return `"${col}" ${type}`
+    const numeric = rows.every((row) => {
+      const value = field(row, col)
+      return value === null || value === undefined || typeof value === 'number'
+    })
+    return `"${col}" ${numeric ? 'DOUBLE' : 'VARCHAR'}`
   }).join(', ')
 
   await conn.query(`CREATE TABLE data (${columnDefs})`)
@@ -172,7 +176,7 @@ async function loadDataIntoDB(rows: Value[], superseded: () => boolean) {
     const batch = rows.slice(i, i + batchSize)
     const values = batch.map((row) => {
       const vals = columns.map((col) => {
-        const value = row[col as keyof typeof row]
+        const value = field(row, col)
         if (value === null || value === undefined)
           return 'NULL'
         if (typeof value === 'number')

@@ -663,3 +663,22 @@ describe('queryPanel note on misread types', () => {
       expect(text).toContain(part)
   })
 })
+
+describe('queryPanel table columns', () => {
+  it('types a column by all its values and keeps a column only later rows carry', async () => {
+    // a column null in the first row was VARCHAR, which `avg` refused and which handed `quality`
+    // on as text, and a column the first row lacked was no column at all
+    const rows = [
+      { ...data[0]!, value: null, quality: null },
+      { ...data[0]!, timestamp: '2020-01-02T00:00:00.000000+00:00', value: 2.5, quality: 10, distance: 1.25 },
+    ] as Value[]
+    const wrapper = await queryMode(rows)
+    await wrapper.find('textarea').setValue('SELECT *, avg(value) OVER () AS mean FROM data ORDER BY timestamp')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual([
+      { ...rows[0], distance: null, mean: 2.5 },
+      { ...rows[1], mean: 2.5 },
+    ])
+  })
+})
