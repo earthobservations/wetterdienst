@@ -1109,3 +1109,47 @@ describe('dataViewer query structs under the table\'s own names', () => {
     expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(['temperature_air_mean_2m', '{"min":1,"max":2}'])
   })
 })
+
+describe('dataViewer chart series', () => {
+  // one parameter from two stations, a series each where fetched by station
+  const twoStations = [row, { ...row, station_id: '04411', value: 2.5 }]
+
+  // the names of the series the chart was last drawn with, faceted or not
+  function seriesDrawn(faceted: boolean) {
+    const draw = faceted ? plotly.react : plotly.newPlot
+    const [, traces] = draw.mock.lastCall as unknown as [HTMLElement, { name: string }[]]
+    return traces.map(trace => trace.name)
+  }
+
+  it.each([false, true])('keeps a series per station fetched when interpolation is selected without fetching, faceted: %s', async (faceted) => {
+    registerEndpoint('/api/values', () => ({ values: twoStations }))
+    const { wrapper, viewer, stationSelection } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    const series = faceted ? ['01048', '04411'] : ['01048 - temperature_air_mean_2m', '04411 - temperature_air_mean_2m']
+    expect(seriesDrawn(faceted)).toEqual(series)
+    // the rows shown are still both stations': merged, they made one series zig-zagging between them
+    stationSelection.value = atPoint('interpolation')
+    await flushPromises()
+    expect(seriesDrawn(faceted)).toEqual(series)
+  })
+
+  it.each([false, true])('draws interpolated rows fetched over station rows as interpolated, faceted: %s', async (faceted) => {
+    registerEndpoint('/api/values', () => ({ values: twoStations }))
+    registerEndpoint('/api/interpolate', () => ({ values: [{ ...row, taken_station_ids: ['01048', '04411'] }] }))
+    const { wrapper, viewer, stationSelection } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    stationSelection.value = atPoint('interpolation')
+    await flushPromises()
+    const draw = faceted ? plotly.react : plotly.newPlot
+    draw.mockClear()
+    await fetchData(viewer)
+    await flushPromises()
+    // every drawing of the answer: grouped by the mode of the request before it, the rows were drawn
+    // as a station's first, the request answered being taken as the rows' only a few ticks later
+    const drawn = draw.mock.calls.map(([, traces]) => (traces as { name: string }[]).map(trace => trace.name))
+    expect(drawn.length).toBeGreaterThan(0)
+    expect(drawn.every(names => names.join() === (faceted ? 'interpolated' : 'temperature_air_mean_2m'))).toBe(true)
+  })
+})

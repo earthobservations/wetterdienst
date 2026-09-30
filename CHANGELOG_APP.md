@@ -99,6 +99,10 @@ Types of changes:
 - `[Explorer]` A query's struct under one of the table's own column names, such as `value`, shows as
   the JSON text the copies and downloads write, as it does under a name of the query's own, where
   it showed `[object Object]` (GH-2110)
+- `[Explorer]` The chart draws a series per station for the rows of stations fetched, whatever mode
+  is selected since. Selecting interpolation or summary without fetching again merged the stations
+  into one series per parameter, zig-zagging between their values, labelled `interpolated` when
+  faceted (GH-2097)
 
 ## [0.17.0] - 2026-09-29
 
