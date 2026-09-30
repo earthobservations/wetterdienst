@@ -463,15 +463,14 @@ watch(() => props.data, () => {
   // the table no longer holds the panel's rows: a load of them under way stops before its next
   // batch, and the next run or check loads the rows now held, replaced or changed in place
   tableLoad = null
-  // a query checked before, whose answer was about the rows before, or edited and still to be
-  // checked, which entering query mode checks rather than the panel the Fetch has closed
-  if (validationTimeout) {
+  // a query edited since the panel opened, whose check has answered about the rows before or is
+  // still due: entering query mode checks it against the rows now held, and a check still due is
+  // not run for the panel the Fetch has closed. The timer is left set once it has fired, when
+  // clearing it does nothing
+  if (validationTimeout || currentCheck > 0)
+    recheck = true
+  if (validationTimeout)
     clearTimeout(validationTimeout)
-    validationTimeout = null
-    recheck = true
-  }
-  if (currentCheck > 0)
-    recheck = true
   if (isQueryMode.value) {
     disableQueryMode()
   }
