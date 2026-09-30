@@ -36,6 +36,9 @@ Types of changes:
   sections, and a fetch under way still shows its answer when the selection changes (GH-2077)
 - `[History]` A failed fetch's error goes once Show is pressed again, where it stayed beside the
   loading indicator until the retry answered (GH-2078)
+- `[History]` A failed fetch is told by the backend's reason, or by its status when the backend
+  gave none, as the explorer already does; the message no longer begins with the request URL
+  (GH-2082)
 
 ## [0.17.0] - 2026-09-29
 

@@ -3,6 +3,7 @@ import type { StationSelectionState } from '~/types/station-selection-state.type
 import { computed, ref, shallowRef } from 'vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
+import { describeFetchError } from '~/utils/api-error'
 
 const { t } = useI18n()
 
@@ -161,6 +162,10 @@ const { data, pending, status, refresh, clear: clearHistories, error } = useFetc
   default: () => ({ histories: [] }),
 })
 
+// the last fetch's error, gone once Show or Reset is pressed: a new fetch keeps `error` until it answers
+const fetchErrorMessage = computed(() =>
+  status.value === 'error' && error.value ? describeFetchError(error.value) : null)
+
 // Nothing new to fetch where the selection is what Fetch sent last, still under way or answered. A fetch
 // that failed, or one Clear cleared, holds nothing, so Fetch is offered again for the same selection.
 const holdsSelection = computed(() =>
@@ -269,10 +274,9 @@ function clear() {
           <UIcon name="i-lucide-loader-circle" class="animate-spin shrink-0" />
           {{ t('common.loading') }}
         </div>
-        <!-- the last fetch's error, gone once Show or Reset is pressed: a new fetch keeps `error` until it answers -->
-        <div v-if="status === 'error' && error" class="flex items-center gap-2 text-sm text-red-600">
+        <div v-if="fetchErrorMessage" class="flex items-center gap-2 text-sm text-red-600">
           <UIcon name="i-lucide-alert-circle" class="shrink-0" />
-          {{ t('history.error') }}: {{ error.message ?? error }}
+          {{ t('history.error') }}: {{ fetchErrorMessage }}
         </div>
       </div>
     </UCard>
