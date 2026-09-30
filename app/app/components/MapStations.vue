@@ -58,13 +58,18 @@ const mapBounds = computed(() => {
   )
 })
 
+// Counts the calls to createMarkers(), so that one overtaken while it waits can tell.
+let markersGeneration = 0
+
 async function createMarkers() {
-  if (!map.value?.leafletObject)
+  const generation = ++markersGeneration
+  const leafletMap = map.value?.leafletObject
+  if (!leafletMap)
     return
   // The previous list's markers go first, even when the new list has none to show: left in
   // place, a dataset whose stations have no position would show, and select, another's.
   if (markerClusterGroup) {
-    map.value.leafletObject.removeLayer(markerClusterGroup)
+    leafletMap.removeLayer(markerClusterGroup)
     markerClusterGroup = null
     markersMap.clear()
   }
@@ -72,7 +77,7 @@ async function createMarkers() {
   if (!stations.length)
     return
   const result = await useLMarkerCluster({
-    leafletObject: map.value.leafletObject,
+    leafletObject: leafletMap,
     markers: stations.map(station => ({
       name: station.name,
       lat: station.latitude,
@@ -82,6 +87,12 @@ async function createMarkers() {
       },
     })),
   })
+  // The list changed while leaflet.markercluster was loading, and a later call has built (or
+  // cleared) the markers since: this call's cluster, already added to the map, is an older list's.
+  if (generation !== markersGeneration) {
+    leafletMap.removeLayer(result.markerCluster)
+    return
+  }
   markerClusterGroup = result.markerCluster
   result.markers.forEach((marker, index) => {
     const station = stations[index]
