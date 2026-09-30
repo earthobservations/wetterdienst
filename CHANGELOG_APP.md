@@ -147,6 +147,12 @@ Types of changes:
   against the rows queried. It refused every query without `parameter`, `value` and `quality`, so
   none could run on wide, interpolated or summarized rows, nor an aggregate on any. Example queries
   are offered only where the rows carry the columns they read (GH-2122)
+- `[Explorer]` A query that fails or is refused hands the table back to the fetched rows, where the
+  table went on showing the previous query's rows under the new query's error, as if they were its
+  output (GH-2138)
+- `[Explorer]` Cancel, or a Fetch, stops the query under way in the query panel, where DuckDB ran it
+  on to its end and the next run, and the syntax check, waited behind it. The syntax check no longer
+  waits for a run's query either (GH-2143)
 - `[Explorer]` A chart changed while its facets are still being drawn shows the last change in
   every facet. The drawing under way went on to the facets it had left with what it read at its
   start, such as a trendline unticked since, over the newer drawing (GH-2131)
