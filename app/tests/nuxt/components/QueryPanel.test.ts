@@ -681,6 +681,17 @@ describe('queryPanel table columns', () => {
       { ...rows[1], mean: 2.5 },
     ])
   })
+
+  it('keeps a column with no value at all as text, which compares with a string', async () => {
+    // a summary that found no station has no `taken_station_id` in any row; as a DOUBLE, matching it
+    // against a pattern failed
+    const rows = [{ ...data[0]!, taken_station_id: null }] as unknown as Value[]
+    const wrapper = await queryMode(rows)
+    await wrapper.find('textarea').setValue('SELECT * FROM data WHERE taken_station_id IS NULL OR taken_station_id LIKE \'01%\'')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(rows)
+  })
 })
 
 describe('queryPanel columns of the rows queried', () => {

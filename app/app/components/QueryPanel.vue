@@ -2,7 +2,7 @@
 import type { Value } from '#shared/types/api'
 import { plainRows } from '~/utils/arrow-rows'
 import { validateColumns, validateQuery } from '~/utils/query-validator'
-import { exportColumns, field } from '~/utils/values-export'
+import { field } from '~/utils/values-export'
 
 const props = defineProps<{
   data: Value[]
@@ -143,17 +143,24 @@ async function loadDataIntoDB(rows: Value[], superseded: () => boolean) {
   // Drop table if exists
   await conn.query('DROP TABLE IF EXISTS data')
 
-  // Every column any row carries, in the order they first appear, each a DOUBLE where every value
-  // given in it is a number: the first row alone left out a column only later rows carry, and made
-  // a column it held no value in VARCHAR, which `avg` refuses and `>` compares as text
-  const columns = exportColumns(rows, [])
-  const columnDefs = columns.map((col) => {
-    const numeric = rows.every((row) => {
-      const value = field(row, col)
-      return value === null || value === undefined || typeof value === 'number'
-    })
-    return `"${col}" ${numeric ? 'DOUBLE' : 'VARCHAR'}`
-  }).join(', ')
+  // Every column any row carries, in the order they first appear, a DOUBLE where it holds numbers
+  // and nothing else but nulls, found in one pass over the rows: the first row alone left out a
+  // column only later rows carry, and made one it held null in VARCHAR, which `avg` and `>` refuse.
+  // A column with no value at all stays VARCHAR, which compares with a string where a DOUBLE fails
+  const kinds = new Map<string, 'none' | 'number' | 'text'>()
+  for (const row of rows) {
+    for (const [col, value] of Object.entries(row)) {
+      const kind = kinds.get(col) ?? 'none'
+      if (value === null || value === undefined)
+        kinds.set(col, kind)
+      else if (typeof value !== 'number')
+        kinds.set(col, 'text')
+      else if (kind === 'none')
+        kinds.set(col, 'number')
+    }
+  }
+  const columns = [...kinds.keys()]
+  const columnDefs = columns.map(col => `"${col}" ${kinds.get(col) === 'number' ? 'DOUBLE' : 'VARCHAR'}`).join(', ')
 
   await conn.query(`CREATE TABLE data (${columnDefs})`)
 
