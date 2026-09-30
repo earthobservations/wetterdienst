@@ -1402,9 +1402,6 @@ describe('dataViewer chart of the rows it can plot', () => {
   })
 })
 
-  })
-})
-
 // the chart drawn again, as the trendline is ticked or unticked
 async function toggleTrendline(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
   const label = wrapper.findAll('label').find(label => label.text() === 'Trendline')!
