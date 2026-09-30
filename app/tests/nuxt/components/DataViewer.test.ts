@@ -182,6 +182,33 @@ describe('dataViewer downloads', () => {
     expect(asked[0]!.humanize).toBe('true')
   })
 
+  it('downloads GeoJSON for the table shown while a newer Fetch is still under way', async () => {
+    // the request Fetch sent became the table's at once: a download in that gap asked for the new one
+    const asked: Record<string, unknown>[] = []
+    registerEndpoint('/api/values', async (event) => {
+      const query = getQuery(event)
+      if (query.format === 'geojson') {
+        asked.push(query)
+        return { type: 'FeatureCollection', features: [] }
+      }
+      if (query.station === '04411')
+        await new Promise(resolve => setTimeout(resolve, 200))
+      return { values: [{ ...row, station_id: String(query.station) }] }
+    })
+    const { wrapper, viewer, stationSelection } = await mountDataViewer()
+    await fetchData(viewer)
+    const saved = catchDownload()
+    // the menu is open when the newer Fetch is pressed, as from the sidebar
+    const items = await openDownloads(wrapper)
+    stationSelection.value = byStation('04411')
+    await wrapper.vm.$nextTick()
+    const newer = fetchData(viewer)
+    items[2]!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    expect(asked[0]!.station).toBe('01048')
+    await newer
+  })
+
   it('keeps the request of the fetch started last, whichever finishes last', async () => {
     const asked: Record<string, unknown>[] = []
     registerEndpoint('/api/values', async (event) => {

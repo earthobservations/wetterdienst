@@ -1,6 +1,13 @@
 /** A row as the data viewer holds it: a value, or a wide-shaped row, or whatever the query panel made. */
 type Row = object
 
+// A query panel's COUNT(*) comes from DuckDB as a BigInt, which JSON cannot write: a number where
+// that is exact, its digits past 2^53
+function bigintValue(value: bigint): number | string {
+  const number = Number(value)
+  return Number.isSafeInteger(number) ? number : value.toString()
+}
+
 function field(row: Row, column: string): unknown {
   return (row as Record<string, unknown>)[column]
 }
@@ -66,5 +73,5 @@ export function valuesToCsv(values: Row[], columns: string[]): string {
  */
 export function valuesToJson(values: Row[], columns: string[]): string {
   const rows = values.map(row => Object.fromEntries(columns.map(column => [column, field(row, column) ?? null])))
-  return JSON.stringify({ values: rows })
+  return JSON.stringify({ values: rows }, (_key, value) => typeof value === 'bigint' ? bigintValue(value) : value)
 }

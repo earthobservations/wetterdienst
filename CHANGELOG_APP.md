@@ -20,8 +20,14 @@ Types of changes:
 
 - `[Explorer]` A refused request is told in the error toast by each parameter and what is wrong
   with it -- "station: Cannot be combined with name" -- where a 422 showed `[object Object]`. A
-  download the backend refuses shows that toast instead of saving the error as the file and
-  reporting it downloaded, and a download with no station or point selected sends nothing (GH-2056)
+  GeoJSON download the backend refuses shows that toast instead of saving the error as the file and
+  reporting it downloaded (GH-2056)
+- `[Explorer]` Downloads save what the table holds, where they fetched the current selection again,
+  which could be another station or unit than the table's: they are offered once Fetch has filled
+  the table, GeoJSON not while the query panel has rewritten it. CSV and JSON carry the table's rows
+  after the query panel and sorting, with every column the rows carry, whatever the column picker
+  shows. GeoJSON is fetched with the table's request. The copy buttons quote a field holding a
+  comma, and copy nothing from an empty table (GH-2065)
 
 ## [0.17.0] - 2026-09-29
 

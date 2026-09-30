@@ -216,7 +216,12 @@ const apiQuery = computed(() => {
 // so the table, its error and a GeoJSON download of it answer to the same request whatever is
 // selected since. Bound to the live selection instead, the fetch kept a request of its own beside
 // this one, which a selection changed mid-fetch, or Clear, could part from what the table showed.
-const fetchedRequest = ref<{ endpoint: string, filename: string, query: Record<string, unknown> } | null>(null)
+interface ValuesRequest { endpoint: string, filename: string, query: Record<string, unknown> }
+const fetchedRequest = shallowRef<ValuesRequest | null>(null)
+// the request Fetch sent last, which the table's values are fetched with; it becomes fetchedRequest
+// only once it has answered, so until then the table, the file name and GeoJSON keep to the last one
+// shallow, so the one sent compares as itself rather than as Vue's proxy of it
+const sentRequest = shallowRef<ValuesRequest | null>(null)
 // a GeoJSON download under way, which the menu does not offer again until it is saved
 const geojsonDownload = shallowRef<AbortController | null>(null)
 const downloadingGeojson = computed(() => geojsonDownload.value !== null)
@@ -237,11 +242,11 @@ onScopeDispose(() => abortGeojson('unmounted'))
 // reaches the table. Keyed by the request instead, as useFetch is by default, each request left an
 // entry behind for the rest of the session.
 const { data: valuesData, pending: valuesPending, error: valuesError, refresh: refreshValues, clear: clearValues } = useFetch<ValuesResponse>(
-  () => fetchedRequest.value?.endpoint ?? '/api/values',
+  () => sentRequest.value?.endpoint ?? '/api/values',
   {
     key: `${useId()}-values`,
     method: 'GET',
-    query: computed(() => fetchedRequest.value?.query ?? {}),
+    query: computed(() => sentRequest.value?.query ?? {}),
     lazy: true,
     immediate: false,
     // fetched by Fetch alone, not whenever the request it reads changes
@@ -274,8 +279,9 @@ const isDataTransformed = ref(false)
 const displayData = computed(() => isDataTransformed.value ? transformedData.value : allValues.value)
 
 function handleDataTransformed(data: Value[]) {
-  // the table changes only with rows of a query's own; leaving query mode hands back the table's
-  // rows, and a query that found none leaves it as it is
+  // a download under way is for the fetched rows, and only a query's own rows replace them: leaving
+  // query mode hands back the fetched rows, and a query that found none falls back to them, as
+  // no GeoJSON download runs while a query's rows are shown
   if (data.length > 0 && data !== allValues.value)
     abortGeojson()
   transformedData.value = data
@@ -499,6 +505,10 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
 // the answer failed, which is told, or the table moved on -- Fetch, Clear, the query panel -- which
 // aborts it and is not
 async function fetchGeojson(request: NonNullable<typeof fetchedRequest.value>): Promise<string | null> {
+  // one at a time: the menu does not offer another, and a second chosen before it has updated waits
+  // on nothing and keeps the first one's controller, which Fetch and Clear abort
+  if (geojsonDownload.value)
+    return null
   const download = new AbortController()
   geojsonDownload.value = download
   try {
@@ -579,16 +589,22 @@ async function fetchData() {
     clearData()
     return
   }
-  fetchedRequest.value = { ...selectedEndpoint.value, query: { ...apiQuery.value } }
+  const request = { ...selectedEndpoint.value, query: { ...apiQuery.value } }
+  sentRequest.value = request
   abortGeojson()
   currentPage.value = 1
   await refreshValues()
+  // a newer Fetch or a Clear since has its own; this one answers for the table only if it is still the
+  // last one sent
+  if (sentRequest.value === request)
+    fetchedRequest.value = valuesError.value ? null : request
 }
 
 // Clear function to reset data
 function clearData() {
   // aborts a fetch still under way, and empties the table and its error
   fetchedRequest.value = null
+  sentRequest.value = null
   abortGeojson()
   clearValues()
   currentPage.value = 1
