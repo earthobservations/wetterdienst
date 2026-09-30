@@ -121,6 +121,14 @@ Types of changes:
   one that is a MAP's own key or value. The query panel notes that the browser's DuckDB misreads
   BIT, TIME WITH TIME ZONE (dropping the offset) and UHUGEINT values of 2^127 or more (turning
   them negative), and that `CAST(column AS VARCHAR)` reads them as text (GH-2102)
+- `[Explorer]` A query's row whose timestamp is not text beginning with an ISO date, such as
+  `2020-01-01`, is left out of the chart: a time of day or `'n/a'` stopped the chart from being
+  drawn, text such as `'1'` was drawn at a date the browser made of it, and a number, read as
+  milliseconds whatever it counts, drew `epoch(timestamp)` in January 1970 (GH-2124)
+- `[Explorer]` The chart draws no series or facet for rows it cannot plot, those without a value or
+  a date, where each was an empty trace with a legend entry, or an empty panel; with no row to plot
+  it says there is no chart data and offers no image. A large result counts only the points drawn,
+  so a few among many such rows are drawn with markers (GH-2125)
 - `[Explorer]` Sorting a query's column that holds both numbers and text puts the numbers first,
   then the text. The rows, copies and downloads came in an order each browser's sort made up
   (GH-2126)

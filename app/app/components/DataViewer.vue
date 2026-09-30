@@ -711,9 +711,36 @@ function calculateLinearRegression(xData: Date[], yData: number[]): { x: Date[],
 // Performance threshold - use WebGL and simplified rendering for large datasets
 const LARGE_DATASET_THRESHOLD = 500
 
+// A timestamp's text begins with its calendar date, as the REST API and a query's timestamps and
+// dates write it, a year of six digits signed
+const ISO_DATE = /^(?:\d{4}|[+-]\d{6})-\d{2}-\d{2}/
+
+// The date a row is placed at on the chart, or null for a row the chart has no place for. A query
+// can put anything under `timestamp`: null; text that is no date, as a time of day or 'n/a', which
+// left an Invalid Date that threw once written as ISO text, and the chart was not drawn, or which a
+// browser reads as a date by rules of its own, '1' as 2001-01-01 in Chrome; or a number, as epoch
+// seconds, which a Date reads as milliseconds, and the point went to 1970
+function rowDate(row: Value): Date | null {
+  const timestamp: unknown = row.timestamp
+  if (typeof timestamp !== 'string' || !ISO_DATE.test(timestamp))
+    return null
+  const date = new Date(timestamp)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+// The rows the chart plots, each with its date: those with a value and a date to place it at. The
+// series and facets are made from these alone, so a series whose rows are all left out is not drawn
+// empty, and the large-dataset threshold counts the points drawn, not the rows left out
+const chartRows = computed(() => sortedValues.value.flatMap((row) => {
+  const date = rowDate(row)
+  return date && row.value !== null && row.value !== undefined ? [{ row, date, y: row.value }] : []
+}))
+
+const isLargeChart = computed(() => chartRows.value.length > LARGE_DATASET_THRESHOLD)
+
 // Plotly traces for single chart
 const chartTraces = computed(() => {
-  if (!sortedValues.value.length)
+  if (!chartRows.value.length)
     return []
 
   // Group values by series (station + parameter combination), as the rows shown were fetched: a mode
@@ -721,7 +748,7 @@ const chartTraces = computed(() => {
   const seriesMap = new Map<string, { x: Date[], y: number[] }>()
   const mode = rowsMode.value
 
-  for (const value of sortedValues.value) {
+  for (const { row: value, date, y } of chartRows.value) {
     let parameterLabel = value.parameter
     if (paramLabelFormat.value === 'dataset/parameter') {
       parameterLabel = `${value.dataset}/${value.parameter}`
@@ -737,20 +764,16 @@ const chartTraces = computed(() => {
       seriesMap.set(seriesKey, { x: [], y: [] })
     }
 
-    // a row without a timestamp -- a query's null one -- has no place on the time axis, where it went to 1970
-    if (value.value !== null && value.value !== undefined && value.timestamp != null) {
-      const series = seriesMap.get(seriesKey)!
-      series.x.push(new Date(value.timestamp))
-      series.y.push(value.value)
-    }
+    const series = seriesMap.get(seriesKey)!
+    series.x.push(date)
+    series.y.push(y)
   }
 
   // Convert to Plotly traces
   const traces: PlotlyData[] = []
   const trendlineTraces: PlotlyData[] = []
   let colorIndex = 0
-  const totalPoints = sortedValues.value.length
-  const isLargeDataset = totalPoints > LARGE_DATASET_THRESHOLD
+  const isLargeDataset = isLargeChart.value
 
   for (const [seriesKey, data] of seriesMap) {
     const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
@@ -803,14 +826,14 @@ const hasChartData = computed(() => chartTraces.value.length > 0)
 
 // For faceted charts - group data by parameter
 const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] }[] => {
-  if (!facetByParameter.value || !sortedValues.value.length)
+  if (!facetByParameter.value || !chartRows.value.length)
     return []
 
   const parameterGroups = new Map<string, Map<string, { x: Date[], y: number[] }>>()
   // the mode the rows shown were fetched in, as the single chart's
   const mode = rowsMode.value
 
-  for (const value of sortedValues.value) {
+  for (const { row: value, date, y } of chartRows.value) {
     let param = value.parameter
     if (paramLabelFormat.value === 'dataset/parameter') {
       param = `${value.dataset}/${value.parameter}`
@@ -829,16 +852,13 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
       stationMap.set(stationKey, { x: [], y: [] })
     }
 
-    if (value.value !== null && value.value !== undefined && value.timestamp != null) {
-      const series = stationMap.get(stationKey)!
-      series.x.push(new Date(value.timestamp))
-      series.y.push(value.value)
-    }
+    const series = stationMap.get(stationKey)!
+    series.x.push(date)
+    series.y.push(y)
   }
 
   const result: { parameter: string, traces: PlotlyData[] }[] = []
-  const totalPoints = sortedValues.value.length
-  const isLargeDataset = totalPoints > LARGE_DATASET_THRESHOLD
+  const isLargeDataset = isLargeChart.value
 
   for (const [parameter, stationMap] of parameterGroups) {
     const traces: PlotlyData[] = []
@@ -982,7 +1002,7 @@ async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), ch
 
 // Plotly layout - optimized for large datasets
 const chartLayout = computed((): Partial<PlotlyLayout> => {
-  const isLargeDataset = sortedValues.value.length > LARGE_DATASET_THRESHOLD
+  const isLargeDataset = isLargeChart.value
   return {
     autosize: true,
     margin: { l: 60, r: 20, t: 40, b: 60 },
