@@ -1058,3 +1058,40 @@ describe('dataViewer sort of missing values', () => {
     expect(stations(wrapper)).toEqual(['b', 'd', 'a', 'c'])
   })
 })
+
+describe('dataViewer rows without a timestamp', () => {
+  // a query's row whose timestamp is null -- `NULL AS timestamp`, an outer join, a date past what a
+  // JS Date holds -- beside one that has it
+  const query = [row, { ...row, timestamp: null, value: 9 }]
+
+  async function withQueryRows() {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const mountedViewer = await mountDataViewer()
+    await fetchData(mountedViewer.viewer)
+    mountedViewer.wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', query)
+    await mountedViewer.wrapper.vm.$nextTick()
+    return mountedViewer
+  }
+
+  it('shows the timestamp empty, as the other cells show a missing value', async () => {
+    // the timestamp cell threw on it, and the table was not drawn
+    const { wrapper } = await withQueryRows()
+    const cells = wrapper.findAll('tbody tr').map(tr => tr.findAll('td').map(td => td.text()))
+    expect(cells).toEqual([
+      ['01048', 'temperature_air_mean_2m', '2020-01-01T00:00:00Z', '1.5', ''],
+      ['01048', 'temperature_air_mean_2m', '', '9', ''],
+    ])
+  })
+
+  it.each([false, true])('leaves the row out of the chart, faceted: %s', async (faceted) => {
+    // it was drawn at 1970-01-01
+    plotly.newPlot.mockClear()
+    plotly.react.mockClear()
+    const { wrapper } = await withQueryRows()
+    await showChart(wrapper, faceted)
+    const draw = faceted ? plotly.react : plotly.newPlot
+    await vi.waitFor(() => expect(draw).toHaveBeenCalled())
+    const [trace] = draw.mock.lastCall![1] as { x: string[], y: number[] }[]
+    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
+  })
+})

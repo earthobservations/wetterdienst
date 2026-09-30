@@ -94,6 +94,8 @@ Types of changes:
 - `[Explorer]` Sorting the table keeps rows without a value in the order they came, last in either
   direction, in every browser. Firefox reversed them, and the copies and downloads wrote that order
   (GH-2112)
+- `[Explorer]` A query's row without a timestamp shows an empty timestamp cell and is left out of
+  the chart. The table failed to draw, and the chart placed the row at 1970-01-01 (GH-2103)
 
 ## [0.17.0] - 2026-09-29
 

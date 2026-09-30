@@ -296,7 +296,8 @@ const columnDefinitions: { key: keyof Value, column: TableColumn<Value> }[] = [
   { key: 'resolution', column: { accessorKey: 'resolution', header: 'resolution' } },
   { key: 'dataset', column: { accessorKey: 'dataset', header: 'dataset' } },
   { key: 'parameter', column: { accessorKey: 'parameter', header: 'parameter' } },
-  { key: 'timestamp', column: { accessorKey: 'timestamp', header: 'timestamp', cell: ({ row }) => formatDate(row.original.timestamp) } },
+  // a query's null timestamp empty, as the other cells show a missing value, where formatDate threw on it
+  { key: 'timestamp', column: { accessorKey: 'timestamp', header: 'timestamp', cell: ({ row }) => formatDate(fieldText(row.original.timestamp)) } },
   { key: 'value', column: { accessorKey: 'value', header: 'value' } },
   { key: 'quality', column: { accessorKey: 'quality', header: 'quality' } },
   { key: 'taken_station_id', column: { accessorKey: 'taken_station_id', header: 'taken_station_id' } },
@@ -726,7 +727,8 @@ const chartTraces = computed(() => {
       seriesMap.set(seriesKey, { x: [], y: [] })
     }
 
-    if (value.value !== null && value.value !== undefined) {
+    // a row without a timestamp -- a query's null one -- has no place on the time axis, where it went to 1970
+    if (value.value !== null && value.value !== undefined && value.timestamp != null) {
       const series = seriesMap.get(seriesKey)!
       series.x.push(new Date(value.timestamp))
       series.y.push(value.value)
@@ -817,7 +819,7 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
       stationMap.set(stationKey, { x: [], y: [] })
     }
 
-    if (value.value !== null && value.value !== undefined) {
+    if (value.value !== null && value.value !== undefined && value.timestamp != null) {
       const series = stationMap.get(stationKey)!
       series.x.push(new Date(value.timestamp))
       series.y.push(value.value)
