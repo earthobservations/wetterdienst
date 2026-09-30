@@ -398,8 +398,8 @@ const canFetch = computed(() => {
   if (dateRangeRequired.value && !isDateRangeValid.value)
     return false
 
-  // Nothing new to fetch where the selection is already under way or in the table. The viewer holds both,
-  // so a fetch that failed, Reset and a viewer mounted afresh offer Fetch again
+  // Nothing new to fetch where the selection is what Fetch sent last, still under way or answered. The
+  // viewer holds that, so a fetch that failed, Reset and a viewer mounted afresh offer Fetch again
   return !dataViewerRef.value.holdsSelection
 })
 
