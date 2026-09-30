@@ -986,11 +986,10 @@ describe('dataViewer chart images', () => {
 describe('dataViewer query panel columns', () => {
   // the columns the query panel lists as available, as it shows them once opened
   async function availableColumns(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
-    const open = wrapper.findAll('button').find(button => button.text() === 'Transform with SQL Query')
-    if (open)
-      await open.trigger('click')
-    const hint = wrapper.findAll('div').find(div => div.text().startsWith('Available columns:'))!
-    return hint.find('code').text().split(', ')
+    await wrapper.findAll('button').find(button => button.text() === 'Transform with SQL Query')!.trigger('click')
+    const hint = wrapper.findAll('div').find(div => div.text().startsWith('Available columns:'))
+    expect(hint).toBeDefined()
+    return hint!.find('code').text().split(', ')
   }
 
   it('lists the columns a wide-shaped table carries, its parameters in place of parameter, value and quality', async () => {
@@ -1001,8 +1000,8 @@ describe('dataViewer query panel columns', () => {
     expect(await availableColumns(wrapper)).toEqual(['station_id', 'resolution', 'dataset', 'timestamp', 'temperature_air_mean_2m', 'precipitation_height'])
   })
 
-  // each point mode's rows as the REST API answers them: a distance of their own, first so that the
-  // order is the table's, and no quality
+  // each point mode's rows as the REST API answers them, with a distance of their own and no quality.
+  // The distance comes first, so that the list is seen to follow the table's order, not the rows'
   const { quality: _, ...measured } = row
   it.each([
     { mode: 'interpolation', endpoint: '/api/interpolate', values: [{ distance_mean: 12.3, ...measured, taken_station_ids: ['01048', '04411'] }], columns: ['taken_station_ids', 'distance_mean'] },
