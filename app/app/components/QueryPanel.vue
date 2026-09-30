@@ -140,7 +140,8 @@ async function startDuckDB() {
     console.error('Failed to initialize DuckDB:', err)
     database?.terminate().catch(() => {})
     startFailed = true
-    startError = err.message || 'Unknown error'
+    // anything can be thrown, `undefined` included, and reading it must not fail the start's promise
+    startError = err?.message || 'Unknown error'
   }
 }
 
@@ -190,18 +191,20 @@ async function loadDataIntoDB(rows: Value[], superseded: () => boolean) {
 // load it each, their statements interleaved. A load of newer rows starts once the one before it
 // has ended, which stops before its next batch rather than insert rows nobody will query. A load
 // that failed is tried again by the next run (`again`), not by the syntax check at every pause in
-// typing
+// typing. `lastLoad` is the one started last, which the next waits for even once it is forgotten
 let tableLoad: { rows: Value[], done: Promise<void>, failed: boolean } | null = null
+let lastLoad: Promise<void> = Promise.resolve()
 
 function loadTable(rows: Value[], { again = false } = {}): Promise<void> {
   if (tableLoad?.rows !== rows || (again && tableLoad.failed)) {
-    const before = tableLoad?.done.catch(() => {}) ?? Promise.resolve()
+    const before = lastLoad.catch(() => {})
     const load = { rows, done: Promise.resolve(), failed: false }
     load.done = before.then(() => loadDataIntoDB(rows, () => tableLoad !== load))
     load.done.catch(() => {
       load.failed = true
     })
     tableLoad = load
+    lastLoad = load.done
   }
   return tableLoad.done
 }
@@ -446,6 +449,9 @@ function disableQueryMode() {
 
 // Watch for data changes - reset query mode
 watch(() => props.data, () => {
+  // the table no longer holds the panel's rows: a load of them under way stops before its next
+  // batch, and the next run or check loads the rows now held, replaced or changed in place
+  tableLoad = null
   if (isQueryMode.value) {
     disableQueryMode()
   }

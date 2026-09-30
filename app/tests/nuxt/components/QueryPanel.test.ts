@@ -456,6 +456,36 @@ describe('queryPanel failed start or load', () => {
     expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(data)
   })
 
+  it('tells a start that failed with no error given as failed for an unknown reason', async () => {
+    // reading `undefined.message` failed the start's own promise, and the run told that TypeError
+    const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate').mockRejectedValueOnce(undefined)
+    unwatched.push(() => instantiate.mockRestore())
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to initialize database: Unknown error'))
+  })
+
+  it('inserts no more of the rows a Fetch replaced, with no run to load newer ones', async () => {
+    // their load ran every batch, keeping DuckDB busy and the rows held, until the next run
+    const older = Array.from({ length: 250 }, (_, i) => ({ ...data[0]!, value: i }))
+    const hold = gate()
+    let held = false
+    const statements = watchStatements((sql) => {
+      if (!held && sql.startsWith('INSERT')) {
+        held = true
+        return hold.opened
+      }
+      return undefined
+    })
+    const wrapper = await queryMode(older)
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(held).toBe(true))
+    await wrapper.setProps({ data })
+    hold.open()
+    await flushPromises()
+    expect(verbs(statements.ran)).toEqual(['DROP', 'CREATE', 'INSERT'])
+  })
+
   it('starts no load for rows a Fetch replaced while it waited for the load before it', async () => {
     // it dropped and created the table for rows nobody would query, once the load before it ended
     const older = Array.from({ length: 250 }, (_, i) => ({ ...data[0]!, value: i }))
