@@ -231,3 +231,40 @@ describe('queryPanel run left behind', () => {
     expect(wrapper.emitted('dataTransformed')).toEqual([[data], [data]])
   })
 })
+
+describe('queryPanel unmounted', () => {
+  // a panel in query mode with its query edited, which starts the syntax check 500 ms later; left
+  // out of `mounted`, as the test unmounts it itself
+  async function edited() {
+    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
+    await wrapper.find('button').trigger('click')
+    await wrapper.find('textarea').setValue('SELECT * FROM data LIMIT 10')
+    return wrapper
+  }
+
+  it('starts no DuckDB for a syntax check still to come', async () => {
+    // the check ran after the panel was gone, and started a database nothing ended
+    const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate')
+    unwatched.push(() => instantiate.mockRestore())
+    const wrapper = await edited()
+    wrapper.unmount()
+    // past the check's 500 ms
+    await new Promise(resolve => setTimeout(resolve, 700))
+    expect(instantiate).not.toHaveBeenCalled()
+  })
+
+  it('ends the database a syntax check under way starts, and loads no table into it', async () => {
+    const hold = gate()
+    const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate').mockImplementation(() => hold.opened.then(() => null))
+    const terminate = vi.spyOn(AsyncDuckDB.prototype, 'terminate')
+    unwatched.push(() => instantiate.mockRestore(), () => terminate.mockRestore())
+    const statements = watchStatements()
+    const wrapper = await edited()
+    await vi.waitFor(() => expect(instantiate).toHaveBeenCalled(), { timeout: 2000 })
+    wrapper.unmount()
+    hold.open()
+    await vi.waitFor(() => expect(terminate).toHaveBeenCalledTimes(1))
+    await flushPromises()
+    expect(statements).toEqual([])
+  })
+})

@@ -114,6 +114,9 @@ Types of changes:
   replaced the rows Cancel had handed back, its error showed the next time query mode was entered,
   and Run Query stayed disabled and loading until it answered, or turned idle under a newer run
   (GH-2096)
+- `[Explorer]` Leaving the Explorer within half a second of editing a query no longer starts a
+  DuckDB database for its syntax check, which stayed running in the browser until the page was
+  reloaded; a database still starting as the panel goes is ended once it has started (GH-2108)
 
 ## [0.17.0] - 2026-09-29
 

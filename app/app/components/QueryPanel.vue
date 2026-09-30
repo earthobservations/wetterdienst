@@ -92,6 +92,8 @@ let db: any = null
 let conn: any = null
 // DuckDB's start, which a run and the syntax check share rather than start a database each
 let started: Promise<void> | null = null
+// the panel is gone, and a syntax check under way stops
+let unmounted = false
 
 // Initialize DuckDB
 function initDuckDB(): Promise<void> {
@@ -205,6 +207,9 @@ async function validateQuerySyntax() {
 
   // Initialize DuckDB if needed (for EXPLAIN)
   await initDuckDB()
+  // gone while DuckDB started: the check would load a table into a database being closed
+  if (unmounted)
+    return
   if (!db || !conn) {
     // Can't validate syntax without DuckDB, but don't show error
     return
@@ -406,6 +411,12 @@ watch(() => props.data, () => {
 
 // Cleanup on unmount
 onUnmounted(async () => {
+  unmounted = true
+  // the delayed syntax check would start a database that nothing ends
+  if (validationTimeout)
+    clearTimeout(validationTimeout)
+  // a start under way ends before the database it makes can be
+  await started
   if (conn) {
     await conn.close()
     conn = null
