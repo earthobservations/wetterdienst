@@ -183,11 +183,15 @@ describe('history Page', () => {
   })
 
   it('offers Show again for the same selection after the fetch failed', async () => {
-    // failing until the test lets it answer: a GET that fails is retried once on its own
+    // failing until the test lets it answer: a GET that fails is retried once on its own;
+    // then held until the test lets it go
     let failing = true
-    const { wrapper, vm, showButton } = await mountWithSelection(() => {
+    let release!: () => void
+    const held = new Promise<void>(resolve => (release = resolve))
+    const { wrapper, vm, showButton } = await mountWithSelection(async () => {
       if (failing)
         throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
+      await held
       return HISTORY
     })
 
@@ -197,6 +201,10 @@ describe('history Page', () => {
 
     failing = false
     await showButton().trigger('click')
+    // the failed fetch's error goes once the retry is under way, not when it answers
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Loading'), { timeout: 5000 })
+    expect(wrapper.text()).not.toContain('Error:')
+    release()
     await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
     expect(vm.canFetch).toBe(false)
   })

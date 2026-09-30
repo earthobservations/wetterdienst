@@ -34,6 +34,8 @@ Types of changes:
 - `[History]` Show is offered again after a fetch fails, so the same selection can be retried; it
   stayed disabled until a setting changed or Reset was pressed. Show no longer reorders the chosen
   sections, and a fetch under way still shows its answer when the selection changes (GH-2077)
+- `[History]` A failed fetch's error goes once Show is pressed again, where it stayed beside the
+  loading indicator until the retry answered (GH-2078)
 
 ## [0.17.0] - 2026-09-29
 
