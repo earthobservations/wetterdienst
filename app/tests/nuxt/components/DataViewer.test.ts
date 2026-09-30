@@ -738,7 +738,7 @@ describe('dataViewer columns', () => {
     await fetchData(viewer)
     await wrapper.vm.$nextTick()
     expect(picked(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
-    expect(wrapper.findComponent(QueryPanel).props('expectedColumns')).not.toContain('taken_station_ids')
+    expect(wrapper.findComponent(QueryPanel).props('expectedColumns')).toEqual(Object.keys(row))
   })
 
   it('follows the selected mode once Clear has emptied the table', async () => {
