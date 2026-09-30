@@ -16,13 +16,16 @@ export type Resolution
 // Coverage API
 // ============================================================================
 
-/** Parameter info returned in coverage response */
+/**
+ * Parameter info returned in coverage response, as the backend's `discover()` builds it: every key
+ * is always sent, and `unit` is the unit the source publishes in, not the one values come back in
+ */
 export interface CoverageParameter {
   name: string
-  name_original?: string
-  unit?: string
-  unit_original?: string
-  description?: string | null
+  name_original: string
+  unit_type: string
+  unit: string
+  description: string | null
 }
 
 /** A dataset in the coverage response, with the source's own description of it */
