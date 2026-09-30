@@ -49,6 +49,9 @@ Types of changes:
 - `[Explorer]` The table starts again at its first page when a Fetch answers, a query's result comes
   in or query mode is left. The page chosen in the rows shown before was kept against the new ones,
   and where they had fewer pages the table showed empty until the pager was used (GH-2075)
+- `[Stations]` A station without a region, such as every DWD MOSMIX station, is labelled by its
+  name and id in the station picker and on the map, as `JAN MAYEN (ID: 01001)`, where it read
+  `JAN MAYEN (ID: 01001, null)` (GH-2046)
 
 ## [0.17.0] - 2026-09-29
 

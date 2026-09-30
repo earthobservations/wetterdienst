@@ -1,6 +1,6 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import StationSelection from '~/components/StationSelection.vue'
 
 const parameterSelection = {
@@ -184,6 +184,30 @@ describe('stationSelection', () => {
 
     expect(calls).toBe(2)
     expect(vm.allStations).toEqual(stationsResponse.stations)
+  })
+
+  it.each([true, false])('labels a station without a region by name and id alone (multiple: %s)', async (multiple) => {
+    // A network without regions, e.g. DWD MOSMIX, sends `region: null` for every station.
+    registerEndpoint('/api/stations', () => ({
+      stations: [
+        { station_id: '01001', name: 'JAN MAYEN', region: null, latitude: 70.9, longitude: -8.7 },
+        ...stationsResponse.stations,
+      ],
+    }))
+
+    const wrapper = await mountSuspended(StationSelection, {
+      props: { parameterSelection, initialStationIds: ['01001'], multiple },
+      attachTo: document.body,
+    })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStations).toHaveLength(1))
+
+    expect(vm.stationItems.map((i: { label: string }) => i.label)).toEqual([
+      'JAN MAYEN (ID: 01001)',
+      'Test Station (ID: 00001, Berlin)',
+    ])
+    expect(vm.selectedItems).toEqual([{ label: 'JAN MAYEN (ID: 01001)', value: '01001' }])
   })
 
   it('does not fetch anything while parameters are unselected', async () => {

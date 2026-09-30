@@ -86,7 +86,8 @@ export interface CoverageQuery {
 export interface Station {
   station_id: string
   name: string
-  region: string
+  /** Null where the provider reports no region for the station, which for several, e.g. DWD MOSMIX, is every one. */
+  region: string | null
   latitude: number
   longitude: number
   /** Null where the provider reports no elevation for the station, which for several is every one. */
