@@ -9,7 +9,7 @@ import QueryPanel from '~/components/QueryPanel.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
 import { describeFetchError } from '~/utils/api-error'
 import { formatDate } from '~/utils/format'
-import { exportColumns, valuesToCsv, valuesToJson } from '~/utils/values-export'
+import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
 
 const props = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
@@ -304,10 +304,10 @@ const columnDefinitions: { key: keyof Value, column: TableColumn<Value> }[] = [
 ]
 
 // Sorting
-const sortColumn = ref<keyof Value | null>(null)
+const sortColumn = ref<string | null>(null)
 const sortDirection = ref<'asc' | 'desc'>('asc')
 
-function toggleSort(column: keyof Value) {
+function toggleSort(column: string) {
   if (sortColumn.value === column) {
     if (sortDirection.value === 'asc') {
       sortDirection.value = 'desc'
@@ -323,19 +323,22 @@ function toggleSort(column: keyof Value) {
   }
 }
 
-function getSortIcon(column: keyof Value) {
+function getSortIcon(column: string) {
   if (sortColumn.value !== column)
     return '↕'
   return sortDirection.value === 'asc' ? '↑' : '↓'
 }
 
 const sortedValues = computed(() => {
-  if (!sortColumn.value)
+  const column = sortColumn.value
+  // by a column the rows shown carry: one sorted by in other rows (a query's, left since) compares
+  // every row as the greater, whose order each engine's sort makes something else of
+  if (!column || !displayData.value.some(row => Object.hasOwn(row, column)))
     return displayData.value
 
   return [...displayData.value].sort((a, b) => {
-    const aVal = a[sortColumn.value!]
-    const bVal = b[sortColumn.value!]
+    const aVal = field(a, column)
+    const bVal = field(b, column)
 
     if (aVal === null || aVal === undefined)
       return 1
@@ -347,7 +350,8 @@ const sortedValues = computed(() => {
       comparison = aVal - bVal
     }
     else {
-      comparison = String(aVal).localeCompare(String(bVal))
+      // a query's struct by its JSON text, as a column of the rows' own shows it
+      comparison = fieldText(aVal).localeCompare(fieldText(bVal))
     }
 
     return sortDirection.value === 'asc' ? comparison : -comparison
@@ -372,8 +376,9 @@ const rowsMode = computed((): StationMode => {
   return request?.mode ?? stationSelection.value.mode
 })
 
-// Column options based on the rows' mode - only show mode-specific columns for rows of that mode
-const columnOptions = computed(() => {
+// The columns of the rows' mode, the mode-specific one only for rows of that mode: what the picker
+// offers while the table is empty, and what the query panel lists
+const modeColumns = computed(() => {
   const base: (keyof Value)[] = ['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality']
   if (rowsMode.value === 'summary') {
     return [...base, 'taken_station_id']
@@ -384,43 +389,50 @@ const columnOptions = computed(() => {
   return base
 })
 
-// Default columns based on the rows' mode
-const defaultColumns = computed((): (keyof Value)[] => {
-  const base: (keyof Value)[] = ['station_id', 'parameter', 'timestamp', 'value', 'quality']
-  if (rowsMode.value === 'summary') {
-    return [...base, 'taken_station_id']
-  }
-  if (rowsMode.value === 'interpolation') {
-    return [...base, 'taken_station_ids']
-  }
-  return base
+// The columns the table knows, in its order: the ones it, the picker and a download put first
+const TABLE_ORDER: string[] = columnDefinitions.map(c => c.key)
+
+// The picker's options: every column the rows shown carry, as a download writes them -- the table's
+// own in its order first, then a wide-shaped table's parameters or a query's `avg_value` -- and the
+// mode's own while the table is empty. The nine fixed columns alone left those out, and showed a
+// wide table's `parameter`, `value` and `quality` empty
+const columnOptions = computed(() => displayData.value.length ? exportColumns(displayData.value, TABLE_ORDER) : modeColumns.value)
+
+// The picker keeps the columns it hides rather than those it shows, so a column the rows bring along
+// is shown as it comes in; by default only `resolution` and `dataset` are hidden
+const HIDDEN_BY_DEFAULT = ['resolution', 'dataset']
+const hiddenColumns = ref<string[]>([...HIDDEN_BY_DEFAULT])
+// The columns the picker shows, in the table's order: what the table shows, and a copy writes
+const selectedColumns = computed({
+  get: () => columnOptions.value.filter(column => !hiddenColumns.value.includes(column)),
+  // a column hidden that the rows shown do not carry stays hidden for rows that do
+  set: (picked: string[]) => {
+    hiddenColumns.value = [
+      ...hiddenColumns.value.filter(column => !columnOptions.value.includes(column)),
+      ...columnOptions.value.filter(column => !picked.includes(column)),
+    ]
+  },
 })
 
-const selectedColumns = ref<(keyof Value)[]>([...defaultColumns.value])
-
-// Update selected columns when the rows' mode changes
+// Show the default columns again when the rows' mode changes
 watch(rowsMode, () => {
-  selectedColumns.value = [...defaultColumns.value]
+  hiddenColumns.value = [...HIDDEN_BY_DEFAULT]
 })
-
-// A download writes every column the rows carry, those the table knows in its order first, whatever
-// the column picker shows
-const TABLE_ORDER = columnDefinitions.map(c => c.key)
-
-// The columns the picker leaves visible, in the table's order: what the table shows, and a copy writes
-const visibleColumns = computed(() => columnDefinitions.filter(c => selectedColumns.value.includes(c.key)))
-const visibleKeys = computed(() => visibleColumns.value.map(c => c.key))
 
 const columns = computed(() =>
-  visibleColumns.value.map((c) => {
-    const key = c.key
+  selectedColumns.value.map((key) => {
+    // a column of the rows' own is read by its name as it is: an accessorKey reads `a.b` as a path.
+    // A query's struct or list is shown as a copy writes it, where the table's cell wrote
+    // `[object Object]`
+    const column = columnDefinitions.find(c => c.key === key)?.column
+      ?? { id: key, accessorFn: (row: Value) => fieldText(field(row, key)) }
     return {
-      ...c.column,
+      ...column,
       header: () => h('span', {
         class: 'cursor-pointer select-none flex items-center gap-1',
         onClick: () => toggleSort(key),
       }, [
-        c.key,
+        key,
         h('span', { class: sortColumn.value === key ? 'opacity-100' : 'opacity-30' }, getSortIcon(key)),
       ]),
     } as TableColumn<Value>
@@ -445,7 +457,7 @@ watch([displayData, pageSize], () => {
 })
 
 async function copyCurrentPage() {
-  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, visibleKeys.value))
+  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, selectedColumns.value))
   toast.add({
     title: t('dataViewer.copied'),
     description: t('dataViewer.copiedRows', { count: paginatedValues.value.length }),
@@ -454,7 +466,7 @@ async function copyCurrentPage() {
 }
 
 async function copyAllValues() {
-  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, visibleKeys.value))
+  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, selectedColumns.value))
   toast.add({ title: t('dataViewer.copied'), description: t('dataViewer.copiedRows', { count: sortedValues.value.length }), color: 'success' })
 }
 
@@ -494,7 +506,7 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
       await downloadGeojson(request)
     return
   }
-  const columns = exportColumns(sortedValues.value, TABLE_ORDER)
+  const columns = columnOptions.value
   const content = format === 'csv' ? valuesToCsv(sortedValues.value, columns) : valuesToJson(sortedValues.value, columns)
   saveFile(content, fetchedRequest.value?.filename ?? ENDPOINTS.values.filename, format)
 }
@@ -1063,7 +1075,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <QueryPanel
         v-if="allValues.length > 0"
         :data="allValues"
-        :expected-columns="columnOptions"
+        :expected-columns="modeColumns"
         :mode="rowsMode"
         @data-transformed="handleDataTransformed"
       />

@@ -6,7 +6,7 @@ import { flushPromises } from '@vue/test-utils'
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
-import { UApp } from '#components'
+import { UApp, USelectMenu } from '#components'
 import { useToast } from '#imports'
 import DataViewer from '~/components/DataViewer.vue'
 import QueryPanel from '~/components/QueryPanel.vue'
@@ -742,5 +742,113 @@ describe('dataViewer columns', () => {
     stationSelection.value = byStation('01048')
     await wrapper.vm.$nextTick()
     expect(picked(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
+  })
+
+  // one column per parameter: none of them among the table's fixed columns
+  const wide = { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5 }
+
+  it('shows and copies the columns a wide-shaped table carries', async () => {
+    registerEndpoint('/api/values', () => ({ values: [wide] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    // no empty parameter, value and quality, where the measurement was left out
+    expect(headers(wrapper)).toEqual(['station_id', 'timestamp', 'temperature_air_mean_2m'])
+    expect(pageShown(wrapper).rows[0]).toContain('1.5')
+    const copied: string[] = []
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (text: string) => void copied.push(text) }, configurable: true })
+    // "copy all", the second of the two buttons beside the table's tooltip triggers
+    await wrapper.findAll('button[data-grace-area-trigger]')[1]!.trigger('click')
+    await vi.waitFor(() => expect(copied).toHaveLength(1))
+    expect(copied[0]!.split('\n')).toEqual(['station_id,timestamp,temperature_air_mean_2m', '01048,2020-01-01T00:00:00Z,1.5'])
+  })
+
+  it('shows the columns of a query\'s own rows', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    // DuckDB names an unaliased column after its expression, a point in it included; a struct comes
+    // as an object
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [{ 'parameter': 'temperature_air_mean_2m', 'avg_value': 2.5, '(value * 1.5)': 2.25, 'range': { min: 1, max: 2 } }])
+    await wrapper.vm.$nextTick()
+    expect(headers(wrapper)).toEqual(['parameter', 'avg_value', '(value * 1.5)', 'range'])
+    expect(picked(wrapper)).toEqual(['parameter', 'avg_value', '(value * 1.5)', 'range'])
+    expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(['temperature_air_mean_2m', '2.5', '2.25', '{"min":1,"max":2}'])
+  })
+
+  // a header of the table, with the sort mark beside it, found by its column
+  function header(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper'], column: string) {
+    return wrapper.findAll('thead th span').find(span => span.text().replace(/[↕↑↓]/g, '') === column)!
+  }
+
+  // `constructor` as well, which every row has through its prototype, though none carries it
+  it.each(['avg_value', 'constructor'])('sorts by a query\'s own column %s only while the rows shown carry it', async (column) => {
+    registerEndpoint('/api/values', () => ({ values: rows(5, '01048') }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    const fetched = pageShown(wrapper).rows
+    const panel = wrapper.findComponent(QueryPanel)
+    const query = [{ parameter: 'temperature_air_mean_2m', [column]: 2.5 }]
+    panel.vm.$emit('dataTransformed', query)
+    await wrapper.vm.$nextTick()
+    await header(wrapper, column).trigger('click')
+    // the order a sort by a column no row has leaves the rows in is the engine's -- V8 keeps it,
+    // SpiderMonkey reverses it -- so what is asked is whether the fetched rows were sorted at all
+    const sort = vi.spyOn(Array.prototype, 'sort')
+    panel.vm.$emit('dataTransformed', panel.props('data'))
+    await wrapper.vm.$nextTick()
+    expect(pageShown(wrapper).rows).toEqual(fetched)
+    const sortedFetched = (sort.mock.contexts as unknown[][]).filter(sorted => sorted.some(r => (r as { station_id?: string } | null)?.station_id === '01048'))
+    expect(sortedFetched).toHaveLength(0)
+    // and by it again once the query's rows are back
+    panel.vm.$emit('dataTransformed', [...query])
+    await wrapper.vm.$nextTick()
+    expect(header(wrapper, column).text()).toBe(`${column}↑`)
+  })
+
+  it('keeps a sort by a fixed column through a query whose rows lack it', async () => {
+    registerEndpoint('/api/values', () => ({ values: rows(5, '01048') }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    await header(wrapper, 'value').trigger('click')
+    await header(wrapper, 'value').trigger('click')
+    const panel = wrapper.findComponent(QueryPanel)
+    panel.vm.$emit('dataTransformed', [{ parameter: 'temperature_air_mean_2m', avg_value: 2.5 }])
+    await wrapper.vm.$nextTick()
+    panel.vm.$emit('dataTransformed', panel.props('data'))
+    await wrapper.vm.$nextTick()
+    expect(header(wrapper, 'value').text()).toBe('value↓')
+    expect(wrapper.findAll('tbody tr').map(tr => tr.findAll('td')[3]!.text())).toEqual(['4', '3', '2', '1', '0'])
+  })
+
+  it('sorts a query\'s struct by the text it shows', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [{ range: { min: 2 } }, { range: { min: 1 } }])
+    await wrapper.vm.$nextTick()
+    await header(wrapper, 'range').trigger('click')
+    expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(['{"min":1}', '{"min":2}'])
+  })
+
+  it('keeps a column hidden in a query\'s rows hidden once the fetched rows are back', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const panel = wrapper.findComponent(QueryPanel)
+    panel.vm.$emit('dataTransformed', [{ parameter: 'temperature_air_mean_2m', avg_value: 2.5 }])
+    await wrapper.vm.$nextTick()
+    // avg_value unticked in the picker, whose rows carry no resolution or dataset to hide
+    wrapper.findComponent(USelectMenu).vm.$emit('update:modelValue', ['parameter'])
+    await wrapper.vm.$nextTick()
+    expect(headers(wrapper)).toEqual(['parameter'])
+    panel.vm.$emit('dataTransformed', panel.props('data'))
+    await wrapper.vm.$nextTick()
+    expect(headers(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
+    panel.vm.$emit('dataTransformed', [{ parameter: 'temperature_air_mean_2m', avg_value: 3.5 }])
+    await wrapper.vm.$nextTick()
+    expect(headers(wrapper)).toEqual(['parameter'])
   })
 })

@@ -11,8 +11,22 @@ function csvText(value: object): string {
   return JSON.stringify(value)
 }
 
-function field(row: Row, column: string): unknown {
+/** A row's value in a column, whichever columns the row has. */
+export function field(row: Row, column: string): unknown {
   return (row as Record<string, unknown>)[column]
+}
+
+/**
+ * A value as the table shows it and a copy writes it, before any quoting: nothing for a missing one,
+ * a list or a struct as csvText writes it.
+ *
+ * @param value - A row's value in a column
+ * @returns Its text
+ */
+export function fieldText(value: unknown): string {
+  if (value === null || value === undefined)
+    return ''
+  return typeof value === 'object' ? csvText(value) : String(value)
 }
 
 /**
@@ -20,9 +34,7 @@ function field(row: Row, column: string): unknown {
  * holds several ids separated by commas, and written bare it spilled into the columns after it.
  */
 function csvField(value: unknown): string {
-  if (value === null || value === undefined)
-    return ''
-  const text = typeof value === 'object' ? csvText(value) : String(value)
+  const text = fieldText(value)
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 
