@@ -99,6 +99,28 @@ function catchDownload() {
   return saved
 }
 
+// A hold on the mocked endpoint, opened by the test at the point where the order of two answers
+// matters, rather than a delay a slow runner can outlast
+function gate() {
+  let open!: () => void
+  const opened = new Promise<void>((resolve) => {
+    open = resolve
+  })
+  return { opened, open }
+}
+
+// The reasons requests are aborted with. The mocked endpoint heeds no signal, so a test sees an abort
+// here rather than by its answer going missing
+function abortsSeen() {
+  const reasons: unknown[] = []
+  const abort = AbortController.prototype.abort
+  vi.spyOn(AbortController.prototype, 'abort').mockImplementation(function (this: AbortController, reason?: unknown) {
+    reasons.push(reason)
+    abort.call(this, reason)
+  })
+  return reasons
+}
+
 const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
 
 afterEach(() => {
@@ -185,6 +207,7 @@ describe('dataViewer downloads', () => {
   it('downloads GeoJSON for the table shown while a newer Fetch is still under way', async () => {
     // the request Fetch sent became the table's at once: a download in that gap asked for the new one
     const asked: Record<string, unknown>[] = []
+    const newerHold = gate()
     registerEndpoint('/api/values', async (event) => {
       const query = getQuery(event)
       if (query.format === 'geojson') {
@@ -192,7 +215,7 @@ describe('dataViewer downloads', () => {
         return { type: 'FeatureCollection', features: [] }
       }
       if (query.station === '04411')
-        await new Promise(resolve => setTimeout(resolve, 200))
+        await newerHold.opened
       return { values: [{ ...row, station_id: String(query.station) }] }
     })
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
@@ -204,50 +227,58 @@ describe('dataViewer downloads', () => {
     await wrapper.vm.$nextTick()
     const newer = fetchData(viewer)
     items[2]!.click()
+    // the newer Fetch answers only once the GeoJSON is saved
     await vi.waitFor(() => expect(saved).toHaveLength(1))
     expect(asked[0]!.station).toBe('01048')
+    newerHold.open()
     await newer
   })
 
   it('aborts a GeoJSON download chosen while a newer Fetch is under way, once that Fetch\'s answer replaces the table', async () => {
     // it was aborted only when Fetch was pressed, so one chosen after that was saved for a table gone
     let asked = false
+    const geojsonHold = gate()
     registerEndpoint('/api/values', async (event) => {
       const query = getQuery(event)
       if (query.format === 'geojson') {
         asked = true
-        await new Promise(resolve => setTimeout(resolve, 300))
+        await geojsonHold.opened
         return { type: 'FeatureCollection', features: [] }
       }
-      if (query.station === '04411')
-        await new Promise(resolve => setTimeout(resolve, 50))
       return { values: [{ ...row, station_id: String(query.station) }] }
     })
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
     await fetchData(viewer)
     const saved = catchDownload()
+    const aborts = abortsSeen()
     const items = await openDownloads(wrapper)
     stationSelection.value = byStation('04411')
     await wrapper.vm.$nextTick()
     const newer = fetchData(viewer)
     items[2]!.click()
     await vi.waitFor(() => expect(asked).toBe(true))
+    expect(aborts).not.toContain('table-changed')
+    // the newer Fetch answers while the GeoJSON is held, which aborts it there and then
     await newer
+    expect(aborts).toContain('table-changed')
+    geojsonHold.open()
     await vi.waitFor(() => expect(document.body.textContent).toContain('Download cancelled: the table changed'))
     expect(saved).toHaveLength(0)
   })
 
-  it('keeps the request of the fetch started last, whichever finishes last', async () => {
+  it('answers for the fetch started last where it overtakes one still under way', async () => {
+    // useFetch cancels the first (dedupe: 'cancel'); the table and GeoJSON follow the second, and the
+    // first, answering after it, reaches neither
     const asked: Record<string, unknown>[] = []
+    const firstHold = gate()
     registerEndpoint('/api/values', async (event) => {
       const query = getQuery(event)
       if (query.format === 'geojson') {
         asked.push(query)
         return { type: 'FeatureCollection', features: [] }
       }
-      // the first fetch answers last
       if (query.station === '01048')
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await firstHold.opened
       return { values: [{ ...row, station_id: String(query.station) }] }
     })
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
@@ -255,7 +286,9 @@ describe('dataViewer downloads', () => {
     stationSelection.value = byStation('04411')
     await wrapper.vm.$nextTick()
     await fetchData(viewer)
+    firstHold.open()
     await first
+    expect(wrapper.text()).toContain('04411')
     const saved = catchDownload()
     const items = await openDownloads(wrapper)
     items[2]!.click()
@@ -266,14 +299,16 @@ describe('dataViewer downloads', () => {
   it('keeps a cleared table empty when a fetch under way answers', async () => {
     // the answer is to a request the table no longer follows once it is cleared
     let answered = false
+    const hold = gate()
     registerEndpoint('/api/values', async () => {
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await hold.opened
       answered = true
       return { values: [row] }
     })
     const { wrapper, viewer } = await mountDataViewer()
     const fetching = fetchData(viewer)
     ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    hold.open()
     await fetching
     await vi.waitFor(() => expect(answered).toBe(true))
     await wrapper.vm.$nextTick()
@@ -284,19 +319,22 @@ describe('dataViewer downloads', () => {
   it('downloads GeoJSON for the station the table shows when the selection moved during the fetch', async () => {
     // the table showed one answer while GeoJSON asked for another
     const asked: Record<string, unknown>[] = []
+    const hold = gate()
     registerEndpoint('/api/values', async (event) => {
       const query = getQuery(event)
       if (query.format === 'geojson') {
         asked.push(query)
         return { type: 'FeatureCollection', features: [] }
       }
-      await new Promise(resolve => setTimeout(resolve, 50))
+      await hold.opened
       return { values: [{ ...row, station_id: String(query.station) }] }
     })
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
     const fetching = fetchData(viewer)
     stationSelection.value = byStation('04411')
     await wrapper.vm.$nextTick()
+    // the fetch answers only once the selection has moved
+    hold.open()
     await fetching
     await wrapper.vm.$nextTick()
     // the table shows the station the fetch was made for, and GeoJSON asks for that one
@@ -324,10 +362,11 @@ describe('dataViewer downloads', () => {
   it('does not offer GeoJSON again while one is being downloaded', async () => {
     // a second choice sent a second request and saved a second file
     let asked = false
+    const hold = gate()
     registerEndpoint('/api/values', async (event) => {
       if (getQuery(event).format === 'geojson') {
         asked = true
-        await new Promise(resolve => setTimeout(resolve, 200))
+        await hold.opened
         return { type: 'FeatureCollection', features: [] }
       }
       return { values: [row] }
@@ -338,16 +377,18 @@ describe('dataViewer downloads', () => {
     ;(await openDownloads(wrapper))[2]!.click()
     await vi.waitFor(() => expect(asked).toBe(true))
     expect(offered(await openDownloads(wrapper))[2]).toEqual(['GeoJSON', false])
+    hold.open()
     await vi.waitFor(() => expect(saved).toHaveLength(1))
   })
 
   it('saves no GeoJSON that Clear overtook while it was being asked for', async () => {
     // it described a table that was no longer on screen, and said it was downloaded
     let asked = false
+    const hold = gate()
     registerEndpoint('/api/values', async (event) => {
       if (getQuery(event).format === 'geojson') {
         asked = true
-        await new Promise(resolve => setTimeout(resolve, 150))
+        await hold.opened
         return { type: 'FeatureCollection', features: [] }
       }
       return { values: [row] }
@@ -355,9 +396,12 @@ describe('dataViewer downloads', () => {
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     const saved = catchDownload()
+    const aborts = abortsSeen()
     ;(await openDownloads(wrapper))[2]!.click()
     await vi.waitFor(() => expect(asked).toBe(true))
     ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    expect(aborts).toContain('table-changed')
+    hold.open()
     // told, where it was dropped without a word
     await vi.waitFor(() => expect(document.body.textContent).toContain('Download cancelled: the table changed'))
     expect(saved).toHaveLength(0)
@@ -388,10 +432,11 @@ describe('dataViewer downloads', () => {
   ])('a GeoJSON download under way is saved after %s: %s', async (_, kept) => {
     // it was aborted on every emit from the query panel, the unchanged table included, without a word
     let asked = false
+    const hold = gate()
     registerEndpoint('/api/values', async (event) => {
       if (getQuery(event).format === 'geojson') {
         asked = true
-        await new Promise(resolve => setTimeout(resolve, 150))
+        await hold.opened
         return { type: 'FeatureCollection', features: [] }
       }
       return { values: [row] }
@@ -399,15 +444,20 @@ describe('dataViewer downloads', () => {
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     const saved = catchDownload()
+    const aborts = abortsSeen()
     ;(await openDownloads(wrapper))[2]!.click()
     await vi.waitFor(() => expect(asked).toBe(true))
     const panel = wrapper.findComponent(QueryPanel)
     const rows = kept ? panel.props('data') : [{ timestamp: '2020-01-01', parameter: 'temperature_air_mean_2m', avg_value: 1.5 }]
     panel.vm.$emit('dataTransformed', rows)
+    await wrapper.vm.$nextTick()
+    expect(aborts.includes('table-changed')).toBe(!kept)
     if (kept) {
+      hold.open()
       await vi.waitFor(() => expect(saved).toHaveLength(1))
     }
     else {
+      hold.open()
       await vi.waitFor(() => expect(document.body.textContent).toContain('Download cancelled: the table changed'))
       expect(saved).toHaveLength(0)
     }

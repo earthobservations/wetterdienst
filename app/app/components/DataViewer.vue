@@ -279,8 +279,8 @@ const displayData = computed(() => isDataTransformed.value ? transformedData.val
 
 // A GeoJSON download describes the table it was chosen for: whatever replaces that table -- a Fetch's
 // answer, Clear, a query's own rows -- aborts it, from one place rather than each. Synchronously, as
-// a watcher run after the change would let an answer that came in between be saved. Leaving query
-// mode, which hands back the fetched rows, changes nothing shown and aborts nothing.
+// a watcher run after the change would let an answer that came in between be saved. A query that
+// hands back the fetched rows themselves changes nothing shown and aborts nothing.
 watch(displayData, () => abortGeojson(), { flush: 'sync' })
 
 function handleDataTransformed(data: Value[]) {
@@ -582,7 +582,7 @@ const downloadMenuItems = computed(() => {
       { label: 'JSON', disabled: nothingShown, onSelect: () => downloadValues('json') },
       {
         label: 'GeoJSON',
-        disabled: nothingShown || isDataTransformed.value || downloadingGeojson.value,
+        disabled: nothingShown || isDataTransformed.value || downloadingGeojson.value || !fetchedRequest.value,
         onSelect: () => downloadValues('geojson'),
       },
     ],
