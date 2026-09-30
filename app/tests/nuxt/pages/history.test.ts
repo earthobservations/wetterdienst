@@ -352,7 +352,7 @@ describe('history Page', () => {
   })
 })
 
-describe('history Page tables', () => {
+describe('history Page results', () => {
   beforeEach(() => {
     registerEndpoint('/api/coverage', (event) => {
       const q = getQuery(event)
@@ -411,5 +411,136 @@ describe('history Page tables', () => {
     expect(cells('Device height')).toEqual([['Thermometer', '0', 'M'], ['Thermometer', '-', 'M']])
     expect(cells('Missing count', 'TMK')).toEqual([['TMK', '0'], ['TMK', '-']])
     expect(cells('Missing count', 'TXK')).toEqual([['TXK', '0'], ['TXK', '-']])
+  })
+
+  // a station name record, as the backend's name section has them
+  const named = (station_name: string, start_date: string, end_date: string | null) =>
+    ({ station_id: '00001', station_name, start_date, end_date })
+  // a geography record, with the station's name at the time
+  const placed = (station_name: string, start_date: string, end_date: string) =>
+    ({ station_id: '00001', station_name, latitude: 51.1, longitude: 13.8, station_elevation: 227, start_date, end_date })
+  // a parameter record of `parameter`, with the station's name at the time
+  const measured = (parameter: string, station_name: string, start_date: string, end_date: string) =>
+    ({ station_id: '00001', station_name, parameter, start_date, end_date, description: null, unit: null, data_source: null, extra_info: null, special: null, literature: null })
+
+  // the station card's header, after Show has answered with `history`
+  async function cardHeader(history: Record<string, unknown>) {
+    const { wrapper, showButton } = await mountWithSelection(() => ({ histories: [history] }))
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
+    return { wrapper, header: wrapper.findAll('h3').find(h => h.text().startsWith('Station ID'))!.text() }
+  }
+
+  it('names the card by the name the station holds now, as its name history gives it', async () => {
+    // 01048's names: Dresden-Heller until 1935, Dresden-Klotzsche since; the other sections name it too
+    const { wrapper, header } = await cardHeader({
+      name: {
+        station: [
+          named('Dresden-Heller', '1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00'),
+          named('Dresden-Klotzsche', '1934-01-01T00:00:00+00:00', null),
+        ],
+        operator: [],
+      },
+      geography: [placed('Elsewhere', '1926-05-01T00:00:00+00:00', '2026-09-30T00:00:00+00:00')],
+    })
+
+    expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
+    // told once, in the header: the card has no row of its own for it
+    expect(wrapper.text().split('Dresden-Klotzsche')).toHaveLength(2)
+    expect(wrapper.text()).not.toContain('Dresden-Heller')
+  })
+
+  it('takes the name still held over the one listed last', async () => {
+    const { header } = await cardHeader({
+      name: {
+        station: [
+          named('Dresden-Klotzsche', '1934-01-01T00:00:00+00:00', null),
+          named('Dresden-Heller', '1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00'),
+        ],
+        operator: [],
+      },
+      geography: [placed('Elsewhere', '1926-05-01T00:00:00+00:00', '2026-09-30T00:00:00+00:00')],
+    })
+
+    expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
+  })
+
+  it('takes the name begun last of two still held', async () => {
+    const { header } = await cardHeader({
+      name: {
+        station: [
+          named('Dresden-Klotzsche', '1934-01-01T00:00:00+00:00', null),
+          named('Dresden-Heller', '1926-05-01T00:00:00+00:00', null),
+        ],
+        operator: [],
+      },
+      geography: [placed('Elsewhere', '1926-05-01T00:00:00+00:00', '2026-09-30T00:00:00+00:00')],
+    })
+
+    expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
+  })
+
+  it('takes the name that ended last where none is still held, wherever it is listed', async () => {
+    const { header } = await cardHeader({
+      name: {
+        station: [
+          named('Dresden-Klotzsche', '1934-01-01T00:00:00+00:00', '2020-01-01T00:00:00+00:00'),
+          named('Dresden-Heller', '1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00'),
+        ],
+        operator: [],
+      },
+      geography: [placed('Elsewhere', '1926-05-01T00:00:00+00:00', '2026-09-30T00:00:00+00:00')],
+    })
+
+    expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
+  })
+
+  it('names the card from the other sections where the name history has no name', async () => {
+    const { header } = await cardHeader({
+      name: { station: [], operator: [] },
+      geography: [
+        placed('Dresden-Heller', '1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00'),
+        placed('Dresden-Klotzsche', '1935-07-10T00:00:00+00:00', '2026-09-30T00:00:00+00:00'),
+      ],
+    })
+
+    expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
+  })
+
+  it('names the card by the parameter record that ended last, listed per parameter as they are', async () => {
+    // TMK's periods, then TXK's: the last record listed is an old one
+    const { header } = await cardHeader({
+      parameter: [
+        measured('TMK', 'Dresden-Heller', '1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00'),
+        measured('TMK', 'Dresden-Klotzsche', '1935-07-10T00:00:00+00:00', '2026-09-30T00:00:00+00:00'),
+        measured('TXK', 'Dresden-Heller', '1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00'),
+      ],
+    })
+
+    expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
+  })
+
+  it('names the card from the missing data section where no other section names it', async () => {
+    const missing = (station_name: string, end_date: string) =>
+      ({ station_id: '00001', station_name, parameter: 'TMK', start_date: '1926-05-01T00:00:00+00:00', end_date, missing_count: 3, description: null })
+    const { header } = await cardHeader({
+      // the id from a section with no name
+      device: [{ ...placed('', '1926-05-01T00:00:00+00:00', '2026-09-30T00:00:00+00:00'), station_name: null, device_type: null, device_height: null, method: null }],
+      missing_data: {
+        summary: [missing('Dresden-Klotzsche', '2026-09-30T00:00:00+00:00'), missing('Dresden-Heller', '1935-07-10T00:00:00+00:00')],
+        periods: [],
+      },
+    })
+
+    expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
+  })
+
+  it('takes the station id from the next section where a record\'s is empty', async () => {
+    const { header } = await cardHeader({
+      parameter: [{ ...measured('TMK', 'Dresden-Klotzsche', '1935-07-10T00:00:00+00:00', '2026-09-30T00:00:00+00:00'), station_id: '' }],
+      geography: [placed('Dresden-Klotzsche', '1935-07-10T00:00:00+00:00', '2026-09-30T00:00:00+00:00')],
+    })
+
+    expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
   })
 })

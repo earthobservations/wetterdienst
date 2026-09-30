@@ -77,6 +77,10 @@ Types of changes:
 - `[History]` A number of 0 shows as 0 in the device, geography and missing data tables, where it
   showed as `-`: a station or sensor at 0 m, a latitude or longitude of 0, a missing count of 0.
   `-` is kept for a value the backend has none for (GH-2100)
+- `[History]` A station's card is named by the name the station holds now, as its name history
+  gives it, where it showed no name whenever the name section was fetched, which it is by default.
+  The name is shown once, beside the station id, and no longer repeated in a row of its own below
+  (GH-2092)
 
 ## [0.17.0] - 2026-09-29
 

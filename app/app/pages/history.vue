@@ -96,35 +96,38 @@ watch(
 )
 
 // Helper function to extract station_id from history object
-function getStationId(history: any): string | null {
+function getStationId(history: StationHistory): string | null {
   // Try to get station_id from different sections
-  if (history.parameter && history.parameter.length > 0 && history.parameter[0].station_id) {
-    return history.parameter[0].station_id
-  }
-  if (history.device && history.device.length > 0 && history.device[0].station_id) {
-    return history.device[0].station_id
-  }
-  if (history.geography && history.geography.length > 0 && history.geography[0].station_id) {
-    return history.geography[0].station_id
-  }
-  return null
+  return history.parameter?.[0]?.station_id
+    || history.device?.[0]?.station_id
+    || history.geography?.[0]?.station_id
+    || null
 }
 
-// Helper function to extract station_name from history object
-function getStationName(history: any): string | null {
-  if (history.name && history.name.station && history.name.station.length > 0) {
-    return history.name.station[0].name || null
-  }
-  if (history.parameter && history.parameter.length > 0 && history.parameter[0].station_name) {
-    return history.parameter[0].station_name
-  }
-  if (history.device && history.device.length > 0 && history.device[0].station_name) {
-    return history.device[0].station_name
-  }
-  if (history.geography && history.geography.length > 0 && history.geography[0].station_name) {
-    return history.geography[0].station_name
-  }
-  return null
+// The name a section's records give the station now: that of the record still open (no end date), or
+// else of the one that ended last, of those the one begun last; none where that record has none. A
+// section's records aren't in date order: the parameter and device sections list theirs per parameter
+// or device, and an answer can join the records of two archives.
+function currentStationName(
+  records: Array<{ station_name: string | null, start_date: string, end_date: string | null }> = [],
+): string | null {
+  const ended = (record: { end_date: string | null }) =>
+    record.end_date === null ? Number.POSITIVE_INFINITY : Date.parse(record.end_date)
+  // two open records end alike, where Infinity - Infinity is NaN: their start decides
+  const current = [...records]
+    .sort((a, b) => (ended(a) - ended(b)) || (Date.parse(a.start_date) - Date.parse(b.start_date)))
+    .at(-1)
+  return current?.station_name || null
+}
+
+// The station's name now, from its name history, or else from the other sections' records
+function getStationName(history: StationHistory): string | null {
+  return currentStationName(history.name?.station)
+    ?? currentStationName(history.parameter)
+    ?? currentStationName(history.device)
+    ?? currentStationName(history.geography)
+    ?? currentStationName(history.missing_data?.summary)
+    ?? currentStationName(history.missing_data?.periods)
 }
 
 const parameterSelection = computed(() => ({
@@ -379,22 +382,6 @@ function clear() {
                       </h3>
                     </div>
                   </template>
-
-                  <!-- Station Basic Info Table -->
-                  <div class="mb-6">
-                    <div class="overflow-x-auto">
-                      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <tr v-if="getStationName(history)" class="border-b border-gray-200 dark:border-gray-700">
-                          <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                            {{ t('history.rowStationName') }}
-                          </td>
-                          <td class="px-4 py-2 text-sm">
-                            {{ getStationName(history) }}
-                          </td>
-                        </tr>
-                      </table>
-                    </div>
-                  </div>
 
                   <!-- Name History -->
                   <div
