@@ -75,11 +75,11 @@ export interface AuthResponse {
   valid: boolean
 }
 
-/** Detailed coverage for a provider-network pair */
-export type ProviderNetworkCoverageResponse = Record<
-  Resolution,
-  CoverageResolution
->
+/**
+ * Detailed coverage for a provider-network pair: `discover()` sends only the resolutions the
+ * network has, and leaves out one whose datasets are all filtered away, so any may be missing
+ */
+export type ProviderNetworkCoverageResponse = Partial<Record<Resolution, CoverageResolution>>
 
 export interface CoverageQuery {
   provider?: string
