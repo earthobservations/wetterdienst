@@ -147,11 +147,11 @@ function historyQuery() {
   }
 }
 const selectedQuery = computed(historyQuery)
-const sentQuery = shallowRef<ReturnType<typeof historyQuery> | null>(null)
-// the stations Show sent for, and those the histories shown were fetched for: the overview lists the latter,
-// not the live selection, which may have moved on since
 type Stations = StationSelectionState['selection']['stations']
-let sentStations: Stations = []
+// what Show sent last: the request, and the stations it was sent for
+const sent = shallowRef<{ query: ReturnType<typeof historyQuery>, stations: Stations } | null>(null)
+// the stations the histories shown were fetched for: the overview lists them, not the live selection,
+// which may have moved on since
 const shownStations = shallowRef<Stations>([])
 
 // One key for the page's histories, whatever the request. Keyed by its query instead, as useFetch is by
@@ -163,14 +163,14 @@ const { data, pending, status, refresh, clear: clearHistories, error } = useFetc
   immediate: false,
   // fetched by Show alone, not whenever the selection changes
   watch: false,
-  query: computed(() => sentQuery.value ?? {}),
+  query: computed(() => sent.value?.query ?? {}),
   default: () => ({ histories: [] }),
 })
 
 // an answer, or the empty default a failure or Clear leaves, comes with the stations of the last Show: a
 // fetch Show superseded never sets `data`
 watch(data, () => {
-  shownStations.value = sentStations
+  shownStations.value = sent.value?.stations ?? []
 })
 
 // the last fetch's error, gone once Show or Reset is pressed: a new fetch keeps `error` until it answers
@@ -181,8 +181,8 @@ const fetchErrorMessage = computed(() =>
 // that failed, or one Clear cleared, holds nothing, so Fetch is offered again for the same selection.
 const holdsSelection = computed(() =>
   (status.value === 'pending' || status.value === 'success')
-  && sentQuery.value !== null
-  && JSON.stringify(sentQuery.value) === JSON.stringify(selectedQuery.value))
+  && sent.value !== null
+  && JSON.stringify(sent.value.query) === JSON.stringify(selectedQuery.value))
 
 const canFetch = computed(() => Boolean(resolution.value && dataset.value && stationIds.value) && !holdsSelection.value)
 
@@ -190,8 +190,7 @@ function run() {
   if (!canFetch.value) {
     return
   }
-  sentQuery.value = historyQuery()
-  sentStations = [...stationSelectionState.value.selection.stations]
+  sent.value = { query: historyQuery(), stations: [...stationSelectionState.value.selection.stations] }
   refresh()
 }
 

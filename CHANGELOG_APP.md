@@ -43,9 +43,9 @@ Types of changes:
   `Backend error 422: station: ...`, or by its status alone, with its status text where the
   connection carries one, when the backend gave none. The meteogram showed the error body as raw
   JSON, or a proxy's HTML page, and the widget left the reason out (GH-2084)
-- `[History]` The Selected stations overview lists the stations the histories shown were fetched for,
-  where it listed the current selection, and so a station other than the one whose history it headed
-  (GH-2080)
+- `[History]` The Selected stations overview lists the stations the histories shown were fetched
+  for. It listed the current selection, so after choosing other stations it named them above the
+  histories of the ones fetched before (GH-2080)
 
 ## [0.17.0] - 2026-09-29
 
