@@ -48,21 +48,6 @@ describe('describeFetchError', () => {
     )
   })
 
-  it('tells the status of an answer without a detail, not the request URL', () => {
-    // the error's message spells out the whole request, query and all
-    const plain = { data: 'Internal Server Error', message: '[GET] "/api/interpolate?provider=dwd&latitude=51": 500 Internal Server Error', statusCode: 500, statusMessage: 'Internal Server Error', response: {} }
-    expect(describeFetchError(plain)).toBe('500 Internal Server Error')
-  })
-
-  it('tells an answer without a status text by its code alone', () => {
-    // HTTP/2 sends no status text, and an empty answer no body: only its response says one came
-    const http2 = { data: undefined, message: '[GET] "/api/values?station=01048": 502 ', statusCode: 502, statusMessage: '', response: {} }
-    expect(describeFetchError(http2)).toBe('502')
-  })
-
-  it('tells a request that got no answer by its message, without the request ofetch puts first', () => {
-    // as useFetch holds it: a status of 500 by default, and no status text, as nothing answered
-    const unanswered = { data: undefined, message: '[GET] "/api/values?provider=dwd&station=01048": <no response> Failed to fetch', statusCode: 500 }
-    expect(describeFetchError(unanswered)).toBe('<no response> Failed to fetch')
-  })
+  // the status and a request nothing answered are tested with errors as useFetch holds them, built
+  // by h3's createError: tests/nuxt/utils/api-error.test.ts
 })

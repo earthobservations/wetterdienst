@@ -220,12 +220,13 @@ const fetchedRequest = ref<{ endpoint: string, filename: string, query: Record<s
 // a GeoJSON download under way, which the menu does not offer again until it is saved
 const geojsonDownload = shallowRef<AbortController | null>(null)
 const downloadingGeojson = computed(() => geojsonDownload.value !== null)
-// Abort the GeoJSON download under way: the table it describes is going. Called by Fetch, Clear and
-// the query panel as they change the table, not from a watcher, which runs only once they return --
-// after an answer that arrived in between was already saved
 // why a download is aborted: the table it describes changed, which is told, or the viewer is gone,
 // when there is no one to tell
 const TABLE_CHANGED = 'table-changed'
+
+// Abort the GeoJSON download under way: the table it describes is going. Called by Fetch, Clear and
+// the query panel as they change the table, not from a watcher, which runs only once they return --
+// after an answer that arrived in between was already saved
 function abortGeojson(reason: string = TABLE_CHANGED) {
   geojsonDownload.value?.abort(reason)
 }
