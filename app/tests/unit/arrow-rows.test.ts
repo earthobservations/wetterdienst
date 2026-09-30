@@ -1,6 +1,7 @@
 import type { DuckDBConnection } from '@duckdb/duckdb-wasm/blocking'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { plainRows } from '../../app/utils/arrow-rows'
+import { fieldText, valuesToCsv, valuesToJson } from '../../app/utils/values-export'
 import { nodeDuckDB } from '../duckdb-node'
 
 let conn: DuckDBConnection
@@ -131,5 +132,21 @@ describe('plainRows', () => {
 
   it('gives every row, a name two columns share holding the last one\'s value', () => {
     expect(rows('SELECT TIMESTAMP \'2020-01-01\' AS n, range::DECIMAL(3,1) + 0.5 AS n FROM range(2)')).toEqual([{ n: 0.5 }, { n: 1.5 }])
+  })
+})
+
+describe('plainRows with a NaN or an infinity', () => {
+  it('writes each as null, at any depth, as the REST API answers none', () => {
+    expect(rows('SELECT \'nan\'::DOUBLE AS n, 1 / 0.0 AS p, -1 / 0.0 AS m, \'inf\'::FLOAT AS f, [\'nan\'::DOUBLE, 1.5] AS l, {\'x\': \'-inf\'::DOUBLE} AS s')).toEqual([
+      { n: null, p: null, m: null, f: null, l: [null, 1.5], s: { x: null } },
+    ])
+  })
+
+  it('is downloaded the same as CSV and as JSON, and shown and copied as the CSV writes it', () => {
+    // the CSV download wrote NaN, Infinity and -Infinity, where the JSON download wrote null
+    const plain = rows('SELECT \'nan\'::DOUBLE AS n, 1 / 0.0 AS p, [-1 / 0.0, 2.5] AS l')
+    expect(valuesToCsv(plain, ['n', 'p', 'l'])).toBe('n,p,l\n,,",2.5"')
+    expect(JSON.parse(valuesToJson(plain, ['n', 'p', 'l']))).toEqual({ values: [{ n: null, p: null, l: [null, 2.5] }] })
+    expect(fieldText(plain[0]!.n)).toBe('')
   })
 })

@@ -81,9 +81,11 @@ function decimalValue(value: object, scale: number): number | string {
   return Number(`${sign}${digits.slice(0, -scale)}.${digits.slice(-scale)}`)
 }
 
-// A value Arrow's getter gives exactly, made plain by its type. A BLOB's bytes become the list of them
+// A value Arrow's getter gives exactly, made plain by its type. A BLOB's bytes become the list of them,
+// and a NaN or an infinity null: the REST API answers none, JSON cannot write one, and a CSV download
+// wrote it as text where the JSON download wrote null (GH-2111)
 function leafValue(value: unknown, type: DataType): unknown {
-  if (value === null || value === undefined)
+  if (value === null || value === undefined || (typeof value === 'number' && !Number.isFinite(value)))
     return null
   switch (type.typeId) {
     case Type.Decimal:
@@ -193,8 +195,8 @@ function plainColumn(vector: Vector): unknown[] {
  * plain by its column's type (GH-2068, GH-2071): a BIGINT or a decimal as a number (an integer type
  * or a decimal of no scale past 2^53 as its digits), a timestamp or a date as ISO text, a time of day
  * as its text, an interval as an ISO 8601 duration, a list as an array and a struct or a map as an
- * object, at any depth. Arrow's own `toJSON()` left BigInts, milliseconds since the epoch, unscaled
- * decimals and its own rows and vectors.
+ * object, at any depth, and a NaN or an infinity as null (GH-2111). Arrow's own `toJSON()` left
+ * BigInts, milliseconds since the epoch, unscaled decimals and its own rows and vectors.
  *
  * A name given to two columns holds the last one's value, as `toJSON()` keeps.
  *
