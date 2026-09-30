@@ -719,9 +719,19 @@ function rowDate(row: Value): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+// The rows the chart plots, each with its date: those with a value and a date to place it at. The
+// series and facets are made from these alone, so a series whose rows are all left out is not drawn
+// empty, and the large-dataset threshold counts the points drawn, not the rows left out
+const chartRows = computed(() => sortedValues.value.flatMap((row) => {
+  const date = rowDate(row)
+  return date && row.value !== null && row.value !== undefined ? [{ row, date, y: row.value }] : []
+}))
+
+const isLargeChart = computed(() => chartRows.value.length > LARGE_DATASET_THRESHOLD)
+
 // Plotly traces for single chart
 const chartTraces = computed(() => {
-  if (!sortedValues.value.length)
+  if (!chartRows.value.length)
     return []
 
   // Group values by series (station + parameter combination), as the rows shown were fetched: a mode
@@ -729,7 +739,7 @@ const chartTraces = computed(() => {
   const seriesMap = new Map<string, { x: Date[], y: number[] }>()
   const mode = rowsMode.value
 
-  for (const value of sortedValues.value) {
+  for (const { row: value, date, y } of chartRows.value) {
     let parameterLabel = value.parameter
     if (paramLabelFormat.value === 'dataset/parameter') {
       parameterLabel = `${value.dataset}/${value.parameter}`
@@ -745,20 +755,16 @@ const chartTraces = computed(() => {
       seriesMap.set(seriesKey, { x: [], y: [] })
     }
 
-    const date = rowDate(value)
-    if (value.value !== null && value.value !== undefined && date) {
-      const series = seriesMap.get(seriesKey)!
-      series.x.push(date)
-      series.y.push(value.value)
-    }
+    const series = seriesMap.get(seriesKey)!
+    series.x.push(date)
+    series.y.push(y)
   }
 
   // Convert to Plotly traces
   const traces: PlotlyData[] = []
   const trendlineTraces: PlotlyData[] = []
   let colorIndex = 0
-  const totalPoints = sortedValues.value.length
-  const isLargeDataset = totalPoints > LARGE_DATASET_THRESHOLD
+  const isLargeDataset = isLargeChart.value
 
   for (const [seriesKey, data] of seriesMap) {
     const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
@@ -811,14 +817,14 @@ const hasChartData = computed(() => chartTraces.value.length > 0)
 
 // For faceted charts - group data by parameter
 const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] }[] => {
-  if (!facetByParameter.value || !sortedValues.value.length)
+  if (!facetByParameter.value || !chartRows.value.length)
     return []
 
   const parameterGroups = new Map<string, Map<string, { x: Date[], y: number[] }>>()
   // the mode the rows shown were fetched in, as the single chart's
   const mode = rowsMode.value
 
-  for (const value of sortedValues.value) {
+  for (const { row: value, date, y } of chartRows.value) {
     let param = value.parameter
     if (paramLabelFormat.value === 'dataset/parameter') {
       param = `${value.dataset}/${value.parameter}`
@@ -837,17 +843,13 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
       stationMap.set(stationKey, { x: [], y: [] })
     }
 
-    const date = rowDate(value)
-    if (value.value !== null && value.value !== undefined && date) {
-      const series = stationMap.get(stationKey)!
-      series.x.push(date)
-      series.y.push(value.value)
-    }
+    const series = stationMap.get(stationKey)!
+    series.x.push(date)
+    series.y.push(y)
   }
 
   const result: { parameter: string, traces: PlotlyData[] }[] = []
-  const totalPoints = sortedValues.value.length
-  const isLargeDataset = totalPoints > LARGE_DATASET_THRESHOLD
+  const isLargeDataset = isLargeChart.value
 
   for (const [parameter, stationMap] of parameterGroups) {
     const traces: PlotlyData[] = []
@@ -991,7 +993,7 @@ async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), ch
 
 // Plotly layout - optimized for large datasets
 const chartLayout = computed((): Partial<PlotlyLayout> => {
-  const isLargeDataset = sortedValues.value.length > LARGE_DATASET_THRESHOLD
+  const isLargeDataset = isLargeChart.value
   return {
     autosize: true,
     margin: { l: 60, r: 20, t: 40, b: 60 },

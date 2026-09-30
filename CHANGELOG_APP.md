@@ -124,6 +124,10 @@ Types of changes:
 - `[Explorer]` A query's row whose timestamp is no date is left out of the chart: text such as a
   time of day or `'n/a'` stopped the chart from being drawn, and a number such as `epoch(timestamp)`
   was drawn in January 1970 (GH-2124)
+- `[Explorer]` The chart draws no series or facet for rows it cannot plot, those without a value or
+  a date, where each was an empty trace with a legend entry, or an empty panel; with no row to plot
+  it says there is no chart data and offers no image. A large result counts only the points drawn,
+  so a few among many such rows are drawn with markers (GH-2125)
 
 ## [0.17.0] - 2026-09-29
 
