@@ -212,6 +212,9 @@ const apiQuery = computed(() => {
   }
 })
 
+// the request the selection makes: what Fetch sends, and what holdsSelection compares with
+const selectedRequest = computed(() => ({ ...selectedEndpoint.value, query: apiQuery.value }))
+
 // The request behind the table: set by Fetch alone, and the one the table's values are fetched with,
 // so the table, its error and a GeoJSON download of it answer to the same request whatever is
 // selected since. Bound to the live selection instead, the fetch kept a request of its own beside
@@ -592,7 +595,7 @@ async function fetchData() {
     clearData()
     return
   }
-  const request = { ...selectedEndpoint.value, query: { ...apiQuery.value } }
+  const request = { ...selectedRequest.value, query: { ...selectedRequest.value.query } }
   sentRequest.value = request
   currentPage.value = 1
   await refreshValues()
@@ -608,11 +611,13 @@ function requestKey(request: { endpoint: string, query: Record<string, unknown> 
   return JSON.stringify([request.endpoint, request.query])
 }
 
-// Whether what is selected is already asked for: the request under way, or else the one the table holds.
-// A fetch that failed, Clear and a viewer mounted afresh hold none, so the selection can be fetched again
+// Whether what is selected is already asked for: the request Fetch sent last, while it is under way or
+// once it has answered without error. A fetch that failed, Clear and a viewer mounted afresh hold none,
+// so the selection can be fetched again. Read from the fetch's own state rather than fetchedRequest,
+// which is set a few microtasks after it; its error is kept until the next answer, hence the pending
 const holdsSelection = computed(() => {
-  const request = valuesPending.value ? sentRequest.value : fetchedRequest.value
-  return request !== null && requestKey(request) === requestKey({ ...selectedEndpoint.value, query: apiQuery.value })
+  const request = valuesPending.value || !valuesError.value ? sentRequest.value : null
+  return request !== null && requestKey(request) === requestKey(selectedRequest.value)
 })
 
 // Clear function to reset data

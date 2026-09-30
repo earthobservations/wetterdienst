@@ -121,14 +121,19 @@ describe('explorer Page', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).not.toContain('12.3')
+    expect(vm.canFetch).toBe(true)
   })
 
   it('offers Show again for the same selection after the fetch failed', async () => {
-    // failing until the test lets it answer: a GET that fails is retried once on its own
+    // failing until the test lets it answer: a GET that fails is retried once on its own. The answer is
+    // then held until the test lets it go
     let failing = true
-    const { wrapper, vm } = await mountWithSelection(() => {
+    let release!: () => void
+    const held = new Promise<void>(resolve => (release = resolve))
+    const { wrapper, vm } = await mountWithSelection(async () => {
       if (failing)
         throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
+      await held
       return { values: [VALUE_ROW] }
     })
 
@@ -140,20 +145,26 @@ describe('explorer Page', () => {
 
     failing = false
     await showButton().trigger('click')
+    // the failed fetch's error stays until the retry answers, but the retry is under way
+    await vi.waitFor(() => expect(vm.dataViewerRef.valuesPending).toBe(true))
+    expect(vm.canFetch).toBe(false)
+    release()
     await vi.waitFor(() => expect(wrapper.text()).toContain('12.3'))
     expect(vm.canFetch).toBe(false)
   })
 
   it('keeps Show disabled while a fetch is under way, and for a newer Fetch that cancelled it', async () => {
-    // the first request's answer is held until the test lets it go
+    // the first request's answer is held until the test lets it go, and differs from the second's
     let release!: () => void
     const held = new Promise<void>(resolve => (release = resolve))
     let requests = 0
     const { wrapper, vm } = await mountWithSelection(async () => {
       requests += 1
-      if (requests === 1)
+      if (requests === 1) {
         await held
-      return { values: [VALUE_ROW] }
+        return { values: [VALUE_ROW] }
+      }
+      return { values: [{ ...VALUE_ROW, value: 45.6 }] }
     })
 
     const showButton = () => wrapper.findAll('button').find(b => b.text() === 'Show')!
@@ -165,13 +176,15 @@ describe('explorer Page', () => {
     await wrapper.vm.$nextTick()
     expect(vm.canFetch).toBe(true)
     await showButton().trigger('click')
-    await vi.waitFor(() => expect(wrapper.text()).toContain('12.3'))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('45.6'))
     expect(vm.canFetch).toBe(false)
 
     // the cancelled request's handler finishes too; its answer reaches nothing
     release()
     await flushPromises()
     expect(vm.canFetch).toBe(false)
+    expect(wrapper.text()).toContain('45.6')
+    expect(wrapper.text()).not.toContain('12.3')
   })
 
   it('offers Show again when the station is removed and chosen again', async () => {
