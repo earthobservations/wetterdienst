@@ -85,20 +85,25 @@ afterEach(() => {
 })
 
 // The statements the panel hands DuckDB, in order, each held until `hold` answers for it; `ran`,
-// those DuckDB was handed on, in the order it was
-function watchStatements(hold: (sql: string) => Promise<void> | undefined = () => undefined) {
+// those DuckDB was handed on, in the order it was. The connection closes once `closing` answers
+function watchStatements(hold: (sql: string) => Promise<void> | undefined = () => undefined, closing: () => Promise<void> = async () => {}) {
   const statements: string[] = []
   const ran: string[] = []
   const connect = AsyncDuckDB.prototype.connect
   const spy = vi.spyOn(AsyncDuckDB.prototype, 'connect').mockImplementation(async function (this: AsyncDuckDB) {
     const conn = await connect.call(this)
     const query = conn.query.bind(conn)
+    const close = conn.close.bind(conn)
     return Object.assign(conn, {
       query: async (sql: string) => {
         statements.push(sql)
         await hold(sql)
         ran.push(sql)
         return query(sql)
+      },
+      close: async () => {
+        await closing()
+        return close()
       },
     })
   })
@@ -158,11 +163,19 @@ describe('queryPanel table load', () => {
     const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate')
     unwatched.push(() => instantiate.mockRestore())
     const wrapper = await queryMode()
-    await wrapper.find('textarea').setValue('SELECT * FROM data')
-    await runButton(wrapper).trigger('click')
-    // the check, 500 ms after the edit, is under way once its spinner shows
-    await vi.waitFor(() => expect(wrapper.find('div.absolute.top-2.right-2').exists()).toBe(true), { timeout: 2000 })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      await wrapper.find('textarea').setValue('SELECT * FROM data')
+      await runButton(wrapper).trigger('click')
+      await vi.waitFor(() => expect(creates(statements)).toHaveLength(1))
+      // the check, 500 ms after the edit, while the run's load is under way
+      vi.advanceTimersByTime(500)
+    }
+    finally {
+      vi.useRealTimers()
+    }
     await flushPromises()
+    expect(wrapper.find('div.absolute.top-2.right-2').exists()).toBe(true)
     hold.open()
     await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
     await vi.waitFor(() => expect(wrapper.find('div.absolute.top-2.right-2').exists()).toBe(false))
@@ -342,15 +355,30 @@ describe('queryPanel unmounted', () => {
   ])('stops the table load $starter has under way, and queries nothing, once unmounted', async ({ start }) => {
     // the load went on inserting, and the check or run queried, a connection being closed
     const hold = gate()
-    const statements = watchStatements(sql => sql.startsWith('CREATE TABLE') ? hold.opened : undefined)
+    // the connection still open while the load's CREATE answers, as a slow close leaves it
+    const closing = gate()
+    const statements = watchStatements(sql => sql.startsWith('CREATE TABLE') ? hold.opened : undefined, () => closing.opened)
     const wrapper = await unmountable()
     await start(wrapper)
     await vi.waitFor(() => expect(creates(statements)).toHaveLength(1))
     wrapper.unmount()
     hold.open()
     await flushPromises()
+    closing.open()
+    await flushPromises()
     expect(verbs(statements)).toEqual(['DROP', 'CREATE'])
     expect(statements.filter(sql => !/^(?:DROP|CREATE) /.test(sql))).toEqual([])
+  })
+
+  it('ends the database when its connection fails to close', async () => {
+    const terminate = vi.spyOn(AsyncDuckDB.prototype, 'terminate')
+    unwatched.push(() => terminate.mockRestore())
+    watchStatements(undefined, () => Promise.reject(new Error('lost')))
+    const wrapper = await unmountable()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    wrapper.unmount()
+    await vi.waitFor(() => expect(terminate).toHaveBeenCalledTimes(1))
   })
 })
 

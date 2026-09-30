@@ -451,16 +451,15 @@ onUnmounted(async () => {
   // a run or check under way loads no table into the database being closed, nor queries it
   currentRun++
   currentCheck++
+  // and a table load under way stops before its next batch
+  tableLoad = null
   // a start under way ends before the database it makes can be
   await started
-  if (conn) {
-    await conn.close()
-    conn = null
-  }
-  if (db) {
-    await db.terminate()
-    db = null
-  }
+  // the database is ended even when its connection fails to close
+  await conn?.close().catch((err: unknown) => console.error('Failed to close DuckDB connection:', err))
+  conn = null
+  await db?.terminate()
+  db = null
 })
 </script>
 
