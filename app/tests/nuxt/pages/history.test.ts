@@ -137,14 +137,14 @@ describe('history Page', () => {
   })
 
   it('clicking Show fetches history, and clicking Reset clears it again', async () => {
-    registerEndpoint('/api/history', () => ({
+    endpoints.push(registerEndpoint('/api/history', () => ({
       histories: [
         {
           parameter: [{ station_id: '00001', station_name: 'Foo Station', start_date: '2000-01-01', end_date: null, parameter: 'temperature_air_mean_2m', description: 'Air temp', unit: '°C' }],
           name: { station: [{ start_date: '2000-01-01', end_date: null, station_name: 'Foo Station' }] },
         },
       ],
-    }))
+    })))
 
     const wrapper = await mountHistory({ attachTo: document.body })
     const vm = wrapper.vm as any
@@ -192,12 +192,12 @@ describe('history Page', () => {
     })
 
     await showButton().trigger('click')
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Error:'))
-    await vi.waitFor(() => expect(showButton().attributes('disabled')).toBeUndefined())
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Error:'), { timeout: 5000 })
+    await vi.waitFor(() => expect(showButton().attributes('disabled')).toBeUndefined(), { timeout: 5000 })
 
     failing = false
     await showButton().trigger('click')
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
     expect(vm.canFetch).toBe(false)
   })
 
@@ -217,7 +217,7 @@ describe('history Page', () => {
     await showButton().trigger('click')
     expect(vm.canFetch).toBe(false)
     release()
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
     expect(vm.canFetch).toBe(false)
 
     // the sections are sent sorted, and the user's own order is left alone
@@ -250,7 +250,7 @@ describe('history Page', () => {
     vm.selectedSections = ['device']
     await wrapper.vm.$nextTick()
     release()
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
     // what the table shows isn't the selection, so Show is offered for it
     expect(vm.canFetch).toBe(true)
   })

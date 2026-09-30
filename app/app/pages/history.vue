@@ -148,12 +148,15 @@ function historyQuery() {
 const selectedQuery = computed(historyQuery)
 const sentQuery = shallowRef<ReturnType<typeof historyQuery> | null>(null)
 
+// One key for the page's histories, whatever the request. Keyed by its query instead, as useFetch is by
+// default, the fetch moved to another entry whenever the query changed: that aborted a fetch under way,
+// left `status` idle, and left an entry behind for the rest of the session.
 const { data, pending, status, refresh, clear: clearHistories, error } = useFetch<any>('/api/history', {
+  key: `${useId()}-history`,
   lazy: true,
   immediate: false,
+  // fetched by Show alone, not whenever the selection changes
   watch: false,
-  // what Fetch sent, not the selection: useFetch keys a fetch by its query, so reading the selection
-  // moved it to another entry whenever that changed, aborting a fetch under way and leaving `status` idle
   query: computed(() => sentQuery.value ?? {}),
   default: () => ({ histories: [] }),
 })
