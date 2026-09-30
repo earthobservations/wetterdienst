@@ -46,6 +46,9 @@ Types of changes:
 - `[History]` The Selected stations overview lists the stations the histories shown were fetched
   for. It listed the current selection, so after choosing other stations it named them above the
   histories of the ones fetched before (GH-2080)
+- `[Explorer]` The table starts again at its first page when a Fetch answers, a query's result comes
+  in or query mode is left. The page chosen in the rows shown before was kept against the new ones,
+  and where they had fewer pages the table showed empty until the pager was used (GH-2075)
 
 ## [0.17.0] - 2026-09-29
 

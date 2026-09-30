@@ -528,3 +528,87 @@ describe('dataViewer downloads', () => {
     expect(saved).toHaveLength(0)
   })
 })
+
+// the rows a viewer's table page shows, as text, and the page its pager marks as shown
+function pageShown(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
+  const texts = wrapper.findAll('tbody tr').map(tr => tr.text())
+  return { rows: texts, page: wrapper.find('[aria-current="page"]').text() }
+}
+
+function rows(count: number, stationId: string) {
+  return Array.from({ length: count }, (_, i) => ({ ...row, station_id: stationId, value: i }))
+}
+
+describe('dataViewer pages', () => {
+  it('shows the first page of an answer shorter than the page chosen while it was fetched', async () => {
+    const hold = gate()
+    registerEndpoint('/api/values', async (event) => {
+      const station = String(getQuery(event).station)
+      if (station === '04411')
+        await hold.opened
+      return { values: rows(station === '04411' ? 40 : 500, station) }
+    })
+    const { wrapper, viewer, stationSelection } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.find('button[aria-label="Last Page"]').trigger('click')
+    await vi.waitFor(() => expect(pageShown(wrapper).page).toBe('10'))
+    stationSelection.value = byStation('04411')
+    await wrapper.vm.$nextTick()
+    const fetching = fetchData(viewer)
+    // the pager goes back to the first page as Fetch is pressed, while the table waits for the answer
+    await vi.waitFor(() => expect(pageShown(wrapper).page).toBe('1'))
+    // the 500 rows' last page, moved to again while the 40 are fetched
+    await wrapper.find('button[aria-label="Last Page"]').trigger('click')
+    await vi.waitFor(() => expect(pageShown(wrapper).page).toBe('10'))
+    hold.open()
+    await fetching
+    await wrapper.vm.$nextTick()
+    const shown = pageShown(wrapper)
+    expect(shown.page).toBe('1')
+    expect(shown.rows).toHaveLength(40)
+    expect(shown.rows.every(text => text.includes('04411'))).toBe(true)
+  })
+
+  it('shows the first page of a query\'s rows, fewer than the page chosen in the table', async () => {
+    registerEndpoint('/api/values', () => ({ values: rows(500, '01048') }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.find('button[aria-label="Last Page"]').trigger('click')
+    await vi.waitFor(() => expect(pageShown(wrapper).page).toBe('10'))
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', rows(3, '09999'))
+    await wrapper.vm.$nextTick()
+    const shown = pageShown(wrapper)
+    expect(shown.page).toBe('1')
+    expect(shown.rows).toHaveLength(3)
+    expect(shown.rows.every(text => text.includes('09999'))).toBe(true)
+  })
+
+  it('goes back to the first page on Clear', async () => {
+    registerEndpoint('/api/values', () => ({ values: rows(500, '01048') }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.find('button[aria-label="Last Page"]').trigger('click')
+    await vi.waitFor(() => expect(pageShown(wrapper).page).toBe('10'))
+    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    await wrapper.vm.$nextTick()
+    expect(pageShown(wrapper)).toEqual({ rows: [], page: '1' })
+  })
+
+  it('shows the first page of the fetched rows on leaving query mode', async () => {
+    registerEndpoint('/api/values', () => ({ values: rows(500, '01048') }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const panel = wrapper.findComponent(QueryPanel)
+    panel.vm.$emit('dataTransformed', rows(200, '09999'))
+    await wrapper.vm.$nextTick()
+    await wrapper.find('button[aria-label="Last Page"]').trigger('click')
+    await vi.waitFor(() => expect(pageShown(wrapper).page).toBe('4'))
+    // leaving query mode hands back the fetched rows themselves, as the panel's reset does
+    panel.vm.$emit('dataTransformed', panel.props('data'))
+    await wrapper.vm.$nextTick()
+    const shown = pageShown(wrapper)
+    expect(shown.page).toBe('1')
+    expect(shown.rows).toHaveLength(50)
+    expect(shown.rows.every(text => text.includes('01048'))).toBe(true)
+  })
+})
