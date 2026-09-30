@@ -470,33 +470,27 @@ const canFetchData = computed(() => {
 // changed since the table was filled (GH-2065). GeoJSON needs the station positions the backend
 // adds, so it is asked for again, but for the request that filled the table.
 async function downloadValues(format: 'csv' | 'json' | 'geojson') {
-  // CSV and JSON take only the file's name from the request; GeoJSON asks for it again
-  const request = fetchedRequest.value
-  let content: string
   if (format === 'geojson') {
-    if (!request)
-      return
-    const fetched = await fetchGeojson(request)
-    if (fetched === null)
-      return
-    // an answer that came in the same tick as a change to the table is past the abort; the table is
-    // looked at once more before the file is saved
-    if (fetchedRequest.value !== request || isDataTransformed.value) {
-      toast.add({ title: t('dataViewer.downloadCancelled'), color: 'warning' })
-      return
-    }
-    content = fetched
+    const request = fetchedRequest.value
+    if (request)
+      await downloadGeojson(request)
+    return
   }
-  else {
-    const columns = exportColumns(sortedValues.value, TABLE_ORDER)
-    content = format === 'csv' ? valuesToCsv(sortedValues.value, columns) : valuesToJson(sortedValues.value, columns)
-  }
+  // the menu stops offering it once the table is empty, but a choice made before it updates still
+  // arrives here
+  if (!sortedValues.value.length)
+    return
+  const columns = exportColumns(sortedValues.value, TABLE_ORDER)
+  const content = format === 'csv' ? valuesToCsv(sortedValues.value, columns) : valuesToJson(sortedValues.value, columns)
+  saveFile(content, fetchedRequest.value?.filename ?? ENDPOINTS.values.filename, format)
+}
 
+function saveFile(content: string, filename: string, format: 'csv' | 'json' | 'geojson') {
   const blob = new Blob([content], { type: 'application/octet-stream' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `${request?.filename ?? ENDPOINTS.values.filename}.${format}`
+  link.download = `${filename}.${format}`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -507,14 +501,14 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
   toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedValues', { format: format.toUpperCase() }), color: 'success' })
 }
 
-// Ask again for the request that filled the table, as GeoJSON; null where there is nothing to save:
-// the answer failed, which is told, or the table moved on -- Fetch, Clear, the query panel -- which
-// aborts it and is not
-async function fetchGeojson(request: NonNullable<typeof fetchedRequest.value>): Promise<string | null> {
+// Ask again for the request that filled the table, as GeoJSON, and save it. Nothing is saved where the
+// answer failed, which is told, or where the table moved on -- Fetch, Clear, the query panel -- which
+// aborts it, and is told as a cancelled download
+async function downloadGeojson(request: NonNullable<typeof fetchedRequest.value>) {
   // one at a time: the menu does not offer another, and a second chosen before it has updated waits
   // on nothing and keeps the first one's controller, which Fetch and Clear abort
   if (geojsonDownload.value)
-    return null
+    return
   const download = new AbortController()
   geojsonDownload.value = download
   try {
@@ -526,14 +520,17 @@ async function fetchGeojson(request: NonNullable<typeof fetchedRequest.value>): 
       retry: 0,
       signal: download.signal,
     })
-    // an answer that came in as the table moved on is not saved either
-    if (!download.signal.aborted)
-      return geojson
+    // an answer that came in as the table moved on is not saved either. Looked at and saved in one
+    // go: a change to the table aborts at once, and none can come in between
+    if (!download.signal.aborted) {
+      saveFile(geojson, request.filename, 'geojson')
+      return
+    }
   }
   catch (error) {
     if (!download.signal.aborted) {
       toast.add({ title: t('dataViewer.fetchErrorToastTitle'), description: describeFetchError(error), color: 'error' })
-      return null
+      return
     }
   }
   finally {
@@ -544,7 +541,6 @@ async function fetchGeojson(request: NonNullable<typeof fetchedRequest.value>): 
   // aborted: said so where the table changed, the download having been asked for and never coming
   if (download.signal.reason === TABLE_CHANGED)
     toast.add({ title: t('dataViewer.downloadCancelled'), color: 'warning' })
-  return null
 }
 
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {

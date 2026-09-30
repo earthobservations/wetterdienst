@@ -6,6 +6,7 @@ import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { UApp } from '#components'
+import { useToast } from '#imports'
 import DataViewer from '~/components/DataViewer.vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 
@@ -132,6 +133,8 @@ afterEach(() => {
   else
     delete (navigator as { clipboard?: unknown }).clipboard
   vi.restoreAllMocks()
+  // toasts are the app's, not a viewer's: one left over would be shown, and found, in the next test
+  useToast().clear()
   document.body.innerHTML = ''
 })
 
@@ -149,20 +152,41 @@ describe('dataViewer downloads', () => {
   })
 
   it('saves the rows the table shows as CSV, without asking the backend again', async () => {
-    registerEndpoint('/api/values', () => ({ values: [row] }))
+    // counted at the endpoint, which a request reaches however it is made; a spy on fetch misses
+    // $fetch, which holds the fetch it was built with
+    let asked = 0
+    registerEndpoint('/api/values', () => {
+      asked++
+      return { values: [row] }
+    })
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
+    expect(asked).toBe(1)
     const saved = catchDownload()
-    const fetchSpy = vi.spyOn(globalThis, 'fetch')
     const [csv] = await openDownloads(wrapper)
     csv!.click()
     await vi.waitFor(() => expect(saved).toHaveLength(1))
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(asked).toBe(1)
     const text = await saved[0]!.text()
     // every column the rows carry, those the column picker hides by default included
     expect(text.split('\n')[0]).toBe('station_id,resolution,dataset,parameter,timestamp,value,quality')
     expect(text.split('\n')[1]).toContain('01048')
     expect(text.split('\n')[1]).toContain('1.5')
+  })
+
+  it.each(['CSV', 'JSON'])('saves no %s of a table Clear emptied after the menu was opened', async (format) => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const saved = catchDownload()
+    const items = await openDownloads(wrapper)
+    // chosen before the menu has updated, as from the explorer sidebar
+    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    items[format === 'CSV' ? 0 : 1]!.click()
+    await vi.waitFor(() => expect(document.body.querySelectorAll('[role="menuitem"]')).toHaveLength(0))
+    await wrapper.vm.$nextTick()
+    expect(saved).toHaveLength(0)
+    expect(document.body.textContent).not.toContain('Values downloaded')
   })
 
   it('saves every column a wide-shaped table carries, not only the columns it shows', async () => {
