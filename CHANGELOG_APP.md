@@ -124,8 +124,8 @@ Types of changes:
 - `[Explorer]` Sorting a query's column that holds both numbers and text puts the numbers first,
   then the text, the same in every browser. The rows, copies and downloads came in an order each
   browser's sort made up (GH-2126)
-- `[Explorer]` The column picker is disabled and offers no columns until a Fetch fills the table,
-  where it offered `parameter`, `value` and `quality` whatever the shape setting (GH-2115)
+- `[Explorer]` The column picker is disabled and offers no columns while the table is empty, where
+  it offered `parameter`, `value` and `quality` whatever the shape setting (GH-2115)
 
 ## [0.17.0] - 2026-09-29
 

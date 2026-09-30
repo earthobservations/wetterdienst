@@ -353,15 +353,13 @@ const sortedValues = computed(() => {
 
     // the numbers before the text, each compared within its kind: a number and text compared as text
     // left no one order (2 < 10, '10000000000000000000' < 2, 10 < '10000000000000000000') for a
-    // query's column holding both, such as a BIGINT whose values past 2^53 come as their digits.
-    // A NaN reaches no row, plainRows makes it null
-    const aNumber = typeof aVal === 'number'
-    const bNumber = typeof bVal === 'number'
+    // query's column holding both, such as a BIGINT whose values past 2^53 come as their digits
+    // (compared as text, GH-2153). A NaN reaches no row, plainRows makes it null
     let comparison: number
-    if (aNumber !== bNumber)
-      comparison = Number(bNumber) - Number(aNumber)
-    else if (aNumber)
-      comparison = (aVal as number) - (bVal as number)
+    if (typeof aVal === 'number' && typeof bVal === 'number')
+      comparison = aVal - bVal
+    else if (typeof aVal === 'number' || typeof bVal === 'number')
+      comparison = typeof aVal === 'number' ? -1 : 1
     else
       // a query's struct by its JSON text, as a column of the rows' own shows it
       comparison = fieldText(aVal).localeCompare(fieldText(bVal))
@@ -382,9 +380,9 @@ watch(allValues, () => {
 
 // The mode the rows on screen were fetched in, and the selected one only while the table is empty:
 // the query panel and the chart describe the rows shown, which a mode selected since has not
-// fetched, and the column picker shows its default columns again when it changes. The request sent once its answer is in, which the fetch sets together with
-// its rows: fetchedRequest follows a few microtasks later, and the new rows were drawn in the mode of
-// the request before until then
+// fetched, and the column picker shows its default columns again when it changes. The request sent
+// once its answer is in, which the fetch sets together with its rows: fetchedRequest follows a few
+// microtasks later, and the new rows were drawn in the mode of the request before until then
 const rowsMode = computed((): StationMode => {
   const answered = valuesStatus.value === 'success' ? sentRequest.value : fetchedRequest.value
   const request = allValues.value.length ? answered : null
