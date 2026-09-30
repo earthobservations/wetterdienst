@@ -387,8 +387,9 @@ const isDateRangeValid = computed(() => {
 // Reference to DataViewer for accessing exposed stats
 const dataViewerRef = ref<InstanceType<typeof DataViewer> | null>(null)
 
-// Track last fetched parameters to prevent redundant fetches
-const lastFetchedParams = ref<{
+// Track last fetched parameters to prevent redundant fetches. Shallow, so the parameters a fetch stored
+// compare as themselves rather than as Vue's proxy of them
+const lastFetchedParams = shallowRef<{
   provider?: string
   network?: string
   resolution?: string
@@ -461,15 +462,15 @@ const canFetch = computed(() => {
   return true
 })
 
-function fetchData() {
+async function fetchData() {
   if (!canFetch.value || !dataViewerRef.value)
     return
 
   const ps = parameterSelectionState.value.selection
   const ss = stationSelectionState.value
 
-  // Store current parameters
-  lastFetchedParams.value = {
+  // Store current parameters, which keeps Fetch disabled for them while the fetch is under way
+  const params = {
     provider: ps.provider,
     network: ps.network,
     resolution: ps.resolution,
@@ -486,9 +487,13 @@ function fetchData() {
     endDate: ss.dateRange.endDate,
     settings: JSON.stringify(dataSettings.value),
   }
+  lastFetchedParams.value = params
 
-  // Trigger fetch
-  dataViewerRef.value.fetchData()
+  // A fetch that failed leaves nothing fetched, so Fetch is offered again for a retry. One a newer Fetch
+  // or a Clear overtook leaves their parameters alone
+  const filled = await dataViewerRef.value.fetchData()
+  if (!filled && lastFetchedParams.value === params)
+    lastFetchedParams.value = null
 }
 
 function clear() {

@@ -586,11 +586,12 @@ const downloadMenuItems = computed(() => {
   ]
 })
 
-// Manual fetch function
-async function fetchData() {
+// Manual fetch function. Resolves to whether its request now fills the table: false where it failed, or a
+// newer Fetch or a Clear overtook it
+async function fetchData(): Promise<boolean> {
   if (!canFetchData.value) {
     clearData()
-    return
+    return false
   }
   const request = { ...selectedEndpoint.value, query: { ...apiQuery.value } }
   sentRequest.value = request
@@ -600,6 +601,7 @@ async function fetchData() {
   // last one sent
   if (sentRequest.value === request)
     fetchedRequest.value = valuesError.value ? null : request
+  return fetchedRequest.value === request
 }
 
 // Clear function to reset data

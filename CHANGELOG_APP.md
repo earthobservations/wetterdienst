@@ -28,6 +28,8 @@ Types of changes:
   after the query panel and sorting, with every column the rows carry, whatever the column picker
   shows. GeoJSON is fetched with the table's request. The copy buttons quote a field holding a
   comma, and copy nothing from an empty table (GH-2065)
+- `[Explorer]` Show is offered again after a fetch fails, so the same selection can be retried,
+  where it stayed disabled until a setting changed or Reset was pressed (GH-2073)
 
 ## [0.17.0] - 2026-09-29
 
