@@ -122,8 +122,8 @@ Types of changes:
   BIT, TIME WITH TIME ZONE (dropping the offset) and UHUGEINT values of 2^127 or more (turning
   them negative), and that `CAST(column AS VARCHAR)` reads them as text (GH-2102)
 - `[Explorer]` Sorting a query's column that holds both numbers and text puts the numbers first,
-  then the text, the same in every browser. The rows, copies and downloads came in an order each
-  browser's sort made up (GH-2126)
+  then the text. The rows, copies and downloads came in an order each browser's sort made up
+  (GH-2126)
 - `[Explorer]` The column picker is disabled and offers no columns while the table is empty, where
   it offered `parameter`, `value` and `quality` whatever the shape setting (GH-2115)
 
