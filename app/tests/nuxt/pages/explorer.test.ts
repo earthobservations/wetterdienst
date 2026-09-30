@@ -212,6 +212,7 @@ describe('explorer Page', () => {
     // with no station the viewer is gone, and it comes back empty
     vm.stationSelectionState.selection.stations = []
     await wrapper.vm.$nextTick()
+    expect(vm.dataViewerRef).toBeNull()
     vm.stationSelectionState.selection.stations = [{ station_id: '00001', name: 'Test Station' }]
     await vi.waitFor(() => expect(vm.canFetch).toBe(true))
     expect(wrapper.text()).not.toContain('12.3')

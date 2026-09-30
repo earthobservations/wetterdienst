@@ -595,9 +595,9 @@ async function fetchData() {
     clearData()
     return
   }
-  // a request of its own, so a Fetch of the same selection again is told apart by the checks below. Its
-  // query is apiQuery's, which is built afresh on each change and not written to
-  const request = { ...selectedRequest.value }
+  // a request of its own, so a Fetch of the same selection again is told apart by the checks below, with
+  // a query of its own, so nothing done to the one sent reaches the selection it is compared with
+  const request = { ...selectedRequest.value, query: { ...selectedRequest.value.query } }
   sentRequest.value = request
   currentPage.value = 1
   await refreshValues()
