@@ -763,6 +763,32 @@ describe('queryPanel check after a Fetch', () => {
     expect(explained()).toHaveLength(2)
   })
 
+  it('checks a query edited just before a Fetch once query mode is entered, not for the closed panel', async () => {
+    // the check still due fired for the panel the Fetch had closed, starting DuckDB and loading the
+    // new rows, and entering query mode before it fired checked the query twice
+    const sql = 'SELECT * FROM data LIMIT 10'
+    const statements = watchStatements()
+    const explained = () => statements.filter(statement => statement === `EXPLAIN ${sql}`)
+    const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate')
+    unwatched.push(() => instantiate.mockRestore())
+    const wrapper = await queryMode()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      await wrapper.find('textarea').setValue(sql)
+      await wrapper.setProps({ data: [{ ...data[0]!, station_id: '04411' }] })
+      vi.advanceTimersByTime(1000)
+    }
+    finally {
+      vi.useRealTimers()
+    }
+    await flushPromises()
+    expect(instantiate).not.toHaveBeenCalled()
+    await buttonLabelled(wrapper, 'Transform with SQL Query').trigger('click')
+    await vi.waitFor(() => expect(explained()).toHaveLength(1))
+    await vi.waitFor(() => expect(spinner(wrapper)).toBe(false))
+    expect(explained()).toHaveLength(1)
+  })
+
   it('starts no DuckDB for a query never checked, entering query mode after a Fetch', async () => {
     // DuckDB loads from a CDN, which the panel leaves until a query is edited or run
     const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate')
