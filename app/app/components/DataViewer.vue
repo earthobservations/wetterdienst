@@ -946,14 +946,10 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   if (chartRenders.size > 0)
     await chartsDrawn()
   // a chart whose render failed holds no drawing either: it is drawn again, and where that fails too,
-  // the image is not saved
-  if (shownRenders().failed) {
+  // the image is not saved (told once there is a chart to save, below)
+  if (chartShown() && shownRenders().failed) {
     void renderShownChart()
     await chartsDrawn()
-    if (shownRenders().failed) {
-      toast.add({ title: t('dataViewer.chartNotDrawn'), color: 'error' })
-      return
-    }
   }
   // faceted, one chart per parameter, in the order the page shows them. Taken once: faceting turned
   // on or off while Plotly loads would otherwise export these charts the other way
@@ -965,6 +961,10 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   // still arrives here, where the page has yet to take the chart away, and there is nothing to save
   if (!chartShown() || !charts.every(chart => chart)) {
     toast.add({ title: t('dataViewer.noChartData'), color: 'warning' })
+    return
+  }
+  if (shownRenders().failed) {
+    toast.add({ title: t('dataViewer.chartNotDrawn'), color: 'error' })
     return
   }
 

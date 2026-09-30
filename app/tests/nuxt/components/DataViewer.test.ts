@@ -1546,3 +1546,54 @@ describe('dataViewer chart images after a failed drawing', () => {
     expect(logged).not.toHaveBeenCalled()
   })
 })
+
+describe('dataViewer chart images after Plotly failed to load', () => {
+  // Plotly's chunk failing to load, as after a redeploy under an open tab, for the viewers mounted
+  // from here on: each loads Plotly itself, when its chart is first shown
+  function failPlotlyLoad() {
+    vi.doMock('plotly.js-basic-dist-min', () => {
+      throw new Error('chunk failed to load')
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  }
+
+  function loadPlotly() {
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+  }
+
+  afterEach(loadPlotly)
+
+  it.each([false, true])('loads Plotly again and saves the chart once drawn, faceted: %s', async (faceted) => {
+    // the chart never drawn was exported, an empty figure, and reported downloaded
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    failPlotlyLoad()
+    const draw = faceted ? plotly.react : plotly.newPlot
+    draw.mockClear()
+    await showChart(wrapper, faceted)
+    expect(draw).not.toHaveBeenCalled()
+    loadPlotly()
+    catchDownload()
+    ;(await openDownloads(wrapper))[0]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
+    expect(draw).toHaveBeenCalledTimes(faceted ? 2 : 1)
+  })
+
+  it.each([false, true])('says there is no chart where Clear emptied it after the menu was opened, faceted: %s', async (faceted) => {
+    // the failed chart was drawn again, which failed as well, and told as not drawn
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    failPlotlyLoad()
+    await showChart(wrapper, faceted)
+    const saved = catchDownload()
+    const items = await openDownloads(wrapper)
+    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    items[0]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('No data available for chart'))
+    await flushPromises()
+    expect(document.body.textContent).not.toContain('The chart could not be drawn')
+    expect(saved).toHaveLength(0)
+  })
+})
