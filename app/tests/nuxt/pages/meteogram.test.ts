@@ -58,7 +58,20 @@ describe('meteogram Page', () => {
     await new Promise(resolve => setTimeout(resolve, 0))
     await wrapper.vm.$nextTick()
 
-    expect(vm.error).toContain('Backend error 500')
+    expect(vm.error).toBe('Backend error 500')
+  })
+
+  it('tells a refused request by the backend\'s detail', async () => {
+    // answered as FastAPI answers a request that fails validation: the entries under `detail`
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({ detail: [{ loc: ['query', 'issue'], msg: 'Invalid issue' }] }), { status: 422 }),
+    )
+
+    const wrapper = await mountSuspended(MeteogramPage)
+    const vm = wrapper.vm as any
+
+    vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
+    await vi.waitFor(() => expect(vm.error).toBe('Backend error 422: issue: Invalid issue'))
   })
 
   it('clears state and URL query when the station is deselected', async () => {

@@ -3,6 +3,7 @@ import type { Station } from '#shared/types/api'
 import { defineAsyncComponent, nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
+import { describeApiError } from '~/utils/api-error'
 
 const MapStations = defineAsyncComponent(() => import('~/components/MapStations.vue'))
 
@@ -123,7 +124,9 @@ async function fetchMeteogram(station: Station) {
   try {
     const res = await fetch(`/api/values?${params}`)
     if (!res.ok) {
-      error.value = `Backend error ${res.status}: ${await res.text()}`
+      // the backend's reason when its body gives one; any other body, such as a proxy's error page, is left out
+      const detail = describeApiError(await res.json().catch(() => null))
+      error.value = detail ? `Backend error ${res.status}: ${detail}` : `Backend error ${res.status}`
       return
     }
     const json = await res.json()

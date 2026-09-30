@@ -43,6 +43,31 @@ describe('widget Page', () => {
     expect(wrapper.text()).toContain('Station not found')
   })
 
+  it('tells a failed forecast by the backend\'s detail', async () => {
+    registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }],
+    }))
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'No forecast for station 00001' }), { status: 404 }),
+    )
+
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Backend error 404: No forecast for station 00001'))
+  })
+
+  it('tells a failed forecast by its status when the body gives no detail', async () => {
+    registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }],
+    }))
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response('<html>Bad Gateway</html>', { status: 502 }),
+    )
+
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Backend error 502'))
+    expect(wrapper.text()).not.toContain('Bad Gateway')
+  })
+
   it('applies the theme query param to color mode', async () => {
     registerEndpoint('/api/stations', () => ({ stations: [] }))
 
