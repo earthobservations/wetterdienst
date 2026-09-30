@@ -29,8 +29,8 @@ export interface CoverageParameter {
 }
 
 /**
- * A dataset in the coverage response, with the source's own description of it: `discover()`
- * always sends the key, null where the source has none
+ * A dataset in the coverage response, as `discover()` builds it: `description` is always sent,
+ * null where the source has none
  */
 export interface CoverageDataset {
   description: string | null
@@ -38,8 +38,8 @@ export interface CoverageDataset {
 }
 
 /**
- * A resolution in the coverage response, with its datasets: `discover()` always sends the
- * `description` key, null where the source has none
+ * A resolution in the coverage response, as `discover()` builds it: `description` is always sent,
+ * null where the source has none
  */
 export interface CoverageResolution {
   description: string | null

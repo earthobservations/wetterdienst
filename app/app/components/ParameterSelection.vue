@@ -141,7 +141,7 @@ const params = computed<string[]>(() => {
     .sort()
 })
 // the source's own words for the selected resolution and dataset, which `/api/coverage` carries
-// since the backend nested its answer; absent for most resolutions, so the hint just disappears
+// since the backend nested its answer; null for most resolutions, so the hint just disappears
 const resolutionDescription = computed<string>(() => {
   if (!providerNetworkCoverage.value || !resolution.value)
     return ''
