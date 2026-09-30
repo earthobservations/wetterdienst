@@ -577,7 +577,7 @@
     "queryEmpty": "Zapytanie nie może być puste",
     "onlySelect": "Dozwolone są tylko zapytania SELECT. Zapytanie musi zaczynać się od SELECT lub WITH.",
     "disallowedOperation": "Zapytanie zawiera niedozwoloną operację: {op}",
-    "multipleStatements": "Naraz można wykonać tylko jedną instrukcję. Usuń instrukcje po pierwszym średniku (;).",
+    "multipleStatements": "Naraz można wykonać tylko jedną instrukcję, a to zapytanie zawiera ich kilka.",
     "noLimit": "Zapytanie nie zawiera klauzuli LIMIT. Duże zestawy wyników mogą wpłynąć na wydajność.",
     "noColumns": "Zapytanie nie zwróciło żadnych kolumn",
     "missingColumns": "W wynikach zapytania brakuje oczekiwanych kolumn: {missing}. Oczekiwane kolumny: {expected}",

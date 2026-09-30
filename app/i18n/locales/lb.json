@@ -577,7 +577,7 @@
     "queryEmpty": "D'Ufro däerf net eidel sinn",
     "onlySelect": "Nëmme SELECT-Ufroe sinn erlaabt. D'Ufro muss mat SELECT oder WITH ufänken.",
     "disallowedOperation": "D'Ufro enthält eng net erlaabten Operatioun: {op}",
-    "multipleStatements": "Et kann nëmmen eng Uweisung op eemol ausgefouert ginn. Läscht d'Uweisungen nom éischte Semikolon (;).",
+    "multipleStatements": "Et kann nëmmen eng Uweisung op eemol ausgefouert ginn, an dës Ufro huet der méi.",
     "noLimit": "D'Ufro enthält keng LIMIT-Klausel. Grouss Resultatssätz kënnen d'Leeschtung beaflossen.",
     "noColumns": "D'Ufro huet keng Kolonne zréckginn",
     "missingColumns": "An den Ufroresultater feelen erwaart Kolonnen: {missing}. Erwaart Kolonnen: {expected}",

@@ -577,7 +577,7 @@
     "queryEmpty": "Forespørgslen må ikke være tom",
     "onlySelect": "Kun SELECT-forespørgsler er tilladt. Forespørgslen skal begynde med SELECT eller WITH.",
     "disallowedOperation": "Forespørgslen indeholder en ikke-tilladt handling: {op}",
-    "multipleStatements": "Der kan kun køres én sætning ad gangen. Fjern sætningerne efter det første semikolon (;).",
+    "multipleStatements": "Der kan kun køres én sætning ad gangen, og denne forespørgsel indeholder flere.",
     "noLimit": "Forespørgslen indeholder ikke en LIMIT-klausul. Store resultatsæt kan påvirke ydeevnen.",
     "noColumns": "Forespørgslen returnerede ingen kolonner",
     "missingColumns": "Forespørgselsresultaterne mangler forventede kolonner: {missing}. Forventede kolonner: {expected}",
