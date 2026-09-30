@@ -95,12 +95,15 @@ watch(
   { deep: true },
 )
 
-// Helper function to extract station_id from history object
+// The station's id, from the first section fetched that has a record: every section's records carry it
 function getStationId(history: StationHistory): string | null {
-  // Try to get station_id from different sections
   return history.parameter?.[0]?.station_id
     || history.device?.[0]?.station_id
     || history.geography?.[0]?.station_id
+    || history.name?.station?.[0]?.station_id
+    || history.name?.operator?.[0]?.station_id
+    || history.missing_data?.summary?.[0]?.station_id
+    || history.missing_data?.periods?.[0]?.station_id
     || null
 }
 
