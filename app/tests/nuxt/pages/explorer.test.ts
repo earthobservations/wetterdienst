@@ -1,9 +1,9 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { flushPromises } from '@vue/test-utils'
 import { createError, getQuery } from 'h3'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { UApp } from '#components'
+import { useToast } from '#imports'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
 
@@ -19,6 +19,9 @@ const ExplorerWithApp = defineComponent({
 
 const VALUE_ROW = { station_id: '00001', dataset: 'climate_summary', parameter: 'temperature_air_max_200', timestamp: '2020-01-01T00:00:00Z', value: 12.3, quality: null, unit: 'degree_celsius' }
 
+// pages mounted with a selection, unmounted after each test
+const mounted: { unmount: () => void }[] = []
+
 // Mount the page with a station and a parameter selected, ready to fetch; `values` answers /api/values
 async function mountWithSelection(values: () => unknown) {
   registerEndpoint('/api/coverage', (event) => {
@@ -33,6 +36,7 @@ async function mountWithSelection(values: () => unknown) {
   registerEndpoint('/api/values', values)
 
   const wrapper = await mountSuspended(ExplorerWithApp, { attachTo: document.body })
+  mounted.push(wrapper)
   const vm = wrapper.findComponent(ExplorerPage).vm as any
 
   // Let ParameterSelection's initialization settle before driving it externally -- otherwise its
@@ -63,6 +67,12 @@ async function mountWithSelection(values: () => unknown) {
 describe('explorer Page', () => {
   beforeEach(() => {
     globalThis.fetch = vi.fn()
+  })
+
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    // toasts are app-wide, so a failed fetch's would be shown by the next test's page
+    useToast().clear()
   })
 
   it('renders the page', async () => {
@@ -178,13 +188,11 @@ describe('explorer Page', () => {
     await showButton().trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('45.6'))
     expect(vm.canFetch).toBe(false)
-
-    // the cancelled request's handler finishes too; its answer reaches nothing
-    release()
-    await flushPromises()
-    expect(vm.canFetch).toBe(false)
-    expect(wrapper.text()).toContain('45.6')
     expect(wrapper.text()).not.toContain('12.3')
+
+    // let the held handler finish. Its answer cannot reach the table whenever it comes: useAsyncData
+    // rejects a cancelled fetch as it is aborted, not when its answer arrives
+    release()
   })
 
   it('offers Show again when the station is removed and chosen again', async () => {

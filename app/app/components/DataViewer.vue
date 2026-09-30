@@ -243,7 +243,7 @@ onScopeDispose(() => abortGeojson('unmounted'))
 // (useFetch's default `dedupe: 'cancel'`) and Clear aborts it (`clear`), so an answer they overtook never
 // reaches the table. Keyed by the request instead, as useFetch is by default, each request left an
 // entry behind for the rest of the session.
-const { data: valuesData, pending: valuesPending, error: valuesError, refresh: refreshValues, clear: clearValues } = useFetch<ValuesResponse>(
+const { data: valuesData, pending: valuesPending, error: valuesError, status: valuesStatus, refresh: refreshValues, clear: clearValues } = useFetch<ValuesResponse>(
   () => sentRequest.value?.endpoint ?? '/api/values',
   {
     key: `${useId()}-values`,
@@ -595,7 +595,7 @@ async function fetchData() {
     clearData()
     return
   }
-  const request = { ...selectedRequest.value, query: { ...selectedRequest.value.query } }
+  const request = { ...selectedRequest.value }
   sentRequest.value = request
   currentPage.value = 1
   await refreshValues()
@@ -606,17 +606,17 @@ async function fetchData() {
 }
 
 // A request as it compares with another: the query is built in one fixed order, and a field left unset
-// is dropped, as it is from the URL
+// is dropped. Values compare as they are, so a number and its text differ where the URL would not
 function requestKey(request: { endpoint: string, query: Record<string, unknown> }) {
   return JSON.stringify([request.endpoint, request.query])
 }
 
 // Whether what is selected is already asked for: the request Fetch sent last, while it is under way or
-// once it has answered without error. A fetch that failed, Clear and a viewer mounted afresh hold none,
-// so the selection can be fetched again. Read from the fetch's own state rather than fetchedRequest,
-// which is set a few microtasks after it; its error is kept until the next answer, hence the pending
+// once it has answered without error. A fetch that failed or was aborted, Clear and a viewer mounted
+// afresh hold none, so the selection can be fetched again. Read from the fetch's own status rather than
+// fetchedRequest, which is set a few microtasks after it
 const holdsSelection = computed(() => {
-  const request = valuesPending.value || !valuesError.value ? sentRequest.value : null
+  const request = valuesStatus.value === 'pending' || valuesStatus.value === 'success' ? sentRequest.value : null
   return request !== null && requestKey(request) === requestKey(selectedRequest.value)
 })
 
