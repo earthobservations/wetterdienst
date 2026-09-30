@@ -132,6 +132,14 @@ Types of changes:
   a date, where each was an empty trace with a legend entry, or an empty panel; with no row to plot
   it says there is no chart data and offers no image. A large result counts only the points drawn,
   so a few among many such rows are drawn with markers (GH-2125)
+- `[Explorer]` A query's MAP with NaN, infinite and negative infinite keys keeps each of them, as
+  `NaN`, `Infinity` and `-Infinity`. All three were keyed `null`, so only the last one's value was
+  shown and downloaded (GH-2116)
+- `[Explorer]` A query's MAP with DOUBLE or FLOAT keys of NaN, infinity and negative infinity keeps
+  each of them, as `NaN`, `Infinity` and `-Infinity`. All three were keyed `null`, so only the
+  last one's value was shown and downloaded (GH-2116)
+- `[Explorer]` The query panel's note on the types the browser's DuckDB misreads names GEOMETRY,
+  which comes as its WKB bytes, and `CAST(column AS VARCHAR)` reads it as text (GH-2134)
 - `[Explorer/History/Stripes/Meteogram]` The station map shows the markers of the current station
   list only. A list that changed while the markers were still being built could leave the previous
   list's markers on the map, and clicking one selected a station of that list (GH-2132)
