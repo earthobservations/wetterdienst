@@ -258,6 +258,39 @@ describe('history Page', () => {
     expect(vm.canFetch).toBe(false)
   })
 
+  it('lists the stations the histories shown were fetched for, not the live selection', async () => {
+    // each answer is for the station asked for, and held until the test lets it go
+    const gates: Array<() => void> = []
+    const { wrapper, vm, showButton } = await mountWithSelection(async (event) => {
+      const station = String(getQuery(event).station)
+      await new Promise<void>(resolve => gates.push(resolve))
+      return { histories: [{ parameter: [{ ...HISTORY.histories[0]!.parameter[0], station_id: station }] }] }
+    })
+    // the station ids in the Selected stations overview
+    const overview = () => {
+      const heading = wrapper.findAll('h3').find(h => h.text() === 'Selected stations')
+      return heading ? [...heading.element.parentElement!.querySelectorAll('tbody tr td:first-child')].map(td => td.textContent!.trim()) : []
+    }
+
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(gates).toHaveLength(1), { timeout: 5000 })
+    gates[0]!()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
+    expect(overview()).toEqual(['00001'])
+
+    vm.stationSelectionState.selection.stations = [{ station_id: '00044', name: 'Other' }]
+    await wrapper.vm.$nextTick()
+    expect(overview()).toEqual(['00001'])
+
+    // nor while the next fetch is under way, beside the answer before it
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(gates).toHaveLength(2), { timeout: 5000 })
+    expect(overview()).toEqual(['00001'])
+    gates[1]!()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00044'), { timeout: 5000 })
+    expect(overview()).toEqual(['00044'])
+  })
+
   it('shows the answer to a fetch under way when the selection changes before it answers', async () => {
     // the answer is held until the test lets it go
     let release!: () => void

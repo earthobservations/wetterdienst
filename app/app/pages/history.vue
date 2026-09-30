@@ -148,6 +148,11 @@ function historyQuery() {
 }
 const selectedQuery = computed(historyQuery)
 const sentQuery = shallowRef<ReturnType<typeof historyQuery> | null>(null)
+// the stations Show sent for, and those the histories shown were fetched for: the overview lists the latter,
+// not the live selection, which may have moved on since
+type Stations = StationSelectionState['selection']['stations']
+let sentStations: Stations = []
+const shownStations = shallowRef<Stations>([])
 
 // One key for the page's histories, whatever the request. Keyed by its query instead, as useFetch is by
 // default, the fetch moved to another entry whenever the query changed: that aborted a fetch under way,
@@ -160,6 +165,12 @@ const { data, pending, status, refresh, clear: clearHistories, error } = useFetc
   watch: false,
   query: computed(() => sentQuery.value ?? {}),
   default: () => ({ histories: [] }),
+})
+
+// an answer, or the empty default a failure or Clear leaves, comes with the stations of the last Show: a
+// fetch Show superseded never sets `data`
+watch(data, () => {
+  shownStations.value = sentStations
 })
 
 // the last fetch's error, gone once Show or Reset is pressed: a new fetch keeps `error` until it answers
@@ -180,6 +191,7 @@ function run() {
     return
   }
   sentQuery.value = historyQuery()
+  sentStations = [...stationSelectionState.value.selection.stations]
   refresh()
 }
 
@@ -297,7 +309,7 @@ function clear() {
         </div>
         <div v-else class="space-y-6">
           <!-- Selected Stations Overview -->
-          <div v-if="stationSelectionState.selection.stations.length > 0">
+          <div v-if="shownStations.length > 0">
             <h3 class="text-base font-bold mb-3">
               {{ t('history.selectedStations') }}
             </h3>
@@ -326,7 +338,7 @@ function clear() {
                   </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                  <tr v-for="station in stationSelectionState.selection.stations" :key="station.station_id">
+                  <tr v-for="station in shownStations" :key="station.station_id">
                     <td class="px-4 py-2 text-sm font-medium">
                       {{ station.station_id }}
                     </td>
