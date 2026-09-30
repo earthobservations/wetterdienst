@@ -614,9 +614,11 @@ async function fetchData() {
 }
 
 // A request as it compares with another: the query is built in one fixed order, and a field left unset
-// is dropped. Values compare as they are, so a number and its text differ where the URL would not
+// is dropped. Values compare as they are, so a number and its text differ where the URL would not, but
+// NaN and the infinities as the URL writes them, where JSON would make each of them null
 function requestKey(request: { endpoint: string, query: Record<string, unknown> }) {
-  return JSON.stringify([request.endpoint, request.query])
+  return JSON.stringify([request.endpoint, request.query], (_, value) =>
+    typeof value === 'number' && !Number.isFinite(value) ? String(value) : value)
 }
 
 // Whether what is selected is already asked for: the request Fetch sent last, while it is under way or

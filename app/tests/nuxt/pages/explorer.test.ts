@@ -234,4 +234,20 @@ describe('explorer Page', () => {
     await wrapper.vm.$nextTick()
     expect(vm.canFetch).toBe(true)
   })
+
+  it('offers Show again when a setting sent empty becomes NaN', async () => {
+    const { wrapper, vm } = await mountWithSelection(() => ({ values: [VALUE_ROW] }))
+    // a cleared number input is null
+    vm.dataSettings.skipThreshold = null
+    await wrapper.vm.$nextTick()
+
+    await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('12.3'))
+    expect(vm.canFetch).toBe(false)
+
+    // sent as "NaN" where null is sent empty, so another request, though JSON writes both as null
+    vm.dataSettings.skipThreshold = Number.NaN
+    await wrapper.vm.$nextTick()
+    expect(vm.canFetch).toBe(true)
+  })
 })

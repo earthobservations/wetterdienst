@@ -30,8 +30,7 @@ Types of changes:
   comma, and copy nothing from an empty table (GH-2065)
 - `[Explorer]` Show is offered again after a fetch fails, so the same selection can be retried, and
   after the station is removed and chosen again, which empties the table; it stayed disabled until a
-  setting changed or Reset was pressed. A setting the current mode does not send -- the shape
-  outside station mode, the interpolation point in it -- no longer offers it again (GH-2073)
+  setting changed or Reset was pressed (GH-2073)
 
 ## [0.17.0] - 2026-09-29
 
