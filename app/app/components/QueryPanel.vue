@@ -92,11 +92,18 @@ let db: any = null
 let conn: any = null
 // DuckDB's start, which a run and the syntax check share rather than start a database each
 let started: Promise<void> | null = null
+// the start failed: a run starts DuckDB again, the syntax check does not, rather than at every pause
+// in typing
+let startFailed = false
 // the panel is gone, and a syntax check under way stops
 let unmounted = false
 
 // Initialize DuckDB
-function initDuckDB(): Promise<void> {
+function initDuckDB({ again = false } = {}): Promise<void> {
+  if (again && startFailed) {
+    started = null
+    startFailed = false
+  }
   started ??= startDuckDB()
   return started
 }
@@ -119,8 +126,12 @@ async function startDuckDB() {
     const worker = new Worker(worker_url)
     const logger = new duckdb.ConsoleLogger()
     database = new duckdb.AsyncDuckDB(logger, worker)
-    await database.instantiate(bundle.mainModule, bundle.pthreadWorker)
-    URL.revokeObjectURL(worker_url)
+    try {
+      await database.instantiate(bundle.mainModule, bundle.pthreadWorker)
+    }
+    finally {
+      URL.revokeObjectURL(worker_url)
+    }
 
     conn = await database.connect()
     db = database
@@ -128,9 +139,8 @@ async function startDuckDB() {
   catch (err: any) {
     // told by the run that waits for it, not by one left behind or the syntax check
     console.error('Failed to initialize DuckDB:', err)
-    // the next run starts it again, without the database that failed
-    started = null
     database?.terminate().catch(() => {})
+    startFailed = true
   }
 }
 
@@ -216,14 +226,21 @@ async function validateQuerySyntax() {
   }
 
   isValidating.value = true
+  // the rows checked against: once a Fetch has replaced them, the check's statements may have met
+  // the newer rows' load between its DROP and CREATE, and it tells nothing
+  const rows = props.data
+  const answer = (message: string | null) => {
+    if (rows === props.data)
+      syntaxError.value = message
+  }
 
   try {
     // Use EXPLAIN to validate query syntax without executing
     // We need to have the data table ready for proper validation
-    if (props.data.length > 0) {
+    if (rows.length > 0) {
       // the table a run may be loading already; a load that fails is told by the run
       try {
-        await loadTable(props.data)
+        await loadTable(rows)
       }
       catch {
         return
@@ -244,23 +261,23 @@ async function validateQuerySyntax() {
       const columnValidation = validateColumns(resultColumns, requiredColumns.value)
 
       if (!columnValidation.valid) {
-        syntaxError.value = valText(columnValidation.messageKey, columnValidation.params)
+        answer(valText(columnValidation.messageKey, columnValidation.params))
         return
       }
     }
     catch (err: any) {
       // If column validation fails, show error
-      syntaxError.value = `Column validation error: ${err.message}`
+      answer(`Column validation error: ${err.message}`)
       return
     }
 
     // If we get here, syntax and columns are valid
-    syntaxError.value = null
+    answer(null)
   }
   catch (err: any) {
     // Extract meaningful error message
     const message = err.message || 'Syntax error'
-    syntaxError.value = message
+    answer(message)
   }
   finally {
     isValidating.value = false
@@ -314,7 +331,7 @@ async function executeQuery() {
 
   try {
     // Initialize DuckDB if needed
-    await initDuckDB()
+    await initDuckDB({ again: true })
     if (run !== currentRun)
       return
     if (!db || !conn) {
@@ -337,6 +354,9 @@ async function executeQuery() {
       }
       return
     }
+    // left while the table loaded: its query would only keep DuckDB from a newer one
+    if (run !== currentRun)
+      return
 
     const result = await conn.query(sql)
     // each value made plain by its column's type, as the REST API would answer it, where Arrow's own
@@ -415,6 +435,8 @@ onUnmounted(async () => {
   // the delayed syntax check would start a database that nothing ends
   if (validationTimeout)
     clearTimeout(validationTimeout)
+  // a run under way loads no table into the database being closed, nor runs its query there
+  currentRun++
   // a start under way ends before the database it makes can be
   await started
   if (conn) {

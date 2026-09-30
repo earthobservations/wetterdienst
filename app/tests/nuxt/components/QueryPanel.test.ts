@@ -77,7 +77,7 @@ function gate() {
   return { opened, open }
 }
 
-// the undoing of each test's hold on DuckDB's connections, after the panels are unmounted
+// the undoing of each test's spies on DuckDB
 const unwatched: (() => void)[] = []
 
 afterEach(() => {
@@ -111,8 +111,25 @@ async function queryMode() {
   return wrapper
 }
 
+function buttonLabelled(wrapper: Awaited<ReturnType<typeof queryMode>>, label: string) {
+  return wrapper.findAll('button').find(button => button.text() === label)!
+}
+
 function runButton(wrapper: Awaited<ReturnType<typeof queryMode>>) {
-  return wrapper.findAll('button').find(button => button.text() === 'Run Query')!
+  return buttonLabelled(wrapper, 'Run Query')
+}
+
+// the query edited to `sql`, and the syntax check that follows 500 ms later run at once
+async function editNow(wrapper: Awaited<ReturnType<typeof queryMode>>, sql: string) {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    await wrapper.find('textarea').setValue(sql)
+    vi.advanceTimersByTime(500)
+  }
+  finally {
+    vi.useRealTimers()
+  }
+  await flushPromises()
 }
 
 const creates = (statements: string[]) => statements.filter(sql => sql.startsWith('CREATE TABLE'))
@@ -151,11 +168,35 @@ describe('queryPanel table load', () => {
     // and one database, which the check found started
     expect(instantiate).toHaveBeenCalledTimes(1)
   })
-})
 
-function buttonLabelled(wrapper: Awaited<ReturnType<typeof queryMode>>, label: string) {
-  return wrapper.findAll('button').find(button => button.text() === label)!
-}
+  it('tells no syntax error from a check whose rows a Fetch replaced while they loaded', async () => {
+    // its statements met the newer rows' load between its DROP and CREATE, and the error it told
+    // kept Run Query disabled for a query that was fine
+    const hold = gate()
+    let held = false
+    const statements = watchStatements((sql) => {
+      if (!held && sql.startsWith('CREATE TABLE')) {
+        held = true
+        return hold.opened
+      }
+      return undefined
+    })
+    const wrapper = await queryMode()
+    await editNow(wrapper, 'SELECT * FROM data LIMIT 10')
+    await vi.waitFor(() => expect(creates(statements)).toHaveLength(1))
+    const newer = [{ ...data[0]!, station_id: '04411' }]
+    await wrapper.setProps({ data: newer })
+    await buttonLabelled(wrapper, 'Transform with SQL Query').trigger('click')
+    await runButton(wrapper).trigger('click')
+    await flushPromises()
+    hold.open()
+    // the rows handed back as query mode was left, then the run's result
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(2))
+    await vi.waitFor(() => expect(wrapper.find('div.absolute.top-2.right-2').exists()).toBe(false))
+    expect(wrapper.text()).not.toContain('Syntax Error')
+    expect(runButton(wrapper).attributes('disabled')).toBeUndefined()
+  })
+})
 
 describe('queryPanel run left behind', () => {
   // the query the panel opens with
@@ -172,6 +213,20 @@ describe('queryPanel run left behind', () => {
     hold.open()
     await flushPromises()
     expect(wrapper.emitted('dataTransformed')).toEqual([[data]])
+  })
+
+  it('runs no query left by Cancel while the table loaded', async () => {
+    // it ran once the table was loaded, keeping DuckDB from a newer run's query
+    const hold = gate()
+    const statements = watchStatements(sql => sql.startsWith('CREATE TABLE') ? hold.opened : undefined)
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(creates(statements)).toHaveLength(1))
+    await buttonLabelled(wrapper, 'Cancel').trigger('click')
+    hold.open()
+    await vi.waitFor(() => expect(statements.some(sql => sql.startsWith('INSERT'))).toBe(true))
+    await flushPromises()
+    expect(statements).not.toContain(opening)
   })
 
   // each step of a run that can fail, held until the test opens it and failing then, and whether the
@@ -233,12 +288,10 @@ describe('queryPanel run left behind', () => {
 })
 
 describe('queryPanel unmounted', () => {
-  // a panel in query mode with its query edited, which starts the syntax check 500 ms later; left
-  // out of `mounted`, as the test unmounts it itself
-  async function edited() {
+  // a panel in query mode, left out of `mounted`, as the test unmounts it itself
+  async function unmountable() {
     const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
     await wrapper.find('button').trigger('click')
-    await wrapper.find('textarea').setValue('SELECT * FROM data LIMIT 10')
     return wrapper
   }
 
@@ -246,21 +299,33 @@ describe('queryPanel unmounted', () => {
     // the check ran after the panel was gone, and started a database nothing ended
     const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate')
     unwatched.push(() => instantiate.mockRestore())
-    const wrapper = await edited()
-    wrapper.unmount()
-    // past the check's 500 ms
-    await new Promise(resolve => setTimeout(resolve, 700))
+    const wrapper = await unmountable()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      await wrapper.find('textarea').setValue('SELECT * FROM data LIMIT 10')
+      wrapper.unmount()
+      // past the check's 500 ms
+      vi.advanceTimersByTime(1000)
+    }
+    finally {
+      vi.useRealTimers()
+    }
+    await flushPromises()
     expect(instantiate).not.toHaveBeenCalled()
   })
 
-  it('ends the database a syntax check under way starts, and loads no table into it', async () => {
+  it.each([
+    { starter: 'a syntax check', start: (wrapper: Awaited<ReturnType<typeof unmountable>>) => editNow(wrapper, 'SELECT * FROM data LIMIT 10') },
+    { starter: 'a run', start: (wrapper: Awaited<ReturnType<typeof unmountable>>) => runButton(wrapper).trigger('click') },
+  ])('ends the database $starter under way starts, and loads no table into it', async ({ start }) => {
     const hold = gate()
     const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate').mockImplementation(() => hold.opened.then(() => null))
     const terminate = vi.spyOn(AsyncDuckDB.prototype, 'terminate')
     unwatched.push(() => instantiate.mockRestore(), () => terminate.mockRestore())
     const statements = watchStatements()
-    const wrapper = await edited()
-    await vi.waitFor(() => expect(instantiate).toHaveBeenCalled(), { timeout: 2000 })
+    const wrapper = await unmountable()
+    await start(wrapper)
+    await vi.waitFor(() => expect(instantiate).toHaveBeenCalled())
     wrapper.unmount()
     hold.open()
     await vi.waitFor(() => expect(terminate).toHaveBeenCalledTimes(1))
@@ -274,14 +339,22 @@ describe('queryPanel failed start or load', () => {
     const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate').mockRejectedValueOnce(new Error('lost'))
     const terminate = vi.spyOn(AsyncDuckDB.prototype, 'terminate')
     unwatched.push(() => instantiate.mockRestore(), () => terminate.mockRestore())
+    vi.mocked(URL.createObjectURL).mockClear()
+    vi.mocked(URL.revokeObjectURL).mockClear()
     const wrapper = await queryMode()
     await runButton(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to initialize database'))
     expect(terminate).toHaveBeenCalledTimes(1)
+    // nor the worker's script
+    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1)
     await vi.waitFor(() => expect(runButton(wrapper).attributes('disabled')).toBeUndefined())
+    // the syntax check leaves it to the run, rather than start it again at every pause in typing
+    await editNow(wrapper, 'SELECT * FROM data LIMIT 10')
+    expect(instantiate).toHaveBeenCalledTimes(1)
     await runButton(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
     expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(data)
+    expect(instantiate).toHaveBeenCalledTimes(2)
   })
 
   it('loads the table again for the next run after its load failed', async () => {
