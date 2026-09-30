@@ -558,6 +558,7 @@
     "copiedRows": "{count} righe copiate negli appunti",
     "downloaded": "Scaricato",
     "downloadedValues": "Valori scaricati come {format}",
+    "downloadCancelled": "Download annullato: la tabella è cambiata",
     "downloadedChart": "Grafico scaricato come {format}",
     "axisDate": "Data",
     "axisValue": "Valore",

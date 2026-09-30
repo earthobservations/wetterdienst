@@ -105,28 +105,6 @@ describe('dataViewer Component Logic', () => {
     expect(sum).toBe(60)
   })
 
-  it('converts values to CSV format', () => {
-    function valuesToCsv(values: any[], selectedColumns: string[]) {
-      if (!values.length)
-        return ''
-      const headers = selectedColumns
-      const rows = values.map(row => headers.map(h => row[h] ?? '').join(','))
-      return [headers.join(','), ...rows].join('\n')
-    }
-
-    const values = [
-      { station_id: '001', parameter: 'temp', value: 10 },
-      { station_id: '002', parameter: 'temp', value: 20 },
-    ]
-    const columns = ['station_id', 'parameter', 'value']
-
-    const csv = valuesToCsv(values, columns)
-
-    expect(csv).toContain('station_id,parameter,value')
-    expect(csv).toContain('001,temp,10')
-    expect(csv).toContain('002,temp,20')
-  })
-
   it('paginates values correctly', () => {
     const allValues = Array.from({ length: 150 }, (_, i) => ({ id: i, value: i }))
     const pageSize = 50

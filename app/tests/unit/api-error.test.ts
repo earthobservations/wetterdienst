@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describeApiError } from '../../app/utils/api-error'
+import { describeApiError, describeFetchError } from '../../app/utils/api-error'
 
 describe('describeApiError', () => {
   it('passes on the string detail of an error an endpoint raises itself', () => {
@@ -33,4 +33,21 @@ describe('describeApiError', () => {
     expect(describeApiError('Internal Server Error')).toBeNull()
     expect(describeApiError({ detail: [] })).toBeNull()
   })
+})
+
+describe('describeFetchError', () => {
+  const refusal = { detail: [{ loc: ['query', 'station'], msg: 'Cannot be combined with name' }] }
+
+  it('tells the detail of an error answer', () => {
+    expect(describeFetchError({ data: refusal, message: '[GET] /api/values: 422' })).toBe('station: Cannot be combined with name')
+  })
+
+  it('reads a body that came as text, as it does for a request asked for as text', () => {
+    expect(describeFetchError({ data: JSON.stringify(refusal), message: '[GET] /api/values: 422' })).toBe(
+      'station: Cannot be combined with name',
+    )
+  })
+
+  // the status and a request nothing answered are tested with errors as useFetch holds them, built
+  // by h3's createError: tests/nuxt/utils/api-error.test.ts
 })

@@ -558,6 +558,7 @@
     "copiedRows": "{count} filas copiadas al portapapeles",
     "downloaded": "Descargado",
     "downloadedValues": "Valores descargados como {format}",
+    "downloadCancelled": "Descarga cancelada: la tabla cambió",
     "downloadedChart": "Gráfico descargado como {format}",
     "axisDate": "Fecha",
     "axisValue": "Valor",

@@ -7,8 +7,9 @@ import type { StationSelectionState } from '~/types/station-selection-state.type
 import { h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
-import { describeApiError } from '~/utils/api-error'
+import { describeFetchError } from '~/utils/api-error'
 import { formatDate } from '~/utils/format'
+import { exportColumns, valuesToCsv, valuesToJson } from '~/utils/values-export'
 
 const props = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
@@ -108,12 +109,19 @@ function stationDistanceRadii(prefix: 'interpolation' | 'summary'): Record<strin
   return radii
 }
 
-const apiEndpoint = computed(() => {
+// each mode's endpoint, and the name its values are saved under
+const ENDPOINTS = {
+  values: { endpoint: '/api/values', filename: 'values' },
+  interpolate: { endpoint: '/api/interpolate', filename: 'interpolated' },
+  summarize: { endpoint: '/api/summarize', filename: 'summary' },
+} as const
+
+const selectedEndpoint = computed(() => {
   if (isInterpolationMode.value)
-    return '/api/interpolate'
+    return ENDPOINTS.interpolate
   if (isSummaryMode.value)
-    return '/api/summarize'
-  return '/api/values'
+    return ENDPOINTS.summarize
+  return ENDPOINTS.values
 })
 
 const apiQuery = computed(() => {
@@ -204,26 +212,51 @@ const apiQuery = computed(() => {
   }
 })
 
-const { data: valuesData, pending: valuesPending, error: valuesError, refresh: refreshValues } = useFetch<ValuesResponse>(
-  apiEndpoint,
+// The request behind the table: set by Fetch alone, and the one the table's values are fetched with,
+// so the table, its error and a GeoJSON download of it answer to the same request whatever is
+// selected since. Bound to the live selection instead, the fetch kept a request of its own beside
+// this one, which a selection changed mid-fetch, or Clear, could part from what the table showed.
+interface ValuesRequest { endpoint: string, filename: string, query: Record<string, unknown> }
+const fetchedRequest = shallowRef<ValuesRequest | null>(null)
+// the request Fetch sent last, which the table's values are fetched with; it becomes fetchedRequest
+// only once it has answered, so until then the table, the file name and GeoJSON keep to the last one
+// shallow, so the one sent compares as itself rather than as Vue's proxy of it
+const sentRequest = shallowRef<ValuesRequest | null>(null)
+// a GeoJSON download under way, which the menu does not offer again until it is saved
+const geojsonDownload = shallowRef<AbortController | null>(null)
+const downloadingGeojson = computed(() => geojsonDownload.value !== null)
+// why a download is aborted: the table it describes changed, which is told, or the viewer is gone,
+// when there is no one to tell
+const TABLE_CHANGED = 'table-changed'
+
+// Abort the GeoJSON download under way: the table it describes is going. The watcher on displayData
+// below calls it for every change to the table
+function abortGeojson(reason: string = TABLE_CHANGED) {
+  geojsonDownload.value?.abort(reason)
+}
+onScopeDispose(() => abortGeojson('unmounted'))
+
+// One key for the table's values, whatever the request: a newer Fetch cancels one still under way
+// (useFetch's default `dedupe: 'cancel'`) and Clear aborts it (`clear`), so an answer they overtook never
+// reaches the table. Keyed by the request instead, as useFetch is by default, each request left an
+// entry behind for the rest of the session.
+const { data: valuesData, pending: valuesPending, error: valuesError, refresh: refreshValues, clear: clearValues } = useFetch<ValuesResponse>(
+  () => sentRequest.value?.endpoint ?? '/api/values',
   {
+    key: `${useId()}-values`,
     method: 'GET',
-    query: apiQuery,
+    query: computed(() => sentRequest.value?.query ?? {}),
     lazy: true,
     immediate: false,
-    watch: false, // Prevent automatic refetch when query changes
+    // fetched by Fetch alone, not whenever the request it reads changes
+    watch: false,
     default: () => ({ values: [] }),
   },
 )
 
 const allValues = computed(() => valuesData.value?.values ?? [])
 
-const fetchErrorMessage = computed(() => {
-  const err = valuesError.value as { data?: unknown, message?: string } | undefined
-  if (!err)
-    return null
-  return describeApiError(err.data) ?? err.message ?? String(err)
-})
+const fetchErrorMessage = computed(() => valuesError.value ? describeFetchError(valuesError.value) : null)
 
 const toast = useToast()
 
@@ -243,6 +276,12 @@ const isDataTransformed = ref(false)
 
 // Display data (either original or transformed)
 const displayData = computed(() => isDataTransformed.value ? transformedData.value : allValues.value)
+
+// A GeoJSON download describes the table it was chosen for: whatever replaces that table -- a Fetch's
+// answer, Clear, a query's own rows -- aborts it, from one place rather than each. Synchronously, as
+// a watcher run after the change would let an answer that came in between be saved. A query that
+// hands back the fetched rows themselves changes nothing shown and aborts nothing.
+watch(displayData, () => abortGeojson(), { flush: 'sync' })
 
 function handleDataTransformed(data: Value[]) {
   transformedData.value = data
@@ -353,8 +392,16 @@ watch([isInterpolationMode, isSummaryMode], () => {
   selectedColumns.value = [...defaultColumns.value]
 })
 
+// A download writes every column the rows carry, those the table knows in its order first, whatever
+// the column picker shows -- which follows the mode selected now, not the one the rows came from
+const TABLE_ORDER = columnDefinitions.map(c => c.key)
+
+// The columns the picker leaves visible, in the table's order: what the table shows, and a copy writes
+const visibleColumns = computed(() => columnDefinitions.filter(c => selectedColumns.value.includes(c.key)))
+const visibleKeys = computed(() => visibleColumns.value.map(c => c.key))
+
 const columns = computed(() =>
-  columnDefinitions.filter(c => selectedColumns.value.includes(c.key)).map((c) => {
+  visibleColumns.value.map((c) => {
     const key = c.key
     return {
       ...c.column,
@@ -384,16 +431,8 @@ watch(pageSize, () => {
   currentPage.value = 1
 })
 
-function valuesToCsv(values: Value[]) {
-  if (!values.length)
-    return ''
-  const headers = selectedColumns.value
-  const rows = values.map(row => headers.map(h => row[h] ?? '').join(','))
-  return [headers.join(','), ...rows].join('\n')
-}
-
 async function copyCurrentPage() {
-  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value))
+  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, visibleKeys.value))
   toast.add({
     title: t('dataViewer.copied'),
     description: t('dataViewer.copiedRows', { count: paginatedValues.value.length }),
@@ -402,7 +441,7 @@ async function copyCurrentPage() {
 }
 
 async function copyAllValues() {
-  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value))
+  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, visibleKeys.value))
   toast.add({ title: t('dataViewer.copied'), description: t('dataViewer.copiedRows', { count: sortedValues.value.length }), color: 'success' })
 }
 
@@ -425,111 +464,84 @@ const canFetchData = computed(() => {
   }
 })
 
-async function downloadValues(format: string, extension: string) {
-  if (!canFetchData.value)
+// A download saves what the table holds -- its rows, after the query panel and the sorting, with every
+// column they carry, the table's own in its order first -- rather than asking the backend again
+// for whatever is selected now: that answered a different selection, or units, once either had
+// changed since the table was filled (GH-2065). GeoJSON needs the station positions the backend
+// adds, so it is asked for again, but for the request that filled the table.
+async function downloadValues(format: 'csv' | 'json' | 'geojson') {
+  // the menu stops offering a format the table cannot be saved as, but a choice made before it has
+  // updated still arrives here: an emptied table saves nothing, nor GeoJSON a table the query panel
+  // has rewritten, whose answer describes rows no longer shown
+  if (!sortedValues.value.length)
     return
-  const ps = parameterSelection.value
-  const ss = stationSelection.value
-  const params = new URLSearchParams()
-  params.set('provider', ps.provider ?? '')
-  params.set('network', ps.network ?? '')
-  params.set('parameters', ps.parameters.map(parameter => `${ps.resolution}/${ps.dataset}/${parameter}`).join(','))
-  params.set('format', format)
-
-  // Add date range if provided
-  if (ss.dateRange?.startDate) {
-    let dateParam = ss.dateRange.startDate
-    if (ss.dateRange.endDate) {
-      dateParam = `${ss.dateRange.startDate}/${ss.dateRange.endDate}`
-    }
-    params.set('date', dateParam)
-  }
-
-  let endpoint = '/api/values'
-  let filename = 'values'
-  if (isInterpolationMode.value) {
-    endpoint = '/api/interpolate'
-    filename = 'interpolated'
-    const interp = ss.interpolation
-    if (interp?.latitude !== undefined)
-      params.set('latitude', interp.latitude.toString())
-    if (interp?.longitude !== undefined)
-      params.set('longitude', interp.longitude.toString())
-    if (interp?.elevation !== undefined)
-      params.set('elevation', interp.elevation.toString())
-    // Add interpolation settings
-    params.set('use_nearby_station_distance', props.settings.useNearbyStationDistance.toString())
-    const stationDistance = Object.entries(props.settings.useStationDistancePerParameter)
-      .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
-      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
-    if (Object.keys(stationDistance).length > 0) {
-      params.set('interpolation_station_distance', JSON.stringify(stationDistance))
-    }
-    for (const [key, value] of Object.entries(stationDistanceRadii('interpolation')))
-      params.set(key, value.toString())
-    if (props.settings.minGainOfValuePairs !== 0.10) {
-      params.set('min_gain_of_value_pairs', props.settings.minGainOfValuePairs.toString())
-    }
-    if (props.settings.numAdditionalStations !== 3) {
-      params.set('num_additional_stations', props.settings.numAdditionalStations.toString())
-    }
-  }
-  else if (isSummaryMode.value) {
-    endpoint = '/api/summarize'
-    filename = 'summary'
-    const interp = ss.interpolation
-    if (interp?.latitude !== undefined)
-      params.set('latitude', interp.latitude.toString())
-    if (interp?.longitude !== undefined)
-      params.set('longitude', interp.longitude.toString())
-    if (interp?.elevation !== undefined)
-      params.set('elevation', interp.elevation.toString())
-    // Add summary settings (uses same settings as interpolation)
-    params.set('use_nearby_station_distance', props.settings.useNearbyStationDistance.toString())
-    const stationDistance = Object.entries(props.settings.useStationDistancePerParameter)
-      .filter(([_, value]) => value != null && value !== undefined && String(value).trim() !== '')
-      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
-    if (Object.keys(stationDistance).length > 0) {
-      params.set('summary_station_distance', JSON.stringify(stationDistance))
-    }
-    for (const [key, value] of Object.entries(stationDistanceRadii('summary')))
-      params.set(key, value.toString())
-    // Always send interpolation settings (backend has matching defaults)
-    params.set('min_gain_of_value_pairs', props.settings.minGainOfValuePairs.toString())
-    params.set('num_additional_stations', props.settings.numAdditionalStations.toString())
-  }
-  else {
-    params.set('station', ss.selection?.stations?.map(station => station.station_id).join(',') ?? '')
-  }
-
-  const response = await fetch(`${endpoint}?${params.toString()}`)
-  const data = await response.text()
-  // an error answer is told, not saved as the file asked for
-  if (!response.ok) {
-    let body: unknown = null
-    try {
-      body = JSON.parse(data)
-    }
-    catch {}
-    toast.add({
-      title: t('dataViewer.fetchErrorToastTitle'),
-      description: describeApiError(body) ?? `${response.status} ${response.statusText}`,
-      color: 'error',
-    })
+  if (format === 'geojson') {
+    const request = fetchedRequest.value
+    if (request && !isDataTransformed.value)
+      await downloadGeojson(request)
     return
   }
+  const columns = exportColumns(sortedValues.value, TABLE_ORDER)
+  const content = format === 'csv' ? valuesToCsv(sortedValues.value, columns) : valuesToJson(sortedValues.value, columns)
+  saveFile(content, fetchedRequest.value?.filename ?? ENDPOINTS.values.filename, format)
+}
 
-  const blob = new Blob([data], { type: 'application/octet-stream' })
+function saveFile(content: string, filename: string, format: 'csv' | 'json' | 'geojson') {
+  const blob = new Blob([content], { type: 'application/octet-stream' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `${filename}.${extension}`
+  link.download = `${filename}.${format}`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  // later, not at once: some browsers start the download after the click returns, and a large file
+  // whose URL is already gone fails
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
 
   toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedValues', { format: format.toUpperCase() }), color: 'success' })
+}
+
+// Ask again for the request that filled the table, as GeoJSON, and save it. Nothing is saved where the
+// answer failed, which is told, or where the table moved on -- Fetch, Clear, the query panel -- which
+// aborts it, and is told as a cancelled download
+async function downloadGeojson(request: NonNullable<typeof fetchedRequest.value>) {
+  // one at a time: the menu does not offer another, and a second chosen before it has updated waits
+  // on nothing and keeps the first one's controller, which Fetch and Clear abort
+  if (geojsonDownload.value)
+    return
+  const download = new AbortController()
+  geojsonDownload.value = download
+  try {
+    // as the table's own request was sent, so the query reads the same; once, as a failed answer is
+    // told at once rather than asked for again
+    const geojson = await $fetch<string>(request.endpoint, {
+      query: { ...request.query, format: 'geojson' },
+      responseType: 'text',
+      retry: 0,
+      signal: download.signal,
+    })
+    // an answer that came in as the table moved on is not saved either. Looked at and saved in one
+    // go: a change to the table aborts at once, and none can come in between
+    if (!download.signal.aborted) {
+      saveFile(geojson, request.filename, 'geojson')
+      return
+    }
+  }
+  catch (error) {
+    if (!download.signal.aborted) {
+      toast.add({ title: t('dataViewer.fetchErrorToastTitle'), description: describeFetchError(error), color: 'error' })
+      return
+    }
+  }
+  finally {
+    // not a newer download's, which an aborted one can finish after
+    if (geojsonDownload.value === download)
+      geojsonDownload.value = null
+  }
+  // aborted: said so where the table changed, the download having been asked for and never coming
+  if (download.signal.reason === TABLE_CHANGED)
+    toast.add({ title: t('dataViewer.downloadCancelled'), color: 'warning' })
 }
 
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
@@ -558,30 +570,44 @@ const downloadMenuItems = computed(() => {
       ],
     ]
   }
+  // offered while the table shows rows to save; GeoJSON also needs the request that filled the table,
+  // and a table the query panel has rewritten is no longer what that request answers
+  const nothingShown = sortedValues.value.length === 0
   return [
     [
-      { label: 'CSV', onSelect: () => downloadValues('csv', 'csv') },
-      { label: 'JSON', onSelect: () => downloadValues('json', 'json') },
-      { label: 'GeoJSON', onSelect: () => downloadValues('geojson', 'geojson') },
+      { label: 'CSV', disabled: nothingShown, onSelect: () => downloadValues('csv') },
+      { label: 'JSON', disabled: nothingShown, onSelect: () => downloadValues('json') },
+      {
+        label: 'GeoJSON',
+        disabled: nothingShown || isDataTransformed.value || downloadingGeojson.value || !fetchedRequest.value,
+        onSelect: () => downloadValues('geojson'),
+      },
     ],
   ]
 })
 
 // Manual fetch function
-function fetchData() {
+async function fetchData() {
   if (!canFetchData.value) {
-    valuesData.value = { values: [] }
-    valuesError.value = undefined
+    clearData()
     return
   }
-  refreshValues()
+  const request = { ...selectedEndpoint.value, query: { ...apiQuery.value } }
+  sentRequest.value = request
   currentPage.value = 1
+  await refreshValues()
+  // a newer Fetch or a Clear since has its own; this one answers for the table only if it is still the
+  // last one sent
+  if (sentRequest.value === request)
+    fetchedRequest.value = valuesError.value ? null : request
 }
 
 // Clear function to reset data
 function clearData() {
-  valuesData.value = { values: [] }
-  valuesError.value = undefined
+  // aborts a fetch still under way, and empties the table and its error
+  fetchedRequest.value = null
+  sentRequest.value = null
+  clearValues()
   currentPage.value = 1
 }
 
@@ -1044,13 +1070,13 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             <template v-if="viewMode === 'table'">
               <UTooltip :text="t('dataViewer.copyCurrentPage')">
                 <UButton
-                  size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending"
+                  size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending || !paginatedValues.length"
                   @click="copyCurrentPage"
                 />
               </UTooltip>
               <UTooltip :text="t('dataViewer.copyAllValues')">
                 <UButton
-                  size="xs" variant="ghost" icon="i-lucide-copy-check" :disabled="valuesPending"
+                  size="xs" variant="ghost" icon="i-lucide-copy-check" :disabled="valuesPending || !sortedValues.length"
                   @click="copyAllValues"
                 />
               </UTooltip>
