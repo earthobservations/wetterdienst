@@ -93,8 +93,9 @@ let conn: any = null
 // DuckDB's start, which a run and the syntax check share rather than start a database each
 let started: Promise<void> | null = null
 // the start failed: a run starts DuckDB again, the syntax check does not, rather than at every pause
-// in typing
+// in typing; and why, which the run tells
 let startFailed = false
+let startError = ''
 
 // Initialize DuckDB
 function initDuckDB({ again = false } = {}): Promise<void> {
@@ -139,6 +140,7 @@ async function startDuckDB() {
     console.error('Failed to initialize DuckDB:', err)
     database?.terminate().catch(() => {})
     startFailed = true
+    startError = err.message || 'Unknown error'
   }
 }
 
@@ -354,7 +356,7 @@ async function executeQuery() {
     if (run !== currentRun)
       return
     if (!db || !conn) {
-      error.value = 'Failed to initialize database'
+      error.value = `Failed to initialize database: ${startError}`
       return
     }
 

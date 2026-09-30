@@ -112,8 +112,8 @@ Types of changes:
   twice at once and the query run on rows held twice or on none (GH-2104)
 - `[Explorer]` A query left by Cancel, or by a Fetch, changes nothing when it answers: its result
   replaced the rows Cancel had handed back, its error showed the next time query mode was entered,
-  and Run Query stayed disabled and loading until it answered, or turned idle under a newer run
-  (GH-2096)
+  and Run Query stayed disabled and loading until it answered, or turned idle under a newer run.
+  DuckDB failing to start is told by the run, with its reason (GH-2096)
 - `[Explorer]` Leaving the Explorer within half a second of editing a query no longer starts a
   DuckDB database for its syntax check, which stayed running in the browser until the page was
   reloaded; a database still starting as the panel goes is ended once it has started (GH-2108)

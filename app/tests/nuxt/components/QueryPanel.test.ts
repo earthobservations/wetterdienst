@@ -406,7 +406,8 @@ describe('queryPanel failed start or load', () => {
     vi.mocked(URL.revokeObjectURL).mockClear()
     const wrapper = await queryMode()
     await runButton(wrapper).trigger('click')
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to initialize database'))
+    // and why
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to initialize database: blocked'))
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:duckdb')
   })
