@@ -558,6 +558,7 @@
     "copiedRows": "Skopiowano {count} wierszy do schowka",
     "downloaded": "Pobrano",
     "downloadedValues": "Wartości pobrane jako {format}",
+    "downloadCancelled": "Pobieranie anulowane: tabela się zmieniła",
     "downloadedChart": "Wykres pobrany jako {format}",
     "axisDate": "Data",
     "axisValue": "Wartość",

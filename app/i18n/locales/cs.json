@@ -558,6 +558,7 @@
     "copiedRows": "{count} řádků zkopírováno do schránky",
     "downloaded": "Staženo",
     "downloadedValues": "Hodnoty staženy jako {format}",
+    "downloadCancelled": "Stahování zrušeno: tabulka se změnila",
     "downloadedChart": "Graf stažen jako {format}",
     "axisDate": "Datum",
     "axisValue": "Hodnota",

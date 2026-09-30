@@ -558,6 +558,7 @@
     "copiedRows": "{count} Zeilen an d'Tëschenoflag kopéiert",
     "downloaded": "Erofgelueden",
     "downloadedValues": "Wäerter als {format} erofgelueden",
+    "downloadCancelled": "Download ofgebrach: d'Tabell huet sech geännert",
     "downloadedChart": "Diagramm als {format} erofgelueden",
     "axisDate": "Datum",
     "axisValue": "Wäert",

@@ -223,10 +223,13 @@ const downloadingGeojson = computed(() => geojsonDownload.value !== null)
 // Abort the GeoJSON download under way: the table it describes is going. Called by Fetch, Clear and
 // the query panel as they change the table, not from a watcher, which runs only once they return --
 // after an answer that arrived in between was already saved
-function abortGeojson() {
-  geojsonDownload.value?.abort()
+// why a download is aborted: the table it describes changed, which is told, or the viewer is gone,
+// when there is no one to tell
+const TABLE_CHANGED = 'table-changed'
+function abortGeojson(reason: string = TABLE_CHANGED) {
+  geojsonDownload.value?.abort(reason)
 }
-onScopeDispose(abortGeojson)
+onScopeDispose(() => abortGeojson('unmounted'))
 
 // One key for the table's values, whatever the request: a newer Fetch cancels one still under way
 // (useFetch's default `dedupe: 'cancel'`) and Clear aborts it (`clear`), so an answer they overtook never
@@ -507,18 +510,24 @@ async function fetchGeojson(request: NonNullable<typeof fetchedRequest.value>): 
       signal: download.signal,
     })
     // an answer that came in as the table moved on is not saved either
-    return download.signal.aborted ? null : geojson
+    if (!download.signal.aborted)
+      return geojson
   }
   catch (error) {
-    if (!download.signal.aborted)
+    if (!download.signal.aborted) {
       toast.add({ title: t('dataViewer.fetchErrorToastTitle'), description: describeFetchError(error), color: 'error' })
-    return null
+      return null
+    }
   }
   finally {
     // not a newer download's, which an aborted one can finish after
     if (geojsonDownload.value === download)
       geojsonDownload.value = null
   }
+  // aborted: said so where the table changed, the download having been asked for and never coming
+  if (download.signal.reason === TABLE_CHANGED)
+    toast.add({ title: t('dataViewer.downloadCancelled'), color: 'warning' })
+  return null
 }
 
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {

@@ -40,17 +40,24 @@ export function describeApiError(body: unknown): string | null {
  * its status when it answered without, the error's own message when there was no answer at all.
  *
  * A request asked for as text gets its error body as text as well, so a JSON body is read first.
- * The status is told only where an answer came, with a body or a status text: useFetch wraps every
- * failure in an error whose status is 500 unless an answer said otherwise, one that never reached
- * the backend included, which has neither. An HTTP/2 answer has no status text, so its code is told
- * alone. ofetch begins its message with the whole request, `[GET] "/api/...?...": `, which is left
- * out.
+ * The status is told only where an answer came, which ofetch's error carries as its `response`, and
+ * useFetch's wrapping of it as its `cause`'s: useFetch gives every failure a status of 500 unless an
+ * answer said otherwise, one that never reached the backend included. An HTTP/2 answer has no
+ * status text, and an empty one no body, so neither tells whether one came. ofetch begins its
+ * message with the whole request, `[GET] "/api/...?...": `, which is left out.
  *
  * @param error - What the request threw, or the error useFetch holds
  * @returns The description
  */
 export function describeFetchError(error: unknown): string {
-  const failed = error as { data?: unknown, message?: string, statusCode?: number, statusMessage?: string } | null | undefined
+  const failed = error as {
+    data?: unknown
+    message?: string
+    statusCode?: number
+    statusMessage?: string
+    response?: unknown
+    cause?: { response?: unknown }
+  } | null | undefined
   let body = failed?.data
   if (typeof body === 'string') {
     try {
@@ -61,8 +68,7 @@ export function describeFetchError(error: unknown): string {
   const detail = describeApiError(body)
   if (detail)
     return detail
-  // an answer came when it carried a body, or at least a status text; HTTP/2 sends no status text
-  if (failed?.statusCode && (failed.statusMessage || failed.data !== undefined))
+  if (failed?.statusCode && (failed.response ?? failed.cause?.response))
     return [failed.statusCode, failed.statusMessage].filter(Boolean).join(' ')
   // an empty message, as h3 gives an error it made from nothing, falls through to the error itself
   return failed?.message?.replace(/^\[\w+\] "[^"]*": /, '') || String(error)

@@ -558,6 +558,7 @@
     "copiedRows": "{count} rækker kopieret til udklipsholderen",
     "downloaded": "Downloadet",
     "downloadedValues": "Værdier downloadet som {format}",
+    "downloadCancelled": "Download annulleret: tabellen er ændret",
     "downloadedChart": "Diagram downloadet som {format}",
     "axisDate": "Dato",
     "axisValue": "Værdi",

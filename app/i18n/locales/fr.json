@@ -558,6 +558,7 @@
     "copiedRows": "{count} lignes copiées dans le presse-papiers",
     "downloaded": "Téléchargé",
     "downloadedValues": "Valeurs téléchargées au format {format}",
+    "downloadCancelled": "Téléchargement annulé : le tableau a changé",
     "downloadedChart": "Graphique téléchargé au format {format}",
     "axisDate": "Date",
     "axisValue": "Valeur",

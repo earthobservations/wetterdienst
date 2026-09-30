@@ -50,13 +50,13 @@ describe('describeFetchError', () => {
 
   it('tells the status of an answer without a detail, not the request URL', () => {
     // the error's message spells out the whole request, query and all
-    const plain = { data: 'Internal Server Error', message: '[GET] "/api/interpolate?provider=dwd&latitude=51": 500 Internal Server Error', statusCode: 500, statusMessage: 'Internal Server Error' }
+    const plain = { data: 'Internal Server Error', message: '[GET] "/api/interpolate?provider=dwd&latitude=51": 500 Internal Server Error', statusCode: 500, statusMessage: 'Internal Server Error', response: {} }
     expect(describeFetchError(plain)).toBe('500 Internal Server Error')
   })
 
   it('tells an answer without a status text by its code alone', () => {
-    // HTTP/2 sends no status text; the message then ends in the code and nothing after it
-    const http2 = { data: 'Bad Gateway', message: '[GET] "/api/values?station=01048": 502 ', statusCode: 502, statusMessage: '' }
+    // HTTP/2 sends no status text, and an empty answer no body: only its response says one came
+    const http2 = { data: undefined, message: '[GET] "/api/values?station=01048": 502 ', statusCode: 502, statusMessage: '', response: {} }
     expect(describeFetchError(http2)).toBe('502')
   })
 

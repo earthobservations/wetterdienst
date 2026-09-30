@@ -73,6 +73,8 @@ async function mountDataViewer(stationSelection = ref(byStation('01048'))) {
 
 // the download menu's items as it offers them: opened the way a keyboard opens it
 async function openDownloads(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
+  // a menu an item was just chosen from closes first; it opens again only once it has
+  await vi.waitFor(() => expect(document.body.querySelectorAll('[role="menuitem"]')).toHaveLength(0))
   await wrapper.find('button[aria-haspopup="menu"]').trigger('keydown', { key: 'Enter' })
   await vi.waitFor(() => expect(document.body.querySelectorAll('[role="menuitem"]')).toHaveLength(3))
   return [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')]
@@ -208,15 +210,18 @@ describe('dataViewer downloads', () => {
 
   it('keeps a cleared table empty when a fetch under way answers', async () => {
     // the answer is to a request the table no longer follows once it is cleared
+    let answered = false
     registerEndpoint('/api/values', async () => {
       await new Promise(resolve => setTimeout(resolve, 100))
+      answered = true
       return { values: [row] }
     })
     const { wrapper, viewer } = await mountDataViewer()
     const fetching = fetchData(viewer)
     ;(viewer.vm as unknown as { clearData: () => void }).clearData()
     await fetching
-    await new Promise(resolve => setTimeout(resolve, 150))
+    await vi.waitFor(() => expect(answered).toBe(true))
+    await wrapper.vm.$nextTick()
     expect(wrapper.text()).not.toContain('1.5')
     expect(offered(await openDownloads(wrapper))).toEqual([['CSV', false], ['JSON', false], ['GeoJSON', false]])
   })
@@ -263,27 +268,11 @@ describe('dataViewer downloads', () => {
 
   it('does not offer GeoJSON again while one is being downloaded', async () => {
     // a second choice sent a second request and saved a second file
-    registerEndpoint('/api/values', async (event) => {
-      if (getQuery(event).format === 'geojson')
-        await new Promise(resolve => setTimeout(resolve, 200))
-      return getQuery(event).format === 'geojson' ? { type: 'FeatureCollection', features: [] } : { values: [row] }
-    })
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    const saved = catchDownload()
-    ;(await openDownloads(wrapper))[2]!.click()
-    await new Promise(resolve => setTimeout(resolve, 20))
-    expect(offered(await openDownloads(wrapper))[2]).toEqual(['GeoJSON', false])
-    await vi.waitFor(() => expect(saved).toHaveLength(1))
-  })
-
-  it('saves no GeoJSON that Clear overtook while it was being asked for', async () => {
-    // it described a table that was no longer on screen, and said it was downloaded
-    let answered = false
+    let asked = false
     registerEndpoint('/api/values', async (event) => {
       if (getQuery(event).format === 'geojson') {
-        await new Promise(resolve => setTimeout(resolve, 150))
-        answered = true
+        asked = true
+        await new Promise(resolve => setTimeout(resolve, 200))
         return { type: 'FeatureCollection', features: [] }
       }
       return { values: [row] }
@@ -292,10 +281,30 @@ describe('dataViewer downloads', () => {
     await fetchData(viewer)
     const saved = catchDownload()
     ;(await openDownloads(wrapper))[2]!.click()
-    await new Promise(resolve => setTimeout(resolve, 20))
+    await vi.waitFor(() => expect(asked).toBe(true))
+    expect(offered(await openDownloads(wrapper))[2]).toEqual(['GeoJSON', false])
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+  })
+
+  it('saves no GeoJSON that Clear overtook while it was being asked for', async () => {
+    // it described a table that was no longer on screen, and said it was downloaded
+    let asked = false
+    registerEndpoint('/api/values', async (event) => {
+      if (getQuery(event).format === 'geojson') {
+        asked = true
+        await new Promise(resolve => setTimeout(resolve, 150))
+        return { type: 'FeatureCollection', features: [] }
+      }
+      return { values: [row] }
+    })
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const saved = catchDownload()
+    ;(await openDownloads(wrapper))[2]!.click()
+    await vi.waitFor(() => expect(asked).toBe(true))
     ;(viewer.vm as unknown as { clearData: () => void }).clearData()
-    await vi.waitFor(() => expect(answered).toBe(true))
-    await new Promise(resolve => setTimeout(resolve, 50))
+    // told, where it was dropped without a word
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Download cancelled: the table changed'))
     expect(saved).toHaveLength(0)
   })
 
@@ -323,8 +332,10 @@ describe('dataViewer downloads', () => {
     ['a query of its own, whose rows replace the table\'s', false],
   ])('a GeoJSON download under way is saved after %s: %s', async (_, kept) => {
     // it was aborted on every emit from the query panel, the unchanged table included, without a word
+    let asked = false
     registerEndpoint('/api/values', async (event) => {
       if (getQuery(event).format === 'geojson') {
+        asked = true
         await new Promise(resolve => setTimeout(resolve, 150))
         return { type: 'FeatureCollection', features: [] }
       }
@@ -334,12 +345,17 @@ describe('dataViewer downloads', () => {
     await fetchData(viewer)
     const saved = catchDownload()
     ;(await openDownloads(wrapper))[2]!.click()
-    await new Promise(resolve => setTimeout(resolve, 20))
+    await vi.waitFor(() => expect(asked).toBe(true))
     const panel = wrapper.findComponent(QueryPanel)
     const rows = kept ? panel.props('data') : [{ timestamp: '2020-01-01', parameter: 'temperature_air_mean_2m', avg_value: 1.5 }]
     panel.vm.$emit('dataTransformed', rows)
-    await new Promise(resolve => setTimeout(resolve, 250))
-    expect(saved).toHaveLength(kept ? 1 : 0)
+    if (kept) {
+      await vi.waitFor(() => expect(saved).toHaveLength(1))
+    }
+    else {
+      await vi.waitFor(() => expect(document.body.textContent).toContain('Download cancelled: the table changed'))
+      expect(saved).toHaveLength(0)
+    }
   })
 
   it('tells a GeoJSON request the backend refuses, and saves nothing', async () => {

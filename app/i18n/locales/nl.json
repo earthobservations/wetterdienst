@@ -558,6 +558,7 @@
     "copiedRows": "{count} rijen naar het klembord gekopieerd",
     "downloaded": "Gedownload",
     "downloadedValues": "Waarden gedownload als {format}",
+    "downloadCancelled": "Download geannuleerd: de tabel is gewijzigd",
     "downloadedChart": "Grafiek gedownload als {format}",
     "axisDate": "Datum",
     "axisValue": "Waarde",

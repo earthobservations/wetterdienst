@@ -558,6 +558,7 @@
     "copiedRows": "{count} rows copied to clipboard",
     "downloaded": "Downloaded",
     "downloadedValues": "Values downloaded as {format}",
+    "downloadCancelled": "Download cancelled: the table changed",
     "downloadedChart": "Chart downloaded as {format}",
     "axisDate": "Date",
     "axisValue": "Value",

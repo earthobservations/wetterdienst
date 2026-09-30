@@ -1,15 +1,6 @@
 /** A row as the data viewer holds it: a value, or a wide-shaped row, or whatever the query panel made. */
 type Row = object
 
-// whether a row holds these columns and no others, each with a value JSON writes, checked without
-// building a list of the row's keys
-function holdsExactly(row: Row, columns: string[]): boolean {
-  let count = 0
-  for (const _column in row)
-    count++
-  return count === columns.length && columns.every(column => field(row, column) !== undefined)
-}
-
 function field(row: Row, column: string): unknown {
   return (row as Record<string, unknown>)[column]
 }
@@ -74,12 +65,6 @@ export function valuesToCsv(values: Row[], columns: string[]): string {
  * @returns The JSON text
  */
 export function valuesToJson(values: Row[], columns: string[]): string {
-  // rows that each hold exactly these columns, none of them undefined -- the REST API's answer, as a
-  // rule -- are written as they are, rather than copied first, as a large table would be held twice
-  // over; their keys then keep the row's own order. Any other row is copied, and writes a column it
-  // lacks as null
-  const rows = values.every(row => holdsExactly(row, columns))
-    ? values
-    : values.map(row => Object.fromEntries(columns.map(column => [column, field(row, column) ?? null])))
+  const rows = values.map(row => Object.fromEntries(columns.map(column => [column, field(row, column) ?? null])))
   return JSON.stringify({ values: rows })
 }
