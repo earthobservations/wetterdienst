@@ -932,11 +932,30 @@ async function chartsDrawn() {
     await Promise.allSettled(chartRenders)
 }
 
+// A chart's renders, numbered as they start. A render started while another is under way draws the
+// change it was started for, and the older one stops before it draws again, where it would draw what
+// it read at its start over the newer drawing. Failed: the newest threw -- Plotly's import or its
+// drawing -- and the chart holds no drawing, which a chart image draws again rather than save
+interface ChartRenders { started: number, failed: boolean }
+const mainRenders: ChartRenders = { started: 0, failed: false }
+const facetRenders: ChartRenders = { started: 0, failed: false }
+
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   // a chart still being drawn holds no graph, which Plotly exports as an empty figure of its default
   // size: with a drawing under way, the charts are taken once it is done, as the page shows them then
   if (chartRenders.size > 0)
     await chartsDrawn()
+  // a chart whose render failed holds no drawing either: it is drawn again, and where that fails too,
+  // the image is not saved
+  const shownRenders = () => facetByParameter.value ? facetRenders : mainRenders
+  if (shownRenders().failed) {
+    void (facetByParameter.value ? renderFacetedCharts() : renderMainChart())
+    await chartsDrawn()
+    if (shownRenders().failed) {
+      toast.add({ title: t('dataViewer.chartNotDrawn'), color: 'error' })
+      return
+    }
+  }
   // faceted, one chart per parameter, in the order the page shows them. Taken once: faceting turned
   // on or off while Plotly loads would otherwise export these charts the other way
   const faceted = facetByParameter.value
@@ -1028,16 +1047,17 @@ const plotlyConfig: Partial<PlotlyConfig> = {
   modeBarButtonsToRemove: ['lasso2d', 'select2d'],
 }
 
-// A chart's renders, numbered as they start. A render started while another is under way draws the
-// change it was started for, and the older one stops before it draws again, where it would draw what
-// it read at its start over the newer drawing
-interface ChartRenders { started: number }
-const mainRenders: ChartRenders = { started: 0 }
-const facetRenders: ChartRenders = { started: 0 }
-
 function startRender(renders: ChartRenders, draw: (newest: () => boolean) => Promise<void>) {
   const number = ++renders.started
-  return tracked(draw(() => number === renders.started))
+  const newest = () => number === renders.started
+  return tracked(draw(newest).then(() => {
+    if (newest())
+      renders.failed = false
+  }, (error: unknown) => {
+    if (newest())
+      renders.failed = true
+    console.error('The chart could not be drawn', error)
+  }))
 }
 
 function renderMainChart() {
