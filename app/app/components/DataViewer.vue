@@ -603,14 +603,8 @@ async function fetchData() {
   await refreshValues()
   // a newer Fetch or a Clear since has its own; this one answers for the table only if it is still the
   // last one sent
-  if (sentRequest.value !== request)
-    return
-  // a fetch that failed has emptied the table; one useAsyncData aborted of its own accord, ending idle,
-  // leaves the table and its request as they were
-  if (valuesStatus.value === 'success')
-    fetchedRequest.value = request
-  else if (valuesStatus.value === 'error')
-    fetchedRequest.value = null
+  if (sentRequest.value === request)
+    fetchedRequest.value = valuesStatus.value === 'success' ? request : null
 }
 
 // A request as it compares with another: the query is built in one fixed order, and a field left unset

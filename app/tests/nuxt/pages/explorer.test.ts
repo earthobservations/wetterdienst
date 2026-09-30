@@ -19,21 +19,22 @@ const ExplorerWithApp = defineComponent({
 
 const VALUE_ROW = { station_id: '00001', dataset: 'climate_summary', parameter: 'temperature_air_max_200', timestamp: '2020-01-01T00:00:00Z', value: 12.3, quality: null, unit: 'degree_celsius' }
 
-// pages mounted with a selection, unmounted after each test
+// pages mounted, and endpoints registered, by a test: unmounted and removed after it
 const mounted: { unmount: () => void }[] = []
+const endpoints: (() => void)[] = []
 
 // Mount the page with a station and a parameter selected, ready to fetch; `values` answers /api/values
 async function mountWithSelection(values: () => unknown) {
-  registerEndpoint('/api/coverage', (event) => {
+  endpoints.push(registerEndpoint('/api/coverage', (event) => {
     const q = getQuery(event)
     if (q.provider)
       return { daily: { description: null, datasets: { climate_summary: { description: null, parameters: [{ name: 'temperature_air_max_200' }] } } } }
     return { dwd: { observation: {} } }
-  })
-  registerEndpoint('/api/stations', () => ({
-    stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }],
   }))
-  registerEndpoint('/api/values', values)
+  endpoints.push(registerEndpoint('/api/stations', () => ({
+    stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }],
+  })))
+  endpoints.push(registerEndpoint('/api/values', values))
 
   const wrapper = await mountSuspended(ExplorerWithApp, { attachTo: document.body })
   mounted.push(wrapper)
@@ -71,6 +72,7 @@ describe('explorer Page', () => {
 
   afterEach(() => {
     mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
     // toasts are app-wide, so a failed fetch's would be shown by the next test's page
     useToast().clear()
   })
