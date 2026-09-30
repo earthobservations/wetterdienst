@@ -175,3 +175,17 @@ describe('plainRows of a BIGNUM', () => {
     expect(value('SELECT \'\\x80\\x00\\x01\\x7B\'::BLOB')).toEqual([128, 0, 1, 123])
   })
 })
+
+describe('plainRows of a map with a NaN or an infinite key', () => {
+  it('keeps each such key apart, by its own name', () => {
+    // each was keyed by "null", the last one's value the only one kept
+    expect(value('SELECT MAP {\'nan\'::DOUBLE: 1, \'inf\'::DOUBLE: 2, \'-inf\'::DOUBLE: 3, 1.5::DOUBLE: 4}')).toEqual({ 'NaN': 1, 'Infinity': 2, '-Infinity': 3, '1.5': 4 })
+    expect(value('SELECT MAP {\'nan\'::FLOAT: 1, \'inf\'::FLOAT: 2}')).toEqual({ NaN: 1, Infinity: 2 })
+  })
+
+  it('gives each row its own keys across the chunks a large result comes in', () => {
+    const plain = rows('SELECT MAP {\'nan\'::DOUBLE: range, (CASE WHEN range % 2 = 0 THEN \'inf\' ELSE \'-inf\' END)::DOUBLE: -range} AS m FROM range(5000)')
+    expect(plain[0]).toEqual({ m: { NaN: 0, Infinity: 0 } })
+    expect(plain[4999]).toEqual({ m: { 'NaN': 4999, '-Infinity': -4999 } })
+  })
+})

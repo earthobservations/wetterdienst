@@ -190,10 +190,17 @@ function plainColumn(vector: Vector, field: Field): unknown[] {
       // type it is told by, which a list, a struct or a union inside them keeps
       const entries = vector.getChildAt(0)!
       const [keyField, valueField] = entries.type.children as Field[]
-      const keys = plainColumn(entries.getChildAt(0)!, keyField!)
+      const keyVector = entries.getChildAt(0)!
+      const keys = plainColumn(keyVector, keyField!)
       const values = plainColumn(entries.getChildAt(1)!, valueField!)
+      // a NaN or an infinite key, which is made null as any value is, by its own name, so that each
+      // stays apart (GH-2116)
+      const keyText = (key: unknown, at: number) => {
+        const raw = key === null ? keyVector.get(at) : key
+        return typeof raw === 'number' && !Number.isFinite(raw) ? String(raw) : typeof key === 'string' ? key : JSON.stringify(key)
+      }
       return childRanges(vector).map(range => range && Object.fromEntries(keys.slice(...range).map((key, index) =>
-        [typeof key === 'string' ? key : JSON.stringify(key), values[range[0] + index]])))
+        [keyText(key, range[0] + index), values[range[0] + index]])))
     }
     case Type.Interval: {
       // DuckDB's intervals are all MONTH_DAY_NANO, four 32-bit integers a row -- months, days and the
