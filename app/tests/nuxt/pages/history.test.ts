@@ -351,3 +351,65 @@ describe('history Page', () => {
     expect(vm.canFetch).toBe(true)
   })
 })
+
+describe('history Page tables', () => {
+  beforeEach(() => {
+    registerEndpoint('/api/coverage', (event) => {
+      const q = getQuery(event)
+      if (q.provider)
+        return { daily: { description: null, datasets: { climate_summary: { description: null, parameters: [{ name: 'temperature_air_max_200' }] } } } }
+      return { dwd: { observation: {} } }
+    })
+  })
+
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(dispose => dispose())
+  })
+
+  it('shows a number of 0 as 0, and one the backend has no value for as -', async () => {
+    const period = { station_id: '00001', station_name: 'Foo Station', start_date: '2000-01-01T00:00:00+00:00', end_date: '2001-01-01T00:00:00+00:00' }
+    // each table a row with its numbers at 0, and one with them null, as the backend sends a field it has no value for
+    const { wrapper, showButton } = await mountWithSelection(() => ({
+      histories: [{
+        device: [
+          { ...period, device_type: 'Thermometer', device_height: 0, latitude: 0, longitude: 0, station_elevation: 0, method: 'M' },
+          { ...period, device_type: 'Thermometer', device_height: null, latitude: null, longitude: null, station_elevation: null, method: 'M' },
+        ],
+        geography: [
+          { ...period, latitude: 0, longitude: 0, station_elevation: 0 },
+          { ...period, latitude: null, longitude: null, station_elevation: null },
+        ],
+        missing_data: {
+          summary: [
+            { ...period, parameter: 'TMK', missing_count: 0, description: null },
+            { ...period, parameter: 'TMK', missing_count: null, description: null },
+          ],
+          periods: [
+            { ...period, parameter: 'TXK', missing_count: 0, description: null },
+            { ...period, parameter: 'TXK', missing_count: null, description: null },
+          ],
+        },
+      }],
+    }))
+
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
+    for (const section of ['Device history', 'Geography history', 'Missing data history'])
+      await wrapper.findAll('button').find(b => b.text().includes(section))!.trigger('click')
+
+    // each row's cells after its start and end date, in the table headed by `column` that holds `text`
+    const cells = (column: string, text = '') => {
+      const table = wrapper.findAll('table').find(t =>
+        t.find('thead').exists() && t.find('thead').text().includes(column) && t.text().includes(text))
+      return table
+        ? [...table.element.querySelectorAll('tbody tr')].map(tr =>
+            [...tr.querySelectorAll('td')].slice(2).map(td => td.textContent!.trim()))
+        : []
+    }
+    await vi.waitFor(() => expect(cells('Station elevation')).toEqual([['0', '0', '0'], ['-', '-', '-']]), { timeout: 5000 })
+    expect(cells('Device height')).toEqual([['Thermometer', '0', 'M'], ['Thermometer', '-', 'M']])
+    expect(cells('Missing count', 'TMK')).toEqual([['TMK', '0'], ['TMK', '-']])
+    expect(cells('Missing count', 'TXK')).toEqual([['TXK', '0'], ['TXK', '-']])
+  })
+})

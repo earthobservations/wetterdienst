@@ -588,7 +588,7 @@ function clear() {
                                   {{ entry.device_type || '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.device_height || '-' }}
+                                  {{ entry.device_height ?? '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
                                   {{ entry.method || '-' }}
@@ -642,13 +642,13 @@ function clear() {
                                   {{ entry.end_date || '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.latitude || '-' }}
+                                  {{ entry.latitude ?? '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.longitude || '-' }}
+                                  {{ entry.longitude ?? '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.station_elevation || '-' }}
+                                  {{ entry.station_elevation ?? '-' }}
                                 </td>
                               </tr>
                             </tbody>
@@ -706,7 +706,7 @@ function clear() {
                                     {{ entry.parameter || '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.missing_count || '-' }}
+                                    {{ entry.missing_count ?? '-' }}
                                   </td>
                                 </tr>
                               </tbody>
@@ -749,7 +749,7 @@ function clear() {
                                     {{ entry.parameter || '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.missing_count || '-' }}
+                                    {{ entry.missing_count ?? '-' }}
                                   </td>
                                 </tr>
                               </tbody>

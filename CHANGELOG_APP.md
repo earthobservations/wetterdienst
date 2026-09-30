@@ -74,6 +74,9 @@ Types of changes:
   as the REST API has none: the table and copies show them empty, a CSV download writes nothing
   and a JSON download null. The CSV wrote `NaN`, `Infinity` or `-Infinity` where the JSON wrote
   null (GH-2111)
+- `[History]` A number of 0 shows as 0 in the device, geography and missing data tables, where it
+  showed as `-`: a station or sensor at 0 m, a latitude or longitude of 0, a missing count of 0.
+  `-` is kept for a value the backend has none for (GH-2100)
 
 ## [0.17.0] - 2026-09-29
 
