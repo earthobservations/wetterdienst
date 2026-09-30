@@ -710,3 +710,63 @@ describe('queryPanel statements', () => {
     expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(data)
   })
 })
+
+describe('queryPanel check after a Fetch', () => {
+  // the rows of a summary, which name the station each value was taken from
+  const summary: Value[] = [{ ...data[0]!, taken_station_id: '01048' }]
+  const spinner = (wrapper: Awaited<ReturnType<typeof queryMode>>) => wrapper.find('div.absolute.top-2.right-2').exists()
+
+  it.each([
+    { from: 'station', to: 'summary', before: data, after: summary, errorAfter: false },
+    { from: 'summary', to: 'station', before: summary, after: data, errorAfter: true },
+  ] as const)('checks the query again for the rows a Fetch brought, from $from to $to rows', async ({ from, to, before, after, errorAfter }) => {
+    // the answer for the rows before stayed: an error that kept Run Query disabled for a query fine
+    // for the new rows, or none for a query that fails on them
+    const sql = 'SELECT * FROM data WHERE taken_station_id IS NOT NULL LIMIT 10'
+    const statements = watchStatements()
+    const wrapper = await mountSuspended(QueryPanel, { props: { data: before, expectedColumns: Object.keys(before[0]!), mode: from } })
+    mounted.push(wrapper)
+    // each check explains the query, and ends once it has
+    const checked = async (times: number) => {
+      await vi.waitFor(() => expect(statements.filter(statement => statement === `EXPLAIN ${sql}`)).toHaveLength(times))
+      await vi.waitFor(() => expect(spinner(wrapper)).toBe(false))
+    }
+    await wrapper.find('button').trigger('click')
+    await editNow(wrapper, sql)
+    await checked(1)
+    expect(wrapper.text().includes('Syntax Error')).toBe(!errorAfter)
+    await wrapper.setProps({ data: after, expectedColumns: Object.keys(after[0]!), mode: to })
+    await buttonLabelled(wrapper, 'Transform with SQL Query').trigger('click')
+    await checked(2)
+    expect(wrapper.text().includes('Syntax Error')).toBe(errorAfter)
+    expect(runButton(wrapper).attributes('disabled') !== undefined).toBe(errorAfter)
+  })
+
+  it('checks the query once for the rows a Fetch brought, however often query mode is entered', async () => {
+    const sql = 'SELECT * FROM data LIMIT 10'
+    const statements = watchStatements()
+    const explained = () => statements.filter(statement => statement === `EXPLAIN ${sql}`)
+    const wrapper = await queryMode()
+    await editNow(wrapper, sql)
+    await vi.waitFor(() => expect(explained()).toHaveLength(1))
+    await wrapper.setProps({ data: [{ ...data[0]!, station_id: '04411' }] })
+    await buttonLabelled(wrapper, 'Transform with SQL Query').trigger('click')
+    await vi.waitFor(() => expect(explained()).toHaveLength(2))
+    await vi.waitFor(() => expect(spinner(wrapper)).toBe(false))
+    await buttonLabelled(wrapper, 'Cancel').trigger('click')
+    await buttonLabelled(wrapper, 'Transform with SQL Query').trigger('click')
+    await flushPromises()
+    expect(explained()).toHaveLength(2)
+  })
+
+  it('starts no DuckDB for a query never checked, entering query mode after a Fetch', async () => {
+    // DuckDB loads from a CDN, which the panel leaves until a query is edited or run
+    const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate')
+    unwatched.push(() => instantiate.mockRestore())
+    const wrapper = await queryMode()
+    await wrapper.setProps({ data: [{ ...data[0]!, station_id: '04411' }] })
+    await buttonLabelled(wrapper, 'Transform with SQL Query').trigger('click')
+    await flushPromises()
+    expect(instantiate).not.toHaveBeenCalled()
+  })
+})

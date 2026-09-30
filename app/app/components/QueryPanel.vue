@@ -213,10 +213,14 @@ function loadTable(rows: Value[], { again = false } = {}): Promise<void> {
 // longer it, or whose rows a Fetch has replaced, tells nothing: its statements may have met the
 // newer rows' load between its DROP and CREATE, and its answer is about text since edited
 let currentCheck = 0
+// a check has answered, or was answering, about rows a Fetch has since replaced or changed: entering
+// query mode checks the query again, rather than show its answer for the rows before (GH-2142)
+let recheck = false
 
 // Validate query syntax using DuckDB EXPLAIN
 async function validateQuerySyntax() {
   const check = ++currentCheck
+  recheck = false
   // the text checked, as validated, which can be edited while DuckDB starts or the table loads
   const sql = query.value
   const rows = props.data
@@ -436,6 +440,8 @@ function loadExample(exampleQuery: string) {
 // Toggle query mode
 function enableQueryMode() {
   isQueryMode.value = true
+  if (recheck)
+    validateQuerySyntax()
 }
 
 function disableQueryMode() {
@@ -455,6 +461,9 @@ watch(() => props.data, () => {
   // the table no longer holds the panel's rows: a load of them under way stops before its next
   // batch, and the next run or check loads the rows now held, replaced or changed in place
   tableLoad = null
+  // a query checked before, whose answer was about the rows before
+  if (currentCheck > 0)
+    recheck = true
   if (isQueryMode.value) {
     disableQueryMode()
   }
