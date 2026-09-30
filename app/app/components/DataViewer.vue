@@ -893,7 +893,30 @@ function chartShown() {
   return allValues.value.length > 0 && (facetByParameter.value ? facetedChartData.value.length > 0 : hasChartData.value)
 }
 
+// The charts' renders under way, which a chart image waits for. Each watcher starts one of its own,
+// so a newer one can start while another is under way
+const chartRenders = new Set<Promise<void>>()
+
+function tracked(render: Promise<void>): Promise<void> {
+  chartRenders.add(render)
+  const settled = () => {
+    chartRenders.delete(render)
+  }
+  render.then(settled, settled)
+  return render
+}
+
+// every render under way settled, and any a render started meanwhile
+async function chartsDrawn() {
+  while (chartRenders.size > 0)
+    await Promise.allSettled(chartRenders)
+}
+
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
+  // a chart still being drawn holds no graph, which Plotly exports as an empty figure of its default
+  // size: with a drawing under way, the charts are taken once it is done, as the page shows them then
+  if (chartRenders.size > 0)
+    await chartsDrawn()
   // faceted, one chart per parameter, in the order the page shows them. Taken once: faceting turned
   // on or off while Plotly loads would otherwise export these charts the other way
   const faceted = facetByParameter.value
@@ -985,8 +1008,16 @@ const plotlyConfig: Partial<PlotlyConfig> = {
   modeBarButtonsToRemove: ['lasso2d', 'select2d'],
 }
 
+function renderMainChart() {
+  return tracked(drawMainChart())
+}
+
+function renderFacetedCharts() {
+  return tracked(drawFacetedCharts())
+}
+
 // Render chart helper functions
-async function renderMainChart() {
+async function drawMainChart() {
   if (viewMode.value !== 'graph' || facetByParameter.value)
     return
   const plotly = await ensurePlotly()
@@ -999,7 +1030,7 @@ async function renderMainChart() {
   }
 }
 
-async function renderFacetedCharts() {
+async function drawFacetedCharts() {
   if (viewMode.value !== 'graph' || !facetByParameter.value)
     return
   const plotly = await ensurePlotly()

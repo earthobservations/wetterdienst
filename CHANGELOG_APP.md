@@ -103,6 +103,9 @@ Types of changes:
   is selected since. Selecting interpolation or summary without fetching again merged the stations
   into one series per parameter, zig-zagging between their values, labelled `interpolated` when
   faceted (GH-2097)
+- `[Explorer]` A chart image chosen while the chart is still being drawn is saved once it is drawn.
+  It saved an empty chart, or a stacked facet image with an empty panel, and reported it
+  downloaded (GH-2106)
 
 ## [0.17.0] - 2026-09-29
 
