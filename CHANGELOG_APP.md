@@ -129,14 +129,14 @@ Types of changes:
   a date, where each was an empty trace with a legend entry, or an empty panel; with no row to plot
   it says there is no chart data and offers no image. A large result counts only the points drawn,
   so a few among many such rows are drawn with markers (GH-2125)
-- `[Explorer]` Sorting a query's column that holds both numbers and text puts the numbers first,
-  then the text. The rows, copies and downloads came in an order each browser's sort made up
-  (GH-2126)
+- `[Explorer]` Sorting a query's column that holds both numbers and text keeps them apart, the
+  numbers before the text in ascending order and after it in descending. The rows, copies and
+  downloads came in an order each browser's sort made up (GH-2126)
 - `[Explorer]` The column picker is disabled and offers no columns while the table is empty, where
   it offered `parameter`, `value` and `quality` whatever the shape setting (GH-2115)
 - `[Explorer]` A query's integers past ±2^53, which come as their digits, sort by their value among
   the column's numbers, where they sorted as text: `10000000000000000000` before
-  `9007199254740993`, and a negative one after every number (GH-2153)
+  `9007199254740993` (GH-2153)
 
 ## [0.17.0] - 2026-09-29
 

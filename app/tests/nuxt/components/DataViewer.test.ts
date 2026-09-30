@@ -1447,7 +1447,7 @@ describe('dataViewer column picker while the table is empty', () => {
 
 describe('dataViewer sort of integers past 2^53', () => {
   // a query's HUGEINT column as plainRows writes it: the integers past 2^53 as their digits, the rest
-  // as numbers; and a text column's digits, which stay text
+  // as numbers; and digits within 2^53, sixteen of them as 2^53 has, which stay text
   const integers = [
     { n: '10000000000000000000' },
     { n: 5 },
@@ -1461,10 +1461,10 @@ describe('dataViewer sort of integers past 2^53', () => {
     registerEndpoint('/api/values', () => ({ values: [row] }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
-    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [...integers, { n: 'x' }, { n: '42' }, { n: '01048' }])
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [...integers, { n: 'x' }, { n: '1000000000000000' }, { n: '01048' }])
     await wrapper.vm.$nextTick()
     const n = () => wrapper.findAll('thead th span').find(span => span.text().replace(/[↕↑↓]/g, '') === 'n')!
-    const ascending = ['-10000000000000000000', '-9007199254740993', '-3', '5', '9007199254740993', '10000000000000000000', '01048', '42', 'x']
+    const ascending = ['-10000000000000000000', '-9007199254740993', '-3', '5', '9007199254740993', '10000000000000000000', '01048', '1000000000000000', 'x']
     await n().trigger('click')
     expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(ascending)
     await n().trigger('click')
