@@ -85,4 +85,16 @@ declare module 'plotly.js-basic-dist-min' {
       scale?: number
     },
   ): Promise<string>
+
+  // the step toImage takes from its SVG to a PNG or JPEG, answering with a data URL
+  export const Snapshot: {
+    svgToImg: (opts: {
+      svg: string
+      format: 'png' | 'jpeg'
+      width: number
+      height: number
+      canvas: HTMLCanvasElement
+      promise: true
+    }) => Promise<string>
+  }
 }
