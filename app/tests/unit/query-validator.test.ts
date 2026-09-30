@@ -149,6 +149,9 @@ describe('validateQuery statements', () => {
     ['SELECT * FROM data LIMIT 10 /* the last ten */', 'SELECT * FROM data LIMIT 10'],
     ['-- the last ten\nSELECT * FROM data LIMIT 10', '-- the last ten\nSELECT * FROM data LIMIT 10'],
     ['SELECT * FROM data WHERE parameter = \'a;b\' LIMIT 10', 'SELECT * FROM data WHERE parameter = \'a;b\' LIMIT 10'],
+    // a comment never closed, which DuckDB refuses, kept for the check to tell
+    ['SELECT * FROM data /* WHERE value > 0 LIMIT 10', 'SELECT * FROM data /* WHERE value > 0 LIMIT 10'],
+    ['SELECT * FROM data LIMIT 10; /* done', 'SELECT * FROM data LIMIT 10; /* done'],
   ])('lets %j through as the one statement %j', (sql, statement) => {
     expect(validateQuery(sql)).toMatchObject({ valid: true, statement })
   })

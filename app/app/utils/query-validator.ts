@@ -64,7 +64,7 @@ function stringEnd(text: string, at: number, escapes: boolean): number {
   return text.length
 }
 
-// The end of the comment opened at `at`, which DuckDB lets nest
+// The end of the comment opened at `at`, which DuckDB lets nest, or -1 when it is never closed
 function blockCommentEnd(text: string, at: number): number {
   let depth = 0
   let i = at + 2
@@ -83,7 +83,7 @@ function blockCommentEnd(text: string, at: number): number {
       i++
     }
   }
-  return text.length
+  return -1
 }
 
 /**
@@ -107,6 +107,9 @@ function firstStatement(query: string): { end: number, more: boolean } {
     }
     if (query.startsWith('/*', i)) {
       i = blockCommentEnd(query, i)
+      // a comment never closed, which DuckDB refuses: the statement keeps it, so the check tells why
+      if (i === -1)
+        return { end: query.length, more: false }
       continue
     }
     // a token from here
