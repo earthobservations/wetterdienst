@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { RecordBatch } from 'apache-arrow'
 import type { Value } from '#shared/types/api'
 import { plainRows } from '~/utils/arrow-rows'
 import { validateColumns, validateQuery } from '~/utils/query-validator'
@@ -311,6 +312,54 @@ watch(query, () => {
 // changes nothing: no result handed on, no error, no spinner stopped under a newer run
 let currentRun = 0
 
+// The connection of the run whose query DuckDB is running, which leaving that run cancels
+let sending: any = null
+
+// A query sent on a connection of its own, which DuckDB runs a slice at a time between polls, so
+// that leaving its run can cancel it (GH-2143): `query()` held DuckDB until the query ended, and the
+// next run and the syntax check waited for it. Its own, as a statement on the connection of a query
+// under way ends that query, and a later run's query on it would meet this one's result being read.
+// The result is read a batch at a time, and no further once the run is left, which a cancel, once
+// the query has ended, no longer stops
+async function sendQuery(sql: string, left: () => boolean) {
+  const connection = await db.connect()
+  try {
+    if (left())
+      return null
+    sending = connection
+    const reader = await connection.send(sql)
+    const batches: RecordBatch[] = []
+    for await (const batch of reader) {
+      if (left())
+        return null
+      batches.push(batch)
+    }
+    return batches
+  }
+  finally {
+    if (sending === connection)
+      sending = null
+    connection.close().catch(() => {})
+  }
+}
+
+// Leave the run under way: it hands on no result, and tells no error, when it answers, and DuckDB
+// cancels its query rather than run it to an end nobody waits for
+function leaveRun() {
+  currentRun++
+  sending?.cancelSent().catch(() => {})
+}
+
+// A run that failed: its error, over the fetched rows rather than the rows of the query before it,
+// which would read as its own (GH-2138)
+function fail(message: string) {
+  error.value = message
+  if (queryResults.value.length > 0) {
+    queryResults.value = []
+    emit('dataTransformed', props.data)
+  }
+}
+
 // Execute query
 async function executeQuery() {
   // the rows the query runs on, which a Fetch can replace before it answers
@@ -324,7 +373,7 @@ async function executeQuery() {
   // Validate query
   const validation = validateQuery(sql)
   if (!validation.valid) {
-    error.value = valText(validation.errorKey, validation.params)
+    fail(valText(validation.errorKey, validation.params))
     return
   }
 
@@ -342,12 +391,12 @@ async function executeQuery() {
     if (run !== currentRun)
       return
     if (!db || !conn) {
-      error.value = `Failed to initialize database: ${startError}`
+      fail(`Failed to initialize database: ${startError}`)
       return
     }
 
     if (rows.length === 0) {
-      error.value = 'No data available to query'
+      fail('No data available to query')
       return
     }
 
@@ -357,7 +406,7 @@ async function executeQuery() {
     catch (err: any) {
       if (run === currentRun) {
         console.error('Failed to load data into DuckDB:', err)
-        error.value = `Failed to load data: ${err.message || 'Unknown error'}`
+        fail(`Failed to load data: ${err.message || 'Unknown error'}`)
       }
       return
     }
@@ -365,16 +414,16 @@ async function executeQuery() {
     if (run !== currentRun)
       return
 
-    const result = await conn.query(sql)
+    const batches = await sendQuery(sql, () => run !== currentRun)
 
     // left by Cancel, or by a Fetch whose newer rows the result would replace
-    if (run !== currentRun)
+    if (!batches || run !== currentRun)
       return
 
     // each value made plain by its column's type, as the REST API would answer it, where Arrow's own
     // toJSON() left BigInts, milliseconds since the epoch and its own nested rows (GH-2068, GH-2071).
     // Typed as values, as the panel has always handed its rows on, whatever columns they carry
-    const resultArray = plainRows(result) as unknown as Value[]
+    const resultArray = batches.flatMap((batch: RecordBatch) => plainRows(batch)) as unknown as Value[]
 
     // The columns the result lacks, or adds, against the rows queried, told as a note: the table
     // shows any columns (GH-2074), and wide, interpolated and summarized rows lack columns that long
@@ -391,7 +440,7 @@ async function executeQuery() {
   catch (err: any) {
     if (run === currentRun) {
       console.error('Query execution error:', err)
-      error.value = `Query error: ${err.message}`
+      fail(`Query error: ${err.message}`)
     }
   }
   finally {
@@ -412,8 +461,7 @@ function enableQueryMode() {
 }
 
 function disableQueryMode() {
-  // the run under way is left: it hands on no result, and tells no error, when it answers
-  currentRun++
+  leaveRun()
   isExecuting.value = false
   isQueryMode.value = false
   queryResults.value = []
@@ -438,8 +486,9 @@ onUnmounted(async () => {
   // the delayed syntax check would start a database that nothing ends
   if (validationTimeout)
     clearTimeout(validationTimeout)
-  // a run or check under way loads no table into the database being closed, nor queries it
-  currentRun++
+  // a run or check under way loads no table into the database being closed, nor queries it, and a
+  // run's query is cancelled, as leaving the run any other way cancels it
+  leaveRun()
   currentCheck++
   // and a table load under way stops before its next batch
   tableLoad = null

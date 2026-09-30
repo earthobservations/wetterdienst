@@ -23,13 +23,17 @@ vi.mock('@duckdb/duckdb-wasm', () => ({
     async instantiate() {}
     async terminate() {}
     async connect() {
+      const query = async (sql: string) => {
+        const rows = /^(?:DROP|CREATE|INSERT) /.test(sql) ? [] : await duckdb.answer(sql)
+        const { Table, tableFromJSON } = await import('apache-arrow')
+        return rows.length > 0 ? tableFromJSON(rows) : new Table()
+      }
       return {
         close: async () => {},
-        query: async (sql: string) => {
-          const rows = /^(?:DROP|CREATE|INSERT) /.test(sql) ? [] : await duckdb.answer(sql)
-          const { Table, tableFromJSON } = await import('apache-arrow')
-          return rows.length > 0 ? tableFromJSON(rows) : new Table()
-        },
+        query,
+        // the run's query, read as the batches of the table it answers
+        send: async (sql: string) => (await query(sql)).batches,
+        cancelSent: async () => false,
       }
     }
   },
