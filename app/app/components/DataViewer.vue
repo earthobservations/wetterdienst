@@ -375,10 +375,13 @@ watch(allValues, () => {
 })
 
 // The mode the rows on screen were fetched in, and the selected one only while the table is empty:
-// the column picker and the query panel describe the rows shown, which a mode selected since has
-// not fetched
+// the column picker, the query panel and the chart describe the rows shown, which a mode selected
+// since has not fetched. The request sent once its answer is in, which the fetch sets together with
+// its rows: fetchedRequest follows a few microtasks later, and the new rows were drawn in the mode of
+// the request before until then
 const rowsMode = computed((): StationMode => {
-  const request = allValues.value.length ? fetchedRequest.value : null
+  const answered = valuesStatus.value === 'success' ? sentRequest.value : fetchedRequest.value
+  const request = allValues.value.length ? answered : null
   return request?.mode ?? stationSelection.value.mode
 })
 
@@ -706,13 +709,13 @@ const LARGE_DATASET_THRESHOLD = 500
 
 // Plotly traces for single chart
 const chartTraces = computed(() => {
-  const ss = stationSelection.value
-  if (!sortedValues.value.length || !ss.mode)
+  if (!sortedValues.value.length)
     return []
 
-  // Group values by series (station + parameter combination)
+  // Group values by series (station + parameter combination), as the rows shown were fetched: a mode
+  // selected since would merge two stations' rows into one series
   const seriesMap = new Map<string, { x: Date[], y: number[] }>()
-  const mode = ss.mode
+  const mode = rowsMode.value
 
   for (const value of sortedValues.value) {
     let parameterLabel = value.parameter
@@ -796,12 +799,12 @@ const hasChartData = computed(() => chartTraces.value.length > 0)
 
 // For faceted charts - group data by parameter
 const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] }[] => {
-  const ss = stationSelection.value
-  if (!facetByParameter.value || !sortedValues.value.length || !ss.mode)
+  if (!facetByParameter.value || !sortedValues.value.length)
     return []
 
   const parameterGroups = new Map<string, Map<string, { x: Date[], y: number[] }>>()
-  const mode = ss.mode
+  // the mode the rows shown were fetched in, as the single chart's
+  const mode = rowsMode.value
 
   for (const value of sortedValues.value) {
     let param = value.parameter
@@ -890,7 +893,30 @@ function chartShown() {
   return allValues.value.length > 0 && (facetByParameter.value ? facetedChartData.value.length > 0 : hasChartData.value)
 }
 
+// The charts' renders under way, which a chart image waits for. Each watcher starts one of its own,
+// so a newer one can start while another is under way
+const chartRenders = new Set<Promise<void>>()
+
+function tracked(render: Promise<void>): Promise<void> {
+  chartRenders.add(render)
+  const settled = () => {
+    chartRenders.delete(render)
+  }
+  render.then(settled, settled)
+  return render
+}
+
+// every render under way settled, and any a render started meanwhile
+async function chartsDrawn() {
+  while (chartRenders.size > 0)
+    await Promise.allSettled(chartRenders)
+}
+
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
+  // a chart still being drawn holds no graph, which Plotly exports as an empty figure of its default
+  // size: with a drawing under way, the charts are taken once it is done, as the page shows them then
+  if (chartRenders.size > 0)
+    await chartsDrawn()
   // faceted, one chart per parameter, in the order the page shows them. Taken once: faceting turned
   // on or off while Plotly loads would otherwise export these charts the other way
   const faceted = facetByParameter.value
@@ -982,8 +1008,16 @@ const plotlyConfig: Partial<PlotlyConfig> = {
   modeBarButtonsToRemove: ['lasso2d', 'select2d'],
 }
 
+function renderMainChart() {
+  return tracked(drawMainChart())
+}
+
+function renderFacetedCharts() {
+  return tracked(drawFacetedCharts())
+}
+
 // Render chart helper functions
-async function renderMainChart() {
+async function drawMainChart() {
   if (viewMode.value !== 'graph' || facetByParameter.value)
     return
   const plotly = await ensurePlotly()
@@ -996,7 +1030,7 @@ async function renderMainChart() {
   }
 }
 
-async function renderFacetedCharts() {
+async function drawFacetedCharts() {
   if (viewMode.value !== 'graph' || !facetByParameter.value)
     return
   const plotly = await ensurePlotly()

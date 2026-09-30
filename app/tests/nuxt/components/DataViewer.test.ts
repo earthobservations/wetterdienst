@@ -1109,3 +1109,194 @@ describe('dataViewer query structs under the table\'s own names', () => {
     expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(['temperature_air_mean_2m', '{"min":1,"max":2}'])
   })
 })
+
+describe('dataViewer chart series', () => {
+  // one parameter from two stations, a series each where fetched by station
+  const twoStations = [row, { ...row, station_id: '04411', value: 2.5 }]
+
+  // the names of the series the chart was last drawn with, faceted or not
+  function seriesDrawn(faceted: boolean) {
+    const draw = faceted ? plotly.react : plotly.newPlot
+    const [, traces] = draw.mock.lastCall as unknown as [HTMLElement, { name: string }[]]
+    return traces.map(trace => trace.name)
+  }
+
+  it.each([false, true])('keeps a series per station fetched when interpolation is selected without fetching, faceted: %s', async (faceted) => {
+    registerEndpoint('/api/values', () => ({ values: twoStations }))
+    const { wrapper, viewer, stationSelection } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    const series = faceted ? ['01048', '04411'] : ['01048 - temperature_air_mean_2m', '04411 - temperature_air_mean_2m']
+    expect(seriesDrawn(faceted)).toEqual(series)
+    // the rows shown are still both stations': merged, they made one series zig-zagging between them
+    stationSelection.value = atPoint('interpolation')
+    await flushPromises()
+    expect(seriesDrawn(faceted)).toEqual(series)
+  })
+
+  it.each([false, true])('draws interpolated rows fetched over station rows as interpolated, faceted: %s', async (faceted) => {
+    registerEndpoint('/api/values', () => ({ values: twoStations }))
+    registerEndpoint('/api/interpolate', () => ({ values: [{ ...row, taken_station_ids: ['01048', '04411'] }] }))
+    const { wrapper, viewer, stationSelection } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    stationSelection.value = atPoint('interpolation')
+    await flushPromises()
+    const draw = faceted ? plotly.react : plotly.newPlot
+    draw.mockClear()
+    await fetchData(viewer)
+    await flushPromises()
+    // every drawing of the answer: grouped by the mode of the request before it, the rows were drawn
+    // as a station's first, the request answered being taken as the rows' only a few ticks later
+    const drawn = draw.mock.calls.map(([, traces]) => (traces as { name: string }[]).map(trace => trace.name))
+    expect(drawn.length).toBeGreaterThan(0)
+    expect(drawn.every(names => names.join() === (faceted ? 'interpolated' : 'temperature_air_mean_2m'))).toBe(true)
+  })
+})
+
+describe('dataViewer chart images while drawn', () => {
+  // The chart drawn again, as the trendline is ticked, and held by Plotly until the test opens the
+  // gate: the single chart's newPlot, or the first facet's react, the others waiting behind it
+  async function redrawHeld(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper'], faceted: boolean) {
+    const draw = faceted ? plotly.react : plotly.newPlot
+    const drawn = draw.getMockImplementation()!
+    const held = gate()
+    draw.mockImplementationOnce(async (...args) => {
+      await held.opened
+      return drawn(...args)
+    })
+    const calls = draw.mock.calls.length
+    const label = wrapper.findAll('label').find(label => label.text() === 'Trendline')!
+    await wrapper.find(`#${label.attributes('for')}`).trigger('click')
+    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 1))
+    return held
+  }
+
+  async function toggleFaceting(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
+    const label = wrapper.findAll('label').find(label => label.text() === 'Facet by parameter')!
+    await wrapper.find(`#${label.attributes('for')}`).trigger('click')
+    await flushPromises()
+  }
+
+  // what exports a chart: Plotly's own download for the single one, toImage for each facet
+  function exports(faceted: boolean) {
+    return faceted ? plotly.toImage : plotly.downloadImage
+  }
+
+  it.each([false, true])('saves the chart once it is drawn, where it was chosen while being drawn, faceted: %s', async (faceted) => {
+    // exported at once, a chart Plotly had yet to draw saved as an empty figure
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    const saved = catchDownload()
+    const held = await redrawHeld(wrapper, faceted)
+    exports(faceted).mockClear()
+    ;(await openDownloads(wrapper))[0]!.click()
+    await flushPromises()
+    expect(exports(faceted)).not.toHaveBeenCalled()
+    held.open()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
+    expect(exports(faceted)).toHaveBeenCalledTimes(faceted ? 2 : 1)
+    expect(saved).toHaveLength(faceted ? 1 : 0)
+  })
+
+  it.each([false, true])('waits for a drawing started while it waits, faceted: %s', async (faceted) => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    catchDownload()
+    const first = await redrawHeld(wrapper, faceted)
+    exports(faceted).mockClear()
+    ;(await openDownloads(wrapper))[0]!.click()
+    // the trendline unticked again: drawn anew, over the chart the first drawing finishes
+    const second = await redrawHeld(wrapper, faceted)
+    first.open()
+    await flushPromises()
+    expect(exports(faceted)).not.toHaveBeenCalled()
+    second.open()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
+    expect(exports(faceted)).toHaveBeenCalledTimes(faceted ? 2 : 1)
+  })
+
+  it.each([
+    { faceted: false, toggled: false },
+    { faceted: true, toggled: false },
+    { faceted: false, toggled: true },
+    { faceted: true, toggled: true },
+  ])('says there is no chart where Clear emptied it while it was being drawn, faceted: $faceted, faceting turned: $toggled', async ({ faceted, toggled }) => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    const saved = catchDownload()
+    const held = await redrawHeld(wrapper, faceted)
+    exports(faceted).mockClear()
+    ;(await openDownloads(wrapper))[0]!.click()
+    await flushPromises()
+    if (toggled)
+      await toggleFaceting(wrapper)
+    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    held.open()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('No data available for chart'))
+    expect(exports(faceted)).not.toHaveBeenCalled()
+    expect(saved).toHaveLength(0)
+  })
+
+  it.each([false, true])('saves the chart as a Fetch drew it anew while it was drawn, a facet added, faceted: %s', async (faceted) => {
+    // the charts taken when chosen were saved: gone from the page, and a facet short of it
+    const answers = [twoParameters, [...twoParameters, { ...row, parameter: 'wind_speed', value: 3.1 }]]
+    registerEndpoint('/api/values', () => ({ values: answers.shift() }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    const saved = catchDownload()
+    const held = await redrawHeld(wrapper, faceted)
+    exports(faceted).mockClear()
+    ;(await openDownloads(wrapper))[2]!.click()
+    await flushPromises()
+    await fetchData(viewer)
+    await flushPromises()
+    held.open()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as SVG'))
+    if (faceted) {
+      const svg = new DOMParser().parseFromString(await saved[0]!.text(), 'image/svg+xml').documentElement
+      expect([...svg.children].map(chart => chart.textContent)).toEqual(['temperature_air_mean_2m', 'precipitation_height', 'wind_speed'])
+    }
+    else {
+      const [chart] = plotly.downloadImage.mock.lastCall as unknown as [HTMLElement]
+      expect(chart.isConnected).toBe(true)
+      expect(chart).toBe(plotly.newPlot.mock.lastCall![0])
+    }
+  })
+
+  it.each([false, true])('saves the charts as drawn where faceting is turned the other way while they are drawn, faceted: %s', async (faceted) => {
+    // the charts taken when chosen were saved: unmounted, and the facets beyond the one being drawn
+    // never drawn, which the drawing skips once they are gone
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    const saved = catchDownload()
+    const held = await redrawHeld(wrapper, faceted)
+    plotly.downloadImage.mockClear()
+    plotly.toImage.mockClear()
+    ;(await openDownloads(wrapper))[2]!.click()
+    await flushPromises()
+    await toggleFaceting(wrapper)
+    held.open()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as SVG'))
+    if (faceted) {
+      expect(plotly.toImage).not.toHaveBeenCalled()
+      const [chart] = plotly.downloadImage.mock.lastCall as unknown as [HTMLElement]
+      expect(chart.isConnected).toBe(true)
+      expect(chart).toBe(plotly.newPlot.mock.lastCall![0])
+    }
+    else {
+      expect(plotly.downloadImage).not.toHaveBeenCalled()
+      const svg = new DOMParser().parseFromString(await saved[0]!.text(), 'image/svg+xml').documentElement
+      expect([...svg.children].map(chart => chart.textContent)).toEqual(['temperature_air_mean_2m', 'precipitation_height'])
+    }
+  })
+})
