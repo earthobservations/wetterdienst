@@ -595,6 +595,7 @@ async function fetchData() {
     clearData()
     return
   }
+  // a copy, so a Fetch of the same selection again is a request of its own to the checks below
   const request = { ...selectedRequest.value }
   sentRequest.value = request
   currentPage.value = 1
@@ -602,7 +603,7 @@ async function fetchData() {
   // a newer Fetch or a Clear since has its own; this one answers for the table only if it is still the
   // last one sent
   if (sentRequest.value === request)
-    fetchedRequest.value = valuesError.value ? null : request
+    fetchedRequest.value = valuesStatus.value === 'success' ? request : null
 }
 
 // A request as it compares with another: the query is built in one fixed order, and a field left unset

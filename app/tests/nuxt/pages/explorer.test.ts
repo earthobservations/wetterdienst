@@ -81,6 +81,7 @@ describe('explorer Page', () => {
     )
 
     const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
     expect(wrapper.exists()).toBe(true)
   })
 
@@ -90,6 +91,7 @@ describe('explorer Page', () => {
     )
 
     const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
     const text = wrapper.text()
 
     expect(text).toContain('Select Parameters')
@@ -101,6 +103,7 @@ describe('explorer Page', () => {
     )
 
     const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
 
     // Check that the component renders successfully
     expect(wrapper.exists()).toBe(true)
@@ -112,6 +115,7 @@ describe('explorer Page', () => {
     )
 
     const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
 
     // Check if DataViewer component is present
     expect(wrapper.html()).toBeTruthy()
@@ -168,10 +172,12 @@ describe('explorer Page', () => {
     let release!: () => void
     const held = new Promise<void>(resolve => (release = resolve))
     let requests = 0
+    let firstAnswered = false
     const { wrapper, vm } = await mountWithSelection(async () => {
       requests += 1
       if (requests === 1) {
         await held
+        firstAnswered = true
         return { values: [VALUE_ROW] }
       }
       return { values: [{ ...VALUE_ROW, value: 45.6 }] }
@@ -190,9 +196,10 @@ describe('explorer Page', () => {
     expect(vm.canFetch).toBe(false)
     expect(wrapper.text()).not.toContain('12.3')
 
-    // let the held handler finish. Its answer cannot reach the table whenever it comes: useAsyncData
-    // rejects a cancelled fetch as it is aborted, not when its answer arrives
+    // let the held handler finish, within this test. Its answer cannot reach the table whenever it
+    // comes: useAsyncData rejects a cancelled fetch as it is aborted, not when its answer arrives
     release()
+    await vi.waitFor(() => expect(firstAnswered).toBe(true))
   })
 
   it('offers Show again when the station is removed and chosen again', async () => {
@@ -208,5 +215,23 @@ describe('explorer Page', () => {
     vm.stationSelectionState.selection.stations = [{ station_id: '00001', name: 'Test Station' }]
     await vi.waitFor(() => expect(vm.canFetch).toBe(true))
     expect(wrapper.text()).not.toContain('12.3')
+  })
+
+  it('keeps Show disabled when a setting the request does not carry changes', async () => {
+    const { wrapper, vm } = await mountWithSelection(() => ({ values: [VALUE_ROW] }))
+
+    await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('12.3'))
+    expect(vm.canFetch).toBe(false)
+
+    // an interpolation point is sent only in interpolation mode; this is station mode
+    vm.stationSelectionState.interpolation.latitude = 50.1
+    await wrapper.vm.$nextTick()
+    expect(vm.canFetch).toBe(false)
+
+    // the shape is sent in station mode, so changing it asks for something new
+    vm.dataSettings.shape = 'wide'
+    await wrapper.vm.$nextTick()
+    expect(vm.canFetch).toBe(true)
   })
 })
