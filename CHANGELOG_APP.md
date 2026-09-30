@@ -86,6 +86,9 @@ Types of changes:
   gives it, where it showed no name whenever the name section was fetched, which it is by default.
   The name is shown once, beside the station id, and no longer repeated in a row of its own below
   (GH-2092)
+- `[History]` A station's card takes its station id from the name and missing data sections too, so
+  it shows one when only those are fetched and hold records, where its header read `Station ID:`
+  with nothing after it (GH-2120)
 - `[Explorer]` The query panel's "Available columns" lists the columns of the rows it queries, in a
   download's order: a wide table's parameters, and an interpolation's `distance_mean` or a summary's
   `distance`. It listed the mode's fixed columns, among them a `quality` that interpolated and
@@ -121,6 +124,14 @@ Types of changes:
   one that is a MAP's own key or value. The query panel notes that the browser's DuckDB misreads
   BIT, TIME WITH TIME ZONE (dropping the offset) and UHUGEINT values of 2^127 or more (turning
   them negative), and that `CAST(column AS VARCHAR)` reads them as text (GH-2102)
+- `[Explorer]` A query's row whose timestamp is not text beginning with an ISO date, such as
+  `2020-01-01`, is left out of the chart: a time of day or `'n/a'` stopped the chart from being
+  drawn, text such as `'1'` was drawn at a date the browser made of it, and a number, read as
+  milliseconds whatever it counts, drew `epoch(timestamp)` in January 1970 (GH-2124)
+- `[Explorer]` The chart draws no series or facet for rows it cannot plot, those without a value or
+  a date, where each was an empty trace with a legend entry, or an empty panel; with no row to plot
+  it says there is no chart data and offers no image. A large result counts only the points drawn,
+  so a few among many such rows are drawn with markers (GH-2125)
 - `[Explorer/History/Stripes/Meteogram]` The station map shows the markers of the current station
   list only. A list that changed while the markers were still being built could leave the previous
   list's markers on the map, and clicking one selected a station of that list (GH-2132)
