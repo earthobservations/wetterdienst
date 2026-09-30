@@ -1053,8 +1053,10 @@ function startRender(renders: ChartRenders, draw: (newest: () => boolean) => Pro
     if (newest())
       renders.failed = false
   }, (error: unknown) => {
-    if (newest())
-      renders.failed = true
+    // a newer render draws the chart, and tells its own failure
+    if (!newest())
+      return
+    renders.failed = true
     console.error('The chart could not be drawn', error)
   }))
 }

@@ -1521,4 +1521,28 @@ describe('dataViewer chart images after a failed drawing', () => {
     expect(draw).toHaveBeenCalledTimes(calls + 2 + (faceted ? 2 : 1))
     expect(draw.mock.invocationCallOrder.at(-1)).toBeLessThan(exports(faceted).mock.invocationCallOrder[0]!)
   })
+
+  it.each([false, true])('tells no failure of a drawing a newer one has replaced, faceted: %s', async (faceted) => {
+    // the console said the chart could not be drawn, where the newer drawing had drawn it
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    const draw = draws(faceted)
+    const held = gate()
+    draw.mockImplementationOnce(async () => {
+      await held.opened
+      throw failed
+    })
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const calls = draw.mock.calls.length
+    // ticked: held, to fail; unticked again: drawn
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 1))
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + (faceted ? 3 : 2)))
+    held.open()
+    await flushPromises()
+    expect(logged).not.toHaveBeenCalled()
+  })
 })
