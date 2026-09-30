@@ -1300,3 +1300,41 @@ describe('dataViewer chart images while drawn', () => {
     }
   })
 })
+
+// a query's rows after one the chart can place, as the query panel hands them over
+async function withChartQuery(query: unknown[]) {
+  registerEndpoint('/api/values', () => ({ values: [row] }))
+  const mountedViewer = await mountDataViewer()
+  await fetchData(mountedViewer.viewer)
+  mountedViewer.wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [row, ...query])
+  await mountedViewer.wrapper.vm.$nextTick()
+  return mountedViewer
+}
+
+// the traces and layout the chart was last drawn with: the single chart's, or the last facet's
+function lastDrawn(faceted: boolean) {
+  const draw = faceted ? plotly.react : plotly.newPlot
+  const [, traces, layout] = draw.mock.lastCall as unknown as [HTMLElement, { name: string, x: string[], y: number[], mode: string }[], { hovermode: string }]
+  return { traces, layout }
+}
+
+describe('dataViewer chart of a query\'s timestamps that are no date', () => {
+  it.each([
+    // `CAST(timestamp AS TIME) AS timestamp`: the chart was not drawn, its traces throwing a RangeError
+    { timestamp: '01:00:00.000000', faceted: false },
+    { timestamp: '01:00:00.000000', faceted: true },
+    { timestamp: 'n/a', faceted: false },
+    { timestamp: 'n/a', faceted: true },
+    // `epoch(timestamp) AS timestamp`: read as milliseconds, drawn on 1970-01-19
+    { timestamp: 1577836800, faceted: false },
+    { timestamp: 1577836800, faceted: true },
+  ])('leaves out a row whose timestamp is $timestamp, faceted: $faceted', async ({ timestamp, faceted }) => {
+    plotly.newPlot.mockClear()
+    plotly.react.mockClear()
+    const { wrapper } = await withChartQuery([{ ...row, timestamp, value: 9 }])
+    await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect((faceted ? plotly.react : plotly.newPlot)).toHaveBeenCalled())
+    const [trace] = lastDrawn(faceted).traces
+    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
+  })
+})

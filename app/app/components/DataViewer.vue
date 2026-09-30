@@ -707,6 +707,18 @@ function calculateLinearRegression(xData: Date[], yData: number[]): { x: Date[],
 // Performance threshold - use WebGL and simplified rendering for large datasets
 const LARGE_DATASET_THRESHOLD = 500
 
+// The date a row is placed at on the chart, or null for a row the chart has no place for. A query
+// can put anything under `timestamp`: null; text that is no date, as a time of day or 'n/a', which
+// left an Invalid Date that threw once written as ISO text, and the chart was not drawn; or a
+// number, as epoch seconds, which a Date reads as milliseconds, and the point went to 1970
+function rowDate(row: Value): Date | null {
+  const timestamp: unknown = row.timestamp
+  if (typeof timestamp !== 'string')
+    return null
+  const date = new Date(timestamp)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
 // Plotly traces for single chart
 const chartTraces = computed(() => {
   if (!sortedValues.value.length)
@@ -733,10 +745,10 @@ const chartTraces = computed(() => {
       seriesMap.set(seriesKey, { x: [], y: [] })
     }
 
-    // a row without a timestamp -- a query's null one -- has no place on the time axis, where it went to 1970
-    if (value.value !== null && value.value !== undefined && value.timestamp != null) {
+    const date = rowDate(value)
+    if (value.value !== null && value.value !== undefined && date) {
       const series = seriesMap.get(seriesKey)!
-      series.x.push(new Date(value.timestamp))
+      series.x.push(date)
       series.y.push(value.value)
     }
   }
@@ -825,9 +837,10 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
       stationMap.set(stationKey, { x: [], y: [] })
     }
 
-    if (value.value !== null && value.value !== undefined && value.timestamp != null) {
+    const date = rowDate(value)
+    if (value.value !== null && value.value !== undefined && date) {
       const series = stationMap.get(stationKey)!
-      series.x.push(new Date(value.timestamp))
+      series.x.push(date)
       series.y.push(value.value)
     }
   }
