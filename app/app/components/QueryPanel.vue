@@ -113,6 +113,9 @@ async function initDuckDB() {
     const logger = new duckdb.ConsoleLogger()
     db = new duckdb.AsyncDuckDB(logger, worker)
     await db.instantiate(bundle.mainModule, bundle.pthreadWorker)
+    // DECIMAL and BIGINT answered as doubles, as the REST API's values are, rather than as Arrow's
+    // unscaled-integer objects and BigInts (GH-2068); plainRows turns the rest
+    await db.open({ query: { castBigIntToDouble: true, castDecimalToDouble: true } })
     URL.revokeObjectURL(worker_url)
 
     conn = await db.connect()
@@ -304,8 +307,8 @@ async function executeQuery() {
 
   try {
     const result = await conn.query(query.value)
-    // Arrow's own values made plain by their column's type -- dates as ISO strings, counts and decimals
-    // as numbers -- so whatever takes these rows reads them as it reads the REST API's (GH-2068)
+    // Arrow's own values made plain by their column's type -- timestamps as ISO text, bytes and nested
+    // values as JSON text -- so whatever takes these rows reads them as it reads the REST API's (GH-2068)
     // Typed as values, as the panel has always handed its rows on; validateColumns below checks that
     // they carry the columns a value needs before they go anywhere
     const resultArray = plainRows(result.toArray().map((row: any) => row.toJSON()), result.schema.fields) as unknown as Value[]

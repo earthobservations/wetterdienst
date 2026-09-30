@@ -22,10 +22,9 @@ Types of changes:
   with it -- "station: Cannot be combined with name" -- where a 422 showed `[object Object]`. A
   download the backend refuses shows that toast instead of saving the error as the file and
   reporting it downloaded, and a download with no station or point selected sends nothing (GH-2056)
-- `[Explorer]` Query panel results hold plain values: dates and timestamps as the REST API writes
-  them, counts and decimals as numbers (as digits past where a number is exact), bytes and nested
-  values as JSON text. DuckDB's own types reached the table and the chart as milliseconds since the
-  epoch, BigInts, unscaled integers or objects (GH-2068)
+- `[Explorer]` Query panel results hold plain values: timestamps and dates as ISO text in UTC,
+  decimals and BIGINTs as numbers, bytes and nested values as JSON text. DuckDB's own types reached
+  the table and the chart as milliseconds since the epoch, BigInts or unscaled integers (GH-2068)
 
 ## [0.17.0] - 2026-09-29
 
