@@ -154,7 +154,7 @@ const sent = shallowRef<{ query: ReturnType<typeof historyQuery>, stations: Stat
 // One key for the page's histories, whatever the request. Keyed by its query instead, as useFetch is by
 // default, the fetch moved to another entry whenever the query changed: that aborted a fetch under way,
 // left `status` idle, and left an entry behind for the rest of the session.
-const { data, pending, status, refresh, clear: clearHistories, error } = useFetch<any>('/api/history', {
+const { data, pending, status, refresh, clear: clearHistories, error } = useFetch('/api/history', {
   key: `${useId()}-history`,
   lazy: true,
   immediate: false,
@@ -163,7 +163,7 @@ const { data, pending, status, refresh, clear: clearHistories, error } = useFetc
   query: computed(() => sent.value?.query ?? {}),
   // the answer carries the stations it was fetched for: the overview lists them, not the live selection,
   // which may have moved on since. Only the last Show's fetch answers, one Show superseded is cancelled.
-  transform: (answer: any) => ({ ...answer, stations: sent.value?.stations ?? [] }),
+  transform: (answer: HistoryResponse) => ({ ...answer, stations: sent.value?.stations ?? [] }),
   default: () => ({ histories: [], stations: [] }),
 })
 
@@ -390,30 +390,6 @@ function clear() {
                           </td>
                           <td class="px-4 py-2 text-sm">
                             {{ getStationName(history) }}
-                          </td>
-                        </tr>
-                        <tr v-if="history.latitude != null" class="border-b border-gray-200 dark:border-gray-700">
-                          <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                            {{ t('history.colLatitude') }}
-                          </td>
-                          <td class="px-4 py-2 text-sm">
-                            {{ history.latitude }}
-                          </td>
-                        </tr>
-                        <tr v-if="history.longitude != null" class="border-b border-gray-200 dark:border-gray-700">
-                          <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                            {{ t('history.colLongitude') }}
-                          </td>
-                          <td class="px-4 py-2 text-sm">
-                            {{ history.longitude }}
-                          </td>
-                        </tr>
-                        <tr v-if="history.station_elevation != null">
-                          <td class="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                            {{ t('history.rowStationElevation') }}
-                          </td>
-                          <td class="px-4 py-2 text-sm">
-                            {{ history.station_elevation }} m
                           </td>
                         </tr>
                       </table>
