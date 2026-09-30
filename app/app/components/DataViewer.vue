@@ -377,7 +377,7 @@ const rowsMode = computed((): StationMode => {
 })
 
 // The columns of the rows' mode, the mode-specific one only for rows of that mode: what the picker
-// offers while the table is empty, and what the query panel lists
+// offers while the table is empty
 const modeColumns = computed(() => {
   const base: (keyof Value)[] = ['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality']
   if (rowsMode.value === 'summary') {
@@ -391,6 +391,12 @@ const modeColumns = computed(() => {
 
 // The columns the table knows, in its order: the ones it, the picker and a download put first
 const TABLE_ORDER: string[] = columnDefinitions.map(c => c.key)
+
+// The columns the query panel lists as available: those of the rows it queries, as a download
+// orders them. The mode's fixed columns listed a `quality` that interpolated and summarized rows
+// lack, and a wide table's `parameter` and `value`, and left out its parameters and a point mode's
+// distance
+const queryColumns = computed(() => exportColumns(allValues.value, TABLE_ORDER))
 
 // The picker's options: every column the rows shown carry, as a download writes them -- the table's
 // own in its order first, then a wide-shaped table's parameters or a query's `avg_value` -- and the
@@ -1127,7 +1133,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <QueryPanel
         v-if="allValues.length > 0"
         :data="allValues"
-        :expected-columns="modeColumns"
+        :expected-columns="queryColumns"
         :mode="rowsMode"
         @data-transformed="handleDataTransformed"
       />
