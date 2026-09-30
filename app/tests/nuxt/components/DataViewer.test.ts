@@ -982,3 +982,45 @@ describe('dataViewer chart images', () => {
     expect(plotly.downloadImage).not.toHaveBeenCalled()
   })
 })
+
+describe('dataViewer query panel columns', () => {
+  // the columns the query panel lists as available, as it shows them once opened
+  async function availableColumns(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
+    await wrapper.findAll('button').find(button => button.text() === 'Transform with SQL Query')!.trigger('click')
+    const hint = wrapper.findAll('div').find(div => div.text().startsWith('Available columns:'))
+    expect(hint).toBeDefined()
+    return hint!.find('code').text().split(', ')
+  }
+
+  it('lists the columns a wide-shaped table carries, its parameters in place of parameter, value and quality', async () => {
+    registerEndpoint('/api/values', () => ({ values: [{ station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5, precipitation_height: 0.2 }] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    expect(await availableColumns(wrapper)).toEqual(['station_id', 'resolution', 'dataset', 'timestamp', 'temperature_air_mean_2m', 'precipitation_height'])
+  })
+
+  // each point mode's rows as the REST API answers them, with a distance of their own and no quality.
+  // The distance comes first, so that the list is seen to follow the table's order, not the rows'
+  const { quality: _, ...measured } = row
+  it.each([
+    { mode: 'interpolation', endpoint: '/api/interpolate', values: [{ distance_mean: 12.3, ...measured, taken_station_ids: ['01048', '04411'] }], columns: ['taken_station_ids', 'distance_mean'] },
+    { mode: 'summary', endpoint: '/api/summarize', values: [{ distance: 4.2, ...measured, taken_station_id: '01048' }], columns: ['taken_station_id', 'distance'] },
+  ] as const)('lists the $mode rows\' own columns, after the table\'s, and no quality', async ({ mode, endpoint, values, columns }) => {
+    registerEndpoint(endpoint, () => ({ values }))
+    const { wrapper, viewer } = await mountDataViewer(ref(atPoint(mode)))
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    expect(await availableColumns(wrapper)).toEqual(['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', ...columns])
+  })
+
+  it('lists the columns of the rows it queries, not those of a query\'s result shown', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [{ parameter: 'temperature_air_mean_2m', avg_value: 2.5 }])
+    await wrapper.vm.$nextTick()
+    expect(headers(wrapper)).toEqual(['parameter', 'avg_value'])
+    expect(await availableColumns(wrapper)).toEqual(['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality'])
+  })
+})
