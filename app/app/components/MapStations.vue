@@ -31,13 +31,9 @@ function isSelected(stationId: string) {
 
 // A station without a position, e.g. a postcode of dwd/derived climate_correction_factor, has
 // no place on the map: it is left off it, and out of its centre and bounds.
-function positioned(stations: any[]) {
-  return stations.filter(hasPosition)
-}
-
-const mappedStations = computed(() => positioned(props.stations))
+const mappedStations = computed(() => props.stations.filter(hasPosition))
 // The selected stations the map can centre on.
-const mappedSelectedStations = computed(() => positioned(props.selectedStations))
+const mappedSelectedStations = computed(() => props.selectedStations.filter(hasPosition))
 
 const mapCenter = computed<[number, number]>(() => {
   const stations = mappedStations.value
@@ -166,11 +162,10 @@ watch(() => props.selectedStations, () => {
   // avoid noisy logs in production; keep a warn for visibility when needed
   console.warn('selectedStations changed', props.selectedStations)
   updateMarkerIcons()
-  // when user selects stations by clicking, indicate map is centered on selection -- for a selection
-  // with a position, as one without leaves nothing to centre on
-  if (mappedSelectedStations.value.length > 0) {
-    centerOnSelectedStations.value = true
-  }
+  // when user selects stations by clicking, indicate map is centered on selection -- while the
+  // selection has a station with a position: without one there is nothing to centre on, and the
+  // button is disabled rather than offering to leave a centring that has no bounds
+  centerOnSelectedStations.value = mappedSelectedStations.value.length > 0
 }, { deep: true })
 
 // Follows the selection while the map is centred on it. Off, the map is left where the user put it:
