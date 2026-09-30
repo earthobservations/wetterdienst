@@ -2,11 +2,11 @@
 import type { Value } from '#shared/types/api'
 import { plainRows } from '~/utils/arrow-rows'
 import { validateColumns, validateQuery } from '~/utils/query-validator'
+import { field } from '~/utils/values-export'
 
 const props = defineProps<{
   data: Value[]
   expectedColumns: string[]
-  mode: 'station' | 'interpolation' | 'summary'
 }>()
 
 const emit = defineEmits<{
@@ -33,59 +33,49 @@ const columnValidationMessage = ref<string | null>(null)
 const syntaxError = ref<string | null>(null)
 const isValidating = ref(false)
 
-// Required columns based on mode
-const requiredColumns = computed(() => {
-  const base = ['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality']
-  if (props.mode === 'summary') {
-    return [...base, 'taken_station_id']
-  }
-  if (props.mode === 'interpolation') {
-    return [...base, 'taken_station_ids']
-  }
-  return base
-})
-
-// Example queries based on mode
-const exampleQueries = computed(() => {
-  const base = [
-    {
-      label: 'All data (limited)',
-      query: 'SELECT * FROM data LIMIT 100',
-    },
-    {
-      label: 'Filter by parameter',
-      query: 'SELECT * FROM data WHERE parameter = \'temperature_air_mean_2m\' LIMIT 100',
-    },
-    {
-      label: 'Aggregate by timestamp',
-      query: 'SELECT timestamp, parameter, AVG(value) as avg_value FROM data GROUP BY timestamp, parameter ORDER BY timestamp LIMIT 100',
-    },
-    {
-      label: 'Filter by value range',
-      query: 'SELECT * FROM data WHERE value > 10 AND value < 30 LIMIT 100',
-    },
-    {
-      label: 'Recent data only',
-      query: 'SELECT * FROM data ORDER BY timestamp DESC LIMIT 100',
-    },
-  ]
-
-  // Add mode-specific queries
-  if (props.mode === 'interpolation') {
-    base.push({
-      label: 'Group by source stations',
-      query: 'SELECT taken_station_ids, parameter, COUNT(*) as count, AVG(value) as avg_value FROM data GROUP BY taken_station_ids, parameter LIMIT 100',
-    })
-  }
-  else if (props.mode === 'summary') {
-    base.push({
-      label: 'Group by source station',
-      query: 'SELECT taken_station_id, parameter, COUNT(*) as count, AVG(value) as avg_value FROM data GROUP BY taken_station_id, parameter LIMIT 100',
-    })
-  }
-
-  return base
-})
+// The example queries, each with the columns it reads, offered where the rows carry them: a wide
+// table has no `parameter` or `value`, only an interpolation `taken_station_ids`, only a summary
+// `taken_station_id`
+const EXAMPLE_QUERIES = [
+  {
+    label: 'All data (limited)',
+    query: 'SELECT * FROM data LIMIT 100',
+    reads: [],
+  },
+  {
+    label: 'Filter by parameter',
+    query: 'SELECT * FROM data WHERE parameter = \'temperature_air_mean_2m\' LIMIT 100',
+    reads: ['parameter'],
+  },
+  {
+    label: 'Aggregate by timestamp',
+    query: 'SELECT timestamp, parameter, AVG(value) as avg_value FROM data GROUP BY timestamp, parameter ORDER BY timestamp LIMIT 100',
+    reads: ['timestamp', 'parameter', 'value'],
+  },
+  {
+    label: 'Filter by value range',
+    query: 'SELECT * FROM data WHERE value > 10 AND value < 30 LIMIT 100',
+    reads: ['value'],
+  },
+  {
+    label: 'Recent data only',
+    query: 'SELECT * FROM data ORDER BY timestamp DESC LIMIT 100',
+    reads: ['timestamp'],
+  },
+  {
+    label: 'Group by source stations',
+    query: 'SELECT taken_station_ids, parameter, COUNT(*) as count, AVG(value) as avg_value FROM data GROUP BY taken_station_ids, parameter LIMIT 100',
+    reads: ['taken_station_ids', 'parameter', 'value'],
+  },
+  {
+    label: 'Group by source station',
+    query: 'SELECT taken_station_id, parameter, COUNT(*) as count, AVG(value) as avg_value FROM data GROUP BY taken_station_id, parameter LIMIT 100',
+    reads: ['taken_station_id', 'parameter', 'value'],
+  },
+]
+const exampleQueries = computed(() =>
+  EXAMPLE_QUERIES.filter(example => example.reads.every(column => props.expectedColumns.includes(column))),
+)
 
 // DuckDB instance
 let db: any = null
@@ -153,14 +143,24 @@ async function loadDataIntoDB(rows: Value[], superseded: () => boolean) {
   // Drop table if exists
   await conn.query('DROP TABLE IF EXISTS data')
 
-  // Create table based on first row structure
-  const firstRow = rows[0]!
-  const columns = Object.keys(firstRow)
-  const columnDefs = columns.map((col) => {
-    const value = firstRow[col as keyof typeof firstRow]
-    const type = typeof value === 'number' ? 'DOUBLE' : 'VARCHAR'
-    return `"${col}" ${type}`
-  }).join(', ')
+  // Every column any row carries, in the order they first appear, a DOUBLE where it holds numbers
+  // and nothing else but nulls, found in one pass over the rows: the first row alone left out a
+  // column only later rows carry, and made one it held null in VARCHAR, which `avg` and `>` refuse.
+  // A column with no value at all stays VARCHAR, which compares with a string where a DOUBLE fails
+  const kinds = new Map<string, 'none' | 'number' | 'text'>()
+  for (const row of rows) {
+    for (const [col, value] of Object.entries(row)) {
+      const kind = kinds.get(col) ?? 'none'
+      if (value === null || value === undefined)
+        kinds.set(col, kind)
+      else if (typeof value !== 'number')
+        kinds.set(col, 'text')
+      else if (kind === 'none')
+        kinds.set(col, 'number')
+    }
+  }
+  const columns = [...kinds.keys()]
+  const columnDefs = columns.map(col => `"${col}" ${kinds.get(col) === 'number' ? 'DOUBLE' : 'VARCHAR'}`).join(', ')
 
   await conn.query(`CREATE TABLE data (${columnDefs})`)
 
@@ -172,7 +172,7 @@ async function loadDataIntoDB(rows: Value[], superseded: () => boolean) {
     const batch = rows.slice(i, i + batchSize)
     const values = batch.map((row) => {
       const vals = columns.map((col) => {
-        const value = row[col as keyof typeof row]
+        const value = field(row, col)
         if (value === null || value === undefined)
           return 'NULL'
         if (typeof value === 'number')
@@ -273,28 +273,11 @@ async function validateQuerySyntax() {
     if (!current())
       return
 
-    // Validate output columns by running query with LIMIT 0
-    // This returns schema without fetching data - very fast!
-    try {
-      const schemaQuery = `SELECT * FROM (${sql}) LIMIT 0`
-      const schemaResult = await conn.query(schemaQuery)
-      const resultColumns = schemaResult.schema.fields.map((field: any) => field.name)
+    // The query as a subquery, with no row fetched: EXPLAIN passes a query of several statements,
+    // which a subquery refuses. Whatever columns it returns, the table shows them
+    await conn.query(`SELECT * FROM (${sql}) LIMIT 0`)
 
-      // Validate columns using existing validator
-      const columnValidation = validateColumns(resultColumns, requiredColumns.value)
-
-      if (!columnValidation.valid) {
-        answer(valText(columnValidation.messageKey, columnValidation.params))
-        return
-      }
-    }
-    catch (err: any) {
-      // If column validation fails, show error
-      answer(`Column validation error: ${err.message}`)
-      return
-    }
-
-    // If we get here, syntax and columns are valid
+    // If we get here, the syntax is valid
     answer(null)
   }
   catch (err: any) {
@@ -390,23 +373,16 @@ async function executeQuery() {
 
     // each value made plain by its column's type, as the REST API would answer it, where Arrow's own
     // toJSON() left BigInts, milliseconds since the epoch and its own nested rows (GH-2068, GH-2071).
-    // Typed as values, as the panel has always handed its rows on; validateColumns checks below that
-    // they carry the columns a value needs
+    // Typed as values, as the panel has always handed its rows on, whatever columns they carry
     const resultArray = plainRows(result) as unknown as Value[]
 
-    // Validate columns
+    // The columns the result lacks, or adds, against the rows queried, told as a note: the table
+    // shows any columns (GH-2074), and wide, interpolated and summarized rows lack columns that long
+    // station rows carry, which no query on them could make up
     if (resultArray.length > 0) {
-      const resultColumns = Object.keys(resultArray[0]!)
-      const columnValidation = validateColumns(resultColumns, requiredColumns.value)
-
-      if (!columnValidation.valid) {
-        error.value = valText(columnValidation.messageKey, columnValidation.params)
-        return
-      }
-
-      if (columnValidation.messageKey) {
+      const columnValidation = validateColumns(Object.keys(resultArray[0]!), props.expectedColumns)
+      if (columnValidation.messageKey)
         columnValidationMessage.value = valText(columnValidation.messageKey, columnValidation.params)
-      }
     }
 
     queryResults.value = resultArray
@@ -547,7 +523,6 @@ onUnmounted(async () => {
 
           <div class="text-xs text-gray-500">
             Query the <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">data</code> table with standard SQL.
-            <div>Required columns: <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">{{ requiredColumns.join(', ') }}</code></div>
             <div class="text-gray-400">
               Available columns: <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">{{ expectedColumns.join(', ') }}</code>
             </div>
