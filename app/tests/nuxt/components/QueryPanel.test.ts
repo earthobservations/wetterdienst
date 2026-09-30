@@ -545,8 +545,15 @@ describe('queryPanel syntax check', () => {
     const wrapper = await queryMode()
     await editNow(wrapper, 'SELECT * FROM data LIMIT 10')
     await vi.waitFor(() => expect(creates(statements)).toHaveLength(1))
-    // the next check is 500 ms away
-    await wrapper.find('textarea').setValue('SELECT * FROM data LIMIT 10; DROP TABLE data')
+    // edited, with the next check's delay on a fake timer that never fires, so it cannot move the
+    // check under way on however slow the runner
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      await wrapper.find('textarea').setValue('SELECT * FROM data LIMIT 10; DROP TABLE data')
+    }
+    finally {
+      vi.useRealTimers()
+    }
     hold.open()
     await vi.waitFor(() => expect(statements).toContain('SELECT * FROM (SELECT * FROM data LIMIT 10) LIMIT 0'))
     expect(statements.filter(sql => sql.includes('; DROP TABLE data'))).toEqual([])
