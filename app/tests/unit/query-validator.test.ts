@@ -141,6 +141,17 @@ describe('validateQuery statements', () => {
     // DuckDB-wasm ran each statement, the ones after the first unchecked
     expect(validateQuery(sql)).toEqual({ valid: false, errorKey: 'validation.multipleStatements' })
   })
+
+  it.each([
+    ['SELECT * FROM data LIMIT 10;', 'SELECT * FROM data LIMIT 10'],
+    ['SELECT * FROM data LIMIT 10 ;; ', 'SELECT * FROM data LIMIT 10'],
+    ['SELECT * FROM data LIMIT 10; -- the last ten', 'SELECT * FROM data LIMIT 10'],
+    ['SELECT * FROM data LIMIT 10 /* the last ten */', 'SELECT * FROM data LIMIT 10'],
+    ['-- the last ten\nSELECT * FROM data LIMIT 10', '-- the last ten\nSELECT * FROM data LIMIT 10'],
+    ['SELECT * FROM data WHERE parameter = \'a;b\' LIMIT 10', 'SELECT * FROM data WHERE parameter = \'a;b\' LIMIT 10'],
+  ])('lets %j through as the one statement %j', (sql, statement) => {
+    expect(validateQuery(sql)).toMatchObject({ valid: true, statement })
+  })
 })
 
 describe('validateQuery statements, as DuckDB reads them', () => {
@@ -160,6 +171,10 @@ describe('validateQuery statements, as DuckDB reads them', () => {
       // a statement that failed, which the case's own expectation tells
     }
     return conn.query('SELECT getvariable(\'ran\') AS ran').toArray()[0]!.toJSON().ran === 1
+  }
+
+  function rowsOf(sql: string) {
+    return conn.query(sql).toArray().map(row => row.toJSON())
   }
 
   it.each([
@@ -199,8 +214,10 @@ describe('validateQuery statements, as DuckDB reads them', () => {
     'SELECT 1 +/* ; */ 2',
     // a dynamic PIVOT, which DuckDB runs as several statements of its own
     'SELECT * FROM (PIVOT (SELECT \'x\' AS p, 1 AS a) ON p USING first(a))',
-  ])('lets %j through as one statement', (sql) => {
+  ])('lets %j through as one statement, which runs as the text does', (sql) => {
     expect(ranLater(sql)).toBe(false)
-    expect(validateQuery(sql).valid).toBe(true)
+    const result = validateQuery(sql)
+    expect(result.valid).toBe(true)
+    expect(rowsOf(result.statement!)).toEqual(rowsOf(sql))
   })
 })

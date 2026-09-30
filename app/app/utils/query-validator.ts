@@ -11,6 +11,11 @@ export interface QueryValidationResult {
   warningKey?: string
   /** Interpolation params for the error/warning message. */
   params?: Record<string, string>
+  /**
+   * The one statement a valid query holds, without the `;` and the comments after it, which DuckDB
+   * runs as the query and can wrap in a subquery.
+   */
+  statement?: string
 }
 
 // How DuckDB's lexer reads a query (third_party/libpg_query/scan.l, as of DuckDB 1.5), as far as it
@@ -216,24 +221,27 @@ export function validateQuery(query: string): QueryValidationResult {
 
   // One statement only: DuckDB-wasm runs each statement of a query, and the checks above take the
   // text for one, so `SELECT 1; SET threads = 1` changed a setting (GH-2139)
-  const { more } = firstStatement(query)
+  const { end, more } = firstStatement(query)
   if (more) {
     return {
       valid: false,
       errorKey: 'validation.multipleStatements',
     }
   }
+  const statement = query.slice(0, end)
 
   // Warning for queries without LIMIT
   if (!normalizedQuery.includes('LIMIT')) {
     return {
       valid: true,
       warningKey: 'validation.noLimit',
+      statement,
     }
   }
 
   return {
     valid: true,
+    statement,
   }
 }
 

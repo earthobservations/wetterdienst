@@ -132,6 +132,8 @@ Types of changes:
 - `[Explorer]` The query panel refuses a query of more than one statement, in the syntax check and
   in Run Query, before any of it runs. DuckDB ran each statement, so one after the SELECT, such as
   `SET` or `COPY`, ran unchecked (GH-2139)
+- `[Explorer]` A query ending in a `;` or a `--` comment passes the syntax check. Its check failed
+  with a syntax error, which kept Run Query disabled for a query DuckDB runs as typed (GH-2165)
 
 ## [0.17.0] - 2026-09-29
 

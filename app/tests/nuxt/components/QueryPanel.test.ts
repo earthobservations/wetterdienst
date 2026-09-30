@@ -695,4 +695,18 @@ describe('queryPanel statements', () => {
     expect([...statements]).toEqual([])
     expect(wrapper.emitted('dataTransformed')).toBeUndefined()
   })
+
+  it('checks and runs one statement with a semicolon and a comment after it', async () => {
+    // the check asked for the schema of `(... LIMIT 10; -- done) LIMIT 0`, which DuckDB could not
+    // parse, and its error kept Run Query disabled
+    const statements = watchStatements()
+    const wrapper = await queryMode()
+    await editNow(wrapper, 'SELECT * FROM data LIMIT 10; -- done')
+    await vi.waitFor(() => expect(statements).toContain('SELECT * FROM (SELECT * FROM data LIMIT 10) LIMIT 0'))
+    await vi.waitFor(() => expect(wrapper.find('div.absolute.top-2.right-2').exists()).toBe(false))
+    expect(wrapper.text()).not.toContain('Syntax Error')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(data)
+  })
 })

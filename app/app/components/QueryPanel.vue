@@ -240,6 +240,9 @@ async function validateQuerySyntax() {
     syntaxError.value = valText(validation.errorKey, validation.params)
     return
   }
+  // the one statement the text holds, without a `;` or comment after it, which the schema's
+  // subquery below could not close
+  const statement = validation.statement!
 
   // Initialize DuckDB if needed (for EXPLAIN)
   await initDuckDB()
@@ -276,7 +279,7 @@ async function validateQuerySyntax() {
     // Validate output columns by running query with LIMIT 0
     // This returns schema without fetching data - very fast!
     try {
-      const schemaQuery = `SELECT * FROM (${sql}) LIMIT 0`
+      const schemaQuery = `SELECT * FROM (${statement}) LIMIT 0`
       const schemaResult = await conn.query(schemaQuery)
       const resultColumns = schemaResult.schema.fields.map((field: any) => field.name)
 
