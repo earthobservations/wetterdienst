@@ -126,6 +126,9 @@ Types of changes:
   (GH-2126)
 - `[Explorer]` The column picker is disabled and offers no columns while the table is empty, where
   it offered `parameter`, `value` and `quality` whatever the shape setting (GH-2115)
+- `[Explorer]` A query's integers past ±2^53, which come as their digits, sort by their value among
+  the column's numbers, where they sorted as text: `10000000000000000000` before
+  `9007199254740993`, and a negative one after every number (GH-2153)
 
 ## [0.17.0] - 2026-09-29
 

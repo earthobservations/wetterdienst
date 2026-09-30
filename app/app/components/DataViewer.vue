@@ -332,6 +332,15 @@ function getSortIcon(column: string) {
   return sortDirection.value === 'asc' ? '↑' : '↓'
 }
 
+// An integer past 2^53 as plainRows writes it, its digits, as its value; any other text, digits
+// within 2^53 such as a station's `01048` included, is none
+function bigIntegerValue(value: unknown): bigint | undefined {
+  if (typeof value !== 'string' || !/^-?\d+$/.test(value))
+    return undefined
+  const integer = BigInt(value)
+  return Number.isSafeInteger(Number(integer)) ? undefined : integer
+}
+
 const sortedValues = computed(() => {
   const column = sortColumn.value
   // by a column the rows shown carry: one sorted by in other rows (a query's, left since) compares
@@ -353,13 +362,15 @@ const sortedValues = computed(() => {
 
     // the numbers before the text, each compared within its kind: a number and text compared as text
     // left no one order (2 < 10, '10000000000000000000' < 2, 10 < '10000000000000000000') for a
-    // query's column holding both, such as a BIGINT whose values past 2^53 come as their digits
-    // (compared as text, GH-2153). A NaN reaches no row, plainRows makes it null
+    // query's column holding both. An integer past 2^53, which plainRows writes as its digits, is a
+    // number by its value (GH-2153). A NaN reaches no row, plainRows makes it null
+    const aNumber = typeof aVal === 'number' ? aVal : bigIntegerValue(aVal)
+    const bNumber = typeof bVal === 'number' ? bVal : bigIntegerValue(bVal)
     let comparison: number
-    if (typeof aVal === 'number' && typeof bVal === 'number')
-      comparison = aVal - bVal
-    else if (typeof aVal === 'number' || typeof bVal === 'number')
-      comparison = typeof aVal === 'number' ? -1 : 1
+    if (aNumber !== undefined && bNumber !== undefined)
+      comparison = aNumber < bNumber ? -1 : aNumber > bNumber ? 1 : 0
+    else if (aNumber !== undefined || bNumber !== undefined)
+      comparison = aNumber !== undefined ? -1 : 1
     else
       // a query's struct by its JSON text, as a column of the rows' own shows it
       comparison = fieldText(aVal).localeCompare(fieldText(bVal))
