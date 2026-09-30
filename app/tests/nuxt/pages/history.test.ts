@@ -544,3 +544,55 @@ describe('history Page results', () => {
     expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
   })
 })
+
+describe('history Page station card id', () => {
+  beforeEach(() => {
+    registerEndpoint('/api/coverage', (event) => {
+      const q = getQuery(event)
+      if (q.provider)
+        return { daily: { description: null, datasets: { climate_summary: { description: null, parameters: [{ name: 'temperature_air_max_200' }] } } } }
+      return { dwd: { observation: {} } }
+    })
+  })
+
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(dispose => dispose())
+  })
+
+  // the station card's header, once Show has answered with `history`
+  async function cardHeader(history: Record<string, unknown>) {
+    const { wrapper, showButton } = await mountWithSelection(() => ({ histories: [history] }))
+    await showButton().trigger('click')
+    const header = () => wrapper.findAll('h3').find(h => h.text().startsWith('Station ID'))
+    await vi.waitFor(() => expect(header()).toBeDefined(), { timeout: 5000 })
+    return header()!.text()
+  }
+
+  const period = { station_id: '00001', start_date: '1934-01-01T00:00:00+00:00', end_date: null }
+  const missing = { ...period, station_name: null, parameter: 'TMK', end_date: '2026-09-30T00:00:00+00:00', missing_count: 3, description: null }
+
+  it('takes the id from the station names where only the name section is fetched', async () => {
+    const header = await cardHeader({ name: { station: [{ ...period, station_name: 'Dresden-Klotzsche' }], operator: [] } })
+
+    expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
+  })
+
+  it('takes the id from the operator names where the name section has no station name', async () => {
+    const header = await cardHeader({ name: { station: [], operator: [{ ...period, operator_name: 'DWD' }] } })
+
+    expect(header).toBe('Station ID: 00001')
+  })
+
+  it('takes the id from the missing data summary where only the missing data section is fetched', async () => {
+    const header = await cardHeader({ missing_data: { summary: [missing], periods: [] } })
+
+    expect(header).toBe('Station ID: 00001')
+  })
+
+  it('takes the id from the missing data periods where the missing data section has no summary', async () => {
+    const header = await cardHeader({ missing_data: { summary: [], periods: [missing] } })
+
+    expect(header).toBe('Station ID: 00001')
+  })
+})

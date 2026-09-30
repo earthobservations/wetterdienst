@@ -86,6 +86,9 @@ Types of changes:
   gives it, where it showed no name whenever the name section was fetched, which it is by default.
   The name is shown once, beside the station id, and no longer repeated in a row of its own below
   (GH-2092)
+- `[History]` A station's card takes its station id from the name and missing data sections too, so
+  it shows one when only those are fetched and hold records, where its header read `Station ID:`
+  with nothing after it (GH-2120)
 - `[Explorer]` The query panel's "Available columns" lists the columns of the rows it queries, in a
   download's order: a wide table's parameters, and an interpolation's `distance_mean` or a summary's
   `distance`. It listed the mode's fixed columns, among them a `quality` that interpolated and
