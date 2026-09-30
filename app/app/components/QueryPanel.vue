@@ -113,9 +113,11 @@ async function initDuckDB() {
     const logger = new duckdb.ConsoleLogger()
     db = new duckdb.AsyncDuckDB(logger, worker)
     await db.instantiate(bundle.mainModule, bundle.pthreadWorker)
-    // DECIMAL and BIGINT answered as doubles, as the REST API's values are, rather than as Arrow's
-    // unscaled-integer objects and BigInts (GH-2068); plainRows turns the rest
-    await db.open({ query: { castBigIntToDouble: true, castDecimalToDouble: true } })
+    // DECIMAL answered as a double, as the REST API's values are, rather than as Arrow's object holding
+    // the unscaled integer (GH-2068); plainRows turns the rest. Not castBigIntToDouble: it relabels a
+    // BIGINT inside a list or struct as a double and keeps the integer's bits, so range(3) reads as
+    // [0, 5e-324, 1e-323], where plainRows turns a BigInt into a number at any depth
+    await db.open({ query: { castDecimalToDouble: true } })
     URL.revokeObjectURL(worker_url)
 
     conn = await db.connect()

@@ -13,14 +13,15 @@ function plain(value: unknown, type: string): unknown {
 }
 
 describe('plainRows', () => {
-  it('writes a timestamp or a date as an ISO timestamp in UTC, not milliseconds since the epoch', () => {
+  it('writes a timestamp or a date as the REST API writes a timestamp, to the microsecond', () => {
     // a microsecond timestamp comes as fractional milliseconds, as DuckDB-wasm answers
-    expect(plain(1577836800123.456, 'Timestamp<MICROSECOND>')).toBe('2020-01-01T00:00:00.123+00:00')
-    expect(plain(1580515200000, 'Date32<DAY>')).toBe('2020-02-01T00:00:00.000+00:00')
+    expect(plain(1577836800123.456, 'Timestamp<MICROSECOND>')).toBe('2020-01-01T00:00:00.123456+00:00')
+    expect(plain(1580515200000, 'Date32<DAY>')).toBe('2020-02-01T00:00:00.000000+00:00')
   })
 
   it('floors a moment before 1970 rather than rounding it towards 1970', () => {
-    expect(plain(-1.5, 'Timestamp<MICROSECOND>')).toBe('1969-12-31T23:59:59.998+00:00')
+    // TIMESTAMP '1969-12-31 23:59:59.998500' comes as -1.5
+    expect(plain(-1.5, 'Timestamp<MICROSECOND>')).toBe('1969-12-31T23:59:59.998500+00:00')
   })
 
   it('writes a date past what a Date holds as null, rather than failing or a stray number', () => {
@@ -28,7 +29,8 @@ describe('plainRows', () => {
     expect(plain(185542587100800000, 'Date32<DAY>')).toBeNull()
   })
 
-  it('writes a BigInt the casts did not reach as a number', () => {
+  it('writes a BIGINT as a number', () => {
+    // COUNT(*) comes as a BigInt, which JSON cannot write
     expect(plain(42n, 'Int64')).toBe(42)
   })
 
@@ -36,14 +38,18 @@ describe('plainRows', () => {
     expect(plain(new Uint8Array([104, 105]), 'Binary')).toBe('[104,105]')
   })
 
-  it('writes a nested value as its JSON text', () => {
-    expect(plain({ a: 1, b: [2n] }, 'Struct<{a:Int32, b:List<Int64>}>')).toBe('{"a":1,"b":[2]}')
+  it('writes a nested value as its JSON text, BIGINTs and bytes in it as numbers and lists', () => {
+    // {'a': 7::BIGINT, 'b': 'hi'::BLOB}, and range(3), as DuckDB-wasm answers them without a BIGINT cast
+    expect(plain({ a: 7n, b: new Uint8Array([104, 105]) }, 'Struct<{a:Int64, b:Binary}>')).toBe('{"a":7,"b":[104,105]}')
+    expect(plain([0n, 1n, 2n], 'List<Int64>')).toBe('[0,1,2]')
   })
 
   it('leaves plain values as they are, and a missing one as null', () => {
     expect(plain(1.5, 'Float64')).toBe(1.5)
     expect(plain('01048', 'Utf8')).toBe('01048')
-    expect(plain(undefined, 'Float64')).toBeNull()
+    // Arrow gives a SQL NULL as null
+    expect(plain(null, 'Float64')).toBeNull()
+    expect(plain(null, 'Int64')).toBeNull()
   })
 
   it('converts a name two columns share by the last of them, whose value the row holds', () => {
@@ -52,13 +58,19 @@ describe('plainRows', () => {
     expect(plainRows([{ value: 12.34 }], fields)).toEqual([{ value: 12.34 }])
   })
 
+  it('leaves a column of plain numbers, strings or booleans untouched', () => {
+    const row = { value: 1.5, station_id: '01048', ok: true }
+    plainRows([row], [field('value', 'Float64'), field('station_id', 'Utf8'), field('ok', 'Bool')])
+    expect(row).toEqual({ value: 1.5, station_id: '01048', ok: true })
+  })
+
   it('changes every row, in place', () => {
     const rows = [{ timestamp: 1577836800000, n: 3n }, { timestamp: 1577923200000, n: 4n }]
     const fields = [field('timestamp', 'Timestamp<MILLISECOND>'), field('n', 'Int64')]
     expect(plainRows(rows, fields)).toBe(rows)
     expect(rows).toEqual([
-      { timestamp: '2020-01-01T00:00:00.000+00:00', n: 3 },
-      { timestamp: '2020-01-02T00:00:00.000+00:00', n: 4 },
+      { timestamp: '2020-01-01T00:00:00.000000+00:00', n: 3 },
+      { timestamp: '2020-01-02T00:00:00.000000+00:00', n: 4 },
     ])
   })
 })
