@@ -31,9 +31,9 @@ function csvField(value: unknown): string {
  * the rest in the order they first appear.
  *
  * All of them, whatever the column picker shows: the picker hides `resolution` and `dataset` by
- * default and follows the mode selected now rather than the one the rows were fetched in, and a
- * file that left out what it hid lost fields the REST API's answer always had. A wide-shaped
- * answer (one column per parameter) and a query panel's own columns (`avg_value`) come after.
+ * default, and a file that left out what it hid lost fields the REST API's answer always had. A
+ * wide-shaped answer (one column per parameter) and a query panel's own columns (`avg_value`) come
+ * after.
  *
  * @param values - The rows, as the table holds them
  * @param order - The columns the table knows, in its order

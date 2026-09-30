@@ -3,7 +3,7 @@ import type { TableColumn } from '@nuxt/ui'
 import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout } from 'plotly.js-basic-dist-min'
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
-import type { StationSelectionState } from '~/types/station-selection-state.type'
+import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
 import { h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
@@ -109,11 +109,11 @@ function stationDistanceRadii(prefix: 'interpolation' | 'summary'): Record<strin
   return radii
 }
 
-// each mode's endpoint, and the name its values are saved under
+// each mode's endpoint, the name its values are saved under, and the mode itself
 const ENDPOINTS = {
-  values: { endpoint: '/api/values', filename: 'values' },
-  interpolate: { endpoint: '/api/interpolate', filename: 'interpolated' },
-  summarize: { endpoint: '/api/summarize', filename: 'summary' },
+  values: { endpoint: '/api/values', filename: 'values', mode: 'station' },
+  interpolate: { endpoint: '/api/interpolate', filename: 'interpolated', mode: 'interpolation' },
+  summarize: { endpoint: '/api/summarize', filename: 'summary', mode: 'summary' },
 } as const
 
 const selectedEndpoint = computed(() => {
@@ -219,7 +219,7 @@ const selectedRequest = computed(() => ({ ...selectedEndpoint.value, query: apiQ
 // so the table, its error and a GeoJSON download of it answer to the same request whatever is
 // selected since. Bound to the live selection instead, the fetch kept a request of its own beside
 // this one, which a selection changed mid-fetch, or Clear, could part from what the table showed.
-interface ValuesRequest { endpoint: string, filename: string, query: Record<string, unknown> }
+interface ValuesRequest { endpoint: string, filename: string, mode: StationMode, query: Record<string, unknown> }
 const fetchedRequest = shallowRef<ValuesRequest | null>(null)
 // the request Fetch sent last, which the table's values are fetched with; it becomes fetchedRequest
 // only once it has answered, so until then the table, the file name and GeoJSON keep to the last one
@@ -364,25 +364,33 @@ watch(allValues, () => {
   resetTransform()
 })
 
-// Column options based on mode - only show mode-specific columns when in that mode
+// The mode the rows on screen were fetched in, and the selected one only while the table is empty:
+// the column picker and the query panel describe the rows shown, which a mode selected since has
+// not fetched
+const rowsMode = computed((): StationMode => {
+  const request = allValues.value.length ? fetchedRequest.value : null
+  return request?.mode ?? stationSelection.value.mode
+})
+
+// Column options based on the rows' mode - only show mode-specific columns for rows of that mode
 const columnOptions = computed(() => {
   const base: (keyof Value)[] = ['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality']
-  if (isSummaryMode.value) {
+  if (rowsMode.value === 'summary') {
     return [...base, 'taken_station_id']
   }
-  if (isInterpolationMode.value) {
+  if (rowsMode.value === 'interpolation') {
     return [...base, 'taken_station_ids']
   }
   return base
 })
 
-// Default columns based on mode
+// Default columns based on the rows' mode
 const defaultColumns = computed((): (keyof Value)[] => {
   const base: (keyof Value)[] = ['station_id', 'parameter', 'timestamp', 'value', 'quality']
-  if (isSummaryMode.value) {
+  if (rowsMode.value === 'summary') {
     return [...base, 'taken_station_id']
   }
-  if (isInterpolationMode.value) {
+  if (rowsMode.value === 'interpolation') {
     return [...base, 'taken_station_ids']
   }
   return base
@@ -390,13 +398,13 @@ const defaultColumns = computed((): (keyof Value)[] => {
 
 const selectedColumns = ref<(keyof Value)[]>([...defaultColumns.value])
 
-// Update selected columns when mode changes
-watch([isInterpolationMode, isSummaryMode], () => {
+// Update selected columns when the rows' mode changes
+watch(rowsMode, () => {
   selectedColumns.value = [...defaultColumns.value]
 })
 
 // A download writes every column the rows carry, those the table knows in its order first, whatever
-// the column picker shows -- which follows the mode selected now, not the one the rows came from
+// the column picker shows
 const TABLE_ORDER = columnDefinitions.map(c => c.key)
 
 // The columns the picker leaves visible, in the table's order: what the table shows, and a copy writes
@@ -1056,7 +1064,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         v-if="allValues.length > 0"
         :data="allValues"
         :expected-columns="columnOptions"
-        :mode="stationSelection.mode"
+        :mode="rowsMode"
         @data-transformed="handleDataTransformed"
       />
 

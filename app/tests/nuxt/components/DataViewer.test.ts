@@ -671,3 +671,76 @@ describe('dataViewer query panel', () => {
     expect(shown.rows.every(text => text.includes('04411'))).toBe(true)
   })
 })
+
+function atPoint(mode: 'interpolation' | 'summary'): StationSelectionState {
+  return { mode, selection: { stations: [] }, interpolation: { source: 'manual', latitude: 52.5, longitude: 13.4 }, dateRange: {} }
+}
+
+// the table's column headers, without the sort mark beside each
+function headers(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
+  return wrapper.findAll('thead th').map(th => th.text().replace(/[↕↑↓]/g, '').trim())
+}
+
+// the columns the picker has chosen, as its button lists them; it comes before the page size's
+function picked(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
+  return wrapper.find('button[aria-haspopup="listbox"] [data-slot="value"]').text().split(', ')
+}
+
+describe('dataViewer columns', () => {
+  // each point mode, and the column its rows add, as the REST API answers them
+  const pointModes = [
+    { mode: 'interpolation', endpoint: '/api/interpolate', column: 'taken_station_ids', values: [{ ...row, taken_station_ids: ['01048', '04411'] }] },
+    { mode: 'summary', endpoint: '/api/summarize', column: 'taken_station_id', values: [{ ...row, taken_station_id: '01048' }] },
+  ] as const
+
+  it.each(pointModes)('keeps to the $mode rows shown when station mode is selected without fetching', async ({ mode, endpoint, column, values }) => {
+    registerEndpoint(endpoint, () => ({ values }))
+    const { wrapper, viewer, stationSelection } = await mountDataViewer(ref(atPoint(mode)))
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    expect(headers(wrapper)).toContain(column)
+    stationSelection.value = byStation('01048')
+    await wrapper.vm.$nextTick()
+    // still the rows' columns, where the picker was reset to the station columns and the query panel
+    // checked the rows against them
+    expect(picked(wrapper)).toContain(column)
+    expect(headers(wrapper)).toContain(column)
+    const panel = wrapper.findComponent(QueryPanel)
+    expect(panel.props('mode')).toBe(mode)
+    expect(panel.props('expectedColumns')).toContain(column)
+  })
+
+  it('takes the columns of the station rows a Fetch replaces interpolated rows with', async () => {
+    registerEndpoint('/api/interpolate', () => ({ values: pointModes[0].values }))
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer, stationSelection } = await mountDataViewer(ref(atPoint('interpolation')))
+    await fetchData(viewer)
+    stationSelection.value = byStation('01048')
+    await wrapper.vm.$nextTick()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    expect(picked(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
+    expect(wrapper.findComponent(QueryPanel).props('mode')).toBe('station')
+  })
+
+  it('follows the selected mode once Clear has emptied the table', async () => {
+    registerEndpoint('/api/interpolate', () => ({ values: pointModes[0].values }))
+    const { wrapper, viewer, stationSelection } = await mountDataViewer(ref(atPoint('interpolation')))
+    await fetchData(viewer)
+    stationSelection.value = byStation('01048')
+    await wrapper.vm.$nextTick()
+    expect(picked(wrapper)).toContain('taken_station_ids')
+    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    await wrapper.vm.$nextTick()
+    expect(picked(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
+  })
+
+  it('follows the selected mode after an answer with no rows', async () => {
+    registerEndpoint('/api/interpolate', () => ({ values: [] }))
+    const { wrapper, viewer, stationSelection } = await mountDataViewer(ref(atPoint('interpolation')))
+    await fetchData(viewer)
+    stationSelection.value = byStation('01048')
+    await wrapper.vm.$nextTick()
+    expect(picked(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
+  })
+})
