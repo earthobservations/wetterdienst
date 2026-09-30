@@ -126,9 +126,10 @@ async function fetchMeteogram(station: Station) {
     if (!res.ok) {
       // the backend's reason when its body gives one, its status text when not; any other body, such as a
       // proxy's error page, is left out
-      const status = [`Backend error ${res.status}`, res.statusText].filter(Boolean).join(' ')
       const detail = describeApiError(await res.json().catch(() => null))
-      error.value = detail ? `${status}: ${detail}` : status
+      error.value = detail
+        ? `Backend error ${res.status}: ${detail}`
+        : [`Backend error ${res.status}`, res.statusText].filter(Boolean).join(' ')
       return
     }
     const json = await res.json()

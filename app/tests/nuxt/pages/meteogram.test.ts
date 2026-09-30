@@ -59,9 +59,10 @@ describe('meteogram Page', () => {
   })
 
   it('tells a refused request by the backend\'s detail', async () => {
-    // answered as FastAPI answers a request that fails validation: the entries under `detail`
+    // answered as FastAPI answers a request that fails validation: the entries under `detail`, which tell it
+    // in place of the status text
     vi.mocked(globalThis.fetch).mockImplementation(async () =>
-      new Response(JSON.stringify({ detail: [{ loc: ['query', 'station'], msg: 'Unknown station' }] }), { status: 422 }),
+      new Response(JSON.stringify({ detail: [{ loc: ['query', 'station'], msg: 'Unknown station' }] }), { status: 422, statusText: 'Unprocessable Entity' }),
     )
 
     const wrapper = await mountSuspended(MeteogramPage)

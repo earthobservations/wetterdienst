@@ -48,7 +48,7 @@ describe('widget Page', () => {
       stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }],
     }))
     vi.mocked(globalThis.fetch).mockImplementation(async () =>
-      new Response(JSON.stringify({ detail: 'No forecast for station 00001' }), { status: 404 }),
+      new Response(JSON.stringify({ detail: 'No forecast for station 00001' }), { status: 404, statusText: 'Not Found' }),
     )
 
     const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
