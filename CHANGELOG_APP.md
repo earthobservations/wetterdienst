@@ -110,6 +110,10 @@ Types of changes:
   read when pressed. A run and the syntax check share one start of DuckDB and one load of the
   table: pressed twice, or with the query edited while DuckDB started, the table could be loaded
   twice at once and the query run on rows held twice or on none (GH-2104)
+- `[Explorer]` A query left by Cancel, or by a Fetch, changes nothing when it answers: its result
+  replaced the rows Cancel had handed back, its error showed the next time query mode was entered,
+  and Run Query stayed disabled and loading until it answered, or turned idle under a newer run
+  (GH-2096)
 
 ## [0.17.0] - 2026-09-29
 

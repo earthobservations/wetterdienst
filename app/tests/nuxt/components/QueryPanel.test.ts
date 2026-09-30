@@ -152,3 +152,82 @@ describe('queryPanel table load', () => {
     expect(instantiate).toHaveBeenCalledTimes(1)
   })
 })
+
+function buttonLabelled(wrapper: Awaited<ReturnType<typeof queryMode>>, label: string) {
+  return wrapper.findAll('button').find(button => button.text() === label)!
+}
+
+describe('queryPanel run left behind', () => {
+  // the query the panel opens with
+  const opening = 'SELECT * FROM data LIMIT 100'
+
+  it('hands on nothing from a query left by Cancel', async () => {
+    // its result replaced the fetched rows Cancel had handed back
+    const hold = gate()
+    const statements = watchStatements(sql => sql === opening ? hold.opened : undefined)
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(statements).toContain(opening))
+    await buttonLabelled(wrapper, 'Cancel').trigger('click')
+    hold.open()
+    await flushPromises()
+    expect(wrapper.emitted('dataTransformed')).toEqual([[data]])
+  })
+
+  // each step of a run that can fail, held until the test opens it and failing then, and whether the
+  // run has reached it
+  const failing = {
+    'the query': (hold: Promise<void>) => {
+      const statements = watchStatements(sql => sql === opening ? hold.then(() => Promise.reject(new Error('lost'))) : undefined)
+      return () => statements.includes(opening)
+    },
+    'the table\'s load': (hold: Promise<void>) => {
+      const statements = watchStatements(sql => sql.startsWith('CREATE TABLE') ? hold.then(() => Promise.reject(new Error('lost'))) : undefined)
+      return () => creates(statements).length > 0
+    },
+    'DuckDB\'s start': (hold: Promise<void>) => {
+      const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate').mockImplementation(() => hold.then(() => Promise.reject(new Error('lost'))))
+      unwatched.push(() => instantiate.mockRestore())
+      return () => instantiate.mock.calls.length > 0
+    },
+  }
+
+  it.each(Object.keys(failing) as (keyof typeof failing)[])('tells no error of %s failing for a query left by Cancel', async (step) => {
+    // "Query error: ...", "Failed to load data: ..." or "Failed to initialize database" showed once
+    // query mode was entered again, about a query nobody waited for
+    const hold = gate()
+    const reached = failing[step](hold.opened)
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(reached()).toBe(true))
+    await buttonLabelled(wrapper, 'Cancel').trigger('click')
+    hold.open()
+    await flushPromises()
+    await buttonLabelled(wrapper, 'Transform with SQL Query').trigger('click')
+    expect(wrapper.text()).not.toMatch(/Query error|Failed to/)
+  })
+
+  it('keeps a newer run\'s spinner when a query left by Cancel answers', async () => {
+    // Run Query showed loading, and disabled, until the query left behind answered, and then as
+    // idle while the newer run was still under way
+    const first = gate()
+    const second = gate()
+    const newer = 'SELECT * FROM data LIMIT 50'
+    const statements = watchStatements(sql => sql === opening ? first.opened : sql === newer ? second.opened : undefined)
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(statements).toContain(opening))
+    await buttonLabelled(wrapper, 'Cancel').trigger('click')
+    await buttonLabelled(wrapper, 'Transform with SQL Query').trigger('click')
+    expect(runButton(wrapper).attributes('disabled')).toBeUndefined()
+    await wrapper.find('textarea').setValue(newer)
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(statements).toContain(newer))
+    first.open()
+    await flushPromises()
+    expect(runButton(wrapper).attributes('disabled')).toBeDefined()
+    second.open()
+    await vi.waitFor(() => expect(runButton(wrapper).attributes('disabled')).toBeUndefined())
+    expect(wrapper.emitted('dataTransformed')).toEqual([[data], [data]])
+  })
+})

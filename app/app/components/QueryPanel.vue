@@ -124,8 +124,8 @@ async function startDuckDB() {
     db = database
   }
   catch (err: any) {
+    // told by the run that waits for it, not by one left behind or the syntax check
     console.error('Failed to initialize DuckDB:', err)
-    error.value = `Failed to initialize DuckDB: ${err.message || 'Unknown error'}`
     // the next run starts it again, without the database that failed
     started = null
     database?.terminate().catch(() => {})
@@ -278,6 +278,10 @@ watch(query, () => {
   debouncedValidation()
 })
 
+// The run the panel waits for. Leaving query mode moves it on, and a run that is no longer it
+// changes nothing: no result handed on, no error, no spinner stopped under a newer run
+let currentRun = 0
+
 // Execute query
 async function executeQuery() {
   // the rows the query runs on, which a Fetch can replace before it answers
@@ -300,11 +304,14 @@ async function executeQuery() {
   }
 
   // running from here, so Run Query cannot start a second run while DuckDB starts or the table loads
+  const run = ++currentRun
   isExecuting.value = true
 
   try {
     // Initialize DuckDB if needed
     await initDuckDB()
+    if (run !== currentRun)
+      return
     if (!db || !conn) {
       error.value = 'Failed to initialize database'
       return
@@ -319,8 +326,10 @@ async function executeQuery() {
       await loadTable(rows)
     }
     catch (err: any) {
-      console.error('Failed to load data into DuckDB:', err)
-      error.value = `Failed to load data: ${err.message || 'Unknown error'}`
+      if (run === currentRun) {
+        console.error('Failed to load data into DuckDB:', err)
+        error.value = `Failed to load data: ${err.message || 'Unknown error'}`
+      }
       return
     }
 
@@ -331,8 +340,8 @@ async function executeQuery() {
     // they carry the columns a value needs
     const resultArray = plainRows(result) as unknown as Value[]
 
-    // a result of rows the table no longer holds would replace the newer ones Fetch put there
-    if (rows !== props.data)
+    // left by Cancel, or by a Fetch whose newer rows the result would replace
+    if (run !== currentRun)
       return
 
     // Validate columns
@@ -354,11 +363,15 @@ async function executeQuery() {
     emit('dataTransformed', resultArray)
   }
   catch (err: any) {
-    console.error('Query execution error:', err)
-    error.value = `Query error: ${err.message}`
+    if (run === currentRun) {
+      console.error('Query execution error:', err)
+      error.value = `Query error: ${err.message}`
+    }
   }
   finally {
-    isExecuting.value = false
+    // a newer run's spinner is its own
+    if (run === currentRun)
+      isExecuting.value = false
   }
 }
 
@@ -373,6 +386,9 @@ function enableQueryMode() {
 }
 
 function disableQueryMode() {
+  // the run under way is left: it hands on no result, and tells no error, when it answers
+  currentRun++
+  isExecuting.value = false
   isQueryMode.value = false
   queryResults.value = []
   error.value = null
