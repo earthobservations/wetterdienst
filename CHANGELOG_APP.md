@@ -121,14 +121,11 @@ Types of changes:
   one that is a MAP's own key or value. The query panel notes that the browser's DuckDB misreads
   BIT, TIME WITH TIME ZONE (dropping the offset) and UHUGEINT values of 2^127 or more (turning
   them negative), and that `CAST(column AS VARCHAR)` reads them as text (GH-2102)
-- `[Explorer]` Sorting a query's column that holds both numbers and text, such as a BIGINT whose
-  values past 2^53 come as their digits, puts the numbers first and the text after, each in its
-  own order, in every browser. A number was compared with text as text, which gave no one order,
-  so the rows, the copies and the downloads came in an order each browser made up (GH-2126)
-- `[Explorer]` The column picker is disabled and offers no columns until a Fetch fills the table.
-  It offered the long shape's `parameter`, `value` and `quality` whatever the shape setting, and a
-  column unticked there stayed hidden once the rows came, though no table was shown to pick for
-  (GH-2115)
+- `[Explorer]` Sorting a query's column that holds both numbers and text puts the numbers first,
+  then the text, the same in every browser. The rows, copies and downloads came in an order each
+  browser's sort made up (GH-2126)
+- `[Explorer]` The column picker is disabled and offers no columns until a Fetch fills the table,
+  where it offered `parameter`, `value` and `quality` whatever the shape setting (GH-2115)
 
 ## [0.17.0] - 2026-09-29
 

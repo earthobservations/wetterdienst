@@ -706,11 +706,6 @@ function picked(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper'])
   return wrapper.find('button[aria-haspopup="listbox"] [data-slot="value"]').text().split(', ')
 }
 
-// the columns the picker offers, ticked or not
-function pickerItems(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
-  return (wrapper.findComponent(USelectMenu).props() as { items: unknown[] }).items
-}
-
 describe('dataViewer columns', () => {
   // each point mode, and the column its rows add, as the REST API answers them
   const pointModes = [
@@ -746,27 +741,6 @@ describe('dataViewer columns', () => {
     await wrapper.vm.$nextTick()
     expect(picked(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
     expect(wrapper.findComponent(QueryPanel).props('mode')).toBe('station')
-  })
-
-  it('offers no columns once Clear has emptied the table', async () => {
-    registerEndpoint('/api/interpolate', () => ({ values: pointModes[0].values }))
-    const { wrapper, viewer, stationSelection } = await mountDataViewer(ref(atPoint('interpolation')))
-    await fetchData(viewer)
-    stationSelection.value = byStation('01048')
-    await wrapper.vm.$nextTick()
-    expect(picked(wrapper)).toContain('taken_station_ids')
-    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
-    await wrapper.vm.$nextTick()
-    expect(pickerItems(wrapper)).toEqual([])
-  })
-
-  it('offers no columns after an answer with no rows', async () => {
-    registerEndpoint('/api/interpolate', () => ({ values: [] }))
-    const { wrapper, viewer, stationSelection } = await mountDataViewer(ref(atPoint('interpolation')))
-    await fetchData(viewer)
-    stationSelection.value = byStation('01048')
-    await wrapper.vm.$nextTick()
-    expect(pickerItems(wrapper)).toEqual([])
   })
 
   // one column per parameter: none of them among the table's fixed columns
@@ -1338,9 +1312,11 @@ describe('dataViewer column picker while the table is empty', () => {
   // a wide-shaped row: a column per parameter, and no parameter, value or quality
   const wide = { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5 }
 
+  // the columns the picker offers, ticked or not, and whether it can be opened
   function picker(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
     const menu = wrapper.findComponent(USelectMenu)
-    return { items: pickerItems(wrapper), disabled: menu.find('button[aria-haspopup="listbox"]').attributes('disabled') !== undefined }
+    const { items } = menu.props() as { items: unknown[] }
+    return { items, disabled: menu.find('button[aria-haspopup="listbox"]').attributes('disabled') !== undefined }
   }
 
   it('offers no columns and is disabled until a Fetch fills the table, then the rows\' own', async () => {
@@ -1353,6 +1329,14 @@ describe('dataViewer column picker while the table is empty', () => {
     expect(picker(wrapper)).toEqual({ items: ['station_id', 'resolution', 'dataset', 'timestamp', 'temperature_air_mean_2m'], disabled: false })
     expect(headers(wrapper)).toEqual(['station_id', 'timestamp', 'temperature_air_mean_2m'])
     ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    await wrapper.vm.$nextTick()
+    expect(picker(wrapper)).toEqual({ items: [], disabled: true })
+  })
+
+  it('offers no columns after an answer with no rows', async () => {
+    registerEndpoint('/api/values', () => ({ values: [] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
     await wrapper.vm.$nextTick()
     expect(picker(wrapper)).toEqual({ items: [], disabled: true })
   })
