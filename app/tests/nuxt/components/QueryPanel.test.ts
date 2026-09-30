@@ -663,3 +663,31 @@ describe('queryPanel note on misread types', () => {
       expect(text).toContain(part)
   })
 })
+
+describe('queryPanel failed run', () => {
+  it.each([
+    { failure: 'DuckDB refusing it', sql: 'SELECT * FROM data WHERE valu > 1', told: 'Query error' },
+    { failure: 'its columns', sql: 'SELECT station_id FROM data', told: 'missing expected columns' },
+    { failure: 'the validator refusing it', sql: 'DELETE FROM data', told: 'Only SELECT queries' },
+  ])('hands back the fetched rows for a query failing by $failure, not the query\'s before it', async ({ sql, told }) => {
+    // the table went on showing the previous query's rows under the new query's error, as its output
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).not.toBe(data)
+    await wrapper.find('textarea').setValue(sql)
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(2))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![1]![0]).toBe(data)
+    expect(wrapper.text()).toContain(told)
+    expect(wrapper.text()).not.toContain('Query executed successfully')
+  })
+
+  it('hands back nothing for a failing query when no query\'s rows are shown', async () => {
+    const wrapper = await queryMode()
+    await wrapper.find('textarea').setValue('SELECT * FROM data WHERE valu > 1')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Query error'))
+    expect(wrapper.emitted('dataTransformed')).toBeUndefined()
+  })
+})

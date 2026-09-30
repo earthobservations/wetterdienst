@@ -121,6 +121,9 @@ Types of changes:
   one that is a MAP's own key or value. The query panel notes that the browser's DuckDB misreads
   BIT, TIME WITH TIME ZONE (dropping the offset) and UHUGEINT values of 2^127 or more (turning
   them negative), and that `CAST(column AS VARCHAR)` reads them as text (GH-2102)
+- `[Explorer]` A query that fails or is refused hands the table back to the fetched rows, where the
+  table went on showing the previous query's rows under the new query's error, as if they were its
+  output (GH-2138)
 
 ## [0.17.0] - 2026-09-29
 

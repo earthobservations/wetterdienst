@@ -328,6 +328,16 @@ watch(query, () => {
 // changes nothing: no result handed on, no error, no spinner stopped under a newer run
 let currentRun = 0
 
+// A run that failed: its error, over the fetched rows rather than the rows of the query before it,
+// which would read as its own (GH-2138)
+function fail(message: string) {
+  error.value = message
+  if (queryResults.value.length > 0) {
+    queryResults.value = []
+    emit('dataTransformed', props.data)
+  }
+}
+
 // Execute query
 async function executeQuery() {
   // the rows the query runs on, which a Fetch can replace before it answers
@@ -341,7 +351,7 @@ async function executeQuery() {
   // Validate query
   const validation = validateQuery(sql)
   if (!validation.valid) {
-    error.value = valText(validation.errorKey, validation.params)
+    fail(valText(validation.errorKey, validation.params))
     return
   }
 
@@ -359,12 +369,12 @@ async function executeQuery() {
     if (run !== currentRun)
       return
     if (!db || !conn) {
-      error.value = `Failed to initialize database: ${startError}`
+      fail(`Failed to initialize database: ${startError}`)
       return
     }
 
     if (rows.length === 0) {
-      error.value = 'No data available to query'
+      fail('No data available to query')
       return
     }
 
@@ -374,7 +384,7 @@ async function executeQuery() {
     catch (err: any) {
       if (run === currentRun) {
         console.error('Failed to load data into DuckDB:', err)
-        error.value = `Failed to load data: ${err.message || 'Unknown error'}`
+        fail(`Failed to load data: ${err.message || 'Unknown error'}`)
       }
       return
     }
@@ -400,7 +410,7 @@ async function executeQuery() {
       const columnValidation = validateColumns(resultColumns, requiredColumns.value)
 
       if (!columnValidation.valid) {
-        error.value = valText(columnValidation.messageKey, columnValidation.params)
+        fail(valText(columnValidation.messageKey, columnValidation.params))
         return
       }
 
@@ -415,7 +425,7 @@ async function executeQuery() {
   catch (err: any) {
     if (run === currentRun) {
       console.error('Query execution error:', err)
-      error.value = `Query error: ${err.message}`
+      fail(`Query error: ${err.message}`)
     }
   }
   finally {
