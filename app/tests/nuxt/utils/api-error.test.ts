@@ -14,7 +14,8 @@ describe('describeFetchError with the errors useFetch holds', () => {
     // createError gives it a status of 500 all the same, with no status text
     const unanswered = createError(new TypeError('[GET] "/api/values?station=01048": <no response> Failed to fetch'))
     expect(unanswered.statusCode).toBe(500)
-    expect(describeFetchError(unanswered)).toBe('<no response> Failed to fetch')
+    // without ofetch's request prefix, and without its own `<no response>` token
+    expect(describeFetchError(unanswered)).toBe('Failed to fetch')
   })
 
   it('tells an error with an empty message by the error itself, never an empty text', () => {

@@ -8,6 +8,11 @@ function bigintValue(value: bigint): number | string {
   return Number.isSafeInteger(number) ? number : value.toString()
 }
 
+// JSON.stringify's replacer for a value of the table: a BigInt as bigintValue writes it
+function jsonValue(_key: string, value: unknown): unknown {
+  return typeof value === 'bigint' ? bigintValue(value) : value
+}
+
 function field(row: Row, column: string): unknown {
   return (row as Record<string, unknown>)[column]
 }
@@ -19,7 +24,9 @@ function field(row: Row, column: string): unknown {
 function csvField(value: unknown): string {
   if (value === null || value === undefined)
     return ''
-  const text = String(value)
+  // a query panel's struct or list is written as its JSON text, as the JSON download writes it, not
+  // as `[object Object]`
+  const text = typeof value === 'object' ? JSON.stringify(value, jsonValue) : String(value)
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 
@@ -73,5 +80,5 @@ export function valuesToCsv(values: Row[], columns: string[]): string {
  */
 export function valuesToJson(values: Row[], columns: string[]): string {
   const rows = values.map(row => Object.fromEntries(columns.map(column => [column, field(row, column) ?? null])))
-  return JSON.stringify({ values: rows }, (_key, value) => typeof value === 'bigint' ? bigintValue(value) : value)
+  return JSON.stringify({ values: rows }, jsonValue)
 }

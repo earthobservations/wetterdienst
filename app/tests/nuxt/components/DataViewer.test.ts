@@ -209,6 +209,34 @@ describe('dataViewer downloads', () => {
     await newer
   })
 
+  it('aborts a GeoJSON download chosen while a newer Fetch is under way, once that Fetch\'s answer replaces the table', async () => {
+    // it was aborted only when Fetch was pressed, so one chosen after that was saved for a table gone
+    let asked = false
+    registerEndpoint('/api/values', async (event) => {
+      const query = getQuery(event)
+      if (query.format === 'geojson') {
+        asked = true
+        await new Promise(resolve => setTimeout(resolve, 300))
+        return { type: 'FeatureCollection', features: [] }
+      }
+      if (query.station === '04411')
+        await new Promise(resolve => setTimeout(resolve, 50))
+      return { values: [{ ...row, station_id: String(query.station) }] }
+    })
+    const { wrapper, viewer, stationSelection } = await mountDataViewer()
+    await fetchData(viewer)
+    const saved = catchDownload()
+    const items = await openDownloads(wrapper)
+    stationSelection.value = byStation('04411')
+    await wrapper.vm.$nextTick()
+    const newer = fetchData(viewer)
+    items[2]!.click()
+    await vi.waitFor(() => expect(asked).toBe(true))
+    await newer
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Download cancelled: the table changed'))
+    expect(saved).toHaveLength(0)
+  })
+
   it('keeps the request of the fetch started last, whichever finishes last', async () => {
     const asked: Record<string, unknown>[] = []
     registerEndpoint('/api/values', async (event) => {

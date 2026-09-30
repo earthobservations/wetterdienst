@@ -59,6 +59,13 @@ describe('exportColumns', () => {
   })
 })
 
+describe('valuesToCsv with a query panel\'s nested values', () => {
+  it('writes a struct or a list as its JSON text, quoted, not as [object Object]', () => {
+    const nested = [{ station_id: '01048', s: { a: 1, n: 2n }, l: [1, 2] }]
+    expect(valuesToCsv(nested, ['station_id', 's', 'l'])).toBe('station_id,s,l\n01048,"{""a"":1,""n"":2}","[1,2]"')
+  })
+})
+
 describe('valuesToCsv with a query panel\'s column names', () => {
   it('quotes a header naming an expression', () => {
     const rounded = [{ 'timestamp': '2020-01-01', 'round(avg("value"), 2)': 1.5 }]

@@ -229,9 +229,8 @@ const downloadingGeojson = computed(() => geojsonDownload.value !== null)
 // when there is no one to tell
 const TABLE_CHANGED = 'table-changed'
 
-// Abort the GeoJSON download under way: the table it describes is going. Called by Fetch, Clear and
-// the query panel as they change the table, not from a watcher, which runs only once they return --
-// after an answer that arrived in between was already saved
+// Abort the GeoJSON download under way: the table it describes is going. The watcher on displayData
+// below calls it for every change to the table
 function abortGeojson(reason: string = TABLE_CHANGED) {
   geojsonDownload.value?.abort(reason)
 }
@@ -278,12 +277,13 @@ const isDataTransformed = ref(false)
 // Display data (either original or transformed)
 const displayData = computed(() => isDataTransformed.value ? transformedData.value : allValues.value)
 
+// A GeoJSON download describes the table it was chosen for: whatever replaces that table -- a Fetch's
+// answer, Clear, a query's own rows -- aborts it, from one place rather than each. Synchronously, as
+// a watcher run after the change would let an answer that came in between be saved. Leaving query
+// mode, which hands back the fetched rows, changes nothing shown and aborts nothing.
+watch(displayData, () => abortGeojson(), { flush: 'sync' })
+
 function handleDataTransformed(data: Value[]) {
-  // a download under way is for the fetched rows, and only a query's own rows replace them: leaving
-  // query mode hands back the fetched rows, and a query that found none falls back to them, as
-  // no GeoJSON download runs while a query's rows are shown
-  if (data.length > 0 && data !== allValues.value)
-    abortGeojson()
   transformedData.value = data
   isDataTransformed.value = data.length > 0 && data !== allValues.value
 }
@@ -470,12 +470,12 @@ const canFetchData = computed(() => {
 // changed since the table was filled (GH-2065). GeoJSON needs the station positions the backend
 // adds, so it is asked for again, but for the request that filled the table.
 async function downloadValues(format: 'csv' | 'json' | 'geojson') {
-  // the menu is offered only while the table holds rows, which a request filled
+  // CSV and JSON take only the file's name from the request; GeoJSON asks for it again
   const request = fetchedRequest.value
-  if (!request)
-    return
   let content: string
   if (format === 'geojson') {
+    if (!request)
+      return
     const fetched = await fetchGeojson(request)
     if (fetched === null)
       return
@@ -490,7 +490,7 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `${request.filename}.${format}`
+  link.download = `${request?.filename ?? ENDPOINTS.values.filename}.${format}`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -591,7 +591,6 @@ async function fetchData() {
   }
   const request = { ...selectedEndpoint.value, query: { ...apiQuery.value } }
   sentRequest.value = request
-  abortGeojson()
   currentPage.value = 1
   await refreshValues()
   // a newer Fetch or a Clear since has its own; this one answers for the table only if it is still the
@@ -605,7 +604,6 @@ function clearData() {
   // aborts a fetch still under way, and empties the table and its error
   fetchedRequest.value = null
   sentRequest.value = null
-  abortGeojson()
   clearValues()
   currentPage.value = 1
 }

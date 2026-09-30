@@ -71,5 +71,6 @@ export function describeFetchError(error: unknown): string {
   if (failed?.statusCode && (failed.response ?? failed.cause?.response))
     return [failed.statusCode, failed.statusMessage].filter(Boolean).join(' ')
   // an empty message, as h3 gives an error it made from nothing, falls through to the error itself
-  return failed?.message?.replace(/^\[\w+\] "[^"]*": /, '') || String(error)
+  // ofetch marks a request nothing answered `<no response>`, its own token, left out as well
+  return failed?.message?.replace(/^\[\w+\] "[^"]*": (?:<no response> )?/, '') || String(error)
 }
