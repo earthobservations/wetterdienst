@@ -70,6 +70,10 @@ Types of changes:
 - `[Explorer]` The chart's PNG, JPEG and SVG downloads save the facets, stacked into one image, when
   the graph is faceted by parameter, and are offered only while a chart is shown. Faceted, or with
   no chart shown, they saved nothing, without a word (GH-2067)
+- `[Explorer]` A query's NaN and infinities, `'nan'::DOUBLE` or `value / 0.0`, are missing values,
+  as the REST API has none: the table and copies show them empty, a CSV download writes nothing
+  and a JSON download null. The CSV wrote `NaN`, `Infinity` or `-Infinity` where the JSON wrote
+  null (GH-2111)
 
 ## [0.17.0] - 2026-09-29
 
