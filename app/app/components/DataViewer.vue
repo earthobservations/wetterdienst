@@ -291,16 +291,19 @@ function handleDataTransformed(data: Value[]) {
   isDataTransformed.value = data.length > 0 && data !== allValues.value
 }
 
-const columnDefinitions: { key: keyof Value, column: TableColumn<Value> }[] = [
-  { key: 'station_id', column: { accessorKey: 'station_id', header: 'station_id' } },
-  { key: 'resolution', column: { accessorKey: 'resolution', header: 'resolution' } },
-  { key: 'dataset', column: { accessorKey: 'dataset', header: 'dataset' } },
-  { key: 'parameter', column: { accessorKey: 'parameter', header: 'parameter' } },
-  { key: 'timestamp', column: { accessorKey: 'timestamp', header: 'timestamp', cell: ({ row }) => formatDate(row.original.timestamp) } },
-  { key: 'value', column: { accessorKey: 'value', header: 'value' } },
-  { key: 'quality', column: { accessorKey: 'quality', header: 'quality' } },
-  { key: 'taken_station_id', column: { accessorKey: 'taken_station_id', header: 'taken_station_id' } },
-  { key: 'taken_station_ids', column: { accessorKey: 'taken_station_ids', header: 'taken_station_ids' } },
+// The table's own columns, in its order, each with the cell it shows where that is other than the
+// value's text
+const columnDefinitions: { key: keyof Value, cell?: TableColumn<Value>['cell'] }[] = [
+  { key: 'station_id' },
+  { key: 'resolution' },
+  { key: 'dataset' },
+  { key: 'parameter' },
+  // a query's null timestamp empty, as the other cells show a missing value, where formatDate threw on it
+  { key: 'timestamp', cell: ({ row }) => formatDate(fieldText(row.original.timestamp)) },
+  { key: 'value' },
+  { key: 'quality' },
+  { key: 'taken_station_id' },
+  { key: 'taken_station_ids' },
 ]
 
 // Sorting
@@ -340,10 +343,13 @@ const sortedValues = computed(() => {
     const aVal = field(a, column)
     const bVal = field(b, column)
 
-    if (aVal === null || aVal === undefined)
-      return 1
-    if (bVal === null || bVal === undefined)
-      return -1
+    // a missing value last in either direction, and two of them equal, so they keep their order: one
+    // compared as the greater both ways round left it to each engine's sort, which V8 keeps and
+    // SpiderMonkey reverses
+    const aMissing = aVal === null || aVal === undefined
+    const bMissing = bVal === null || bVal === undefined
+    if (aMissing || bMissing)
+      return Number(aMissing) - Number(bMissing)
 
     let comparison = 0
     if (typeof aVal === 'number' && typeof bVal === 'number') {
@@ -427,13 +433,14 @@ watch(rowsMode, () => {
 
 const columns = computed(() =>
   selectedColumns.value.map((key) => {
-    // a column of the rows' own is read by its name as it is: an accessorKey reads `a.b` as a path.
-    // A query's struct or list is shown as a copy writes it, where the table's cell wrote
-    // `[object Object]`
-    const column = columnDefinitions.find(c => c.key === key)?.column
-      ?? { id: key, accessorFn: (row: Value) => fieldText(field(row, key)) }
+    // every column is read by its name as it is -- an accessorKey reads `a.b` as a path -- and shown
+    // as a copy writes it: a query's struct or list as its text, under one of the table's own names as
+    // under a name of its own, where the table's cell wrote `[object Object]`
+    const cell = columnDefinitions.find(c => c.key === key)?.cell
     return {
-      ...column,
+      id: key,
+      accessorFn: (row: Value) => fieldText(field(row, key)),
+      ...(cell ? { cell } : {}),
       header: () => h('span', {
         class: 'cursor-pointer select-none flex items-center gap-1',
         onClick: () => toggleSort(key),
@@ -723,7 +730,8 @@ const chartTraces = computed(() => {
       seriesMap.set(seriesKey, { x: [], y: [] })
     }
 
-    if (value.value !== null && value.value !== undefined) {
+    // a row without a timestamp -- a query's null one -- has no place on the time axis, where it went to 1970
+    if (value.value !== null && value.value !== undefined && value.timestamp != null) {
       const series = seriesMap.get(seriesKey)!
       series.x.push(new Date(value.timestamp))
       series.y.push(value.value)
@@ -814,7 +822,7 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
       stationMap.set(stationKey, { x: [], y: [] })
     }
 
-    if (value.value !== null && value.value !== undefined) {
+    if (value.value !== null && value.value !== undefined && value.timestamp != null) {
       const series = stationMap.get(stationKey)!
       series.x.push(new Date(value.timestamp))
       series.y.push(value.value)

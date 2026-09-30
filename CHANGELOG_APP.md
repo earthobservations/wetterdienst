@@ -91,6 +91,14 @@ Types of changes:
   `distance`. It listed the mode's fixed columns, among them a `quality` that interpolated and
   summarized rows lack, and a wide table's `parameter` and `value`, which a query written from the
   hint then failed on (GH-2109)
+- `[Explorer]` Sorting the table keeps rows without a value in the order they came, last in either
+  direction, in every browser. Firefox reversed them, and the copies and downloads wrote that order
+  (GH-2112)
+- `[Explorer]` A query's row without a timestamp shows an empty timestamp cell and is left out of
+  the chart. The table failed to draw, and the chart placed the row at 1970-01-01 (GH-2103)
+- `[Explorer]` A query's struct under one of the table's own column names, such as `value`, shows as
+  the JSON text the copies and downloads write, as it does under a name of the query's own, where
+  it showed `[object Object]` (GH-2110)
 
 ## [0.17.0] - 2026-09-29
 

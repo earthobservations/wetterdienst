@@ -1024,3 +1024,88 @@ describe('dataViewer query panel columns', () => {
     expect(await availableColumns(wrapper)).toEqual(['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality'])
   })
 })
+
+describe('dataViewer sort of missing values', () => {
+  // two rows without a value among two with one, each known by its station
+  const withGaps = [
+    { ...row, station_id: 'a', value: null },
+    { ...row, station_id: 'b', value: 2 },
+    { ...row, station_id: 'c', value: null },
+    { ...row, station_id: 'd', value: 1 },
+  ]
+
+  // the stations of the rows shown, in their order
+  function stations(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
+    return wrapper.findAll('tbody tr').map(tr => tr.findAll('td')[0]!.text())
+  }
+
+  it('puts the missing values last in either direction, in the order they came', async () => {
+    registerEndpoint('/api/values', () => ({ values: withGaps }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    const value = () => wrapper.findAll('thead th span').find(span => span.text().replace(/[↕↑↓]/g, '') === 'value')!
+    const sort = vi.spyOn(Array.prototype, 'sort')
+    await value().trigger('click')
+    expect(stations(wrapper)).toEqual(['d', 'b', 'a', 'c'])
+    // the order two missing values are left in is the engine's own where they compare unequal: V8
+    // keeps it, SpiderMonkey reverses it, so it is the comparator that is asked
+    const table = (sort.mock.contexts as unknown[][]).findIndex(sorted => sorted.some(r => (r as { station_id?: string } | null)?.station_id === 'a'))
+    const compare = sort.mock.calls[table]![0]!
+    expect(compare(withGaps[0], withGaps[2])).toBe(0)
+    expect(compare(withGaps[2], withGaps[0])).toBe(0)
+    await value().trigger('click')
+    expect(stations(wrapper)).toEqual(['b', 'd', 'a', 'c'])
+  })
+})
+
+describe('dataViewer rows without a timestamp', () => {
+  // a query's row whose timestamp is null -- `NULL AS timestamp`, an outer join, a date past what a
+  // JS Date holds -- beside one that has it
+  const query = [row, { ...row, timestamp: null, value: 9 }]
+
+  async function withQueryRows() {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const mountedViewer = await mountDataViewer()
+    await fetchData(mountedViewer.viewer)
+    mountedViewer.wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', query)
+    await mountedViewer.wrapper.vm.$nextTick()
+    return mountedViewer
+  }
+
+  it('shows the timestamp empty, as the other cells show a missing value', async () => {
+    // the timestamp cell threw on it, and the table was not drawn
+    const { wrapper } = await withQueryRows()
+    const cells = wrapper.findAll('tbody tr').map(tr => tr.findAll('td').map(td => td.text()))
+    expect(cells).toEqual([
+      ['01048', 'temperature_air_mean_2m', '2020-01-01T00:00:00Z', '1.5', ''],
+      ['01048', 'temperature_air_mean_2m', '', '9', ''],
+    ])
+  })
+
+  it.each([false, true])('leaves the row out of the chart, faceted: %s', async (faceted) => {
+    // it was drawn at 1970-01-01
+    plotly.newPlot.mockClear()
+    plotly.react.mockClear()
+    const { wrapper } = await withQueryRows()
+    await showChart(wrapper, faceted)
+    const draw = faceted ? plotly.react : plotly.newPlot
+    await vi.waitFor(() => expect(draw).toHaveBeenCalled())
+    const [trace] = draw.mock.lastCall![1] as { x: string[], y: number[] }[]
+    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
+  })
+})
+
+describe('dataViewer query structs under the table\'s own names', () => {
+  it('shows a struct under a fixed column as the text a copy writes', async () => {
+    // `SELECT parameter, {'min': min(value), 'max': max(value)} AS value FROM data GROUP BY parameter`
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [{ parameter: 'temperature_air_mean_2m', value: { min: 1, max: 2 } }])
+    await wrapper.vm.$nextTick()
+    expect(headers(wrapper)).toEqual(['parameter', 'value'])
+    // it showed `[object Object]`, where a column of the query's own name showed the text
+    expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(['temperature_air_mean_2m', '{"min":1,"max":2}'])
+  })
+})
