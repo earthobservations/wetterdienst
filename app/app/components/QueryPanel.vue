@@ -502,8 +502,9 @@ onUnmounted(async () => {
   // the delayed syntax check would start a database that nothing ends
   if (validationTimeout)
     clearTimeout(validationTimeout)
-  // a run or check under way loads no table into the database being closed, nor queries it
-  currentRun++
+  // a run or check under way loads no table into the database being closed, nor queries it, and a
+  // run's query is cancelled, where the terminated worker would leave its send unanswered
+  leaveRun()
   currentCheck++
   // and a table load under way stops before its next batch
   tableLoad = null

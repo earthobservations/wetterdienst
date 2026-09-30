@@ -748,6 +748,18 @@ describe('queryPanel query left running', () => {
     expect(wrapper.text()).not.toMatch(/Query error|Failed to/)
   })
 
+  it('cancels the query of a run under way as the panel goes', async () => {
+    // the worker was terminated with the query's send unanswered, which never settled
+    const statements = watchStatements(sql => sql === opening ? new Promise<void>(() => {}) : undefined)
+    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
+    await wrapper.find('button').trigger('click')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(statements).toContain(opening))
+    wrapper.unmount()
+    await flushPromises()
+    expect(statements.cancelled).toEqual([opening])
+  })
+
   it('keeps a run\'s query running through a syntax check made while it runs', async () => {
     // the check's statements, on the connection of the query under way, would end that query
     const hold = gate()
