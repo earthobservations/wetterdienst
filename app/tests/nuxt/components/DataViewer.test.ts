@@ -1548,13 +1548,16 @@ describe('dataViewer chart images after a failed drawing', () => {
 })
 
 describe('dataViewer chart images after Plotly failed to load', () => {
-  // Plotly's chunk failing to load, as after a redeploy under an open tab, for the viewers mounted
-  // from here on: each loads Plotly itself, when its chart is first shown
-  function failPlotlyLoad() {
+  // The chart shown while Plotly's chunk fails to load, as after a redeploy under an open tab: the
+  // viewer loads Plotly itself, when its chart is first shown. Taken as shown once the failure is
+  // told, where a load still under way could be answered by the next load's module
+  async function shownWithoutPlotly(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper'], faceted: boolean) {
     vi.doMock('plotly.js-basic-dist-min', () => {
       throw new Error('chunk failed to load')
     })
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect(logged).toHaveBeenCalledWith('The chart could not be drawn', expect.any(Error)))
   }
 
   function loadPlotly() {
@@ -1568,15 +1571,15 @@ describe('dataViewer chart images after Plotly failed to load', () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
-    failPlotlyLoad()
     const draw = faceted ? plotly.react : plotly.newPlot
     draw.mockClear()
-    await showChart(wrapper, faceted)
+    await shownWithoutPlotly(wrapper, faceted)
     expect(draw).not.toHaveBeenCalled()
     loadPlotly()
     catchDownload()
     ;(await openDownloads(wrapper))[0]!.click()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
+    // the module loaded anew, which a busy runner can take a while over
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'), { timeout: 5000 })
     expect(draw).toHaveBeenCalledTimes(faceted ? 2 : 1)
   })
 
@@ -1585,8 +1588,7 @@ describe('dataViewer chart images after Plotly failed to load', () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
-    failPlotlyLoad()
-    await showChart(wrapper, faceted)
+    await shownWithoutPlotly(wrapper, faceted)
     const saved = catchDownload()
     const items = await openDownloads(wrapper)
     ;(viewer.vm as unknown as { clearData: () => void }).clearData()
