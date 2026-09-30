@@ -52,7 +52,9 @@ describe('widget Page', () => {
     )
 
     const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Backend error 404: No forecast for station 00001'))
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.error).toBe('Backend error 404: No forecast for station 00001'))
+    expect(wrapper.text()).toContain('Backend error 404: No forecast for station 00001')
   })
 
   it('tells a failed forecast by its status when the body gives no detail', async () => {
@@ -65,7 +67,8 @@ describe('widget Page', () => {
     )
 
     const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Backend error 502 Bad Gateway'))
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.error).toBe('Backend error 502 Bad Gateway'))
     expect(wrapper.text()).not.toContain('proxy page')
   })
 
