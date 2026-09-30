@@ -49,8 +49,10 @@ const { data: stationsData, pending: stationsPending, refresh: refreshStations }
 
 const allStations = computed(() => stationsData.value?.stations ?? [])
 
+// A station offers the point it stands at, so one without a position, e.g. a postcode of
+// dwd/derived climate_correction_factor, has none to offer and is left out.
 const stationItems = computed(() =>
-  allStations.value.map(station => ({
+  allStations.value.filter(s => s.latitude != null && s.longitude != null).map(station => ({
     label: stationShortLabel(station),
     value: station.station_id,
   })),

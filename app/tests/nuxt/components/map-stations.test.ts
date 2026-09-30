@@ -1,5 +1,6 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import MapStations from '~/components/MapStations.vue'
 
 // The markers handed to leaflet.markercluster; the map itself is left to the e2e tests.
@@ -200,5 +201,51 @@ describe('mapStations when its list changes while the markers are built', () => 
     expect(clusters).toHaveLength(1)
     expect(removeLayer).toHaveBeenCalledWith(clusters[0]!.markerCluster)
     expect(clusters[0]!.clicks).toEqual([])
+  })
+})
+
+describe('mapStations centring on selected stations that have no position', () => {
+  // a postcode of dwd/derived climate_correction_factor, which has no place on the map
+  const postcode = { station_id: '01067', name: null, region: null, latitude: null, longitude: null, elevation: null }
+  const berlin = { station_id: '00001', name: 'Test Station', region: 'Berlin', latitude: 52.5, longitude: 13.4 }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    markerCluster.mockClear()
+  })
+
+  const button = () => wrapper!.find('button')
+
+  async function mountWith(selectedStations: unknown[]) {
+    wrapper = await mountSuspended(MapStations, { props: { stations: [postcode, berlin], selectedStations: [], multiple: true } })
+    const vm = wrapper.vm as any
+    const fitBounds = vi.fn()
+    vm.map = { leafletObject: { removeLayer: () => {}, fitBounds } }
+    await wrapper.setProps({ selectedStations })
+    return { vm, fitBounds }
+  }
+
+  it('offers no centring for a selection without a position', async () => {
+    const { vm } = await mountWith([postcode])
+
+    // it switched to "centre all", with nothing to centre on
+    expect(vm.centerOnSelectedStations).toBe(false)
+    expect(button().attributes('disabled')).toBeDefined()
+  })
+
+  it('centres on, and counts, the selected stations that have one', async () => {
+    const { vm, fitBounds } = await mountWith([postcode, berlin])
+
+    expect(vm.centerOnSelectedStations).toBe(true)
+    const bounds = fitBounds.mock.lastCall![0]
+    expect([bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()]).toEqual([52.5, 13.4, 52.5, 13.4])
+
+    vm.toggleCenter()
+    await nextTick()
+    expect(button().text()).toBe('Center on selected station')
+    expect(button().attributes('disabled')).toBeUndefined()
   })
 })

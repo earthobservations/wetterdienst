@@ -124,6 +124,11 @@ Types of changes:
 - `[Explorer]` The station map shows the markers of the current station list only. A list that
   changed while the markers were still being built could leave the previous dataset's markers on
   the map, and clicking one selected a station of that dataset (GH-2132)
+- `[Explorer]` A station without a position, such as a postcode of dwd/derived
+  climate_correction_factor, is no longer offered as the point to interpolate or summarize for,
+  where choosing it left Fetch disabled with nothing saying why. The map's centre button counts
+  only the selected stations it can show, and is disabled when none of them has a position, where
+  it switched to "Center on all stations" with nothing to centre on (GH-2133)
 
 ## [0.17.0] - 2026-09-29
 

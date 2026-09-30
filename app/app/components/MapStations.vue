@@ -36,6 +36,8 @@ function positioned(stations: any[]) {
 }
 
 const mappedStations = computed(() => positioned(props.stations))
+// The selected stations the map can centre on.
+const mappedSelectedStations = computed(() => positioned(props.selectedStations))
 
 const mapCenter = computed<[number, number]>(() => {
   const stations = mappedStations.value
@@ -47,7 +49,7 @@ const mapCenter = computed<[number, number]>(() => {
 })
 
 const mapBounds = computed(() => {
-  const stations = centerOnSelectedStations.value ? positioned(props.selectedStations) : mappedStations.value
+  const stations = centerOnSelectedStations.value ? mappedSelectedStations.value : mappedStations.value
   if (!stations.length)
     return null
   const latitudes = stations.map(s => s.latitude)
@@ -164,8 +166,9 @@ watch(() => props.selectedStations, () => {
   // avoid noisy logs in production; keep a warn for visibility when needed
   console.warn('selectedStations changed', props.selectedStations)
   updateMarkerIcons()
-  // when user selects stations by clicking, indicate map is centered on selection
-  if (props.selectedStations && props.selectedStations.length > 0) {
+  // when user selects stations by clicking, indicate map is centered on selection -- for a selection
+  // with a position, as one without leaves nothing to centre on
+  if (mappedSelectedStations.value.length > 0) {
     centerOnSelectedStations.value = true
   }
 }, { deep: true })
@@ -184,12 +187,12 @@ watch([
   <div>
     <div class="p-4 space-y-4">
       <UButton
-        :label="centerOnSelectedStations ? t('map.centerAll') : (props.selectedStations.length === 1 ? t('map.centerSelected') : t('map.centerSelectedPlural'))"
+        :label="centerOnSelectedStations ? t('map.centerAll') : (mappedSelectedStations.length === 1 ? t('map.centerSelected') : t('map.centerSelectedPlural'))"
         color="neutral"
         variant="ghost"
         size="sm"
         block
-        :disabled="!props.selectedStations.length && !centerOnSelectedStations"
+        :disabled="!mappedSelectedStations.length && !centerOnSelectedStations"
         @click="toggleCenter"
       />
       <LMap
