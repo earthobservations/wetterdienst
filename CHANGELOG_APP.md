@@ -31,6 +31,9 @@ Types of changes:
 - `[Explorer]` Show is offered again after a fetch fails, so the same selection can be retried, and
   after the station is removed and chosen again, which empties the table; it stayed disabled until a
   setting changed or Reset was pressed (GH-2073)
+- `[History]` Show is offered again after a fetch fails, so the same selection can be retried; it
+  stayed disabled until a setting changed or Reset was pressed. Show no longer reorders the chosen
+  sections, and a fetch under way still shows its answer when the selection changes (GH-2077)
 
 ## [0.17.0] - 2026-09-29
 

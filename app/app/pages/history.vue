@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { StationSelectionState } from '~/types/station-selection-state.type'
-import { computed, ref } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
 
@@ -44,16 +44,6 @@ const initialStationIds = ref<string[]>(
 )
 
 const showAbout = ref(false)
-
-// Track last fetched parameters to prevent redundant fetches
-const lastFetchedParams = ref<{
-  provider: string
-  network: string
-  resolution: string
-  dataset: string
-  stationIds: string
-  sections: string
-} | null>(null)
 
 // Reset stations when resolution or dataset changes via ParameterSelection
 watch(() => paramSel.value.resolution, () => {
@@ -144,75 +134,50 @@ const parameterSelection = computed(() => ({
   parameters: ['_all'],
 }))
 
-// Check if we have minimum required params
-const canFetch = computed(() => {
-  const hasParameters = resolution.value && dataset.value
-  const hasStations = stationIds.value.length > 0
-
-  if (!hasParameters || !hasStations) {
-    return false
-  }
-
-  // Check if parameters have changed since last fetch
-  if (lastFetchedParams.value) {
-    const currentParams = {
-      provider: provider.value,
-      network: network.value,
-      resolution: resolution.value,
-      dataset: dataset.value,
-      stationIds: stationIds.value,
-      sections: [...selectedSections.value].sort().join(','),
-    }
-
-    const unchanged
-      = currentParams.provider === lastFetchedParams.value.provider
-        && currentParams.network === lastFetchedParams.value.network
-        && currentParams.resolution === lastFetchedParams.value.resolution
-        && currentParams.dataset === lastFetchedParams.value.dataset
-        && currentParams.stationIds === lastFetchedParams.value.stationIds
-        && currentParams.sections === lastFetchedParams.value.sections
-
-    if (unchanged) {
-      return false
-    }
-  }
-
-  return true
-})
-
-const { data, pending, refresh, error } = useFetch<any>('/api/history', {
-  lazy: true,
-  immediate: false,
-  watch: false,
-  query: computed(() => ({
+// The request the selection makes, new each call: what Fetch sends, and what holdsSelection compares with.
+// Sections are sorted, so the order they were picked in doesn't make a request of its own.
+function historyQuery() {
+  return {
     provider: provider.value,
     network: network.value,
     parameters: parametersString.value,
     station: stationIds.value || undefined,
-    sections: selectedSections.value.length ? selectedSections.value : undefined,
-  })),
+    sections: selectedSections.value.length ? [...selectedSections.value].sort() : undefined,
+  }
+}
+const selectedQuery = computed(historyQuery)
+const sentQuery = shallowRef<ReturnType<typeof historyQuery> | null>(null)
+
+const { data, pending, status, refresh, clear: clearHistories, error } = useFetch<any>('/api/history', {
+  lazy: true,
+  immediate: false,
+  watch: false,
+  // what Fetch sent, not the selection: useFetch keys a fetch by its query, so reading the selection
+  // moved it to another entry whenever that changed, aborting a fetch under way and leaving `status` idle
+  query: computed(() => sentQuery.value ?? {}),
   default: () => ({ histories: [] }),
 })
+
+// Nothing new to fetch where the selection is what Fetch sent last, still under way or answered. A fetch
+// that failed, or one Clear cleared, holds nothing, so Fetch is offered again for the same selection.
+const holdsSelection = computed(() =>
+  (status.value === 'pending' || status.value === 'success')
+  && sentQuery.value !== null
+  && JSON.stringify(sentQuery.value) === JSON.stringify(selectedQuery.value))
+
+const canFetch = computed(() => Boolean(resolution.value && dataset.value && stationIds.value) && !holdsSelection.value)
 
 function run() {
   if (!canFetch.value) {
     return
   }
-  lastFetchedParams.value = {
-    provider: provider.value,
-    network: network.value,
-    resolution: resolution.value,
-    dataset: dataset.value,
-    stationIds: stationIds.value,
-    sections: selectedSections.value.sort().join(','),
-  }
+  sentQuery.value = historyQuery()
   refresh()
 }
 
 function clear() {
-  // Clear the fetched results and reset tracking
-  lastFetchedParams.value = null
-  data.value = { histories: [] }
+  // aborts a fetch under way, and empties the results
+  clearHistories()
 }
 </script>
 
