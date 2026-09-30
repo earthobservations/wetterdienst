@@ -251,15 +251,19 @@ describe('mapStations centring on selected stations that have no position', () =
     expect(button().attributes('disabled')).toBeUndefined()
   })
 
-  it('stops centring when the selection moves on to stations without a position', async () => {
+  it('keeps offering to fit all stations when a centred selection moves on to one without a position', async () => {
     const { vm, fitBounds } = await mountWith([berlin])
     expect(vm.centerOnSelectedStations).toBe(true)
     const fits = fitBounds.mock.calls.length
 
     await wrapper!.setProps({ selectedStations: [postcode] })
-    // it stayed on, offering "centre all" for a centring with no bounds
-    expect(vm.centerOnSelectedStations).toBe(false)
-    expect(button().attributes('disabled')).toBeDefined()
+    // the map stays where it is, and the button can still zoom it out to every station
     expect(fitBounds).toHaveBeenCalledTimes(fits)
+    expect(button().text()).toBe('Center on all stations')
+    expect(button().attributes('disabled')).toBeUndefined()
+    vm.toggleCenter()
+    const bounds = fitBounds.mock.lastCall![0]
+    expect([bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()]).toEqual([52.5, 13.4, 52.5, 13.4])
+    expect(vm.centerOnSelectedStations).toBe(false)
   })
 })

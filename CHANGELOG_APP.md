@@ -128,8 +128,9 @@ Types of changes:
   climate_correction_factor, is no longer offered as the point to interpolate or summarize for,
   where choosing it left Fetch disabled with nothing saying why (GH-2133)
 - `[Explorer/History/Stripes/Meteogram]` The station map's centre button counts only the selected
-  stations it can show, and is disabled when none of them has a position, the selection empty
-  included, where it switched to "Center on all stations" with nothing to centre on (GH-2133)
+  stations it can show. Choosing only stations without a position no longer switches it to "Center
+  on all stations" with nothing to centre on: it stays disabled until a chosen station has a
+  position (GH-2133)
 
 ## [0.17.0] - 2026-09-29
 

@@ -85,8 +85,8 @@ async function createMarkers() {
       },
     })),
   })
-  // The list changed while leaflet.markercluster was loading, and a later call has built (or
-  // cleared) the markers since: this call's cluster, already added to the map, is an older list's.
+  // The list changed while leaflet.markercluster was loading, and a later call was made for the
+  // newer one: this call's cluster, already added to the map, is an older list's.
   if (generation !== markersGeneration) {
     leafletMap.removeLayer(result.markerCluster)
     return
@@ -162,10 +162,11 @@ watch(() => props.selectedStations, () => {
   // avoid noisy logs in production; keep a warn for visibility when needed
   console.warn('selectedStations changed', props.selectedStations)
   updateMarkerIcons()
-  // when user selects stations by clicking, indicate map is centered on selection -- while the
-  // selection has a station with a position: without one there is nothing to centre on, and the
-  // button is disabled rather than offering to leave a centring that has no bounds
-  centerOnSelectedStations.value = mappedSelectedStations.value.length > 0
+  // when user selects stations by clicking, indicate map is centered on selection -- for a selection
+  // with a position, as one without leaves nothing to centre on. Centring already on stays on, so
+  // its button still offers to fit the map to all stations.
+  if (mappedSelectedStations.value.length > 0)
+    centerOnSelectedStations.value = true
 }, { deep: true })
 
 // Follows the selection while the map is centred on it. Off, the map is left where the user put it:
