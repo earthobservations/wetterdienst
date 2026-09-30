@@ -135,6 +135,9 @@ Types of changes:
 - `[Explorer]` A query's MAP with NaN, infinite and negative infinite keys keeps each of them, as
   `NaN`, `Infinity` and `-Infinity`. All three were keyed `null`, so only the last one's value was
   shown and downloaded (GH-2116)
+- `[Explorer]` A query's MAP with DOUBLE or FLOAT keys of NaN, infinity and negative infinity keeps
+  each of them, as `NaN`, `Infinity` and `-Infinity`. All three were keyed `null`, so only the
+  last one's value was shown and downloaded (GH-2116)
 - `[Explorer]` The query panel's note on the types the browser's DuckDB misreads names GEOMETRY,
   which comes as its WKB bytes, and `CAST(column AS VARCHAR)` reads it as text (GH-2134)
 

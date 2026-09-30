@@ -192,6 +192,7 @@ describe('plainRows of a map with a NaN or an infinite key', () => {
   })
 
   it('reads a map with an infinite timestamp key, which Arrow\'s getter cannot', () => {
+    // read only a float key from the getter, which throws on these ticks; the keys collide (GH-2148)
     expect(() => rows('SELECT MAP {\'infinity\'::TIMESTAMP: 1, \'-infinity\'::TIMESTAMP: 2} AS m')).not.toThrow()
   })
 })

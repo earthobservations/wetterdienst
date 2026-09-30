@@ -193,9 +193,9 @@ function plainColumn(vector: Vector, field: Field): unknown[] {
       const keyVector = entries.getChildAt(0)!
       const keys = plainColumn(keyVector, keyField!)
       const values = plainColumn(entries.getChildAt(1)!, valueField!)
-      // a NaN or an infinite key, which is made null as any value is, by its own name, so that each
-      // stays apart (GH-2116). Only a float key is read so: Arrow's getter throws on an infinite
-      // timestamp, and a key is never NULL
+      // a float key of NaN or an infinity, which is made null as any value is, by its own name, so
+      // that each stays apart (GH-2116); a key is never NULL. Other keys made null, as an infinite
+      // date, still collide (GH-2148)
       const floatKeys = keyVector.type.typeId === Type.Float
       const keyText = (key: unknown, at: number) => key === null && floatKeys
         ? String(keyVector.get(at))
