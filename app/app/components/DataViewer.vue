@@ -217,18 +217,25 @@ const apiQuery = computed(() => {
 // selected since. Bound to the live selection instead, the fetch kept a request of its own beside
 // this one, which a selection changed mid-fetch, or Clear, could part from what the table showed.
 const fetchedRequest = ref<{ endpoint: string, filename: string, query: Record<string, unknown> } | null>(null)
-// Fetches and Clears so far: a GeoJSON download started before the latest is for a table gone since
-const fetchGeneration = ref(0)
+// a GeoJSON download under way, which the menu does not offer again until it is saved
+const geojsonDownload = shallowRef<AbortController | null>(null)
+const downloadingGeojson = computed(() => geojsonDownload.value !== null)
+// Abort the GeoJSON download under way: the table it describes is going. Called by Fetch, Clear and
+// the query panel as they change the table, not from a watcher, which runs only once they return --
+// after an answer that arrived in between was already saved
+function abortGeojson() {
+  geojsonDownload.value?.abort()
+}
+onScopeDispose(abortGeojson)
 
 // One key for the table's values, whatever the request: a newer Fetch cancels one still under way
-// (useFetch's `dedupe: 'cancel'`) and Clear aborts it (`clear`), so an answer they overtook never
+// (useFetch's default `dedupe: 'cancel'`) and Clear aborts it (`clear`), so an answer they overtook never
 // reaches the table. Keyed by the request instead, as useFetch is by default, each request left an
 // entry behind for the rest of the session.
 const { data: valuesData, pending: valuesPending, error: valuesError, refresh: refreshValues, clear: clearValues } = useFetch<ValuesResponse>(
   () => fetchedRequest.value?.endpoint ?? '/api/values',
   {
     key: `${useId()}-values`,
-    dedupe: 'cancel',
     method: 'GET',
     query: computed(() => fetchedRequest.value?.query ?? {}),
     lazy: true,
@@ -263,6 +270,7 @@ const isDataTransformed = ref(false)
 const displayData = computed(() => isDataTransformed.value ? transformedData.value : allValues.value)
 
 function handleDataTransformed(data: Value[]) {
+  abortGeojson()
   transformedData.value = data
   isDataTransformed.value = data.length > 0 && data !== allValues.value
 }
@@ -443,10 +451,6 @@ const canFetchData = computed(() => {
   }
 })
 
-// a GeoJSON download under way, which the menu does not offer again until it is saved
-const geojsonDownload = shallowRef<AbortController | null>(null)
-const downloadingGeojson = computed(() => geojsonDownload.value !== null)
-
 // A download saves what the table holds -- its rows, after the query panel and the sorting, with
 // the columns it shows first and then any others they carry -- rather than asking the backend again
 // for whatever is selected now: that answered a different selection, or units, once either had
@@ -483,11 +487,6 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
 
   toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedValues', { format: format.toUpperCase() }), color: 'success' })
 }
-
-// the GeoJSON download under way, aborted once the table no longer holds what it describes
-// aborted once the table no longer holds what it describes, or the viewer is gone
-watch([fetchGeneration, isDataTransformed], () => geojsonDownload.value?.abort())
-onScopeDispose(() => geojsonDownload.value?.abort())
 
 // Ask again for the request that filled the table, as GeoJSON; null where there is nothing to save:
 // the answer failed, which is told, or the table moved on -- Fetch, Clear, the query panel -- which
@@ -566,7 +565,7 @@ async function fetchData() {
     return
   }
   fetchedRequest.value = { ...selectedEndpoint.value, query: { ...apiQuery.value } }
-  fetchGeneration.value++
+  abortGeojson()
   currentPage.value = 1
   await refreshValues()
 }
@@ -575,7 +574,7 @@ async function fetchData() {
 function clearData() {
   // aborts a fetch still under way, and empties the table and its error
   fetchedRequest.value = null
-  fetchGeneration.value++
+  abortGeojson()
   clearValues()
   currentPage.value = 1
 }

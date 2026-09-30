@@ -1,6 +1,15 @@
 /** A row as the data viewer holds it: a value, or a wide-shaped row, or whatever the query panel made. */
 type Row = object
 
+// the columns a row holds, counted without building a list of them; every one of them is an export
+// column, so a row holding as many holds them all
+function keyCount(row: Row): number {
+  let count = 0
+  for (const _column in row)
+    count++
+  return count
+}
+
 function field(row: Row, column: string): unknown {
   return (row as Record<string, unknown>)[column]
 }
@@ -65,10 +74,11 @@ export function valuesToCsv(values: Row[], columns: string[]): string {
  * @returns The JSON text
  */
 export function valuesToJson(values: Row[], columns: string[]): string {
-  // rows that hold exactly these columns, in this order -- the REST API's answer, as a rule -- are
-  // written as they are, rather than copied first: a large table would be held twice over
-  const first = values[0]
-  const asTheyAre = first !== undefined && Object.keys(first).join('\u0000') === columns.join('\u0000')
-  const rows = asTheyAre ? values : values.map(row => Object.fromEntries(columns.map(column => [column, field(row, column) ?? null])))
+  // rows that each hold every column -- the REST API's answer, as a rule -- are written as they are,
+  // rather than copied first, as a large table would be held twice over; a row lacking one is copied,
+  // so it writes that column as null
+  const rows = values.every(row => keyCount(row) === columns.length)
+    ? values
+    : values.map(row => Object.fromEntries(columns.map(column => [column, field(row, column) ?? null])))
   return JSON.stringify({ values: rows })
 }

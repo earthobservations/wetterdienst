@@ -66,6 +66,17 @@ describe('valuesToCsv with a query panel\'s column names', () => {
   })
 })
 
+describe('valuesToJson over rows of different shapes', () => {
+  it('writes a column a row lacks as null, as the first row holds it', () => {
+    const sparse = [{ station_id: '01048', value: 1.5, taken_station_id: '01048' }, { station_id: '04411', value: 2.5 }]
+    expect(JSON.parse(valuesToJson(sparse, ['station_id', 'value', 'taken_station_id'])).values[1]).toEqual({
+      station_id: '04411',
+      value: 2.5,
+      taken_station_id: null,
+    })
+  })
+})
+
 describe('exportColumns over rows of different shapes', () => {
   it('keeps a column only a later row carries', () => {
     const sparse = [{ station_id: '01048', value: 1.5 }, { station_id: '04411', value: 2.5, taken_station_id: '04411' }]

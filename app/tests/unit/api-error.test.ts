@@ -54,6 +54,12 @@ describe('describeFetchError', () => {
     expect(describeFetchError(plain)).toBe('500 Internal Server Error')
   })
 
+  it('tells an answer without a status text by its code alone', () => {
+    // HTTP/2 sends no status text; the message then ends in the code and nothing after it
+    const http2 = { data: 'Bad Gateway', message: '[GET] "/api/values?station=01048": 502 ', statusCode: 502, statusMessage: '' }
+    expect(describeFetchError(http2)).toBe('502')
+  })
+
   it('tells a request that got no answer by its message, without the request ofetch puts first', () => {
     // as useFetch holds it: a status of 500 by default, and no status text, as nothing answered
     const unanswered = { data: undefined, message: '[GET] "/api/values?provider=dwd&station=01048": <no response> Failed to fetch', statusCode: 500 }
