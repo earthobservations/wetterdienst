@@ -84,9 +84,11 @@ afterEach(() => {
   unwatched.splice(0).forEach(restore => restore())
 })
 
-// The statements the panel hands DuckDB, in order, each held until `hold` answers for it
+// The statements the panel hands DuckDB, in order, each held until `hold` answers for it; `ran`,
+// those DuckDB was handed on, in the order it was
 function watchStatements(hold: (sql: string) => Promise<void> | undefined = () => undefined) {
   const statements: string[] = []
+  const ran: string[] = []
   const connect = AsyncDuckDB.prototype.connect
   const spy = vi.spyOn(AsyncDuckDB.prototype, 'connect').mockImplementation(async function (this: AsyncDuckDB) {
     const conn = await connect.call(this)
@@ -95,17 +97,18 @@ function watchStatements(hold: (sql: string) => Promise<void> | undefined = () =
       query: async (sql: string) => {
         statements.push(sql)
         await hold(sql)
+        ran.push(sql)
         return query(sql)
       },
     })
   })
   unwatched.push(() => spy.mockRestore())
-  return statements
+  return Object.assign(statements, { ran })
 }
 
-// a panel in query mode on `data`
-async function queryMode() {
-  const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
+// a panel in query mode on `rows`
+async function queryMode(rows = data) {
+  const wrapper = await mountSuspended(QueryPanel, { props: { data: rows, expectedColumns: Object.keys(rows[0]!), mode: 'station' } })
   mounted.push(wrapper)
   await wrapper.find('button').trigger('click')
   return wrapper
@@ -330,11 +333,45 @@ describe('queryPanel unmounted', () => {
     hold.open()
     await vi.waitFor(() => expect(terminate).toHaveBeenCalledTimes(1))
     await flushPromises()
-    expect(statements).toEqual([])
+    expect([...statements]).toEqual([])
+  })
+
+  it.each([
+    { starter: 'a syntax check', start: (wrapper: Awaited<ReturnType<typeof unmountable>>) => editNow(wrapper, 'SELECT * FROM data LIMIT 10') },
+    { starter: 'a run', start: (wrapper: Awaited<ReturnType<typeof unmountable>>) => runButton(wrapper).trigger('click') },
+  ])('stops the table load $starter has under way, and queries nothing, once unmounted', async ({ start }) => {
+    // the load went on inserting, and the check or run queried, a connection being closed
+    const hold = gate()
+    const statements = watchStatements(sql => sql.startsWith('CREATE TABLE') ? hold.opened : undefined)
+    const wrapper = await unmountable()
+    await start(wrapper)
+    await vi.waitFor(() => expect(creates(statements)).toHaveLength(1))
+    wrapper.unmount()
+    hold.open()
+    await flushPromises()
+    expect(verbs(statements)).toEqual(['DROP', 'CREATE'])
+    expect(statements.filter(sql => !/^(?:DROP|CREATE) /.test(sql))).toEqual([])
   })
 })
 
 describe('queryPanel failed start or load', () => {
+  it('revokes the worker\'s script when the worker cannot be started', async () => {
+    // a Worker refused, by a CSP that blocks blob: workers, left the script's URL behind
+    vi.stubGlobal('Worker', class {
+      constructor() {
+        throw new Error('blocked')
+      }
+    })
+    unwatched.push(() => vi.stubGlobal('Worker', class {}))
+    vi.mocked(URL.createObjectURL).mockClear()
+    vi.mocked(URL.revokeObjectURL).mockClear()
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to initialize database'))
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:duckdb')
+  })
+
   it('starts DuckDB again for the next run after its start failed, ending the database that failed', async () => {
     const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate').mockRejectedValueOnce(new Error('lost'))
     const terminate = vi.spyOn(AsyncDuckDB.prototype, 'terminate')
@@ -376,8 +413,8 @@ describe('queryPanel failed start or load', () => {
   })
 
   it.each([
-    { ended: 'ended', fails: false, loads: ['DROP', 'CREATE', 'INSERT', 'DROP', 'CREATE', 'INSERT'] },
-    { ended: 'failed', fails: true, loads: ['DROP', 'CREATE', 'DROP', 'CREATE', 'INSERT'] },
+    { ended: 'stopped', fails: false, loads: ['DROP', 'CREATE', 'DROP', 'CREATE', 'INSERT'] },
+    { ended: 'failed', fails: true, loads: ['DROP', 'DROP', 'CREATE', 'INSERT'] },
   ])('loads newer rows once the load of the rows before them has $ended', async ({ fails, loads }) => {
     // a Fetch's rows loaded while the run before it still loaded the older ones would drop and
     // create the table between that load's statements; nor does the older load's failure fail them
@@ -402,6 +439,92 @@ describe('queryPanel failed start or load', () => {
     // the rows handed back as query mode was left, then the newer run's result
     await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(2))
     expect(wrapper.emitted<[Value[]]>('dataTransformed')![1]![0]).toEqual(newer)
-    expect(statements.map(sql => sql.split(' ')[0]).filter(verb => verb !== 'SELECT')).toEqual(loads)
+    expect(verbs(statements.ran)).toEqual(loads)
+  })
+
+  it('inserts no more of the rows a Fetch replaced while they loaded', async () => {
+    // their load ran every batch, and the newer rows' load waited for it
+    const older = Array.from({ length: 250 }, (_, i) => ({ ...data[0]!, value: i }))
+    const hold = gate()
+    let held = false
+    const statements = watchStatements((sql) => {
+      if (!held && sql.startsWith('INSERT')) {
+        held = true
+        return hold.opened
+      }
+      return undefined
+    })
+    const wrapper = await queryMode(older)
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(held).toBe(true))
+    await wrapper.setProps({ data })
+    await buttonLabelled(wrapper, 'Transform with SQL Query').trigger('click')
+    await runButton(wrapper).trigger('click')
+    hold.open()
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(2))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![1]![0]).toEqual(data)
+    expect(verbs(statements.ran)).toEqual(['DROP', 'CREATE', 'INSERT', 'DROP', 'CREATE', 'INSERT'])
   })
 })
+
+describe('queryPanel syntax check', () => {
+  it('checks the text it validated, not the text edited while it waited for the table', async () => {
+    // it read the query again for EXPLAIN, so it ran text validateQuery never saw: here a DROP
+    const hold = gate()
+    const statements = watchStatements(sql => sql.startsWith('CREATE TABLE') ? hold.opened : undefined)
+    const wrapper = await queryMode()
+    await editNow(wrapper, 'SELECT * FROM data LIMIT 10')
+    await vi.waitFor(() => expect(creates(statements)).toHaveLength(1))
+    // the next check is 500 ms away
+    await wrapper.find('textarea').setValue('SELECT * FROM data LIMIT 10; DROP TABLE data')
+    hold.open()
+    await vi.waitFor(() => expect(statements).toContain('SELECT * FROM (SELECT * FROM data LIMIT 10) LIMIT 0'))
+    expect(statements.filter(sql => sql.includes('; DROP TABLE data'))).toEqual([])
+  })
+
+  it('tells the newest check\'s answer, and its spinner, over a check still waiting for the table', async () => {
+    // the older check answered last, clearing the newer one's error, and its spinner showed until
+    // the table was loaded
+    const hold = gate()
+    const statements = watchStatements(sql => sql.startsWith('CREATE TABLE') ? hold.opened : undefined)
+    const wrapper = await queryMode()
+    await editNow(wrapper, 'SELECT * FROM data LIMIT 10')
+    await vi.waitFor(() => expect(creates(statements)).toHaveLength(1))
+    const spinner = () => wrapper.find('div.absolute.top-2.right-2').exists()
+    expect(spinner()).toBe(true)
+    await editNow(wrapper, 'SELECT * FROM data LIMIT 10; DROP TABLE data')
+    expect(wrapper.text()).toContain('Syntax Error')
+    expect(spinner()).toBe(false)
+    hold.open()
+    await vi.waitFor(() => expect(statements.some(sql => sql.startsWith('INSERT'))).toBe(true))
+    await flushPromises()
+    expect(wrapper.text()).toContain('Syntax Error')
+    expect(spinner()).toBe(false)
+  })
+
+  it('keeps the newest check\'s spinner when a check left behind ends', async () => {
+    const newer = 'SELECT * FROM data LIMIT 20'
+    const loaded = gate()
+    const explained = gate()
+    const statements = watchStatements(sql => sql.startsWith('CREATE TABLE')
+      ? loaded.opened
+      : sql === `EXPLAIN ${newer}` ? explained.opened : undefined)
+    const wrapper = await queryMode()
+    const spinner = () => wrapper.find('div.absolute.top-2.right-2').exists()
+    await editNow(wrapper, 'SELECT * FROM data LIMIT 10')
+    await vi.waitFor(() => expect(creates(statements)).toHaveLength(1))
+    await editNow(wrapper, newer)
+    loaded.open()
+    await vi.waitFor(() => expect(statements).toContain(`EXPLAIN ${newer}`))
+    await flushPromises()
+    // the newer check is still under way
+    expect(spinner()).toBe(true)
+    explained.open()
+    await vi.waitFor(() => expect(spinner()).toBe(false))
+  })
+})
+
+// the statements that loaded the table, by their first word
+function verbs(statements: string[]) {
+  return statements.map(sql => sql.split(' ')[0]).filter(verb => verb !== 'SELECT' && verb !== 'EXPLAIN')
+}

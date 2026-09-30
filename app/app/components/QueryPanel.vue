@@ -95,8 +95,6 @@ let started: Promise<void> | null = null
 // the start failed: a run starts DuckDB again, the syntax check does not, rather than at every pause
 // in typing
 let startFailed = false
-// the panel is gone, and a syntax check under way stops
-let unmounted = false
 
 // Initialize DuckDB
 function initDuckDB({ again = false } = {}): Promise<void> {
@@ -122,11 +120,11 @@ async function startDuckDB() {
       new Blob([`importScripts("${bundle.mainWorker!}");`], { type: 'text/javascript' }),
     )
 
-    // Instantiate the asynchronous version of DuckDB-wasm
-    const worker = new Worker(worker_url)
-    const logger = new duckdb.ConsoleLogger()
-    database = new duckdb.AsyncDuckDB(logger, worker)
     try {
+      // Instantiate the asynchronous version of DuckDB-wasm
+      const worker = new Worker(worker_url)
+      const logger = new duckdb.ConsoleLogger()
+      database = new duckdb.AsyncDuckDB(logger, worker)
       await database.instantiate(bundle.mainModule, bundle.pthreadWorker)
     }
     finally {
@@ -144,8 +142,8 @@ async function startDuckDB() {
   }
 }
 
-// Load rows into DuckDB's `data` table
-async function loadDataIntoDB(rows: Value[]) {
+// Load rows into DuckDB's `data` table, stopping before its next batch once `superseded`
+async function loadDataIntoDB(rows: Value[], superseded: () => boolean) {
   // Drop table if exists
   await conn.query('DROP TABLE IF EXISTS data')
 
@@ -163,6 +161,8 @@ async function loadDataIntoDB(rows: Value[]) {
   // Insert data in batches to avoid query size limits
   const batchSize = 100
   for (let i = 0; i < rows.length; i += batchSize) {
+    if (superseded())
+      return
     const batch = rows.slice(i, i + batchSize)
     const values = batch.map((row) => {
       const vals = columns.map((col) => {
@@ -183,13 +183,15 @@ async function loadDataIntoDB(rows: Value[]) {
 
 // The load of the panel's rows into the table, which a run and the syntax check await rather than
 // load it each, their statements interleaved. A load of newer rows starts once the one before it
-// has ended, and a load that failed is tried again by whoever asks next
+// has ended, which stops before its next batch rather than insert rows nobody will query. A load
+// that failed is tried again by whoever asks next
 let tableLoad: { rows: Value[], done: Promise<void> } | null = null
 
 function loadTable(rows: Value[]): Promise<void> {
   if (tableLoad?.rows !== rows) {
     const before = tableLoad?.done.catch(() => {}) ?? Promise.resolve()
-    const load = { rows, done: before.then(() => loadDataIntoDB(rows)) }
+    const load = { rows, done: Promise.resolve() }
+    load.done = before.then(() => loadDataIntoDB(rows, () => tableLoad !== load))
     load.done.catch(() => {
       if (tableLoad === load)
         tableLoad = null
@@ -199,17 +201,33 @@ function loadTable(rows: Value[]): Promise<void> {
   return tableLoad.done
 }
 
+// The check the panel waits for. A newer check and unmounting move it on, and a check that is no
+// longer it, or whose rows a Fetch has replaced, tells nothing: its statements may have met the
+// newer rows' load between its DROP and CREATE, and its answer is about text since edited
+let currentCheck = 0
+
 // Validate query syntax using DuckDB EXPLAIN
 async function validateQuerySyntax() {
+  const check = ++currentCheck
+  // the text checked, as validated, which can be edited while DuckDB starts or the table loads
+  const sql = query.value
+  const rows = props.data
+  const current = () => check === currentCheck && rows === props.data
+  const answer = (message: string | null) => {
+    if (current())
+      syntaxError.value = message
+  }
   syntaxError.value = null
+  // the spinner of a check left behind, which no longer stops it
+  isValidating.value = false
 
   // Skip validation for empty queries
-  if (!query.value.trim()) {
+  if (!sql.trim()) {
     return
   }
 
   // Basic validation first (fast)
-  const validation = validateQuery(query.value)
+  const validation = validateQuery(sql)
   if (!validation.valid) {
     syntaxError.value = valText(validation.errorKey, validation.params)
     return
@@ -218,7 +236,7 @@ async function validateQuerySyntax() {
   // Initialize DuckDB if needed (for EXPLAIN)
   await initDuckDB()
   // gone while DuckDB started: the check would load a table into a database being closed
-  if (unmounted)
+  if (!current())
     return
   if (!db || !conn) {
     // Can't validate syntax without DuckDB, but don't show error
@@ -226,13 +244,6 @@ async function validateQuerySyntax() {
   }
 
   isValidating.value = true
-  // the rows checked against: once a Fetch has replaced them, the check's statements may have met
-  // the newer rows' load between its DROP and CREATE, and it tells nothing
-  const rows = props.data
-  const answer = (message: string | null) => {
-    if (rows === props.data)
-      syntaxError.value = message
-  }
 
   try {
     // Use EXPLAIN to validate query syntax without executing
@@ -245,15 +256,17 @@ async function validateQuerySyntax() {
       catch {
         return
       }
+      if (!current())
+        return
     }
 
     // Try to explain the query - this validates syntax
-    await conn.query(`EXPLAIN ${query.value}`)
+    await conn.query(`EXPLAIN ${sql}`)
 
     // Validate output columns by running query with LIMIT 0
     // This returns schema without fetching data - very fast!
     try {
-      const schemaQuery = `SELECT * FROM (${query.value}) LIMIT 0`
+      const schemaQuery = `SELECT * FROM (${sql}) LIMIT 0`
       const schemaResult = await conn.query(schemaQuery)
       const resultColumns = schemaResult.schema.fields.map((field: any) => field.name)
 
@@ -280,7 +293,8 @@ async function validateQuerySyntax() {
     answer(message)
   }
   finally {
-    isValidating.value = false
+    if (check === currentCheck)
+      isValidating.value = false
   }
 }
 
@@ -431,12 +445,12 @@ watch(() => props.data, () => {
 
 // Cleanup on unmount
 onUnmounted(async () => {
-  unmounted = true
   // the delayed syntax check would start a database that nothing ends
   if (validationTimeout)
     clearTimeout(validationTimeout)
-  // a run under way loads no table into the database being closed, nor runs its query there
+  // a run or check under way loads no table into the database being closed, nor queries it
   currentRun++
+  currentCheck++
   // a start under way ends before the database it makes can be
   await started
   if (conn) {
