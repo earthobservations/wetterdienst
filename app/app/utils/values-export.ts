@@ -1,18 +1,6 @@
 /** A row as the data viewer holds it: a value, or a wide-shaped row, or whatever the query panel made. */
 type Row = object
 
-// A query panel's COUNT(*) comes from DuckDB as a BigInt, which JSON cannot write: a number where
-// that is exact, its digits past 2^53
-function bigintValue(value: bigint): number | string {
-  const number = Number(value)
-  return Number.isSafeInteger(number) ? number : value.toString()
-}
-
-// JSON.stringify's replacer for a value of the table: a BigInt as bigintValue writes it
-function jsonValue(_key: string, value: unknown): unknown {
-  return typeof value === 'bigint' ? bigintValue(value) : value
-}
-
 // A list of plain values -- an interpolation's `taken_station_ids`, which the REST API answers as a
 // list -- is written with commas between them, as the REST API's own CSV writes it; anything nested
 // deeper, a query panel's struct, as its JSON text, as the JSON download writes it, rather than as
@@ -20,7 +8,7 @@ function jsonValue(_key: string, value: unknown): unknown {
 function csvText(value: object): string {
   if (Array.isArray(value) && value.every(item => item === null || typeof item !== 'object'))
     return value.map(item => item ?? '').join(',')
-  return JSON.stringify(value, jsonValue)
+  return JSON.stringify(value)
 }
 
 function field(row: Row, column: string): unknown {
@@ -88,5 +76,5 @@ export function valuesToCsv(values: Row[], columns: string[]): string {
  */
 export function valuesToJson(values: Row[], columns: string[]): string {
   const rows = values.map(row => Object.fromEntries(columns.map(column => [column, field(row, column) ?? null])))
-  return JSON.stringify({ values: rows }, jsonValue)
+  return JSON.stringify({ values: rows })
 }

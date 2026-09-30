@@ -55,6 +55,10 @@ Types of changes:
 - `[Explorer]` A query still running when a Fetch answers no longer replaces the new rows with its
   result: the table showed the query result of the rows fetched before under the new request, and
   CSV and JSON downloads saved it (GH-2072)
+- `[Explorer]` A query's timestamps and dates read as the REST API writes them, times and intervals
+  as text, integers and decimals as numbers -- an integer or a DECIMAL(p,0) past 2^53 as its digits
+  -- in lists, structs and maps too. They came as epoch milliseconds, which failed the table's
+  timestamp cell, BigInts, microsecond counts, unscaled integers or Arrow objects (GH-2068, GH-2071)
 
 ## [0.17.0] - 2026-09-29
 

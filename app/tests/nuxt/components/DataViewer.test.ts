@@ -11,9 +11,9 @@ import { useToast } from '#imports'
 import DataViewer from '~/components/DataViewer.vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 
-// DuckDB, as far as Run Query reaches it: the query itself is answered by the test's `answer`,
-// every statement loading the table at once. It gives no result schema, which the check of an
-// edited query reads
+// DuckDB, as far as Run Query reaches it: the query itself is answered by the test's `answer`, as the
+// Arrow table DuckDB gives, every statement loading the table at once. It gives no result schema,
+// which the check of an edited query reads
 const duckdb = vi.hoisted(() => ({ answer: async (_sql: string): Promise<Record<string, unknown>[]> => [] }))
 vi.mock('@duckdb/duckdb-wasm', () => ({
   getJsDelivrBundles: () => ({}),
@@ -27,7 +27,8 @@ vi.mock('@duckdb/duckdb-wasm', () => ({
         close: async () => {},
         query: async (sql: string) => {
           const rows = /^(?:DROP|CREATE|INSERT) /.test(sql) ? [] : await duckdb.answer(sql)
-          return { toArray: () => rows.map(row => ({ toJSON: () => row })) }
+          const { Table, tableFromJSON } = await import('apache-arrow')
+          return rows.length > 0 ? tableFromJSON(rows) : new Table()
         },
       }
     }
@@ -652,7 +653,8 @@ describe('dataViewer query panel', () => {
     duckdb.answer = async () => {
       asked = true
       await hold.opened
-      return rows(1, '01048').map(row => ({ ...row, value: 99 }))
+      // a quality of its own, as an Arrow table built from rows drops a column that is null in every one
+      return rows(1, '01048').map(row => ({ ...row, value: 99, quality: 1 }))
     }
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
     await fetchData(viewer)
