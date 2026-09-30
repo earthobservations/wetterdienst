@@ -61,7 +61,7 @@ describe('exportColumns', () => {
 
 describe('valuesToCsv with a query panel\'s nested values', () => {
   it('writes a struct as its JSON text, quoted, not as [object Object]', () => {
-    const nested = [{ station_id: '01048', s: { a: 1, n: 2n } }]
+    const nested = [{ station_id: '01048', s: { a: 1, n: 2 } }]
     expect(valuesToCsv(nested, ['station_id', 's'])).toBe('station_id,s\n01048,"{""a"":1,""n"":2}"')
   })
 
@@ -98,16 +98,6 @@ describe('valuesToJson with columns the rows do not hold exactly', () => {
 
   it('writes an undefined value as null, not by leaving the key out', () => {
     expect(JSON.parse(valuesToJson([{ a: 1, b: undefined }], ['a', 'b']))).toEqual({ values: [{ a: 1, b: null }] })
-  })
-})
-
-describe('valuesToJson with a query panel\'s count', () => {
-  it('writes a BigInt as the number it is, and as its digits past 2^53', () => {
-    // DuckDB answers COUNT(*) as a BigInt, which JSON.stringify refuses
-    const counted = [{ count: 42n, h: 18446744073709551615n }]
-    expect(JSON.parse(valuesToJson(counted, ['count', 'h']))).toEqual({
-      values: [{ count: 42, h: '18446744073709551615' }],
-    })
   })
 })
 

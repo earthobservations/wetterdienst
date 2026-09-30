@@ -38,6 +38,9 @@ importers:
       '@vueuse/nuxt':
         specifier: ^14.4.0
         version: 14.4.0(004aa54691d9ec28104f5396fa535b35)
+      apache-arrow:
+        specifier: ^17.0.0
+        version: 17.0.0
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4

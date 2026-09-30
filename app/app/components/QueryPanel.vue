@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Value } from '#shared/types/api'
+import { plainRows } from '~/utils/arrow-rows'
 import { validateColumns, validateQuery } from '~/utils/query-validator'
 
 const props = defineProps<{
@@ -305,7 +306,11 @@ async function executeQuery() {
 
   try {
     const result = await conn.query(query.value)
-    const resultArray = result.toArray().map((row: any) => row.toJSON())
+    // each value made plain by its column's type, as the REST API would answer it, where Arrow's own
+    // toJSON() left BigInts, milliseconds since the epoch and its own nested rows (GH-2068, GH-2071).
+    // Typed as values, as the panel has always handed its rows on; validateColumns checks below that
+    // they carry the columns a value needs
+    const resultArray = plainRows(result) as unknown as Value[]
 
     // a result of rows the table no longer holds would replace the newer ones Fetch put there
     if (rows !== props.data)
@@ -313,7 +318,7 @@ async function executeQuery() {
 
     // Validate columns
     if (resultArray.length > 0) {
-      const resultColumns = Object.keys(resultArray[0])
+      const resultColumns = Object.keys(resultArray[0]!)
       const columnValidation = validateColumns(resultColumns, requiredColumns.value)
 
       if (!columnValidation.valid) {
