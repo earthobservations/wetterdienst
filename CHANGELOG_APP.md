@@ -129,6 +129,9 @@ Types of changes:
   a date, where each was an empty trace with a legend entry, or an empty panel; with no row to plot
   it says there is no chart data and offers no image. A large result counts only the points drawn,
   so a few among many such rows are drawn with markers (GH-2125)
+- `[Explorer]` The query panel refuses a query of more than one statement, in the syntax check and
+  in Run Query, before any of it runs. DuckDB ran each statement, so one after the SELECT, such as
+  `SET` or `COPY`, ran unchecked (GH-2139)
 
 ## [0.17.0] - 2026-09-29
 

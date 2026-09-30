@@ -577,6 +577,7 @@
     "queryEmpty": "Die Abfrage darf nicht leer sein",
     "onlySelect": "Nur SELECT-Abfragen sind erlaubt. Die Abfrage muss mit SELECT oder WITH beginnen.",
     "disallowedOperation": "Die Abfrage enthält eine unzulässige Operation: {op}",
+    "multipleStatements": "Es kann nur eine Anweisung auf einmal ausgeführt werden. Entfernen Sie die Anweisungen nach dem ersten Semikolon (;).",
     "noLimit": "Die Abfrage enthält keine LIMIT-Klausel. Große Ergebnismengen können die Leistung beeinträchtigen.",
     "noColumns": "Die Abfrage hat keine Spalten zurückgegeben",
     "missingColumns": "In den Ergebnissen fehlen erwartete Spalten: {missing}. Erwartete Spalten: {expected}",

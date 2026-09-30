@@ -663,3 +663,36 @@ describe('queryPanel note on misread types', () => {
       expect(text).toContain(part)
   })
 })
+
+describe('queryPanel statements', () => {
+  const several = 'SELECT * FROM data LIMIT 1; SET threads = 1'
+
+  it('checks no statement after the first, and refuses the query', async () => {
+    // the check's EXPLAIN ran `SET threads = 1` after the SELECT, and told no error
+    const statements = watchStatements()
+    const wrapper = await queryMode()
+    await editNow(wrapper, several)
+    expect(wrapper.text()).toContain('Only one statement can run at a time')
+    expect(runButton(wrapper).attributes('disabled')).toBeDefined()
+    expect(statements.filter(sql => sql.includes('SET'))).toEqual([])
+  })
+
+  it('runs no statement after the first, run before the check', async () => {
+    // Run Query ran each statement, and handed on the first one's rows
+    const statements = watchStatements()
+    const wrapper = await queryMode()
+    // edited, with the check's delay on a fake timer that never fires
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      await wrapper.find('textarea').setValue(several)
+    }
+    finally {
+      vi.useRealTimers()
+    }
+    await runButton(wrapper).trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Only one statement can run at a time')
+    expect([...statements]).toEqual([])
+    expect(wrapper.emitted('dataTransformed')).toBeUndefined()
+  })
+})

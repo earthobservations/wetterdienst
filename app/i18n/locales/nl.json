@@ -577,6 +577,7 @@
     "queryEmpty": "Query mag niet leeg zijn",
     "onlySelect": "Alleen SELECT-query's zijn toegestaan. De query moet beginnen met SELECT of WITH.",
     "disallowedOperation": "Query bevat een niet-toegestane bewerking: {op}",
+    "multipleStatements": "Er kan maar één statement tegelijk worden uitgevoerd. Verwijder de statements na de eerste puntkomma (;).",
     "noLimit": "Query bevat geen LIMIT-clausule. Grote resultaatsets kunnen de prestaties beïnvloeden.",
     "noColumns": "Query gaf geen kolommen terug",
     "missingColumns": "In de queryresultaten ontbreken verwachte kolommen: {missing}. Verwachte kolommen: {expected}",

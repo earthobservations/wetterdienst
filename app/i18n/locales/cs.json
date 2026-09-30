@@ -577,6 +577,7 @@
     "queryEmpty": "Dotaz nemůže být prázdný",
     "onlySelect": "Povoleny jsou pouze dotazy SELECT. Dotaz musí začínat na SELECT nebo WITH.",
     "disallowedOperation": "Dotaz obsahuje nepovolenou operaci: {op}",
+    "multipleStatements": "Najednou lze spustit jen jeden příkaz. Odstraňte příkazy za prvním středníkem (;).",
     "noLimit": "Dotaz neobsahuje klauzuli LIMIT. Velké sady výsledků mohou ovlivnit výkon.",
     "noColumns": "Dotaz nevrátil žádné sloupce",
     "missingColumns": "Ve výsledcích dotazu chybí očekávané sloupce: {missing}. Očekávané sloupce: {expected}",
