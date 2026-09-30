@@ -232,8 +232,8 @@ const downloadingGeojson = computed(() => geojsonDownload.value !== null)
 // when there is no one to tell
 const TABLE_CHANGED = 'table-changed'
 
-// Abort the GeoJSON download under way: the table it describes is going. The watcher on displayData
-// below calls it for every change to the table
+// Abort the GeoJSON download under way: the table it describes is going. The synchronous watcher on
+// displayData below calls it for every change to the table
 function abortGeojson(reason: string = TABLE_CHANGED) {
   geojsonDownload.value?.abort(reason)
 }
@@ -430,7 +430,9 @@ const paginatedValues = computed(() => {
   return sortedValues.value.slice(start, end)
 })
 
-watch(pageSize, () => {
+// A page belongs to the rows it was chosen in and the page size that cut them: new rows or a new size
+// start again at the first page, so one chosen before is not kept past the end and shown empty
+watch([displayData, pageSize], () => {
   currentPage.value = 1
 })
 
@@ -599,6 +601,8 @@ async function fetchData() {
   // a query of its own, so nothing done to the one sent reaches the selection it is compared with
   const request = { ...selectedRequest.value, query: { ...selectedRequest.value.query } }
   sentRequest.value = request
+  // the table is hidden until the answer, which starts at the first page again, whatever page is moved
+  // to meanwhile
   currentPage.value = 1
   await refreshValues()
   // a newer Fetch or a Clear since has its own; this one answers for the table only if it is still the
@@ -630,7 +634,6 @@ function clearData() {
   fetchedRequest.value = null
   sentRequest.value = null
   clearValues()
-  currentPage.value = 1
 }
 
 // Plotly data preparation
