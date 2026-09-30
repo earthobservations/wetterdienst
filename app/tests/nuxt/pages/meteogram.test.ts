@@ -46,19 +46,30 @@ describe('meteogram Page', () => {
   })
 
   it('surfaces backend errors', async () => {
-    vi.mocked(globalThis.fetch).mockResolvedValue(
-      new Response('boom', { status: 500 }),
+    // a body that isn't the API's, as a proxy's error page, is told by the status alone
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response('<html>proxy page</html>', { status: 500, statusText: 'Internal Server Error' }),
     )
 
     const wrapper = await mountSuspended(MeteogramPage)
     const vm = wrapper.vm as any
 
     vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
-    await wrapper.vm.$nextTick()
-    await new Promise(resolve => setTimeout(resolve, 0))
-    await wrapper.vm.$nextTick()
+    await vi.waitFor(() => expect(vm.error).toBe('Backend error 500 Internal Server Error'))
+  })
 
-    expect(vm.error).toContain('Backend error 500')
+  it('tells a refused request by the backend\'s detail', async () => {
+    // answered as FastAPI answers a request that fails validation: the entries under `detail`, which tell it
+    // in place of the status text
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response(JSON.stringify({ detail: [{ loc: ['query', 'station'], msg: 'Unknown station' }] }), { status: 422, statusText: 'Unprocessable Entity' }),
+    )
+
+    const wrapper = await mountSuspended(MeteogramPage)
+    const vm = wrapper.vm as any
+
+    vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
+    await vi.waitFor(() => expect(vm.error).toBe('Backend error 422: station: Unknown station'))
   })
 
   it('clears state and URL query when the station is deselected', async () => {

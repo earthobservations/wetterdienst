@@ -43,6 +43,35 @@ describe('widget Page', () => {
     expect(wrapper.text()).toContain('Station not found')
   })
 
+  it('tells a failed forecast by the backend\'s detail', async () => {
+    registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }],
+    }))
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response(JSON.stringify({ detail: 'No forecast for station 00001' }), { status: 404, statusText: 'Not Found' }),
+    )
+
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.error).toBe('Backend error 404: No forecast for station 00001'))
+    expect(wrapper.text()).toContain('Backend error 404: No forecast for station 00001')
+  })
+
+  it('tells a failed forecast by its status when the body gives no detail', async () => {
+    registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }],
+    }))
+    // a proxy's error page: its status text is told, its body left out
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response('<html>proxy page</html>', { status: 502, statusText: 'Bad Gateway' }),
+    )
+
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.error).toBe('Backend error 502 Bad Gateway'))
+    expect(wrapper.text()).not.toContain('proxy page')
+  })
+
   it('applies the theme query param to color mode', async () => {
     registerEndpoint('/api/stations', () => ({ stations: [] }))
 
