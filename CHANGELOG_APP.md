@@ -125,6 +125,10 @@ Types of changes:
   values past 2^53 come as their digits, puts the numbers first and the text after, each in its
   own order, in every browser. A number was compared with text as text, which gave no one order,
   so the rows, the copies and the downloads came in an order each browser made up (GH-2126)
+- `[Explorer]` The column picker is disabled and offers no columns until a Fetch fills the table.
+  It offered the long shape's `parameter`, `value` and `quality` whatever the shape setting, and a
+  column unticked there stayed hidden once the rows came, though no table was shown to pick for
+  (GH-2115)
 
 ## [0.17.0] - 2026-09-29
 

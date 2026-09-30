@@ -391,19 +391,6 @@ const rowsMode = computed((): StationMode => {
   return request?.mode ?? stationSelection.value.mode
 })
 
-// The columns of the rows' mode, the mode-specific one only for rows of that mode: what the picker
-// offers while the table is empty
-const modeColumns = computed(() => {
-  const base: (keyof Value)[] = ['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality']
-  if (rowsMode.value === 'summary') {
-    return [...base, 'taken_station_id']
-  }
-  if (rowsMode.value === 'interpolation') {
-    return [...base, 'taken_station_ids']
-  }
-  return base
-})
-
 // The columns the table knows, in its order: the ones it, the picker and a download put first
 const TABLE_ORDER: string[] = columnDefinitions.map(c => c.key)
 
@@ -414,10 +401,12 @@ const TABLE_ORDER: string[] = columnDefinitions.map(c => c.key)
 const queryColumns = computed(() => exportColumns(allValues.value, TABLE_ORDER))
 
 // The picker's options: every column the rows shown carry, as a download writes them -- the table's
-// own in its order first, then a wide-shaped table's parameters or a query's `avg_value` -- and the
-// mode's own while the table is empty. The nine fixed columns alone left those out, and showed a
-// wide table's `parameter`, `value` and `quality` empty
-const columnOptions = computed(() => displayData.value.length ? exportColumns(displayData.value, TABLE_ORDER) : modeColumns.value)
+// own in its order first, then a wide-shaped table's parameters or a query's `avg_value` -- and none
+// while the table is empty, when the picker is disabled. The nine fixed columns alone left those out,
+// and showed a wide table's `parameter`, `value` and `quality` empty; the mode's long-shaped columns,
+// offered while empty whatever the shape, were a guess at columns a Fetch may not bring, and one
+// hidden then stayed hidden once it did
+const columnOptions = computed(() => exportColumns(displayData.value, TABLE_ORDER))
 
 // The picker keeps the columns it hides rather than those it shows, so a column the rows bring along
 // is shown as it comes in; by default only `resolution` and `dataset` are hidden
@@ -1216,7 +1205,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         <div class="flex items-center gap-4">
           <div v-if="viewMode === 'table'" class="flex items-center gap-2">
             <span class="text-sm">{{ t('dataViewer.columns') }}:</span>
-            <USelectMenu v-model="selectedColumns" :items="columnOptions" multiple class="w-40" />
+            <USelectMenu v-model="selectedColumns" :items="columnOptions" :disabled="!columnOptions.length" multiple class="w-40" />
           </div>
           <div class="flex items-center gap-1">
             <template v-if="viewMode === 'table'">
