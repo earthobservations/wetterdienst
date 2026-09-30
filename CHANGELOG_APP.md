@@ -52,6 +52,11 @@ Types of changes:
 - `[Stations]` A station without a region, such as every DWD MOSMIX station, is labelled by its
   name and id in the station picker and on the map, as `JAN MAYEN (ID: 01001)`, where it read
   `JAN MAYEN (ID: 01001, null)` (GH-2046)
+- `[Stations]` A station without a name or position, such as the postcodes dwd/derived
+  `climate_correction_factor` has for stations, is labelled by its id, `ID: 01067` in the station
+  picker and `01067` on its chip and in the interpolation's station picker, where it read `null`,
+  and left off the map, where it was drawn at 0°N 0°E. Choosing one no longer fails the explorer's
+  station details table, or the point an interpolation takes from its station (GH-2098)
 - `[Explorer]` A query still running when a Fetch answers no longer replaces the new rows with its
   result: the table showed the query result of the rows fetched before under the new request, and
   CSV and JSON downloads saved it (GH-2072)

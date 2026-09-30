@@ -9,7 +9,7 @@ import { interpSeries, nearestNeighbor, wetBulbApprox } from '~/utils/meteogram'
 const props = defineProps<{
   values: Value[]
   stationName?: string | null
-  stationCoords?: { latitude: number, longitude: number } | null
+  stationCoords?: { latitude: number | null, longitude: number | null } | null
   widget?: boolean
 }>()
 

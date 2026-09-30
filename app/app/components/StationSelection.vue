@@ -232,7 +232,7 @@ function removeStation(station: Station) {
           class="cursor-pointer"
           @click="removeStation(station)"
         >
-          {{ station.name }} ({{ station.station_id }})
+          {{ stationShortLabel(station) }}
           <span class="ml-1">×</span>
         </UBadge>
       </div>

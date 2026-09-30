@@ -955,10 +955,10 @@ function handleUnitTargetChange(unitType: string, value: string) {
             :columns="stationTableColumns"
           >
             <template #latitude-cell="{ row }">
-              {{ row.original.latitude.toFixed(4) }}
+              {{ row.original.latitude?.toFixed(4) ?? '-' }}
             </template>
             <template #longitude-cell="{ row }">
-              {{ row.original.longitude.toFixed(4) }}
+              {{ row.original.longitude?.toFixed(4) ?? '-' }}
             </template>
             <template #start_date-cell="{ row }">
               {{ row.original.start_date?.slice(0, 10) ?? '-' }}

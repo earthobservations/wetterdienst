@@ -63,7 +63,8 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
 
   /**
    * What a station says about the point: its position, and its altitude where the provider
-   * reports one.
+   * reports one. A station without a position, e.g. a postcode of dwd/derived
+   * climate_correction_factor, leaves the point unset.
    *
    * Given apart from the writing so that a caller changing something else at the same time can
    * put both into one assignment -- two writes in a tick have the second spreading a model the
@@ -72,8 +73,8 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
   function pointFromStation(station: Station | undefined): Partial<InterpolationSelection> {
     return {
       station,
-      latitude: station?.latitude,
-      longitude: station?.longitude,
+      latitude: station?.latitude ?? undefined,
+      longitude: station?.longitude ?? undefined,
       elevation: station?.elevation ?? undefined,
     }
   }

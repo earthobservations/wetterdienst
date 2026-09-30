@@ -91,11 +91,17 @@ export interface CoverageQuery {
 // ============================================================================
 export interface Station {
   station_id: string
-  name: string
+  /**
+   * Null where the provider has no name for the station, e.g. dwd/derived climate_correction_factor, whose
+   * stations are postcodes.
+   */
+  name: string | null
   /** Null where the provider reports no region for the station, which for several, e.g. DWD MOSMIX, is every one. */
   region: string | null
-  latitude: number
-  longitude: number
+  /** Null where the provider has no position for the station, e.g. the postcodes of dwd/derived climate_correction_factor. */
+  latitude: number | null
+  /** Null together with `latitude`. */
+  longitude: number | null
   /** Null where the provider reports no elevation for the station, which for several is every one. */
   elevation: number | null
   start_date?: string

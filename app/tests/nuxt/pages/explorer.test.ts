@@ -254,3 +254,31 @@ describe('explorer Page', () => {
     expect(vm.canFetch).toBe(true)
   })
 })
+
+describe('explorer Page station details', () => {
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+    useToast().clear()
+  })
+
+  it('shows a dash for a chosen station without a position', async () => {
+    // dwd/derived climate_correction_factor's stations are postcodes, sent with null coordinates,
+    // which reached `.toFixed()` and took the table down
+    const { wrapper, vm } = await mountWithSelection(() => ({ values: [] }))
+    vm.stationSelectionState.selection.stations = [
+      { station_id: '01067', name: null, region: null, latitude: null, longitude: null, elevation: null },
+      { station_id: '00001', name: 'Test Station', region: 'Berlin', latitude: 52.5, longitude: 13.4, elevation: 34 },
+    ]
+    await wrapper.vm.$nextTick()
+
+    await wrapper.findAll('button').find(b => b.text() === 'Stations Details')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('table').exists()).toBe(true))
+
+    const rows = wrapper.findAll('tbody tr').map(row => row.findAll('td').map(cell => cell.text()))
+    expect(rows.map(cells => cells.slice(0, 5))).toEqual([
+      ['01067', '', '', '-', '-'],
+      ['00001', 'Test Station', 'Berlin', '52.5000', '13.4000'],
+    ])
+  })
+})
