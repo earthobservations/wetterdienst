@@ -263,6 +263,28 @@ describe('dataViewer downloads', () => {
     await vi.waitFor(() => expect(saved).toHaveLength(1))
   })
 
+  it('saves no GeoJSON that Clear overtook while it was being asked for', async () => {
+    // it described a table that was no longer on screen, and said it was downloaded
+    let answered = false
+    registerEndpoint('/api/values', async (event) => {
+      if (getQuery(event).format === 'geojson') {
+        await new Promise(resolve => setTimeout(resolve, 150))
+        answered = true
+        return { type: 'FeatureCollection', features: [] }
+      }
+      return { values: [row] }
+    })
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const saved = catchDownload()
+    ;(await openDownloads(wrapper))[2]!.click()
+    await new Promise(resolve => setTimeout(resolve, 20))
+    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    await vi.waitFor(() => expect(answered).toBe(true))
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(saved).toHaveLength(0)
+  })
+
   it('tells a GeoJSON request the backend refuses, and saves nothing', async () => {
     registerEndpoint('/api/values', (event) => {
       // answered as FastAPI answers a refused request: the entries under `detail`, nothing around them

@@ -48,8 +48,13 @@ describe('describeFetchError', () => {
     )
   })
 
-  it('falls back to the error\'s own message where there is no answer to read', () => {
+  it('tells the status of an answer without a detail, not the request URL', () => {
+    // the error's message spells out the whole request, query and all
+    const plain = { data: 'Internal Server Error', message: '[GET] "/api/interpolate?provider=dwd&latitude=51": 500 Internal Server Error', statusCode: 500, statusMessage: 'Internal Server Error' }
+    expect(describeFetchError(plain)).toBe('500 Internal Server Error')
+  })
+
+  it('falls back to the error\'s own message where there was no answer', () => {
     expect(describeFetchError({ data: undefined, message: 'fetch failed' })).toBe('fetch failed')
-    expect(describeFetchError({ data: 'Bad Gateway', message: '[GET] /api/values: 502' })).toBe('[GET] /api/values: 502')
   })
 })

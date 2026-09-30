@@ -36,16 +36,18 @@ export function describeApiError(body: unknown): string | null {
 }
 
 /**
- * Describe a failed request as one line of text: the REST API's `detail` when it answered, the
- * error's own message when it did not.
+ * Describe a failed request as one line of text: the REST API's `detail` when it answered with one,
+ * its status when it answered without, the error's own message when it did not answer at all.
  *
  * A request asked for as text gets its error body as text as well, so a JSON body is read first.
+ * The status stands in for a body with no `detail` -- a plain-text 500 -- as the error's message
+ * spells out the whole request URL, query and all.
  *
  * @param error - What the request threw, or the error useFetch holds
  * @returns The description
  */
 export function describeFetchError(error: unknown): string {
-  const failed = error as { data?: unknown, message?: string } | null | undefined
+  const failed = error as { data?: unknown, message?: string, statusCode?: number, statusMessage?: string } | null | undefined
   let body = failed?.data
   if (typeof body === 'string') {
     try {
@@ -53,5 +55,10 @@ export function describeFetchError(error: unknown): string {
     }
     catch {}
   }
-  return describeApiError(body) ?? failed?.message ?? String(error)
+  const detail = describeApiError(body)
+  if (detail)
+    return detail
+  if (failed?.statusCode)
+    return [failed.statusCode, failed.statusMessage].filter(Boolean).join(' ')
+  return failed?.message ?? String(error)
 }

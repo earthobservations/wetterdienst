@@ -373,11 +373,11 @@ watch([isInterpolationMode, isSummaryMode], () => {
 // the column picker shows -- which follows the mode selected now, not the one the rows came from
 const TABLE_ORDER = columnDefinitions.map(c => c.key)
 
-// A copy writes what the table shows: the columns the picker leaves visible, in the table's order
-const visibleColumnKeys = computed(() => columnDefinitions.filter(c => selectedColumns.value.includes(c.key)).map(c => c.key))
+// The columns the picker leaves visible, in the table's order: what the table shows, and a copy writes
+const visibleColumns = computed(() => columnDefinitions.filter(c => selectedColumns.value.includes(c.key)))
 
 const columns = computed(() =>
-  columnDefinitions.filter(c => visibleColumnKeys.value.includes(c.key)).map((c) => {
+  visibleColumns.value.map((c) => {
     const key = c.key
     return {
       ...c.column,
@@ -408,7 +408,7 @@ watch(pageSize, () => {
 })
 
 async function copyCurrentPage() {
-  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, visibleColumnKeys.value))
+  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, visibleColumns.value.map(c => c.key)))
   toast.add({
     title: t('dataViewer.copied'),
     description: t('dataViewer.copiedRows', { count: paginatedValues.value.length }),
@@ -417,7 +417,7 @@ async function copyCurrentPage() {
 }
 
 async function copyAllValues() {
-  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, visibleColumnKeys.value))
+  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, visibleColumns.value.map(c => c.key)))
   toast.add({ title: t('dataViewer.copied'), description: t('dataViewer.copiedRows', { count: sortedValues.value.length }), color: 'success' })
 }
 
@@ -462,6 +462,7 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
   }
   else {
     downloadingGeojson.value = true
+    const generation = fetchGeneration.value
     try {
       // as the table's own request was sent, so the query reads the same
       content = await $fetch<string>(request.endpoint, {
@@ -477,6 +478,9 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
     finally {
       downloadingGeojson.value = false
     }
+    // Clear or a new Fetch while it was under way: the table no longer holds what this describes
+    if (fetchGeneration.value !== generation)
+      return
   }
 
   const blob = new Blob([content], { type: 'application/octet-stream' })
@@ -527,7 +531,7 @@ const downloadMenuItems = computed(() => {
       { label: 'JSON', disabled: nothingShown, onSelect: () => downloadValues('json') },
       {
         label: 'GeoJSON',
-        disabled: nothingShown || !fetchedRequest.value || isDataTransformed.value || downloadingGeojson.value,
+        disabled: nothingShown || isDataTransformed.value || downloadingGeojson.value,
         onSelect: () => downloadValues('geojson'),
       },
     ],
@@ -537,10 +541,7 @@ const downloadMenuItems = computed(() => {
 // Manual fetch function
 async function fetchData() {
   if (!canFetchData.value) {
-    fetchedRequest.value = null
-    fetchGeneration.value++
-    valuesData.value = { values: [] }
-    valuesError.value = undefined
+    clearData()
     return
   }
   fetchedRequest.value = { ...selectedEndpoint.value, query: { ...apiQuery.value } }
