@@ -90,12 +90,17 @@ const exampleQueries = computed(() => {
 // DuckDB instance
 let db: any = null
 let conn: any = null
+// DuckDB's start, which a run and the syntax check share rather than start a database each
+let started: Promise<void> | null = null
 
 // Initialize DuckDB
-async function initDuckDB() {
-  if (db)
-    return
+function initDuckDB(): Promise<void> {
+  started ??= startDuckDB()
+  return started
+}
 
+async function startDuckDB() {
+  let database: any = null
   try {
     const duckdb = await import('@duckdb/duckdb-wasm')
 
@@ -111,68 +116,75 @@ async function initDuckDB() {
     // Instantiate the asynchronous version of DuckDB-wasm
     const worker = new Worker(worker_url)
     const logger = new duckdb.ConsoleLogger()
-    db = new duckdb.AsyncDuckDB(logger, worker)
-    await db.instantiate(bundle.mainModule, bundle.pthreadWorker)
+    database = new duckdb.AsyncDuckDB(logger, worker)
+    await database.instantiate(bundle.mainModule, bundle.pthreadWorker)
     URL.revokeObjectURL(worker_url)
 
-    conn = await db.connect()
+    conn = await database.connect()
+    db = database
   }
   catch (err: any) {
     console.error('Failed to initialize DuckDB:', err)
     error.value = `Failed to initialize DuckDB: ${err.message || 'Unknown error'}`
+    // the next run starts it again, without the database that failed
+    started = null
+    database?.terminate().catch(() => {})
   }
 }
 
-// Load data into DuckDB
-async function loadDataIntoDB() {
-  if (!conn || !db || !props.data.length) {
-    return
-  }
+// Load rows into DuckDB's `data` table
+async function loadDataIntoDB(rows: Value[]) {
+  // Drop table if exists
+  await conn.query('DROP TABLE IF EXISTS data')
 
-  try {
-    // Drop table if exists
-    await conn.query('DROP TABLE IF EXISTS data')
+  // Create table based on first row structure
+  const firstRow = rows[0]!
+  const columns = Object.keys(firstRow)
+  const columnDefs = columns.map((col) => {
+    const value = firstRow[col as keyof typeof firstRow]
+    const type = typeof value === 'number' ? 'DOUBLE' : 'VARCHAR'
+    return `"${col}" ${type}`
+  }).join(', ')
 
-    // Create table based on first row structure
-    const firstRow = props.data[0]
-    if (!firstRow) {
-      error.value = 'No data to load'
-      return
-    }
+  await conn.query(`CREATE TABLE data (${columnDefs})`)
 
-    const columns = Object.keys(firstRow)
-    const columnDefs = columns.map((col) => {
-      const value = firstRow[col as keyof typeof firstRow]
-      const type = typeof value === 'number' ? 'DOUBLE' : 'VARCHAR'
-      return `"${col}" ${type}`
+  // Insert data in batches to avoid query size limits
+  const batchSize = 100
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const batch = rows.slice(i, i + batchSize)
+    const values = batch.map((row) => {
+      const vals = columns.map((col) => {
+        const value = row[col as keyof typeof row]
+        if (value === null || value === undefined)
+          return 'NULL'
+        if (typeof value === 'number')
+          return value
+        // Escape single quotes in strings
+        return `'${String(value).replace(/'/g, '\'\'')}'`
+      }).join(', ')
+      return `(${vals})`
     }).join(', ')
 
-    await conn.query(`CREATE TABLE data (${columnDefs})`)
-
-    // Insert data in batches to avoid query size limits
-    const batchSize = 100
-    for (let i = 0; i < props.data.length; i += batchSize) {
-      const batch = props.data.slice(i, i + batchSize)
-      const values = batch.map((row) => {
-        const vals = columns.map((col) => {
-          const value = row[col as keyof typeof row]
-          if (value === null || value === undefined)
-            return 'NULL'
-          if (typeof value === 'number')
-            return value
-          // Escape single quotes in strings
-          return `'${String(value).replace(/'/g, '\'\'')}'`
-        }).join(', ')
-        return `(${vals})`
-      }).join(', ')
-
-      await conn.query(`INSERT INTO data VALUES ${values}`)
-    }
+    await conn.query(`INSERT INTO data VALUES ${values}`)
   }
-  catch (err: any) {
-    console.error('Failed to load data into DuckDB:', err)
-    error.value = `Failed to load data: ${err.message || 'Unknown error'}`
+}
+
+// The load of the panel's rows into the table, which a run and the syntax check await rather than
+// load it each, their statements interleaved. A load of newer rows starts once the one before it
+// has ended, and a load that failed is tried again by whoever asks next
+let tableLoad: { rows: Value[], done: Promise<void> } | null = null
+
+function loadTable(rows: Value[]): Promise<void> {
+  if (tableLoad?.rows !== rows) {
+    const before = tableLoad?.done.catch(() => {}) ?? Promise.resolve()
+    const load = { rows, done: before.then(() => loadDataIntoDB(rows)) }
+    load.done.catch(() => {
+      if (tableLoad === load)
+        tableLoad = null
+    })
+    tableLoad = load
   }
+  return tableLoad.done
 }
 
 // Validate query syntax using DuckDB EXPLAIN
@@ -204,13 +216,12 @@ async function validateQuerySyntax() {
     // Use EXPLAIN to validate query syntax without executing
     // We need to have the data table ready for proper validation
     if (props.data.length > 0) {
-      // Ensure table exists (load just first row for validation)
+      // the table a run may be loading already; a load that fails is told by the run
       try {
-        await conn.query('SELECT 1 FROM data LIMIT 1')
+        await loadTable(props.data)
       }
       catch {
-        // Table doesn't exist, create it with minimal data
-        await loadDataIntoDB()
+        return
       }
     }
 
@@ -271,12 +282,14 @@ watch(query, () => {
 async function executeQuery() {
   // the rows the query runs on, which a Fetch can replace before it answers
   const rows = props.data
+  // the query as it was validated, which can be edited while DuckDB starts or the table loads
+  const sql = query.value
   error.value = null
   warning.value = null
   columnValidationMessage.value = null
 
   // Validate query
-  const validation = validateQuery(query.value)
+  const validation = validateQuery(sql)
   if (!validation.valid) {
     error.value = valText(validation.errorKey, validation.params)
     return
@@ -286,26 +299,32 @@ async function executeQuery() {
     warning.value = valText(validation.warningKey, validation.params)
   }
 
-  // Initialize DuckDB if needed
-  await initDuckDB()
-  if (!db || !conn) {
-    error.value = 'Failed to initialize database'
-    return
-  }
-
-  // Load data if needed
-  if (props.data.length > 0) {
-    await loadDataIntoDB()
-  }
-  else {
-    error.value = 'No data available to query'
-    return
-  }
-
+  // running from here, so Run Query cannot start a second run while DuckDB starts or the table loads
   isExecuting.value = true
 
   try {
-    const result = await conn.query(query.value)
+    // Initialize DuckDB if needed
+    await initDuckDB()
+    if (!db || !conn) {
+      error.value = 'Failed to initialize database'
+      return
+    }
+
+    if (rows.length === 0) {
+      error.value = 'No data available to query'
+      return
+    }
+
+    try {
+      await loadTable(rows)
+    }
+    catch (err: any) {
+      console.error('Failed to load data into DuckDB:', err)
+      error.value = `Failed to load data: ${err.message || 'Unknown error'}`
+      return
+    }
+
+    const result = await conn.query(sql)
     // each value made plain by its column's type, as the REST API would answer it, where Arrow's own
     // toJSON() left BigInts, milliseconds since the epoch and its own nested rows (GH-2068, GH-2071).
     // Typed as values, as the panel has always handed its rows on; validateColumns checks below that

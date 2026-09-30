@@ -106,6 +106,10 @@ Types of changes:
 - `[Explorer]` A chart image chosen while the chart is still being drawn is saved once it is drawn.
   It saved an empty chart, or a stacked facet image with an empty panel, and reported it
   downloaded (GH-2106)
+- `[Explorer]` Run Query is unavailable from the moment a query is run, and runs the query as it
+  read when pressed. A run and the syntax check share one start of DuckDB and one load of the
+  table: pressed twice, or with the query edited while DuckDB started, the table could be loaded
+  twice at once and the query run on rows held twice or on none (GH-2104)
 
 ## [0.17.0] - 2026-09-29
 
