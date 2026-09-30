@@ -35,6 +35,26 @@ vi.mock('@duckdb/duckdb-wasm', () => ({
   },
 }))
 
+// Plotly draws nothing in the test's document: each chart it is handed is known by its y axis' title,
+// and exported as an SVG of its on-screen size that names it
+const plotly = vi.hoisted(() => {
+  const titles = new WeakMap<HTMLElement, string>()
+  const draw = async (root: HTMLElement, _data: unknown, layout?: { yaxis?: { title?: unknown } }) => {
+    titles.set(root, String(layout?.yaxis?.title))
+  }
+  return {
+    newPlot: vi.fn(draw),
+    react: vi.fn(draw),
+    purge: vi.fn(),
+    downloadImage: vi.fn(async () => 'chart'),
+    toImage: vi.fn(async (root: HTMLElement) => `data:image/svg+xml,${encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="300"><text>${titles.get(root)}</text></svg>`,
+    )}`),
+    Snapshot: { svgToImg: vi.fn(async () => `data:image/png;base64,${btoa('png')}`) },
+  }
+})
+vi.mock('plotly.js-basic-dist-min', () => plotly)
+
 const settings: DataSettings = {
   humanize: true,
   convertUnits: true,
@@ -850,5 +870,115 @@ describe('dataViewer columns', () => {
     panel.vm.$emit('dataTransformed', [{ parameter: 'temperature_air_mean_2m', avg_value: 3.5 }])
     await wrapper.vm.$nextTick()
     expect(headers(wrapper)).toEqual(['parameter'])
+  })
+})
+
+// the graph view, faceted by parameter where asked, as its toggle and checkbox are clicked
+async function showChart(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper'], faceted: boolean) {
+  await wrapper.findAll('button').find(button => button.find('[class~="i-lucide:chart-line"]').exists())!.trigger('click')
+  if (faceted) {
+    const label = wrapper.findAll('label').find(label => label.text() === 'Facet by parameter')!
+    await wrapper.find(`#${label.attributes('for')}`).trigger('click')
+  }
+  await flushPromises()
+}
+
+// two parameters, a facet each
+const twoParameters = [row, { ...row, parameter: 'precipitation_height', value: 0.2 }]
+
+describe('dataViewer chart images', () => {
+  it.each([false, true])('offers no chart image while no chart is shown, faceted: %s', async (faceted) => {
+    const { wrapper } = await mountDataViewer()
+    await showChart(wrapper, faceted)
+    expect(offered(await openDownloads(wrapper))).toEqual([['PNG', false], ['JPEG', false], ['SVG', false]])
+  })
+
+  it.each([false, true])('offers every chart image once a chart is shown, faceted: %s', async (faceted) => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    expect(offered(await openDownloads(wrapper))).toEqual([['PNG', true], ['JPEG', true], ['SVG', true]])
+  })
+
+  it('saves the facets as one SVG, stacked in the order the page shows them', async () => {
+    // it looked for the single chart, which faceting replaces, and saved nothing without a word
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, true)
+    const saved = catchDownload()
+    ;(await openDownloads(wrapper))[2]!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    const svg = new DOMParser().parseFromString(await saved[0]!.text(), 'image/svg+xml').documentElement
+    expect([svg.getAttribute('width'), svg.getAttribute('height')]).toEqual(['700', '600'])
+    const charts = [...svg.children].map(chart => [chart.getAttribute('y'), chart.textContent])
+    expect(charts).toEqual([['0', 'temperature_air_mean_2m'], ['300', 'precipitation_height']])
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as SVG'))
+  })
+
+  it('saves the facets it was chosen for when faceting is turned off before Plotly is at hand', async () => {
+    // faceting was looked at again after awaiting Plotly, and the first facet saved as the single chart.
+    // Plotly is loaded here already, so the wait is its cached promise's: the load itself is not held
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, true)
+    const saved = catchDownload()
+    plotly.downloadImage.mockClear()
+    ;(await openDownloads(wrapper))[2]!.click()
+    // unticked before the download goes on past its await of Plotly
+    const label = wrapper.findAll('label').find(label => label.text() === 'Facet by parameter')!
+    ;(document.getElementById(label.attributes('for')!) as HTMLElement).click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as SVG'))
+    expect(plotly.downloadImage).not.toHaveBeenCalled()
+    expect(saved).toHaveLength(1)
+    const svg = new DOMParser().parseFromString(await saved[0]!.text(), 'image/svg+xml').documentElement
+    expect(svg.children).toHaveLength(2)
+  })
+
+  it('saves the single chart through Plotly\'s own download', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, false)
+    plotly.downloadImage.mockClear()
+    ;(await openDownloads(wrapper))[1]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as JPEG'))
+    expect(plotly.downloadImage).toHaveBeenCalledWith(expect.any(HTMLDivElement), expect.objectContaining({ format: 'jpeg', filename: 'chart' }))
+  })
+
+  it('saves the facets as one PNG, drawn from their stacked SVG', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, true)
+    plotly.Snapshot.svgToImg.mockClear()
+    const saved = catchDownload()
+    ;(await openDownloads(wrapper))[0]!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    expect(plotly.Snapshot.svgToImg).toHaveBeenCalledOnce()
+    const [drawn] = plotly.Snapshot.svgToImg.mock.calls[0] as unknown as [{ svg: string, format: string, width: number, height: number }]
+    expect([drawn.format, drawn.width, drawn.height]).toEqual(['png', 700, 600])
+    expect(drawn.svg).toContain('precipitation_height')
+    expect(saved[0]!.type).toBe('image/png')
+    expect(await saved[0]!.text()).toBe('png')
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
+  })
+
+  it.each([false, true])('says there is no chart where Clear emptied it after the menu was opened, faceted: %s', async (faceted) => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    const saved = catchDownload()
+    plotly.downloadImage.mockClear()
+    const items = await openDownloads(wrapper)
+    // chosen before the menu has updated, as from the explorer sidebar
+    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    items[0]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('No data available for chart'))
+    expect(saved).toHaveLength(0)
+    expect(plotly.downloadImage).not.toHaveBeenCalled()
   })
 })

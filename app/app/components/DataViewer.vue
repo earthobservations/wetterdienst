@@ -512,19 +512,21 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
 }
 
 function saveFile(content: string, filename: string, format: 'csv' | 'json' | 'geojson') {
-  const blob = new Blob([content], { type: 'application/octet-stream' })
+  saveBlob(new Blob([content], { type: 'application/octet-stream' }), `${filename}.${format}`)
+  toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedValues', { format: format.toUpperCase() }), color: 'success' })
+}
+
+function saveBlob(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `${filename}.${format}`
+  link.download = name
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
   // later, not at once: some browsers start the download after the click returns, and a large file
   // whose URL is already gone fails
   setTimeout(() => URL.revokeObjectURL(url), 10_000)
-
-  toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedValues', { format: format.toUpperCase() }), color: 'success' })
 }
 
 // Ask again for the request that filled the table, as GeoJSON, and save it. Nothing is saved where the
@@ -569,29 +571,14 @@ async function downloadGeojson(request: NonNullable<typeof fetchedRequest.value>
     toast.add({ title: t('dataViewer.downloadCancelled'), color: 'warning' })
 }
 
-async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
-  if (!chartRef.value)
-    return
-
-  const plotly = await ensurePlotly()
-  await plotly.downloadImage(chartRef.value, {
-    format: format === 'jpeg' ? 'jpeg' : format === 'svg' ? 'svg' : 'png',
-    filename: 'chart',
-    // Plotly expects number | undefined for width/height; use undefined to let it auto-size
-    width: undefined,
-    height: undefined,
-  })
-
-  toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedChart', { format: format.toUpperCase() }), color: 'success' })
-}
-
 const downloadMenuItems = computed(() => {
   if (viewMode.value === 'graph') {
+    const noChart = !chartShown()
     return [
       [
-        { label: 'PNG', onSelect: () => downloadChartImage('png') },
-        { label: 'JPEG', onSelect: () => downloadChartImage('jpeg') },
-        { label: 'SVG', onSelect: () => downloadChartImage('svg') },
+        { label: 'PNG', disabled: noChart, onSelect: () => downloadChartImage('png') },
+        { label: 'JPEG', disabled: noChart, onSelect: () => downloadChartImage('jpeg') },
+        { label: 'SVG', disabled: noChart, onSelect: () => downloadChartImage('svg') },
       ],
     ]
   }
@@ -883,6 +870,71 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
 
   return result
 })
+
+// a chart is shown: there is none before a Fetch, after Clear, or with no rows to plot
+function chartShown() {
+  return allValues.value.length > 0 && (facetByParameter.value ? facetedChartData.value.length > 0 : hasChartData.value)
+}
+
+async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
+  // faceted, one chart per parameter, in the order the page shows them. Taken once: faceting turned
+  // on or off while Plotly loads would otherwise export these charts the other way
+  const faceted = facetByParameter.value
+  const charts = faceted
+    ? facetedChartData.value.map(facet => facetChartRefs.value.get(facet.parameter))
+    : [chartRef.value]
+  // the menu stops offering an image with no chart shown, but a choice made before it has updated
+  // still arrives here, where the page has yet to take the chart away, and there is nothing to save
+  if (!chartShown() || !charts.every(chart => chart)) {
+    toast.add({ title: t('dataViewer.noChartData'), color: 'warning' })
+    return
+  }
+
+  const plotly = await ensurePlotly()
+  if (faceted) {
+    saveBlob(await stackCharts(plotly, charts as HTMLDivElement[], format), `chart.${format}`)
+  }
+  else {
+    await plotly.downloadImage(charts[0]!, {
+      format,
+      filename: 'chart',
+      // Plotly expects number | undefined for width/height; use undefined to let it auto-size
+      width: undefined,
+      height: undefined,
+    })
+  }
+
+  toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedChart', { format: format.toUpperCase() }), color: 'success' })
+}
+
+// Plotly exports one chart at a time. The facets' charts are stacked into one image, in the page's
+// order, rather than saved as a file each, a run of downloads a browser may stop after the first.
+// Stacked as SVG, each chart's own drawing, and turned into PNG or JPEG by the step Plotly's own
+// export takes
+async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), charts: HTMLDivElement[], format: 'png' | 'jpeg' | 'svg'): Promise<Blob> {
+  // null: each at the size it is shown, not at Plotly's default
+  const urls = await Promise.all(charts.map(chart => plotly.toImage(chart, { format: 'svg', width: null, height: null })))
+  const sheet = new DOMParser().parseFromString('<svg xmlns="http://www.w3.org/2000/svg"/>', 'image/svg+xml')
+  const stack = sheet.documentElement
+  let width = 0
+  let height = 0
+  for (const url of urls) {
+    const svg = decodeURIComponent(url.slice(url.indexOf(',') + 1))
+    const chart = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement
+    chart.setAttribute('y', String(height))
+    width = Math.max(width, Number(chart.getAttribute('width')))
+    height += Number(chart.getAttribute('height'))
+    stack.appendChild(sheet.importNode(chart, true))
+  }
+  stack.setAttribute('width', String(width))
+  stack.setAttribute('height', String(height))
+  const svg = new XMLSerializer().serializeToString(sheet)
+  if (format === 'svg')
+    return new Blob([svg], { type: 'image/svg+xml' })
+  const image = await plotly.Snapshot.svgToImg({ svg, format, width, height, canvas: document.createElement('canvas'), promise: true })
+  // a data URL, decoded rather than linked to, as a browser refuses a long one as a download link
+  return new Blob([Uint8Array.from(atob(image.slice(image.indexOf(',') + 1)), c => c.charCodeAt(0))], { type: `image/${format}` })
+}
 
 // Plotly layout - optimized for large datasets
 const chartLayout = computed((): Partial<PlotlyLayout> => {

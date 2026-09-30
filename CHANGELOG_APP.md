@@ -67,6 +67,9 @@ Types of changes:
   interpolation's `distance_mean` or a query's `avg_value`, and the table and copies show them
   unless unticked. Only the nine fixed columns were known: a wide table showed empty `parameter`,
   `value` and `quality` columns and no measurement, and a query's own columns never showed (GH-2074)
+- `[Explorer]` The chart's PNG, JPEG and SVG downloads save the facets, stacked into one image, when
+  the graph is faceted by parameter, and are offered only while a chart is shown. Faceted, or with
+  no chart shown, they saved nothing, without a word (GH-2067)
 
 ## [0.17.0] - 2026-09-29
 
