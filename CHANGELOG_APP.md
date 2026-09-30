@@ -59,6 +59,10 @@ Types of changes:
   as text, integers and decimals as numbers -- an integer or a DECIMAL(p,0) past 2^53 as its digits
   -- in lists, structs and maps too. They came as epoch milliseconds, which failed the table's
   timestamp cell, BigInts, microsecond counts, unscaled integers or Arrow objects (GH-2068, GH-2071)
+- `[Explorer]` The column picker and the query panel describe the rows the table shows, and follow
+  the selected mode only while it is empty. Selecting another mode without fetching reset the picker
+  to that mode's columns, hiding the `taken_station_ids` of interpolated rows, or the
+  `taken_station_id` of summarized rows, still shown (GH-2069)
 
 ## [0.17.0] - 2026-09-29
 
