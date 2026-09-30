@@ -1,5 +1,5 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { createError, getQuery } from 'h3'
+import { createError, getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import HistoryPage from '~/pages/history.vue'
@@ -196,7 +196,9 @@ describe('history Page', () => {
     })
 
     await showButton().trigger('click')
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Error:'), { timeout: 5000 })
+    // told by its status, not by ofetch's message with the whole request in front
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Error: 502 Bad Gateway'), { timeout: 5000 })
+    expect(wrapper.text()).not.toContain('/api/history')
     await vi.waitFor(() => expect(showButton().attributes('disabled')).toBeUndefined(), { timeout: 5000 })
 
     failing = false
@@ -207,6 +209,17 @@ describe('history Page', () => {
     release()
     await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
     expect(vm.canFetch).toBe(false)
+  })
+
+  it('tells a refused request by the backend\'s detail', async () => {
+    // answered as FastAPI answers a lookup that failed: the reason under `detail`, nothing around it
+    const { wrapper, showButton } = await mountWithSelection((event) => {
+      setResponseStatus(event, 400)
+      return { detail: 'No stations found for the given ids' }
+    })
+
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Error: No stations found for the given ids'), { timeout: 5000 })
   })
 
   it('keeps Show disabled for the selection fetched, while under way and once answered', async () => {

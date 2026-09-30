@@ -3,6 +3,7 @@ import type { StationSelectionState } from '~/types/station-selection-state.type
 import { computed, ref, shallowRef } from 'vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
+import { describeFetchError } from '~/utils/api-error'
 
 const { t } = useI18n()
 
@@ -270,9 +271,9 @@ function clear() {
           {{ t('common.loading') }}
         </div>
         <!-- the last fetch's error, gone once Show or Reset is pressed: a new fetch keeps `error` until it answers -->
-        <div v-if="status === 'error' && error" class="flex items-center gap-2 text-sm text-red-600">
+        <div v-if="status === 'error'" class="flex items-center gap-2 text-sm text-red-600">
           <UIcon name="i-lucide-alert-circle" class="shrink-0" />
-          {{ t('history.error') }}: {{ error.message ?? error }}
+          {{ t('history.error') }}: {{ describeFetchError(error) }}
         </div>
       </div>
     </UCard>
