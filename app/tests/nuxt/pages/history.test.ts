@@ -201,7 +201,7 @@ describe('history Page', () => {
 
     failing = false
     await showButton().trigger('click')
-    // the failed fetch's error goes once the retry is under way, not when it answers
+    // the failed fetch's error goes once Show is pressed again, not when that fetch answers
     await vi.waitFor(() => expect(wrapper.text()).toContain('Loading'), { timeout: 5000 })
     expect(wrapper.text()).not.toContain('Error:')
     release()
