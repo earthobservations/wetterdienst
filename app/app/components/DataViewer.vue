@@ -470,16 +470,17 @@ const canFetchData = computed(() => {
 // changed since the table was filled (GH-2065). GeoJSON needs the station positions the backend
 // adds, so it is asked for again, but for the request that filled the table.
 async function downloadValues(format: 'csv' | 'json' | 'geojson') {
+  // the menu stops offering a format the table cannot be saved as, but a choice made before it has
+  // updated still arrives here: an emptied table saves nothing, nor GeoJSON a table the query panel
+  // has rewritten, whose answer describes rows no longer shown
+  if (!sortedValues.value.length)
+    return
   if (format === 'geojson') {
     const request = fetchedRequest.value
-    if (request)
+    if (request && !isDataTransformed.value)
       await downloadGeojson(request)
     return
   }
-  // the menu stops offering it once the table is empty, but a choice made before it updates still
-  // arrives here
-  if (!sortedValues.value.length)
-    return
   const columns = exportColumns(sortedValues.value, TABLE_ORDER)
   const content = format === 'csv' ? valuesToCsv(sortedValues.value, columns) : valuesToJson(sortedValues.value, columns)
   saveFile(content, fetchedRequest.value?.filename ?? ENDPOINTS.values.filename, format)

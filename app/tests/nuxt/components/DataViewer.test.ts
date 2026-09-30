@@ -2,6 +2,7 @@ import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelection } from '~/types/parameter-selection-state.type'
 import type { StationSelectionState } from '~/types/station-selection-state.type'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { flushPromises } from '@vue/test-utils'
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
@@ -187,6 +188,28 @@ describe('dataViewer downloads', () => {
     await wrapper.vm.$nextTick()
     expect(saved).toHaveLength(0)
     expect(document.body.textContent).not.toContain('Values downloaded')
+  })
+
+  it('asks for no GeoJSON of a table the query panel rewrote after the menu was opened', async () => {
+    let asked = false
+    registerEndpoint('/api/values', (event) => {
+      if (getQuery(event).format === 'geojson') {
+        asked = true
+        return { type: 'FeatureCollection', features: [] }
+      }
+      return { values: [row] }
+    })
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const saved = catchDownload()
+    const items = await openDownloads(wrapper)
+    // the query's rows come in before the menu has updated
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [{ timestamp: '2020-01-01', parameter: 'temperature_air_mean_2m', avg_value: 1.5 }])
+    items[2]!.click()
+    await vi.waitFor(() => expect(document.body.querySelectorAll('[role="menuitem"]')).toHaveLength(0))
+    await flushPromises()
+    expect(asked).toBe(false)
+    expect(saved).toHaveLength(0)
   })
 
   it('saves every column a wide-shaped table carries, not only the columns it shows', async () => {
