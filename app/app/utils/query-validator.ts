@@ -24,6 +24,8 @@ export interface QueryValidationResult {
 // but `1e'` a number and an escape string, and `a$x$` an identifier but `1$x$` a number and a
 // dollar-quoted string.
 const SPACE = /[ \t\n\r\f]/
+// a line comment, which ends at a carriage return as at a newline
+const LINE_COMMENT = /--[^\n\r]*/y
 const IDENT_START = /[A-Z_\u0080-\uFFFF]/i
 const IDENT = /[A-Z_\u0080-\uFFFF][\w$\u0080-\uFFFF]*/iy
 const NUMBER = /(?:\d(?:_?\d)*(?:\.(?!\.)(?:\d(?:_?\d)*)?)?|\.\d(?:_?\d)*)(?:e[-+]?\d(?:_?\d)*)?/iy
@@ -100,8 +102,7 @@ function firstStatement(query: string): { end: number, more: boolean } {
       continue
     }
     if (query.startsWith('--', i)) {
-      const newline = query.slice(i).search(/[\n\r]/)
-      i = newline === -1 ? query.length : i + newline
+      i += matchAt(LINE_COMMENT, query, i)!.length
       continue
     }
     if (query.startsWith('/*', i)) {
