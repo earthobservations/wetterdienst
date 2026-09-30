@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { UApp } from '#components'
 import DataViewer from '~/components/DataViewer.vue'
+import QueryPanel from '~/components/QueryPanel.vue'
 
 const settings: DataSettings = {
   humanize: true,
@@ -101,8 +102,11 @@ const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
 afterEach(() => {
   for (const wrapper of mounted.splice(0))
     wrapper.unmount()
+  // the clipboard is a getter on Navigator's prototype, not the navigator's own: a test's own is removed
   if (clipboard)
     Object.defineProperty(navigator, 'clipboard', clipboard)
+  else
+    delete (navigator as { clipboard?: unknown }).clipboard
   vi.restoreAllMocks()
   document.body.innerHTML = ''
 })
@@ -312,6 +316,30 @@ describe('dataViewer downloads', () => {
     ;(await openDownloads(wrapper))[2]!.click()
     await vi.waitFor(() => expect(document.body.textContent).toContain('502'))
     expect(asked).toBe(1)
+  })
+
+  it.each([
+    ['leaving query mode, which hands back the table\'s own rows', true],
+    ['a query of its own, whose rows replace the table\'s', false],
+  ])('a GeoJSON download under way is saved after %s: %s', async (_, kept) => {
+    // it was aborted on every emit from the query panel, the unchanged table included, without a word
+    registerEndpoint('/api/values', async (event) => {
+      if (getQuery(event).format === 'geojson') {
+        await new Promise(resolve => setTimeout(resolve, 150))
+        return { type: 'FeatureCollection', features: [] }
+      }
+      return { values: [row] }
+    })
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const saved = catchDownload()
+    ;(await openDownloads(wrapper))[2]!.click()
+    await new Promise(resolve => setTimeout(resolve, 20))
+    const panel = wrapper.findComponent(QueryPanel)
+    const rows = kept ? panel.props('data') : [{ timestamp: '2020-01-01', parameter: 'temperature_air_mean_2m', avg_value: 1.5 }]
+    panel.vm.$emit('dataTransformed', rows)
+    await new Promise(resolve => setTimeout(resolve, 250))
+    expect(saved).toHaveLength(kept ? 1 : 0)
   })
 
   it('tells a GeoJSON request the backend refuses, and saves nothing', async () => {

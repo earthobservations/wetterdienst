@@ -77,6 +77,17 @@ describe('valuesToJson over rows of different shapes', () => {
   })
 })
 
+describe('valuesToJson with columns the rows do not hold exactly', () => {
+  it('writes the columns asked for, not the row\'s own, where as many as it holds', () => {
+    // the rows were written as they are whenever they held as many keys as there were columns
+    expect(JSON.parse(valuesToJson([{ a: 1, b: 2 }], ['b', 'c']))).toEqual({ values: [{ b: 2, c: null }] })
+  })
+
+  it('writes an undefined value as null, not by leaving the key out', () => {
+    expect(JSON.parse(valuesToJson([{ a: 1, b: undefined }], ['a', 'b']))).toEqual({ values: [{ a: 1, b: null }] })
+  })
+})
+
 describe('exportColumns over rows of different shapes', () => {
   it('keeps a column only a later row carries', () => {
     const sparse = [{ station_id: '01048', value: 1.5 }, { station_id: '04411', value: 2.5, taken_station_id: '04411' }]

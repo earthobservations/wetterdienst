@@ -64,5 +64,6 @@ export function describeFetchError(error: unknown): string {
   // an answer came when it carried a body, or at least a status text; HTTP/2 sends no status text
   if (failed?.statusCode && (failed.statusMessage || failed.data !== undefined))
     return [failed.statusCode, failed.statusMessage].filter(Boolean).join(' ')
-  return failed?.message?.replace(/^\[\w+\] "[^"]*": /, '') ?? String(error)
+  // an empty message, as h3 gives an error it made from nothing, falls through to the error itself
+  return failed?.message?.replace(/^\[\w+\] "[^"]*": /, '') || String(error)
 }

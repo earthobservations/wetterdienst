@@ -270,7 +270,10 @@ const isDataTransformed = ref(false)
 const displayData = computed(() => isDataTransformed.value ? transformedData.value : allValues.value)
 
 function handleDataTransformed(data: Value[]) {
-  abortGeojson()
+  // the table changes only with rows of a query's own; leaving query mode hands back the table's
+  // rows, and a query that found none leaves it as it is
+  if (data.length > 0 && data !== allValues.value)
+    abortGeojson()
   transformedData.value = data
   isDataTransformed.value = data.length > 0 && data !== allValues.value
 }
@@ -512,7 +515,9 @@ async function fetchGeojson(request: NonNullable<typeof fetchedRequest.value>): 
     return null
   }
   finally {
-    geojsonDownload.value = null
+    // not a newer download's, which an aborted one can finish after
+    if (geojsonDownload.value === download)
+      geojsonDownload.value = null
   }
 }
 

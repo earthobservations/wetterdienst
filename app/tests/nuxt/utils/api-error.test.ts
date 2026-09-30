@@ -11,6 +11,12 @@ describe('describeFetchError with the errors useFetch holds', () => {
     expect(describeFetchError(unanswered)).toBe('<no response> Failed to fetch')
   })
 
+  it('tells an error with an empty message by the error itself, never an empty text', () => {
+    // h3 makes the message of an error given nothing an empty string
+    const empty = createError({})
+    expect(describeFetchError(empty)).not.toBe('')
+  })
+
   it('tells an answer without a detail by its status', () => {
     const plain = createError({ statusCode: 502, statusMessage: 'Bad Gateway', message: '[GET] "/api/values?station=01048": 502 Bad Gateway', data: 'Bad Gateway' })
     expect(describeFetchError(plain)).toBe('502 Bad Gateway')
