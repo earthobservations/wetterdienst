@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Value } from '#shared/types/api'
+import { plainRows } from '~/utils/arrow-rows'
 import { validateColumns, validateQuery } from '~/utils/query-validator'
 
 const props = defineProps<{
@@ -303,11 +304,14 @@ async function executeQuery() {
 
   try {
     const result = await conn.query(query.value)
-    const resultArray = result.toArray().map((row: any) => row.toJSON())
+    // Arrow's own values made plain by their column's type -- dates as ISO strings, counts and decimals
+    // as numbers -- so whatever takes these rows reads them as it reads the REST API's (GH-2068)
+    // handed on as values, as the rows always were; the columns a value needs are checked below
+    const resultArray = plainRows(result.toArray().map((row: any) => row.toJSON()), result.schema.fields) as unknown as Value[]
 
     // Validate columns
     if (resultArray.length > 0) {
-      const resultColumns = Object.keys(resultArray[0])
+      const resultColumns = Object.keys(resultArray[0]!)
       const columnValidation = validateColumns(resultColumns, requiredColumns.value)
 
       if (!columnValidation.valid) {
