@@ -144,8 +144,8 @@ describe('explorer Page', () => {
     expect(vm.canFetch).toBe(false)
   })
 
-  it('keeps Show disabled for a newer Fetch that overtook one still under way', async () => {
-    // the first answer is held until the test lets it go
+  it('keeps Show disabled while a fetch is under way, and for a newer Fetch that cancelled it', async () => {
+    // the first request's answer is held until the test lets it go
     let release!: () => void
     const held = new Promise<void>(resolve => (release = resolve))
     let requests = 0
@@ -159,16 +159,33 @@ describe('explorer Page', () => {
     const showButton = () => wrapper.findAll('button').find(b => b.text() === 'Show')!
     await showButton().trigger('click')
     await vi.waitFor(() => expect(requests).toBe(1))
+    expect(vm.canFetch).toBe(false)
 
     vm.dataSettings.humanize = false
     await wrapper.vm.$nextTick()
+    expect(vm.canFetch).toBe(true)
     await showButton().trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('12.3'))
-
-    release()
-    await vi.waitFor(() => expect(vm.dataViewerRef.valuesPending).toBe(false))
-    await flushPromises()
-    // the overtaken fetch filled nothing, but the newer one did, for the settings now selected
     expect(vm.canFetch).toBe(false)
+
+    // the cancelled request's handler finishes too; its answer reaches nothing
+    release()
+    await flushPromises()
+    expect(vm.canFetch).toBe(false)
+  })
+
+  it('offers Show again when the station is removed and chosen again', async () => {
+    const { wrapper, vm } = await mountWithSelection(() => ({ values: [VALUE_ROW] }))
+
+    await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('12.3'))
+    expect(vm.canFetch).toBe(false)
+
+    // with no station the viewer is gone, and it comes back empty
+    vm.stationSelectionState.selection.stations = []
+    await wrapper.vm.$nextTick()
+    vm.stationSelectionState.selection.stations = [{ station_id: '00001', name: 'Test Station' }]
+    await vi.waitFor(() => expect(vm.canFetch).toBe(true))
+    expect(wrapper.text()).not.toContain('12.3')
   })
 })

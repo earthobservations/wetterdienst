@@ -586,12 +586,11 @@ const downloadMenuItems = computed(() => {
   ]
 })
 
-// Manual fetch function. Resolves to whether its request now fills the table: false where it failed, or a
-// newer Fetch or a Clear overtook it
-async function fetchData(): Promise<boolean> {
+// Manual fetch function
+async function fetchData() {
   if (!canFetchData.value) {
     clearData()
-    return false
+    return
   }
   const request = { ...selectedEndpoint.value, query: { ...apiQuery.value } }
   sentRequest.value = request
@@ -601,8 +600,20 @@ async function fetchData(): Promise<boolean> {
   // last one sent
   if (sentRequest.value === request)
     fetchedRequest.value = valuesError.value ? null : request
-  return fetchedRequest.value === request
 }
+
+// A request as it compares with another: the query is built in one fixed order, and a field left unset
+// is dropped, as it is from the URL
+function requestKey(request: { endpoint: string, query: Record<string, unknown> }) {
+  return JSON.stringify([request.endpoint, request.query])
+}
+
+// Whether what is selected is already asked for: the request under way, or else the one the table holds.
+// A fetch that failed, Clear and a viewer mounted afresh hold none, so the selection can be fetched again
+const holdsSelection = computed(() => {
+  const request = valuesPending.value ? sentRequest.value : fetchedRequest.value
+  return request !== null && requestKey(request) === requestKey({ ...selectedEndpoint.value, query: apiQuery.value })
+})
 
 // Clear function to reset data
 function clearData() {
@@ -1001,6 +1012,7 @@ defineExpose({
   fetchData,
   clearData,
   canFetchData,
+  holdsSelection,
   valuesPending,
   fetchErrorMessage,
 })
