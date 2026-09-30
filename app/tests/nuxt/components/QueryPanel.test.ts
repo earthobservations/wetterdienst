@@ -268,3 +268,67 @@ describe('queryPanel unmounted', () => {
     expect(statements).toEqual([])
   })
 })
+
+describe('queryPanel failed start or load', () => {
+  it('starts DuckDB again for the next run after its start failed, ending the database that failed', async () => {
+    const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate').mockRejectedValueOnce(new Error('lost'))
+    const terminate = vi.spyOn(AsyncDuckDB.prototype, 'terminate')
+    unwatched.push(() => instantiate.mockRestore(), () => terminate.mockRestore())
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to initialize database'))
+    expect(terminate).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(runButton(wrapper).attributes('disabled')).toBeUndefined())
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(data)
+  })
+
+  it('loads the table again for the next run after its load failed', async () => {
+    let failed = false
+    watchStatements((sql) => {
+      if (!failed && sql.startsWith('CREATE TABLE')) {
+        failed = true
+        return Promise.reject(new Error('lost'))
+      }
+      return undefined
+    })
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to load data: lost'))
+    await vi.waitFor(() => expect(runButton(wrapper).attributes('disabled')).toBeUndefined())
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(data)
+  })
+
+  it.each([
+    { ended: 'ended', fails: false, loads: ['DROP', 'CREATE', 'INSERT', 'DROP', 'CREATE', 'INSERT'] },
+    { ended: 'failed', fails: true, loads: ['DROP', 'CREATE', 'DROP', 'CREATE', 'INSERT'] },
+  ])('loads newer rows once the load of the rows before them has $ended', async ({ fails, loads }) => {
+    // a Fetch's rows loaded while the run before it still loaded the older ones would drop and
+    // create the table between that load's statements; nor does the older load's failure fail them
+    const hold = gate()
+    let held = false
+    const statements = watchStatements((sql) => {
+      if (!held && sql.startsWith('CREATE TABLE')) {
+        held = true
+        return fails ? hold.opened.then(() => Promise.reject(new Error('lost'))) : hold.opened
+      }
+      return undefined
+    })
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(creates(statements)).toHaveLength(1))
+    const newer = [{ ...data[0]!, station_id: '04411' }]
+    await wrapper.setProps({ data: newer })
+    await buttonLabelled(wrapper, 'Transform with SQL Query').trigger('click')
+    await runButton(wrapper).trigger('click')
+    await flushPromises()
+    hold.open()
+    // the rows handed back as query mode was left, then the newer run's result
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(2))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![1]![0]).toEqual(newer)
+    expect(statements.map(sql => sql.split(' ')[0]).filter(verb => verb !== 'SELECT')).toEqual(loads)
+  })
+})
