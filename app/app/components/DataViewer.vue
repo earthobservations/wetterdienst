@@ -332,11 +332,12 @@ function getSortIcon(column: string) {
   return sortDirection.value === 'asc' ? '↑' : '↓'
 }
 
-// An integer past 2^53 as plainRows writes it, its digits, as its value; any other text, digits
-// within 2^53 such as a station's `01048` included, is none. Text shorter than 2^53's sixteen digits
+// An integer past 2^53 as plainRows writes it, its digits with no leading zero, as its value; any
+// other text is none: digits within 2^53, such as a station's `01048`, and digits with a leading
+// zero, which would tie with the same value written without. Text shorter than 2^53's sixteen digits
 // is told at once, as the comparator asks for each value many times over
 function bigIntegerValue(value: unknown): bigint | undefined {
-  if (typeof value !== 'string' || value.length < 16 || !/^-?\d+$/.test(value))
+  if (typeof value !== 'string' || value.length < 16 || !/^-?[1-9]\d*$/.test(value))
     return undefined
   const integer = BigInt(value)
   return Number.isSafeInteger(Number(integer)) ? undefined : integer
