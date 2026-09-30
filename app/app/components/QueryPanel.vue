@@ -306,7 +306,8 @@ async function executeQuery() {
     const result = await conn.query(query.value)
     // Arrow's own values made plain by their column's type -- dates as ISO strings, counts and decimals
     // as numbers -- so whatever takes these rows reads them as it reads the REST API's (GH-2068)
-    // handed on as values, as the rows always were; the columns a value needs are checked below
+    // Typed as values, as the panel has always handed its rows on; validateColumns below checks that
+    // they carry the columns a value needs before they go anywhere
     const resultArray = plainRows(result.toArray().map((row: any) => row.toJSON()), result.schema.fields) as unknown as Value[]
 
     // Validate columns
