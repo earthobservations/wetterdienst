@@ -229,6 +229,89 @@ export interface StripesValuesQuery {
 }
 
 // ============================================================================
+// History API
+// ============================================================================
+
+// As `History` in the backend's model/history.py has them, every field of each record: the backend sends
+// null for a field it has no value for, rather than leaving it out. A station's position, name and devices
+// are records of the periods they held for, never fields of the history itself.
+
+export interface HistoryStationName {
+  station_id: string
+  station_name: string
+  start_date: string
+  end_date: string | null
+}
+
+export interface HistoryOperatorName {
+  station_id: string
+  operator_name: string
+  start_date: string
+  end_date: string | null
+}
+
+export interface HistoryParameter {
+  station_id: string
+  start_date: string
+  end_date: string
+  station_name: string
+  parameter: string
+  description: string | null
+  unit: string | null
+  data_source: string | null
+  extra_info: string | null
+  special: string | null
+  literature: string | null
+}
+
+export interface HistoryDevice {
+  device_type: string | null
+  station_id: string
+  station_name: string | null
+  longitude: number | null
+  latitude: number | null
+  station_elevation: number | null
+  device_height: number | null
+  start_date: string
+  end_date: string
+  method: string | null
+}
+
+export interface HistoryGeography {
+  station_id: string
+  station_elevation: number | null
+  latitude: number | null
+  longitude: number | null
+  start_date: string
+  end_date: string | null
+  station_name: string | null
+}
+
+/** A summary or a period of missing data: the backend's two records have the same fields. */
+export interface HistoryMissingData {
+  station_id: string
+  station_name: string | null
+  parameter: string
+  start_date: string
+  end_date: string
+  missing_count: number | null
+  description: string | null
+}
+
+/** One station's history: the sections asked for, all of them where none were. */
+export interface StationHistory {
+  name?: { station: HistoryStationName[], operator: HistoryOperatorName[] }
+  parameter?: HistoryParameter[]
+  device?: HistoryDevice[]
+  geography?: HistoryGeography[]
+  missing_data?: { summary: HistoryMissingData[], periods: HistoryMissingData[] }
+}
+
+export interface HistoryResponse {
+  histories: StationHistory[]
+}
+
+// ============================================================================
 // Error Response
 // ============================================================================
 

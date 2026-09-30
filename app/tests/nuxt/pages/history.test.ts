@@ -297,6 +297,42 @@ describe('history Page', () => {
     expect(overview()).toEqual(['00044 Other'])
   })
 
+  it('shows a station\'s position by the periods it held, as its geography gives them', async () => {
+    // shaped as the backend answers the name and geography sections, with positions of 01048's: the
+    // position is in `geography`, one record per period, and nowhere at the top of the history
+    const { wrapper, vm, showButton } = await mountWithSelection(() => ({
+      histories: [{
+        name: {
+          station: [{ station_id: '00001', station_name: 'Foo Station', start_date: '1926-05-01T00:00:00+00:00', end_date: null }],
+          operator: [],
+        },
+        geography: [
+          { station_id: '00001', station_name: 'Foo Station', latitude: 51.0883, longitude: 13.7601, station_elevation: 152, start_date: '1926-05-01T00:00:00+00:00', end_date: '1935-07-10T00:00:00+00:00' },
+          { station_id: '00001', station_name: 'Foo Station', latitude: 51.1278, longitude: 13.7543, station_elevation: 227.57, start_date: '2019-08-14T00:00:00+00:00', end_date: '2026-09-30T00:00:00+00:00' },
+        ],
+      }],
+    }))
+    vm.selectedSections = ['name', 'geography']
+    await wrapper.vm.$nextTick()
+
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
+    await wrapper.findAll('button').find(b => b.text().includes('Geography history'))!.trigger('click')
+
+    // each period a row of its own: from, to, latitude, longitude, elevation
+    const rows = () => {
+      const table = wrapper.findAll('table').find(t => t.text().includes('1935-07-10'))
+      return table
+        ? [...table.element.querySelectorAll('tbody tr')].map(tr =>
+            [...tr.querySelectorAll('td')].map(td => td.textContent!.trim()))
+        : []
+    }
+    await vi.waitFor(() => expect(rows()).toEqual([
+      ['1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00', '51.0883', '13.7601', '152'],
+      ['2019-08-14T00:00:00+00:00', '2026-09-30T00:00:00+00:00', '51.1278', '13.7543', '227.57'],
+    ]), { timeout: 5000 })
+  })
+
   it('shows the answer to a fetch under way when the selection changes before it answers', async () => {
     // the answer is held until the test lets it go
     let release!: () => void
