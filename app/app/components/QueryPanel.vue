@@ -245,7 +245,7 @@ async function validateQuerySyntax() {
     return
   }
   // the one statement the text holds, without a `;` or comment after it, which the schema's
-  // subquery below could not close
+  // subquery below could not close; the run runs the same
   const statement = validation.statement!
 
   // Initialize DuckDB if needed (for EXPLAIN)
@@ -276,7 +276,7 @@ async function validateQuerySyntax() {
     }
 
     // Try to explain the query - this validates syntax
-    await conn.query(`EXPLAIN ${sql}`)
+    await conn.query(`EXPLAIN ${statement}`)
     if (!current())
       return
 
@@ -355,6 +355,8 @@ async function executeQuery() {
   if (validation.warningKey) {
     warning.value = valText(validation.warningKey, validation.params)
   }
+  // the one statement the text holds, as the check checked it: nothing after it reaches DuckDB
+  const statement = validation.statement!
 
   // running from here, so Run Query cannot start a second run while DuckDB starts or the table loads
   const run = ++currentRun
@@ -389,7 +391,7 @@ async function executeQuery() {
     if (run !== currentRun)
       return
 
-    const result = await conn.query(sql)
+    const result = await conn.query(statement)
 
     // left by Cancel, or by a Fetch whose newer rows the result would replace
     if (run !== currentRun)

@@ -708,6 +708,10 @@ describe('queryPanel statements', () => {
     await runButton(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
     expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(data)
+    // the check explains, and the run runs, the statement as checked, and nothing after it
+    expect(statements).toContain('EXPLAIN SELECT * FROM data LIMIT 10')
+    expect(statements).toContain('SELECT * FROM data LIMIT 10')
+    expect(statements.filter(sql => sql.includes('done'))).toEqual([])
   })
 })
 
