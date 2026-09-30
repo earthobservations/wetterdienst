@@ -95,7 +95,8 @@ watch(
   { deep: true },
 )
 
-// The station's id, from the first section fetched that has a record: every section's records carry it
+// The station's id, from the first record of the first of these sections, in this order, that has one:
+// every section's records carry it
 function getStationId(history: StationHistory): string | null {
   return history.parameter?.[0]?.station_id
     || history.device?.[0]?.station_id
