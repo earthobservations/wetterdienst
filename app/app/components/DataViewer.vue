@@ -232,7 +232,9 @@ const { data: valuesData, pending: valuesPending, error: valuesError, refresh: r
     query: computed(() => fetchedRequest.value?.query ?? {}),
     lazy: true,
     immediate: false,
-    watch: false, // fetched by Fetch alone, not on every change to the request
+    // fetched by Fetch alone: a key or request that changes -- Clear moves the key on -- does not fetch
+    // by itself, which without this would send an empty query on every Clear
+    watch: false,
     default: () => ({ values: [] }),
   },
 )
@@ -375,6 +377,7 @@ const TABLE_ORDER = columnDefinitions.map(c => c.key)
 
 // The columns the picker leaves visible, in the table's order: what the table shows, and a copy writes
 const visibleColumns = computed(() => columnDefinitions.filter(c => selectedColumns.value.includes(c.key)))
+const visibleKeys = computed(() => visibleColumns.value.map(c => c.key))
 
 const columns = computed(() =>
   visibleColumns.value.map((c) => {
@@ -408,7 +411,7 @@ watch(pageSize, () => {
 })
 
 async function copyCurrentPage() {
-  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, visibleColumns.value.map(c => c.key)))
+  await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, visibleKeys.value))
   toast.add({
     title: t('dataViewer.copied'),
     description: t('dataViewer.copiedRows', { count: paginatedValues.value.length }),
@@ -417,7 +420,7 @@ async function copyCurrentPage() {
 }
 
 async function copyAllValues() {
-  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, visibleColumns.value.map(c => c.key)))
+  await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, visibleKeys.value))
   toast.add({ title: t('dataViewer.copied'), description: t('dataViewer.copiedRows', { count: sortedValues.value.length }), color: 'success' })
 }
 
@@ -454,33 +457,15 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
   if (!request)
     return
   let content: string
-  if (format === 'csv') {
-    content = valuesToCsv(sortedValues.value, exportColumns(sortedValues.value, TABLE_ORDER))
-  }
-  else if (format === 'json') {
-    content = valuesToJson(sortedValues.value, exportColumns(sortedValues.value, TABLE_ORDER))
+  if (format === 'geojson') {
+    const fetched = await fetchGeojson(request)
+    if (fetched === null)
+      return
+    content = fetched
   }
   else {
-    downloadingGeojson.value = true
-    const generation = fetchGeneration.value
-    try {
-      // as the table's own request was sent, so the query reads the same
-      content = await $fetch<string>(request.endpoint, {
-        query: { ...request.query, format: 'geojson' },
-        responseType: 'text',
-      })
-    }
-    catch (error) {
-      // an error answer, or none at all, is told rather than saved as the file asked for
-      toast.add({ title: t('dataViewer.fetchErrorToastTitle'), description: describeFetchError(error), color: 'error' })
-      return
-    }
-    finally {
-      downloadingGeojson.value = false
-    }
-    // Clear or a new Fetch while it was under way: the table no longer holds what this describes
-    if (fetchGeneration.value !== generation)
-      return
+    const columns = exportColumns(sortedValues.value, TABLE_ORDER)
+    content = format === 'csv' ? valuesToCsv(sortedValues.value, columns) : valuesToJson(sortedValues.value, columns)
   }
 
   const blob = new Blob([content], { type: 'application/octet-stream' })
@@ -494,6 +479,40 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
   URL.revokeObjectURL(url)
 
   toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedValues', { format: format.toUpperCase() }), color: 'success' })
+}
+
+// the GeoJSON download under way, aborted once the table no longer holds what it describes
+let geojsonDownload: AbortController | null = null
+watch([fetchGeneration, isDataTransformed], () => geojsonDownload?.abort())
+
+// Ask again for the request that filled the table, as GeoJSON; null where there is nothing to save:
+// the answer failed, which is told, or the table moved on -- Fetch, Clear, the query panel -- which
+// aborts it and is not
+async function fetchGeojson(request: NonNullable<typeof fetchedRequest.value>): Promise<string | null> {
+  const download = new AbortController()
+  geojsonDownload = download
+  downloadingGeojson.value = true
+  try {
+    // as the table's own request was sent, so the query reads the same; once, as a failed answer is
+    // told at once rather than asked for again
+    const geojson = await $fetch<string>(request.endpoint, {
+      query: { ...request.query, format: 'geojson' },
+      responseType: 'text',
+      retry: 0,
+      signal: download.signal,
+    })
+    // an answer that came in as the table moved on is not saved either
+    return download.signal.aborted ? null : geojson
+  }
+  catch (error) {
+    if (!download.signal.aborted)
+      toast.add({ title: t('dataViewer.fetchErrorToastTitle'), description: describeFetchError(error), color: 'error' })
+    return null
+  }
+  finally {
+    downloadingGeojson.value = false
+    geojsonDownload = null
+  }
 }
 
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {

@@ -56,12 +56,16 @@ const row = {
 
 // DataViewer's copy buttons use UTooltip, which needs the TooltipProvider app.vue's <UApp> supplies;
 // attached, so the download menu can open into the document
+// each test's viewers, unmounted after it, so none of them outlives it into the next
+const mounted: { unmount: () => void }[] = []
+
 async function mountDataViewer(stationSelection = ref(byStation('01048'))) {
   const wrapper = await mountSuspended(defineComponent({
     setup: () => () => h(UApp, null, {
       default: () => h(DataViewer, { parameterSelection, stationSelection: stationSelection.value, settings }),
     }),
   }), { attachTo: document.body })
+  mounted.push(wrapper)
   const viewer = wrapper.findComponent(DataViewer)
   return { wrapper, viewer, stationSelection }
 }
@@ -92,7 +96,13 @@ function catchDownload() {
   return saved
 }
 
+const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+
 afterEach(() => {
+  for (const wrapper of mounted.splice(0))
+    wrapper.unmount()
+  if (clipboard)
+    Object.defineProperty(navigator, 'clipboard', clipboard)
   vi.restoreAllMocks()
   document.body.innerHTML = ''
 })
@@ -283,6 +293,25 @@ describe('dataViewer downloads', () => {
     await vi.waitFor(() => expect(answered).toBe(true))
     await new Promise(resolve => setTimeout(resolve, 50))
     expect(saved).toHaveLength(0)
+  })
+
+  it('asks for GeoJSON once, not again when the answer fails', async () => {
+    // ofetch retries a failed GET once by default, doubling an expensive request and the wait
+    let asked = 0
+    registerEndpoint('/api/values', (event) => {
+      if (getQuery(event).format === 'geojson') {
+        asked++
+        setResponseStatus(event, 502)
+        return 'Bad Gateway'
+      }
+      return { values: [row] }
+    })
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    catchDownload()
+    ;(await openDownloads(wrapper))[2]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('502'))
+    expect(asked).toBe(1)
   })
 
   it('tells a GeoJSON request the backend refuses, and saves nothing', async () => {

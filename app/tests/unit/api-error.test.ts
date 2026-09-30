@@ -54,7 +54,9 @@ describe('describeFetchError', () => {
     expect(describeFetchError(plain)).toBe('500 Internal Server Error')
   })
 
-  it('falls back to the error\'s own message where there was no answer', () => {
-    expect(describeFetchError({ data: undefined, message: 'fetch failed' })).toBe('fetch failed')
+  it('tells a request that got no answer by its message, without the request ofetch puts first', () => {
+    // as useFetch holds it: a status of 500 by default, and no status text, as nothing answered
+    const unanswered = { data: undefined, message: '[GET] "/api/values?provider=dwd&station=01048": <no response> Failed to fetch', statusCode: 500 }
+    expect(describeFetchError(unanswered)).toBe('<no response> Failed to fetch')
   })
 })
