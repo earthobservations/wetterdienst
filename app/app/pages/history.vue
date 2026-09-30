@@ -269,7 +269,8 @@ function clear() {
           <UIcon name="i-lucide-loader-circle" class="animate-spin shrink-0" />
           {{ t('common.loading') }}
         </div>
-        <div v-if="error" class="flex items-center gap-2 text-sm text-red-600">
+        <!-- the last fetch's error, gone once Show or Reset is pressed: a new fetch keeps `error` until it answers -->
+        <div v-if="status === 'error' && error" class="flex items-center gap-2 text-sm text-red-600">
           <UIcon name="i-lucide-alert-circle" class="shrink-0" />
           {{ t('history.error') }}: {{ error.message ?? error }}
         </div>
