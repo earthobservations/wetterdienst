@@ -229,11 +229,13 @@ describe('mapStations centring on selected stations that have no position', () =
   }
 
   it('offers no centring for a selection without a position', async () => {
-    const { vm } = await mountWith([postcode])
+    const { vm, fitBounds } = await mountWith([postcode])
 
     // it switched to "centre all", with nothing to centre on
     expect(vm.centerOnSelectedStations).toBe(false)
     expect(button().attributes('disabled')).toBeDefined()
+    // and the map stays where the user put it, rather than zooming out to all stations
+    expect(fitBounds).not.toHaveBeenCalled()
   })
 
   it('centres on, and counts, the selected stations that have one', async () => {

@@ -32,7 +32,7 @@ function isSelected(stationId: string) {
 // A station without a position, e.g. a postcode of dwd/derived climate_correction_factor, has
 // no place on the map: it is left off it, and out of its centre and bounds.
 function positioned(stations: any[]) {
-  return stations.filter(s => s.latitude != null && s.longitude != null)
+  return stations.filter(hasPosition)
 }
 
 const mappedStations = computed(() => positioned(props.stations))
@@ -173,10 +173,15 @@ watch(() => props.selectedStations, () => {
   }
 }, { deep: true })
 
+// Follows the selection while the map is centred on it. Off, the map is left where the user put it:
+// toggleCenter() fits it to all stations itself, and a selection without a position leaves
+// centring off, where refitting on it zoomed out to all stations.
 watch([
   () => centerOnSelectedStations.value,
   () => props.selectedStations,
 ], () => {
+  if (!centerOnSelectedStations.value)
+    return
   if (map.value?.leafletObject && mapBounds.value) {
     map.value.leafletObject.fitBounds(mapBounds.value)
   }
