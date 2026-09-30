@@ -54,9 +54,9 @@ Types of changes:
   `JAN MAYEN (ID: 01001, null)` (GH-2046)
 - `[Stations]` A station without a name or position, such as the postcodes dwd/derived
   `climate_correction_factor` has for stations, is labelled by its id, `ID: 01067` in the station
-  picker and `01067` on its chip and in the interpolation's station picker, where it read `null`,
-  and left off the map, where it was drawn at 0°N 0°E. Choosing one no longer fails the explorer's
-  station details table, or the point an interpolation takes from its station (GH-2098)
+  picker and `01067` on its chip, where it read `null`, and left off the map, where it was drawn at
+  0°N 0°E. Choosing one no longer fails the explorer's station details table, or the point an
+  interpolation takes from its station (GH-2098)
 - `[Explorer]` A query still running when a Fetch answers no longer replaces the new rows with its
   result: the table showed the query result of the rows fetched before under the new request, and
   CSV and JSON downloads saved it (GH-2072)
@@ -132,9 +132,6 @@ Types of changes:
   a date, where each was an empty trace with a legend entry, or an empty panel; with no row to plot
   it says there is no chart data and offers no image. A large result counts only the points drawn,
   so a few among many such rows are drawn with markers (GH-2125)
-- `[Explorer]` A query's MAP with NaN, infinite and negative infinite keys keeps each of them, as
-  `NaN`, `Infinity` and `-Infinity`. All three were keyed `null`, so only the last one's value was
-  shown and downloaded (GH-2116)
 - `[Explorer]` A query's MAP with DOUBLE or FLOAT keys of NaN, infinity and negative infinity keeps
   each of them, as `NaN`, `Infinity` and `-Infinity`. All three were keyed `null`, so only the
   last one's value was shown and downloaded (GH-2116)
@@ -159,6 +156,16 @@ Types of changes:
 - `[Explorer]` A chart image chosen after the chart failed to draw, as when Plotly failed to load,
   draws the chart again and saves it, or says the chart could not be drawn. It saved an empty
   figure and reported it downloaded (GH-2140)
+- `[Explorer/History/Stripes/Meteogram]` The station map shows the markers of the current station
+  list only. A list that changed while the markers were still being built could leave the previous
+  list's markers on the map, and clicking one selected a station of that list (GH-2132)
+- `[Explorer]` A station without a position, such as a postcode of dwd/derived
+  climate_correction_factor, is no longer offered as the point to interpolate or summarize for,
+  where choosing it left Fetch disabled with nothing saying why (GH-2133)
+- `[Explorer/History/Stripes/Meteogram]` The station map's centre button counts only the selected
+  stations it can show. Choosing only stations without a position no longer switches it to "Center
+  on all stations" with nothing to centre on: it stays disabled until a chosen station has a
+  position (GH-2133)
 
 ## [0.17.0] - 2026-09-29
 
