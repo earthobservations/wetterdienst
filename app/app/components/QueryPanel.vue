@@ -90,12 +90,25 @@ const exampleQueries = computed(() => {
 // DuckDB instance
 let db: any = null
 let conn: any = null
+// DuckDB's start, which a run and the syntax check share rather than start a database each
+let started: Promise<void> | null = null
+// the start failed: a run starts DuckDB again, the syntax check does not, rather than at every pause
+// in typing; and why, which the run tells
+let startFailed = false
+let startError = ''
 
 // Initialize DuckDB
-async function initDuckDB() {
-  if (db)
-    return
+function initDuckDB({ again = false } = {}): Promise<void> {
+  if (again && startFailed) {
+    started = null
+    startFailed = false
+  }
+  started ??= startDuckDB()
+  return started
+}
 
+async function startDuckDB() {
+  let database: any = null
   try {
     const duckdb = await import('@duckdb/duckdb-wasm')
 
@@ -108,84 +121,121 @@ async function initDuckDB() {
       new Blob([`importScripts("${bundle.mainWorker!}");`], { type: 'text/javascript' }),
     )
 
-    // Instantiate the asynchronous version of DuckDB-wasm
-    const worker = new Worker(worker_url)
-    const logger = new duckdb.ConsoleLogger()
-    db = new duckdb.AsyncDuckDB(logger, worker)
-    await db.instantiate(bundle.mainModule, bundle.pthreadWorker)
-    URL.revokeObjectURL(worker_url)
+    try {
+      // Instantiate the asynchronous version of DuckDB-wasm
+      const worker = new Worker(worker_url)
+      const logger = new duckdb.ConsoleLogger()
+      database = new duckdb.AsyncDuckDB(logger, worker)
+      await database.instantiate(bundle.mainModule, bundle.pthreadWorker)
+    }
+    finally {
+      URL.revokeObjectURL(worker_url)
+    }
 
-    conn = await db.connect()
+    conn = await database.connect()
+    db = database
   }
   catch (err: any) {
+    // told by the run that waits for it, not by one left behind or the syntax check
     console.error('Failed to initialize DuckDB:', err)
-    error.value = `Failed to initialize DuckDB: ${err.message || 'Unknown error'}`
+    database?.terminate().catch(() => {})
+    startFailed = true
+    // anything can be thrown, `undefined` included, and reading it must not fail the start's promise
+    startError = err?.message || 'Unknown error'
   }
 }
 
-// Load data into DuckDB
-async function loadDataIntoDB() {
-  if (!conn || !db || !props.data.length) {
+// Load rows into DuckDB's `data` table, stopping before its next batch once `superseded`, or not
+// starting when superseded while it waited for the load before it
+async function loadDataIntoDB(rows: Value[], superseded: () => boolean) {
+  if (superseded())
     return
-  }
+  // Drop table if exists
+  await conn.query('DROP TABLE IF EXISTS data')
 
-  try {
-    // Drop table if exists
-    await conn.query('DROP TABLE IF EXISTS data')
+  // Create table based on first row structure
+  const firstRow = rows[0]!
+  const columns = Object.keys(firstRow)
+  const columnDefs = columns.map((col) => {
+    const value = firstRow[col as keyof typeof firstRow]
+    const type = typeof value === 'number' ? 'DOUBLE' : 'VARCHAR'
+    return `"${col}" ${type}`
+  }).join(', ')
 
-    // Create table based on first row structure
-    const firstRow = props.data[0]
-    if (!firstRow) {
-      error.value = 'No data to load'
+  await conn.query(`CREATE TABLE data (${columnDefs})`)
+
+  // Insert data in batches to avoid query size limits
+  const batchSize = 100
+  for (let i = 0; i < rows.length; i += batchSize) {
+    if (superseded())
       return
-    }
-
-    const columns = Object.keys(firstRow)
-    const columnDefs = columns.map((col) => {
-      const value = firstRow[col as keyof typeof firstRow]
-      const type = typeof value === 'number' ? 'DOUBLE' : 'VARCHAR'
-      return `"${col}" ${type}`
+    const batch = rows.slice(i, i + batchSize)
+    const values = batch.map((row) => {
+      const vals = columns.map((col) => {
+        const value = row[col as keyof typeof row]
+        if (value === null || value === undefined)
+          return 'NULL'
+        if (typeof value === 'number')
+          return value
+        // Escape single quotes in strings
+        return `'${String(value).replace(/'/g, '\'\'')}'`
+      }).join(', ')
+      return `(${vals})`
     }).join(', ')
 
-    await conn.query(`CREATE TABLE data (${columnDefs})`)
-
-    // Insert data in batches to avoid query size limits
-    const batchSize = 100
-    for (let i = 0; i < props.data.length; i += batchSize) {
-      const batch = props.data.slice(i, i + batchSize)
-      const values = batch.map((row) => {
-        const vals = columns.map((col) => {
-          const value = row[col as keyof typeof row]
-          if (value === null || value === undefined)
-            return 'NULL'
-          if (typeof value === 'number')
-            return value
-          // Escape single quotes in strings
-          return `'${String(value).replace(/'/g, '\'\'')}'`
-        }).join(', ')
-        return `(${vals})`
-      }).join(', ')
-
-      await conn.query(`INSERT INTO data VALUES ${values}`)
-    }
-  }
-  catch (err: any) {
-    console.error('Failed to load data into DuckDB:', err)
-    error.value = `Failed to load data: ${err.message || 'Unknown error'}`
+    await conn.query(`INSERT INTO data VALUES ${values}`)
   }
 }
+
+// The load of the panel's rows into the table, which a run and the syntax check await rather than
+// load it each, their statements interleaved. A load of newer rows starts once the one before it
+// has ended, which stops before its next batch rather than insert rows nobody will query. A load
+// that failed is tried again by the next run (`again`), not by the syntax check at every pause in
+// typing. `lastLoad` is the one started last, which the next waits for even once it is forgotten
+let tableLoad: { rows: Value[], done: Promise<void>, failed: boolean } | null = null
+let lastLoad: Promise<void> = Promise.resolve()
+
+function loadTable(rows: Value[], { again = false } = {}): Promise<void> {
+  if (tableLoad?.rows !== rows || (again && tableLoad.failed)) {
+    const before = lastLoad.catch(() => {})
+    const load = { rows, done: Promise.resolve(), failed: false }
+    load.done = before.then(() => loadDataIntoDB(rows, () => tableLoad !== load))
+    load.done.catch(() => {
+      load.failed = true
+    })
+    tableLoad = load
+    lastLoad = load.done
+  }
+  return tableLoad.done
+}
+
+// The check the panel waits for. A newer check and unmounting move it on, and a check that is no
+// longer it, or whose rows a Fetch has replaced, tells nothing: its statements may have met the
+// newer rows' load between its DROP and CREATE, and its answer is about text since edited
+let currentCheck = 0
 
 // Validate query syntax using DuckDB EXPLAIN
 async function validateQuerySyntax() {
+  const check = ++currentCheck
+  // the text checked, as validated, which can be edited while DuckDB starts or the table loads
+  const sql = query.value
+  const rows = props.data
+  const current = () => check === currentCheck && rows === props.data
+  const answer = (message: string | null) => {
+    if (current())
+      syntaxError.value = message
+  }
   syntaxError.value = null
+  // the spinner of a check left behind, which no longer stops it
+  isValidating.value = false
 
   // Skip validation for empty queries
-  if (!query.value.trim()) {
+  if (!sql.trim()) {
     return
   }
 
   // Basic validation first (fast)
-  const validation = validateQuery(query.value)
+  const validation = validateQuery(sql)
   if (!validation.valid) {
     syntaxError.value = valText(validation.errorKey, validation.params)
     return
@@ -193,6 +243,9 @@ async function validateQuerySyntax() {
 
   // Initialize DuckDB if needed (for EXPLAIN)
   await initDuckDB()
+  // gone while DuckDB started: the check would load a table into a database being closed
+  if (!current())
+    return
   if (!db || !conn) {
     // Can't validate syntax without DuckDB, but don't show error
     return
@@ -203,24 +256,27 @@ async function validateQuerySyntax() {
   try {
     // Use EXPLAIN to validate query syntax without executing
     // We need to have the data table ready for proper validation
-    if (props.data.length > 0) {
-      // Ensure table exists (load just first row for validation)
+    if (rows.length > 0) {
+      // the table a run may be loading already; a load that fails is told by the run
       try {
-        await conn.query('SELECT 1 FROM data LIMIT 1')
+        await loadTable(rows)
       }
       catch {
-        // Table doesn't exist, create it with minimal data
-        await loadDataIntoDB()
+        return
       }
+      if (!current())
+        return
     }
 
     // Try to explain the query - this validates syntax
-    await conn.query(`EXPLAIN ${query.value}`)
+    await conn.query(`EXPLAIN ${sql}`)
+    if (!current())
+      return
 
     // Validate output columns by running query with LIMIT 0
     // This returns schema without fetching data - very fast!
     try {
-      const schemaQuery = `SELECT * FROM (${query.value}) LIMIT 0`
+      const schemaQuery = `SELECT * FROM (${sql}) LIMIT 0`
       const schemaResult = await conn.query(schemaQuery)
       const resultColumns = schemaResult.schema.fields.map((field: any) => field.name)
 
@@ -228,26 +284,27 @@ async function validateQuerySyntax() {
       const columnValidation = validateColumns(resultColumns, requiredColumns.value)
 
       if (!columnValidation.valid) {
-        syntaxError.value = valText(columnValidation.messageKey, columnValidation.params)
+        answer(valText(columnValidation.messageKey, columnValidation.params))
         return
       }
     }
     catch (err: any) {
       // If column validation fails, show error
-      syntaxError.value = `Column validation error: ${err.message}`
+      answer(`Column validation error: ${err.message}`)
       return
     }
 
     // If we get here, syntax and columns are valid
-    syntaxError.value = null
+    answer(null)
   }
   catch (err: any) {
     // Extract meaningful error message
     const message = err.message || 'Syntax error'
-    syntaxError.value = message
+    answer(message)
   }
   finally {
-    isValidating.value = false
+    if (check === currentCheck)
+      isValidating.value = false
   }
 }
 
@@ -267,16 +324,22 @@ watch(query, () => {
   debouncedValidation()
 })
 
+// The run the panel waits for. Leaving query mode moves it on, and a run that is no longer it
+// changes nothing: no result handed on, no error, no spinner stopped under a newer run
+let currentRun = 0
+
 // Execute query
 async function executeQuery() {
   // the rows the query runs on, which a Fetch can replace before it answers
   const rows = props.data
+  // the query as it was validated, which can be edited while DuckDB starts or the table loads
+  const sql = query.value
   error.value = null
   warning.value = null
   columnValidationMessage.value = null
 
   // Validate query
-  const validation = validateQuery(query.value)
+  const validation = validateQuery(sql)
   if (!validation.valid) {
     error.value = valText(validation.errorKey, validation.params)
     return
@@ -286,35 +349,50 @@ async function executeQuery() {
     warning.value = valText(validation.warningKey, validation.params)
   }
 
-  // Initialize DuckDB if needed
-  await initDuckDB()
-  if (!db || !conn) {
-    error.value = 'Failed to initialize database'
-    return
-  }
-
-  // Load data if needed
-  if (props.data.length > 0) {
-    await loadDataIntoDB()
-  }
-  else {
-    error.value = 'No data available to query'
-    return
-  }
-
+  // running from here, so Run Query cannot start a second run while DuckDB starts or the table loads
+  const run = ++currentRun
   isExecuting.value = true
 
   try {
-    const result = await conn.query(query.value)
+    // Initialize DuckDB if needed
+    await initDuckDB({ again: true })
+    if (run !== currentRun)
+      return
+    if (!db || !conn) {
+      error.value = `Failed to initialize database: ${startError}`
+      return
+    }
+
+    if (rows.length === 0) {
+      error.value = 'No data available to query'
+      return
+    }
+
+    try {
+      await loadTable(rows, { again: true })
+    }
+    catch (err: any) {
+      if (run === currentRun) {
+        console.error('Failed to load data into DuckDB:', err)
+        error.value = `Failed to load data: ${err.message || 'Unknown error'}`
+      }
+      return
+    }
+    // left while the table loaded: its query would only keep DuckDB from a newer one
+    if (run !== currentRun)
+      return
+
+    const result = await conn.query(sql)
+
+    // left by Cancel, or by a Fetch whose newer rows the result would replace
+    if (run !== currentRun)
+      return
+
     // each value made plain by its column's type, as the REST API would answer it, where Arrow's own
     // toJSON() left BigInts, milliseconds since the epoch and its own nested rows (GH-2068, GH-2071).
     // Typed as values, as the panel has always handed its rows on; validateColumns checks below that
     // they carry the columns a value needs
     const resultArray = plainRows(result) as unknown as Value[]
-
-    // a result of rows the table no longer holds would replace the newer ones Fetch put there
-    if (rows !== props.data)
-      return
 
     // Validate columns
     if (resultArray.length > 0) {
@@ -335,11 +413,15 @@ async function executeQuery() {
     emit('dataTransformed', resultArray)
   }
   catch (err: any) {
-    console.error('Query execution error:', err)
-    error.value = `Query error: ${err.message}`
+    if (run === currentRun) {
+      console.error('Query execution error:', err)
+      error.value = `Query error: ${err.message}`
+    }
   }
   finally {
-    isExecuting.value = false
+    // a newer run's spinner is its own
+    if (run === currentRun)
+      isExecuting.value = false
   }
 }
 
@@ -354,6 +436,9 @@ function enableQueryMode() {
 }
 
 function disableQueryMode() {
+  // the run under way is left: it hands on no result, and tells no error, when it answers
+  currentRun++
+  isExecuting.value = false
   isQueryMode.value = false
   queryResults.value = []
   error.value = null
@@ -364,6 +449,9 @@ function disableQueryMode() {
 
 // Watch for data changes - reset query mode
 watch(() => props.data, () => {
+  // the table no longer holds the panel's rows: a load of them under way stops before its next
+  // batch, and the next run or check loads the rows now held, replaced or changed in place
+  tableLoad = null
   if (isQueryMode.value) {
     disableQueryMode()
   }
@@ -371,14 +459,21 @@ watch(() => props.data, () => {
 
 // Cleanup on unmount
 onUnmounted(async () => {
-  if (conn) {
-    await conn.close()
-    conn = null
-  }
-  if (db) {
-    await db.terminate()
-    db = null
-  }
+  // the delayed syntax check would start a database that nothing ends
+  if (validationTimeout)
+    clearTimeout(validationTimeout)
+  // a run or check under way loads no table into the database being closed, nor queries it
+  currentRun++
+  currentCheck++
+  // and a table load under way stops before its next batch
+  tableLoad = null
+  // a start under way ends before the database it makes can be
+  await started
+  // the database is ended even when its connection fails to close
+  await conn?.close().catch((err: unknown) => console.error('Failed to close DuckDB connection:', err))
+  conn = null
+  await db?.terminate().catch((err: unknown) => console.error('Failed to terminate DuckDB:', err))
+  db = null
 })
 </script>
 
