@@ -47,7 +47,7 @@ describe('widget Page', () => {
     registerEndpoint('/api/stations', () => ({
       stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }],
     }))
-    vi.mocked(globalThis.fetch).mockResolvedValue(
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
       new Response(JSON.stringify({ detail: 'No forecast for station 00001' }), { status: 404 }),
     )
 
@@ -59,13 +59,14 @@ describe('widget Page', () => {
     registerEndpoint('/api/stations', () => ({
       stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }],
     }))
-    vi.mocked(globalThis.fetch).mockResolvedValue(
-      new Response('<html>Bad Gateway</html>', { status: 502 }),
+    // a proxy's error page: its status text is told, its body left out
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response('<html>proxy page</html>', { status: 502, statusText: 'Bad Gateway' }),
     )
 
     const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Backend error 502'))
-    expect(wrapper.text()).not.toContain('Bad Gateway')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Backend error 502 Bad Gateway'))
+    expect(wrapper.text()).not.toContain('proxy page')
   })
 
   it('applies the theme query param to color mode', async () => {

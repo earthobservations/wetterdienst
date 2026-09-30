@@ -39,9 +39,10 @@ Types of changes:
 - `[History]` A failed fetch is told by the backend's reason, or by its status when the backend
   gave none, as the explorer already does; the message no longer begins with the request URL
   (GH-2082)
-- `[Meteogram]` `[Widget]` A failed forecast is told by the backend's reason after its status, as
-  the explorer does. The meteogram showed the error body as raw JSON, or a proxy's HTML page, and
-  the widget left the reason out (GH-2084)
+- `[Meteogram]` `[Widget]` A failed forecast is told by its status and the backend's reason,
+  `Backend error 422: station: ...`, or the status text when the backend gave none. The meteogram
+  showed the error body as raw JSON, or a proxy's HTML page, and the widget left the reason out
+  (GH-2084)
 
 ## [0.17.0] - 2026-09-29
 

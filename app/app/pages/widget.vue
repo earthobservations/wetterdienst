@@ -58,9 +58,11 @@ async function fetchValues(s: Station) {
   try {
     const res = await fetch(`/api/values?${params}`)
     if (!res.ok) {
-      // the backend's reason when its body gives one; any other body, such as a proxy's error page, is left out
+      // the backend's reason when its body gives one, its status text when not; any other body, such as a
+      // proxy's error page, is left out
+      const status = [`Backend error ${res.status}`, res.statusText].filter(Boolean).join(' ')
       const detail = describeApiError(await res.json().catch(() => null))
-      error.value = detail ? `Backend error ${res.status}: ${detail}` : `Backend error ${res.status}`
+      error.value = detail ? `${status}: ${detail}` : status
       return
     }
     const json = await res.json()
