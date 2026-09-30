@@ -3,6 +3,7 @@ import { createError, getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import HistoryPage from '~/pages/history.vue'
+import { DAILY_CLIMATE_SUMMARY_COVERAGE } from '../fixtures/coverage'
 
 // pages mounted by a test, unmounted after it: a page left mounted can share its fetch with the next
 // test's, useFetch keying a fetch by where it is called and what it asks for
@@ -53,7 +54,7 @@ describe('history Page', () => {
     registerEndpoint('/api/coverage', (event) => {
       const q = getQuery(event)
       if (q.provider)
-        return { daily: { description: null, datasets: { climate_summary: { description: null, parameters: [{ name: 'temperature_air_max_200' }] } } } }
+        return DAILY_CLIMATE_SUMMARY_COVERAGE
       return { dwd: { observation: {} } }
     })
   })
@@ -357,7 +358,7 @@ describe('history Page results', () => {
     registerEndpoint('/api/coverage', (event) => {
       const q = getQuery(event)
       if (q.provider)
-        return { daily: { description: null, datasets: { climate_summary: { description: null, parameters: [{ name: 'temperature_air_max_200' }] } } } }
+        return DAILY_CLIMATE_SUMMARY_COVERAGE
       return { dwd: { observation: {} } }
     })
   })

@@ -6,6 +6,7 @@ import { UApp } from '#components'
 import { useToast } from '#imports'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
+import { DAILY_CLIMATE_SUMMARY_COVERAGE } from '../fixtures/coverage'
 
 // DataViewer's copy-to-clipboard buttons use UTooltip, which needs a
 // TooltipProvider -- normally supplied by app.vue's root <UApp>. Mounting the
@@ -28,7 +29,7 @@ async function mountWithSelection(values: () => unknown) {
   endpoints.push(registerEndpoint('/api/coverage', (event) => {
     const q = getQuery(event)
     if (q.provider)
-      return { daily: { description: null, datasets: { climate_summary: { description: null, parameters: [{ name: 'temperature_air_max_200' }] } } } }
+      return DAILY_CLIMATE_SUMMARY_COVERAGE
     return { dwd: { observation: {} } }
   }))
   endpoints.push(registerEndpoint('/api/stations', () => ({

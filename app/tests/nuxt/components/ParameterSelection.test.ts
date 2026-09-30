@@ -2,6 +2,7 @@ import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import { ParameterSelection } from '#components'
+import { DAILY_CLIMATE_SUMMARY_COVERAGE } from '../fixtures/coverage'
 
 // The component starts its /api/coverage request without awaiting it in setup -- awaiting would
 // suspend the whole page behind it -- so mountSuspended() now returns before the answer lands.
@@ -246,17 +247,7 @@ describe('parameterSelection Component', () => {
       )
       .mockResolvedValueOnce(
         new Response(
-          JSON.stringify({
-            daily: {
-              description: null,
-              datasets: {
-                climate_summary: {
-                  description: null,
-                  parameters: [{ name: 'temperature_air_max_200' }],
-                },
-              },
-            },
-          }),
+          JSON.stringify(DAILY_CLIMATE_SUMMARY_COVERAGE),
           { status: 200 },
         ),
       )
