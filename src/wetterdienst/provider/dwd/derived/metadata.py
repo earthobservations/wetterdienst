@@ -427,12 +427,12 @@ DwdDerivedMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "evapotranspiration_potential_grass_fao_last_24h",
+                            "name": "evapotranspiration_potential_grass_fao",
                             "name_original": "summe von vpgfao",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evapotranspiration_potential_grass_haude_last_24h",
+                            "name": "evapotranspiration_potential_grass_haude",
                             "name_original": "summe von vpgh",
                             "unit": "millimeter",
                         },

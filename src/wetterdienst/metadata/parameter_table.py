@@ -468,9 +468,21 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "evapotranspiration_potential_grass_fao",
+        "precipitation",
+        "Potential evapotranspiration over grass, totalled over the period, after the FAO reference method.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "evapotranspiration_potential_grass_fao_last_24h",
         "precipitation",
         "Potential evapotranspiration over grass in the preceding 24 hours, after the FAO reference method.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "evapotranspiration_potential_grass_haude",
+        "precipitation",
+        "Potential evapotranspiration over grass, totalled over the period, after the Haude method.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(

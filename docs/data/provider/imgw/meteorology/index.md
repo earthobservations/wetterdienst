@@ -30,20 +30,25 @@ nothing at all in others, for the same parameter months apart, so `9` is returne
 means rather than passed through.
 
 `8` and `9` are IMGW's own codes. `quality` is a numeric column and `Z` is a letter, so `Z` is
-reported as 10, the one code here this library assigns itself. An *opad zbiorczy* is a sum over the
-preceding days that were not measured, published on the day the reading was taken without saying
-which days it covers, so the value is kept -- it is a real measurement -- and the 10 is what says it
-is not that day's total alone.
+reported as 10, one of two codes here this library assigns itself. An *opad zbiorczy* is a sum over
+the preceding days that were not measured, published on the day the reading was taken without
+saying which days it covers, so the value is kept -- it is a real measurement -- and the 10 is what
+says it is not that day's total alone.
 
-Two things the status cannot resolve:
+The other is 11. `o_d_format.txt` adds that *brak zjawiska* covers a day absent from a month that is
+itself present ("Brak zjawiska to również brak dnia w istniejącym miesiącu"), and the older `o_d`
+files rely on it: `o_d_02_2010` carries 14,229 rows for the 26,796 days in its stations' months,
+while `o_d_07_2024` writes every day out, with status `9` on the dry ones. `daily/precipitation`
+returns such a day as 0 mm with `quality` 11, so that a dry day reads the same whichever year IMGW
+wrote the file in, and 11 rather than 9 because no status in the file says so. Only
+`precipitation_amount` is filled: a day without rain is not a day without snow cover. A month the
+station has no row in at all is left empty, and `daily/climate` and `daily/synop` are read as
+published, since their format files carry no such sentence.
 
-- A `0` in `monthly/climate`'s `snow_depth_max` that is not qualified by a status means either that
-  there was no snow cover in the month or that the maximum could not be determined; `k_m_d_format.txt`
-  says so in as many words. It is common -- 96 of the 196 rows of 2024 -- and is returned as 0 cm.
-- `daily/precipitation` carries a row only for the days a station has something to report, and
-  `o_d_format.txt` adds that *brak zjawiska* covers a day absent from a month that is itself present
-  ("Brak zjawiska to również brak dnia w istniejącym miesiącu"). Those days are absent from the
-  result rather than returned as 0 mm.
+One thing the status cannot resolve: a `0` in `monthly/climate`'s `snow_depth_max` that is not
+qualified by a status means either that there was no snow cover in the month or that the maximum
+could not be determined; `k_m_d_format.txt` says so in as many words. It is common -- 96 of the 196
+rows of 2024 -- and is returned as 0 cm.
 
 ```{toctree}
 :hidden:
