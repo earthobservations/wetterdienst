@@ -458,15 +458,23 @@ _CACHE_LAYOUT_VERSION = "v2"
 #: thread-local, because the directory is shared by every thread while the registry naming it is not.
 _swept_dirs: set[Path] = set()
 
-#: Held across everything that opens or deletes a file under `cache_dir/fsspec`: building a caching
-#: filesystem, sweeping one of expired blobs, and reclaiming the directories nothing can reach.
+#: Held across everything that opens or deletes a metadata file under `cache_dir/fsspec`: building a
+#: caching filesystem, loading and saving its metadata as it downloads, sweeping one of expired
+#: blobs, and reclaiming the directories nothing can reach.
 #:
-#: One lock over all three rather than one each, because *building* a filesystem reads its
-#: directory's metadata file and the other two can delete it. On POSIX that is harmless -- an unlink
-#: leaves the open handle readable -- which is why separate locks looked sufficient and why this
-#: passed everywhere it was run. On Windows it is `PermissionError: [Errno 13]` out of fsspec's
-#: `CacheMetadata._load`, and CI said so.
-_cache_dir_lock = threading.Lock()
+#: One lock over all of them rather than one each, because *building* a filesystem reads its
+#: directory's metadata file and the sweep and the reclaim can delete it. On POSIX that is harmless
+#: -- an unlink leaves the open handle readable -- which is why separate locks looked sufficient and
+#: why this passed everywhere it was run. On Windows it is `PermissionError: [Errno 13]` out of
+#: fsspec's `CacheMetadata._load`, and CI said so.
+#:
+#: The loads and saves are what `_LockedWholeFileCacheFileSystem` holds it for, and the saves are the
+#: ones that matter: a download saves once per file, and fsspec's save reads the file, merges and
+#: replaces it. Each thread of `download_files` has a filesystem of its own, but they all share the
+#: one metadata file, and on Windows a read that meets another thread's replace is the same
+#: `PermissionError` (GH-1990). Reentrant, because building a filesystem loads its metadata from
+#: inside the lock.
+_cache_dir_lock = threading.RLock()
 
 
 def _sweep_expired_blobs(
@@ -686,6 +694,36 @@ def _reclaim_unreachable_cache_dirs(fsspec_root: Path, keep: Path) -> None:
         log.info(f"Reclaimed {reclaimed / 1e6:.1f} MB from {removed} unreachable cache directories in {fsspec_root}")
 
 
+class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
+    """A `WholeFileCacheFileSystem` that reads and writes its metadata file under `_cache_dir_lock`.
+
+    Overrides every method of fsspec's that reaches the metadata file: `load_cache` and
+    `save_cache` are what a download goes through, `pop_from_cache` is how MOSMIX drops a truncated
+    run, and `clear_expired_cache` is the sweep. fsspec resolves all four on the class rather than on
+    the instance, so an override here is what its own internal calls reach as well.
+    """
+
+    def load_cache(self) -> None:
+        """Read the metadata file, with no other thread in the middle of replacing it."""
+        with _cache_dir_lock:
+            super().load_cache()
+
+    def save_cache(self) -> None:
+        """Read, merge and replace the metadata file, with no other thread reading or replacing it."""
+        with _cache_dir_lock:
+            super().save_cache()
+
+    def pop_from_cache(self, path: str) -> None:
+        """Drop one entry from the metadata file, which saves it."""
+        with _cache_dir_lock:
+            super().pop_from_cache(path)
+
+    def clear_expired_cache(self, expiry_time: float | None = None) -> None:
+        """Drop expired entries from the metadata file, which saves it."""
+        with _cache_dir_lock:
+            super().clear_expired_cache(expiry_time)
+
+
 class NetworkFilesystemManager:
     """Manage multiple FSSPEC instances keyed by cache expiration time.
 
@@ -862,7 +900,7 @@ class NetworkFilesystemManager:
             # unlink leaves an open handle readable and this was invisible; on Windows the builder
             # gets `PermissionError` from fsspec's `CacheMetadata._load`
             with _cache_dir_lock:
-                filesystem_effective = WholeFileCacheFileSystem(
+                filesystem_effective = _LockedWholeFileCacheFileSystem(
                     fs=fs,
                     cache_storage=str(real_cache_dir),
                     expiry_time=int(ttl_value),

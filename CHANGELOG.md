@@ -79,6 +79,9 @@ Types of changes:
   the unit targets, not to SI units: temperature stays in °C by default. The overview that listed
   options under commands that do not take them is gone, the `--sql_values` example on a column
   runs in the wide shape it needs, and the README counts nearly 600 parameters, not 514 (GH-2021)
+- On Windows, a request that downloads many files at once with a cache no longer fails with
+  `PermissionError: [Errno 13]` on the cache's metadata file. The download threads read and
+  replaced that file at the same time; they now take turns (GH-1990)
 
 ## [0.139.0] - 2026-09-29
 
