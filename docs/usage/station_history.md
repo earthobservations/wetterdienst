@@ -71,6 +71,7 @@ When the REST API is enabled, station history can be queried via:
 GET /api/history?provider={provider}&network={network}&station={station_id}&parameters={parameters}&sections={sections}
 
 where sections can be a set of "name", "device", "geography", "parameter", "missing_data".
+As on the command line, each history gives its station's `station_id` whichever sections are asked for.
 
 The response returns JSON with station metadata snapshots and lifecycle events.
 

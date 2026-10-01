@@ -183,7 +183,10 @@ _SkipCriteriaField = Annotated[
 _DropNullsField = Annotated[bool, Field(description="Drop rows with null values from the output.")]
 _SectionsField = Annotated[
     set[Literal["name", "parameter", "device", "geography", "missing_data"]] | None,
-    Field(description="History sections to include: name, parameter, device, geography, missing_data."),
+    Field(
+        description="History sections to include: name, parameter, device, geography, missing_data. Each history "
+        "gives its station_id whichever are included.",
+    ),
 ]
 _InterpolationStationDistanceField = Annotated[
     dict[str, Annotated[float, Field(ge=0.0)]] | None,
