@@ -69,3 +69,30 @@ def test_connectionstring_gives_back_the_file_path_it_was_given(database: str) -
     `Cannot open file "//C:\..."` on Windows, DuckDB reading the leftover slash as a UNC share.
     """
     assert ConnectionString(f"duckdb:///{database}?table=stations").database == database
+
+
+@pytest.mark.parametrize(
+    ("url", "redacted"),
+    [
+        pytest.param(
+            "postgresql://scott:tiger@db.example.org:5432/dwd?table=weather",
+            "postgresql://scott:***@db.example.org:5432/dwd?table=weather",
+            id="sql",
+        ),
+        pytest.param(
+            "influxdb2://acme:t5PJry6Tye==@localhost/?database=dwd&table=weather",
+            "influxdb2://acme:***@localhost/?database=dwd&table=weather",
+            id="influxdb2-token",
+        ),
+        pytest.param("mysql://:secret@localhost/dwd", "mysql://:***@localhost/dwd", id="no-username"),
+        pytest.param("mysql://root:p@ss:w@rd@localhost/dwd", "mysql://root:***@localhost/dwd", id="at-in-password"),
+        pytest.param(
+            "crate://crate@localhost/dwd?table=weather", "crate://crate@localhost/dwd?table=weather", id="no-password"
+        ),
+        pytest.param("duckdb:///dwd.duckdb?table=weather", "duckdb:///dwd.duckdb?table=weather", id="file"),
+        pytest.param("influxdb://localhost/?database=dwd", "influxdb://localhost/?database=dwd", id="no-userinfo"),
+    ],
+)
+def test_connectionstring_redacted_hides_the_password_and_keeps_the_rest(url: str, redacted: str) -> None:
+    """The password slot reads `***`; the username, host, path and query read as they were given."""
+    assert ConnectionString(url).redacted == redacted

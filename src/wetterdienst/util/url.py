@@ -44,6 +44,21 @@ class ConnectionString:
         return self.url.password
 
     @property
+    def redacted(self) -> str:
+        """Get the URL with its password replaced by ``***``, for a log line.
+
+        The password slot is where a SQL or CrateDB target carries its password and where the
+        InfluxDB 2 and 3 targets carry their API token, and the CLI logs at INFO by default, so a
+        target printed verbatim lands in cron mail, journald or a CI log. The username stays: it
+        says which account was used and is no secret. A URL without a password comes back as given.
+        """
+        if self.url.password is None:
+            return self.url_raw
+        userinfo, _, hostport = self.url.netloc.rpartition("@")
+        username, _, _ = userinfo.partition(":")
+        return self.url._replace(netloc=f"{username}:***@{hostport}").geturl()
+
+    @property
     def database(self) -> str:
         """Get the database name from the URL."""
         # Try to get database name from query parameter.

@@ -77,6 +77,9 @@ Types of changes:
 
 ### Fixed
 
+- `to_target` and the CLI's `--target` log the target with its password as `***`. They logged it
+  verbatim at INFO, which the CLI shows by default, so a database password or the InfluxDB 2/3 API
+  token in the password slot reached stderr and any log it was captured in (GH-2219)
 - Precipitation stripes colour dry years brown and wet years teal; they were the other way round.
   A year range holding fewer than two years with data is refused, where one beyond the station's
   record answered with no values and an empty image, and stripes start and end at a year with data.

@@ -4,6 +4,7 @@
 
 import datetime as dt
 import json
+import logging
 import math
 import sqlite3
 from pathlib import Path
@@ -2268,3 +2269,84 @@ def test_sql_sink_keeps_the_table_out_of_the_connection(
         assert connection.execute("SELECT station_id FROM weather").fetchall() == [("01048",)]
     finally:
         connection.close()
+
+
+@pytest.mark.parametrize(
+    ("target", "secret", "logged"),
+    [
+        pytest.param(
+            "postgresql+psycopg2://scott:tiger-secret@db.example.org:5432/dwd?table=weather&sslmode=require",
+            "tiger-secret",
+            "postgresql+psycopg2://scott:***@db.example.org:5432/dwd?table=weather&sslmode=require",
+            id="sql",
+        ),
+        pytest.param(
+            "influxdb2://acme:SECRET-TOKEN==@localhost/?database=dwd&table=weather",
+            "SECRET-TOKEN",
+            "influxdb2://acme:***@localhost/?database=dwd&table=weather",
+            id="influxdb2",
+        ),
+        pytest.param(
+            "influxdb3://acme:SECRET-TOKEN==@eu-central-1-1.aws.cloud2.influxdata.com/?database=dwd&table=weather",
+            "SECRET-TOKEN",
+            "influxdb3://acme:***@eu-central-1-1.aws.cloud2.influxdata.com/?database=dwd&table=weather",
+            id="influxdb3",
+        ),
+        pytest.param(
+            "crate://crate:hunter2-secret@localhost:4200/dwd?table=weather",
+            "hunter2-secret",
+            "crate://crate:***@localhost:4200/dwd?table=weather",
+            id="crate",
+        ),
+    ],
+)
+def test_to_target_logs_the_target_without_its_password(
+    target: str,
+    secret: str,
+    logged: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The target is logged with its password slot as `***`, and the rest of it as given.
+
+    `to_target` logged the target verbatim at INFO, which the CLI shows by default, so a password,
+    or the API token the documented InfluxDB 2/3 spelling carries in the password slot, went to
+    stderr and from there into cron mail, journald or a CI log. No sink is reached: each driver is
+    stubbed, and what is read is the log.
+    """
+    pytest.importorskip("sqlalchemy")
+    pytest.importorskip("pandas")
+    pytest.importorskip("influxdb_client")
+    pytest.importorskip("influxdb_client_3")
+    with (
+        mock.patch("sqlalchemy.create_engine"),
+        mock.patch("pandas.DataFrame.to_sql"),
+        mock.patch("influxdb_client.InfluxDBClient", create=True),
+        mock.patch("influxdb_client_3.InfluxDBClient3", create=True),
+        caplog.at_level(logging.INFO, logger="wetterdienst"),
+    ):
+        _one_row().to_target(target)
+
+    assert secret not in caplog.text
+    assert f"Exporting records to {logged}" in caplog.text
+    if target.startswith("crate://"):
+        assert f"Writing to CrateDB. target={logged}, table=weather" in caplog.text
+
+
+def test_timeseries_values_to_target_logs_the_target_without_its_password(caplog: pytest.LogCaptureFixture) -> None:
+    """The line the multi-station export logs after each station shows the target redacted too."""
+    target = "influxdb2://acme:SECRET-TOKEN@localhost/?database=dwd&table=weather"
+    result = mock.MagicMock()
+    result.df = pl.DataFrame({"station_id": ["01048"]})
+    values = mock.MagicMock()
+    values.query.return_value = iter([result])
+    values.sr.station_id = ["01048"]
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst"):
+        TimeseriesValues.to_target(values, target)
+
+    # the sink is still handed the target with its token, which it needs to connect
+    result.to_target.assert_called_once_with(target, if_exists="fail")
+    assert "SECRET-TOKEN" not in caplog.text
+    assert (
+        "Exported data for station 01048 to influxdb2://acme:***@localhost/?database=dwd&table=weather." in caplog.text
+    )

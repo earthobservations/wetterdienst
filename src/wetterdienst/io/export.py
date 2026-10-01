@@ -303,9 +303,9 @@ class ExportMixin:
             None (data is emitted to the target)
 
         """
-        log.info(f"Exporting records to {target}\n{self.df.select(pl.len())}")
-
         connspec = ConnectionString(target)
+        log.info(f"Exporting records to {connspec.redacted}\n{self.df.select(pl.len())}")
+
         protocol = connspec.protocol
         database = connspec.database
         tablename = connspec.table
@@ -710,7 +710,7 @@ class ExportMixin:
                 crash -c "select *, date_format('%Y-%m-%dT%H:%i:%s.%fZ', timestamp) as datetime from dwd.weather order by datetime limit 10;"
 
             """  # noqa:E501
-            log.info(f"Writing to CrateDB. target={target}, table={tablename}")
+            log.info(f"Writing to CrateDB. target={connspec.redacted}, table={tablename}")
 
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
             cratedb_url = connspec.url._replace(path="", query="")

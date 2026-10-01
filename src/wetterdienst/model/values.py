@@ -20,6 +20,7 @@ from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.result import StationsResult, ValuesResult
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.logging import TqdmToLogger
+from wetterdienst.util.url import ConnectionString
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -480,9 +481,10 @@ class TimeseriesValues(ABC):
     def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "fail") -> None:
         """Wrap to_target of all queried results."""
         tqdm_out = TqdmToLogger(log, level=logging.INFO)
+        redacted = ConnectionString(target).redacted
         for i, result in tqdm(enumerate(self.query()), total=len(self.sr.station_id), file=tqdm_out):
             result.to_target(target, if_exists=if_exists if i == 0 else "append")
-            log.info(f"Exported data for station {result.df.get_column('station_id').unique()[0]} to {target}.")
+            log.info(f"Exported data for station {result.df.get_column('station_id').unique()[0]} to {redacted}.")
 
     @staticmethod
     def _humanize(df: pl.DataFrame, humanized_parameters_mapping: dict[str, str]) -> pl.DataFrame:
