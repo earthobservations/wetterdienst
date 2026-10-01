@@ -80,6 +80,9 @@ Types of changes:
 - `to_target` and the CLI's `--target` log the target with its password as `***`. They logged it
   verbatim at INFO, which the CLI shows by default, so a database password or the InfluxDB 2/3 API
   token in the password slot reached stderr and any log it was captured in (GH-2219)
+- DWD derived can be used on a base install. Its station lists were read with pandas, so
+  `Wetterdienst("dwd", "derived")` failed with an `ImportError` unless an extra that brings pandas,
+  such as `export`, was installed. They are read with polars now, with the same result (GH-2213)
 - Precipitation stripes colour dry years brown and wet years teal; they were the other way round.
   A year range holding fewer than two years with data is refused, where one beyond the station's
   record answered with no values and an empty image, and stripes start and end at a year with data.
@@ -129,6 +132,9 @@ Types of changes:
   `PermissionError: [Errno 13]` when two of its download threads read and replace the cache's
   metadata file at the same time; the threads of one process now take turns. Two processes
   sharing a cache directory can still meet that way (GH-1990)
+- DWD observation history no longer fails for a station whose name holds a non-ASCII letter, such
+  as 01684 Görlitz: its missing-data file is read as latin-1, as DWD writes it, where it raised
+  `UnicodeDecodeError` and `/api/history` answered 400 (GH-2214)
 
 ## [0.139.0] - 2026-09-29
 

@@ -527,7 +527,7 @@ class DwdObservationHistory(TimeseriesHistory):
         missing_data_file = cast("str", next(iter(missing_data_files)))
         missing_data_text = zfs.open(missing_data_file).read()
         if isinstance(missing_data_text, (bytes, bytearray)):
-            text = missing_data_text.decode("utf-8")
+            text = missing_data_text.decode("latin1")
         else:
             text = missing_data_text
         lines = text.strip().splitlines()
@@ -546,7 +546,7 @@ class DwdObservationHistory(TimeseriesHistory):
         for line in summary_lines:
             parts = line.split(";")
             record = {
-                "station_id": parts[0].zfill(5),
+                "station_id": parts[0].strip().zfill(5),
                 "station_name": parts[1],
                 "parameter": parts[2],
                 "start_date": dt.datetime.strptime(parts[3], "%d.%m.%Y").replace(tzinfo=ZoneInfo("UTC")),
@@ -560,7 +560,7 @@ class DwdObservationHistory(TimeseriesHistory):
         for line in period_lines:
             parts = line.split(";")
             record = {
-                "station_id": parts[0].zfill(5),
+                "station_id": parts[0].strip().zfill(5),
                 "station_name": parts[1],
                 "parameter": parts[2],
                 "start_date": dt.datetime.strptime(parts[3], date_format).replace(tzinfo=ZoneInfo("UTC")),
