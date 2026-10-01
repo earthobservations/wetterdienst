@@ -394,8 +394,7 @@ class UnitConverter:
         the precision three decimals would give it in the source unit, whatever unit it is reported
         in. Beaufort is a power law, so for it the step from 0 to 1 stands in for the factor, and a
         reading above about 33 km/h or 112 knots keeps a little less than that. A conversion that
-        shrinks a value by
-        less than a factor of ten, or makes it larger, keeps four.
+        shrinks a value by less than a factor of ten, or makes it larger, keeps four.
         """
         factor = abs(self.increment_factor(source, target))
         return 4 + max(0, math.floor(-math.log10(factor)))
