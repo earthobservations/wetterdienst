@@ -2279,24 +2279,30 @@ def test_sql_sink_keeps_the_table_out_of_the_connection(
         # a dialect built on MySQL's under a name of its own, as TiDB's or SingleStore's are
         pytest.param("wdmysqlfork://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql-derived"),
         # the control: PostgreSQL's `timestamptz` holds any year and keeps the zone, so it is left alone
-        pytest.param("postgresql://u:p@localhost/dwd?table=weather", "TIMESTAMP WITH TIME ZONE", id="postgresql"),
+        pytest.param(
+            "postgresql+pg8000://u:p@localhost/dwd?table=weather", "TIMESTAMP WITH TIME ZONE", id="postgresql"
+        ),
     ],
 )
-def test_sql_sink_writes_mysql_datetimes_as_naive_utc(target: str, datetime_type: str) -> None:
+def test_sql_sink_writes_mysql_datetimes_as_naive_utc(
+    target: str, datetime_type: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """A MySQL or MariaDB table gets `DATETIME` columns holding UTC, so a year before 1970 fits.
 
     pandas maps a zoned datetime to `TIMESTAMP(timezone=True)`, which the MySQL dialect compiles
     to a plain `TIMESTAMP`; that type starts in 1970, so the first row of a historical DWD series
-    was refused (strict mode) or stored as zeros. No server is needed: `to_sql` is stubbed, and the
-    frame it is handed is compiled into the `CREATE TABLE` the target's own dialect would send.
+    was refused (strict mode) or stored as zeros. No server is needed: the engine carries the
+    target's dialect over a stand-in driver, `to_sql` is stubbed, and the frame it is handed is
+    compiled into the `CREATE TABLE` that dialect would send.
     """
     sqlalchemy = pytest.importorskip("sqlalchemy")
     pd = pytest.importorskip("pandas")
     from pandas.io.sql import SQLDatabase, SQLTable  # noqa: PLC0415
     from sqlalchemy.dialects import registry  # noqa: PLC0415
+    from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql  # noqa: PLC0415
     from sqlalchemy.schema import CreateTable  # noqa: PLC0415
 
-    registry.register("wdmysqlfork", "sqlalchemy.dialects.mysql.pymysql", "MySQLDialect_pymysql")
+    monkeypatch.setitem(registry.impls, "wdmysqlfork", lambda: MySQLDialect_pymysql)
     # `start_date` stands for the station frame's other datetime columns. Midnight in Berlin in
     # 1850 is 23:06:32 UTC the day before (local mean time), so a zone dropped without converting
     # to UTC first would show
@@ -2310,21 +2316,28 @@ def test_sql_sink_writes_mysql_datetimes_as_naive_utc(target: str, datetime_type
             }
         )
     )
+    create_engine = sqlalchemy.create_engine
+    engines = []
     handed = []
+
+    def engine_for(url: object, **kwargs: object) -> object:
+        # the target's real dialect, with a stand-in driver: nothing connects before `to_sql`
+        engines.append(create_engine(url, module=mock.MagicMock(), **kwargs))
+        return engines[-1]
 
     def to_sql(frame: object, **_kwargs: object) -> None:
         handed.append(frame)
 
     with (
-        mock.patch("sqlalchemy.create_engine", return_value=sqlalchemy.create_engine("sqlite://")),
+        mock.patch("sqlalchemy.create_engine", side_effect=engine_for),
         mock.patch.object(pd.DataFrame, "to_sql", autospec=True, side_effect=to_sql),
     ):
         export.to_target(target)
 
-    (frame,) = handed
-    dialect = sqlalchemy.make_url(target).get_dialect()()
-    with SQLDatabase(sqlalchemy.create_engine("sqlite://")) as database:
-        ddl = str(CreateTable(SQLTable("weather", database, frame=frame, index=False).table).compile(dialect=dialect))
+    ((engine,), (frame,)) = engines, handed
+    with SQLDatabase(create_engine("sqlite://")) as database:
+        table = SQLTable("weather", database, frame=frame, index=False).table
+        ddl = str(CreateTable(table).compile(dialect=engine.dialect))
     assert f"timestamp {datetime_type}" in ddl
     assert f"start_date {datetime_type}" in ddl
     if datetime_type == "DATETIME":

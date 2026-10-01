@@ -800,7 +800,7 @@ class ExportMixin:
                     msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
                     raise ExportRefusedError(msg)
                 columns = [pl.col(pl.Enum).cast(pl.String)]
-                if issubclass(url.get_dialect(), MySQLDialect):
+                if isinstance(engine.dialect, MySQLDialect):
                     # pandas writes a zoned datetime as `TIMESTAMP(timezone=True)`, which MySQL,
                     # MariaDB and the dialects built on theirs compile to a plain `TIMESTAMP`:
                     # nothing before 1970, and converted from the session's time zone, so a
