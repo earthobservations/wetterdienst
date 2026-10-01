@@ -1687,14 +1687,10 @@ describe('dataViewer chart of a query\'s timestamp text', () => {
   })
 
   // the forms timestampDate reads are tested in tests/unit/timestamp.test.ts
-  it.each([
+  it('places a row whose timestamp has no offset at its time in UTC', async () => {
     // `strftime(timestamp::TIMESTAMP, '%Y-%m-%d %H:%M')`: placed at 2019-12-31T23:00Z in Berlin
-    '2020-01-01 00:00',
-    // `CAST(timestamp::TIMESTAMPTZ AS VARCHAR)`
-    '2020-01-01 01:00:00+01',
-  ])('places a row whose timestamp is %s at its time in UTC', async (timestamp) => {
     plotly.newPlot.mockClear()
-    const { wrapper } = await withChartQuery([{ ...row, timestamp, value: 9 }])
+    const { wrapper } = await withChartQuery([{ ...row, timestamp: '2020-01-01 00:00', value: 9 }])
     await showChart(wrapper, false)
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
     const [trace] = lastDrawn(false).traces

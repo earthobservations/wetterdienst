@@ -2,8 +2,9 @@
 // its year of four digits or six signed; then, or not, a time of day after a 'T' or a space, to the
 // minute, the second or a fraction of it; then, after a time, a 'Z' or an offset of hours, and of
 // minutes and seconds or not, as DuckDB writes a TIMESTAMPTZ cast to text, `2020-01-01 00:00:00+00`,
-// or one in a zone's local mean time, `1880-01-01 00:00:00+00:53:28`
-const ISO_TIMESTAMP = /^(\d{4}|[+-]\d{6})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?(?:Z|([+-])(\d{2})(?::?(\d{2})(?::(\d{2}))?)?)?)?$/
+// or one in a zone's local mean time, `1880-01-01 00:00:00+00:53:28`; its parts all after a colon,
+// or none
+const ISO_TIMESTAMP = /^(?<year>\d{4}|[+-]\d{6})-(?<month>\d{2})-(?<day>\d{2})(?:[T ](?<hour>\d{2}):(?<minute>\d{2})(?::(?<second>\d{2})(?:\.(?<fraction>\d+))?)?(?:Z|(?<sign>[+-])(?<offsetHour>\d{2})(?:(?<colon>:?)(?<offsetMinute>\d{2})(?:\k<colon>(?<offsetSecond>\d{2}))?)?)?)?$/
 
 /**
  * The moment a timestamp's text names, read as UTC where it gives no offset, or null for text that
@@ -15,13 +16,13 @@ const ISO_TIMESTAMP = /^(\d{4}|[+-]\d{6})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(
  * end over into the next month.
  */
 export function timestampDate(text: string): Date | null {
-  const parts = ISO_TIMESTAMP.exec(text)
+  const parts = ISO_TIMESTAMP.exec(text)?.groups
   if (!parts)
     return null
-  const [, , , , , , , fraction = '', sign] = parts
-  // the date's and time's parts, and the offset's, as numbers: a part not given is 0
-  const [year, month, day, hour, minute, second, offsetHour, offsetMinute, offsetSecond] = [1, 2, 3, 4, 5, 6, 9, 10, 11]
-    .map(group => Number(parts[group] ?? 0)) as [number, number, number, number, number, number, number, number, number]
+  // a part as a number, 0 where it is not given
+  const part = (name: string) => Number(parts[name] ?? 0)
+  const [year, month, day, hour, minute, second] = [part('year'), part('month'), part('day'), part('hour'), part('minute'), part('second')]
+  const [offsetHour, offsetMinute, offsetSecond] = [part('offsetHour'), part('offsetMinute'), part('offsetSecond')]
   if (hour > 23 || minute > 59 || second > 59 || offsetHour > 23 || offsetMinute > 59 || offsetSecond > 59)
     return null
   const date = new Date(0)
@@ -29,7 +30,7 @@ export function timestampDate(text: string): Date | null {
   // a month or day out of range rolls the date over, onto another day than the text names
   if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day)
     return null
-  const offset = (sign === '-' ? -1 : 1) * (offsetHour * 3600 + offsetMinute * 60 + offsetSecond)
-  date.setUTCHours(hour, minute, second - offset, Number(fraction.slice(0, 3).padEnd(3, '0')))
+  const offset = (parts.sign === '-' ? -1 : 1) * (offsetHour * 3600 + offsetMinute * 60 + offsetSecond)
+  date.setUTCHours(hour, minute, second - offset, Number((parts.fraction ?? '').slice(0, 3).padEnd(3, '0')))
   return Number.isNaN(date.getTime()) ? null : date
 }

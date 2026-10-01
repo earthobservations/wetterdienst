@@ -33,6 +33,7 @@ describe('timestampDate', () => {
     ['2019-12-31T18:30:00-05:30', '2020-01-01T00:00:00.000Z'],
     ['2019-12-31T18:30:00-0530', '2020-01-01T00:00:00.000Z'],
     ['1880-01-01 00:53:28+00:53:28', '1880-01-01T00:00:00.000Z'],
+    ['1880-01-01 00:53:28+005328', '1880-01-01T00:00:00.000Z'],
     // a year of six digits, as toISOString writes one past 9999 or before 0, and one before 100
     ['+010000-01-01T00:00:00.000Z', '+010000-01-01T00:00:00.000Z'],
     ['-000001-01-01', '-000001-01-01T00:00:00.000Z'],
@@ -54,6 +55,9 @@ describe('timestampDate', () => {
     '2020-01-01 00:00:60',
     '2020-01-01T00:00:00+24:00',
     '2020-01-01T00:00:00+00:60',
+    // an offset's parts after a colon, or none, not some of them
+    '2020-01-01T00:00+0530:28',
+    '2020-01-01T00:00+05:3028',
     // text before or after the timestamp, an offset without a time, and no timestamp at all
     '2020-01-01 00:00:00 UTC',
     ' 2020-01-01',
