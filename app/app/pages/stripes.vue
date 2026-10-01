@@ -132,8 +132,8 @@ async function fetchAndPlotStripes() {
 
   // Cleared as the fetch starts: another station's stripes, so they do not stand under this one,
   // and stripes that could not be drawn, with their Retry of the earlier values. This station's
-  // drawn stripes stay while they are fetched anew, as when a display option changes; a drawing of
-  // them under way still draws, and tells its own failure
+  // drawn stripes stay while they are fetched anew, as for other years; a drawing of them under way,
+  // as of a display option changed, still draws, and tells its own failure
   if (plotFailed.value || lastFetchedData.value?.metadata.station.station_id !== selectedStation.value.station_id)
     clearStripes()
   const station = selectedStation.value.station_id
@@ -637,13 +637,6 @@ watch(selectedStationItem, (item) => {
   // selectedStationItem is a single item or undefined
   const id = item ? item.value : null
   selectedStation.value = id ? stations.value.find(s => s.station_id === id) ?? null : null
-})
-
-// Re-plot when display options change (but only if we already have data)
-watch([showTitle, showYears, showDataAvailability], () => {
-  if (hasPlot.value) {
-    fetchAndPlotStripes()
-  }
 })
 
 // Load Plotly dynamically on mount; a failure is told where the stripes are drawn

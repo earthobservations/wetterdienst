@@ -371,27 +371,19 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     expect(plotly.newPlot).not.toHaveBeenCalled()
   })
 
-  it('draws the stripes again at once where a display option changes, while they are fetched anew', async () => {
+  it('draws the stripes again from the values it has where a display option changes, and fetches nothing', async () => {
     const vm = await showStripes()
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
-    // the values fetched anew for the option held
-    let answer!: () => void
-    const answered = new Promise<void>((resolve) => {
-      answer = resolve
-    })
-    registerEndpoint('/api/stripes/values', async () => {
-      await answered
-      return { metadata: { station }, values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }] }
-    })
+    // a request is sent as the fetch starts, so one sent for the option is seen by the redraw
+    const fetched = vi.spyOn(globalThis, '$fetch')
     plotly.newPlot.mockClear()
 
     vm.showYears = false
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
     const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, { annotations: Array<{ text: string }> }]
     expect(layout.annotations.map(a => a.text)).not.toContain('2020')
-    // the held fetch let finish here, so it draws nothing into the next test
-    answer()
-    await vi.waitFor(() => expect(vm.isLoading).toBe(false))
+    expect(fetched).not.toHaveBeenCalled()
+    expect(vm.isLoading).toBe(false)
   })
 
   it('says the stripes image could not be saved where its export fails', async () => {
@@ -546,7 +538,7 @@ describe('stripes Page values that could not be fetched', () => {
     expect(downloadMenu()).toBeNull()
   })
 
-  it('keeps the station\'s stripes, and tells the failure above them, where they are fetched anew for a display option in vain', async () => {
+  it('keeps the station\'s stripes, and tells the failure above them, where Show fetches them anew in vain', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     registerEndpoint('/api/stripes/values', () => values(tempelhof))
     const vm = await mountPage()
@@ -556,7 +548,9 @@ describe('stripes Page values that could not be fetched', () => {
     registerEndpoint('/api/stripes/values', () => {
       throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
     })
-    vm.showYears = !vm.showYears
+    vm.startYear = 2019
+    await nextTick()
+    await button('Show').trigger('click')
 
     await vi.waitFor(() => expect(note()).toBe('Failed to load data / 502 Bad Gateway'))
     expect(vm.hasPlot).toBe(true)

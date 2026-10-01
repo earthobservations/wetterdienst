@@ -23,6 +23,8 @@ Types of changes:
   fetches the chosen one's, where they stayed. A fetch under way when Reset is clicked, the kind
   changes or another station is chosen draws nothing and tells no failure, where it drew its
   stripes into the cleared area or under the newly chosen station (GH-2195)
+- `[Stripes]` Ticking "Show title", "Show years" or "Show data availability" redraws the stripes
+  from the values already loaded, where it also fetched them again and drew them twice (GH-2199)
 - `[Explorer]` The station map's "Center on all stations" fits the map to a network of any number of
   stations, where it did nothing past about 120,000 stations (65,536 in Safari), as NOAA GHCN daily
   lists (GH-2189)
