@@ -305,3 +305,18 @@ def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(defaul
     assert max(set(steps), key=steps.count) == 15
     on_grid = sum(step % 15 == 0 for step in steps) / len(steps)
     assert on_grid > 0.9, f"{station_id}: only {on_grid:.0%} of its intervals fall on a 15-minute grid"
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_all_reports_the_gauge_datum_as_gauge_zero_not_as_elevation() -> None:
+    """Test that the altitude of a gauge's zero is listed as ``gauge_zero`` and not as ``elevation``.
+
+    ``altitude_ref_alti_station`` is the datum a stage is read from -- -1.809 m on the tidal Garonne
+    at Bordeaux -- and not the ground the station stands on, which is what ``elevation`` means for
+    every other provider. Pegelonline lists its gauge datum the same way.
+    """
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert not df.is_empty()
+    assert df.get_column("gauge_zero").to_list() == [30.0] * df.height
+    assert df.get_column("elevation").null_count() == df.height

@@ -46,6 +46,9 @@ Types of changes:
   terms, a line per problem -- `Missing option '--longitude'`, `Options '--station' and '--name'
   cannot be used together`, `Invalid value for '--distance'` with the value refused -- instead of
   pydantic's echo of every option given (GH-2056)
+- **Breaking**: Eaufrance Hub'Eau stations list the altitude of the gauge's zero, in metres, as
+  `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null. `elevation` held that datum,
+  not the station's ground elevation: -1.809 m at Bordeaux. Read `gauge_zero` for it (GH-2020)
 
 ### Fixed
 
