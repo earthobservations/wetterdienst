@@ -1669,3 +1669,22 @@ describe('dataViewer sort of integers past 2^53', () => {
     expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(ascending.toReversed())
   })
 })
+
+describe('dataViewer query of no rows', () => {
+  it('shows an empty table for a query that returned no rows, and the fetched rows on leaving query mode', async () => {
+    // the table went on showing every fetched row, as if the query had filtered nothing
+    registerEndpoint('/api/values', () => ({ values: rows(3, '01048') }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    const panel = wrapper.findComponent(QueryPanel)
+    panel.vm.$emit('dataTransformed', [])
+    await wrapper.vm.$nextTick()
+    expect(pageShown(wrapper).rows).toEqual(['No data'])
+    expect(wrapper.text()).toContain('0 values (transformed from 3)')
+    panel.vm.$emit('dataTransformed', panel.props('data'))
+    await wrapper.vm.$nextTick()
+    expect(pageShown(wrapper).rows).toHaveLength(3)
+    expect(wrapper.text()).toContain('3 values')
+  })
+})

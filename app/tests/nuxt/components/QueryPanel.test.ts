@@ -1113,3 +1113,21 @@ describe('queryPanel column of lists', () => {
     expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual([{ taken_station_ids: '01048' }, { taken_station_ids: '01048,04411' }])
   })
 })
+
+describe('queryPanel result of no rows', () => {
+  it('tells a query that returned no rows, and hands back the fetched rows when the next fails', async () => {
+    // nothing told a query that matched nothing, and a failing query after it handed nothing back
+    const wrapper = await queryMode()
+    await wrapper.find('textarea').setValue('SELECT * FROM data WHERE value > 100000')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual([])
+    expect(wrapper.text()).toContain('Query executed successfully: 0 row(s) returned')
+    await wrapper.find('textarea').setValue('SELECT * FROM data WHERE valu > 1')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(2))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![1]![0]).toBe(data)
+    expect(wrapper.text()).toContain('Query error')
+    expect(wrapper.text()).not.toContain('Query executed successfully')
+  })
+})

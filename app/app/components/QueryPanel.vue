@@ -26,7 +26,9 @@ const isQueryMode = ref(false)
 
 // Query state
 const query = ref(`SELECT * FROM data LIMIT 100`)
-const queryResults = ref<Value[]>([])
+// the rows of the run that answered last, null while none has: a result of no rows is a result,
+// which the table shows empty and the panel tells (GH-2163)
+const queryResults = ref<Value[] | null>(null)
 const isExecuting = ref(false)
 const error = ref<string | null>(null)
 const warning = ref<string | null>(null)
@@ -371,8 +373,8 @@ function leaveRun() {
 // which would read as its own (GH-2138)
 function fail(message: string) {
   error.value = message
-  if (queryResults.value.length > 0) {
-    queryResults.value = []
+  if (queryResults.value) {
+    queryResults.value = null
     emit('dataTransformed', props.data)
   }
 }
@@ -485,7 +487,7 @@ function disableQueryMode() {
   leaveRun()
   isExecuting.value = false
   isQueryMode.value = false
-  queryResults.value = []
+  queryResults.value = null
   error.value = null
   warning.value = null
   columnValidationMessage.value = null
@@ -664,7 +666,7 @@ onUnmounted(async () => {
         />
 
         <!-- Results Info -->
-        <div v-if="queryResults.length > 0" class="text-sm font-medium text-green-600 dark:text-green-400">
+        <div v-if="queryResults" class="text-sm font-medium text-green-600 dark:text-green-400">
           ✓ Query executed successfully: {{ queryResults.length }} row(s) returned
         </div>
       </div>
