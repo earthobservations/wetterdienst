@@ -182,6 +182,11 @@ Types of changes:
 - `[Explorer]` Entering query mode after a Fetch checks the query again against the new rows. The
   syntax error shown, or its absence, was the answer for the rows fetched before, which could keep
   Run Query disabled for a query that was fine for the new rows (GH-2142)
+- `[Explorer]` Faceted, each parameter's chart counts its own points towards the 500 above which a
+  chart is drawn without markers and hovered point by point. All facets' points were counted
+  together, so six facets of 100 points each lost their markers (GH-2158)
+- `[Explorer]` The chart's series keep their colours and legend places when the table is sorted.
+  They followed the table's sort, so sorting by value could swap two stations' colours (GH-2159)
 - `[Explorer]` The chart places a query's timestamp text without an offset, as `2020-01-01 00:00`,
   at that time in UTC, as the fetched rows are. The browser read it as its own local time, an hour
   or more away from the row it came from. Text with a space before the time or an offset of hours
