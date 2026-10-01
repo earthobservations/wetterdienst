@@ -1432,3 +1432,25 @@ def test_dwd_obs_history_names_its_station(
     assert [
         history.model_dump(include={"station_id", "parameter", "device", "geography"}) for history in histories
     ] == [{"station_id": "01048", "parameter": [], "device": [], "geography": []}]
+
+
+def test_dwd_obs_missing_data_history_reads_latin1() -> None:
+    """Test the missing-data file is decoded as latin-1, the encoding DWD writes a name like Görlitz in.
+
+    The period record spells its id with leading blanks, as some of the other metadata files do.
+    """
+    files = {
+        "Metadaten_Fehldaten_01684_18600101_20251231.txt": (
+            "Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Gesamt_Fehlwerte;Beschreibung;eor;\n"
+            "1684;Görlitz;TMK;01.01.1860;31.12.2025;3;Gesamt_Messzeitraum;eor;\n"
+            "Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Anzahl_Fehlwerte;Beschreibung;eor;\n"
+            "  1684;Görlitz;TMK;01.03.1945;03.03.1945;3;;eor;\n"
+            "generiert: 17.06.2026 --  Deutscher Wetterdienst  --\n"
+        ),
+    }
+    zfs = ZipFileSystem(_metadata_zip(files))
+    missing_data = DwdObservationHistory.read_missing_data_history(zfs, Resolution.DAILY)
+    assert [
+        (record.station_id, record.station_name, record.missing_count)
+        for record in [*missing_data.summary, *missing_data.periods]
+    ] == [("01684", "Görlitz", 3), ("01684", "Görlitz", 3)]
