@@ -4,6 +4,10 @@
 
 from urllib.parse import parse_qs, urlparse
 
+# targets that name a file rather than a server, and so carry no credentials; a Windows path
+# such as `file://C:/data@x.csv` would otherwise read as user `C` with a password
+_PATH_SCHEMES = frozenset({"file", "duckdb", "sqlite"})
+
 
 def redact_password(url: str) -> str:
     """Give back a connection string with its password replaced by ``***``, for a log line.
@@ -15,20 +19,28 @@ def redact_password(url: str) -> str:
 
     The string is read as SQLAlchemy reads it rather than as ``urlparse`` does: SQLAlchemy takes a
     password holding an unencoded ``/``, ``#`` or ``?`` and connects with it, where ``urlparse``
-    ends the host part at that character and finds no password at all. So the password runs from
-    the first ``:`` after the username to the last ``@``, and the username is what comes before
-    that ``:`` and holds no ``/``, which keeps a file path with a drive letter or an ``@`` in it
-    out. SQLAlchemy ends the password at the first ``@``; taking the last one instead hides a
-    password that holds an ``@`` itself, and an ``@`` further on in the path or query only widens
-    what is hidden, which is the side to err on. Nothing here raises, so a log line naming a
-    malformed target still prints.
+    ends the host part at that character and finds no password at all. So the username runs to
+    the first ``:`` and holds no ``/`` or ``@``, and the password from there to the first ``@``,
+    or to the last ``@`` before the host part ends at a ``/``, ``?`` or ``#``, which is where
+    ``urlparse`` ends a password holding an ``@`` itself. An ``@`` in the path or query is left
+    alone, except in a target with no password whose ``host:port`` is followed by one: SQLAlchemy
+    reads the port and what follows up to that ``@`` as a password, and so it is hidden too.
+    Nothing here raises, so a log line naming a malformed target still prints.
     """
     scheme, separator, rest = url.partition("://")
-    userinfo, at, hostpart = rest.rpartition("@")
-    username, colon, _ = userinfo.partition(":")
-    if not separator or not at or not colon or "/" in username:
+    username, colon, after = rest.partition(":")
+    first_at = after.find("@")
+    if (
+        not separator
+        or scheme.split("+")[0].lower() in _PATH_SCHEMES
+        or not colon
+        or first_at == -1
+        or "/" in username
+        or "@" in username
+    ):
         return url
-    return f"{scheme}://{username}:***@{hostpart}"
+    host_end = min((i for i in (after.find(c, first_at) for c in "/?#") if i != -1), default=len(after))
+    return f"{scheme}://{username}:***{after[after.rfind('@', 0, host_end) :]}"
 
 
 class ConnectionString:

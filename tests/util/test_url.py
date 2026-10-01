@@ -110,6 +110,26 @@ def test_connectionstring_gives_back_the_file_path_it_was_given(database: str) -
         ),
         # nothing but the password is touched, not even what `urlunparse` would normalise
         pytest.param("PostgreSQL://scott:x@h/db?", "PostgreSQL://scott:***@h/db?", id="kept-verbatim"),
+        # an `@` in the path or query is not the end of the password
+        pytest.param(
+            "postgresql://scott:tiger@db/dwd?table=weather&note=a@b",
+            "postgresql://scott:***@db/dwd?table=weather&note=a@b",
+            id="at-in-query",
+        ),
+        pytest.param(
+            "postgresql://scott:pa/ss@db/dwd?note=a@b",
+            "postgresql://scott:***@db/dwd?note=a@b",
+            id="slash-and-at-in-query",
+        ),
+        pytest.param(
+            "postgresql://scott@db:5432/dwd?opt=a@b",
+            "postgresql://scott@db:5432/dwd?opt=a@b",
+            id="username-only-at-in-query",
+        ),
+        # a path is not a password, whatever it holds
+        pytest.param("file://C:/data@x.csv", "file://C:/data@x.csv", id="file-two-slashes"),
+        pytest.param("duckdb://C:/data/obs@1.duckdb", "duckdb://C:/data/obs@1.duckdb", id="duckdb-two-slashes"),
+        pytest.param("sqlite+pysqlite://C:/obs@1.db", "sqlite+pysqlite://C:/obs@1.db", id="sqlite-two-slashes"),
         # `urlparse` raises on this; the log line naming it must not
         pytest.param("postgresql://u:p@[::1/db", "postgresql://u:***@[::1/db", id="malformed-ipv6"),
     ],
