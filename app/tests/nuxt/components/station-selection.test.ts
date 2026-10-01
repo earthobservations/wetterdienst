@@ -303,5 +303,14 @@ describe('the station selection\'s station map whose code could not be loaded', 
     await wrapper.findAll('button').find(b => b.text() === 'Reload page')!.trigger('click')
     // forced: unforced, Nuxt drops a second click within ten seconds of a first that did not help
     expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
+
+    // where a later opening loads the map, the hint is back: Vue asks for the module again
+    vi.doMock('~/components/MapStations.vue', () => ({ __esModule: true, default: { render: () => h('div', 'Leaflet stand-in') } }))
+    const toggle = wrapper.findAll('button').find(b => b.text().includes('Choose on the map'))!
+    await toggle.trigger('click')
+    await toggle.trigger('click')
+    await vi.waitFor(() => expect(wrapper!.text()).toContain('Leaflet stand-in'))
+    expect(wrapper.text()).toContain('Tap markers on the map to add or remove stations.')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
 })
