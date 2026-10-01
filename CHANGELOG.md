@@ -18,6 +18,11 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: DWD derived `monthly/soil` returns its monthly totals of potential
+  evapotranspiration as the new `evapotranspiration_potential_grass_fao` and
+  `evapotranspiration_potential_grass_haude`, where they came as the daily `..._last_24h` names.
+  Use the new names for monthly in requests, `parameter` filters, wide-frame columns and
+  `ts_geo_station_distance`; daily keeps `..._last_24h` (GH-2042)
 - **Breaking**: `/api/stripes/*` and MCP match a stripes `name` at a threshold of 0.8 by default,
   as the CLI and the stations and values requests do; it was 0.9, so a name may now find a station
   where it found none. Pass `name_threshold=0.9` to match as before (GH-2063)

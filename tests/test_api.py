@@ -4,6 +4,7 @@
 
 import collections
 import importlib
+import re
 import warnings
 import zoneinfo
 from datetime import datetime
@@ -1255,6 +1256,33 @@ def test_source_descriptions_reach_the_parameter_they_name() -> None:
                                 f"got {parameter.description!r}, expected {expected[key]!r}",
                             )
     assert not wrong, "\n".join(wrong[:10])
+
+
+def test_metadata_monthly_and_annual_parameters_carry_no_hourly_window() -> None:
+    """Test that no monthly or annual parameter is named for a window of hours.
+
+    A `_last_<N>h` or `_<N>h` name says the value covers those hours, and its glossary entry says so
+    too. A total over a month or a year declared under such a name reads as the quantity for those hours:
+    DWD derived monthly `summe von vpgfao` and `summe von vpgh` came under the daily potential
+    evapotranspiration names (GH-2042).
+    """
+    windowed = [
+        f"{metadata.name} {resolution.name}/{dataset.name}/{parameter.name}"
+        for metadata in ALL_METADATA
+        for resolution in metadata
+        if resolution.value in (Resolution.MONTHLY, Resolution.ANNUAL)
+        for dataset in resolution
+        for parameter in dataset
+        # `_last_24h` and a bare `_24h` alike; a gust's `_1min` is how long it is averaged, not a window
+        if re.search(r"_\d+h$", parameter.name)
+    ]
+    assert windowed == []
+    if _DWD_DERIVED is None:
+        # without its extra, dwd/derived is left out of ALL_METADATA too; CI fails test_wetterdienst_api for it
+        return
+    soil = _DWD_DERIVED.metadata["monthly"]["soil"]
+    assert soil["summe von vpgfao"].name == "evapotranspiration_potential_grass_fao"
+    assert soil["summe von vpgh"].name == "evapotranspiration_potential_grass_haude"
 
 
 def _fail_import_with(monkeypatch: pytest.MonkeyPatch, error: Exception) -> None:
