@@ -13,7 +13,7 @@ export interface QueryValidationResult {
   params?: Record<string, string>
   /**
    * The one statement a valid query holds, without the `;` and the comments after it, which DuckDB
-   * runs as the query and can wrap in a subquery. A text with a comment never closed is handed back
+   * runs as the query and can wrap in a subquery, its Unicode spaces turned plain as DuckDB turns them. A text with a comment never closed is handed back
    * whole, `;` included, for DuckDB to refuse with its own error.
    */
   statement?: string
@@ -25,11 +25,6 @@ export interface QueryValidationResult {
 // depends on the token before them, as `a1e'` is an identifier and a string but `1e'` a number and
 // an escape string, and `a$x$` an identifier but `1$x$` a number and a dollar-quoted string.
 const SPACE = /[ \t\n\r\f]/
-// The Unicode spaces DuckDB turns into plain ones before it lexes a query (Parser::StripUnicodeSpaces),
-// outside what it takes for strings and line comments: the lexer here reads them as a word's
-// characters, as DuckDB does where it keeps them, so a word is split at them to give every bare word
-// DuckDB may read, `x\u00A0INSERT` as X and INSERT
-const UNICODE_SPACE = /[\u00A0\u2000-\u200B\u202F\u205F\u2060\u3000\uFEFF]/
 // a line comment, which ends at a carriage return as at a newline
 const LINE_COMMENT = /--[^\n\r]*/y
 const IDENT_START = /[A-Z_\u0080-\uFFFF]/i
@@ -90,6 +85,139 @@ function blockCommentEnd(text: string, at: number): number {
     }
   }
   return -1
+}
+
+function isDollarTagStart(byte: number): boolean {
+  return (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) || byte === 0x5F || byte >= 0x80
+}
+
+function isDollarTagChar(byte: number): boolean {
+  return isDollarTagStart(byte) || (byte >= 0x30 && byte <= 0x39)
+}
+
+function holdsAt(bytes: Uint8Array, at: number, part: Uint8Array): boolean {
+  return part.every((byte, k) => bytes[at + k] === byte)
+}
+
+/**
+ * The query as DuckDB's lexer gets it. Before it lexes a query, DuckDB turns the Unicode spaces
+ * U+00A0, U+2000 to U+200B, U+202F, U+205F, U+2060, U+3000 and U+FEFF into plain ones
+ * (Parser::StripUnicodeSpaces, src/parser/parser.cpp, as of DuckDB 1.5), outside what a reading of
+ * its own takes for quoted text and line comments. That reading knows no block comment, escape
+ * string or identifier, so a `'` in a comment, or the `$x$` of `a$x$`, opens a quote to it, and the
+ * spaces up to that quote's end stay what they are, which the lexer then reads as a word's
+ * characters. Ported as DuckDB runs it, on the text's UTF-8 bytes and with its bounds, so the same
+ * spaces turn; each is one UTF-16 code unit, so a position in the text stays.
+ */
+function stripUnicodeSpaces(query: string): string {
+  const bytes = new TextEncoder().encode(query)
+  const size = bytes.length
+  const spaces: { at: number, length: number }[] = []
+  // where DuckDB's loops stand, each a state here; the bounds are its own
+  let state: 'regular' | 'tag' | 'quote' | 'dollar' | 'comment' = 'regular'
+  let quote = 0
+  let tagStart = 0
+  let tag = new Uint8Array()
+  let pos = 0
+  while (true) {
+    if (state === 'regular') {
+      if (pos + 2 >= size)
+        break
+      const [byte, next, after] = [bytes[pos]!, bytes[pos + 1]!, bytes[pos + 2]!]
+      if (byte === 0xC2 && next === 0xA0) {
+        spaces.push({ at: pos, length: 2 })
+      }
+      if (byte === 0xE2) {
+        if ((next === 0x80 && ((after >= 0x80 && after <= 0x8B) || after === 0xAF))
+          || (next === 0x81 && (after === 0x9F || after === 0xA0))) {
+          spaces.push({ at: pos, length: 3 })
+        }
+      }
+      else if (byte === 0xE3) {
+        if (next === 0x80 && after === 0x80)
+          spaces.push({ at: pos, length: 3 })
+      }
+      else if (byte === 0xEF) {
+        if (next === 0xBB && after === 0xBF)
+          spaces.push({ at: pos, length: 3 })
+      }
+      else if (byte === 0x22 || byte === 0x27) {
+        quote = byte
+        state = 'quote'
+      }
+      else if (byte === 0x24 && (next === 0x24 || isDollarTagStart(next))) {
+        tagStart = pos + 1
+        state = 'tag'
+      }
+      else if (byte === 0x2D && next === 0x2D) {
+        state = 'comment'
+        continue
+      }
+      pos++
+    }
+    else if (state === 'tag') {
+      if (pos + 2 >= size)
+        break
+      if (bytes[pos] === 0x24) {
+        tag = bytes.subarray(tagStart, pos)
+        state = 'dollar'
+      }
+      // no tag after all: read on from this byte
+      else if (!isDollarTagChar(bytes[pos]!)) {
+        state = 'regular'
+      }
+      else {
+        pos++
+      }
+    }
+    else if (state === 'quote') {
+      if (pos + 1 >= size)
+        break
+      if (bytes[pos] !== quote) {
+        pos++
+      }
+      // a doubled quote is one
+      else if (bytes[pos + 1] === quote) {
+        pos += 2
+      }
+      else {
+        pos++
+        state = 'regular'
+      }
+    }
+    else if (state === 'dollar') {
+      // from the `$` that ends the opening tag, as DuckDB reads on
+      if (pos + 2 >= size)
+        break
+      if (bytes[pos] === 0x24 && size - (pos + 1) >= tag.length + 1 && bytes[pos + tag.length + 1] === 0x24
+        && holdsAt(bytes, pos + 1, tag)) {
+        pos += tag.length + 1
+        state = 'regular'
+      }
+      else {
+        pos++
+      }
+    }
+    else {
+      if (pos >= size)
+        break
+      if (bytes[pos] === 0x0A || bytes[pos] === 0x0D)
+        state = 'regular'
+      else
+        pos++
+    }
+  }
+  if (spaces.length === 0)
+    return query
+  // each space starts and ends on a character's bytes, so the parts between decode apart
+  const decoder = new TextDecoder()
+  let stripped = ''
+  let from = 0
+  for (const { at, length } of spaces) {
+    stripped += `${decoder.decode(bytes.subarray(from, at))} `
+    from = at + length
+  }
+  return stripped + decoder.decode(bytes.subarray(from))
 }
 
 interface Token {
@@ -206,12 +334,10 @@ export function validateQuery(query: string): QueryValidationResult {
     }
   }
 
-  const { tokens, unclosed } = tokenize(query)
-  // the bare words a token is to DuckDB: one for a word, more for a word with a Unicode space in it,
-  // none for a word of Unicode spaces only or for any other token
-  const wordsOf = (token: Token) => token.kind === 'word'
-    ? query.slice(token.start, token.end).toUpperCase().split(UNICODE_SPACE).filter(Boolean)
-    : []
+  const text = stripUnicodeSpaces(query)
+  const { tokens, unclosed } = tokenize(text)
+  // a word upper-cased in ASCII only, as DuckDB matches its keywords: `ſelect` is no SELECT to it
+  const wordOf = (token: Token) => text.slice(token.start, token.end).replace(/[a-z]+/g, ascii => ascii.toUpperCase())
 
   // no token at all, as DuckDB reads it: a nested comment can hide a SELECT
   if (tokens.length === 0 && !unclosed) {
@@ -222,8 +348,8 @@ export function validateQuery(query: string): QueryValidationResult {
   }
 
   // Check if query starts with SELECT (or WITH for CTEs)
-  const first = tokens.find(token => token.kind !== 'word' || wordsOf(token).length > 0)
-  const firstWord = first === undefined ? undefined : wordsOf(first)[0]
+  const first = tokens[0]
+  const firstWord = first?.kind === 'word' ? wordOf(first) : undefined
   if (firstWord !== 'SELECT' && firstWord !== 'WITH') {
     return {
       valid: false,
@@ -232,7 +358,7 @@ export function validateQuery(query: string): QueryValidationResult {
   }
 
   // Check for dangerous keywords, outside strings, quoted identifiers and comments
-  const words = tokens.flatMap(wordsOf)
+  const words = tokens.filter(token => token.kind === 'word').map(wordOf)
   const disallowed = words.find(word => DISALLOWED_KEYWORDS.has(word))
   if (disallowed !== undefined) {
     return {
@@ -255,7 +381,7 @@ export function validateQuery(query: string): QueryValidationResult {
   // the first token is the SELECT or WITH, so the statement has one; a text with a comment never
   // closed is kept whole, so DuckDB's check tells why
   const last = semicolon === -1 ? tokens.at(-1)! : tokens[semicolon - 1]!
-  const statement = unclosed ? query : query.slice(0, last.end)
+  const statement = unclosed ? text : text.slice(0, last.end)
 
   // Warning for queries without LIMIT
   if (!words.includes('LIMIT')) {
