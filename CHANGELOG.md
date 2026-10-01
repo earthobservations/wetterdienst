@@ -131,6 +131,9 @@ Types of changes:
   `gauge_zero`, so a client generated from it keeps them. MCP tools no longer fail output
   validation on a station row holding such a null, as every WSV station does; a GeoJSON point
   with a null coordinate still fails (GH-2226)
+- DWD observation history no longer fails for a station whose name holds a non-ASCII letter, such
+  as 01684 Görlitz: its missing-data file is read as latin-1, as DWD writes it, where it raised
+  `UnicodeDecodeError` and `/api/history` answered 400 (GH-2214)
 
 ## [0.139.0] - 2026-09-29
 
