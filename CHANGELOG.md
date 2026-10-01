@@ -49,9 +49,9 @@ Types of changes:
 - **Breaking**: DWD DMO refuses the values of a request naming a parameter its lead time's run does
   not carry with `ParameterNotCarriedError`, a `ValueError` naming the lead time that does, where
   the parameter answered with an empty frame: `icon`'s four 3-hourly parameters under the default
-  `lead_time="short"`, its three 1-hourly ones under `"long"`. The REST API answers 400. Pass the
-  lead time named, or ask for those parameters in a request of their own; a whole dataset still
-  returns what its run carries (GH-1976)
+  `lead_time="short"`, its three 1-hourly ones under `"long"`. The REST API answers 400. Ask for
+  them with the lead time named, apart from any parameter only the other lead time carries; a
+  request for a whole dataset is not refused (GH-1976)
 
 ### Fixed
 

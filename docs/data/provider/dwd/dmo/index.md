@@ -17,9 +17,9 @@ declares both families, so with the default `lead_time="short"` the four 3-hourl
 `water_equivalent_snow_depth_new_last_3h`) are not carried, and with `lead_time="long"` the three 1-hourly ones
 (`precipitation_amount_last_1h`, `radiation_global` and `water_equivalent_snow_depth_new_last_1h`) are not
 either. Asking for the values of one of those by name raises a `ParameterNotCarriedError` naming the lead time
-that carries it; asking for the whole dataset, or for every parameter in it by name, returns the parameters the
-requested run carries. `icon_eu` publishes only the 78-hour run, so its parameters are all carried by the default
-`lead_time="short"`.
+that carries it; asking for the whole dataset, or for every parameter in it by name, is not refused, and returns
+data only for the parameters the requested run carries. `icon_eu` publishes only the 78-hour run, so its
+parameters are all carried by the default `lead_time="short"`.
 
 ```{toctree}
 :hidden:

@@ -1506,7 +1506,11 @@ def test_dmo_a_parameter_the_run_carries_is_not_refused(
     lead_time: Literal["short", "long"],
 ) -> None:
     """A whole dataset asks for what the run carries, so it is answered under either lead time."""
-    assert _dmo_stations_for(parameters, lead_time).values is not None
+    from wetterdienst.model.metadata import parse_parameters  # noqa: PLC0415
+
+    values = _dmo_stations_for(parameters, lead_time).values
+
+    assert values.sr.parameters == parse_parameters(parameters, DwdDmoRequest.metadata)
 
 
 def test_dmo_the_lead_times_the_refusal_knows_are_the_ones_each_run_carries() -> None:
