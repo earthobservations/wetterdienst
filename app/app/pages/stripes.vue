@@ -131,16 +131,14 @@ async function fetchAndPlotStripes() {
     return
 
   // another station's stripes go as this one's are fetched, so the stripes shown are the station's
-  // chosen; this station's stay while they are fetched anew, as of a display option changed
-  if (lastFetchedData.value?.metadata.station.station_id !== selectedStation.value.station_id)
+  // chosen, as do stripes that could not be drawn, and their Retry, which would draw the earlier
+  // values. This station's drawn stripes stay while they are fetched anew, as of a display option
+  // changed, and a drawing of them under way still draws, and tells its own failure
+  if (plotFailed.value || lastFetchedData.value?.metadata.station.station_id !== selectedStation.value.station_id)
     clearStripes()
-  const fetch = ++fetchesStarted
+  const started = ++fetchesStarted
   isLoading.value = true
   fetchError.value = null
-  // the stripes are about to be fetched anew: an earlier drawing's failure, and its Retry, which
-  // would draw the earlier values, go. A drawing under way, as of a display option changed, still
-  // draws, and tells its own failure
-  plotFailed.value = false
 
   try {
     const params: StripesValuesQuery = {
@@ -158,7 +156,7 @@ async function fetchAndPlotStripes() {
       query: params,
     })
     // a newer fetch, or a Reset, came while this one was under way: it shows nothing
-    if (fetch !== fetchesStarted)
+    if (started !== fetchesStarted)
       return
 
     // Wait for next tick to ensure DOM is updated
@@ -172,15 +170,14 @@ async function fetchAndPlotStripes() {
     await plotStripes(response)
   }
   catch (error) {
-    console.error('Failed to fetch stripes data:', error)
-    if (fetch !== fetchesStarted)
+    if (started !== fetchesStarted)
       return
-    // the stripes shown, if any, are not those asked for: they go, and the failure is told instead
-    clearStripes()
+    console.error('Failed to fetch stripes data:', error)
+    // told above any stripes shown, which are this station's
     fetchError.value = describeFetchError(error)
   }
   finally {
-    if (fetch === fetchesStarted)
+    if (started === fetchesStarted)
       isLoading.value = false
   }
 }
@@ -773,7 +770,7 @@ onMounted(() => {
             :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!selectedStation || isLoading"
             :loading="isLoading" class="w-full" @click="fetchAndPlotStripes"
           />
-          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" :disabled="!hasPlot" @click="clearStripes" />
+          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" :disabled="!hasPlot && !isLoading && !fetchError" @click="clearStripes" />
         </div>
       </div>
     </UCard>
@@ -821,7 +818,8 @@ onMounted(() => {
         </div>
         <div
           v-else-if="fetchError" role="alert"
-          class="flex flex-col items-center justify-center gap-1 h-64 text-center text-red-600 dark:text-red-400"
+          class="flex flex-col items-center justify-center gap-1 text-center text-red-600 dark:text-red-400"
+          :class="hasPlot ? 'pb-4' : 'h-64'"
         >
           <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
           <span class="text-sm">{{ fetchError }}</span>

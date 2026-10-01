@@ -444,6 +444,23 @@ describe('stripes Page values that could not be fetched', () => {
     document.body.innerHTML = ''
   })
 
+  // the requests the page makes, each settled however it ended
+  let requests: Promise<unknown>[] = []
+  function recordRequests() {
+    const original = globalThis.$fetch
+    requests = []
+    vi.spyOn(globalThis, '$fetch').mockImplementation(((...args: Parameters<typeof original>) => {
+      const request = original(...args)
+      requests.push(request.catch(() => {}))
+      return request
+    }) as typeof original)
+  }
+  // every request recorded settled, and the page done with its answer
+  async function settled() {
+    await Promise.all(requests)
+    await new Promise(resolve => setTimeout(resolve, 0))
+  }
+
   const button = (label: string) => wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === label)!
 
   // the page in the app's UApp, with the stations fetched
@@ -475,6 +492,11 @@ describe('stripes Page values that could not be fetched', () => {
     await vi.waitFor(() => expect(note()).toBe('Failed to load data / No precipitation data for station 1048'))
     expect(vm.isLoading).toBe(false)
     expect(document.body.textContent).not.toContain('Select a station and click Show')
+
+    // Reset takes the note away
+    await button('Reset').trigger('click')
+    expect(note()).toBeUndefined()
+    expect(document.body.textContent).toContain('Select a station and click Show')
   })
 
   it('takes another station\'s stripes away as this one\'s are fetched, and tells why they could not be', async () => {
@@ -501,7 +523,7 @@ describe('stripes Page values that could not be fetched', () => {
     expect(vm.lastFetchedData).toBeNull()
   })
 
-  it('offers no image of stripes fetched anew in vain after their drawing failed', async () => {
+  it('offers no image of stripes that could not be drawn, while or after they are fetched anew in vain', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     registerEndpoint('/api/stripes/values', () => values(tempelhof))
     plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
@@ -509,33 +531,53 @@ describe('stripes Page values that could not be fetched', () => {
     await show(vm, tempelhof)
     await vi.waitFor(() => expect(vm.plotFailed).toBe(true))
 
-    registerEndpoint('/api/stripes/values', () => {
+    const failing = held(() => {
       throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
     })
+    registerEndpoint('/api/stripes/values', failing.handler)
     await button('Show').trigger('click')
-
-    await vi.waitFor(() => expect(note()).toBe('Failed to load data / 502 Bad Gateway'))
     // no empty chart area, with an image of nothing offered
+    expect(vm.hasPlot).toBe(false)
+    expect(downloadMenu()).toBeNull()
+
+    failing.release()
+    await vi.waitFor(() => expect(note()).toBe('Failed to load data / 502 Bad Gateway'))
     expect(vm.hasPlot).toBe(false)
     expect(downloadMenu()).toBeNull()
   })
 
-  it('draws nothing where Reset came while the stripes were fetched anew', async () => {
+  it('keeps the station\'s stripes, and tells the failure above them, where they are fetched anew for a display option in vain', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     registerEndpoint('/api/stripes/values', () => values(tempelhof))
     const vm = await mountPage()
     await show(vm, tempelhof)
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
 
+    registerEndpoint('/api/stripes/values', () => {
+      throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
+    })
+    vm.showYears = !vm.showYears
+
+    await vi.waitFor(() => expect(note()).toBe('Failed to load data / 502 Bad Gateway'))
+    expect(vm.hasPlot).toBe(true)
+    expect(vm.lastFetchedData).not.toBeNull()
+    expect(downloadMenu()).not.toBeNull()
+  })
+
+  it('stops a fetch on Reset, where no stripes were shown, and draws nothing', async () => {
+    const vm = await mountPage()
+    recordRequests()
     const answer = held(() => values(tempelhof))
     registerEndpoint('/api/stripes/values', answer.handler)
-    await button('Show').trigger('click')
+    plotly.newPlot.mockClear()
+    await show(vm, tempelhof)
     expect(vm.isLoading).toBe(true)
+    expect(button('Reset').attributes('disabled')).toBeUndefined()
     await button('Reset').trigger('click')
     expect(vm.isLoading).toBe(false)
-    plotly.newPlot.mockClear()
 
     answer.release()
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await settled()
     expect(plotly.newPlot).not.toHaveBeenCalled()
     expect(vm.hasPlot).toBe(false)
     expect(document.body.textContent).toContain('Select a station and click Show')
@@ -548,6 +590,7 @@ describe('stripes Page values that could not be fetched', () => {
     })
     registerEndpoint('/api/stripes/values', failing.handler)
     const vm = await mountPage()
+    recordRequests()
     await show(vm, tempelhof)
     expect(vm.isLoading).toBe(true)
 
@@ -556,7 +599,7 @@ describe('stripes Page values that could not be fetched', () => {
     expect(vm.isLoading).toBe(false)
 
     failing.release()
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await settled()
     expect(note()).toBeUndefined()
     expect(vm.fetchError).toBeNull()
   })
