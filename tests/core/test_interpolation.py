@@ -725,7 +725,7 @@ def test_interpolation_increased_station_distance() -> None:
         settings=settings,
     )
     values = request.interpolate(latlon=(52.8, 12.9))
-    assert values.df.get_column("value").sum() == 21.0518
+    assert values.df.get_column("value").sum() == pytest.approx(21.0518)
 
 
 @pytest.mark.remote
