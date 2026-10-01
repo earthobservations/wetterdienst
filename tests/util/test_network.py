@@ -2001,7 +2001,9 @@ def test_a_fan_out_says_how_many_of_its_files_the_cache_answered(
     monkeypatch.setattr(
         NetworkFilesystemManager,
         "get",
-        lambda **_kwargs: WholeFileCacheFileSystem(fs=source, cache_storage=str(tmp_path), expiry_time=3600),
+        lambda **_kwargs: network._LockedWholeFileCacheFileSystem(  # noqa: SLF001
+            fs=source, cache_storage=str(tmp_path), expiry_time=3600
+        ),
     )
 
     def said() -> list[str]:
@@ -2053,7 +2055,9 @@ def test_a_fan_out_does_not_count_a_failure_as_a_file_it_fetched(
     monkeypatch.setattr(
         NetworkFilesystemManager,
         "get",
-        lambda **_kwargs: WholeFileCacheFileSystem(fs=source, cache_storage=str(tmp_path), expiry_time=3600),
+        lambda **_kwargs: network._LockedWholeFileCacheFileSystem(  # noqa: SLF001
+            fs=source, cache_storage=str(tmp_path), expiry_time=3600
+        ),
     )
 
     with caplog.at_level(logging.INFO, logger="wetterdienst.util.network"):
