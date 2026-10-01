@@ -734,7 +734,7 @@ function rowDate(row: Value): Date | null {
 // series and facets are made from these alone, so a series whose rows are all left out is not drawn
 // empty, and the large-dataset threshold counts the points drawn, not the rows left out. In the order
 // the rows were fetched or queried, not the table's sort: the series take their legend places and
-// colours in the order their first row comes, which a sort click swapped, and redrew the chart for
+// colours in the order their first row comes, which a sort click swapped, and built the traces anew for
 const chartRows = computed(() => displayData.value.flatMap((row) => {
   const date = rowDate(row)
   return date && row.value !== null && row.value !== undefined ? [{ row, date, y: row.value }] : []
@@ -1026,9 +1026,8 @@ async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), ch
   return new Blob([Uint8Array.from(atob(image.slice(image.indexOf(',') + 1)), c => c.charCodeAt(0))], { type: `image/${format}` })
 }
 
-// Plotly layout - optimized for large datasets
+// Plotly layout, apart from its hover mode, which is each chart's own: see hoverMode
 const chartLayout = computed((): Partial<PlotlyLayout> => {
-  const isLargeDataset = isLargeChart.value
   return {
     autosize: true,
     margin: { l: 60, r: 20, t: 40, b: 60 },
@@ -1047,10 +1046,13 @@ const chartLayout = computed((): Partial<PlotlyLayout> => {
       y: 1.02,
       yanchor: 'bottom',
     },
-    // Use 'closest' for large datasets - 'x unified' is very slow
-    hovermode: isLargeDataset ? 'closest' : 'x unified',
   }
 })
+
+// Use 'closest' for a large chart - 'x unified' is very slow
+function hoverMode(large: boolean): PlotlyLayout['hovermode'] {
+  return large ? 'closest' : 'x unified'
+}
 
 const plotlyConfig: Partial<PlotlyConfig> = {
   responsive: true,
@@ -1102,7 +1104,7 @@ async function drawMainChart(newest: () => boolean) {
   if (chartRef.value && chartTraces.value.length > 0) {
     // Use newPlot for clean initialization
     plotly.purge(chartRef.value)
-    await plotly.newPlot(chartRef.value, chartTraces.value, chartLayout.value, plotlyConfig)
+    await plotly.newPlot(chartRef.value, chartTraces.value, { ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, plotlyConfig)
   }
 }
 
@@ -1123,8 +1125,7 @@ async function drawFacetedCharts(newest: () => boolean) {
       const splitTitle = String(facet.parameter).split('/').join('<br>')
       const layout: Partial<PlotlyLayout> = {
         ...chartLayout.value,
-        // the facet's own: 'closest' for a large one, as 'x unified' is very slow
-        hovermode: facet.large ? 'closest' : 'x unified',
+        hovermode: hoverMode(facet.large),
         yaxis: {
           // Plotly yaxis.title can be either string or object; ensure we pass a string for typing
           title: splitTitle,
