@@ -116,8 +116,12 @@ Types of changes:
   four decimals, so with `WD_TS_UNIT_TARGETS='{"length_short": "mile"}'` 5 cm of snow came back as
   `0.0`. A conversion now keeps one more decimal per order of magnitude it shrinks a value by, so
   under the default targets a reading published in percent, Pa, mm, kJ/m² or l/s can carry up to
-  three more decimals where its source gives them. `interpolate` and `summarize` still round their
-  results to two decimals (GH-2002)
+  three more decimals where its source gives them (GH-2002)
+- `interpolate` and `summarize` round a value as `values` rounds a converted reading of the same
+  parameter, where they rounded every value to two decimals: with
+  `WD_TS_UNIT_TARGETS='{"length_short": "mile"}'` a summarized 5 cm of snow came back as `0.0`, and
+  a cloud cover of 0.875 as 0.88. Values are rounded to four decimals or more, so an interpolated
+  6.64 °C now reads 6.6422; `distance` and `distance_mean` keep two (GH-2225)
 - PostgreSQL and MySQL export targets no longer fail on `?table=`: it names the table and is no
   longer passed to the database driver, which refused it as a connection option, so no such target
   could be written to. The rest of the query, such as `sslmode` or `charset`, still reaches the

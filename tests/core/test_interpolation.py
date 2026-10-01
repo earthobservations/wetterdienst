@@ -5,7 +5,9 @@
 import datetime as dt
 import logging
 import random
+from collections.abc import Iterator
 from queue import Queue
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -193,7 +195,7 @@ def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings
                 "dataset": "temperature_air",
                 "parameter": "temperature_air_mean_2m",
                 "timestamp": dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
-                "value": 4.56,
+                "value": 4.5644,
                 "distance_mean": 13.37,
                 "taken_station_ids": ["02480", "04411", "07341", "00917"],
             },
@@ -220,7 +222,7 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
                 "timestamp": dt.datetime(1986, 10, 31, tzinfo=ZoneInfo("UTC")),
-                "value": 6.37,
+                "value": 6.3732,
                 "distance_mean": 16.99,
                 "taken_station_ids": ["00072", "02074", "02638", "04703"],
             },
@@ -314,7 +316,7 @@ def test_interpolation_precipitation_amount_minute_10(default_settings: Settings
                 "dataset": "precipitation",
                 "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC")),
-                "value": 0.03,
+                "value": 0.0294,
                 "distance_mean": 9.38,
                 "taken_station_ids": ["04230", "02480", "04411", "07341"],
             },
@@ -723,7 +725,7 @@ def test_interpolation_increased_station_distance() -> None:
         settings=settings,
     )
     values = request.interpolate(latlon=(52.8, 12.9))
-    assert values.df.get_column("value").sum() == 21.07
+    assert values.df.get_column("value").sum() == 21.0518
 
 
 @pytest.mark.remote
@@ -870,3 +872,117 @@ def test_interpolation_at_an_elevation_too_few_stations_left_to_interpolate(
         values = request.interpolate(latlon=(47.48, 11.06), elevation=200.0)
     assert values.df.drop_nulls("value").is_empty()
     assert "daily/climate_summary/temperature_air_mean_2m" in caplog.text
+
+
+def test_decimals_for_rounds_as_values_does() -> None:
+    """An interpolated or summarized value is rounded to what `values` rounds the reading to.
+
+    That is four decimals plus one per order of magnitude the conversion to the target shrinks a
+    value by, so a snow depth under a `mile` target keeps what it has where a fixed two decimals
+    made 5 cm a 0.0, and a value left in its source unit is rounded to four.
+    """
+    from wetterdienst.core.util import decimals_for  # noqa: PLC0415
+    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "snow_depth"), ("daily", "climate_summary", "cloud_cover_total")],
+    )
+    snow_depth, cloud_cover = request.parameters
+    unit_converter = UnitConverter()
+    unit_converter.update_targets({"length_short": "mile"})
+    decimals = decimals_for(snow_depth, unit_converter, convert_units=True)
+    assert decimals == unit_converter.decimals("centimeter", "mile")
+    assert round(5 / 160934.4, decimals) != 0.0
+    assert decimals_for(snow_depth, unit_converter, convert_units=False) == 4
+    assert decimals_for(cloud_cover, unit_converter, convert_units=True) == 4
+
+
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
+def test_interpolate_and_summarize_keep_the_precision_values_returns(
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+) -> None:
+    """Interpolating or summarizing a reading keeps the decimals `values` gave it, per parameter.
+
+    Both rounded every value to two decimals after `values` had converted it, so under a `mile`
+    target 5 cm of snow came back as 0.0, and under the default targets a cloud cover of 7/8,
+    0.875 from `values`, came back as 0.88. Four stations around the point all report the same
+    readings, so whichever of them a result is drawn from, it is what `values` returned. The
+    stations and their readings are stubbed, so nothing leaves the machine.
+    """
+    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    unit_converter = UnitConverter()
+    unit_converter.update_targets({"length_short": "mile"})
+    # 5 cm of snow and 7/8 of cloud cover as `values` converts and rounds them, under a `mile` target
+    # and the default one for a fraction
+    snow_depth = round(
+        unit_converter.get_lambda("centimeter", "length_short")(5.0), unit_converter.decimals("centimeter", "mile")
+    )
+    cloud_cover = round(
+        unit_converter.get_lambda("one_eighth", "fraction")(7.0), unit_converter.decimals("one_eighth", "decimal")
+    )
+    assert snow_depth != 0.0
+    assert cloud_cover == 0.875
+
+    latitude, longitude = 50.0, 8.9
+    offsets = {"00001": (-0.03, -0.03), "00002": (-0.03, 0.03), "00003": (0.03, 0.03), "00004": (0.03, -0.03)}
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "station_id": station_id,
+                "latitude": latitude + d_lat,
+                "longitude": longitude + d_lon,
+                "elevation": 100.0,
+                "distance": 4.0 + index / 10,
+            }
+            for index, (station_id, (d_lat, d_lon)) in enumerate(offsets.items())
+        ],
+    )
+    timestamps = [dt.datetime(2021, 2, day, tzinfo=ZoneInfo("UTC")) for day in (1, 2, 3)]
+
+    def _filter_by_distance(
+        self: DwdObservationRequest,
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,  # noqa: ARG001
+    ) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+
+    def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
+        for station_id in offsets:
+            df = pl.DataFrame(
+                [
+                    {
+                        "station_id": station_id,
+                        "resolution": "daily",
+                        "dataset": "climate_summary",
+                        "parameter": parameter,
+                        "timestamp": timestamp,
+                        "value": value,
+                        "quality": 10.0,
+                    }
+                    for parameter, value in (("snow_depth", snow_depth), ("cloud_cover_total", cloud_cover))
+                    for timestamp in timestamps
+                ],
+            )
+            yield SimpleNamespace(df=df)
+
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _filter_by_distance)
+    monkeypatch.setattr(DwdObservationValues, "query", _query)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "snow_depth"), ("daily", "climate_summary", "cloud_cover_total")],
+        start_date=timestamps[0],
+        end_date=timestamps[-1],
+        settings=Settings(ts_unit_targets={"length_short": "mile"}),
+    )
+    get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
+    df = get_df(request, latitude, longitude)
+    assert df.height == 6
+    values = dict(df.group_by("parameter").agg(pl.col("value").unique()).iter_rows())
+    assert values == {"snow_depth": [snow_depth], "cloud_cover_total": [cloud_cover]}

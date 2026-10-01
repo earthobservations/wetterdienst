@@ -42,6 +42,9 @@ class _ParameterData:
     station_ids: list[str] | None = None
     additional_station_counter: int = 0
     finished: bool = False
+    #: what the parameter's answers are rounded to, see `decimals_for`; four is what a value left
+    #: in its source unit gets
+    decimals: int = 4
 
 
 def build_date_grid(resolution: Resolution, start_date: dt.datetime, end_date: dt.datetime) -> pl.DataFrame:
@@ -107,12 +110,41 @@ def lapse_rate_for(
     return lapse_rate * unit_converter.increment_factor("degree_celsius", unit)
 
 
+def decimals_for(
+    parameter: ParameterModel,
+    unit_converter: UnitConverter,
+    *,
+    convert_units: bool,
+) -> int:
+    """Give the decimals an interpolated or summarized value of a parameter is rounded to.
+
+    What `values` rounds the parameter's converted readings to, `UnitConverter.decimals`: four,
+    plus one per order of magnitude the conversion to the target unit shrinks a value by. Without a
+    conversion `values` leaves a reading as it came, and four keeps an interpolation's float noise
+    out. A fixed two rounded away what a large target holds of a reading -- 5 cm of snow under a
+    `mile` target is 0.0000311 -- and cut a cloud cover of 0.875 that `values` returns whole to 0.88.
+
+    Args:
+        parameter: the parameter whose values are being rounded
+        unit_converter: the converter the values went through
+        convert_units: whether they went through it at all
+
+    Returns:
+        The number of decimals to round to
+
+    """
+    unit = unit_converter.targets[parameter.unit_type].name if convert_units else parameter.unit
+    return unit_converter.decimals(parameter.unit, unit)
+
+
 def open_parameter_data(
     param_dict: dict,
     param_key: tuple[str, str, str],
     resolution: Resolution,
     start_date: dt.datetime | None,
     end_date: dt.datetime | None,
+    *,
+    decimals: int,
 ) -> _ParameterData | None:
     """Get the parameter's data, opening it on the date grid the request asks over.
 
@@ -122,7 +154,7 @@ def open_parameter_data(
         return param_dict[param_key]
     if start_date is None or end_date is None:
         return None
-    param_dict[param_key] = _ParameterData(build_date_grid(resolution, start_date, end_date))
+    param_dict[param_key] = _ParameterData(build_date_grid(resolution, start_date, end_date), decimals=decimals)
     return param_dict[param_key]
 
 
