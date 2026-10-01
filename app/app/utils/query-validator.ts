@@ -20,10 +20,10 @@ export interface QueryValidationResult {
 }
 
 // How DuckDB's lexer reads a query (third_party/libpg_query/scan.l, as of DuckDB 1.5), as far as it
-// tells where a statement ends: a `;` counts outside strings, quoted identifiers and comments only,
-// and where those start depends on the token before them, as `a1e'` is an identifier and a string
-// but `1e'` a number and an escape string, and `a$x$` an identifier but `1$x$` a number and a
-// dollar-quoted string.
+// tells where a statement ends and which bare words it holds, the keywords the checks look for: a
+// `;` or a word counts outside strings, quoted identifiers and comments only, and where those start
+// depends on the token before them, as `a1e'` is an identifier and a string but `1e'` a number and
+// an escape string, and `a$x$` an identifier but `1$x$` a number and a dollar-quoted string.
 const SPACE = /[ \t\n\r\f]/
 // a line comment, which ends at a carriage return as at a newline
 const LINE_COMMENT = /--[^\n\r]*/y
@@ -203,7 +203,6 @@ export function validateQuery(query: string): QueryValidationResult {
 
   const { tokens, unclosed } = tokenize(query)
   const wordOf = (token: Token) => query.slice(token.start, token.end).toUpperCase()
-  const words = tokens.filter(token => token.kind === 'word').map(wordOf)
 
   // no token at all, as DuckDB reads it: a nested comment can hide a SELECT
   if (tokens.length === 0 && !unclosed) {
@@ -224,6 +223,7 @@ export function validateQuery(query: string): QueryValidationResult {
   }
 
   // Check for dangerous keywords, outside strings, quoted identifiers and comments
+  const words = tokens.filter(token => token.kind === 'word').map(wordOf)
   const disallowed = words.find(word => DISALLOWED_KEYWORDS.has(word))
   if (disallowed !== undefined) {
     return {
