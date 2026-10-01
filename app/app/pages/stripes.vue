@@ -125,6 +125,10 @@ async function fetchAndPlotStripes() {
     return
 
   isLoading.value = true
+  // the stripes are about to be fetched anew: an earlier drawing's failure, and its Retry, which
+  // would draw the earlier values, go
+  plotsStarted++
+  plotFailed.value = false
 
   try {
     const params: StripesValuesQuery = {
@@ -165,6 +169,9 @@ async function plotStripes(data: StripesValuesResponse) {
   const plot = ++plotsStarted
   try {
     await ensurePlotly()
+    // a newer drawing, or a Reset, came while Plotly loaded: this one draws nothing
+    if (plot !== plotsStarted)
+      return
     await drawStripes(data)
     if (plot === plotsStarted)
       plotFailed.value = false

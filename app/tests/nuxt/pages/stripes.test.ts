@@ -318,6 +318,52 @@ describe('stripes Page chart that could not be drawn', () => {
     expect(document.body.textContent).toContain('Select a station and click Show')
   })
 
+  it('takes the note, and its Retry of the earlier values, away as Show fetches the stripes anew', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    await showStripes()
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+    // the next values held, so the fetch is still under way
+    let answer!: () => void
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve
+    })
+    registerEndpoint('/api/stripes/values', async () => {
+      await answered
+      return { metadata: { station }, values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }] }
+    })
+
+    await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+    expect(retry()).toBeUndefined()
+    answer()
+  })
+
+  it('draws nothing where Reset came while Plotly loaded', async () => {
+    // Plotly's load held until after Reset
+    let load!: () => void
+    const loaded = new Promise<void>((resolve) => {
+      load = resolve
+    })
+    vi.doMock('plotly.js-basic-dist-min', async () => {
+      await loaded
+      return plotly
+    })
+    plotly.newPlot.mockClear()
+    plotly.purge.mockClear()
+    const vm = await showStripes()
+    // the values fetched, and their drawing waiting for Plotly
+    await vi.waitFor(() => expect(vm.hasPlot).toBe(true))
+
+    await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Reset')!.trigger('click')
+    load()
+
+    // the load done, and nothing drawn into the cleared chart area
+    await import('plotly.js-basic-dist-min')
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(plotly.purge).not.toHaveBeenCalled()
+    expect(plotly.newPlot).not.toHaveBeenCalled()
+  })
+
   it('says the stripes image could not be saved where its export fails', async () => {
     const vm = await showStripes()
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
