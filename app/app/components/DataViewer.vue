@@ -60,6 +60,10 @@ let Plotly: typeof import('plotly.js-basic-dist-min') | null = null
 // Plotly is ~1 MB, and the default view is the table -- so it is fetched when a chart is first
 // actually wanted rather than on mount. The promise is kept so concurrent callers share one import.
 let plotlyImport: Promise<typeof import('plotly.js-basic-dist-min')> | null = null
+// Plotly's newest import failed. Where a redeploy has replaced its chunk, a Retry asks for the same
+// chunk again and fails every time, and only reloading the page loads the new one: the chart area
+// says so, and offers the reload
+const plotlyNotLoaded = ref(false)
 
 async function ensurePlotly(): Promise<typeof import('plotly.js-basic-dist-min')> {
   if (Plotly)
@@ -69,10 +73,17 @@ async function ensurePlotly(): Promise<typeof import('plotly.js-basic-dist-min')
   // redeploy invalidating the hashed chunk under an open tab.
   plotlyImport ??= import('plotly.js-basic-dist-min').catch((error) => {
     plotlyImport = null
+    plotlyNotLoaded.value = true
     throw error
   })
   Plotly = await plotlyImport
+  plotlyNotLoaded.value = false
   return Plotly
+}
+
+function reloadPage() {
+  // forced: unforced, a reload Nuxt made of the same page in the last seconds stops it
+  reloadNuxtApp({ force: true })
 }
 
 // Parameter label format options and chart display
@@ -1382,8 +1393,12 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             >
               <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
                    button stays, and keeps its focus -->
-              <span :key="shownRenders().failures" role="alert" class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+              <span :key="shownRenders().failures" role="alert">
+                <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+                <span v-if="plotlyNotLoaded" class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
+              </span>
               <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
+              <UButton v-if="plotlyNotLoaded" :label="t('dataViewer.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
             </div>
             <div
               v-if="allValues.length === 0 && fetchErrorMessage"

@@ -562,6 +562,8 @@
     "downloadCancelled": "Download cancelled: the table changed",
     "downloadedChart": "Chart downloaded as {format}",
     "chartNotDrawn": "The chart could not be drawn",
+    "chartCodeNotLoaded": "Its code could not be loaded. If trying again does not help, reload the page.",
+    "reloadPage": "Reload page",
     "chartImageNotSaved": "The chart image could not be saved",
     "axisDate": "Date",
     "axisValue": "Value",

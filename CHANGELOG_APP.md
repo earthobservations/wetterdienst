@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` Where the chart's code could not be loaded, as after a new version of the app was
+  deployed under an open tab, the chart area says that reloading the page helps where Retry does
+  not, and offers a Reload page button. Retry asked for the replaced code again and failed every
+  time, with no word that only a reload would help (GH-2183)
 - `[Explorer]` The query panel loads an interpolation's `taken_station_ids` as a list, which
   `list_contains` and `unnest` take, where it loaded them as text joined by commas and refused both;
   a query's result hands the column on as a list (GH-2162)

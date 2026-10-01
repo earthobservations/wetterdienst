@@ -562,6 +562,8 @@
     "downloadCancelled": "Stahování zrušeno: tabulka se změnila",
     "downloadedChart": "Graf stažen jako {format}",
     "chartNotDrawn": "Graf se nepodařilo vykreslit",
+    "chartCodeNotLoaded": "Jeho kód se nepodařilo načíst. Pokud nepomůže zkusit znovu, načtěte stránku znovu.",
+    "reloadPage": "Načíst stránku znovu",
     "chartImageNotSaved": "Obrázek grafu se nepodařilo uložit",
     "axisDate": "Datum",
     "axisValue": "Hodnota",

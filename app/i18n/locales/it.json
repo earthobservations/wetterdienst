@@ -562,6 +562,8 @@
     "downloadCancelled": "Download annullato: la tabella è cambiata",
     "downloadedChart": "Grafico scaricato come {format}",
     "chartNotDrawn": "Impossibile disegnare il grafico",
+    "chartCodeNotLoaded": "Impossibile caricare il suo codice. Se riprovare non basta, ricarica la pagina.",
+    "reloadPage": "Ricarica la pagina",
     "chartImageNotSaved": "Impossibile salvare l'immagine del grafico",
     "axisDate": "Data",
     "axisValue": "Valore",

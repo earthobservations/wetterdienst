@@ -562,6 +562,8 @@
     "downloadCancelled": "Téléchargement annulé : le tableau a changé",
     "downloadedChart": "Graphique téléchargé au format {format}",
     "chartNotDrawn": "Le graphique n'a pas pu être dessiné",
+    "chartCodeNotLoaded": "Son code n'a pas pu être chargé. Si réessayer ne suffit pas, rechargez la page.",
+    "reloadPage": "Recharger la page",
     "chartImageNotSaved": "L'image du graphique n'a pas pu être enregistrée",
     "axisDate": "Date",
     "axisValue": "Valeur",

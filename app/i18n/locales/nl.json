@@ -562,6 +562,8 @@
     "downloadCancelled": "Download geannuleerd: de tabel is gewijzigd",
     "downloadedChart": "Grafiek gedownload als {format}",
     "chartNotDrawn": "De grafiek kon niet worden getekend",
+    "chartCodeNotLoaded": "De code ervan kon niet worden geladen. Helpt opnieuw proberen niet, laad de pagina dan opnieuw.",
+    "reloadPage": "Pagina opnieuw laden",
     "chartImageNotSaved": "De afbeelding van de grafiek kon niet worden opgeslagen",
     "axisDate": "Datum",
     "axisValue": "Waarde",
