@@ -156,9 +156,7 @@ class UnitConverter:
             "concentration": self.units["concentration"][0],
             # g/m³ is the convention for water vapour in air, and numerically identical to mg/l
             "mass_per_volume": self.units["mass_per_volume"][2],
-            # µS/cm is the convention in hydrology and water quality, and what the sources publish;
-            # S/m is a large enough unit that rounding to 4 decimals leaves river values with one
-            # or two significant figures
+            # µS/cm is the convention in hydrology and water quality, and what the sources publish
             "conductivity": self.units["conductivity"][0],
             "dimensionless": self.units["dimensionless"][0],
             "energy_per_area": self.units["energy_per_area"][0],
@@ -183,14 +181,10 @@ class UnitConverter:
         }
         # Units a source publishes in that nothing should report values in. They exist so that a
         # provider can declare what it decodes and have the conversion to the target happen, which
-        # is the point of declaring them, and `update_targets` refuses them: `_convert_units` rounds
-        # to four decimals after converting, so a source publishing millimetres per hour asked for
-        # millimetres per second comes back quantised to 0.36 mm/h steps, with KNMI's 0.1 mm/h
-        # reading as 0.0. Every unit type spanning orders of magnitude has that shape -- a
-        # `length_short` parameter under a `mile` target turns 5 cm of snow into 0.0 today -- and the
-        # general fix is a rounding rule that scales with the target, GH-2002. This set is not it: it
-        # keeps a unit added for a source from being reachable as a target at all, which is what it
-        # was before the unit existed, `get_unit` having raised for the name.
+        # is the point of declaring them, and `update_targets` refuses them: a unit chosen because
+        # that is what a source encodes in is not one to report values in -- KNMI's 0.1 mm/h is
+        # 0.0000278 mm/s. This keeps a unit added for a source from being reachable as a target at
+        # all, which is what it was before the unit existed, `get_unit` having raised for the name.
         #
         # Held per unit type rather than by name, because a name is not unique to one: eleven of them
         # are shared, `millimeter` between `precipitation` and all three `length_*` and `beaufort`
@@ -390,11 +384,26 @@ class UnitConverter:
         convert = self._get_lambda(source, target)
         return convert(1.0) - convert(0.0)
 
+    def decimals(self, source: str, target: str) -> int:
+        """How many decimals a value converted from one unit to another is rounded to.
+
+        Four, which keeps float noise such as 0.7330382858376184 from reaching a caller, plus one for
+        every order of magnitude the conversion makes a value smaller by. A fixed four rounded away
+        what a much larger target holds of a reading: 5 cm is 0.0000311 miles, 0.0 at four decimals.
+        Scaled like this, a converted value keeps at least the precision three decimals would give
+        it in the source unit, whatever unit it is reported in. A conversion that keeps a value
+        within one order of magnitude, or makes it larger, keeps four.
+        """
+        factor = abs(self.increment_factor(source, target))
+        # the tolerance keeps a factor of an exact power of ten, which floats may put a hair off it,
+        # at the order of magnitude it is
+        return 4 + max(0, math.floor(-math.log10(factor) + 1e-9))
+
     def update_targets(self, targets: dict[str, str]) -> None:
         """Update the target units for each unit type.
 
         A source-only unit is refused: it is declared so that a provider publishing in it converts,
-        and reporting values in it would round them away. See `source_only_units`.
+        and is not one to report values in. See `source_only_units`.
 
         Every entry is resolved before any is assigned, so a mapping carrying one unusable entry
         leaves the targets as they were rather than applying the entries that came before it.

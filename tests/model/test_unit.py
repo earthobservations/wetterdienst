@@ -2,7 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for unit conversion."""
 
-from itertools import permutations
+from itertools import permutations, product
 
 import pytest
 
@@ -244,10 +244,9 @@ def test_unit_converter_refuses_a_source_only_unit_as_a_target(unit_converter: U
     """A unit declared for a source cannot be asked for as a target.
 
     `millimeter_per_second` exists so that `dwd/road` converts what BUFR publishes rather than
-    labelling it. Reporting values in it would round them away: `_convert_units` rounds to four
-    decimals after converting, so an mm/h source under that target loses everything below 0.36 mm/h
-    and KNMI's 0.1 mm/h reads as 0.0. `get_unit` raised for the unit before it existed, and this
-    keeps the setting failing as loudly as it did.
+    labelling it, and it is not a unit to report values in: KNMI's 0.1 mm/h is 0.0000278 mm/s.
+    `get_unit` raised for the unit before it existed, and this keeps the setting failing as loudly
+    as it did.
     """
     with pytest.raises(
         ValueError,
@@ -389,3 +388,35 @@ def test_converting_to_a_unit_and_back_returns_the_value() -> None:
             forth = unit_converter.lambdas[(source, target)]
             back = unit_converter.lambdas[(target, source)]
             assert back(forth(100.0)) == pytest.approx(100.0, rel=1e-9), f"{source} -> {target} -> {source}"
+
+
+@pytest.mark.parametrize("value", [0.1, 1.0, 42.0, 1000.0])
+def test_decimals_keep_a_reading_whatever_the_target(value: float) -> None:
+    """A converted value rounded to its decimals keeps the reading, whichever pair of units it is.
+
+    Asserted over every ordered pair of every unit type rather than a list of the lossy ones, since
+    that list is what changes as units are added. Measured back in the source unit, the round costs
+    at most half a step of the third decimal -- so 5 cm reported in miles is not 0.0.
+    """
+    unit_converter = UnitConverter()
+    for unit_type, units in unit_converter.units.items():
+        for source, target in product([unit.name for unit in units], repeat=2):
+            exact = unit_converter._get_lambda(source, target)(value)  # noqa: SLF001
+            rounded = round(exact, unit_converter.decimals(source, target))
+            factor = abs(unit_converter.increment_factor(source, target))
+            assert abs(rounded - exact) <= 0.5e-3 * factor, f"{unit_type}: {source} -> {target}"
+            assert rounded != 0, f"{unit_type}: {source} -> {target}"
+
+
+def test_decimals_stay_at_four_unless_a_conversion_shrinks_a_value_by_an_order_of_magnitude() -> None:
+    """Four decimals stay where a conversion keeps a value within an order of magnitude, or grows it.
+
+    Those are most of what the default targets do, and their values come back as they did.
+    """
+    unit_converter = UnitConverter()
+    assert unit_converter.decimals("degree_kelvin", "degree_celsius") == 4
+    assert unit_converter.decimals("kilometer_per_hour", "meter_per_second") == 4
+    assert unit_converter.decimals("meter", "millimeter") == 4
+    assert unit_converter.decimals("millimeter", "centimeter") == 5
+    assert unit_converter.decimals("percent", "decimal") == 6
+    assert unit_converter.decimals("centimeter", "mile") == 9
