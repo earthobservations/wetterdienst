@@ -3,19 +3,26 @@
 """Tests for DWD derived station data."""
 
 import datetime as dt
+import subprocess
+import sys
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 from dirty_equals import IsDatetime, IsDict
+from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.provider.dwd.derived.api import DwdDerivedRequest
+from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata
 from wetterdienst.provider.dwd.derived.metaindex import (
     _generate_digit_combinations,
     _get_raw_station_data_from_plz_generator,
+    _read_meta_df,
 )
+from wetterdienst.util.network import File
 
 
 @pytest.fixture
@@ -296,3 +303,79 @@ def test_get_raw_station_data_from_plz_generator() -> None:
     """Test to check dimensions of proxy PLZ station data."""
     raw_station_data = _get_raw_station_data_from_plz_generator().collect()
     assert raw_station_data.shape == (10**5, 8)
+
+
+def test_read_meta_df_fixed_width_station_list() -> None:
+    """The fixed-width station lists are read with polars, without pandas (GH-2213).
+
+    The rows are copied from `KL_Monatswerte_Beschreibung_Stationen.txt` as DWD publishes it:
+    latin-1, CRLF line ends, the trailing `Abgabe` column, padding after it and a final line
+    break. The last row of that file is included, as are a name with an umlaut, one with a comma
+    and a region with an umlaut. The expected frame is the one the former `pandas.read_fwf` reader
+    built from the same rows.
+    """
+    lines = [
+        "Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland Abgabe",
+        (
+            "----------- --------- --------- ------------- --------- --------- "
+            "----------------------------------------- ---------- ------"
+        ),
+        (
+            "00001 19310101 19860630            478     47.8413    8.8493 Aach                                     "
+            "Baden-Württemberg                        Frei      "
+        ),
+        (
+            "00044 19710301 20260831             44     52.9336    8.2370 Großenkneten                             "
+            "Niedersachsen                            Frei      "
+        ),
+        (
+            "20318 19370801 19601231            352     48.7726    8.7287 Liebenzell, Bad/ Nagold                  "
+            "Baden-Württemberg                        Frei      "
+        ),
+        (
+            "20327 19450101 19951231            870     47.9394    8.1933 Titisee-Neustadt-Neustadt                "
+            "Baden-Württemberg                        Frei      "
+        ),
+    ]
+    content = "".join(f"{line}\r\n" for line in lines).encode("latin-1")
+    file = File(
+        url="https://example.org/KL_Monatswerte_Beschreibung_Stationen.txt", content=BytesIO(content), status=200
+    )
+    df = _read_meta_df(DwdDerivedMetadata.monthly.heating_degreedays, file=file).collect()
+
+    def date(year: int, month: int, day: int) -> dt.datetime:
+        return dt.datetime(year, month, day, tzinfo=ZoneInfo("UTC"))
+
+    expected = pl.DataFrame(
+        {
+            "station_id": ["00001", "00044", "20318", "20327"],
+            "start_date": [date(1931, 1, 1), date(1971, 3, 1), date(1937, 8, 1), date(1945, 1, 1)],
+            "end_date": [date(1986, 6, 30), date(2026, 8, 31), date(1960, 12, 31), date(1995, 12, 31)],
+            "elevation": [478.0, 44.0, 352.0, 870.0],
+            "latitude": [47.8413, 52.9336, 48.7726, 47.9394],
+            "longitude": [8.8493, 8.2370, 8.7287, 8.1933],
+            "name": ["Aach", "Großenkneten", "Liebenzell, Bad/ Nagold", "Titisee-Neustadt-Neustadt"],
+            "region": ["Baden-Württemberg", "Niedersachsen", "Baden-Württemberg", "Baden-Württemberg"],
+        },
+        schema_overrides={
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+        },
+    )
+    assert_frame_equal(df, expected)
+
+
+def test_dwd_derived_imports_without_pandas() -> None:
+    """`dwd/derived` resolves on a base install, which has no pandas (GH-2213).
+
+    Run in a fresh interpreter with pandas made unimportable, since this one may have imported it
+    already for another test.
+    """
+    code = (
+        "import sys; sys.modules['pandas'] = None; "
+        "from wetterdienst import Wetterdienst; "
+        "print(Wetterdienst('dwd', 'derived').__name__)"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)  # noqa: S603
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "DwdDerivedRequest"

@@ -8,12 +8,12 @@ import itertools
 import logging
 from typing import TYPE_CHECKING
 
-import pandas as pd
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.derived.metadata import SOIL_DATASETS, DwdDerivedMetadata
 from wetterdienst.util.network import File, download_file
+from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -44,16 +44,17 @@ SOIL_COLUMN_NAMES_MAPPING = {
     "Bundesland": "region",
 }
 
-COL_SPECS = [
-    (0, 5),  # Stations_id
-    (5, 15),  # von_datum
-    (15, 35),  # bis_datum
-    (35, 43),  # Stationshoehe
-    (43, 53),  # geoBreite
-    (53, 60),  # geoLaenge
-    (61, 101),  # Stationsname
-    (102, 143),  # Bundesland # (144,1000) # Abgabe
-]
+# first and last character of each field, both inclusive, as read_fwf_from_df takes them
+COL_SPECS = (
+    (0, 4),  # Stations_id
+    (5, 14),  # von_datum
+    (15, 34),  # bis_datum
+    (35, 42),  # Stationshoehe
+    (43, 52),  # geoBreite
+    (53, 59),  # geoLaenge
+    (61, 100),  # Stationsname
+    (102, 142),  # Bundesland # (144,1000) # Abgabe
+)
 
 _STATION_URL_DICT = {
     DwdDerivedMetadata.monthly.heating_degreedays.name: "https://opendata.dwd.de/climate_environment/CDC/help/KL_Monatswerte_Beschreibung_Stationen.txt",
@@ -159,26 +160,18 @@ def _read_meta_df(dataset: DatasetModel, file: File) -> pl.LazyFrame:
             pl.col("station_id").cast(str).str.pad_start(5, "0"),
         )
     else:
-        df = pd.read_fwf(
-            file.content,
-            header=None,
-            encoding="latin-1",
-            colspecs=COL_SPECS,
-            skiprows=[0, 1],
-        )
+        # the first two lines are the header and the ``----`` rule under it
+        lines = file.content.read().decode("latin-1").splitlines()[2:]
+        df = pl.DataFrame({"line": [line for line in lines if line.strip()]}, schema={"line": pl.String})
+        df = read_fwf_from_df(df, COL_SPECS)
         df.columns = list(DWD_COLUMN_NAMES_MAPPING.values())
-        df = pl.DataFrame(
-            df,
-            schema={
+        df = df.cast(
+            {
                 "station_id": pl.Int64,
-                "start_date": str,
-                "end_date": str,
                 "elevation": pl.Float64,
                 "latitude": pl.Float64,
                 "longitude": pl.Float64,
-                "name": str,
-                "region": str,
-            },
+            }
         ).lazy()
 
         df = df.with_columns(
