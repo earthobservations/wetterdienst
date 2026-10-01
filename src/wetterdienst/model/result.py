@@ -261,18 +261,24 @@ class StationsResult(ExportMixin):
             indent = None
         return json.dumps(self.to_dict(with_metadata=with_metadata), indent=indent)
 
-    def _to_ogc_feature(self, station: dict) -> _StationsOgcFeature:
-        """Format one station row, with its dates already ISO strings, as an OGC feature."""
+    def _ogc_extra_columns(self) -> list[str]:
+        """Name the station columns a provider declares beyond the core ones, such as WSV's gauge_zero.
+
+        An OGC feature carries them in its properties. A result built from a bare frame, with no
+        request behind it, has none.
+        """
         from wetterdienst.model.request import TimeseriesRequest  # noqa: PLC0415
 
-        # the station columns a provider declares beyond the core ones, such as WSV's gauge_zero;
-        # a result built from a bare frame, with no request behind it, has none
         core_columns = TimeseriesRequest._base_columns  # noqa: SLF001
-        extra_columns = [
+        return [
             column
             for column in getattr(self.stations, "_base_columns", core_columns)
-            if column not in core_columns and column in station
+            if column not in core_columns and column in self.df.columns
         ]
+
+    @staticmethod
+    def _to_ogc_feature(station: dict, extra_columns: list[str]) -> _StationsOgcFeature:
+        """Format one station row, with its dates already ISO strings, as an OGC feature."""
         # A position is "longitude, latitude [, elevation]" in WGS84 decimal degrees, and per
         # RFC 7946 3.1.1 it is two or more numbers, so a station without an elevation gets no z
         # rather than a null one, which strict parsers reject.
@@ -312,12 +318,13 @@ class StationsResult(ExportMixin):
         data = {}
         if with_metadata:
             data["metadata"] = self.get_metadata()
+        extra_columns = self._ogc_extra_columns()
         features = []
         for station in self.df.with_columns(
             pl.col("start_date").dt.to_string("iso:strict"),
             pl.col("end_date").dt.to_string("iso:strict"),
         ).iter_rows(named=True):
-            features.append(self._to_ogc_feature(station))
+            features.append(self._to_ogc_feature(station, extra_columns))
         data["data"] = {
             "type": "FeatureCollection",
             "features": features,
@@ -594,6 +601,7 @@ class ValuesResult(_ValuesResult):
             self.df.select(pl.col("station_id").cast(pl.String)).unique(),
             on="station_id",
         )
+        extra_columns = self.stations._ogc_extra_columns()  # noqa: SLF001
         features = []
         for station in df_stations.with_columns(
             pl.col("start_date").dt.to_string("iso:strict"),
@@ -602,7 +610,8 @@ class ValuesResult(_ValuesResult):
             df_values = self.df.filter(pl.col("station_id") == station["station_id"]).select(
                 pl.all().exclude("station_id"),
             )
-            features.append({**self.stations._to_ogc_feature(station), "values": self._to_dict(df_values)})  # noqa: SLF001
+            feature = self.stations._to_ogc_feature(station, extra_columns)  # noqa: SLF001
+            features.append({**feature, "values": self._to_dict(df_values)})
         data["data"] = {
             "type": "FeatureCollection",
             "features": features,

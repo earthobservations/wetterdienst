@@ -2342,6 +2342,8 @@ def test_values_to_ogc_feature_collection_without_elevation_and_with_gauge_zero(
         schema_overrides={"quality": pl.Float64},
         orient="row",
     )
+    # station_id as Enum, as a real values frame has it
+    df_values = TimeseriesValues._cast_metadata_to_enum(df_values)  # noqa: SLF001
     result = ValuesResult(stations=_gauge_stations_result(), values=None, df=df_values)
     features = json.loads(result.to_geojson())["data"]["features"]
     assert {
