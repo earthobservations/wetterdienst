@@ -1859,9 +1859,10 @@ describe('dataViewer chart that could not be drawn', () => {
     expect(retry()).toBeUndefined()
   })
 
-  it('takes the note away while a drawing is under way, and shows it anew where that fails too', async () => {
-    // the note stayed, Retry with it, while a drawing ran, and a Retry that failed again left it as
-    // it was, which a screen reader does not announce again
+  it('tells a Retry that fails too anew, and keeps the focus on Retry', async () => {
+    // a Retry that failed again left the note as it was, which a screen reader does not announce
+    // again; the note, Retry with it, is not taken away while the drawing runs, which would lose
+    // the focus
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
@@ -1878,13 +1879,17 @@ describe('dataViewer chart that could not be drawn', () => {
       throw new Error('drawing failed again')
     })
     const calls = plotly.newPlot.mock.calls.length
-    retry()!.click()
+    const button = retry()!
+    button.focus()
+    button.click()
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(calls + 1))
-    await vi.waitFor(() => expect(note()).toBeUndefined())
+    await flushPromises()
+    expect(alert()).toBe(first)
     held.open()
-    await vi.waitFor(() => expect(retry()).toBeDefined())
-    expect(alert()).toBeDefined()
-    expect(alert()).not.toBe(first)
+    await vi.waitFor(() => expect(alert()).not.toBe(first))
+    expect(note()).toContain('The chart could not be drawn')
+    expect(retry()).toBe(button)
+    expect(document.activeElement).toBe(button)
   })
 })
 

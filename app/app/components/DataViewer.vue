@@ -948,11 +948,11 @@ async function chartsDrawn() {
 // change it was started for, and the older one stops before it draws again, where it would draw what
 // it read at its start over the newer drawing. Failed: the newest threw -- Plotly's import or its
 // drawing -- and the chart holds no drawing, which a chart image draws again rather than save, and
-// the chart area says so. Cleared as a render starts, so the note goes while one is under way and
-// comes back, to be announced again, where it fails too
-interface ChartRenders { started: number, failed: boolean }
-const mainRenders = reactive<ChartRenders>({ started: 0, failed: false })
-const facetRenders = reactive<ChartRenders>({ started: 0, failed: false })
+// the chart area says so. Failures: the newest renders' failures counted, so the chart area's note
+// is told again where a Retry fails too
+interface ChartRenders { started: number, failed: boolean, failures: number }
+const mainRenders = reactive<ChartRenders>({ started: 0, failed: false, failures: 0 })
+const facetRenders = reactive<ChartRenders>({ started: 0, failed: false, failures: 0 })
 
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   // a chart still being drawn holds no graph, which Plotly exports as an empty figure of its default
@@ -1079,12 +1079,15 @@ const plotlyConfig: Partial<PlotlyConfig> = {
 function startRender(renders: ChartRenders, draw: (newest: () => boolean) => Promise<void>) {
   const number = ++renders.started
   const newest = () => number === renders.started
-  renders.failed = false
-  return tracked(draw(newest).catch((error: unknown) => {
+  return tracked(draw(newest).then(() => {
+    if (newest())
+      renders.failed = false
+  }, (error: unknown) => {
     // a newer render draws the chart, and tells its own failure
     if (!newest())
       return
     renders.failed = true
+    renders.failures++
     console.error('The chart could not be drawn', error)
   }))
 }
@@ -1375,7 +1378,9 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
               v-if="chartNotDrawn"
               class="flex items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
             >
-              <span role="alert" class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+              <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
+                   button stays, and keeps its focus -->
+              <span :key="shownRenders().failures" role="alert" class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
               <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
             </div>
             <div
