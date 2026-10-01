@@ -1168,9 +1168,8 @@ const parameterStats = computed((): ParameterStats[] => {
     const value = field(row, 'value')
     if (typeof parameter !== 'string' || (typeof value !== 'number' && value !== null))
       continue
-    // a query may leave the dataset out
-    const datasetField = field(row, 'dataset')
-    const dataset = typeof datasetField === 'string' ? datasetField : ''
+    // as the table shows it: a query may leave the dataset out, or give one of its own, a year
+    const dataset = fieldText(field(row, 'dataset'))
     const key = `${dataset}/${parameter}`
     if (!statsMap.has(key))
       statsMap.set(key, { values: [], dataset, parameter })

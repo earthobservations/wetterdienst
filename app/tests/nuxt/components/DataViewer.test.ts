@@ -1698,12 +1698,26 @@ describe('dataViewer parameter statistics of rows that are not long values', () 
     panel.vm.$emit('dataTransformed', [{ timestamp: '2020-01-01T00:00:00Z', parameter: 'temperature_air_mean_2m', avg_value: 1.5 }])
     await wrapper.vm.$nextTick()
     expect(stats(viewer)).toEqual([])
-    // `SELECT parameter, value FROM data`: no dataset, and a missing value counted as none
-    panel.vm.$emit('dataTransformed', [{ parameter: 'precipitation_height', value: 2 }, { parameter: 'precipitation_height', value: 4 }, { parameter: 'wind_speed', value: null }])
+    // `SELECT parameter, value FROM data`: no dataset, a missing value counted as none, and a value
+    // as text, `value::VARCHAR AS value`, left out
+    panel.vm.$emit('dataTransformed', [{ parameter: 'precipitation_height', value: 2 }, { parameter: 'precipitation_height', value: 4 }, { parameter: 'wind_speed', value: null }, { parameter: 'wind_speed', value: '3' }, { parameter: 'humidity', value: '50' }])
     await wrapper.vm.$nextTick()
     expect(stats(viewer)).toEqual([
       { parameter: 'precipitation_height', dataset: '', count: 2, min: 2, max: 4, mean: 3, sum: 6 },
       { parameter: 'wind_speed', dataset: '', count: 0, min: null, max: null, mean: null, sum: null },
+    ])
+  })
+
+  it('takes a query\'s dataset of another type as its text, each its own', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    // `SELECT year(timestamp) AS dataset, parameter, value FROM data`
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [{ dataset: 2019, parameter: 'wind_speed', value: 1 }, { dataset: 2020, parameter: 'wind_speed', value: 3 }])
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([
+      { parameter: 'wind_speed', dataset: '2019', count: 1, min: 1, max: 1, mean: 1, sum: 1 },
+      { parameter: 'wind_speed', dataset: '2020', count: 1, min: 3, max: 3, mean: 3, sum: 3 },
     ])
   })
 })
