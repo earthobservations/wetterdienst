@@ -322,7 +322,7 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
   it('takes the note, and its Retry of the earlier values, away as Show fetches the stripes anew', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
-    await showStripes()
+    const vm = await showStripes()
     await vi.waitFor(() => expect(retry()).toBeDefined())
     // the next values held, so the fetch is still under way
     let answer!: () => void
@@ -336,7 +336,9 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
 
     await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
     expect(retry()).toBeUndefined()
+    // the held fetch let finish here, so it draws nothing into the next test
     answer()
+    await vi.waitFor(() => expect(vm.isLoading).toBe(false))
   })
 
   it('draws nothing where Reset came while Plotly loaded', async () => {
@@ -383,7 +385,9 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
     const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, { annotations: Array<{ text: string }> }]
     expect(layout.annotations.map(a => a.text)).not.toContain('2020')
+    // the held fetch let finish here, so it draws nothing into the next test
     answer()
+    await vi.waitFor(() => expect(vm.isLoading).toBe(false))
   })
 
   it('says the stripes image could not be saved where its export fails', async () => {
