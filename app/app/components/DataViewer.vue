@@ -1394,7 +1394,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             >
               <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
                    button stays, and keeps its focus -->
-              <span :key="shownRenders().failures" role="alert">
+              <span :key="shownRenders().failures" role="alert" class="text-center">
                 <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
                 <!-- a space apart from the note, which the alert's text otherwise runs into -->
                 <span v-if="plotlyNotLoaded" class="block text-sm">{{ ' ' }}{{ t('dataViewer.chartCodeNotLoaded') }}</span>
