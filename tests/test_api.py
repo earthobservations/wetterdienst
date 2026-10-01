@@ -55,8 +55,8 @@ from wetterdienst.provider.smhi.observation import SmhiObservationMetadata, Smhi
 from wetterdienst.provider.wsv.pegel import WsvPegelMetadata, WsvPegelRequest
 
 # The third-party packages a network's request class may lack, because only an optional extra
-# installs them: `dwd/derived` imports pandas, which arrives with the `export` extra. CI installs
-# the extras and so skips none of them.
+# installs them: `dwd/derived` imports pandas, which the `export` extra installs (as do `duckdb`,
+# `cratedb` and `mysql`). CI installs the extras, so there a missing one fails instead of skipping.
 NETWORKS_NEEDING_AN_EXTRA = {("dwd", "derived"): {"pandas"}}
 
 
@@ -80,11 +80,15 @@ def _resolve(provider: str, network: str) -> type | None:
         missing = cause.name if isinstance(cause, ModuleNotFoundError) else None
         if not missing or missing.partition(".")[0] == "wetterdienst":
             raise
-        if missing.partition(".")[0] not in NETWORKS_NEEDING_AN_EXTRA.get((provider, network), set()):
+        package = missing.partition(".")[0]
+        if package not in NETWORKS_NEEDING_AN_EXTRA.get((provider, network), set()):
             msg = (
-                f"{provider}/{network} cannot be imported: {error}. "
-                f"Add {missing!r} to its NETWORKS_NEEDING_AN_EXTRA entry if that is intended."
+                f"{provider}/{network} cannot be imported: {error} "
+                f"List {package!r} for it in NETWORKS_NEEDING_AN_EXTRA if that is intended."
             )
+            raise AssertionError(msg) from error
+        if IS_CI:
+            msg = f"{provider}/{network} cannot be imported in CI, which installs every extra: {error}"
             raise AssertionError(msg) from error
         warnings.warn(f"{provider}/{network} not checked: {error}", stacklevel=2)
         return None
@@ -239,6 +243,8 @@ def test_resolve_says_nothing_it_cannot_know_about_an_extra(monkeypatch: pytest.
 @pytest.mark.parametrize(
     "metadata",
     ALL_METADATA,
+    # by name, so a case keeps its id where dwd/derived is left out for want of an extra
+    ids=lambda metadata: metadata.name,
 )
 def test_metadata_units(unit_converter: UnitConverter, unit_converter_unit_type_units: dict, metadata: dict) -> None:
     """Test metadata units."""
@@ -503,6 +509,8 @@ def test_metadata_model_name() -> None:
 @pytest.mark.parametrize(
     "metadata",
     ALL_METADATA,
+    # by name, so a case keeps its id where dwd/derived is left out for want of an extra
+    ids=lambda metadata: metadata.name,
 )
 def test_metadata_parameter_table(unit_converter_unit_type_units: dict, metadata: dict) -> None:
     """Test provider parameter declarations against the canonical parameter table.
@@ -1256,6 +1264,7 @@ def _fail_import_with(monkeypatch: pytest.MonkeyPatch, error: Exception) -> None
 def test_resolve_helper_skips_a_network_whose_extra_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     """A listed network missing a third-party package is skipped, and says so rather than silently."""
     _fail_import_with(monkeypatch, ModuleNotFoundError("No module named 'pandas'", name="pandas"))
+    monkeypatch.setitem(globals(), "IS_CI", value=False)
 
     with pytest.warns(UserWarning, match=r"dwd/derived not checked: .*requires pandas"):
         assert _resolve("dwd", "derived") is None
@@ -1282,7 +1291,7 @@ def test_resolve_helper_refuses_a_package_not_listed_for_the_network(monkeypatch
     """A listed network is excused only the package it is listed for, not a misspelt or undeclared one."""
     _fail_import_with(monkeypatch, ModuleNotFoundError("No module named 'panadas'", name="panadas"))
 
-    with pytest.raises(AssertionError, match=r"Add 'panadas' to its NETWORKS_NEEDING_AN_EXTRA entry"):
+    with pytest.raises(AssertionError, match=r"List 'panadas' for it in NETWORKS_NEEDING_AN_EXTRA"):
         _resolve("dwd", "derived")
 
 
@@ -1291,6 +1300,15 @@ def test_resolve_helper_raises_a_missing_module_it_cannot_name(monkeypatch: pyte
     _fail_import_with(monkeypatch, ModuleNotFoundError("something is missing"))
 
     with pytest.raises(ImportError, match=r"not found"):
+        _resolve("dwd", "derived")
+
+
+def test_resolve_helper_refuses_to_skip_in_ci(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CI installs every extra, so a listed network that cannot be imported there is a failure, not a skip."""
+    _fail_import_with(monkeypatch, ModuleNotFoundError("No module named 'pandas'", name="pandas"))
+    monkeypatch.setitem(globals(), "IS_CI", value=True)
+
+    with pytest.raises(AssertionError, match=r"dwd/derived cannot be imported in CI"):
         _resolve("dwd", "derived")
 
 
