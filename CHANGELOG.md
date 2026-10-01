@@ -51,6 +51,11 @@ Types of changes:
   terms, a line per problem -- `Missing option '--longitude'`, `Options '--station' and '--name'
   cannot be used together`, `Invalid value for '--distance'` with the value refused -- instead of
   pydantic's echo of every option given (GH-2056)
+- **Breaking**: `cloud_cover_below_1000ft` is `cloud_cover_below_2km`. It is DWD's `nl` in
+  `dwd/mosmix` and `dwd/dmo`, low cloud below 2 km, which the old name and its glossary entry put
+  at 1000 ft. Request the new name; the old one in a request, as a `ts_geo_station_distance` key or
+  as a wide column in a SQL filter is reported with its replacement. A wide DuckDB, SQLite or
+  PostgreSQL table `to_target` wrote before takes no append of it: write it anew (GH-1977)
 - **Breaking**: `imgw/meteorology` `daily/precipitation` returns `precipitation_amount` as 0 mm,
   with `quality` 11, for a day the file leaves out of a month the station reports in; such a day
   was missing. Drop `quality` 11 to get the rows as before. Other parameters and datasets are

@@ -131,9 +131,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "cloud_cover_below_1000ft",
+        "cloud_cover_below_2km",
         "fraction",
-        "Fraction of the sky covered by cloud below 1000 ft.",
+        "Fraction of the sky covered by cloud below 2 km.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(

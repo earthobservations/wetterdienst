@@ -380,7 +380,7 @@ export const parameters: Record<string, string> = {
   climate_correction_factor: 'Klimaatcorrectiefactor',
   cloud_base_convective: 'Convectieve wolkenbasis',
   cloud_cover_above_7km: 'Bewolking boven 7 km',
-  cloud_cover_below_1000ft: 'Bewolking onder 1000 ft',
+  cloud_cover_below_2km: 'Bewolking onder 2 km',
   cloud_cover_below_500ft: 'Bewolking onder 500 ft',
   cloud_cover_below_7km: 'Bewolking onder 7 km',
   cloud_cover_between_2km_and_7km: 'Bewolking tussen 2 en 7 km',
