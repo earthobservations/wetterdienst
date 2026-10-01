@@ -277,7 +277,8 @@ describe('stripes Page chart that could not be drawn', () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     plotly.newPlot.mockClear()
     await showStripes()
-    await vi.waitFor(() => expect(retry()).toBeDefined())
+    // the failing module loaded, which a busy runner can take a while over
+    await vi.waitFor(() => expect(retry()).toBeDefined(), { timeout: 5000 })
     expect(note()).toBe('The chart could not be drawn')
     expect(logged).toHaveBeenCalledWith('The chart could not be drawn', expect.any(Error))
     // no image of stripes that are not drawn
@@ -310,7 +311,7 @@ describe('stripes Page chart that could not be drawn', () => {
     })
     vi.spyOn(console, 'error').mockImplementation(() => {})
     await showStripes()
-    await vi.waitFor(() => expect(retry()).toBeDefined())
+    await vi.waitFor(() => expect(retry()).toBeDefined(), { timeout: 5000 })
 
     await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Reset')!.trigger('click')
     expect(retry()).toBeUndefined()

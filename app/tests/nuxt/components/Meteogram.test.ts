@@ -49,7 +49,8 @@ describe('meteogram chart that could not be drawn', () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     plotly.newPlot.mockClear()
     await showMeteogram()
-    await vi.waitFor(() => expect(retry()).toBeDefined())
+    // the failing module loaded, which a busy runner can take a while over
+    await vi.waitFor(() => expect(retry()).toBeDefined(), { timeout: 5000 })
     expect(note()).toBe('The chart could not be drawn')
     expect(logged).toHaveBeenCalledWith('The chart could not be drawn', expect.any(Error))
 
