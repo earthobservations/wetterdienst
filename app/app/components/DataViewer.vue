@@ -734,7 +734,7 @@ function rowDate(row: Value): Date | null {
 const chartRows = computed(() => sortedValues.value.flatMap((row) => {
   const date = rowDate(row)
   const value: unknown = row.value
-  const y = typeof value === 'number' ? value : bigIntegerValue(value) === undefined ? Number.NaN : Number(value)
+  const y = typeof value === 'number' ? value : Number(bigIntegerValue(value) ?? Number.NaN)
   return date && Number.isFinite(y) ? [{ row, date, y }] : []
 }))
 
