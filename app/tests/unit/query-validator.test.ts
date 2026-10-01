@@ -230,3 +230,53 @@ describe('validateQuery statements, as DuckDB reads them', () => {
     expect(rowsOf(result.statement!)).toEqual(rowsOf(sql))
   })
 })
+
+describe('validateQuery keywords, as DuckDB reads them', () => {
+  let conn: DuckDBConnection
+
+  beforeAll(async () => {
+    conn = (await nodeDuckDB()).connect()
+    conn.query('CREATE TABLE data AS SELECT 1 AS value')
+  })
+
+  function count(): number {
+    return Number(conn.query('SELECT count(*) AS n FROM data').toArray()[0]!.toJSON().n)
+  }
+
+  it('refuses a statement after a comment that nests, which DuckDB reads to its last \'*/\'', () => {
+    const sql = '/* /* */ SELECT 1 */ SET VARIABLE ran = 1'
+    conn.query('RESET VARIABLE ran')
+    conn.query(sql)
+    expect(conn.query('SELECT getvariable(\'ran\') AS ran').toArray()[0]!.toJSON().ran).toBe(1)
+    expect(validateQuery(sql)).toEqual({ valid: false, errorKey: 'validation.onlySelect' })
+    expect(validateQuery('/* /* */ SELECT */ COPY data FROM \'rows.csv\'')).toEqual({ valid: false, errorKey: 'validation.onlySelect' })
+  })
+
+  it('refuses a keyword after a \'--\' in a string, which DuckDB reads as no comment', () => {
+    const sql = 'WITH x AS (SELECT \'--\') INSERT INTO data SELECT * FROM data'
+    const before = count()
+    conn.query(sql)
+    expect(count()).toBe(2 * before)
+    expect(validateQuery(sql)).toEqual({ valid: false, errorKey: 'validation.disallowedOperation', params: { op: 'INSERT' } })
+  })
+
+  it.each([
+    'SELECT \'delete\' AS a, 1 AS "update" FROM data LIMIT 1',
+    'SELECT $$drop$$ AS a FROM data LIMIT 1 -- then insert',
+    'SELECT E\'\\\' insert\' AS a /* drop */ FROM data LIMIT 1',
+  ])('lets %j through, its keywords in strings, quoted identifiers or comments', (sql) => {
+    const result = validateQuery(sql)
+    expect(result).toMatchObject({ valid: true, statement: expect.any(String) })
+    expect(result.warningKey).toBeUndefined()
+    expect(conn.query(result.statement!).numRows).toBe(1)
+  })
+
+  it.each([
+    'SELECT * FROM data; -- LIMIT 10',
+    'SELECT * FROM data /* LIMIT 10 */',
+    'SELECT \'LIMIT 10\' AS a FROM data',
+    'SELECT 1 AS "limit" FROM data',
+  ])('warns about %j, whose LIMIT is no keyword', (sql) => {
+    expect(validateQuery(sql)).toMatchObject({ valid: true, warningKey: 'validation.noLimit' })
+  })
+})
