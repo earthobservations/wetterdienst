@@ -1214,8 +1214,6 @@ async function renderChartActual() {
     const sTx = hasTxTn ? resampledSeries.get(txKey)! : null
     const sTn = hasTxTn ? resampledSeries.get(tnKey)! : null
 
-    traces.push({ x: xs, y: Array.from({ length: xs.length }).fill(tempMinY), type: 'scatter', mode: 'none', showlegend: false, yaxis: 'y3', hoverinfo: 'skip' })
-
     const dewLookup = new Map<string, number>()
     if (dewKey && resampledSeries.has(dewKey)) {
       const ds = resampledSeries.get(dewKey)!
