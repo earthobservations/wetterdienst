@@ -49,8 +49,9 @@ _STATUS_NO_MEASUREMENT = "8"
 _STATUS_NO_PHENOMENON = "9"
 # The status, carried into `quality` the way `metoffice/observation` carries MIDAS's `MESQL` flag. "8"
 # and "9" are IMGW's own codes; `quality` is a float column and `Z` is a letter, so `Z` is reported as
-# 10 -- the one value here this library assigns itself, documented on the provider's page. A blank
-# status is a plain measurement and stays null, which is what every other value carries.
+# 10 -- a value this library assigns itself, as it does `_QUALITY_ABSENT_DAY`, both documented on the
+# provider's page. A blank status is a plain measurement and stays null, which is what every other
+# value carries.
 _STATUS_QUALITY = {"8": 8.0, "9": 9.0, "Z": 10.0}
 # What a status is called between the rename and the unpivot, to keep it apart from the value of the
 # same name. No IMGW column name can collide with it: they are Polish prose.
@@ -72,6 +73,22 @@ _STATUSLESS_COLUMNS: dict[str, frozenset[int]] = {
     "o_m.*.csv": frozenset({11, 12}),
     "s_m_d.*.csv": frozenset({21, 22}),
 }
+# The columns for which a day absent from the file is a brak zjawiska, by the file pattern that reads
+# them. Only `o_d_format.txt` says what such a day means -- "Brak zjawiska to również brak dnia w
+# istniejącym miesiącu", a day missing from a month that is itself present is a brak zjawiska too --
+# and the older files rely on it: `o_d_02_2010` carries 14,229 rows for the 26,796 days in its stations' months,
+# while a day without a measurement is not left out but written with status "8", 28 times in the same
+# file. Only `SMDB` is filled. `PKSN` and `HSS` sit in the same rows, a day without rain is not a day
+# without snow cover, and WARSZOWICE has both as "8" in every row of that file. A station's month
+# counts as present when the station has at least one row in it: a station absent from a whole month
+# says nothing about that month's weather.
+_ABSENT_DAY_NO_PHENOMENON: dict[str, frozenset[str]] = {
+    "o_d.*.csv": frozenset({"suma dobowa opadów"}),
+}
+# The `quality` of a day filled in from `_ABSENT_DAY_NO_PHENOMENON`. Not 9: the brak zjawiska comes from
+# the format description rather than from a status in the file, and a distinct code lets a caller tell
+# the two apart. Like `Z`'s 10, this one is the library's own, documented on the provider's page.
+_QUALITY_ABSENT_DAY = 11.0
 
 ImgwMeteorologyMetadata = {
     **_METADATA,
@@ -637,8 +654,11 @@ class ImgwMeteorologyValues(TimeseriesValues):
                 schema=schema,
                 statusless=_STATUSLESS_COLUMNS.get(file_pattern, frozenset()),
             )
-            if not df.is_empty():
-                data.append(df)
+            if df.is_empty():
+                continue
+            if file_pattern in _ABSENT_DAY_NO_PHENOMENON:
+                df = self._fill_absent_days(df, _ABSENT_DAY_NO_PHENOMENON[file_pattern])
+            data.append(df)
         try:
             df = pl.concat(data)
         except ValueError:
@@ -694,6 +714,28 @@ class ImgwMeteorologyValues(TimeseriesValues):
             pl.col("quality").str.strip_chars().replace_strict(_STATUS_QUALITY, default=None, return_dtype=pl.Float64),
         )
         return values.join(quality, on=["station_id", "timestamp", "parameter"], how="left")
+
+    @staticmethod
+    def _fill_absent_days(values: pl.DataFrame, names: frozenset[str]) -> pl.DataFrame:
+        """Return ``names`` as a zero on every day of the station's months that has no row for them."""
+        months = values.select(
+            pl.col("station_id"),
+            pl.col("timestamp").dt.truncate("1mo").alias("month"),
+        ).unique()
+        days = months.select(
+            pl.col("station_id"),
+            pl.datetime_ranges(pl.col("month"), pl.col("month").dt.month_end(), interval="1d").alias("timestamp"),
+        ).explode("timestamp", empty_as_null=False)
+        days = days.join(pl.DataFrame({"parameter": sorted(names)}), how="cross")
+        absent = days.join(values, on=["station_id", "timestamp", "parameter"], how="anti")
+        absent = absent.select(
+            pl.col("station_id"),
+            pl.col("timestamp"),
+            pl.col("parameter"),
+            pl.lit(0.0, dtype=pl.Float64).alias("value"),
+            pl.lit(_QUALITY_ABSENT_DAY, dtype=pl.Float64).alias("quality"),
+        )
+        return pl.concat([values, absent])
 
     @staticmethod
     def _unpivot(df: pl.DataFrame, resolution: Resolution, value_name: str) -> pl.DataFrame:

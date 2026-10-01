@@ -1107,9 +1107,13 @@ def get_values(
         settings=settings,
     )
 
+    # built before the `try` below: a provider refuses a request it cannot serve as phrased here
+    # (`ParameterNotCarriedError`), and that is the caller's to report, where `sys.exit` would turn
+    # it into a REST API 500 with no message
+    values = stations_.values
     try:
         # TODO: Add stream-based processing here.
-        values_ = stations_.values.all()
+        values_ = values.all()
     except ValueError:
         log.exception("Error while fetching values")
         sys.exit(1)

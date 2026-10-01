@@ -23,9 +23,7 @@ export const SETTINGS_VERSION = 1
 // Two of the defaults below disagree with the backend's, so wiring this page up without settling them
 // would change what every user gets who never opened it: power_per_area defaults to
 // watt_per_square_centimeter where the backend converts to watt_per_square_meter, and conductivity to
-// siemens_per_meter where the backend uses microsiemens_per_centimeter -- and since the backend rounds
-// to four decimals after converting, a river's µS/cm reading under an S/m target keeps almost no
-// significant figures -- GH-2002 covers that rounding, and both of these defaults are named in it.
+// siemens_per_meter where the backend uses microsiemens_per_centimeter.
 export const unitSettingsSchema = z.object({
   temperature: z.string(),
   precipitation: z.string(),

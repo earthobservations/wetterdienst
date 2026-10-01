@@ -4,6 +4,8 @@
 
 import collections
 import importlib
+import re
+import warnings
 import zoneinfo
 from datetime import datetime
 from typing import get_args
@@ -13,7 +15,7 @@ import pytest
 from fsspec.exceptions import FSTimeoutError
 from pydantic import ValidationError
 
-from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_WINDOWS
+from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_WINDOWS, skip_if_upstream_unavailable
 from wetterdienst import Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
@@ -25,7 +27,6 @@ from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata, AemetObservationRequest
 from wetterdienst.provider.chmi.observation import ChmiObservationMetadata, ChmiObservationRequest
 from wetterdienst.provider.dmi.observation import DmiObservationMetadata, DmiObservationRequest
-from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata
 from wetterdienst.provider.dwd.dmo import DwdDmoMetadata, DwdDmoRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata, DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
@@ -54,12 +55,52 @@ from wetterdienst.provider.rmi.observation import RmiObservationMetadata, RmiObs
 from wetterdienst.provider.smhi.observation import SmhiObservationMetadata, SmhiObservationRequest
 from wetterdienst.provider.wsv.pegel import WsvPegelMetadata, WsvPegelRequest
 
+# The third-party packages a network's request class may lack, because only an optional extra
+# installs them: `dwd/derived` imports pandas, which the `export` extra installs (as do `duckdb`,
+# `cratedb` and `mysql`). CI installs the extras, so there `test_wetterdienst_api` fails on one.
+NETWORKS_NEEDING_AN_EXTRA = {("dwd", "derived"): {"pandas"}}
+
+
+def _resolve(provider: str, network: str) -> type | None:
+    """Resolve a provider/network, or return None with a warning when an optional extra it needs is missing.
+
+    This is what lets the module collect on a bare `uv sync`, rather than importing `dwd/derived` at
+    module level and failing as a whole for want of pandas.
+
+    Only a missing package listed for that very network is excused -- a `metadata.py` that makes
+    `build_metadata_model` raise, a mistyped intra-package import in a provider's `api.py`, or a
+    misspelt or undeclared third-party import has to surface rather than quietly dropping that
+    provider from the checks that loop over all of them. `Wetterdienst.resolve` re-raises the
+    `ModuleNotFoundError` as a plain `ImportError`, and words a missing name inside this package as a
+    missing dependency just as it does a third-party one, so the missing name is read off `__cause__`
+    rather than trusted to the message.
+    """
+    try:
+        return Wetterdienst.resolve(provider, network)
+    except ImportError as error:
+        cause = error.__cause__
+        missing = cause.name if isinstance(cause, ModuleNotFoundError) else None
+        package = (missing or "").partition(".")[0]
+        if not package or package == "wetterdienst":
+            raise
+        if package not in NETWORKS_NEEDING_AN_EXTRA.get((provider, network), set()):
+            msg = (
+                f"{provider}/{network} cannot be imported: {error} "
+                f"List {package!r} for it in NETWORKS_NEEDING_AN_EXTRA if that is intended."
+            )
+            raise AssertionError(msg) from error
+        warnings.warn(f"{provider}/{network} not checked: {error}", stacklevel=2)
+        return None
+
+
+_DWD_DERIVED = _resolve("dwd", "derived")
+
 # every provider/network that exposes a metadata model (dwd/radar and dwd/alerts have none)
 ALL_METADATA = [
     AemetObservationMetadata,
     ChmiObservationMetadata,
     DmiObservationMetadata,
-    DwdDerivedMetadata,
+    *([_DWD_DERIVED.metadata] if _DWD_DERIVED else []),
     DwdDmoMetadata,
     DwdMosmixMetadata,
     DwdObservationMetadata,
@@ -139,7 +180,13 @@ def unit_converter_unit_type_units(unit_converter: UnitConverter) -> dict:
 )
 def test_wetterdienst_api(provider: str, network: str) -> None:
     """Test wetterdienst API."""
-    request = Wetterdienst.resolve(provider, network)
+    request = _resolve(provider, network)
+    if request is None:
+        # every CI test job installs the extras, so there this can only mean one was dropped, and the
+        # network would have left ALL_METADATA and the source-description loops behind a warning
+        if IS_CI:
+            pytest.fail(f"{provider}/{network} cannot be imported in CI, which installs every extra")
+        pytest.skip(f"{provider}/{network} needs an optional extra that is not installed")
     assert request
 
 
@@ -199,6 +246,8 @@ def test_resolve_says_nothing_it_cannot_know_about_an_extra(monkeypatch: pytest.
 @pytest.mark.parametrize(
     "metadata",
     ALL_METADATA,
+    # by name, so a case keeps its id where dwd/derived is left out for want of an extra
+    ids=lambda metadata: metadata.name,
 )
 def test_metadata_units(unit_converter: UnitConverter, unit_converter_unit_type_units: dict, metadata: dict) -> None:
     """Test metadata units."""
@@ -463,6 +512,8 @@ def test_metadata_model_name() -> None:
 @pytest.mark.parametrize(
     "metadata",
     ALL_METADATA,
+    # by name, so a case keeps its id where dwd/derived is left out for want of an extra
+    ids=lambda metadata: metadata.name,
 )
 def test_metadata_parameter_table(unit_converter_unit_type_units: dict, metadata: dict) -> None:
     """Test provider parameter declarations against the canonical parameter table.
@@ -863,6 +914,7 @@ def test_api_nws_observation(default_settings: Settings) -> None:
 
 
 @pytest.mark.remote
+@skip_if_upstream_unavailable()
 def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
     """Test eaufrance hubeau API."""
     request = HubeauRequest(parameters=[("5_minutes", "data", "discharge")], settings=default_settings).all()
@@ -1141,10 +1193,7 @@ def test_source_descriptions_reach_the_metadata() -> None:
     unknown = []
     for provider, networks in Wetterdienst.registry.items():
         for network in networks:
-            try:
-                api = Wetterdienst(provider, network)
-            except Exception:  # noqa: BLE001, S112
-                continue
+            api = _resolve(provider, network)
             metadata = getattr(api, "metadata", None)
             if metadata is None:
                 continue
@@ -1188,10 +1237,7 @@ def test_source_descriptions_reach_the_parameter_they_name() -> None:
     wrong = []
     for provider, networks in Wetterdienst.registry.items():
         for network in networks:
-            try:
-                api = Wetterdienst(provider, network)
-            except Exception:  # noqa: BLE001, S112
-                continue
+            api = _resolve(provider, network)
             metadata = getattr(api, "metadata", None)
             if metadata is None:
                 continue
@@ -1210,3 +1256,115 @@ def test_source_descriptions_reach_the_parameter_they_name() -> None:
                                 f"got {parameter.description!r}, expected {expected[key]!r}",
                             )
     assert not wrong, "\n".join(wrong[:10])
+
+
+def test_metadata_monthly_and_annual_parameters_carry_no_hourly_window() -> None:
+    """Test that no monthly or annual parameter is named for a window of hours.
+
+    A `_last_<N>h` or `_<N>h` name says the value covers those hours, and its glossary entry says so
+    too. A total over a month or a year declared under such a name reads as the quantity for those hours:
+    DWD derived monthly `summe von vpgfao` and `summe von vpgh` came under the daily potential
+    evapotranspiration names (GH-2042).
+    """
+    windowed = [
+        f"{metadata.name} {resolution.name}/{dataset.name}/{parameter.name}"
+        for metadata in ALL_METADATA
+        for resolution in metadata
+        if resolution.value in (Resolution.MONTHLY, Resolution.ANNUAL)
+        for dataset in resolution
+        for parameter in dataset
+        # `_last_24h` and a bare `_24h` alike; a gust's `_1min` is how long it is averaged, not a window
+        if re.search(r"_\d+h$", parameter.name)
+    ]
+    assert windowed == []
+    if _DWD_DERIVED is None:
+        # without its extra, dwd/derived is left out of ALL_METADATA too; CI fails test_wetterdienst_api for it
+        return
+    soil = _DWD_DERIVED.metadata["monthly"]["soil"]
+    assert soil["summe von vpgfao"].name == "evapotranspiration_potential_grass_fao"
+    assert soil["summe von vpgh"].name == "evapotranspiration_potential_grass_haude"
+
+
+def _fail_import_with(monkeypatch: pytest.MonkeyPatch, error: Exception) -> None:
+    def _raise(_module_path: str) -> None:
+        raise error
+
+    monkeypatch.setattr(importlib, "import_module", _raise)
+
+
+def test_resolve_helper_skips_a_network_whose_extra_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A listed network missing a third-party package is skipped, and says so rather than silently."""
+    _fail_import_with(monkeypatch, ModuleNotFoundError("No module named 'pandas'", name="pandas"))
+
+    with pytest.warns(UserWarning, match=r"dwd/derived not checked: .*requires pandas"):
+        assert _resolve("dwd", "derived") is None
+
+
+def test_resolve_helper_refuses_to_skip_an_unlisted_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A network that newly needs a missing package fails instead of dropping out of every loop."""
+    _fail_import_with(monkeypatch, ModuleNotFoundError("No module named 'pandas'", name="pandas"))
+
+    with pytest.raises(AssertionError, match=r"knmi/observation cannot be imported"):
+        _resolve("knmi", "observation")
+
+
+def test_resolve_helper_raises_a_missing_module_inside_the_package(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A mistyped intra-package import is a bug, not a missing extra, even on a listed network."""
+    name = "wetterdienst.provider.dwd.derived.typo"
+    _fail_import_with(monkeypatch, ModuleNotFoundError(f"No module named {name!r}", name=name))
+
+    with pytest.raises(ImportError, match=r"requires wetterdienst\.provider\.dwd\.derived\.typo"):
+        _resolve("dwd", "derived")
+
+
+def test_resolve_helper_refuses_a_package_not_listed_for_the_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A listed network is excused only the package it is listed for, not a misspelt or undeclared one."""
+    _fail_import_with(monkeypatch, ModuleNotFoundError("No module named 'panadas'", name="panadas"))
+
+    with pytest.raises(AssertionError, match=r"List 'panadas' for it in NETWORKS_NEEDING_AN_EXTRA"):
+        _resolve("dwd", "derived")
+
+
+def test_resolve_helper_raises_a_missing_module_it_cannot_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A ModuleNotFoundError that names no module is not taken for a missing extra."""
+    _fail_import_with(monkeypatch, ModuleNotFoundError("something is missing"))
+
+    with pytest.raises(ImportError, match=r"not found"):
+        _resolve("dwd", "derived")
+
+
+def test_wetterdienst_api_refuses_to_skip_in_ci(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CI installs every extra, so a listed network that cannot be imported there fails, not skips.
+
+    Checked in a test rather than in `_resolve`, which also runs at collection to build
+    ALL_METADATA, so that it fails this one case instead of the whole module.
+    """
+    _fail_import_with(monkeypatch, ModuleNotFoundError("No module named 'pandas'", name="pandas"))
+    monkeypatch.setitem(globals(), "IS_CI", value=True)
+
+    with (
+        pytest.warns(UserWarning, match=r"dwd/derived not checked"),
+        # a skip is caught too, so that it fails the match rather than skipping this test
+        pytest.raises((pytest.fail.Exception, pytest.skip.Exception), match=r"dwd/derived cannot be imported in CI"),
+    ):
+        test_wetterdienst_api("dwd", "derived")
+
+
+def test_wetterdienst_api_skips_outside_ci(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Outside CI, a listed network whose extra is missing skips rather than failing a bare install."""
+    _fail_import_with(monkeypatch, ModuleNotFoundError("No module named 'pandas'", name="pandas"))
+    monkeypatch.setitem(globals(), "IS_CI", value=False)
+
+    with (
+        pytest.warns(UserWarning, match=r"dwd/derived not checked"),
+        pytest.raises((pytest.fail.Exception, pytest.skip.Exception), match=r"dwd/derived needs an optional extra"),
+    ):
+        test_wetterdienst_api("dwd", "derived")
+
+
+def test_resolve_helper_raises_any_other_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A provider module that fails to build its metadata is not excused as a missing extra."""
+    _fail_import_with(monkeypatch, ValueError("metadata is broken"))
+
+    with pytest.raises(ValueError, match="metadata is broken"):
+        _resolve("dwd", "derived")

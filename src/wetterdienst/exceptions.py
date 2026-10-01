@@ -64,6 +64,10 @@ class NoStationsWithElevationError(ValueError):
     """Raised when an elevation is asked about and no station in reach reports one of its own."""
 
 
+class ParameterNotCarriedError(ValueError):
+    """Raised when a parameter is asked for by name of a forecast run that never carries it."""
+
+
 class ExportRefusedError(Exception):
     """Raised when a sink will not perform an export, for a reason the caller can act on.
 

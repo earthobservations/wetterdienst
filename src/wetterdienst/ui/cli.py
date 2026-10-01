@@ -21,6 +21,7 @@ from wetterdienst.exceptions import (
     BufrReaderMissingError,
     ExportRefusedError,
     NoStationsWithElevationError,
+    ParameterNotCarriedError,
 )
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -628,12 +629,12 @@ def _collect_or_exit(
     """
     try:
         values_ = get(api=api, request=request, settings=settings)
-    except (BufrReaderMissingError, NoStationsWithElevationError) as e:
+    except (BufrReaderMissingError, NoStationsWithElevationError, ParameterNotCarriedError) as e:
         # the message names what to install, or what to ask instead: the whole of what is to be
-        # done about it. Both are narrow on purpose -- a bare `ImportError` would swallow a cycle
+        # done about it. All are narrow on purpose -- a bare `ImportError` would swallow a cycle
         # or a typo inside a provider module, which is a defect and wants its traceback, not an
-        # instruction. NoStationsWithElevationError subclasses ValueError, so it is caught here or not
-        # at all
+        # instruction. NoStationsWithElevationError and ParameterNotCarriedError subclass
+        # ValueError, so they are caught here or not at all
         log.error(str(e))  # noqa: TRY400
         sys.exit(1)
     except ValueError:

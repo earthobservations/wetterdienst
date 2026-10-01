@@ -663,3 +663,29 @@ def test_a_station_still_reporting_is_not_ruled_out_by_a_lagging_end_date(monkey
     df = request.filter_by_station_id("00001").values.all().df
 
     assert df.height == 3
+
+
+def test_convert_units_keeps_a_reading_a_much_larger_target_holds_little_of() -> None:
+    """A reading converted to a target far larger than its source keeps its significant figures.
+
+    Rounding to a fixed four decimals after converting rounded away what a much larger unit holds of
+    a reading: with `length_short` reported in miles, 5 cm of snow came back as 0.0, which reads as
+    a measurement of no snow, and 150 cm kept one significant figure.
+    """
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "snow_depth")],
+        settings={"ts_unit_targets": {"length_short": "mile"}},
+    )
+    values = DwdObservationValues(
+        sr=StationsResult(
+            stations=request,
+            df=pl.DataFrame(),
+            df_all=pl.DataFrame(),
+            stations_filter=StationsFilter.ALL,
+        ),
+    )
+    df = _long([("daily", "climate_summary", "shk_tag", 0, 5.0), ("daily", "climate_summary", "shk_tag", 1, 150.0)])
+
+    result = values._convert_units(df, request.parameters[0].dataset)  # noqa: SLF001
+
+    assert result.get_column("value").to_list() == [0.000031069, 0.000932057]
