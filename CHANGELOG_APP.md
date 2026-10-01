@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` The SQL query panel runs the string function `replace()` and
+  `SELECT * REPLACE (...)`, and takes a refused keyword after `AS` or a `.` for a name, as in
+  `1 AS update` or `t.delete`, where it refused each as a disallowed operation. A query that writes
+  is still refused (GH-2181)
 - `[Explorer]` The query panel loads an interpolation's `taken_station_ids` as a list, which
   `list_contains` and `unnest` take, where it loaded them as text joined by commas and refused both;
   a query's result hands the column on as a list (GH-2162)
