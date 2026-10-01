@@ -18,6 +18,17 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` The query panel loads an interpolation's `taken_station_ids` as a list, which
+  `list_contains` and `unnest` take, where it loaded them as text joined by commas and refused both;
+  a query's result hands the column on as a list (GH-2162)
+- `[Explorer]` A query that returns no rows shows an empty table and "0 row(s) returned", where the
+  table went on showing every fetched row with no word, as if the query had filtered nothing. Cancel
+  brings the fetched rows back (GH-2163)
+- `[Explorer]` The SQL query panel reads comments and strings as DuckDB does when it checks for a
+  SELECT and for a refused keyword such as INSERT: a comment that nests, or a `--` inside a string,
+  no longer hides an INSERT, COPY or SET that DuckDB then ran. A keyword inside a string, quoted
+  name or comment is let through, and a `LIMIT` there no longer silences the no-LIMIT warning
+  (GH-2166)
 - `[Explorer]` A refused request is told in the error toast by each parameter and what is wrong
   with it -- "station: Cannot be combined with name" -- where a 422 showed `[object Object]`. A
   GeoJSON download the backend refuses shows that toast instead of saving the error as the file and
@@ -135,6 +146,9 @@ Types of changes:
 - `[Explorer]` A query's MAP with DOUBLE or FLOAT keys of NaN, infinity and negative infinity keeps
   each of them, as `NaN`, `Infinity` and `-Infinity`. All three were keyed `null`, so only the
   last one's value was shown and downloaded (GH-2116)
+- `[Explorer]` A query's MAP with DATE or TIMESTAMP keys of infinity and negative infinity keeps
+  both, as `infinity` and `-infinity`, as DuckDB writes them. Both were keyed `null`, so only the
+  last one's value was shown and downloaded (GH-2148)
 - `[Explorer]` The query panel's note on the types the browser's DuckDB misreads names GEOMETRY,
   which comes as its WKB bytes, and `CAST(column AS VARCHAR)` reads it as text (GH-2134)
 - `[Explorer]` The query panel's table has every column any row carries, each numeric when all
@@ -187,6 +201,15 @@ Types of changes:
   together, so six facets of 100 points each lost their markers (GH-2158)
 - `[Explorer]` The chart's series keep their colours and legend places when the table is sorted.
   They followed the table's sort, so sorting by value could swap two stations' colours (GH-2159)
+- `[Explorer]` The chart places a query's timestamp text without an offset, as `2020-01-01 00:00`,
+  at that time in UTC, as the fetched rows are. The browser read it as its own local time, an hour
+  or more away from the row it came from. Text with a space before the time or an offset of hours
+  alone is placed the same in every browser, and a date or time that does not exist, as
+  `2020-02-30`, is left out where it was drawn in the next month (GH-2157)
+- `[Explorer]` The chart plots only a query's values that are numbers, and integers past ±2^53,
+  which come as their digits. Other text under `value`, as from `CAST(value AS VARCHAR)`, is left
+  out: the trendline added it up as text and drew nothing but its legend entry, and text that is no
+  number, as `'n/a'`, turned the y axis into categories (GH-2156)
 - `[Explorer]` The parameter statistics take only rows that carry a `parameter` and a `value` that
   is a number or missing. A wide table, or a query result with its own columns such as `avg_value`,
   shows no statistics, where it showed a row for an undefined parameter, or for an empty dataset,
@@ -197,6 +220,14 @@ Types of changes:
 - `[Explorer]` A chart image whose export fails, such as a stack of many facets past the browser's
   canvas size, says the image could not be saved. Nothing was saved and nothing said so, or for
   such a stack, an empty PNG or JPEG was saved and reported downloaded (GH-2170)
+- `[Explorer/History/Stripes/Meteogram]` Collapsing the station map, or leaving the page, while its
+  markers are still being built no longer adds them to the removed map, which could throw an error
+  into the browser console (GH-2155)
+- `[Stripes]` The station map stays centred on all stations once "Center on all stations" is
+  pressed, where it could move back to the chosen station by itself and undo the user's pan and
+  zoom (GH-2164)
+- `[Explorer/History/Stripes/Meteogram]` The station map no longer writes a warning holding the
+  whole selection to the browser console each time the selection changes (GH-2168)
 
 ## [0.17.0] - 2026-09-29
 
