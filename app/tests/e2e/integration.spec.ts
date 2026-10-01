@@ -108,7 +108,7 @@ test.describe('History Provider/Network Restriction', () => {
     await page.getByRole('button', { name: 'Show', exact: true }).click()
     await page.waitForTimeout(2000)
 
-    await expect(page.getByText(/Station ID: 11/i)).toBeVisible()
+    await expect(page.getByText(/Station ID: 00011/i)).toBeVisible()
 
     const nameHistoryButton = page.getByRole('button', { name: /Name history/i })
     await nameHistoryButton.click()
