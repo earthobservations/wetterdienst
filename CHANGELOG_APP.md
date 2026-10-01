@@ -245,6 +245,13 @@ Types of changes:
 - `[Explorer/History/Stripes/Meteogram]` A station map whose markers cannot be built, as when the
   app was redeployed under an open tab, says so above the map and asks for a reload. The map stayed
   empty without a word (GH-2185)
+- `[Stripes]` The stripes are labelled with the years the backend gives in a browser west of UTC,
+  where every stripe's year, as its hover and the first and last years shown give it, was one year
+  early (GH-2184)
+- `[Stripes/Meteogram]` Stripes or a meteogram that fail to draw, as when Plotly fails to load,
+  say so in the chart area, with a Retry button that tries to draw them again, and a stripes image
+  whose export fails says the image could not be saved. The chart area stayed empty, and a failed
+  image saved nothing, without a word (GH-2186)
 
 ## [0.17.0] - 2026-09-29
 

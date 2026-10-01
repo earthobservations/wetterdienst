@@ -1,9 +1,23 @@
 <script setup lang="ts">
 const { t } = useI18n()
+const toast = useToast()
 
 // Plotly instance (loaded client-side only)
-const plotlyLoaded = ref(false)
 let Plotly: typeof import('plotly.js-basic-dist-min') | null = null
+// The import under way, shared by its callers, and dropped where it fails, so that a later drawing
+// loads Plotly again rather than await the same failure
+let plotlyImport: Promise<typeof import('plotly.js-basic-dist-min')> | null = null
+
+async function ensurePlotly(): Promise<typeof import('plotly.js-basic-dist-min')> {
+  if (Plotly)
+    return Plotly
+  plotlyImport ??= import('plotly.js-basic-dist-min').catch((error) => {
+    plotlyImport = null
+    throw error
+  })
+  Plotly = await plotlyImport
+  return Plotly
+}
 
 const kind = ref<StripesKind>('temperature')
 
@@ -78,6 +92,11 @@ const plotContainer = ref<HTMLElement | null>(null)
 const isLoading = ref(false)
 const hasPlot = ref(false)
 const lastFetchedData = ref<StripesValuesResponse | null>(null)
+// The stripes' drawings, numbered as they start. Failed: the newest threw -- Plotly's import or its
+// drawing -- and the chart area says so; failures counted, so a Retry that fails too is told again
+let plotsStarted = 0
+const plotFailed = ref(false)
+const plotFailures = ref(0)
 
 // Color maps
 const COLOR_MAPS: Record<StripesKind, Array<[number, string]>> = {
@@ -106,6 +125,10 @@ async function fetchAndPlotStripes() {
     return
 
   isLoading.value = true
+  // the stripes are about to be fetched anew: an earlier drawing's failure, and its Retry, which
+  // would draw the earlier values, go. A drawing under way, as of a display option changed, still
+  // draws, and tells its own failure
+  plotFailed.value = false
 
   try {
     const params: StripesValuesQuery = {
@@ -143,7 +166,27 @@ async function fetchAndPlotStripes() {
 }
 
 async function plotStripes(data: StripesValuesResponse) {
-  if (!plotContainer.value || !Plotly || !plotlyLoaded.value)
+  const plot = ++plotsStarted
+  try {
+    await ensurePlotly()
+    // a newer drawing, or a Reset, came while Plotly loaded: this one draws nothing
+    if (plot !== plotsStarted)
+      return
+    await drawStripes(data)
+    if (plot === plotsStarted)
+      plotFailed.value = false
+  }
+  catch (error) {
+    console.error('The chart could not be drawn', error)
+    if (plot !== plotsStarted)
+      return
+    plotFailed.value = true
+    plotFailures.value++
+  }
+}
+
+async function drawStripes(data: StripesValuesResponse) {
+  if (!plotContainer.value || !Plotly)
     return
 
   // Purge any existing plot first to ensure clean render
@@ -157,8 +200,9 @@ async function plotStripes(data: StripesValuesResponse) {
     return
   }
 
-  // Extract years and values
-  const years = validData.map(v => new Date(v.timestamp!).getFullYear())
+  // Extract years and values: each year's value comes at its first moment in UTC, read in UTC, as
+  // in a browser west of UTC that moment is still the year before
+  const years = validData.map(v => new Date(v.timestamp!).getUTCFullYear())
   const values = validData.map(v => v.value!)
 
   // Calculate min and max for normalization
@@ -401,20 +445,29 @@ async function downloadStripes(format: 'png' | 'jpeg' | 'svg' = 'png') {
   // Use current dimensions with a scale factor for high resolution
   // This preserves aspect ratio AND scales text/annotations proportionally
   const station = lastFetchedData.value.metadata.station
-  await Plotly.downloadImage(plotContainer.value, {
-    format,
-    filename: `climate_stripes_${kind.value}_${station.station_id}_${station.name}`,
-    height: containerHeight,
-    width: containerWidth,
-    scale: format === 'svg' ? 1 : 3, // Scale factor of 3 for high-quality raster images
-  })
+  try {
+    await Plotly.downloadImage(plotContainer.value, {
+      format,
+      filename: `climate_stripes_${kind.value}_${station.station_id}_${station.name}`,
+      height: containerHeight,
+      width: containerWidth,
+      scale: format === 'svg' ? 1 : 3, // Scale factor of 3 for high-quality raster images
+    })
+  }
+  catch (error) {
+    console.error('The chart image could not be saved', error)
+    toast.add({ title: t('dataViewer.chartImageNotSaved'), color: 'error' })
+  }
 }
 
 function clearStripes() {
-  if (plotContainer.value && Plotly) {
+  // with Plotly not loaded there is no drawing to purge, but the chart area is still cleared
+  if (plotContainer.value && Plotly)
     Plotly.purge(plotContainer.value)
-    hasPlot.value = false
-  }
+  hasPlot.value = false
+  // a drawing still under way is no longer the newest, so its failure is not told after the next Show
+  plotsStarted++
+  plotFailed.value = false
 }
 
 const route = useRoute()
@@ -569,10 +622,9 @@ watch([showTitle, showYears, showDataAvailability], () => {
   }
 })
 
-// Load Plotly dynamically on mount
-onMounted(async () => {
-  Plotly = await import('plotly.js-basic-dist-min')
-  plotlyLoaded.value = true
+// Load Plotly dynamically on mount; a failure is told where the stripes are drawn
+onMounted(() => {
+  ensurePlotly().catch(() => {})
 })
 </script>
 
@@ -749,10 +801,19 @@ onMounted(async () => {
           </p>
         </div>
         <div
+          v-if="hasPlot && plotFailed"
+          class="flex items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
+        >
+          <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
+               button stays, and keeps its focus -->
+          <span :key="plotFailures" role="alert" class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+          <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="lastFetchedData && plotStripes(lastFetchedData)" />
+        </div>
+        <div
           ref="plotContainer" :class="{ hidden: !hasPlot }"
           class="w-full overflow-hidden" style="min-height: 400px;"
         />
-        <div v-if="hasPlot" class="mt-4">
+        <div v-if="hasPlot && !plotFailed" class="mt-4">
           <UDropdownMenu
             :items="[
               [
