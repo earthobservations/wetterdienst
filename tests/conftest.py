@@ -9,6 +9,7 @@ import socket
 import sys
 import time
 from collections.abc import Generator
+from contextlib import contextmanager
 from typing import Any
 
 import fsspec.utils as _fsspec_utils
@@ -16,6 +17,7 @@ import pytest
 
 from wetterdienst import Info, Settings
 from wetterdienst.util.eccodes import bufr_is_available
+from wetterdienst.util.network import _worth_retrying_download
 
 IS_CI = bool(os.environ.get("CI"))
 IS_LINUX = platform.system() == "Linux"
@@ -35,6 +37,26 @@ def is_html_document(output: str) -> bool:
     plotly floor allows either.
     """
     return output.lstrip().lower().startswith(("<!doctype html>", "<html>"))
+
+
+@contextmanager
+def skip_if_upstream_unavailable() -> Generator[None]:
+    """Skip a remote test whose upstream did not answer, rather than fail it.
+
+    For a test that asserts what upstream publishes, a request that timed out or met a 5xx says
+    nothing either way, and failing on it reports a provider's bad few minutes as a regression here.
+    What counts as not answering is what `download_file` treats as worth asking twice -- a timeout,
+    a dropped connection, a 5xx, or the `FileNotFoundError` fsspec raises for a 404 -- so a request
+    made through it is skipped on only after its second attempt failed as well. Anything else, an
+    assertion or any other 4xx included, still fails the test. Usable as a decorator or around the
+    calls that reach upstream.
+    """
+    try:
+        yield
+    except Exception as error:
+        if _worth_retrying_download(error):
+            pytest.skip(f"upstream did not answer: {error!r}")
+        raise
 
 
 @pytest.fixture(autouse=True, scope="session")
