@@ -6,6 +6,7 @@ import { UApp } from '#components'
 import { useToast } from '#imports'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
+import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
 
 // DataViewer's copy-to-clipboard buttons use UTooltip, which needs a
 // TooltipProvider -- normally supplied by app.vue's root <UApp>. Mounting the
@@ -17,7 +18,7 @@ const ExplorerWithApp = defineComponent({
   },
 })
 
-const VALUE_ROW = { station_id: '00001', dataset: 'climate_summary', parameter: 'temperature_air_max_200', timestamp: '2020-01-01T00:00:00Z', value: 12.3, quality: null, unit: 'degree_celsius' }
+const VALUE_ROW = { station_id: '00001', dataset: 'climate_summary', parameter: 'temperature_air_max_2m', timestamp: '2020-01-01T00:00:00Z', value: 12.3, quality: null, unit: 'degree_celsius' }
 
 // pages mounted, and endpoints registered, by a test: unmounted and removed after it
 const mounted: { unmount: () => void }[] = []
@@ -28,7 +29,7 @@ async function mountWithSelection(values: () => unknown) {
   endpoints.push(registerEndpoint('/api/coverage', (event) => {
     const q = getQuery(event)
     if (q.provider)
-      return { daily: { description: null, datasets: { climate_summary: { description: null, parameters: [{ name: 'temperature_air_max_200' }] } } } }
+      return dailyClimateSummaryCoverage()
     return { dwd: { observation: {} } }
   }))
   endpoints.push(registerEndpoint('/api/stations', () => ({
@@ -55,7 +56,7 @@ async function mountWithSelection(values: () => unknown) {
   await new Promise(resolve => setTimeout(resolve, 50))
   await wrapper.vm.$nextTick()
 
-  vm.parameterSelectionState.selection.parameters = ['temperature_air_max_200']
+  vm.parameterSelectionState.selection.parameters = ['temperature_air_max_2m']
   vm.stationSelectionState.selection.stations = [{ station_id: '00001', name: 'Test Station' }]
   await wrapper.vm.$nextTick()
   await new Promise(resolve => setTimeout(resolve, 50))

@@ -115,16 +115,30 @@ describe('choosing the point an interpolation answers for', () => {
 })
 
 describe('the interpolation\'s station picker with postcode stations', () => {
+  // dwd/derived climate_correction_factor's stations are postcodes, sent with a null name and a
+  // null position
+  const postcode = { station_id: '01067', name: null, region: null, latitude: null, longitude: null, elevation: null }
+
   it('labels a station without a name by its id', async () => {
-    // dwd/derived climate_correction_factor's stations are postcodes, sent with a null name
-    const postcode = { station_id: '01067', name: null, region: null, latitude: null, longitude: null, elevation: null }
+    const nameless = { ...postcode, station_id: '01069', latitude: 51.0, longitude: 13.7 }
     const { wrapper, vm } = await selection('station')
-    vm.stationsData = { stations: [postcode, feldberg] }
-    vm.selectedStation = postcode
+    vm.stationsData = { stations: [nameless, feldberg] }
+    vm.selectedStation = nameless
     await settle()
 
-    expect(vm.stationItems.map((i: { label: string }) => i.label)).toEqual(['01067', 'Feldberg (02290)'])
-    expect(vm.selectedStationItem.label).toBe('01067')
+    expect(vm.stationItems.map((i: { label: string }) => i.label)).toEqual(['01069', 'Feldberg (02290)'])
+    expect(vm.selectedStationItem.label).toBe('01069')
+    wrapper.unmount()
+  })
+
+  it('leaves a station without a position out, as it has no point to offer', async () => {
+    // chosen, it showed as the source of the point, yet left the point unset: Fetch stayed
+    // disabled with nothing saying why
+    const { wrapper, vm } = await selection('station')
+    vm.stationsData = { stations: [postcode, feldberg, { ...postcode, station_id: '01069', latitude: 51.0 }] }
+    await settle()
+
+    expect(vm.stationItems.map((i: { value: string }) => i.value)).toEqual(['02290'])
     wrapper.unmount()
   })
 })

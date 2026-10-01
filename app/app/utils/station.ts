@@ -17,9 +17,20 @@ export function stationLabel(station: Pick<Station, 'name' | 'station_id' | 'reg
 }
 
 /**
+ * Whether a station has a position: a postcode of dwd/derived climate_correction_factor has none,
+ * so it has no place on the map and no point to offer an interpolation.
+ *
+ * @param station - The station to check
+ * @returns Whether its latitude and longitude are both given
+ */
+export function hasPosition(station: Pick<Station, 'latitude' | 'longitude'>): boolean {
+  return station.latitude != null && station.longitude != null
+}
+
+/**
  * Label a station by its name and id, as a chosen station's chip and the interpolation's station
  * picker show it; a station without a name, e.g. a postcode of dwd/derived
- * climate_correction_factor, by its id alone.
+ * climate_correction_factor chosen in station mode, by its id alone.
  *
  * @param station - The station to label
  * @returns The label

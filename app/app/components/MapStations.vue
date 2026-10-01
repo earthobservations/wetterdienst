@@ -31,11 +31,9 @@ function isSelected(stationId: string) {
 
 // A station without a position, e.g. a postcode of dwd/derived climate_correction_factor, has
 // no place on the map: it is left off it, and out of its centre and bounds.
-function positioned(stations: any[]) {
-  return stations.filter(s => s.latitude != null && s.longitude != null)
-}
-
-const mappedStations = computed(() => positioned(props.stations))
+const mappedStations = computed(() => props.stations.filter(hasPosition))
+// The selected stations the map can centre on.
+const mappedSelectedStations = computed(() => props.selectedStations.filter(hasPosition))
 
 const mapCenter = computed<[number, number]>(() => {
   const stations = mappedStations.value
@@ -47,7 +45,7 @@ const mapCenter = computed<[number, number]>(() => {
 })
 
 const mapBounds = computed(() => {
-  const stations = centerOnSelectedStations.value ? positioned(props.selectedStations) : mappedStations.value
+  const stations = centerOnSelectedStations.value ? mappedSelectedStations.value : mappedStations.value
   if (!stations.length)
     return null
   const latitudes = stations.map(s => s.latitude)
@@ -58,13 +56,18 @@ const mapBounds = computed(() => {
   )
 })
 
+// Counts the calls to createMarkers(), so that one overtaken while it waits can tell.
+let markersGeneration = 0
+
 async function createMarkers() {
-  if (!map.value?.leafletObject)
+  const generation = ++markersGeneration
+  const leafletMap = map.value?.leafletObject
+  if (!leafletMap)
     return
   // The previous list's markers go first, even when the new list has none to show: left in
   // place, a dataset whose stations have no position would show, and select, another's.
   if (markerClusterGroup) {
-    map.value.leafletObject.removeLayer(markerClusterGroup)
+    leafletMap.removeLayer(markerClusterGroup)
     markerClusterGroup = null
     markersMap.clear()
   }
@@ -72,7 +75,7 @@ async function createMarkers() {
   if (!stations.length)
     return
   const result = await useLMarkerCluster({
-    leafletObject: map.value.leafletObject,
+    leafletObject: leafletMap,
     markers: stations.map(station => ({
       name: station.name,
       lat: station.latitude,
@@ -82,6 +85,12 @@ async function createMarkers() {
       },
     })),
   })
+  // The list changed while leaflet.markercluster was loading, and a later call was made for the
+  // newer one: this call's cluster, already added to the map, is an older list's.
+  if (generation !== markersGeneration) {
+    leafletMap.removeLayer(result.markerCluster)
+    return
+  }
   markerClusterGroup = result.markerCluster
   result.markers.forEach((marker, index) => {
     const station = stations[index]
@@ -153,16 +162,22 @@ watch(() => props.selectedStations, () => {
   // avoid noisy logs in production; keep a warn for visibility when needed
   console.warn('selectedStations changed', props.selectedStations)
   updateMarkerIcons()
-  // when user selects stations by clicking, indicate map is centered on selection
-  if (props.selectedStations && props.selectedStations.length > 0) {
+  // when user selects stations by clicking, indicate map is centered on selection -- for a selection
+  // with a position, as one without leaves nothing to centre on. Centring already on stays on, so
+  // its button still offers to fit the map to all stations.
+  if (mappedSelectedStations.value.length > 0)
     centerOnSelectedStations.value = true
-  }
 }, { deep: true })
 
+// Follows the selection while the map is centred on it. Off, the map is left where the user put it:
+// toggleCenter() fits it to all stations itself, and a selection without a position leaves
+// centring off, where refitting on it zoomed out to all stations.
 watch([
   () => centerOnSelectedStations.value,
   () => props.selectedStations,
 ], () => {
+  if (!centerOnSelectedStations.value)
+    return
   if (map.value?.leafletObject && mapBounds.value) {
     map.value.leafletObject.fitBounds(mapBounds.value)
   }
@@ -173,12 +188,12 @@ watch([
   <div>
     <div class="p-4 space-y-4">
       <UButton
-        :label="centerOnSelectedStations ? t('map.centerAll') : (props.selectedStations.length === 1 ? t('map.centerSelected') : t('map.centerSelectedPlural'))"
+        :label="centerOnSelectedStations ? t('map.centerAll') : (mappedSelectedStations.length === 1 ? t('map.centerSelected') : t('map.centerSelectedPlural'))"
         color="neutral"
         variant="ghost"
         size="sm"
         block
-        :disabled="!props.selectedStations.length && !centerOnSelectedStations"
+        :disabled="!mappedSelectedStations.length && !centerOnSelectedStations"
         @click="toggleCenter"
       />
       <LMap

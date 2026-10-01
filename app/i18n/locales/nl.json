@@ -560,6 +560,7 @@
     "downloadedValues": "Waarden gedownload als {format}",
     "downloadCancelled": "Download geannuleerd: de tabel is gewijzigd",
     "downloadedChart": "Grafiek gedownload als {format}",
+    "chartNotDrawn": "De grafiek kon niet worden getekend",
     "axisDate": "Datum",
     "axisValue": "Waarde",
     "paramLabelParameter": "Parameter",
@@ -582,7 +583,7 @@
     "noColumns": "Query gaf geen kolommen terug",
     "missingColumns": "In de queryresultaten ontbreken verwachte kolommen: {missing}. Verwachte kolommen: {expected}",
     "extraColumns": "De queryresultaten bevatten extra kolommen: {extra}",
-    "misreadTypes": "De DuckDB in de browser leest BIT, TIME WITH TIME ZONE (de offset valt weg) en UHUGEINT-waarden vanaf 2^127 (die worden negatief) verkeerd. Zet zo'n kolom om naar tekst: CAST(kolom AS VARCHAR)."
+    "misreadTypes": "De DuckDB in de browser leest BIT, TIME WITH TIME ZONE (de offset valt weg) en UHUGEINT-waarden vanaf 2^127 (die worden negatief) verkeerd en toont een GEOMETRY als zijn WKB-bytes. Zet zo'n kolom om naar tekst: CAST(kolom AS VARCHAR)."
   },
   "history": {
     "title": "Stationsgeschiedenis",

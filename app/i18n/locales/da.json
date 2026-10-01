@@ -560,6 +560,7 @@
     "downloadedValues": "Værdier downloadet som {format}",
     "downloadCancelled": "Download annulleret: tabellen er ændret",
     "downloadedChart": "Diagram downloadet som {format}",
+    "chartNotDrawn": "Diagrammet kunne ikke tegnes",
     "axisDate": "Dato",
     "axisValue": "Værdi",
     "paramLabelParameter": "Parameter",
@@ -582,7 +583,7 @@
     "noColumns": "Forespørgslen returnerede ingen kolonner",
     "missingColumns": "Forespørgselsresultaterne mangler forventede kolonner: {missing}. Forventede kolonner: {expected}",
     "extraColumns": "Forespørgselsresultaterne indeholder yderligere kolonner: {extra}",
-    "misreadTypes": "DuckDB i browseren læser BIT, TIME WITH TIME ZONE (forskydningen går tabt) og UHUGEINT-værdier fra 2^127 (de bliver negative) forkert. Konvertér en sådan kolonne til tekst: CAST(kolonne AS VARCHAR)."
+    "misreadTypes": "DuckDB i browseren læser BIT, TIME WITH TIME ZONE (forskydningen går tabt) og UHUGEINT-værdier fra 2^127 (de bliver negative) forkert og viser en GEOMETRY som dens WKB-bytes. Konvertér en sådan kolonne til tekst: CAST(kolonne AS VARCHAR)."
   },
   "history": {
     "title": "Stationshistorik",
