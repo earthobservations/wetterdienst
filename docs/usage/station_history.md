@@ -60,6 +60,7 @@ wetterdienst history --provider dwd --network observation --parameters daily/kl 
 ```
 
 Available `--sections` are `name`, `parameter`, `device`, `geography` and `missing_data`.
+Each history also gives its station's `station_id`, whichever sections are asked for.
 The result is returned as JSON; use `--target file://history.json` to write it to a file
 (the target must end with `.json`).
 

@@ -298,6 +298,7 @@ class DwdObservationHistory(TimeseriesHistory):
                     missing_data_history = self.read_missing_data_history(zfs, dataset.resolution.value)
                     missing_data_histories.append(missing_data_history)
                 yield History(
+                    station_id=station_id,
                     name=_NameHistory(
                         station=[station for nh in name_histories for station in nh.station],
                         operator=[operator for nh in name_histories for operator in nh.operator],
@@ -340,6 +341,7 @@ class DwdObservationHistory(TimeseriesHistory):
                 geography_history_list = self.read_geography_history(zfs)
                 missing_data_history = self.read_missing_data_history(zfs, dataset.resolution.value)
                 yield History(
+                    station_id=station_id,
                     name=name_history,
                     parameter=parameter_history_list,
                     device=device_history_list,

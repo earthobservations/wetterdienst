@@ -2015,7 +2015,7 @@ def test_history_sections(client: TestClient) -> None:
         },
     )
     assert response.status_code == 200
-    assert [list(history) for history in response.json()["histories"]] == [["name", "geography"]]
+    assert [list(history) for history in response.json()["histories"]] == [["station_id", "name", "geography"]]
 
 
 @pytest.mark.remote
@@ -2038,7 +2038,8 @@ def test_history_dwd_observation(client: TestClient) -> None:
     assert data.keys() == {"metadata", "stations", "histories"}
     assert len(data["histories"]) == 1
     history = data["histories"][0]
-    assert history.keys() == {"name", "parameter", "device", "geography", "missing_data"}
+    assert history.keys() == {"station_id", "name", "parameter", "device", "geography", "missing_data"}
+    assert history["station_id"] == "02564"
     assert len(history["name"]) == 2
     assert history["name"].keys() == {"station", "operator"}
     assert history["name"]["station"][0] == {

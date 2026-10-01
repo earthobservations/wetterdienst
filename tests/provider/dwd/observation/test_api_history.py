@@ -3,14 +3,24 @@
 import datetime as dt
 import io
 import zipfile
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
+import polars as pl
 import pytest
 from dirty_equals import IsApprox, IsDatetime
 from fsspec.implementations.zip import ZipFileSystem
 
+from wetterdienst import Settings
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.provider.dwd.observation import api
 from wetterdienst.provider.dwd.observation.api import DwdObservationHistory, DwdObservationRequest
+from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
+from wetterdienst.util.network import File
+
+if TYPE_CHECKING:
+    from wetterdienst.model.result import StationsResult
 
 
 @pytest.mark.remote
@@ -1387,3 +1397,22 @@ def test_dwd_obs_history_sections_pad_station_id() -> None:
     assert {section: [record.station_id for record in records] for section, records in sections.items()} == {
         section: ["01048"] for section in sections
     }
+
+
+def test_dwd_obs_history_names_its_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a history carries its station's padded id beside the sections, also with no records in them."""
+    url = "https://opendata.dwd.de/tageswerte_KL_01048_19340101_20251231_hist.zip"
+    # only the name file: the other sections come back empty
+    files = {name: text for name, text in _STATION_01048_METADATA.items() if "Stationsname" in name}
+    monkeypatch.setattr(
+        api,
+        "create_file_index_for_climate_observations",
+        lambda **_: pl.LazyFrame({"station_id": ["01048"], "url": [url]}),
+    )
+    monkeypatch.setattr(api, "download_file", lambda **_: File(url=url, content=_metadata_zip(files), status=200))
+    stations = SimpleNamespace(stations=SimpleNamespace(settings=Settings()))
+    collector = DwdObservationHistory(sr=cast("StationsResult", stations))
+    histories = list(collector._collect_station_history("01048", [DwdObservationMetadata.daily.climate_summary]))  # noqa: SLF001
+    assert [
+        history.model_dump(include={"station_id", "parameter", "device", "geography"}) for history in histories
+    ] == [{"station_id": "01048", "parameter": [], "device": [], "geography": []}]

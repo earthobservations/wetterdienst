@@ -81,7 +81,9 @@ Types of changes:
   runs in the wide shape it needs, and the README counts nearly 600 parameters, not 514 (GH-2021)
 - DWD observation history gives the station id zero-padded in its `parameter`, `device` and
   `geography` sections, `01048` as in `name`, `missing_data` and the stations and values frames.
-  They gave `1048`, so joining them with those frames on `station_id` found nothing (GH-2058)
+  They gave `1048`, so joining them with those frames on `station_id` found nothing. Each history
+  also gives its station's `station_id` beside the sections, whichever `sections` are asked for, so
+  one whose sections hold no records still names its station (GH-2058)
 
 ## [0.139.0] - 2026-09-29
 
