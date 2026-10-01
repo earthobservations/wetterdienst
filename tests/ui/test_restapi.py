@@ -2625,8 +2625,6 @@ def test_mcp_stations_tool_wsv_null_elevation() -> None:
 
     FastMCP validates a tool result against the output schema derived from the endpoint's
     `response_model`; with `elevation` typed as a number it failed with "None is not of type 'number'".
-    The `gauge_zero` check passes without `additionalProperties: true` too, since JSON Schema admits
-    undeclared keys by default; the offline schema test guards that.
     """
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415
@@ -2655,4 +2653,3 @@ def test_mcp_stations_tool_wsv_null_elevation() -> None:
     (station,) = data["result"]["stations"]
     assert station["station_id"] == "48900237"
     assert station["elevation"] is None
-    assert station["gauge_zero"] == IsNumber

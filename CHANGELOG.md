@@ -127,9 +127,10 @@ Types of changes:
   metadata file at the same time; the threads of one process now take turns. Two processes
   sharing a cache directory can still meet that way (GH-1990)
 - The REST API's OpenAPI schema types a station's `elevation`, `latitude`, `longitude` and `name`
-  as nullable, and admits the columns a provider adds, such as `gauge_zero` and `icao_id`. The MCP
-  `stations` tool in the JSON format no longer fails output validation on stations without an
-  elevation, such as every WSV station (GH-2226)
+  as nullable, and declares that a station may carry the columns its provider adds, such as
+  `gauge_zero`, so a client generated from it keeps them. MCP tools no longer fail output
+  validation on a station without an elevation, such as every WSV station, when they return
+  stations in the JSON format: `stations`, and the others with `with_stations` (GH-2226)
 
 ## [0.139.0] - 2026-09-29
 
