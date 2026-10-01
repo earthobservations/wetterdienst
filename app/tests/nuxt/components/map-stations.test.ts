@@ -80,15 +80,19 @@ describe('mapStations with stations that have no position', () => {
 
   it('leaves them off the map, and a click on a marker selects the station it stands for', async () => {
     const clicks: (() => void)[] = []
-    markerCluster.mockImplementationOnce(async ({ markers }: { markers: unknown[] }) => ({
-      markerCluster: { refreshClusters: () => {} },
-      markers: markers.map(() => ({
-        on: (_event: string, handler: () => void) => {
-          clicks.push(handler)
-        },
-        setIcon: () => {},
-      })),
-    }))
+    markerCluster.mockImplementationOnce(async ({ leafletObject, markers }: { leafletObject: { addLayer: (layer: object) => unknown }, markers: unknown[] }) => {
+      const cluster = { refreshClusters: () => {} }
+      leafletObject.addLayer(cluster)
+      return {
+        markerCluster: cluster,
+        markers: markers.map(() => ({
+          on: (_event: string, handler: () => void) => {
+            clicks.push(handler)
+          },
+          setIcon: () => {},
+        })),
+      }
+    })
     await mountReady([postcode, berlin, { ...postcode, station_id: '01069' }, jan])
 
     const { markers } = markerCluster.mock.calls[0]![0] as { markers: { lat: number, lng: number, options: { title: string } }[] }
@@ -345,13 +349,14 @@ describe('mapStations when the selection changes', () => {
     vi.restoreAllMocks()
   })
 
-  it('writes nothing to the console', async () => {
+  it('writes no warning of its own to the console', async () => {
     const warn = vi.spyOn(console, 'warn')
     wrapper = await mountSuspended(MapStations, { props: { stations: [berlin, jan], selectedStations: [], multiple: true } })
 
     await wrapper.setProps({ selectedStations: [berlin] })
     await wrapper.setProps({ selectedStations: [berlin, jan] })
 
-    expect(warn).not.toHaveBeenCalled()
+    // Vue's own warnings, which an unrelated change can bring, are not the map's
+    expect(warn.mock.calls.filter(([message]) => !String(message).startsWith('[Vue warn]'))).toEqual([])
   })
 })

@@ -102,7 +102,8 @@ async function createMarkers() {
     })),
   })
   // The list changed, or the map was removed, while leaflet.markercluster was loading or since the
-  // cluster was added: the cluster is off the map, and its markers need no wiring.
+  // cluster was added: the cluster was kept off the map, taken off by the newer call or removed
+  // with the map, and its markers need no wiring.
   if (generation !== markersGeneration)
     return
   result.markers.forEach((marker, index) => {
