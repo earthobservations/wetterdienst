@@ -129,10 +129,11 @@ export function classifyPrecip(temperature: number, humidity?: number): 'rain' |
 /**
  * The parameter names each meteogram series is drawn from, in order of preference: the first one
  * found among the values wins, and a series none of them matches is left out without an error.
- * Each list leads with the canonical name the meteogram's MOSMIX request comes back under, and
- * `tests/unit/meteogram.test.ts` holds that first choice to the app glossary, so a canonical rename
- * that misses this table fails a test instead of losing a panel. The names after it are other
- * canonical names or raw and older ones, kept as fallbacks; the test does not check them.
+ * Each list leads with a canonical name: for a series the meteogram's MOSMIX request carries, the
+ * name it comes back under. `tests/unit/meteogram.test.ts` holds that first choice to the app
+ * glossary, so a canonical rename that misses this table fails a test instead of losing a panel.
+ * The names after it are other canonical names, or raw and older names carried over from before;
+ * the test does not check them.
  */
 export const METEOGRAM_SERIES = {
   weather: ['weather_significant', 'significant_weather', 'ww', 'weather'],

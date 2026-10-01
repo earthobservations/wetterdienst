@@ -2,10 +2,12 @@
  * Friendly English labels for backend identifiers.
  *
  * Keys are the humanized snake_case names the REST API returns (parameter
- * `name`, resolution and dataset ids). This is a curated set covering the most
- * common DWD observation values; anything not listed falls back to a prettified
- * version of the raw id (see `useParameterLabel`). Keep entries plain so
- * non-experts understand them. Mirrors the keys in `de.ts`.
+ * `name`, resolution and dataset ids). `parameters` holds every canonical
+ * parameter name and nothing else: tests/e2e/i18n-coverage.spec.ts compares it
+ * with the backend's /api/glossary, and tests/unit/meteogram.test.ts relies on
+ * it. Resolutions and datasets are a curated set; anything not listed falls
+ * back to a prettified version of the raw id (see `useParameterLabel`). Keep
+ * entries plain so non-experts understand them. Mirrors the keys in `de.ts`.
  */
 
 export const parameters: Record<string, string> = {
