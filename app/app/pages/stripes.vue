@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { describeFetchError } from '~/utils/api-error'
+
 const { t } = useI18n()
 const toast = useToast()
 
@@ -97,6 +99,10 @@ const lastFetchedData = ref<StripesValuesResponse | null>(null)
 let plotsStarted = 0
 const plotFailed = ref(false)
 const plotFailures = ref(0)
+// The values' fetches, numbered as they start, so that only the newest, not stopped by a Reset, shows
+// what it fetched. Failed: why the newest could not fetch the values, told in the chart area
+let fetchesStarted = 0
+const fetchError = ref<string | null>(null)
 
 // Color maps
 const COLOR_MAPS: Record<StripesKind, Array<[number, string]>> = {
@@ -124,7 +130,13 @@ async function fetchAndPlotStripes() {
   if (!selectedStation.value)
     return
 
+  // another station's stripes go as this one's are fetched, so the stripes shown are the station's
+  // chosen; this station's stay while they are fetched anew, as of a display option changed
+  if (lastFetchedData.value?.metadata.station.station_id !== selectedStation.value.station_id)
+    clearStripes()
+  const fetch = ++fetchesStarted
   isLoading.value = true
+  fetchError.value = null
   // the stripes are about to be fetched anew: an earlier drawing's failure, and its Retry, which
   // would draw the earlier values, go. A drawing under way, as of a display option changed, still
   // draws, and tells its own failure
@@ -145,6 +157,9 @@ async function fetchAndPlotStripes() {
     const response = await $fetch<StripesValuesResponse>('/api/stripes/values', {
       query: params,
     })
+    // a newer fetch, or a Reset, came while this one was under way: it shows nothing
+    if (fetch !== fetchesStarted)
+      return
 
     // Wait for next tick to ensure DOM is updated
     await nextTick()
@@ -158,10 +173,15 @@ async function fetchAndPlotStripes() {
   }
   catch (error) {
     console.error('Failed to fetch stripes data:', error)
-    // You might want to show a toast notification here
+    if (fetch !== fetchesStarted)
+      return
+    // the stripes shown, if any, are not those asked for: they go, and the failure is told instead
+    clearStripes()
+    fetchError.value = describeFetchError(error)
   }
   finally {
-    isLoading.value = false
+    if (fetch === fetchesStarted)
+      isLoading.value = false
   }
 }
 
@@ -468,6 +488,11 @@ function clearStripes() {
   // a drawing still under way is no longer the newest, so its failure is not told after the next Show
   plotsStarted++
   plotFailed.value = false
+  lastFetchedData.value = null
+  // a fetch still under way shows nothing, and its failure is not told
+  fetchesStarted++
+  isLoading.value = false
+  fetchError.value = null
 }
 
 const route = useRoute()
@@ -793,6 +818,13 @@ onMounted(() => {
             <UIcon name="i-lucide-loader-circle" class="animate-spin" />
             {{ t('stripes.loadingViz') }}
           </div>
+        </div>
+        <div
+          v-else-if="fetchError" role="alert"
+          class="flex flex-col items-center justify-center gap-1 h-64 text-center text-red-600 dark:text-red-400"
+        >
+          <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
+          <span class="text-sm">{{ fetchError }}</span>
         </div>
         <div v-else-if="!hasPlot" class="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
           <UIcon name="i-lucide-bar-chart-big" class="w-12 h-12 opacity-30" />

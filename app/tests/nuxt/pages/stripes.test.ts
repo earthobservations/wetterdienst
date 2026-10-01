@@ -1,4 +1,5 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { createError, setResponseStatus } from 'h3'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { UApp } from '#components'
@@ -404,5 +405,159 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
 
     await vi.waitFor(() => expect(toasts()).toContain('The chart image could not be saved'))
     expect(logged).toHaveBeenCalledWith('The chart image could not be saved', failed)
+  })
+})
+
+describe('stripes Page values that could not be fetched', () => {
+  const tempelhof = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+  const potsdam = { station_id: '3987', name: 'Potsdam', region: 'Brandenburg', latitude: 52.38, longitude: 13.06, start_date: '1893-01-01', end_date: '2020-01-01' }
+  const values = (station: typeof tempelhof) => ({
+    metadata: { station },
+    values: [
+      { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
+      { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
+    ],
+  })
+
+  // the chart area's note of the failed fetch
+  const note = () => [...document.body.querySelectorAll('[role="alert"] > span')].map(line => line.textContent?.trim()).join(' / ') || undefined
+  const downloadMenu = () => document.body.querySelector('button[aria-haspopup="menu"]')
+
+  // an answer held until the test lets it go
+  function held<T>(answer: () => T) {
+    let release!: () => void
+    const released = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const handler = async () => {
+      await released
+      return answer()
+    }
+    return { release, handler }
+  }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    vi.restoreAllMocks()
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  const button = (label: string) => wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === label)!
+
+  // the page in the app's UApp, with the stations fetched
+  async function mountPage() {
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [tempelhof, potsdam] }))
+    wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
+    }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    const vm = wrapper.findComponent(StripesPage).vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(2))
+    return vm
+  }
+
+  async function show(vm: any, station: typeof tempelhof) {
+    vm.selectedStation = station
+    await nextTick()
+    await button('Show').trigger('click')
+  }
+
+  it('tells the backend\'s reason in the chart area', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    registerEndpoint('/api/stripes/values', (event) => {
+      setResponseStatus(event, 404)
+      return { detail: 'No precipitation data for station 1048' }
+    })
+    const vm = await mountPage()
+    await show(vm, tempelhof)
+
+    await vi.waitFor(() => expect(note()).toBe('Failed to load data / No precipitation data for station 1048'))
+    expect(vm.isLoading).toBe(false)
+    expect(document.body.textContent).not.toContain('Select a station and click Show')
+  })
+
+  it('takes another station\'s stripes away as this one\'s are fetched, and tells why they could not be', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    registerEndpoint('/api/stripes/values', () => values(tempelhof))
+    const vm = await mountPage()
+    await show(vm, tempelhof)
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+
+    const failing = held(() => {
+      throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
+    })
+    registerEndpoint('/api/stripes/values', failing.handler)
+    plotly.purge.mockClear()
+    await show(vm, potsdam)
+    // Tempelhof's stripes gone while Potsdam's are fetched
+    expect(vm.hasPlot).toBe(false)
+    expect(plotly.purge).toHaveBeenCalled()
+    expect(downloadMenu()).toBeNull()
+
+    failing.release()
+    await vi.waitFor(() => expect(note()).toBe('Failed to load data / 502 Bad Gateway'))
+    expect(vm.hasPlot).toBe(false)
+    expect(vm.lastFetchedData).toBeNull()
+  })
+
+  it('offers no image of stripes fetched anew in vain after their drawing failed', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    registerEndpoint('/api/stripes/values', () => values(tempelhof))
+    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    const vm = await mountPage()
+    await show(vm, tempelhof)
+    await vi.waitFor(() => expect(vm.plotFailed).toBe(true))
+
+    registerEndpoint('/api/stripes/values', () => {
+      throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
+    })
+    await button('Show').trigger('click')
+
+    await vi.waitFor(() => expect(note()).toBe('Failed to load data / 502 Bad Gateway'))
+    // no empty chart area, with an image of nothing offered
+    expect(vm.hasPlot).toBe(false)
+    expect(downloadMenu()).toBeNull()
+  })
+
+  it('draws nothing where Reset came while the stripes were fetched anew', async () => {
+    registerEndpoint('/api/stripes/values', () => values(tempelhof))
+    const vm = await mountPage()
+    await show(vm, tempelhof)
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+
+    const answer = held(() => values(tempelhof))
+    registerEndpoint('/api/stripes/values', answer.handler)
+    await button('Show').trigger('click')
+    expect(vm.isLoading).toBe(true)
+    await button('Reset').trigger('click')
+    expect(vm.isLoading).toBe(false)
+    plotly.newPlot.mockClear()
+
+    answer.release()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(plotly.newPlot).not.toHaveBeenCalled()
+    expect(vm.hasPlot).toBe(false)
+    expect(document.body.textContent).toContain('Select a station and click Show')
+  })
+
+  it('tells nothing where the kind changed while a fetch that then failed was under way', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const failing = held(() => {
+      throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
+    })
+    registerEndpoint('/api/stripes/values', failing.handler)
+    const vm = await mountPage()
+    await show(vm, tempelhof)
+    expect(vm.isLoading).toBe(true)
+
+    vm.kind = 'temperature'
+    await nextTick()
+    expect(vm.isLoading).toBe(false)
+
+    failing.release()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(note()).toBeUndefined()
+    expect(vm.fetchError).toBeNull()
   })
 })
