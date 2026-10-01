@@ -19,7 +19,7 @@ import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError
 from wetterdienst.metadata.renamed import renamed_column
-from wetterdienst.util.url import ConnectionString
+from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
     import plotly.graph_objs as go
@@ -303,9 +303,9 @@ class ExportMixin:
             None (data is emitted to the target)
 
         """
-        connspec = ConnectionString(target)
-        log.info(f"Exporting records to {connspec.redacted}\n{self.df.select(pl.len())}")
+        log.info(f"Exporting records to {redact_password(target)}\n{self.df.select(pl.len())}")
 
+        connspec = ConnectionString(target)
         protocol = connspec.protocol
         database = connspec.database
         tablename = connspec.table
@@ -710,7 +710,7 @@ class ExportMixin:
                 crash -c "select *, date_format('%Y-%m-%dT%H:%i:%s.%fZ', timestamp) as datetime from dwd.weather order by datetime limit 10;"
 
             """  # noqa:E501
-            log.info(f"Writing to CrateDB. target={connspec.redacted}, table={tablename}")
+            log.info(f"Writing to CrateDB. target={redact_password(target)}, table={tablename}")
 
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
             cratedb_url = connspec.url._replace(path="", query="")

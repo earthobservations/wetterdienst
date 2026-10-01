@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from wetterdienst.util.url import ConnectionString
+from wetterdienst.util.url import ConnectionString, redact_password
 
 
 def test_connectionstring_database_from_path() -> None:
@@ -90,9 +90,30 @@ def test_connectionstring_gives_back_the_file_path_it_was_given(database: str) -
             "crate://crate@localhost/dwd?table=weather", "crate://crate@localhost/dwd?table=weather", id="no-password"
         ),
         pytest.param("duckdb:///dwd.duckdb?table=weather", "duckdb:///dwd.duckdb?table=weather", id="file"),
+        pytest.param("file:///C:/data/obs@1.csv", "file:///C:/data/obs@1.csv", id="file-drive-letter-and-at"),
         pytest.param("influxdb://localhost/?database=dwd", "influxdb://localhost/?database=dwd", id="no-userinfo"),
+        # `urlparse` ends the host part at the first `/`, `#` or `?` and so finds no password in
+        # these, while SQLAlchemy connects with `pa/ss`, `p#ss` and `pa?ss` as the password
+        pytest.param("postgresql://scott:pa/ss@db/dwd", "postgresql://scott:***@db/dwd", id="slash-in-password"),
+        pytest.param(
+            "postgresql://scott:p#ss@db/dwd?table=weather",
+            "postgresql://scott:***@db/dwd?table=weather",
+            id="hash-in-password",
+        ),
+        pytest.param(
+            "postgresql://scott:pa?ss@db/dwd", "postgresql://scott:***@db/dwd", id="question-mark-in-password"
+        ),
+        pytest.param(
+            "influxdb2://acme:ab/cd==@localhost/?database=dwd",
+            "influxdb2://acme:***@localhost/?database=dwd",
+            id="influxdb2-token-with-slash",
+        ),
+        # nothing but the password is touched, not even what `urlunparse` would normalise
+        pytest.param("PostgreSQL://scott:x@h/db?", "PostgreSQL://scott:***@h/db?", id="kept-verbatim"),
+        # `urlparse` raises on this; the log line naming it must not
+        pytest.param("postgresql://u:p@[::1/db", "postgresql://u:***@[::1/db", id="malformed-ipv6"),
     ],
 )
-def test_connectionstring_redacted_hides_the_password_and_keeps_the_rest(url: str, redacted: str) -> None:
+def test_redact_password_hides_the_password_and_keeps_the_rest(url: str, redacted: str) -> None:
     """The password slot reads `***`; the username, host, path and query read as they were given."""
-    assert ConnectionString(url).redacted == redacted
+    assert redact_password(url) == redacted

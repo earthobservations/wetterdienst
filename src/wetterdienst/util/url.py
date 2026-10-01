@@ -5,6 +5,32 @@
 from urllib.parse import parse_qs, urlparse
 
 
+def redact_password(url: str) -> str:
+    """Give back a connection string with its password replaced by ``***``, for a log line.
+
+    The password slot is where a SQL or CrateDB target carries its password and where the
+    InfluxDB 2 and 3 targets carry their API token, and the CLI logs at INFO by default, so a
+    target printed verbatim lands in cron mail, journald or a CI log. The username stays: it says
+    which account was used and is no secret. Everything else comes back exactly as given.
+
+    The string is read as SQLAlchemy reads it rather than as ``urlparse`` does: SQLAlchemy takes a
+    password holding an unencoded ``/``, ``#`` or ``?`` and connects with it, where ``urlparse``
+    ends the host part at that character and finds no password at all. So the password runs from
+    the first ``:`` after the username to the last ``@``, and the username is what comes before
+    that ``:`` and holds no ``/``, which keeps a file path with a drive letter or an ``@`` in it
+    out. SQLAlchemy ends the password at the first ``@``; taking the last one instead hides a
+    password that holds an ``@`` itself, and an ``@`` further on in the path or query only widens
+    what is hidden, which is the side to err on. Nothing here raises, so a log line naming a
+    malformed target still prints.
+    """
+    scheme, separator, rest = url.partition("://")
+    userinfo, at, hostpart = rest.rpartition("@")
+    username, colon, _ = userinfo.partition(":")
+    if not separator or not at or not colon or "/" in username:
+        return url
+    return f"{scheme}://{username}:***@{hostpart}"
+
+
 class ConnectionString:
     """Helper class to support ``IoAccessor.export()``."""
 
@@ -42,21 +68,6 @@ class ConnectionString:
     def password(self) -> str | None:
         """Get the password from the URL."""
         return self.url.password
-
-    @property
-    def redacted(self) -> str:
-        """Get the URL with its password replaced by ``***``, for a log line.
-
-        The password slot is where a SQL or CrateDB target carries its password and where the
-        InfluxDB 2 and 3 targets carry their API token, and the CLI logs at INFO by default, so a
-        target printed verbatim lands in cron mail, journald or a CI log. The username stays: it
-        says which account was used and is no secret. A URL without a password comes back as given.
-        """
-        if self.url.password is None:
-            return self.url_raw
-        userinfo, _, hostport = self.url.netloc.rpartition("@")
-        username, _, _ = userinfo.partition(":")
-        return self.url._replace(netloc=f"{username}:***@{hostport}").geturl()
 
     @property
     def database(self) -> str:
