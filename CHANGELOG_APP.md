@@ -166,6 +166,14 @@ Types of changes:
   stations it can show. Choosing only stations without a position no longer switches it to "Center
   on all stations" with nothing to centre on: it stays disabled until a chosen station has a
   position (GH-2133)
+- `[Explorer]` Sorting a query's column that holds both numbers and text keeps them apart, the
+  numbers before the text in ascending order and after it in descending. The rows, copies and
+  downloads came in an order each browser's sort made up (GH-2126)
+- `[Explorer]` The column picker is disabled and offers no columns while the table is empty, where
+  it offered `parameter`, `value` and `quality` whatever the shape setting (GH-2115)
+- `[Explorer]` A query's integers past ±2^53, which come as their digits, sort by their value among
+  the column's numbers, where they sorted as text: `10000000000000000000` before
+  `9007199254740993` (GH-2153)
 - `[Explorer]` The query panel refuses a query of more than one statement, in the syntax check and
   in Run Query, before any of it runs. DuckDB ran each statement, so one after the SELECT, such as
   `SET` or `COPY`, ran unchecked (GH-2139)

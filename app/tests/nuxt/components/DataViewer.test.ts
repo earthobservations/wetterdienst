@@ -745,27 +745,6 @@ describe('dataViewer columns', () => {
     expect(wrapper.findComponent(QueryPanel).props('expectedColumns')).toEqual(Object.keys(row))
   })
 
-  it('follows the selected mode once Clear has emptied the table', async () => {
-    registerEndpoint('/api/interpolate', () => ({ values: pointModes[0].values }))
-    const { wrapper, viewer, stationSelection } = await mountDataViewer(ref(atPoint('interpolation')))
-    await fetchData(viewer)
-    stationSelection.value = byStation('01048')
-    await wrapper.vm.$nextTick()
-    expect(picked(wrapper)).toContain('taken_station_ids')
-    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
-    await wrapper.vm.$nextTick()
-    expect(picked(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
-  })
-
-  it('follows the selected mode after an answer with no rows', async () => {
-    registerEndpoint('/api/interpolate', () => ({ values: [] }))
-    const { wrapper, viewer, stationSelection } = await mountDataViewer(ref(atPoint('interpolation')))
-    await fetchData(viewer)
-    stationSelection.value = byStation('01048')
-    await wrapper.vm.$nextTick()
-    expect(picked(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
-  })
-
   // one column per parameter: none of them among the table's fixed columns
   const wide = { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5 }
 
@@ -1598,5 +1577,95 @@ describe('dataViewer chart images after Plotly failed to load', () => {
     await flushPromises()
     expect(document.body.textContent).not.toContain('The chart could not be drawn')
     expect(saved).toHaveLength(0)
+  })
+})
+
+describe('dataViewer sort of numbers and text in one column', () => {
+  // a query's BIGINT column, whose value past 2^53 comes as its digits
+  const big = '10000000000000000000'
+  const mixed = [{ id: big }, { id: 10 }, { id: 2 }]
+
+  it('sorts the numbers before the text, each within its kind, in either direction', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', mixed)
+    await wrapper.vm.$nextTick()
+    const id = () => wrapper.findAll('thead th span').find(span => span.text().replace(/[↕↑↓]/g, '') === 'id')!
+    const sort = vi.spyOn(Array.prototype, 'sort')
+    await id().trigger('click')
+    expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(['2', '10', big])
+    // an order the comparator itself holds to, where comparing a number with text as text made the
+    // three a cycle, 2 < 10 < big < 2, whose order each engine's sort makes something else of
+    const table = (sort.mock.contexts as unknown[][]).findIndex(sorted => sorted.some(r => (r as { id?: unknown } | null)?.id === big))
+    const compare = sort.mock.calls[table]![0]!
+    expect(compare(mixed[2], mixed[1])).toBeLessThan(0)
+    expect(compare(mixed[1], mixed[0])).toBeLessThan(0)
+    expect(compare(mixed[2], mixed[0])).toBeLessThan(0)
+    expect(compare(mixed[0], mixed[2])).toBeGreaterThan(0)
+    await id().trigger('click')
+    expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual([big, '10', '2'])
+  })
+})
+
+describe('dataViewer column picker while the table is empty', () => {
+  // a wide-shaped row: a column per parameter, and no parameter, value or quality
+  const wide = { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5 }
+
+  // the columns the picker offers, ticked or not, and whether it can be opened
+  function picker(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
+    const menu = wrapper.findComponent(USelectMenu)
+    const { items } = menu.props() as { items: unknown[] }
+    return { items, disabled: menu.find('button[aria-haspopup="listbox"]').attributes('disabled') !== undefined }
+  }
+
+  it('offers no columns and is disabled until a Fetch fills the table, then the rows\' own', async () => {
+    registerEndpoint('/api/values', () => ({ values: [wide] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    // where it offered the long shape's parameter, value and quality, which the wide rows lack
+    expect(picker(wrapper)).toEqual({ items: [], disabled: true })
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    expect(picker(wrapper)).toEqual({ items: ['station_id', 'resolution', 'dataset', 'timestamp', 'temperature_air_mean_2m'], disabled: false })
+    expect(headers(wrapper)).toEqual(['station_id', 'timestamp', 'temperature_air_mean_2m'])
+    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
+    await wrapper.vm.$nextTick()
+    expect(picker(wrapper)).toEqual({ items: [], disabled: true })
+  })
+
+  it('offers no columns after an answer with no rows', async () => {
+    registerEndpoint('/api/values', () => ({ values: [] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    expect(picker(wrapper)).toEqual({ items: [], disabled: true })
+  })
+})
+
+describe('dataViewer sort of integers past 2^53', () => {
+  // a query's HUGEINT column as plainRows writes it: the integers past 2^53 as their digits, the rest
+  // as numbers; and digits within 2^53, sixteen of them as 2^53 has, or with a leading zero, which
+  // plainRows never writes, which stay text
+  const integers = [
+    { n: '10000000000000000000' },
+    { n: 5 },
+    { n: '-10000000000000000000' },
+    { n: '9007199254740993' },
+    { n: -3 },
+    { n: '-9007199254740993' },
+  ]
+
+  it('sorts them by their value among the numbers, in either direction', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [...integers, { n: 'x' }, { n: '1000000000000000' }, { n: '010000000000000000000' }, { n: '01048' }])
+    await wrapper.vm.$nextTick()
+    const n = () => wrapper.findAll('thead th span').find(span => span.text().replace(/[↕↑↓]/g, '') === 'n')!
+    const ascending = ['-10000000000000000000', '-9007199254740993', '-3', '5', '9007199254740993', '10000000000000000000', '010000000000000000000', '01048', '1000000000000000', 'x']
+    await n().trigger('click')
+    expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(ascending)
+    await n().trigger('click')
+    expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(ascending.toReversed())
   })
 })
