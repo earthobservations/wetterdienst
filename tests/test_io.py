@@ -2339,10 +2339,10 @@ def test_sql_sink_names_psycopg_for_a_bare_postgresql_target(
     pytest.importorskip("pandas")
     find_spec = importlib.util.find_spec
 
-    def installed(name: str, *args: object) -> object:
+    def installed(name: str, *args: object, **kwargs: object) -> object:
         if name == "psycopg":
             return mock.sentinel.psycopg if psycopg else None
-        return find_spec(name, *args)
+        return find_spec(name, *args, **kwargs)
 
     with mock.patch("importlib.util.find_spec", side_effect=installed):
         assert _urls_the_sink_asks_for(sqlalchemy, target, tmp_path) == [connects_to]

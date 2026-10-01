@@ -78,7 +78,8 @@ Types of changes:
   `postgresql://` target writes through psycopg 3 whenever it is installed, on every SQLAlchemy
   version; under 2.1 it failed with `No module named 'psycopg'`. `postgresql` and `mysql` bring
   SQLAlchemy and pandas, so neither needs `export` beside it. For `postgresql+psycopg2://`,
-  install `psycopg2-binary` yourself (GH-2202)
+  install `psycopg2-binary` yourself; the Docker image has psycopg 3 only, so drop `+psycopg2`
+  there (GH-2202)
 
 ### Fixed
 
