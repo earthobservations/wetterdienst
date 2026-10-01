@@ -128,9 +128,10 @@ Types of changes:
   sharing a cache directory can still meet that way (GH-1990)
 - DWD DMO dates each run as the latest date on or before now that its `DDHHMM` stamp can name.
   Between the 1st's 00 UTC run appearing (about 03:10 UTC) and 04:01, every run was a month early:
-  `available_issues` listed past issues, `values` for the newest issue raised `IndexError`, and on
-  1 August and 1 January `issue=latest` raised `InvalidOperationError` and the station list lost
-  the stations only a run describes (GH-2203)
+  `available_issues` listed past issues and `values` for the newest issue raised `IndexError`. On
+  1 January, April, June, August and November it named days the month lacks, such as 31 November,
+  so `available_issues` and `values` raised `InvalidOperationError` and the station list lost the
+  stations only a run describes (GH-2203)
 
 ## [0.139.0] - 2026-09-29
 

@@ -107,21 +107,22 @@ def _run_stamp(urls: pl.Expr, lead_time: DwdDmoLeadTime | None = None) -> pl.Exp
     return urls.str.split("/").list.last().str.extract(rf"_(?:{leads})_\d+_(\d{{6}})\.kmz$", 1)
 
 
-# how far ahead of the clock a run stamp may lie and still be dated in the clock's month. DWD lists
-# a run about three hours after the time it is stamped with (the 00 UTC `078` run of 2026-10-01 at
-# 03:09, its `168` run at 03:29), so by DWD's clock no listed stamp is in the future; one is ahead
-# of this clock only when this clock lags DWD's. The leeway keeps such a host from dating today's
-# newest run a month back. It can be this generous because a listing holds the last two days of
-# runs, and the next reading a stamp has is at least 28 days earlier
+# how far ahead of the clock a run stamp may lie. DWD lists a run about three hours after the time
+# it is stamped with (the 00 UTC `078` run of 2026-10-01 at 03:09, its `168` run at 03:29), so by
+# DWD's clock no listed stamp is in the future; one is ahead of this clock only when this clock lags
+# DWD's. The leeway keeps such a host from dating today's newest run a month back. It can be this
+# generous because a listing holds the last two days of runs, and the next reading a stamp has is
+# at least 28 days earlier
 _RUN_STAMP_LEEWAY = dt.timedelta(days=1)
 
 
 def _date_of_run_stamp(stamp: str, now: dt.datetime) -> dt.datetime:
     """Date a ``DDHHMM`` run stamp as the latest real date it can name on or before ``now``.
 
-    That is the clock's month if the day exists in it and is not ahead of the clock by more than
-    `_RUN_STAMP_LEEWAY`, otherwise the month before, and the one before that for a 31st the month
-    before does not have.
+    "On or before" allows `_RUN_STAMP_LEEWAY` ahead of ``now``, and the walk back starts from the
+    month that lands in: a clock lagging into the last evening of a month still dates the next
+    month's 1st as that 1st. A day the month does not have is the month before's, or the one before
+    that for a 31st the month before does not have either.
     """
     day, hour, minute = int(stamp[:2]), int(stamp[2:4]), int(stamp[4:6])
     if not 1 <= day <= 31:
@@ -129,7 +130,7 @@ def _date_of_run_stamp(stamp: str, now: dt.datetime) -> dt.datetime:
         msg = f"{stamp!r} is not a DDHHMM run stamp: there is no day {day}"
         raise ValueError(msg)
     latest = now + _RUN_STAMP_LEEWAY
-    year, month = now.year, now.month
+    year, month = latest.year, latest.month
     while True:
         if day <= calendar.monthrange(year, month)[1]:
             candidate = dt.datetime(year, month, day, hour, minute, tzinfo=now.tzinfo)
@@ -147,6 +148,8 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
     (GH-2203).
     """
     stamps = df.get_column("date_str").drop_nulls().unique().to_list()
+    # joined rather than mapped with `replace_strict`, which with no stamp to map keeps the string
+    # dtype even when cast
     dates = pl.DataFrame(
         {"date_str": stamps, "timestamp": [_date_of_run_stamp(stamp, current_date) for stamp in stamps]},
         schema={"date_str": pl.String, "timestamp": pl.Datetime("us", current_date.tzname())},

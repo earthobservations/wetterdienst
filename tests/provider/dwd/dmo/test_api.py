@@ -1751,3 +1751,43 @@ def test_dmo_a_run_stamp_without_a_real_day_is_refused(stamp: str) -> None:
     """No month has day 0 or day 32, so the walk back through the months would never end."""
     with pytest.raises(ValueError, match="is not a DDHHMM run stamp"):
         _dated([stamp], dt.datetime(2026, 10, 1, 4, 30, tzinfo=ZoneInfo("UTC")))
+
+
+@pytest.mark.parametrize(
+    ("stamps", "now", "expected"),
+    [
+        pytest.param(
+            ["291200", "300000", "301200", "010000"],
+            dt.datetime(2026, 9, 30, 23, 30, tzinfo=ZoneInfo("UTC")),
+            [
+                dt.datetime(2026, 9, 29, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 9, 30, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 9, 30, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 10, 1, 0, tzinfo=ZoneInfo("UTC")),
+            ],
+            id="end-of-september",
+        ),
+        pytest.param(
+            ["301200", "310000", "311200", "010000"],
+            dt.datetime(2026, 12, 31, 23, 30, tzinfo=ZoneInfo("UTC")),
+            [
+                dt.datetime(2026, 12, 30, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 12, 31, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 12, 31, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2027, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
+            ],
+            id="end-of-december",
+        ),
+    ],
+)
+def test_dmo_a_run_stamp_ahead_of_a_clock_still_in_the_month_before_is_the_next_months(
+    stamps: list[str],
+    now: dt.datetime,
+    expected: list[dt.datetime],
+) -> None:
+    """A clock four hours behind DWD's reads 23:30 on the last day when the 1st's 00 UTC run is listed.
+
+    The leeway reaches into the next month there, so the 1st is that month's rather than the clock
+    month's, which is a month back.
+    """
+    assert _dated(stamps, now) == expected
