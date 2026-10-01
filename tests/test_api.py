@@ -1216,9 +1216,9 @@ def test_source_descriptions_reach_the_parameter_they_name() -> None:
 def test_metadata_monthly_and_annual_parameters_carry_no_hourly_window() -> None:
     """Test that no monthly or annual parameter is named for a window of hours.
 
-    A `_last_<N>h` name says the value covers those hours, and its glossary entry says so too. A
-    total over a month or a year declared under such a name reads as the quantity for one day: DWD
-    derived monthly `summe von vpgfao` and `summe von vpgh` came under the daily potential
+    A `_last_<N>h` or `_<N>h` name says the value covers those hours, and its glossary entry says so
+    too. A total over a month or a year declared under such a name reads as the quantity for those hours:
+    DWD derived monthly `summe von vpgfao` and `summe von vpgh` came under the daily potential
     evapotranspiration names (GH-2042).
     """
     windowed = [
@@ -1228,7 +1228,8 @@ def test_metadata_monthly_and_annual_parameters_carry_no_hourly_window() -> None
         if resolution.value in (Resolution.MONTHLY, Resolution.ANNUAL)
         for dataset in resolution
         for parameter in dataset
-        if re.search(r"_last_\d+h$", parameter.name)
+        # `_last_24h` and a bare `_24h` alike; a gust's `_1min` is how long it is averaged, not a window
+        if re.search(r"_\d+h$", parameter.name)
     ]
     assert windowed == []
     soil = DwdDerivedMetadata["monthly"]["soil"]
