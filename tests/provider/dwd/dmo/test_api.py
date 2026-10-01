@@ -983,7 +983,6 @@ def test_dmo_the_newest_run_describes_the_stations(monkeypatch: pytest.MonkeyPat
     # month has 30 days or fewer the date does not exist, the runs could not be read, and the test
     # failed (GH-2171). Naive, as the provider passes its UTC clock
     now = dt.datetime(2026, 8, 1, 13, tzinfo=ZoneInfo("UTC")).replace(tzinfo=None)
-    add_date_from_filename = api.add_date_from_filename
     monkeypatch.setattr(
         api,
         "add_date_from_filename",
