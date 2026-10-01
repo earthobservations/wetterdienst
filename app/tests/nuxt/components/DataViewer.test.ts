@@ -1681,6 +1681,9 @@ describe('dataViewer parameter statistics of rows that are not long values', () 
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await wrapper.vm.$nextTick()
+    // the wide row is in the table, so it is the statistics that leave it out
+    expect(wrapper.findAll('tbody tr')).toHaveLength(1)
+    expect(wrapper.find('tbody').text()).toContain('1.5')
     expect(stats(viewer)).toEqual([])
   })
 

@@ -182,10 +182,10 @@ Types of changes:
 - `[Explorer]` Entering query mode after a Fetch checks the query again against the new rows. The
   syntax error shown, or its absence, was the answer for the rows fetched before, which could keep
   Run Query disabled for a query that was fine for the new rows (GH-2142)
-- `[Explorer]` The parameter statistics take only rows that carry a parameter and a `value` column.
-  A wide table, or a query result with its own columns such as `avg_value`, shows no statistics,
-  where it showed a row for an undefined parameter, or for an empty dataset, counting nothing
-  (GH-2161)
+- `[Explorer]` The parameter statistics take only rows that carry a `parameter` and a `value` that
+  is a number or missing. A wide table, or a query result with its own columns such as `avg_value`,
+  shows no statistics, where it showed a row for an undefined parameter, or for an empty dataset,
+  counting nothing (GH-2161)
 
 ## [0.17.0] - 2026-09-29
 
