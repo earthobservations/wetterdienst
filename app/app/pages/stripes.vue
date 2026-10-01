@@ -130,8 +130,8 @@ async function fetchAndPlotStripes() {
   if (!selectedStation.value)
     return
 
-  // another station's stripes go as this one's are fetched, so the stripes shown are the station's
-  // chosen, as do stripes that could not be drawn, and their Retry, which would draw the earlier
+  // another station's stripes go as this one's are fetched, so they are not shown as this one's, as
+  // do stripes that could not be drawn, and their Retry, which would draw the earlier
   // values. This station's drawn stripes stay while they are fetched anew, as of a display option
   // changed, and a drawing of them under way still draws, and tells its own failure
   if (plotFailed.value || lastFetchedData.value?.metadata.station.station_id !== selectedStation.value.station_id)
