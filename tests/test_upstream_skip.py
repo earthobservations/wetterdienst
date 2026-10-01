@@ -5,7 +5,7 @@
 from unittest.mock import MagicMock
 
 import pytest
-from aiohttp import ClientResponseError
+from aiohttp import ClientResponseError, ServerDisconnectedError
 from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import skip_if_upstream_unavailable
@@ -20,11 +20,11 @@ def _response_error(status: int) -> ClientResponseError:
     [
         pytest.param(FSTimeoutError(), id="timeout"),
         pytest.param(_response_error(503), id="503"),
-        pytest.param(FileNotFoundError("https://hubeau.eaufrance.fr/api"), id="404"),
+        pytest.param(ServerDisconnectedError(), id="dropped connection"),
     ],
 )
 def test_a_request_upstream_did_not_answer_skips_the_test(error: Exception) -> None:
-    """Test that a timeout, a 5xx or a missing file says nothing about the data and skips."""
+    """Test that a timeout, a 5xx or a dropped connection says nothing about the data and skips."""
     with pytest.raises(pytest.skip.Exception, match="upstream did not answer"), skip_if_upstream_unavailable():
         raise error
 
@@ -34,14 +34,15 @@ def test_a_request_upstream_did_not_answer_skips_the_test(error: Exception) -> N
     [
         pytest.param(AssertionError("listed twice"), id="assertion"),
         pytest.param(_response_error(400), id="400"),
+        pytest.param(FileNotFoundError("https://hubeau.eaufrance.fr/api"), id="404"),
         pytest.param(ValueError("unparseable"), id="value"),
     ],
 )
 def test_an_answer_upstream_gave_still_fails_the_test(error: Exception) -> None:
-    """Test that an assertion, or a request upstream refused as malformed, is not skipped.
+    """Test that an assertion, or a request upstream refused or could not find, is not skipped.
 
-    A 400 is upstream answering, and what it says is that the request was built wrong -- which is
-    exactly what a test of the provider exists to report.
+    A 400 or a 404 is upstream answering, and what it most likely says is that the request was
+    built wrong -- which is exactly what a test of the provider exists to report.
 
     The skip is caught by name, so that a helper skipping these too fails this test rather than
     skipping it along with them.
