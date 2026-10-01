@@ -46,6 +46,12 @@ Types of changes:
   terms, a line per problem -- `Missing option '--longitude'`, `Options '--station' and '--name'
   cannot be used together`, `Invalid value for '--distance'` with the value refused -- instead of
   pydantic's echo of every option given (GH-2056)
+- **Breaking**: DWD DMO refuses the values of a request naming a parameter its lead time's run does
+  not carry with `ParameterNotCarriedError`, a `ValueError` naming the lead time that does, where
+  the parameter answered with an empty frame: `icon`'s four 3-hourly parameters under the default
+  `lead_time="short"`, its three 1-hourly ones under `"long"`. The REST API answers 400. Pass the
+  lead time named, or ask for those parameters in a request of their own; a whole dataset still
+  returns what its run carries (GH-1976)
 
 ### Fixed
 
@@ -83,11 +89,6 @@ Types of changes:
   docstring said and a default request reads; it listed every lead time, so `wetterdienst issues`
   and `/api/issues` named runs the default `values` request rejected with `IndexError`. Pass
   `lead_time=None` to list every lead time together (GH-2009)
-- DWD DMO raises `ParameterNotCarriedError`, a `ValueError`, for the values of a parameter asked
-  for by name that the requested lead time's run does not carry, naming the lead time that does:
-  `icon`'s four 3-hourly parameters under the default `lead_time="short"`, its three 1-hourly ones
-  under `"long"`. They answered with an empty frame. The REST API answers 400 with the message, the
-  CLI prints it. A request for a whole dataset still returns what the run carries (GH-1976)
 
 ## [0.139.0] - 2026-09-29
 

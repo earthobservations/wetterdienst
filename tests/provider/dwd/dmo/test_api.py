@@ -1563,3 +1563,38 @@ def test_dmo_a_refused_parameter_reaches_the_caller_as_a_message(
     )
     assert result.exit_code == 1
     assert [(record.getMessage().endswith(expected), record.exc_info) for record in caplog.records] == [(True, None)]
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point"),
+    [("/api/interpolate", "get_interpolate"), ("/api/summarize", "get_summarize")],
+)
+def test_dmo_a_refused_parameter_is_a_400_from_the_geo_endpoints_too(
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    entry_point: str,
+) -> None:
+    """Interpolating or summarizing reads the values as well, and answered the refusal with a 404."""
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.exceptions import ParameterNotCarriedError  # noqa: PLC0415
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    msg = "DWD DMO's 078 h run, lead_time='short', does not carry hourly/icon/precipitation_amount_last_3h"
+
+    def refused(**_kwargs: object) -> None:
+        raise ParameterNotCarriedError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refused)
+    response = TestClient(app).get(
+        endpoint,
+        params={
+            "provider": "dwd",
+            "network": "dmo",
+            "parameters": "hourly/icon/precipitation_amount_last_3h",
+            "station": "10382",
+            "date": "2026-10-01",
+        },
+    )
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == msg

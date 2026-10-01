@@ -71,7 +71,7 @@ class DwdDmoLeadTime(Enum):
 # carry the same 16 others, and the 078 run the 1-hourly quantities where the 168 run carries the
 # 3-hourly ones. `DatasetModel` has no lead-time axis, so `icon` declares both families, and a
 # parameter the requested run does not carry answered with an empty frame -- which reads exactly like
-# a station with no data. `test_dmo_the_lead_times_the_request_knows_are_the_ones_upstream_serves`
+# a station with no data. `test_dmo_the_lead_times_the_refusal_knows_are_the_ones_each_run_carries`
 # ties this to the element sets the remote test pins per run
 _CARRIED_ONLY_BY = {
     "rad1h": DwdDmoLeadTime.SHORT,
