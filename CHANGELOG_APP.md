@@ -22,6 +22,10 @@ Types of changes:
   deployed under an open tab, the chart area says that reloading the page helps where Retry does
   not, and offers a Reload page button. Retry asked for the replaced code again and failed every
   time, with no word that only a reload would help (GH-2183)
+- `[Explorer]` The SQL query panel runs the string function `replace()` and
+  `SELECT * REPLACE (...)`, and takes a refused keyword after `AS` or a `.` for a name, as in
+  `1 AS update` or `t.delete`, where it refused each as a disallowed operation. A query that writes
+  is still refused (GH-2181)
 - `[Explorer]` The chart faceted by parameter gives each station one colour in every facet, where a
   station took another colour in a facet that lacked a station before it or listed the stations in
   another order (GH-2178)
@@ -238,6 +242,9 @@ Types of changes:
   zoom (GH-2164)
 - `[Explorer/History/Stripes/Meteogram]` The station map no longer writes a warning holding the
   whole selection to the browser console each time the selection changes (GH-2168)
+- `[Explorer/History/Stripes/Meteogram]` A station map whose markers cannot be built, as when the
+  app was redeployed under an open tab, says so above the map and asks for a reload. The map stayed
+  empty without a word (GH-2185)
 
 ## [0.17.0] - 2026-09-29
 

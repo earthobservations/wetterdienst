@@ -537,7 +537,8 @@
   "map": {
     "centerAll": "Wyśrodkuj na wszystkich stacjach",
     "centerSelected": "Wyśrodkuj na wybranej stacji",
-    "centerSelectedPlural": "Wyśrodkuj na wybranych stacjach"
+    "centerSelectedPlural": "Wyśrodkuj na wybranych stacjach",
+    "markersNotShown": "Nie udało się pokazać stacji na mapie. Odśwież stronę, aby spróbować ponownie."
   },
   "dataViewer": {
     "loadingValues": "Ładowanie wartości …",

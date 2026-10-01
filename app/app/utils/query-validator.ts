@@ -296,7 +296,9 @@ function tokenize(query: string): { tokens: Token[], unclosed: boolean } {
   return { tokens, unclosed: false }
 }
 
-// Keywords of statements that change data, the schema or the database, which a query may not hold
+// Keywords of statements that change data, the schema or the database, which a query may not hold.
+// Not REPLACE, which names the read-only replace() and SELECT * REPLACE (...): CREATE OR REPLACE is
+// refused by the SELECT-only check, and INSERT OR REPLACE, after a WITH, by INSERT.
 const DISALLOWED_KEYWORDS = new Set([
   'CREATE',
   'DROP',
@@ -305,7 +307,6 @@ const DISALLOWED_KEYWORDS = new Set([
   'INSERT',
   'UPDATE',
   'DELETE',
-  'REPLACE',
   'MERGE',
   'ATTACH',
   'DETACH',
@@ -358,14 +359,22 @@ export function validateQuery(query: string): QueryValidationResult {
     }
   }
 
-  // Check for dangerous keywords, outside strings, quoted identifiers and comments
+  // Check for dangerous keywords, outside strings, quoted identifiers and comments. A word after AS
+  // or a `.` is a name, as in `1 AS update` or `t.delete`: a statement a SELECT or WITH starts that
+  // writes, WITH ... INSERT, UPDATE, DELETE or MERGE, has its keyword after the `)` of a CTE.
   const words = tokens.filter(token => token.kind === 'word').map(wordOf)
-  const disallowed = words.find(word => DISALLOWED_KEYWORDS.has(word))
+  const isName = (index: number) => {
+    const before = tokens[index - 1]
+    return before !== undefined && (text.slice(before.start, before.end) === '.'
+      || (before.kind === 'word' && wordOf(before) === 'AS'))
+  }
+  const disallowed = tokens.find((token, index) =>
+    token.kind === 'word' && DISALLOWED_KEYWORDS.has(wordOf(token)) && !isName(index))
   if (disallowed !== undefined) {
     return {
       valid: false,
       errorKey: 'validation.disallowedOperation',
-      params: { op: disallowed },
+      params: { op: wordOf(disallowed) },
     }
   }
 

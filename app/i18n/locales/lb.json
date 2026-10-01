@@ -537,7 +537,8 @@
   "map": {
     "centerAll": "Op all Statioune zentréieren",
     "centerSelected": "Op déi ausgewielte Statioun zentréieren",
-    "centerSelectedPlural": "Op déi ausgewielte Statiounen zentréieren"
+    "centerSelectedPlural": "Op déi ausgewielte Statiounen zentréieren",
+    "markersNotShown": "D'Statioune konnten net op der Kaart gewise ginn. Lued d'Säit nei fir et nach eng Kéier ze probéieren."
   },
   "dataViewer": {
     "loadingValues": "Wäerter ginn gelueden …",

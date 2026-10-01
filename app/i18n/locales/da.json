@@ -537,7 +537,8 @@
   "map": {
     "centerAll": "Centrér på alle stationer",
     "centerSelected": "Centrér på den valgte station",
-    "centerSelectedPlural": "Centrér på de valgte stationer"
+    "centerSelectedPlural": "Centrér på de valgte stationer",
+    "markersNotShown": "Stationerne kunne ikke vises på kortet. Genindlæs siden for at prøve igen."
   },
   "dataViewer": {
     "loadingValues": "Indlæser værdier …",
