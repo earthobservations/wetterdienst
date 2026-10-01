@@ -191,7 +191,8 @@ Types of changes:
   with a Retry button that tries to draw it again. The chart area stayed empty without a word
   (GH-2169)
 - `[Explorer]` A chart image whose export fails, such as a stack of many facets past the browser's
-  canvas size, says the image could not be saved. Nothing was saved, and nothing said so (GH-2170)
+  canvas size, says the image could not be saved. Nothing was saved and nothing said so, or for
+  such a stack, an empty PNG or JPEG was saved and reported downloaded (GH-2170)
 
 ## [0.17.0] - 2026-09-29
 

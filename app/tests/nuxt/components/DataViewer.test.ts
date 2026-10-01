@@ -1805,8 +1805,9 @@ describe('dataViewer chart that could not be drawn', () => {
     expect(retry()).toBeUndefined()
   })
 
-  it('shows Retry as under way, and starts no other, until the chart it draws again is drawn', async () => {
-    // a Retry looked the same before, during and after its drawing, and each click started another
+  it('takes the note away while a drawing is under way, and shows it anew where that fails too', async () => {
+    // the note stayed, Retry with it, while a drawing ran, and a Retry that failed again left it as
+    // it was, which a screen reader does not announce again
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
@@ -1815,16 +1816,19 @@ describe('dataViewer chart that could not be drawn', () => {
     plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
     await toggleTrendline(wrapper)
     await vi.waitFor(() => expect(retry()).toBeDefined())
-    const held = holdNextDraw(plotly.newPlot)
+    const first = document.body.querySelector('[role="alert"]')
+    const held = gate()
+    plotly.newPlot.mockImplementationOnce(async () => {
+      await held.opened
+      throw new Error('drawing failed again')
+    })
     const calls = plotly.newPlot.mock.calls.length
     retry()!.click()
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(calls + 1))
-    await vi.waitFor(() => expect(retry()!.disabled).toBe(true))
-    retry()!.click()
-    await flushPromises()
-    expect(plotly.newPlot).toHaveBeenCalledTimes(calls + 1)
+    await vi.waitFor(() => expect(note()).toBeUndefined())
     held.open()
-    await vi.waitFor(() => expect(retry()).toBeUndefined())
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+    expect(document.body.querySelector('[role="alert"]')).not.toBe(first)
   })
 })
 
