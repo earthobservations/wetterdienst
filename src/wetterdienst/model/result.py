@@ -11,6 +11,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Literal, cast
 
 import polars as pl
+from pydantic import ConfigDict, with_config
 from typing_extensions import NotRequired, TypedDict
 
 from wetterdienst.io.export import ExportMixin
@@ -74,6 +75,10 @@ class _Metadata(TypedDict):
     producer: _Producer
 
 
+# Extra keys are allowed so the schema admits the station columns a provider adds to the core ones,
+# e.g. `icao_id` (DWD MOSMIX, DMO, POI), `gauge_zero` (WSV, Eaufrance) or the road columns of DWD
+# road weather; they differ per provider, so they are not declared one by one.
+@with_config(ConfigDict(extra="allow"))
 class _Station(TypedDict):
     """Type definition for station."""
 
@@ -82,10 +87,12 @@ class _Station(TypedDict):
     station_id: str
     start_date: str | None
     end_date: str | None
-    latitude: float
-    longitude: float
-    elevation: float
-    name: str
+    # null for stations the provider gives no position, name or elevation, e.g. the postcodes of
+    # dwd/derived climate_correction_factor, and (elevation only) every WSV and Eaufrance station
+    latitude: float | None
+    longitude: float | None
+    elevation: float | None
+    name: str | None
     region: str | None
 
 
@@ -102,7 +109,7 @@ class _OgcFeatureProperties(TypedDict):
     resolution: str
     dataset: str
     id: str
-    name: str
+    name: str | None
     region: str | None
     start_date: str | None
     end_date: str | None
