@@ -2306,15 +2306,16 @@ def test_sql_sink_writes_mysql_datetimes_as_naive_utc(
         name = "wdmysqlfork"
 
     monkeypatch.setitem(registry.impls, "wdmysqlfork", lambda: ForkDialect)
-    # `start_date` stands for the station frame's other datetime columns. Midnight in Berlin in
-    # 1850 is 23:06:32 UTC the day before (local mean time), so a zone dropped without converting
-    # to UTC first would show
+    # `start_date` and `end_date` stand for the station frame's other datetime columns, the latter
+    # empty as an active station's is. Midnight in Berlin in 1850 is 23:06:32 UTC the day before
+    # (local mean time), so a zone dropped without converting to UTC first would show
     export = ExportMixin(
         df=pl.DataFrame(
             {
                 "station_id": ["01048"],
                 "timestamp": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("UTC"))],
                 "start_date": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("Europe/Berlin"))],
+                "end_date": pl.Series([None], dtype=pl.Datetime("us", "UTC")),
                 "value": [1.0],
             }
         )
@@ -2343,11 +2344,14 @@ def test_sql_sink_writes_mysql_datetimes_as_naive_utc(
         ddl = str(CreateTable(table).compile(dialect=engine.dialect))
     assert f"timestamp {datetime_type}" in ddl
     assert f"start_date {datetime_type}" in ddl
+    assert f"end_date {datetime_type}" in ddl
+    assert frame["end_date"].isna().tolist() == [True]
     if datetime_type == "DATETIME":
         assert frame["timestamp"].tolist() == [pd.Timestamp("1850-01-01 00:00:00")]
         assert frame["start_date"].tolist() == [pd.Timestamp("1849-12-31 23:06:32")]
     else:
         assert frame["timestamp"].tolist() == [pd.Timestamp("1850-01-01 00:00:00", tz="UTC")]
         # compared as an instant: pandas rounds Berlin's 1850 offset to whole minutes when it builds one
-        assert str(frame["start_date"].dtype) == "datetime64[us, Europe/Berlin]"
+        assert isinstance(frame["start_date"].dtype, pd.DatetimeTZDtype)
+        assert str(frame["start_date"].dtype.tz) == "Europe/Berlin"
         assert frame["start_date"].dt.tz_convert("UTC").tolist() == [pd.Timestamp("1849-12-31 23:06:32", tz="UTC")]
