@@ -2597,7 +2597,7 @@ def test_a_reader_missing_on_the_server_is_a_501(
 
 
 def test_stations_schema_admits_null_core_columns_and_provider_columns(client: TestClient) -> None:
-    """The station schema served in /openapi.json matches the rows /api/stations returns (GH-2226).
+    """The station schema in /openapi.json admits the nulls and provider columns stations come with (GH-2226).
 
     `elevation` is null for every WSV and Eaufrance station, and `latitude`, `longitude` and `name`
     are null for the postcodes of dwd/derived climate_correction_factor; the schema typed them as a
