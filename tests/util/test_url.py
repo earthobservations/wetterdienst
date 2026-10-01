@@ -121,15 +121,22 @@ def test_connectionstring_gives_back_the_file_path_it_was_given(database: str) -
             "postgresql://scott:***@db/dwd?note=a@b",
             id="slash-and-at-in-query",
         ),
+        # Azure Database for PostgreSQL logs in as `user@server`, which SQLAlchemy connects with
         pytest.param(
-            "postgresql://scott@db:5432/dwd?opt=a@b",
-            "postgresql://scott@db:5432/dwd?opt=a@b",
-            id="username-only-at-in-query",
+            "postgresql://user@srv:secret@srv.postgres.database.azure.com:5432/dwd?sslmode=require",
+            "postgresql://user@srv:***@srv.postgres.database.azure.com:5432/dwd?sslmode=require",
+            id="at-in-username",
         ),
         # a path is not a password, whatever it holds
         pytest.param("file://C:/data@x.csv", "file://C:/data@x.csv", id="file-two-slashes"),
         pytest.param("duckdb://C:/data/obs@1.duckdb", "duckdb://C:/data/obs@1.duckdb", id="duckdb-two-slashes"),
-        pytest.param("sqlite+pysqlite://C:/obs@1.db", "sqlite+pysqlite://C:/obs@1.db", id="sqlite-two-slashes"),
+        pytest.param("sqlite://C:/obs@1.db", "sqlite://C:/obs@1.db", id="sqlite-two-slashes"),
+        # but a dialect that takes its passphrase from the password slot is not a plain path
+        pytest.param(
+            "sqlite+pysqlcipher://:passphrase@/dwd.db?table=weather",
+            "sqlite+pysqlcipher://:***@/dwd.db?table=weather",
+            id="sqlcipher-passphrase",
+        ),
         # `urlparse` raises on this; the log line naming it must not
         pytest.param("postgresql://u:p@[::1/db", "postgresql://u:***@[::1/db", id="malformed-ipv6"),
     ],

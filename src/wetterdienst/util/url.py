@@ -5,7 +5,8 @@
 from urllib.parse import parse_qs, urlparse
 
 # targets that name a file rather than a server, and so carry no credentials; a Windows path
-# such as `file://C:/data@x.csv` would otherwise read as user `C` with a password
+# such as `file://C:/data@x.csv` would otherwise read as user `C` with a password. Matched
+# exactly: a dialect such as `sqlite+pysqlcipher` takes its passphrase from the password slot
 _PATH_SCHEMES = frozenset({"file", "duckdb", "sqlite"})
 
 
@@ -15,32 +16,28 @@ def redact_password(url: str) -> str:
     The password slot is where a SQL or CrateDB target carries its password and where the
     InfluxDB 2 and 3 targets carry their API token, and the CLI logs at INFO by default, so a
     target printed verbatim lands in cron mail, journald or a CI log. The username stays: it says
-    which account was used and is no secret. Everything else comes back exactly as given.
+    which account was used and is no secret. The rest comes back as given.
 
-    The string is read as SQLAlchemy reads it rather than as ``urlparse`` does: SQLAlchemy takes a
-    password holding an unencoded ``/``, ``#`` or ``?`` and connects with it, where ``urlparse``
-    ends the host part at that character and finds no password at all. So the username runs to
-    the first ``:`` and holds no ``/`` or ``@``, and the password from there to the first ``@``,
-    or to the last ``@`` before the host part ends at a ``/``, ``?`` or ``#``, which is where
-    ``urlparse`` ends a password holding an ``@`` itself. An ``@`` in the path or query is left
-    alone, except in a target with no password whose ``host:port`` is followed by one: SQLAlchemy
-    reads the port and what follows up to that ``@`` as a password, and so it is hidden too.
-    Nothing here raises, so a log line naming a malformed target still prints.
+    The SQL sinks read the target with SQLAlchemy and the others with ``urlparse``, and the two
+    disagree on an unencoded ``@``, ``/``, ``#`` or ``?``, so whatever either reads as the password
+    is hidden. Both start it after the first ``:``, provided no ``/`` comes before it. SQLAlchemy
+    ends it at the first ``@`` after that, so a password holding a ``/`` is still found and an
+    Azure-style username such as ``user@server`` is kept; ``urlparse`` ends it at the last ``@``
+    before the host part ends at a ``/``, ``?`` or ``#``, so a password holding an ``@`` is found.
+    A target with no password but a ``host:port`` followed by an ``@`` in its path or query is cut
+    at that ``@``, as SQLAlchemy reads it. Nothing here raises, so a log line naming a malformed
+    target still prints.
     """
     scheme, separator, rest = url.partition("://")
-    username, colon, after = rest.partition(":")
-    first_at = after.find("@")
-    if (
-        not separator
-        or scheme.split("+")[0].lower() in _PATH_SCHEMES
-        or not colon
-        or first_at == -1
-        or "/" in username
-        or "@" in username
-    ):
+    username, colon, _ = rest.partition(":")
+    if not separator or scheme.lower() in _PATH_SCHEMES or not colon or "/" in username:
         return url
-    host_end = min((i for i in (after.find(c, first_at) for c in "/?#") if i != -1), default=len(after))
-    return f"{scheme}://{username}:***{after[after.rfind('@', 0, host_end) :]}"
+    start = len(username) + 1
+    host_end = min((i for i in (rest.find(c) for c in "/?#") if i != -1), default=len(rest))
+    end = max(rest.find("@", start), rest.rfind("@", start, host_end))
+    if end == -1:
+        return url
+    return f"{scheme}://{username}:***{rest[end:]}"
 
 
 class ConnectionString:
