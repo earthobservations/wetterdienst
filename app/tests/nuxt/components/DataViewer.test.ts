@@ -2058,7 +2058,8 @@ describe('dataViewer chart whose Plotly chunk a redeploy replaced', () => {
     expect(note()).toContain('The chart could not be drawn')
     expect(note()).toContain(hint)
     button('Reload page')!.click()
-    expect(reloadNuxtApp).toHaveBeenCalledOnce()
+    // forced: unforced, Nuxt drops a second click within ten seconds of a first that did not help
+    expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
   })
 
   it.each([false, true])('offers no reload once Plotly loaded and only its drawing failed, faceted: %s', async (faceted) => {

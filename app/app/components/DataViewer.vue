@@ -81,6 +81,12 @@ async function ensurePlotly(): Promise<typeof import('plotly.js-basic-dist-min')
   return Plotly
 }
 
+function reloadPage() {
+  // forced: the user's click, not a reload loop, which is what Nuxt's guard stops. Unforced, a
+  // second click within ten seconds of a first that did not help would do nothing
+  reloadNuxtApp({ force: true })
+}
+
 // Parameter label format options and chart display
 // Options: 'parameter' (default), 'dataset/parameter', 'resolution/dataset/parameter'
 type ParamLabelFormat = 'parameter' | 'dataset/parameter' | 'resolution/dataset/parameter'
@@ -1384,7 +1390,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
           <div v-else class="py-4">
             <div
               v-if="chartNotDrawn"
-              class="flex items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
+              class="flex flex-wrap items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
             >
               <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
                    button stays, and keeps its focus -->
@@ -1393,7 +1399,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
                 <span v-if="plotlyNotLoaded" class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
               </span>
               <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
-              <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadNuxtApp()" />
+              <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
             </div>
             <div
               v-if="allValues.length === 0 && fetchErrorMessage"
