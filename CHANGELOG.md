@@ -129,8 +129,8 @@ Types of changes:
 - The REST API's OpenAPI schema types a station's `elevation`, `latitude`, `longitude` and `name`
   as nullable, and declares that a station may carry the columns its provider adds, such as
   `gauge_zero`, so a client generated from it keeps them. MCP tools no longer fail output
-  validation on a station without an elevation, such as every WSV station, when they return
-  stations in the JSON format: `stations`, and the others with `with_stations` (GH-2226)
+  validation on a station row holding such a null, as every WSV station does; a GeoJSON point
+  with a null coordinate still fails (GH-2226)
 
 ## [0.139.0] - 2026-09-29
 
