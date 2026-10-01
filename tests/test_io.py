@@ -3,7 +3,6 @@
 """Tests for export of timeseries data."""
 
 import datetime as dt
-import importlib.util
 import json
 import math
 import re
@@ -2337,14 +2336,7 @@ def test_sql_sink_names_psycopg_for_a_bare_postgresql_target(
     """
     sqlalchemy = pytest.importorskip("sqlalchemy")
     pytest.importorskip("pandas")
-    find_spec = importlib.util.find_spec
-
-    def installed(name: str, *args: object, **kwargs: object) -> object:
-        if name == "psycopg":
-            return mock.sentinel.psycopg if psycopg else None
-        return find_spec(name, *args, **kwargs)
-
-    with mock.patch("importlib.util.find_spec", side_effect=installed):
+    with mock.patch("wetterdienst.io.export._psycopg_imports", return_value=psycopg):
         assert _urls_the_sink_asks_for(sqlalchemy, target, tmp_path) == [connects_to]
 
 
@@ -2387,3 +2379,17 @@ def test_sql_extras_carry_what_the_sink_imports(extra: str, driver: str) -> None
     requirements = pyproject["project"]["optional-dependencies"][extra]
     names = {re.match(r"[A-Za-z0-9_.\[\]-]+", requirement).group(0).lower() for requirement in requirements}
     assert {"pandas", "sqlalchemy", driver} <= names
+
+
+def test_psycopg_counts_as_installed_only_when_it_imports() -> None:
+    """An installed psycopg 3 without a libpq to call is not taken for a bare `postgresql://`.
+
+    Its pure-Python package is found on the path but fails on import with `no pq wrapper
+    available`, so naming it would turn a URL psycopg2 could serve into an `ImportError`.
+    """
+    from wetterdienst.io.export import _psycopg_imports  # noqa: PLC0415
+
+    with mock.patch("importlib.import_module", side_effect=ImportError("no pq wrapper available")):
+        assert not _psycopg_imports()
+    with mock.patch("importlib.import_module", return_value=mock.sentinel.psycopg):
+        assert _psycopg_imports()

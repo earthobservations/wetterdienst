@@ -793,12 +793,11 @@ class ExportMixin:
                 # which needs Python 3.11, so both are allowed. The `postgresql` extra installs
                 # psycopg 3: named here, the same URL finds it on either. A target naming its
                 # driver keeps it, and without psycopg 3 SQLAlchemy picks as it always did
-                import importlib.util  # noqa: PLC0415
-
-                if url.drivername == "postgresql" and importlib.util.find_spec("psycopg"):
+                if url.drivername == "postgresql" and _psycopg_imports():
                     url = url.set(drivername="postgresql+psycopg")
-                # psycopg 3 binds on the server, which takes at most 65535 parameters a statement,
-                # and a multi-row insert carries one per cell
+                # psycopg 3 and pg8000 bind on the server, which takes at most 65535 parameters a
+                # statement, and a multi-row insert carries one per cell. psycopg2 binds on the
+                # client and needs no cap, but smaller inserts cost it nothing but round trips
                 chunk_size = min(chunk_size, 65535 // len(self.df.columns))
             engine = sqlalchemy.create_engine(url)
             try:
@@ -821,6 +820,17 @@ class ExportMixin:
             finally:
                 engine.dispose()
             log.info("Writing to SQL database finished")
+
+
+def _psycopg_imports() -> bool:
+    """Tell whether psycopg 3 imports: installed without a libpq to call, it does not."""
+    import importlib  # noqa: PLC0415
+
+    try:
+        importlib.import_module("psycopg")
+    except ImportError:
+        return False
+    return True
 
 
 def _netcdf_engine() -> str | None:
