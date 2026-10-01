@@ -373,4 +373,26 @@ describe('validateQuery words that are keywords elsewhere', () => {
   ])('refuses %j, a statement REPLACE joins, by its first keyword', (sql, errorKey, params) => {
     expect(validateQuery(sql)).toEqual({ valid: false, errorKey, ...(params && { params }) })
   })
+
+  it.each([
+    'SELECT 1 AS update FROM data LIMIT 1',
+    'SELECT t.delete FROM (SELECT 1 AS "delete") t LIMIT 1',
+    'SELECT 1 AS create, 2 AS /* a name */ insert, m.drop FROM (SELECT 3 AS drop) AS m, data AS merge LIMIT 1',
+  ])('lets %j through, its keywords names after AS or a \'.\'', (sql) => {
+    const before = rows()
+    expect(validateQuery(sql)).toEqual({ valid: true, statement: sql })
+    expect(conn.query(sql).numRows).toBe(1)
+    expect(rows()).toEqual(before)
+  })
+
+  it.each([
+    ['WITH x AS (SELECT 1 AS update) UPDATE data SET value = 2', 'UPDATE'],
+    ['WITH x AS (SELECT 1 AS delete) DELETE FROM data', 'DELETE'],
+    ['WITH x AS (SELECT 5 AS value, \'a\' AS station_id) MERGE INTO data AS t USING x ON false WHEN NOT MATCHED THEN INSERT VALUES (5, \'a\')', 'MERGE'],
+  ])('refuses %j, which writes, by its keyword after the CTE', (sql, op) => {
+    expect(validateQuery(sql)).toEqual({ valid: false, errorKey: 'validation.disallowedOperation', params: { op } })
+    const before = rows()
+    conn.query(sql)
+    expect(rows()).not.toEqual(before)
+  })
 })

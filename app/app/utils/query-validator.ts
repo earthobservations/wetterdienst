@@ -359,9 +359,18 @@ export function validateQuery(query: string): QueryValidationResult {
     }
   }
 
-  // Check for dangerous keywords, outside strings, quoted identifiers and comments
+  // Check for dangerous keywords, outside strings, quoted identifiers and comments. A word after AS
+  // or a `.` is a name, as in `1 AS update` or `t.delete`: a statement a SELECT or WITH starts that
+  // writes, WITH ... INSERT, UPDATE, DELETE or MERGE, has its keyword after the `)` of a CTE.
   const words = tokens.filter(token => token.kind === 'word').map(wordOf)
-  const disallowed = words.find(word => DISALLOWED_KEYWORDS.has(word))
+  const isName = (index: number) => {
+    const before = tokens[index - 1]
+    return before !== undefined && (text.slice(before.start, before.end) === '.'
+      || (before.kind === 'word' && wordOf(before) === 'AS'))
+  }
+  const disallowed = tokens
+    .map((token, index) => token.kind === 'word' && !isName(index) ? wordOf(token) : undefined)
+    .find(word => word !== undefined && DISALLOWED_KEYWORDS.has(word))
   if (disallowed !== undefined) {
     return {
       valid: false,
