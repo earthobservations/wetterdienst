@@ -2129,3 +2129,23 @@ describe('dataViewer parameter statistics of many values', () => {
     ])
   })
 })
+
+describe('dataViewer trendline of many points', () => {
+  it('draws the trendline of a series of more points than a call takes arguments, where it threw', async () => {
+    // past V8's argument limit of about 120k, as 3 years of one station's 10-minute values, each
+    // ten minutes on and one more than the last
+    const count = 200_000
+    const start = Date.UTC(2020, 0, 1)
+    const rows = Array.from({ length: count }, (_, i) => ({ ...row, timestamp: new Date(start + i * 600_000).toISOString(), value: i }))
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery(rows)
+    await showChart(wrapper, false)
+    await toggleTrendline(wrapper)
+    // each drawing sorts and formats every point, which a busy runner can take a while over
+    await vi.waitFor(() => expect(lastDrawn(false).traces).toHaveLength(2), { timeout: 10_000 })
+    const [, trend] = lastDrawn(false).traces
+    expect(trend!.x).toEqual([new Date(start).toISOString(), new Date(start + (count - 1) * 600_000).toISOString()])
+    expect(trend!.y[0]).toBeCloseTo(0, 0)
+    expect(trend!.y[1]).toBeCloseTo(count - 1, 0)
+  }, 30_000)
+})
