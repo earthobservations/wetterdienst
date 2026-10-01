@@ -839,6 +839,10 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[],
   const parameterGroups = new Map<string, Map<string, { x: Date[], y: number[] }>>()
   // the mode the rows shown were fetched in, as the single chart's
   const mode = rowsMode.value
+  // Each station's colour, the same in every facet: numbered once, in the order its first row comes
+  // across all plotted rows. Numbered per facet, a station took another colour in a facet that lacked
+  // a station coming before it
+  const stationColors = new Map<string, string>()
 
   for (const { row: value, date, y } of chartRows.value) {
     let param = value.parameter
@@ -853,6 +857,8 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[],
     }
 
     const stationKey = mode === 'station' ? value.station_id : 'interpolated'
+    if (!stationColors.has(stationKey))
+      stationColors.set(stationKey, chartColors[stationColors.size % chartColors.length] ?? '#3b82f6')
     const stationMap = parameterGroups.get(param)!
 
     if (!stationMap.has(stationKey)) {
@@ -873,10 +879,9 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[],
     const isLargeDataset = points > LARGE_DATASET_THRESHOLD
     const traces: PlotlyData[] = []
     const trendlineTraces: PlotlyData[] = []
-    let colorIndex = 0
 
     for (const [stationKey, data] of stationMap) {
-      const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
+      const color = stationColors.get(stationKey) ?? '#3b82f6'
 
       const pairs = data.x.map((x, i) => ({ x, y: data.y[i]! })).sort((a, b) => a.x.getTime() - b.x.getTime())
       const sortedXDates = pairs.map(p => p.x)
@@ -911,8 +916,6 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[],
           showlegend: true,
         })
       }
-
-      colorIndex++
     }
 
     // Add trendlines after main traces so they render on top
