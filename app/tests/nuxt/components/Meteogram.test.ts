@@ -185,7 +185,8 @@ describe('meteogram low clouds', { timeout: 15_000 }, () => {
     await wrapper.setProps({ values: [...values, ...clouds] })
 
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
-    const traces = plotly.newPlot.mock.calls[0]![1] as unknown as { name: string }[]
+    // the mock takes no arguments in its type, so its call is read as Plotly's (element, traces)
+    const [, traces] = plotly.newPlot.mock.calls[0] as unknown as [unknown, { name: string }[]]
     expect(traces.map(trace => trace.name)).toContain('Low Clouds %')
   })
 })
