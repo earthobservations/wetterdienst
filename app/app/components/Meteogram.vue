@@ -871,8 +871,11 @@ async function renderChart() {
   }
   catch (error) {
     console.error('The chart could not be drawn', error)
-    renderFailed.value = true
-    renderFailures.value++
+    // a render queued meanwhile draws next, and tells its own outcome
+    if (!renderPending) {
+      renderFailed.value = true
+      renderFailures.value++
+    }
   }
   finally {
     isRendering = false

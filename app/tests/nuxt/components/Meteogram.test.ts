@@ -72,4 +72,24 @@ describe('meteogram chart that could not be drawn', () => {
     await vi.waitFor(() => expect(retry()).toBeUndefined())
     expect(plotly.newPlot).toHaveBeenCalledTimes(2)
   })
+
+  it('says nothing where a drawing fails that newer values have replaced, and the newer one draws', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    plotly.newPlot.mockClear()
+    // the first drawing held, to fail once newer values have come in
+    let fail!: (error: Error) => void
+    plotly.newPlot.mockImplementationOnce(() => new Promise((_, reject) => {
+      fail = reject
+    }))
+    await showMeteogram()
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    await wrapper!.setProps({ values: values.slice(1) })
+    fail(new Error('drawing failed'))
+
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect((wrapper!.vm as any).renderFailed).toBe(false))
+    // never told: the alert was not mounted for it
+    expect((wrapper!.vm as any).renderFailures).toBe(0)
+    expect(retry()).toBeUndefined()
+  })
 })

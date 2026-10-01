@@ -230,7 +230,8 @@ Types of changes:
   whole selection to the browser console each time the selection changes (GH-2168)
 - `[Stripes]` The stripes are labelled with the years the backend gives in a browser west of UTC.
   Each year was read in the browser's own time zone, where its first moment in UTC is still the
-  year before, so the first and last years shown were one year early (GH-2184)
+  year before, so every stripe's year, as its hover and the first and last years shown give it,
+  was one year early (GH-2184)
 - `[Stripes/Meteogram]` Stripes or a meteogram that fail to draw, as when Plotly fails to load,
   say so in the chart area, with a Retry button that tries to draw them again, and a stripes image
   whose export fails says the image could not be saved. The chart area stayed empty, and a failed
