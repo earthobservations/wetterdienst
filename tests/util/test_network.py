@@ -1996,7 +1996,7 @@ def test_a_fan_out_says_how_many_of_its_files_the_cache_answered(
     urls = ["/a.txt", "/b.txt", "/c.txt"]
     for url in urls:
         source.pipe_file(url, b"payload")
-    # only the source is stubbed: the cache in front of it is the one register builds for each thread
+    # only the source is stubbed: the cache in front of it is the one register builds
     monkeypatch.setattr(network, "HTTPFileSystem", lambda **_kwargs: source)
 
     def said() -> list[str]:
@@ -2045,7 +2045,7 @@ def test_a_fan_out_does_not_count_a_failure_as_a_file_it_fetched(
     """
     source = MemoryFileSystem()
     source.pipe_file("/here.txt", b"payload")
-    # only the source is stubbed: the cache in front of it is the one register builds for each thread
+    # only the source is stubbed: the cache in front of it is the one register builds
     monkeypatch.setattr(network, "HTTPFileSystem", lambda **_kwargs: source)
 
     with caplog.at_level(logging.INFO, logger="wetterdienst.util.network"):
