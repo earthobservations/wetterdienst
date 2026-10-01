@@ -2217,3 +2217,54 @@ def test_duckdb_append_matches_columns_by_name(tmp_path: Path) -> None:
     # the same names still append, which is what a schedule of one query does
     ExportMixin(df=temperature).to_target(target, if_exists="append")
     assert connection.execute("SELECT COUNT(*) FROM weather").fetchone()[0] == 2
+
+
+@pytest.mark.parametrize(
+    ("target", "connects_to"),
+    [
+        pytest.param(
+            "postgresql://u:p@localhost/dwd?table=weather&sslmode=require",
+            "postgresql://u:p@localhost/dwd?sslmode=require",
+            id="postgresql",
+        ),
+        pytest.param(
+            "mysql://u:p@localhost/dwd?charset=utf8mb4&table=weather",
+            "mysql://u:p@localhost/dwd?charset=utf8mb4",
+            id="mysql",
+        ),
+    ],
+)
+@pytest.mark.parametrize("if_exists", ["replace", "fail"])
+def test_sql_sink_keeps_the_table_out_of_the_connection(
+    target: str,
+    connects_to: str,
+    if_exists: str,
+    tmp_path: Path,
+) -> None:
+    """`?table=` names the table and no longer reaches the driver as a connection option.
+
+    The sink handed the whole target to SQLAlchemy, which passes every query argument to the
+    driver's `connect`; psycopg, psycopg2, mysqlclient and pymysql all refuse `table`, so no
+    `postgresql://` or `mysql://` target could connect, whatever `if_exists` said. sqlite ignores
+    an argument it does not know, which is why the sqlite sink looked healthy. No server is needed:
+    the engine handed back is a sqlite file, and what is read is the URL the sink asked for it with.
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pytest.importorskip("pandas")
+    database = tmp_path / "obs.sqlite"
+    create_engine = sqlalchemy.create_engine
+    asked = []
+
+    def engine_for(url: object, **kwargs: object) -> object:
+        asked.append(url)
+        return create_engine(f"sqlite:///{database}", **kwargs)
+
+    with mock.patch("sqlalchemy.create_engine", side_effect=engine_for):
+        _one_row().to_target(target, if_exists=if_exists)
+
+    assert [sqlalchemy.make_url(url).render_as_string(hide_password=False) for url in asked] == [connects_to]
+    connection = sqlite3.connect(database)
+    try:
+        assert connection.execute("SELECT station_id FROM weather").fetchall() == [("01048",)]
+    finally:
+        connection.close()
