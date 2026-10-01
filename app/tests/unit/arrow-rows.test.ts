@@ -207,9 +207,13 @@ describe('plainRows of a map with an infinite date or timestamp key', () => {
   })
 
   it('gives each row its own keys across the chunks a large result comes in', () => {
-    const plain = rows('SELECT MAP {(CASE WHEN range % 2 = 0 THEN \'infinity\' ELSE \'-infinity\' END)::DATE: range} AS d, MAP {(CASE WHEN range % 2 = 0 THEN \'-infinity\' ELSE \'infinity\' END)::TIMESTAMP: range} AS t FROM range(5000)')
-    expect(plain[0]).toEqual({ d: { infinity: 0 }, t: { '-infinity': 0 } })
-    expect(plain[4999]).toEqual({ d: { '-infinity': 4999 }, t: { infinity: 4999 } })
+    // a run of keys not in step with the chunks, so a key read from another chunk's row differs
+    const sign = (row: number) => row >= 1000 && row < 3000 ? '' : '-'
+    const plain = rows(`SELECT MAP {(CASE WHEN range >= 1000 AND range < 3000 THEN 'infinity' ELSE '-infinity' END)::DATE: range} AS d, MAP {(CASE WHEN range >= 1000 AND range < 3000 THEN '-infinity' ELSE 'infinity' END)::TIMESTAMP: range} AS t FROM range(5000)`)
+    expect(plain).toEqual(Array.from({ length: 5000 }, (_, row) => ({
+      d: { [`${sign(row)}infinity`]: row },
+      t: { [`${sign(row) ? '' : '-'}infinity`]: row },
+    })))
   })
 })
 

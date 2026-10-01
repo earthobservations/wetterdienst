@@ -154,29 +154,29 @@ function childRanges(vector: Vector): ([number, number] | null)[] {
 }
 
 /**
- * The name of a map's key that is made null as any value is, so that each stays apart: a float's
+ * The names of a map's keys that are made null as any value is, so that each stays apart: a float's
  * NaN or infinity by its own name (GH-2116), and an infinite date or timestamp by DuckDB's text,
  * `infinity` or `-infinity` (GH-2148), read from its ticks, as Arrow's getter throws on a
- * timestamp's. A key is never NULL. Other keys made null, as a list holding a NaN, still collide.
+ * timestamp's. A key is never NULL. Other keys made null still collide: a date or timestamp past
+ * what a Date holds, and an infinity or a NaN inside a list, a struct or a union.
+ *
+ * @returns The name of the key at a row of the key column, counted across all chunks
  */
-function nullKeyName(vector: Vector, at: number): string {
+function nullKeyNames(vector: Vector): (at: number) => string {
   switch (vector.type.typeId) {
     case Type.Float:
-      return String(vector.get(at))
+      return at => String(vector.get(at))
     case Type.Date:
     case Type.Timestamp: {
       const infinite = vector.type.typeId === Type.Date ? INFINITE_DAYS : INFINITE_TICKS
-      let index = at
-      for (const data of vector.data) {
-        if (index < data.length) {
-          const ticks = BigInt((data.values as Int32Array | BigInt64Array)[index]!)
-          return ticks === infinite ? 'infinity' : ticks === -infinite ? '-infinity' : 'null'
-        }
-        index -= data.length
-      }
+      const names = vector.data.flatMap(data => Array.from({ length: data.length }, (_, index) => {
+        const ticks = BigInt((data.values as Int32Array | BigInt64Array)[index]!)
+        return ticks === infinite ? 'infinity' : ticks === -infinite ? '-infinity' : 'null'
+      }))
+      return at => names[at]!
     }
   }
-  return 'null'
+  return () => 'null'
 }
 
 /**
@@ -220,8 +220,9 @@ function plainColumn(vector: Vector, field: Field): unknown[] {
       const entries = vector.getChildAt(0)!
       const [keyField, valueField] = entries.type.children as Field[]
       const keyVector = entries.getChildAt(0)!
+      const nullKeyName = nullKeyNames(keyVector)
       const keys = plainColumn(keyVector, keyField!).map((key, at) => key === null
-        ? nullKeyName(keyVector, at)
+        ? nullKeyName(at)
         : typeof key === 'string' ? key : JSON.stringify(key))
       const values = plainColumn(entries.getChildAt(1)!, valueField!)
       return childRanges(vector).map(range => range && Object.fromEntries(keys.slice(...range).map((key, index) =>
