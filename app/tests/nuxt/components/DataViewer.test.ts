@@ -1470,7 +1470,9 @@ describe('dataViewer chart images after a failed drawing', () => {
     const { wrapper } = await shownAndFailing(faceted, 2)
     const saved = catchDownload()
     ;(await openDownloads(wrapper))[0]!.click()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('The chart could not be drawn'))
+    // told by a toast, not only by the chart area's note, shown since the first drawing failed
+    const toasts = () => [...document.body.querySelectorAll('[data-slot="title"]')].map(title => title.textContent?.trim())
+    await vi.waitFor(() => expect(toasts()).toContain('The chart could not be drawn'))
     expect(document.body.textContent).not.toContain('Chart downloaded')
     expect(exports(faceted)).not.toHaveBeenCalled()
     expect(saved).toHaveLength(0)
@@ -1877,5 +1879,146 @@ describe('dataViewer parameter statistics of rows that are not long values', () 
       { parameter: 'wind_speed', dataset: '2019', count: 1, min: 1, max: 1, mean: 1, sum: 1 },
       { parameter: 'wind_speed', dataset: '2020', count: 1, min: 3, max: 3, mean: 3, sum: 3 },
     ])
+  })
+})
+
+describe('dataViewer chart that could not be drawn', () => {
+  // the chart area's Retry button, and the alert beside it, not a toast's: the chart area stayed
+  // empty without a word
+  const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
+  const alert = () => retry()?.parentElement?.querySelector('[role="alert"]') ?? undefined
+  const note = () => alert()?.textContent?.trim()
+  const draws = (faceted: boolean) => faceted ? plotly.react : plotly.newPlot
+
+  afterEach(() => {
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+  })
+
+  it.each([false, true])('says so in the chart area and draws the chart again on Retry, faceted: %s', async (faceted) => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    expect(retry()).toBeUndefined()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const draw = draws(faceted)
+    draw.mockRejectedValueOnce(new Error('drawing failed'))
+    const calls = draw.mock.calls.length
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+    expect(note()).toContain('The chart could not be drawn')
+    retry()!.click()
+    await vi.waitFor(() => expect(retry()).toBeUndefined())
+    expect(note()).toBeUndefined()
+    // the failed drawing, then the chart drawn again: each facet's
+    expect(draw).toHaveBeenCalledTimes(calls + 1 + (faceted ? 2 : 1))
+  })
+
+  it.each([false, true])('says so where Plotly failed to load, and loads it again on Retry, faceted: %s', async (faceted) => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    vi.doMock('plotly.js-basic-dist-min', () => {
+      throw new Error('chunk failed to load')
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const draw = draws(faceted)
+    draw.mockClear()
+    await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+    expect(note()).toContain('The chart could not be drawn')
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    retry()!.click()
+    // the module loaded anew, which a busy runner can take a while over
+    await vi.waitFor(() => expect(retry()).toBeUndefined(), { timeout: 5000 })
+    expect(draw).toHaveBeenCalledTimes(faceted ? 2 : 1)
+  })
+
+  it.each([false, true])('says only that there is no chart where no row can be plotted and Plotly failed to load, faceted: %s', async (faceted) => {
+    // the render of no chart fails as well, but there is no chart to draw again
+    const { wrapper } = await withChartQuery([{ ...row, value: null }])
+    vi.doMock('plotly.js-basic-dist-min', () => {
+      throw new Error('chunk failed to load')
+    })
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect(logged).toHaveBeenCalledWith('The chart could not be drawn', expect.any(Error)))
+    await flushPromises()
+    expect(wrapper.text()).toContain('No data available for chart')
+    expect(retry()).toBeUndefined()
+  })
+
+  it('tells a Retry that fails too anew, and keeps the focus on Retry', async () => {
+    // a Retry that failed again left the note as it was, which a screen reader does not announce
+    // again; the note, Retry with it, is not taken away while the drawing runs, which would lose
+    // the focus
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, false)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+    const first = alert()
+    expect(first?.textContent).toContain('The chart could not be drawn')
+    const held = gate()
+    plotly.newPlot.mockImplementationOnce(async () => {
+      await held.opened
+      throw new Error('drawing failed again')
+    })
+    const calls = plotly.newPlot.mock.calls.length
+    const button = retry()!
+    button.focus()
+    button.click()
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(calls + 1))
+    await flushPromises()
+    expect(alert()).toBe(first)
+    held.open()
+    await vi.waitFor(() => expect(alert()).not.toBe(first))
+    expect(note()).toContain('The chart could not be drawn')
+    expect(retry()).toBe(button)
+    expect(document.activeElement).toBe(button)
+  })
+})
+
+describe('dataViewer chart image whose export fails', () => {
+  // the step that fails: Plotly's own download of the single chart, a facet's SVG, or the stacked
+  // SVG turned into PNG, as where it passes the browser's canvas size. Nothing was saved, unhandled,
+  // and nothing said so
+  it.each([
+    { faceted: false, format: 'PNG', item: 0, step: () => plotly.downloadImage },
+    { faceted: true, format: 'SVG', item: 2, step: () => plotly.toImage },
+    { faceted: true, format: 'PNG', item: 0, step: () => plotly.Snapshot.svgToImg },
+  ])('says the image could not be saved, faceted: $faceted, $format', async ({ faceted, item, step }) => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    const saved = catchDownload()
+    const failed = new Error('export failed')
+    ;(step() as unknown as { mockRejectedValueOnce: (error: Error) => void }).mockRejectedValueOnce(failed)
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    ;(await openDownloads(wrapper))[item]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('The chart image could not be saved'))
+    expect(logged).toHaveBeenCalledWith('The chart image could not be saved', failed)
+    expect(document.body.textContent).not.toContain('Chart downloaded')
+    expect(saved).toHaveLength(0)
+  })
+
+  it.each(['PNG', 'JPEG'])('says the image could not be saved where the stack passes the canvas size, %s', async (format) => {
+    // Plotly answers with an empty "data:," there rather than failing: an empty file was saved, and
+    // reported downloaded
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, true)
+    const saved = catchDownload()
+    plotly.Snapshot.svgToImg.mockResolvedValueOnce('data:,')
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    ;(await openDownloads(wrapper))[format === 'PNG' ? 0 : 1]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('The chart image could not be saved'))
+    expect(document.body.textContent).not.toContain('Chart downloaded')
+    expect(saved).toHaveLength(0)
   })
 })

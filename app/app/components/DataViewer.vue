@@ -949,10 +949,12 @@ async function chartsDrawn() {
 // A chart's renders, numbered as they start. A render started while another is under way draws the
 // change it was started for, and the older one stops before it draws again, where it would draw what
 // it read at its start over the newer drawing. Failed: the newest threw -- Plotly's import or its
-// drawing -- and the chart holds no drawing, which a chart image draws again rather than save
-interface ChartRenders { started: number, failed: boolean }
-const mainRenders: ChartRenders = { started: 0, failed: false }
-const facetRenders: ChartRenders = { started: 0, failed: false }
+// drawing -- and the chart holds no drawing, which a chart image draws again rather than save, and
+// the chart area says so. Failures: the newest renders' failures counted, so the chart area's note
+// is told again where a Retry fails too
+interface ChartRenders { started: number, failed: boolean, failures: number }
+const mainRenders = reactive<ChartRenders>({ started: 0, failed: false, failures: 0 })
+const facetRenders = reactive<ChartRenders>({ started: 0, failed: false, failures: 0 })
 
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   // a chart still being drawn holds no graph, which Plotly exports as an empty figure of its default
@@ -982,18 +984,27 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
     return
   }
 
-  const plotly = await ensurePlotly()
-  if (faceted) {
-    saveBlob(await stackCharts(plotly, charts as HTMLDivElement[], format), `chart.${format}`)
+  // the export itself can fail too, such as a stack of many facets past the browser's canvas size,
+  // which turning it into PNG or JPEG draws on: nothing is saved, and that is told
+  try {
+    const plotly = await ensurePlotly()
+    if (faceted) {
+      saveBlob(await stackCharts(plotly, charts as HTMLDivElement[], format), `chart.${format}`)
+    }
+    else {
+      await plotly.downloadImage(charts[0]!, {
+        format,
+        filename: 'chart',
+        // Plotly expects number | undefined for width/height; use undefined to let it auto-size
+        width: undefined,
+        height: undefined,
+      })
+    }
   }
-  else {
-    await plotly.downloadImage(charts[0]!, {
-      format,
-      filename: 'chart',
-      // Plotly expects number | undefined for width/height; use undefined to let it auto-size
-      width: undefined,
-      height: undefined,
-    })
+  catch (error) {
+    console.error('The chart image could not be saved', error)
+    toast.add({ title: t('dataViewer.chartImageNotSaved'), color: 'error' })
+    return
   }
 
   toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedChart', { format: format.toUpperCase() }), color: 'success' })
@@ -1024,8 +1035,13 @@ async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), ch
   if (format === 'svg')
     return new Blob([svg], { type: 'image/svg+xml' })
   const image = await plotly.Snapshot.svgToImg({ svg, format, width, height, canvas: document.createElement('canvas'), promise: true })
+  const data = image.slice(image.indexOf(',') + 1)
+  // a canvas past the browser's size limit draws nothing, and Plotly answers with an empty "data:,"
+  // rather than failing
+  if (!data)
+    throw new Error(`The stacked chart of ${width} x ${height} px could not be drawn as ${format}`)
   // a data URL, decoded rather than linked to, as a browser refuses a long one as a download link
-  return new Blob([Uint8Array.from(atob(image.slice(image.indexOf(',') + 1)), c => c.charCodeAt(0))], { type: `image/${format}` })
+  return new Blob([Uint8Array.from(atob(data), c => c.charCodeAt(0))], { type: `image/${format}` })
 }
 
 // Plotly layout, apart from its hover mode, which is each chart's own: see hoverMode
@@ -1073,6 +1089,7 @@ function startRender(renders: ChartRenders, draw: (newest: () => boolean) => Pro
     if (!newest())
       return
     renders.failed = true
+    renders.failures++
     console.error('The chart could not be drawn', error)
   }))
 }
@@ -1093,6 +1110,9 @@ function renderShownChart() {
 function shownRenders() {
   return facetByParameter.value ? facetRenders : mainRenders
 }
+
+// the chart shown holds no drawing, its newest render having failed
+const chartNotDrawn = computed(() => chartShown() && shownRenders().failed)
 
 // Render chart helper functions
 async function drawMainChart(newest: () => boolean) {
@@ -1356,6 +1376,15 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }"
           />
           <div v-else class="py-4">
+            <div
+              v-if="chartNotDrawn"
+              class="flex items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
+            >
+              <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
+                   button stays, and keeps its focus -->
+              <span :key="shownRenders().failures" role="alert" class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+              <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
+            </div>
             <div
               v-if="allValues.length === 0 && fetchErrorMessage"
               class="flex flex-col items-center justify-center gap-1 py-12 text-center text-red-600 dark:text-red-400"

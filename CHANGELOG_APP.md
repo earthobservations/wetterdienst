@@ -214,6 +214,12 @@ Types of changes:
   is a number or missing. A wide table, or a query result with its own columns such as `avg_value`,
   shows no statistics, where it showed a row for an undefined parameter, or for an empty dataset,
   counting nothing (GH-2161)
+- `[Explorer]` A chart that fails to draw, as when Plotly fails to load, says so in the chart area,
+  with a Retry button that tries to draw it again. The chart area stayed empty without a word
+  (GH-2169)
+- `[Explorer]` A chart image whose export fails, such as a stack of many facets past the browser's
+  canvas size, says the image could not be saved. Nothing was saved and nothing said so, or for
+  such a stack, an empty PNG or JPEG was saved and reported downloaded (GH-2170)
 - `[Explorer/History/Stripes/Meteogram]` Collapsing the station map, or leaving the page, while its
   markers are still being built no longer adds them to the removed map, which could throw an error
   into the browser console (GH-2155)
