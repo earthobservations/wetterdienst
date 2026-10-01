@@ -476,7 +476,7 @@ describe('mapStations when leaflet.markercluster fails to load', () => {
     await vi.waitFor(() => expect(alert().exists()).toBe(false))
   })
 
-  it('says nothing of an older list\'s failure that comes after the newer list\'s markers', async () => {
+  it('says nothing on the map of an older list\'s failure that comes after the newer list\'s markers', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     let fail!: () => void
     const gate = new Promise<void>((resolve) => {
@@ -495,6 +495,7 @@ describe('mapStations when leaflet.markercluster fails to load', () => {
     await ready
 
     expect(alert().exists()).toBe(false)
-    expect(error).not.toHaveBeenCalled()
+    // but leaves its error in the console, where it went unhandled before
+    expect(error).toHaveBeenCalledWith('The station markers could not be built', expect.any(TypeError))
   })
 })
