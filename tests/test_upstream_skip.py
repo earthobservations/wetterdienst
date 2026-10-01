@@ -2,6 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the helper that skips a remote test whose upstream did not answer."""
 
+from unittest.mock import MagicMock
+
 import pytest
 from aiohttp import ClientResponseError
 from fsspec.exceptions import FSTimeoutError
@@ -10,7 +12,7 @@ from tests.conftest import skip_if_upstream_unavailable
 
 
 def _response_error(status: int) -> ClientResponseError:
-    return ClientResponseError(request_info=None, history=(), status=status)  # ty: ignore[invalid-argument-type]
+    return ClientResponseError(request_info=MagicMock(), history=(), status=status)
 
 
 @pytest.mark.parametrize(
@@ -40,9 +42,20 @@ def test_an_answer_upstream_gave_still_fails_the_test(error: Exception) -> None:
 
     A 400 is upstream answering, and what it says is that the request was built wrong -- which is
     exactly what a test of the provider exists to report.
+
+    The skip is caught by name, so that a helper skipping these too fails this test rather than
+    skipping it along with them.
     """
-    with pytest.raises(type(error)), skip_if_upstream_unavailable():
-        raise error
+    raised: Exception | None = None
+    try:
+        with skip_if_upstream_unavailable():
+            raise error  # noqa: TRY301 -- the helper under test is what catches it
+    except pytest.skip.Exception:
+        pytest.fail(f"{error!r} skipped the test")
+    except Exception as caught:  # noqa: BLE001 -- compared below, whatever it is
+        raised = caught
+
+    assert raised is error
 
 
 def test_skip_if_upstream_unavailable_decorates_a_test_function() -> None:
