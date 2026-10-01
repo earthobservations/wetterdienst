@@ -705,19 +705,21 @@ function calculateLinearRegression(xData: Date[], yData: number[]): { x: Date[],
   let sumY = 0
   let sumXY = 0
   let sumXX = 0
+  // taken in the loop, where Math.min(...xNums) threw past about 120k points (65,536 in Safari)
+  let minX = Infinity
+  let maxX = -Infinity
 
   for (let i = 0; i < n; i++) {
     sumX += xNums[i]!
     sumY += yData[i]!
     sumXY += xNums[i]! * yData[i]!
     sumXX += xNums[i]! * xNums[i]!
+    minX = Math.min(minX, xNums[i]!)
+    maxX = Math.max(maxX, xNums[i]!)
   }
 
   const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
   const intercept = (sumY - slope * sumX) / n
-
-  const minX = Math.min(...xNums)
-  const maxX = Math.max(...xNums)
 
   return {
     x: [new Date(minX), new Date(maxX)],
