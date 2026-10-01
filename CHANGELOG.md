@@ -77,6 +77,9 @@ Types of changes:
 
 ### Fixed
 
+- Eaufrance Hub'Eau stations are listed when the station referential is slow to arrive. It was
+  given 30 seconds and took 25 to 78 on 2026-10-01, failing the list with `FSTimeoutError`; it
+  now has the 120 seconds the observations requests have (GH-2221)
 - Precipitation stripes colour dry years brown and wet years teal; they were the other way round.
   A year range holding fewer than two years with data is refused, where one beyond the station's
   record answered with no values and an empty image, and stripes start and end at a year with data.

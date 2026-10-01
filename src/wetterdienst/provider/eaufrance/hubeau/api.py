@@ -93,9 +93,9 @@ _SNIFF_PAGE_SIZE = 20000
 # each, the fewest round trips -- but well past the thirty seconds a single file is given. The
 # timeout is per call, so this raises it only for the pages that ask about the whole network.
 _SNIFF_TIMEOUT = 120
-# The referential is one page of four thousand stations and answers in a second or two, so it keeps
-# the ordinary budget.
-_STATIONS_TIMEOUT = 30
+# The referential is one page of four thousand stations, but not a quick one: on 2026-10-01 it
+# took 25 to 78 seconds to arrive, streaming at 16 to 32 KB/s, so it gets the same budget.
+_REFERENTIAL_TIMEOUT = 120
 # One page of observations per request, followed by its cursor. The window is chunked to about a
 # page so that most requests need only one.
 _VALUES_PAGE_SIZE = 20000
@@ -432,7 +432,7 @@ class HubeauRequest(TimeseriesRequest):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
-        rows = _paged_rows(self._endpoint, settings, ttl=CacheExpiry.METAINDEX, timeout=_STATIONS_TIMEOUT)
+        rows = _paged_rows(self._endpoint, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
         if not rows:
             return pl.LazyFrame()
         df_raw = pl.from_dicts(

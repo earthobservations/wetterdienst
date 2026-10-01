@@ -331,3 +331,27 @@ def test_all_reports_the_gauge_datum_as_gauge_zero_not_as_elevation(monkeypatch:
 
     assert dict(df.select("station_id", "gauge_zero").iter_rows()) == {"O972001001": -1.809, "K447001001": None}
     assert df.get_column("elevation").null_count() == df.height == 2
+
+
+def test_all_gives_the_referential_the_budget_of_the_other_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that reading the station referential may take as long as reading the observations.
+
+    The referential is a single page, but a slow one: on 2026-10-01 it took 25 to 78 seconds to
+    arrive, and four of six reads ran past the 30 seconds it was given, so the station list failed
+    with ``FSTimeoutError`` more often than not.
+    """
+    timeouts: dict[str, int] = {}
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        timeouts[url] = timeout
+        if "referentiel" in url:
+            return [_station("O972001001")]
+        return _observations(_dates("O972001001", 5, 8))
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+
+    HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all()
+
+    referential = {url: timeout for url, timeout in timeouts.items() if "referentiel" in url}
+    assert referential
+    assert set(referential.values()) == {api._SNIFF_TIMEOUT} == {api._VALUES_TIMEOUT}  # noqa: SLF001
