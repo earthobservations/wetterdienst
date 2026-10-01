@@ -2177,3 +2177,52 @@ def test_a_fan_out_never_reads_the_metadata_file_while_another_thread_replaces_i
     # one save per file, all of them to the one file the threads share -- else nothing was contended
     assert len(saves) == len(urls)
     assert len(set(saves)) == 1
+
+
+@pytest.mark.parametrize(
+    ("method", "args"),
+    [
+        ("load_cache", ()),
+        ("save_cache", ()),
+        ("pop_from_cache", ("/a.txt",)),
+        ("clear_expired_cache", (60,)),
+        ("clear_cache", ()),
+    ],
+)
+def test_every_way_into_the_metadata_file_takes_the_cache_lock(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    method: str,
+    args: tuple,
+) -> None:
+    """Whichever of fsspec's methods reaches the metadata file, it does so holding `_cache_dir_lock`.
+
+    The fan-out test above meets only the load and the save a download makes; the others reach the
+    same file -- MOSMIX pops a truncated run, the sweep clears expired entries -- and one left out
+    is the same Windows `PermissionError` for whichever thread it meets (GH-1990).
+    """
+    filesystem = network._LockedWholeFileCacheFileSystem(  # noqa: SLF001
+        fs=MemoryFileSystem(),
+        cache_storage=str(tmp_path),
+        expiry_time=3600,
+    )
+    held: list[bool] = []
+
+    def probe(free: list[bool]) -> None:
+        acquired = network._cache_dir_lock.acquire(blocking=False)  # noqa: SLF001
+        if acquired:
+            network._cache_dir_lock.release()  # noqa: SLF001
+        free.append(acquired)
+
+    def record(_self: object, *_args: object, **_kwargs: object) -> None:
+        # asked from another thread, because the lock is reentrant and would admit this one
+        free: list[bool] = []
+        thread = threading.Thread(target=probe, args=(free,))
+        thread.start()
+        thread.join()
+        held.append(not free[0])
+
+    monkeypatch.setattr(WholeFileCacheFileSystem, method, record)
+    getattr(filesystem, method)(*args)
+
+    assert held == [True]

@@ -507,8 +507,11 @@ def _sweep_expired_blobs(
       through. The lock the caller holds is for a narrower thing -- another thread *building* a
       filesystem for this directory reads the metadata file a sweep can delete, which on Windows is
       a `PermissionError` for the builder rather than the harmless POSIX unlink. So a sweep that is
-      ever re-armed after the first one needs a new answer to the first question; the lock alone
-      will not give it one, because a download through an already-built filesystem never takes it.
+      ever re-armed after the first one needs a new answer to the first question, and the lock alone
+      will not give it one. A download takes it for each load and save of the metadata, which keeps
+      the two from overlapping, but `clear_expired` saves the snapshot its own filesystem loaded
+      without merging the file first -- so a sweep taking its turn after a sibling's save still
+      writes over the rows that save added.
 
     Args:
         filesystem: The caching filesystem that owns this directory.
@@ -699,8 +702,9 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
 
     Overrides every method of fsspec's that reaches the metadata file: `load_cache` and
     `save_cache` are what a download goes through, `pop_from_cache` is how MOSMIX drops a truncated
-    run, and `clear_expired_cache` is the sweep. fsspec resolves all four on the class rather than on
-    the instance, so an override here is what its own internal calls reach as well.
+    run, `clear_expired_cache` is the sweep, and `clear_cache` deletes the file along with the
+    blobs. fsspec resolves all five on the class rather than on the instance, so an override here is
+    what its own internal calls reach as well.
     """
 
     def load_cache(self) -> None:
@@ -722,6 +726,11 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         """Drop expired entries from the metadata file, which saves it."""
         with _cache_dir_lock:
             super().clear_expired_cache(expiry_time)
+
+    def clear_cache(self) -> None:
+        """Delete the directory, metadata file and all, and load the empty metadata back."""
+        with _cache_dir_lock:
+            super().clear_cache()
 
 
 class NetworkFilesystemManager:
