@@ -5,7 +5,6 @@
 import doctest
 import os.path
 import re
-import warnings
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -30,16 +29,6 @@ EXCLUDE_PROVIDER_NETWORKS_FILES_STARTSWITH = ["_", ".", "metadata"]
 # pages from the page side of `test_docs_cover_every_resolution` -- all 88 pages could go to none
 # checked with every test still passing. `dwd/alerts` is a CAP warnings feed with no timeseries model.
 NETWORKS_WITHOUT_A_METADATA_MODEL = {("dwd", "alerts")}
-
-# Networks whose request class needs a package outside the base install, and which therefore go
-# unchecked when it is absent. Bounded for the same reason as the set above: landing in `skipped`
-# exempts a network's pages from both directions of `test_docs_cover_every_resolution`, and the skip is
-# only a warning, which nothing escalates. `dwd/derived` reaches pandas through
-# `provider/dwd/derived/metaindex.py`, which the `export` extra supplies; CI installs it
-# (`.github/workflows/install.sh testing`) and so skips nothing, while a bare `uv sync` leaves those
-# three resolutions unverified -- including description changes made to them. Any other network
-# skipped this way is unexpected and fails.
-NETWORKS_NEEDING_AN_EXTRA = {("dwd", "derived")}
 
 # Providers that are excluded from the docs. "*" is a wildcard.
 EXCLUDE_PROVIDER_NETWORKS = {
@@ -468,22 +457,15 @@ def _resolution_pages() -> tuple[list[tuple[str, str, object, Path]], set[tuple[
     it already has a `metadata/` package, so the day it grows a metadata model the two tests in this
     module would otherwise contradict each other and one of them would have to fail.
 
-    A network whose request class needs a package this environment does not have is skipped, with a
-    warning naming it: `dwd/derived` imports pandas, which arrives with the `export` extra, so a bare
-    `uv sync` leaves its three resolutions unverifiable. CI installs the extras
-    (`.github/workflows/install.sh testing`) and skips nothing. The skipped pairs come back beside the
-    pages because a network that was never walked declares nothing here, and the page-side half of
-    `test_docs_cover_every_resolution` would otherwise read its published pages as naming resolutions
-    the model does not declare -- turning the skip into the very failure it exists to avoid.
+    The networks in `NETWORKS_WITHOUT_A_METADATA_MODEL` come back as skipped beside the pages,
+    because a network that was never walked declares nothing here, and the page-side half of
+    `test_docs_cover_every_resolution` would otherwise read any resolution page published for it as
+    naming a resolution the model does not declare.
 
-    Only a genuinely missing third-party module is excused -- a `metadata.py` that makes
-    `build_metadata_model` raise, or a mistyped intra-package import in a provider's `api.py`, has to
-    surface here rather than quietly excusing that provider from all four tests below.
-    `Wetterdienst.resolve` re-raises the `ModuleNotFoundError` as a plain `ImportError`, so the
-    distinction is read off `__cause__` rather than off the type: catching `ModuleNotFoundError`
-    catches nothing at all, and the skip this clause documents would have come out as four errors
-    instead. `resolve` reports a name it cannot import as a missing dependency whatever it is, so a
-    name inside this package is excluded here rather than trusted to its message.
+    Every network imports on a base install, so one that cannot be imported fails here rather than
+    being skipped: a missing package, a `metadata.py` that makes `build_metadata_model` raise,
+    or a mistyped import in a provider's `api.py` would otherwise excuse that provider from all four
+    tests below.
     """
     from wetterdienst import Wetterdienst  # noqa: PLC0415
 
@@ -496,21 +478,7 @@ def _resolution_pages() -> tuple[list[tuple[str, str, object, Path]], set[tuple[
         for network in networks:
             if network in excluded:
                 continue
-            try:
-                api = Wetterdienst(provider, network)
-            except ImportError as error:
-                cause = error.__cause__
-                if not isinstance(cause, ModuleNotFoundError) or (cause.name or "").startswith("wetterdienst"):
-                    raise
-                if (provider, network) not in NETWORKS_NEEDING_AN_EXTRA:
-                    msg = (
-                        f"{provider}/{network} cannot be imported, so none of the docs tests read it: "
-                        f"{error}. Add it to NETWORKS_NEEDING_AN_EXTRA if that is intended."
-                    )
-                    raise AssertionError(msg) from error
-                warnings.warn(f"{provider}/{network} not checked against its docs: {error}", stacklevel=2)
-                skipped.add((provider, network))
-                continue
+            api = Wetterdienst(provider, network)
             metadata = getattr(api, "metadata", None)
             if metadata is None:
                 if (provider, network) not in NETWORKS_WITHOUT_A_METADATA_MODEL:
