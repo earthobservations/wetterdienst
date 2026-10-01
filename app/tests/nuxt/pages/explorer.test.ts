@@ -391,22 +391,25 @@ describe('explorer Page DWD DMO lead time', () => {
     const { wrapper } = await mountAt('provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m&leadTime=long')
     expect(leadTimeCard(wrapper).exists()).toBe(false)
     expect((await show(wrapper)).lead_time).toBeUndefined()
+    expect((await writtenQuery()).leadTime).toBeUndefined()
   })
 
   it.each([
     ['network', 'observation'],
     ['provider', 'noaa'],
+    ['resolution', 'daily'],
     ['dataset', 'icon_eu'],
   ])('goes back to the short run when the %s changes', async (field, other) => {
     const { wrapper, vm } = await mountAt(`${ICON}&leadTime=long`)
     const selection = vm.parameterSelectionState.selection
     selection[field] = other
-    await vi.waitFor(() => expect(leadTimeCard(wrapper).exists()).toBe(false))
+    await vi.waitFor(() => expect(vm.leadTime).toBe('short'))
     await vi.waitFor(() => expect(useRouter().currentRoute.value.query.leadTime).toBeUndefined())
 
     // back on icon, the run offered is the default one, not the one chosen before
     selection.provider = 'dwd'
     selection.network = 'dmo'
+    selection.resolution = 'hourly'
     selection.dataset = 'icon'
     await vi.waitFor(() => expect(leadTimeCard(wrapper).exists()).toBe(true))
     expect(vm.leadTime).toBe('short')

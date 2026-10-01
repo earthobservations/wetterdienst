@@ -22,7 +22,7 @@ Types of changes:
   default) or long (78 to 168 h, 3-hourly). The 3-hourly parameters, such as
   `precipitation_amount_last_3h`, are carried only by the long run, which the explorer could not
   ask for, so they answered with no data or an error. The run chosen is kept in a shared link and
-  goes back to short when the provider, network or dataset changes (GH-2227)
+  goes back to short when the provider, network, resolution or dataset changes (GH-2227)
 - `[Stripes]` `[Meteogram]` Where the chart's code could not be loaded, as after a new version of
   the app was deployed under an open tab, the chart area says that reloading the page helps where
   Retry does not, and offers a Reload page button, as the explorer's chart does. Retry asked for the
