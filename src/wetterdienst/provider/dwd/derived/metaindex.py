@@ -53,7 +53,7 @@ COL_SPECS = (
     (43, 52),  # geoBreite
     (53, 59),  # geoLaenge
     (61, 100),  # Stationsname
-    (102, 142),  # Bundesland # (144,1000) # Abgabe
+    (102, 142),  # Bundesland; Abgabe, from 143 on, is not read
 )
 
 _STATION_URL_DICT = {
@@ -160,9 +160,11 @@ def _read_meta_df(dataset: DatasetModel, file: File) -> pl.LazyFrame:
             pl.col("station_id").cast(str).str.pad_start(5, "0"),
         )
     else:
-        # the first two lines are the header and the ``----`` rule under it
-        lines = file.content.read().decode("latin-1").splitlines()[2:]
-        df = pl.DataFrame({"line": [line for line in lines if line.strip()]}, schema={"line": pl.String})
+        # The first two lines are the header and the ``----`` rule under it. Split the bytes, which
+        # break only at \r and \n, rather than the decoded text, which str.splitlines would also break
+        # at a latin-1 \x85 inside a name. The rows are padded with spaces to 1000 characters or more.
+        lines = [line.decode("latin-1").rstrip() for line in file.content.read().splitlines()[2:]]
+        df = pl.DataFrame({"line": [line for line in lines if line]}, schema={"line": pl.String})
         df = read_fwf_from_df(df, COL_SPECS)
         df.columns = list(DWD_COLUMN_NAMES_MAPPING.values())
         df = df.cast(

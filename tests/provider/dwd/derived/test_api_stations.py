@@ -366,16 +366,41 @@ def test_read_meta_df_fixed_width_station_list() -> None:
 
 
 def test_dwd_derived_imports_without_pandas() -> None:
-    """`dwd/derived` resolves on a base install, which has no pandas (GH-2213).
+    """`dwd/derived` resolves and reads a station list on a base install, which has no pandas (GH-2213).
 
     Run in a fresh interpreter with pandas made unimportable, since this one may have imported it
     already for another test.
     """
-    code = (
-        "import sys; sys.modules['pandas'] = None; "
-        "from wetterdienst import Wetterdienst; "
-        "print(Wetterdienst('dwd', 'derived').__name__)"
-    )
+    code = """
+import sys
+from io import BytesIO
+
+sys.modules["pandas"] = None
+
+from wetterdienst import Wetterdienst
+from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata
+from wetterdienst.provider.dwd.derived.metaindex import _read_meta_df
+from wetterdienst.util.network import File
+
+print(Wetterdienst("dwd", "derived").__name__)
+row = "00001 19310101 19860630            478     47.8413    8.8493 Aach"
+content = BytesIO(f"header\\r\\nrule\\r\\n{row}\\r\\n".encode("latin-1"))
+file = File(url="https://example.org/stations.txt", content=content, status=200)
+print(_read_meta_df(DwdDerivedMetadata.monthly.heating_degreedays, file=file).collect()["name"].item())
+"""
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)  # noqa: S603
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "DwdDerivedRequest"
+    assert result.stdout.split() == ["DwdDerivedRequest", "Aach"]
+
+
+def test_read_meta_df_breaks_rows_only_at_line_ends() -> None:
+    """A byte 0x85 in a station name stays in the name rather than splitting the row (GH-2213).
+
+    Decoded as latin-1 it is U+0085, which `str.splitlines` takes for a line break, as pandas did not.
+    """
+    # the name field is 41 characters wide, the space after it included
+    row = "00001 19310101 19860630            478     47.8413    8.8493 " + "Bad\x85Aach".ljust(41) + "Bayern"
+    content = BytesIO(f"header\r\nrule\r\n{row}\r\n".encode("latin-1"))
+    file = File(url="https://example.org/stations.txt", content=content, status=200)
+    df = _read_meta_df(DwdDerivedMetadata.monthly.heating_degreedays, file=file).collect()
+    assert df.select("station_id", "name", "region").rows() == [("00001", "Bad\x85Aach", "Bayern")]
