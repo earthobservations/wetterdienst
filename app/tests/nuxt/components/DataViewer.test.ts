@@ -1721,3 +1721,26 @@ describe('dataViewer chart of a query\'s timestamp text', () => {
     expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
   })
 })
+
+describe('dataViewer chart of a query\'s values that are no number', () => {
+  // two days' numbers, and a third day's value as a query can put it
+  const threeDays = (value: unknown) => [row, { ...row, timestamp: '2020-01-02T00:00:00Z', value: 2.5 }, { ...row, timestamp: '2020-01-03T00:00:00Z', value }]
+
+  it.each([
+    // `CAST(value AS VARCHAR) AS value`: the trendline added it up as text, and drew nothing
+    '3.5',
+    // the y axis turned into one of categories
+    'n/a',
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ])('leaves out a row whose value is %s, and draws the trendline of the others', async (value) => {
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery(threeDays(value))
+    await showChart(wrapper, false)
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(lastDrawn(false).traces).toHaveLength(2))
+    const [trace, trend] = lastDrawn(false).traces
+    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z', '2020-01-02T00:00:00.000Z'], [1.5, 2.5]])
+    expect(trend!.y.map(y => Math.round(y * 1e6) / 1e6)).toEqual([1.5, 2.5])
+  })
+})

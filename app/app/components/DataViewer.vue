@@ -749,10 +749,13 @@ function rowDate(row: Value): Date | null {
 
 // The rows the chart plots, each with its date: those with a value and a date to place it at. The
 // series and facets are made from these alone, so a series whose rows are all left out is not drawn
-// empty, and the large-dataset threshold counts the points drawn, not the rows left out
+// empty, and the large-dataset threshold counts the points drawn, not the rows left out. A value is
+// a finite number: a query can put text under `value`, `CAST(value AS VARCHAR)` or 'n/a', which the
+// trendline added up as text, drawing nothing, and which turned the y axis into one of categories
 const chartRows = computed(() => sortedValues.value.flatMap((row) => {
   const date = rowDate(row)
-  return date && row.value !== null && row.value !== undefined ? [{ row, date, y: row.value }] : []
+  const value: unknown = row.value
+  return date && typeof value === 'number' && Number.isFinite(value) ? [{ row, date, y: value }] : []
 }))
 
 const isLargeChart = computed(() => chartRows.value.length > LARGE_DATASET_THRESHOLD)

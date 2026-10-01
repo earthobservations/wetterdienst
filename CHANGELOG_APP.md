@@ -187,6 +187,9 @@ Types of changes:
   more away from the row it came from. Text with a space before the time or an offset of hours alone
   is placed the same in every browser, and a date that does not exist, as `2020-02-30`, is left out
   where it was drawn in the next month (GH-2157)
+- `[Explorer]` The chart plots only a query's values that are numbers. Text under `value`, as from
+  `CAST(value AS VARCHAR)`, is left out: the trendline added it up as text and drew nothing but its
+  legend entry, and text that is no number, as `'n/a'`, turned the y axis into categories (GH-2156)
 
 ## [0.17.0] - 2026-09-29
 
