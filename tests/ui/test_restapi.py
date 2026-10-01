@@ -2594,3 +2594,14 @@ def test_a_reader_missing_on_the_server_is_a_501(
     # the install line is for whoever runs the instance, and reaches them through the log
     assert "pip install" not in detail
     assert "pip install wetterdienst[bufr]" in caplog.text
+
+
+def test_ogc_feature_properties_schema_allows_provider_station_columns() -> None:
+    """The GeoJSON feature properties schema admits the station columns a provider adds.
+
+    A feature carries the columns its provider declares beyond the core ones, such as WSV's
+    `gauge_zero`, so the served schema must not read as a closed list of the core columns.
+    """
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    assert app.openapi()["components"]["schemas"]["_OgcFeatureProperties"].get("additionalProperties") is True

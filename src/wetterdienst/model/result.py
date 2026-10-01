@@ -11,6 +11,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Literal, cast
 
 import polars as pl
+from pydantic import ConfigDict, with_config
 from typing_extensions import NotRequired, TypedDict
 
 from wetterdienst.io.export import ExportMixin
@@ -96,6 +97,9 @@ class _StationsDict(TypedDict):
     stations: list[_Station]
 
 
+# open to extra keys: a feature also carries the station columns its provider declares beyond these,
+# such as WSV's gauge_zero, and the served OpenAPI schema says so
+@with_config(ConfigDict(extra="allow"))
 class _OgcFeatureProperties(TypedDict):
     """Type definition for OGC feature properties."""
 
