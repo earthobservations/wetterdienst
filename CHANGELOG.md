@@ -107,6 +107,12 @@ Types of changes:
   the unit targets, not to SI units: temperature stays in °C by default. The overview that listed
   options under commands that do not take them is gone, the `--sql_values` example on a column
   runs in the wide shape it needs, and the README counts nearly 600 parameters, not 514 (GH-2021)
+- Values converted to a much larger unit keep their precision. Every converted value was rounded to
+  four decimals, so with `WD_TS_UNIT_TARGETS='{"length_short": "mile"}'` 5 cm of snow came back as
+  `0.0`. A conversion now keeps one more decimal per order of magnitude it shrinks a value by, so
+  under the default targets a reading published in percent, Pa, mm, kJ/m² or l/s can carry up to
+  three more decimals where its source gives them. `interpolate` and `summarize` still round their
+  results to two decimals (GH-2002)
 - PostgreSQL and MySQL export targets no longer fail on `?table=`: it names the table and is no
   longer passed to the database driver, which refused it as a connection option, so no such target
   could be written to. The rest of the query, such as `sslmode` or `charset`, still reaches the

@@ -108,32 +108,37 @@ class TimeseriesValues(ABC):
         # create lambdas here because not every parameter exists in DataFrame
         # and we can just use the name of the parameter to get the conversion factor
         # without going back to the dataset model
-        conversion_factors = self._create_conversion_lambdas(dataset)
+        conversions = self._create_conversions(dataset)
 
         data = []
         for (parameter,), df_group in df.group_by(
             ["parameter"],
             maintain_order=True,
         ):
-            lambda_ = conversion_factors[parameter.lower()]
-            # round by 4 decimals to avoid long floats but keep precision
-            df_group = df_group.with_columns(pl.col("value").map_batches(lambda_, return_dtype=pl.Float64).round(4))
+            lambda_, decimals = conversions[parameter.lower()]
+            # rounded to avoid long floats, by as many decimals as the target unit needs to keep the
+            # reading's precision -- see `UnitConverter.decimals`
+            df_group = df_group.with_columns(
+                pl.col("value").map_batches(lambda_, return_dtype=pl.Float64).round(decimals),
+            )
             data.append(df_group)
 
         return pl.concat(data)
 
-    def _create_conversion_lambdas(
+    def _create_conversions(
         self,
         dataset: DatasetModel,
-    ) -> dict[str, Callable[[Any], Any]]:
-        """Create conversion factors based on a given dataset."""
-        lambdas = {}
+    ) -> dict[str, tuple[Callable[[Any], Any], int]]:
+        """Create each parameter's conversion of a given dataset, and the decimals to round it to."""
+        conversions = {}
         for parameter in dataset:
-            lambdas[parameter.name_original.lower()] = self.unit_converter.get_lambda(
-                parameter.unit,
-                parameter.unit_type,
+            lambda_ = self.unit_converter.get_lambda(parameter.unit, parameter.unit_type)
+            target = self.unit_converter.targets[parameter.unit_type].name
+            conversions[parameter.name_original.lower()] = (
+                lambda_,
+                self.unit_converter.decimals(parameter.unit, target),
             )
-        return lambdas
+        return conversions
 
     def _organize_df_columns(self, df: pl.DataFrame, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """Reorder columns in DataFrame to match the expected order of columns."""
