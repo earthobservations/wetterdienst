@@ -781,6 +781,7 @@ class ExportMixin:
 
             log.info("Writing to SQL database")
             import sqlalchemy  # noqa: PLC0415
+            from sqlalchemy.dialects.mysql.base import MySQLDialect  # noqa: PLC0415
 
             # `table` is ours, read above to name the table; SQLAlchemy hands every query argument
             # to the driver as a connection option, and psycopg, psycopg2, mysqlclient and pymysql
@@ -788,14 +789,6 @@ class ExportMixin:
             # connect at all. Only `table` goes: the rest of the query (`sslmode`, `charset`, ...)
             # is the driver's
             url = sqlalchemy.make_url(target).difference_update_query(["table"])
-            df = self.df.with_columns(pl.col(pl.Enum).cast(pl.String))
-            if url.get_backend_name() in ("mysql", "mariadb"):
-                # pandas writes a zoned datetime as `TIMESTAMP(timezone=True)`, which MySQL and
-                # MariaDB compile to a plain `TIMESTAMP`: nothing before 1970, and converted from
-                # the session's time zone, so a pre-1970 row is refused or stored as zeros. A naive
-                # one becomes `DATETIME` (years 1000 to 9999), so every datetime column goes in
-                # as naive UTC
-                df = df.with_columns(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
             engine = sqlalchemy.create_engine(url)
             try:
                 if if_exists in ("skip", "fail") and sqlalchemy.inspect(engine).has_table(tablename):
@@ -806,7 +799,15 @@ class ExportMixin:
                     # a refusal is one class wherever it comes from
                     msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
                     raise ExportRefusedError(msg)
-                df.to_pandas().to_sql(
+                columns = [pl.col(pl.Enum).cast(pl.String)]
+                if issubclass(url.get_dialect(), MySQLDialect):
+                    # pandas writes a zoned datetime as `TIMESTAMP(timezone=True)`, which MySQL,
+                    # MariaDB and the dialects built on theirs compile to a plain `TIMESTAMP`:
+                    # nothing before 1970, and converted from the session's time zone, so a
+                    # pre-1970 row is refused or stored as zeros. A naive one becomes `DATETIME`
+                    # (years 1000 to 9999), so every datetime column goes in as naive UTC
+                    columns.append(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
+                self.df.with_columns(columns).to_pandas().to_sql(
                     name=tablename,
                     con=engine,
                     if_exists=if_exists if if_exists != "skip" else "fail",

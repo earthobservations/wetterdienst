@@ -2276,6 +2276,8 @@ def test_sql_sink_keeps_the_table_out_of_the_connection(
         pytest.param("mysql://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql"),
         pytest.param("mysql+pymysql://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql+pymysql"),
         pytest.param("mariadb://u:p@localhost/dwd?table=weather", "DATETIME", id="mariadb"),
+        # a dialect built on MySQL's under a name of its own, as TiDB's or SingleStore's are
+        pytest.param("wdmysqlfork://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql-derived"),
         # the control: PostgreSQL's `timestamptz` holds any year and keeps the zone, so it is left alone
         pytest.param("postgresql://u:p@localhost/dwd?table=weather", "TIMESTAMP WITH TIME ZONE", id="postgresql"),
     ],
@@ -2291,8 +2293,10 @@ def test_sql_sink_writes_mysql_datetimes_as_naive_utc(target: str, datetime_type
     sqlalchemy = pytest.importorskip("sqlalchemy")
     pd = pytest.importorskip("pandas")
     from pandas.io.sql import SQLDatabase, SQLTable  # noqa: PLC0415
+    from sqlalchemy.dialects import registry  # noqa: PLC0415
     from sqlalchemy.schema import CreateTable  # noqa: PLC0415
 
+    registry.register("wdmysqlfork", "sqlalchemy.dialects.mysql.pymysql", "MySQLDialect_pymysql")
     # `start_date` stands for the station frame's other datetime columns. Midnight in Berlin in
     # 1850 is 23:06:32 UTC the day before (local mean time), so a zone dropped without converting
     # to UTC first would show
@@ -2328,3 +2332,6 @@ def test_sql_sink_writes_mysql_datetimes_as_naive_utc(target: str, datetime_type
         assert frame["start_date"].tolist() == [pd.Timestamp("1849-12-31 23:06:32")]
     else:
         assert frame["timestamp"].tolist() == [pd.Timestamp("1850-01-01 00:00:00", tz="UTC")]
+        # compared as an instant: pandas rounds Berlin's 1850 offset to whole minutes when it builds one
+        assert str(frame["start_date"].dtype) == "datetime64[us, Europe/Berlin]"
+        assert frame["start_date"].dt.tz_convert("UTC").tolist() == [pd.Timestamp("1849-12-31 23:06:32", tz="UTC")]
