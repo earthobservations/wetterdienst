@@ -875,11 +875,12 @@ def test_interpolation_at_an_elevation_too_few_stations_left_to_interpolate(
 
 
 def test_decimals_for_rounds_as_values_does() -> None:
-    """An interpolated or summarized value is rounded to what `values` rounds the reading to.
+    """An interpolated or summarized value is rounded to what `values` rounds a converted reading to.
 
     That is four decimals plus one per order of magnitude the conversion to the target shrinks a
     value by, so a snow depth under a `mile` target keeps what it has where a fixed two decimals
-    made 5 cm a 0.0, and a value left in its source unit is rounded to four.
+    made 5 cm a 0.0. A value left in its source unit, which `values` does not round, is rounded to
+    four.
     """
     from wetterdienst.core.util import decimals_for  # noqa: PLC0415
     from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415

@@ -81,6 +81,11 @@ def build_date_grid(resolution: Resolution, start_date: dt.datetime, end_date: d
     )
 
 
+def _values_unit(parameter: ParameterModel, unit_converter: UnitConverter, *, convert_units: bool) -> str:
+    """Give the unit a parameter's values are written in: its target where they were converted."""
+    return unit_converter.targets[parameter.unit_type].name if convert_units else parameter.unit
+
+
 def lapse_rate_for(
     parameter: ParameterModel,
     unit_converter: UnitConverter,
@@ -106,7 +111,7 @@ def lapse_rate_for(
     lapse_rate = PARAMETERS[parameter.name].lapse_rate
     if not lapse_rate:
         return None
-    unit = unit_converter.targets[parameter.unit_type].name if convert_units else parameter.unit
+    unit = _values_unit(parameter, unit_converter, convert_units=convert_units)
     return lapse_rate * unit_converter.increment_factor("degree_celsius", unit)
 
 
@@ -133,8 +138,7 @@ def decimals_for(
         The number of decimals to round to
 
     """
-    unit = unit_converter.targets[parameter.unit_type].name if convert_units else parameter.unit
-    return unit_converter.decimals(parameter.unit, unit)
+    return unit_converter.decimals(parameter.unit, _values_unit(parameter, unit_converter, convert_units=convert_units))
 
 
 def open_parameter_data(
