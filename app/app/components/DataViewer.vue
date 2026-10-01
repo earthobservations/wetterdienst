@@ -1396,8 +1396,12 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
                    button stays, and keeps its focus -->
               <span :key="shownRenders().failures" role="alert" class="text-center">
                 <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
-                <!-- a space apart from the note, which the alert's text otherwise runs into -->
-                <span v-if="plotlyNotLoaded" class="block text-sm">{{ ' ' }}{{ t('dataViewer.chartCodeNotLoaded') }}</span>
+                <!-- a sentence apart from the note, which ends with no full stop: the alert's text, as
+                     a screen reader reads it, otherwise runs the two together -->
+                <template v-if="plotlyNotLoaded">
+                  <span class="sr-only">{{ '. ' }}</span>
+                  <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
+                </template>
               </span>
               <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
               <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
