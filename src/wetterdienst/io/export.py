@@ -787,7 +787,16 @@ class ExportMixin:
             # refuse one they do not know, so a `postgresql://` or `mysql://` target could not
             # connect at all. Only `table` goes: the rest of the query (`sslmode`, `charset`, ...)
             # is the driver's
-            engine = sqlalchemy.create_engine(sqlalchemy.make_url(target).difference_update_query(["table"]))
+            url = sqlalchemy.make_url(target).difference_update_query(["table"])
+            df = self.df.with_columns(pl.col(pl.Enum).cast(pl.String))
+            if url.get_backend_name() in ("mysql", "mariadb"):
+                # pandas writes a zoned datetime as `TIMESTAMP(timezone=True)`, which MySQL and
+                # MariaDB compile to a plain `TIMESTAMP`: nothing before 1970, and converted from
+                # the session's time zone, so a pre-1970 row is refused or stored as zeros. A naive
+                # one becomes `DATETIME` (years 1000 to 9999), so every datetime column goes in
+                # as naive UTC
+                df = df.with_columns(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
+            engine = sqlalchemy.create_engine(url)
             try:
                 if if_exists in ("skip", "fail") and sqlalchemy.inspect(engine).has_table(tablename):
                     if if_exists == "skip":
@@ -797,7 +806,7 @@ class ExportMixin:
                     # a refusal is one class wherever it comes from
                     msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
                     raise ExportRefusedError(msg)
-                self.df.with_columns(pl.col(pl.Enum).cast(pl.String)).to_pandas().to_sql(
+                df.to_pandas().to_sql(
                     name=tablename,
                     con=engine,
                     if_exists=if_exists if if_exists != "skip" else "fail",

@@ -126,6 +126,10 @@ Types of changes:
   `PermissionError: [Errno 13]` when two of its download threads read and replace the cache's
   metadata file at the same time; the threads of one process now take turns. Two processes
   sharing a cache directory can still meet that way (GH-1990)
+- MySQL and MariaDB export targets create `DATETIME` columns holding UTC, so values before 1970
+  can be written. Their `TIMESTAMP` columns started in 1970, so the first earlier row was refused or
+  stored as zeros. A table created by an earlier version keeps its `TIMESTAMP` columns; write it
+  again with `if_exists='replace'` (GH-2229)
 
 ## [0.139.0] - 2026-09-29
 

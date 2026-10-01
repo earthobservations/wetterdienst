@@ -2268,3 +2268,63 @@ def test_sql_sink_keeps_the_table_out_of_the_connection(
         assert connection.execute("SELECT station_id FROM weather").fetchall() == [("01048",)]
     finally:
         connection.close()
+
+
+@pytest.mark.parametrize(
+    ("target", "datetime_type"),
+    [
+        pytest.param("mysql://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql"),
+        pytest.param("mysql+pymysql://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql+pymysql"),
+        pytest.param("mariadb://u:p@localhost/dwd?table=weather", "DATETIME", id="mariadb"),
+        # the control: PostgreSQL's `timestamptz` holds any year and keeps the zone, so it is left alone
+        pytest.param("postgresql://u:p@localhost/dwd?table=weather", "TIMESTAMP WITH TIME ZONE", id="postgresql"),
+    ],
+)
+def test_sql_sink_writes_mysql_datetimes_as_naive_utc(target: str, datetime_type: str) -> None:
+    """A MySQL or MariaDB table gets `DATETIME` columns holding UTC, so a year before 1970 fits.
+
+    pandas maps a zoned datetime to `TIMESTAMP(timezone=True)`, which the MySQL dialect compiles
+    to a plain `TIMESTAMP`; that type starts in 1970, so the first row of a historical DWD series
+    was refused (strict mode) or stored as zeros. No server is needed: `to_sql` is stubbed, and the
+    frame it is handed is compiled into the `CREATE TABLE` the target's own dialect would send.
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    from pandas.io.sql import SQLDatabase, SQLTable  # noqa: PLC0415
+    from sqlalchemy.schema import CreateTable  # noqa: PLC0415
+
+    # `start_date` stands for the station frame's other datetime columns. Midnight in Berlin in
+    # 1850 is 23:06:32 UTC the day before (local mean time), so a zone dropped without converting
+    # to UTC first would show
+    export = ExportMixin(
+        df=pl.DataFrame(
+            {
+                "station_id": ["01048"],
+                "timestamp": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("UTC"))],
+                "start_date": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("Europe/Berlin"))],
+                "value": [1.0],
+            }
+        )
+    )
+    handed = []
+
+    def to_sql(frame: object, **_kwargs: object) -> None:
+        handed.append(frame)
+
+    with (
+        mock.patch("sqlalchemy.create_engine", return_value=sqlalchemy.create_engine("sqlite://")),
+        mock.patch.object(pd.DataFrame, "to_sql", autospec=True, side_effect=to_sql),
+    ):
+        export.to_target(target)
+
+    (frame,) = handed
+    dialect = sqlalchemy.make_url(target).get_dialect()()
+    with SQLDatabase(sqlalchemy.create_engine("sqlite://")) as database:
+        ddl = str(CreateTable(SQLTable("weather", database, frame=frame, index=False).table).compile(dialect=dialect))
+    assert f"timestamp {datetime_type}" in ddl
+    assert f"start_date {datetime_type}" in ddl
+    if datetime_type == "DATETIME":
+        assert frame["timestamp"].tolist() == [pd.Timestamp("1850-01-01 00:00:00")]
+        assert frame["start_date"].tolist() == [pd.Timestamp("1849-12-31 23:06:32")]
+    else:
+        assert frame["timestamp"].tolist() == [pd.Timestamp("1850-01-01 00:00:00", tz="UTC")]
