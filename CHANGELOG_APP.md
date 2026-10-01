@@ -228,6 +228,9 @@ Types of changes:
   zoom (GH-2164)
 - `[Explorer/History/Stripes/Meteogram]` The station map no longer writes a warning holding the
   whole selection to the browser console each time the selection changes (GH-2168)
+- `[Stripes]` The stripes are labelled with the years the backend gives in a browser west of UTC.
+  Each year was read in the browser's own time zone, where its first moment in UTC is still the
+  year before, so the first and last years shown were one year early (GH-2184)
 
 ## [0.17.0] - 2026-09-29
 

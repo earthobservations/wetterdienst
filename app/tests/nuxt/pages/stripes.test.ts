@@ -1,5 +1,5 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import MapStations from '~/components/MapStations.vue'
 import StripesPage from '~/pages/stripes.vue'
@@ -21,6 +21,15 @@ vi.mock('@vue-leaflet/vue-leaflet', async () => {
     LTileLayer: defineComponent({ setup: () => () => null }),
   }
 })
+
+// Plotly draws nothing in the test's document: its calls are recorded
+const plotly = vi.hoisted(() => ({
+  newPlot: vi.fn(async () => {}),
+  relayout: vi.fn(async () => {}),
+  purge: vi.fn(),
+  downloadImage: vi.fn(async () => 'stripes'),
+}))
+vi.mock('plotly.js-basic-dist-min', () => plotly)
 
 describe('stripes Page', () => {
   beforeEach(() => {
@@ -165,5 +174,55 @@ describe('stripes Page station map', () => {
 
     expect(centreButton().text()).toBe('Center on selected station')
     expect(fitBounds).toHaveBeenCalledTimes(fits)
+  })
+})
+
+describe('stripes Page years', () => {
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+
+  // a browser five hours west of UTC, where the first moment of a year in UTC is still the year before
+  let zone: string | undefined
+  beforeAll(() => {
+    zone = process.env.TZ
+    process.env.TZ = 'America/New_York'
+    // the zone taken up, else the test passes in UTC against getFullYear as well
+    expect(new Date(2020, 0, 1).getTimezoneOffset()).toBe(300)
+  })
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+  })
+
+  afterAll(() => {
+    if (zone === undefined)
+      delete process.env.TZ
+    else
+      process.env.TZ = zone
+  })
+
+  it('labels each year as the backend gives it', async () => {
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    // as the backend writes each year's value: at the year's first moment in UTC
+    registerEndpoint('/api/stripes/values', () => ({
+      metadata: { station },
+      values: [
+        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
+        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
+      ],
+    }))
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation&show_years=true' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    plotly.newPlot.mockClear()
+
+    await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+
+    const [, traces, layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, Array<{ x: number[] }>, { annotations: Array<{ text: string }> }]
+    expect(traces[0]!.x).toEqual([2019, 2020])
+    expect(layout.annotations.map(a => a.text)).toEqual(expect.arrayContaining(['2019', '2020']))
   })
 })

@@ -157,8 +157,9 @@ async function plotStripes(data: StripesValuesResponse) {
     return
   }
 
-  // Extract years and values
-  const years = validData.map(v => new Date(v.timestamp!).getFullYear())
+  // Extract years and values: each year's value comes at its first moment in UTC, read in UTC, as
+  // in a browser west of UTC that moment is still the year before
+  const years = validData.map(v => new Date(v.timestamp!).getUTCFullYear())
   const values = validData.map(v => v.value!)
 
   // Calculate min and max for normalization
