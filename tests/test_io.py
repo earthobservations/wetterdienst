@@ -2302,7 +2302,10 @@ def test_sql_sink_writes_mysql_datetimes_as_naive_utc(
     from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql  # noqa: PLC0415
     from sqlalchemy.schema import CreateTable  # noqa: PLC0415
 
-    monkeypatch.setitem(registry.impls, "wdmysqlfork", lambda: MySQLDialect_pymysql)
+    class ForkDialect(MySQLDialect_pymysql):
+        name = "wdmysqlfork"
+
+    monkeypatch.setitem(registry.impls, "wdmysqlfork", lambda: ForkDialect)
     # `start_date` stands for the station frame's other datetime columns. Midnight in Berlin in
     # 1850 is 23:06:32 UTC the day before (local mean time), so a zone dropped without converting
     # to UTC first would show
