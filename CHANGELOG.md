@@ -46,6 +46,11 @@ Types of changes:
   terms, a line per problem -- `Missing option '--longitude'`, `Options '--station' and '--name'
   cannot be used together`, `Invalid value for '--distance'` with the value refused -- instead of
   pydantic's echo of every option given (GH-2056)
+- **Breaking**: `DwdDmoRequest.available_issues` lists the runs of `lead_time="short"` by default,
+  as its docstring said and a default request reads; it listed every lead time, so `wetterdienst
+  issues` and `/api/issues` named runs the default `values` request rejected with `IndexError`.
+  Pass `lead_time="long"` (`--lead_time long`) for the long runs, or `lead_time=None` in Python
+  for every lead time together (GH-2009)
 - **Breaking**: DWD DMO refuses the values of a request naming a parameter its lead time's run does
   not carry with `ParameterNotCarriedError`, a `ValueError` naming the lead time that does, where
   the parameter answered with an empty frame: `icon`'s four 3-hourly parameters under the default
@@ -85,10 +90,6 @@ Types of changes:
   the unit targets, not to SI units: temperature stays in °C by default. The overview that listed
   options under commands that do not take them is gone, the `--sql_values` example on a column
   runs in the wide shape it needs, and the README counts nearly 600 parameters, not 514 (GH-2021)
-- `DwdDmoRequest.available_issues` lists the runs of `lead_time="short"` by default, as its
-  docstring said and a default request reads; it listed every lead time, so `wetterdienst issues`
-  and `/api/issues` named runs the default `values` request rejected with `IndexError`. Pass
-  `lead_time=None` to list every lead time together (GH-2009)
 
 ## [0.139.0] - 2026-09-29
 
