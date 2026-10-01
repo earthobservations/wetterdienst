@@ -2056,3 +2056,20 @@ describe('dataViewer facets\' station colours', () => {
     })
   })
 })
+
+describe('dataViewer parameter statistics of many values', () => {
+  it('takes a parameter of more values than a call takes arguments, where it threw', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    // past V8's argument limit of about 120k, as 3 years of one station's 10-minute values
+    const count = 200_000
+    const rows = Array.from({ length: count }, (_, i) => ({ parameter: 'temperature_air_mean_2m', value: i - 100_000 }))
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', rows)
+    await wrapper.vm.$nextTick()
+    const sum = (count * (count - 1)) / 2 - count * 100_000
+    expect((viewer.vm as unknown as { parameterStats: unknown[] }).parameterStats).toEqual([
+      { parameter: 'temperature_air_mean_2m', dataset: '', count, min: -100_000, max: 99_999, mean: sum / count, sum },
+    ])
+  })
+})

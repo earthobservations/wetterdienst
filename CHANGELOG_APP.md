@@ -21,6 +21,9 @@ Types of changes:
 - `[Explorer]` The chart faceted by parameter gives each station one colour in every facet, where a
   station took another colour in a facet that lacked a station before it or listed the stations in
   another order (GH-2178)
+- `[Explorer]` The parameter statistics show for a parameter of any number of values, where they
+  failed to show past about 120,000 values (65,536 in Safari), as three years of one station's
+  10-minute data or a year of daily data for 400 stations (GH-2179)
 - `[Explorer]` The query panel loads an interpolation's `taken_station_ids` as a list, which
   `list_contains` and `unnest` take, where it loaded them as text joined by commas and refused both;
   a query's result hands the column on as a list (GH-2162)
