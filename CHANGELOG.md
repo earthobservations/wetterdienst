@@ -50,7 +50,7 @@ Types of changes:
   `dwd/mosmix` and `dwd/dmo`, low cloud below 2 km, which the old name and its glossary entry put
   at 1000 ft. Request the new name; the old one in a request, as a `ts_geo_station_distance` key or
   as a wide column in a SQL filter is reported with its replacement. A wide DuckDB, SQLite or
-  PostgreSQL table `to_target` wrote before takes no append of it (GH-1977)
+  PostgreSQL table `to_target` wrote before takes no append of it: write it anew (GH-1977)
 
 ### Fixed
 
