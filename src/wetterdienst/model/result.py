@@ -76,8 +76,7 @@ class _Metadata(TypedDict):
 
 
 # Extra keys are allowed so the schema admits the station columns a provider adds to the core ones,
-# e.g. `icao_id` (DWD MOSMIX, DMO, POI), `gauge_zero` (WSV, Eaufrance) or the road columns of DWD
-# road weather; they differ per provider, so they are not declared one by one.
+# such as `gauge_zero`; they differ per provider, so they are not declared one by one.
 @with_config(ConfigDict(extra="allow"))
 class _Station(TypedDict):
     """Type definition for station."""
@@ -87,8 +86,7 @@ class _Station(TypedDict):
     station_id: str
     start_date: str | None
     end_date: str | None
-    # null for stations the provider gives no position, name or elevation, e.g. the postcodes of
-    # dwd/derived climate_correction_factor, and (elevation only) every WSV and Eaufrance station
+    # null where the provider gives a station no position, elevation or name
     latitude: float | None
     longitude: float | None
     elevation: float | None

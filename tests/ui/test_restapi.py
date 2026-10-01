@@ -2621,10 +2621,12 @@ def test_stations_schema_admits_null_core_columns_and_provider_columns(client: T
 
 @pytest.mark.remote
 def test_mcp_stations_tool_wsv_null_elevation() -> None:
-    """The stations MCP tool returns WSV stations, whose elevation is null, with their gauge zero (GH-2226).
+    """The stations MCP tool returns WSV stations, whose elevation is null (GH-2226).
 
     FastMCP validates a tool result against the output schema derived from the endpoint's
     `response_model`; with `elevation` typed as a number it failed with "None is not of type 'number'".
+    The `gauge_zero` check passes without `additionalProperties: true` too, since JSON Schema admits
+    undeclared keys by default; the offline schema test guards that.
     """
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415

@@ -128,8 +128,8 @@ Types of changes:
   sharing a cache directory can still meet that way (GH-1990)
 - The REST API's OpenAPI schema types a station's `elevation`, `latitude`, `longitude` and `name`
   as nullable, and admits the columns a provider adds, such as `gauge_zero` and `icao_id`. The MCP
-  `stations` tool no longer fails output validation on stations without an elevation, such as
-  every WSV station (GH-2226)
+  `stations` tool in the JSON format no longer fails output validation on stations without an
+  elevation, such as every WSV station (GH-2226)
 
 ## [0.139.0] - 2026-09-29
 
