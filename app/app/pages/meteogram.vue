@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import type { Station } from '#shared/types/api'
 import { defineAsyncComponent, nextTick } from 'vue'
+import MapStationsNotLoaded from '~/components/MapStationsNotLoaded.vue'
 import Meteogram from '~/components/Meteogram.vue'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 import { describeApiError } from '~/utils/api-error'
 
-const MapStations = defineAsyncComponent(() => import('~/components/MapStations.vue'))
+// where the map's code fails to load, as after a redeploy, the map area says so and offers a reload
+const MapStations = defineAsyncComponent({
+  loader: () => import('~/components/MapStations.vue'),
+  errorComponent: MapStationsNotLoaded,
+})
 
 // Auto-composed MOSMIX parameters – user never configures these
 const MOSMIX = {

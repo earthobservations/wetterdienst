@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import { defineAsyncComponent } from 'vue'
+import MapStationsNotLoaded from './MapStationsNotLoaded.vue'
 
 const props = defineProps<{
   modelValue?: { stations: Station[] }
@@ -13,7 +14,11 @@ const emit = defineEmits(['update:modelValue', 'update:selectedStations'])
 
 const { t } = useI18n()
 
-const MapStations = defineAsyncComponent(() => import('./MapStations.vue'))
+// where the map's code fails to load, as after a redeploy, the map area says so and offers a reload
+const MapStations = defineAsyncComponent({
+  loader: () => import('./MapStations.vue'),
+  errorComponent: MapStationsNotLoaded,
+})
 
 const selectedStations = ref<Station[]>(props.modelValue?.stations ?? [])
 

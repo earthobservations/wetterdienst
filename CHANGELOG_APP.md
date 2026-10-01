@@ -18,6 +18,9 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` `[History]` `[Meteogram]` Where the station map's code could not be loaded, as
+  after a new version of the app was deployed under an open tab, the map area says the stations
+  could not be shown and offers a Reload page button. It stayed empty, with no word why (GH-2194)
 - `[Explorer]` Where the chart's code could not be loaded, as after a new version of the app was
   deployed under an open tab, the chart area says that reloading the page helps where Retry does
   not, and offers a Reload page button. Retry asked for the replaced code again and failed every
