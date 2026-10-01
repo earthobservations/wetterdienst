@@ -365,6 +365,27 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     expect(plotly.newPlot).not.toHaveBeenCalled()
   })
 
+  it('draws the stripes again at once where a display option changes, while they are fetched anew', async () => {
+    const vm = await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    // the values fetched anew for the option held
+    let answer!: () => void
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve
+    })
+    registerEndpoint('/api/stripes/values', async () => {
+      await answered
+      return { metadata: { station }, values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }] }
+    })
+    plotly.newPlot.mockClear()
+
+    vm.showYears = false
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, { annotations: Array<{ text: string }> }]
+    expect(layout.annotations.map(a => a.text)).not.toContain('2020')
+    answer()
+  })
+
   it('says the stripes image could not be saved where its export fails', async () => {
     const vm = await showStripes()
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())

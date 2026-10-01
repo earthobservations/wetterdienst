@@ -126,8 +126,8 @@ async function fetchAndPlotStripes() {
 
   isLoading.value = true
   // the stripes are about to be fetched anew: an earlier drawing's failure, and its Retry, which
-  // would draw the earlier values, go
-  plotsStarted++
+  // would draw the earlier values, go. A drawing under way, as of a display option changed, still
+  // draws, and tells its own failure
   plotFailed.value = false
 
   try {
