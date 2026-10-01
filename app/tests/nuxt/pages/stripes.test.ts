@@ -1,20 +1,14 @@
-import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import MapStations from '~/components/MapStations.vue'
 import StripesPage from '~/pages/stripes.vue'
 
-// The station map's markers and Leaflet map are stand-ins: real Leaflet draws nothing in happy-dom.
-// The map stub holds a stand-in Leaflet map, as LMap holds the real one; the cluster stand-in is
-// added to the map it is handed, as useLMarkerCluster() adds its cluster.
+// Real Leaflet draws nothing in happy-dom. The LMap stub holds a stand-in Leaflet map, as LMap
+// holds the real one, for the station map to centre; it never emits ready, so no markers are built.
 const { leafletMap } = vi.hoisted(() => ({
-  leafletMap: { addLayer: vi.fn(), removeLayer: vi.fn(), fitBounds: vi.fn() },
+  leafletMap: { fitBounds: vi.fn() },
 }))
-mockNuxtImport('useLMarkerCluster', () => async ({ leafletObject, markers }: { leafletObject: { addLayer: (layer: object) => unknown }, markers: unknown[] }) => {
-  const markerCluster = { refreshClusters: () => {} }
-  leafletObject.addLayer(markerCluster)
-  return { markerCluster, markers: markers.map(() => ({ on: () => {}, setIcon: () => {} })) }
-})
 vi.mock('@vue-leaflet/vue-leaflet', async () => {
   const { defineComponent, h } = await import('vue')
   return {
