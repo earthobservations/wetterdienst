@@ -81,10 +81,16 @@ async function createMarkers() {
   // useLMarkerCluster() adds the cluster to the map itself, as soon as leaflet.markercluster has
   // loaded, before it returns. The map handed to it adds it only while this call is still the
   // current one: overtaken by a newer list, or by the map's removal (its section collapsed, the
-  // page left), the cluster stays off -- a removed map has no panes to draw it on.
+  // page left), the cluster stays off -- a removed map has no panes to draw it on. An added cluster
+  // is the one a newer call takes off, even before this call has resumed.
   const result = await useLMarkerCluster({
     leafletObject: {
-      addLayer: (layer: L.Layer) => generation === markersGeneration ? leafletMap.addLayer(layer) : leafletMap,
+      addLayer: (layer: L.Layer) => {
+        if (generation !== markersGeneration)
+          return leafletMap
+        markerClusterGroup = layer
+        return leafletMap.addLayer(layer)
+      },
     } as L.Map,
     markers: stations.map(station => ({
       name: station.name,
@@ -95,11 +101,10 @@ async function createMarkers() {
       },
     })),
   })
-  // The list changed, or the map was removed, while leaflet.markercluster was loading: this call's
-  // cluster was kept off the map, and its markers need no wiring.
+  // The list changed, or the map was removed, while leaflet.markercluster was loading or since the
+  // cluster was added: the cluster is off the map, and its markers need no wiring.
   if (generation !== markersGeneration)
     return
-  markerClusterGroup = result.markerCluster
   result.markers.forEach((marker, index) => {
     const station = stations[index]
     if (station) {

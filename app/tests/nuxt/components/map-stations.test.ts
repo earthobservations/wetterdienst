@@ -3,12 +3,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import MapStations from '~/components/MapStations.vue'
 
-// The markers handed to leaflet.markercluster; the map itself is left to the e2e tests.
+// The markers handed to leaflet.markercluster; the map itself is left to the e2e tests. Like
+// useLMarkerCluster(), it adds its cluster to the map it is handed before returning.
 const { markerCluster } = vi.hoisted(() => ({
-  markerCluster: vi.fn(async ({ markers }: { leafletObject: { addLayer: (layer: object) => unknown }, markers: unknown[] }) => ({
-    markerCluster: { refreshClusters: () => {} },
-    markers: markers.map(() => ({ on: (_event: string, _handler: () => void) => {}, setIcon: () => {} })),
-  })),
+  markerCluster: vi.fn(async ({ leafletObject, markers }: { leafletObject: { addLayer: (layer: object) => unknown }, markers: unknown[] }) => {
+    const cluster = { refreshClusters: () => {} }
+    leafletObject.addLayer(cluster)
+    return {
+      markerCluster: cluster,
+      markers: markers.map(() => ({ on: (_event: string, _handler: () => void) => {}, setIcon: () => {} })),
+    }
+  }),
 }))
 mockNuxtImport('useLMarkerCluster', () => markerCluster)
 // Real Leaflet draws nothing in happy-dom, and LMap imports its marker images, which Node can't.
@@ -38,7 +43,7 @@ describe('mapStations', () => {
       props: { stations, selectedStations: [] },
     })
     const vm = wrapper.vm as any
-    vm.map = { leafletObject: { removeLayer: () => {}, fitBounds: () => {} } }
+    vm.map = { leafletObject: { addLayer: () => {}, removeLayer: () => {}, fitBounds: () => {} } }
     await vm.onMapReady()
 
     const { markers } = markerCluster.mock.calls[0]![0] as { markers: { options: { title: string } }[] }
@@ -68,7 +73,7 @@ describe('mapStations with stations that have no position', () => {
     wrapper = await mountSuspended(MapStations, { props: { stations, selectedStations, multiple: true } })
     const vm = wrapper.vm as any
     const removeLayer = vi.fn()
-    vm.map = { leafletObject: { removeLayer, fitBounds: () => {} } }
+    vm.map = { leafletObject: { addLayer: () => {}, removeLayer, fitBounds: () => {} } }
     await vm.onMapReady()
     return { vm, removeLayer }
   }
@@ -220,6 +225,48 @@ describe('mapStations when its list changes while the markers are built', () => 
     expect(removeLayer).not.toHaveBeenCalled()
     expect(clusters[0]!.clicks).toEqual([])
   })
+
+  it('takes a cluster off the map when a newer call comes after it is added, before its call resumes', async () => {
+    const clusters: { markerCluster: object, clicks: (() => void)[] }[] = []
+    // runs once, right after the first cluster is added: the newer call made by a scheduler flush
+    // that runs before the first call resumes
+    let overtake: (() => Promise<void>) | undefined
+    let overtaking: Promise<void> | undefined
+    markerCluster.mockImplementation(async ({ leafletObject, markers }: { leafletObject: { addLayer: (layer: object) => unknown }, markers: unknown[] }) => {
+      const cluster = { markerCluster: { refreshClusters: () => {} }, clicks: [] as (() => void)[] }
+      clusters.push(cluster)
+      leafletObject.addLayer(cluster.markerCluster)
+      const newer = overtake
+      overtake = undefined
+      overtaking = newer?.()
+      return {
+        markerCluster: cluster.markerCluster,
+        markers: markers.map(() => ({
+          on: (_event: string, handler: () => void) => {
+            cluster.clicks.push(handler)
+          },
+          setIcon: () => {},
+        })),
+      }
+    })
+    wrapper = await mountSuspended(MapStations, { props: { stations: [berlin], selectedStations: [] } })
+    const vm = wrapper.vm as any
+    const addLayer = vi.fn()
+    const removeLayer = vi.fn()
+    vm.map = { leafletObject: { addLayer, removeLayer, fitBounds: () => {} } }
+    overtake = () => vm.createMarkers()
+
+    await vm.onMapReady()
+    await overtaking
+
+    expect(clusters).toHaveLength(2)
+    expect(addLayer.mock.calls).toEqual([[clusters[0]!.markerCluster], [clusters[1]!.markerCluster]])
+    expect(removeLayer.mock.calls).toEqual([[clusters[0]!.markerCluster]])
+    // the overtaken call's markers were never wired up, and the newer call's select their station
+    expect(clusters[0]!.clicks).toEqual([])
+    clusters[1]!.clicks[0]!()
+    expect(wrapper!.emitted('update:selectedStations')).toEqual([[[berlin]]])
+  })
 })
 
 describe('mapStations centring on selected stations that have no position', () => {
@@ -241,7 +288,7 @@ describe('mapStations centring on selected stations that have no position', () =
     wrapper = await mountSuspended(MapStations, { props: { stations: [postcode, berlin], selectedStations: [], multiple: true } })
     const vm = wrapper.vm as any
     const fitBounds = vi.fn()
-    vm.map = { leafletObject: { removeLayer: () => {}, fitBounds } }
+    vm.map = { leafletObject: { addLayer: () => {}, removeLayer: () => {}, fitBounds } }
     await wrapper.setProps({ selectedStations })
     return { vm, fitBounds }
   }
