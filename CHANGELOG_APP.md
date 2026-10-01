@@ -185,6 +185,9 @@ Types of changes:
 - `[Explorer]` Faceted, each parameter's chart counts its own points towards the 500 above which a
   chart is drawn without markers and hovered point by point. All facets' points were counted
   together, so six facets of 100 points each lost their markers (GH-2158)
+- `[Explorer]` The chart's series keep their colours and legend places when the table is sorted.
+  They followed the table's sort, so sorting by value could swap two stations' colours, and every
+  sort click drew the chart again (GH-2159)
 
 ## [0.17.0] - 2026-09-29
 

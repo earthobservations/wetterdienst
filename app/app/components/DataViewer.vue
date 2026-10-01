@@ -732,8 +732,10 @@ function rowDate(row: Value): Date | null {
 
 // The rows the chart plots, each with its date: those with a value and a date to place it at. The
 // series and facets are made from these alone, so a series whose rows are all left out is not drawn
-// empty, and the large-dataset threshold counts the points drawn, not the rows left out
-const chartRows = computed(() => sortedValues.value.flatMap((row) => {
+// empty, and the large-dataset threshold counts the points drawn, not the rows left out. In the order
+// the rows were fetched or queried, not the table's sort: the series take their legend places and
+// colours in the order their first row comes, which a sort click swapped, and redrew the chart for
+const chartRows = computed(() => displayData.value.flatMap((row) => {
   const date = rowDate(row)
   return date && row.value !== null && row.value !== undefined ? [{ row, date, y: row.value }] : []
 }))
