@@ -343,3 +343,34 @@ describe('validateQuery keywords, as DuckDB reads them', () => {
     expect(validateQuery('ſelect 1')).toEqual({ valid: false, errorKey: 'validation.onlySelect' })
   })
 })
+
+describe('validateQuery words that are keywords elsewhere', () => {
+  let conn: DuckDBConnection
+
+  beforeAll(async () => {
+    conn = (await nodeDuckDB()).connect()
+    conn.query('CREATE TABLE data AS SELECT 1 AS value, \'010\' AS station_id')
+  })
+
+  function rows(): unknown[] {
+    return conn.query('SELECT * FROM data').toArray().map(row => row.toJSON())
+  }
+
+  it.each([
+    'SELECT replace(station_id, \'0\', \'\') AS s FROM data LIMIT 10',
+    'SELECT * REPLACE (value * 10 AS value) FROM data LIMIT 10',
+    'SELECT station_id.replace(\'0\', \'x\') AS s FROM data LIMIT 10',
+  ])('lets the read-only REPLACE of %j through', (sql) => {
+    const before = rows()
+    expect(validateQuery(sql)).toEqual({ valid: true, statement: sql })
+    expect(conn.query(sql).numRows).toBe(1)
+    expect(rows()).toEqual(before)
+  })
+
+  it.each([
+    ['CREATE OR REPLACE TABLE data AS SELECT 2 AS value', 'validation.onlySelect', undefined],
+    ['WITH x AS (SELECT 2, \'a\') INSERT OR REPLACE INTO data SELECT * FROM x', 'validation.disallowedOperation', { op: 'INSERT' }],
+  ])('refuses %j, a statement REPLACE joins, by its first keyword', (sql, errorKey, params) => {
+    expect(validateQuery(sql)).toEqual({ valid: false, errorKey, ...(params && { params }) })
+  })
+})
