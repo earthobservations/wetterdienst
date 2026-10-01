@@ -7,15 +7,15 @@ import os
 import platform
 import socket
 import sys
-import time
 from collections.abc import Generator
+from contextlib import contextmanager
 from typing import Any
 
-import fsspec.utils as _fsspec_utils
 import pytest
 
 from wetterdienst import Info, Settings
 from wetterdienst.util.eccodes import bufr_is_available
+from wetterdienst.util.network import _worth_retrying
 
 IS_CI = bool(os.environ.get("CI"))
 IS_LINUX = platform.system() == "Linux"
@@ -37,6 +37,28 @@ def is_html_document(output: str) -> bool:
     return output.lstrip().lower().startswith(("<!doctype html>", "<html>"))
 
 
+@contextmanager
+def skip_if_upstream_unavailable() -> Generator[None]:
+    """Skip a remote test whose upstream did not answer, rather than fail it.
+
+    For a test that asserts what upstream publishes, a request that timed out or met a 5xx says
+    nothing either way, and failing on it reports a provider's bad few minutes as a regression here.
+    What counts as not answering is `_worth_retrying` -- a timeout, a dropped connection, a body cut
+    off mid-read, or a 5xx -- which `download_file` asks twice, so a request made through it is
+    skipped on only after its second attempt failed as well. A 404 is not among them: it is
+    upstream answering, and the likelier cause is a URL built wrong, which is what such a test is
+    there to catch. Nor is a host that cannot be reached at all, though for want of a choice here:
+    `download_file` degrades that to an empty answer instead of raising. Anything else still fails
+    the test. Usable as a decorator or around the calls that reach upstream.
+    """
+    try:
+        yield
+    except Exception as error:
+        if _worth_retrying(error):
+            pytest.skip(f"upstream did not answer: {error!r}")
+        raise
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _worker_unique_cache_dir(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> None:
     """Give each pytest-xdist worker its own cache directory.
@@ -54,48 +76,6 @@ def _worker_unique_cache_dir(tmp_path_factory: pytest.TempPathFactory, worker_id
     os.environ["WD_CACHE_DIR"] = str(cache)
     yield
     del os.environ["WD_CACHE_DIR"]
-
-
-@pytest.fixture(autouse=True, scope="session")
-def _patch_windows_atomic_write() -> None:
-    """Retry os.replace() inside fsspec on Windows to survive PermissionError.
-
-    Tests that download hundreds of files concurrently (e.g. 1 536 files for
-    the 1-minute precipitation dataset) schedule many async tasks in the same
-    xdist worker.  All those tasks race to atomically update the single fsspec
-    TTL-cache metadata file via os.replace().  On Windows, os.replace() raises
-    PermissionError (WinError 5) when the destination is held open by another
-    thread at the same instant.
-
-    The fix proxies the ``os`` namespace visible inside ``fsspec.utils`` with
-    a thin wrapper whose ``replace()`` retries with exponential back-off
-    before re-raising.  The original binding is restored at session teardown.
-    """
-    if not IS_WINDOWS:
-        yield
-        return
-
-    _orig_os = _fsspec_utils.os
-
-    class _OsWithRetry:
-        """Proxy around the ``os`` module that retries ``replace()`` on Windows."""
-
-        def __getattr__(self, name: str) -> Any:  # noqa: ANN401
-            return getattr(_orig_os, name)
-
-        def replace(self, src: str, dst: str) -> None:
-            delays = (0.05, 0.1, 0.2, 0.4)
-            for delay in delays:
-                try:
-                    return _orig_os.replace(src, dst)
-                except PermissionError:
-                    time.sleep(delay)
-            # final attempt — let it raise naturally
-            return _orig_os.replace(src, dst)
-
-    _fsspec_utils.os = _OsWithRetry()
-    yield
-    _fsspec_utils.os = _orig_os
 
 
 def _is_local_address(address: object) -> bool:

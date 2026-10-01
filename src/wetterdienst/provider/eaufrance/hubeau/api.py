@@ -10,7 +10,7 @@ import logging
 import math
 from dataclasses import dataclass
 from itertools import pairwise
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -340,6 +340,14 @@ class HubeauRequest(TimeseriesRequest):
 
     _endpoint = _STATIONS_ENDPOINT
 
+    # `altitude_ref_alti_station` is the altitude of the gauge's zero in metres -- the datum a stage
+    # is read from, below sea level on tidal reaches (-1.809 m at Bordeaux) -- not the ground the
+    # station stands on. It goes in `gauge_zero`, as Pegelonline's does, and `elevation` stays null.
+    _base_columns: ClassVar = (
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "gauge_zero",
+    )
+
     def _observation_dates(self, url: str) -> pl.DataFrame:
         """Read the timestamps one observations query carries.
 
@@ -446,7 +454,7 @@ class HubeauRequest(TimeseriesRequest):
                 "libelle_station": "name",
                 "longitude_station": "longitude",
                 "latitude_station": "latitude",
-                "altitude_ref_alti_station": "elevation",
+                "altitude_ref_alti_station": "gauge_zero",
                 "libelle_departement": "region",
                 "date_ouverture_station": "start_date",
                 "date_fermeture_station": "end_date",
@@ -468,6 +476,7 @@ class HubeauRequest(TimeseriesRequest):
         df = df.with_columns(
             pl.col("step").replace_strict(_STEP_TO_RESOLUTION, default=None).alias("resolution"),
             pl.lit(DATASET_NAME_DEFAULT, pl.String).alias("dataset"),
+            pl.lit(None, pl.Float64).alias("elevation"),
         )
         df = df.filter(pl.col("resolution").is_in(requested))
         df = df.select(self._base_columns)
