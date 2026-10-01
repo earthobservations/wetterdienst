@@ -1669,3 +1669,35 @@ describe('dataViewer sort of integers past 2^53', () => {
     expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(ascending.toReversed())
   })
 })
+
+describe('dataViewer facets large or small by their own points', () => {
+  // a day's row each of the parameter, from 2020-01-01 on
+  const daysOf = (parameter: string, count: number) => Array.from({ length: count }, (_, day) => ({ ...row, parameter, timestamp: new Date(Date.UTC(2020, 0, day + 1)).toISOString() }))
+
+  // each facet's trace mode and hover mode, as it was last drawn, by its parameter
+  function facetsDrawn() {
+    const drawn = new Map<string, [string, string]>()
+    for (const [, traces, layout] of plotly.react.mock.calls as unknown as [HTMLElement, { mode: string }[], { hovermode: string, yaxis: { title: string } }][])
+      drawn.set(layout.yaxis.title, [traces[0]!.mode, layout.hovermode])
+    return Object.fromEntries(drawn)
+  }
+
+  it('draws small facets as small ones where all of them together pass the threshold', async () => {
+    // all six facets' 600 points were counted: each drawn as thin lines without markers, hovered
+    // point by point
+    plotly.react.mockClear()
+    const parameters = ['a', 'b', 'c', 'd', 'e', 'f']
+    const { wrapper } = await withChartQuery(parameters.flatMap(parameter => daysOf(parameter, 100)))
+    await showChart(wrapper, true)
+    await vi.waitFor(() => expect(Object.keys(facetsDrawn())).toHaveLength(6))
+    expect(facetsDrawn()).toEqual(Object.fromEntries(parameters.map(parameter => [parameter, ['lines+markers', 'x unified']])))
+  })
+
+  it('draws a large facet as a large one beside a small one', async () => {
+    plotly.react.mockClear()
+    const { wrapper } = await withChartQuery([...daysOf('a', 501), ...daysOf('b', 10)])
+    await showChart(wrapper, true)
+    await vi.waitFor(() => expect(Object.keys(facetsDrawn())).toHaveLength(2))
+    expect(facetsDrawn()).toEqual({ a: ['lines', 'closest'], b: ['lines+markers', 'x unified'] })
+  })
+})

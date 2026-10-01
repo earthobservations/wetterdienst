@@ -826,8 +826,9 @@ const chartTraces = computed(() => {
 // Check if chart has data
 const hasChartData = computed(() => chartTraces.value.length > 0)
 
-// For faceted charts - group data by parameter
-const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] }[] => {
+// For faceted charts - group data by parameter. Each facet is a chart of its own, large or not by its
+// own points: one of a few points was drawn as a large one where the other facets held many
+const facetedChartData = computed((): { parameter: string, traces: PlotlyData[], large: boolean }[] => {
   if (!facetByParameter.value || !chartRows.value.length)
     return []
 
@@ -859,10 +860,13 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
     series.y.push(y)
   }
 
-  const result: { parameter: string, traces: PlotlyData[] }[] = []
-  const isLargeDataset = isLargeChart.value
+  const result: { parameter: string, traces: PlotlyData[], large: boolean }[] = []
 
   for (const [parameter, stationMap] of parameterGroups) {
+    let points = 0
+    for (const data of stationMap.values())
+      points += data.x.length
+    const isLargeDataset = points > LARGE_DATASET_THRESHOLD
     const traces: PlotlyData[] = []
     const trendlineTraces: PlotlyData[] = []
     let colorIndex = 0
@@ -908,7 +912,7 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
     }
 
     // Add trendlines after main traces so they render on top
-    result.push({ parameter, traces: [...traces, ...trendlineTraces] })
+    result.push({ parameter, traces: [...traces, ...trendlineTraces], large: isLargeDataset })
   }
 
   return result
@@ -1117,6 +1121,8 @@ async function drawFacetedCharts(newest: () => boolean) {
       const splitTitle = String(facet.parameter).split('/').join('<br>')
       const layout: Partial<PlotlyLayout> = {
         ...chartLayout.value,
+        // the facet's own: 'closest' for a large one, as 'x unified' is very slow
+        hovermode: facet.large ? 'closest' : 'x unified',
         yaxis: {
           // Plotly yaxis.title can be either string or object; ensure we pass a string for typing
           title: splitTitle,

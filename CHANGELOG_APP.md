@@ -182,6 +182,9 @@ Types of changes:
 - `[Explorer]` Entering query mode after a Fetch checks the query again against the new rows. The
   syntax error shown, or its absence, was the answer for the rows fetched before, which could keep
   Run Query disabled for a query that was fine for the new rows (GH-2142)
+- `[Explorer]` Faceted, each parameter's chart counts its own points towards the 500 above which a
+  chart is drawn without markers and hovered point by point. All facets' points were counted
+  together, so six facets of 100 points each lost their markers (GH-2158)
 
 ## [0.17.0] - 2026-09-29
 
