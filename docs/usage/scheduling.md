@@ -22,9 +22,9 @@ wetterdienst values \
 `--target` takes the same connection strings as the Python `to_target()` method, so
 `duckdb:///obs.duckdb?table=weather`, `influxdb://…` or `crate://…` work equally well — see
 [Export](python-api.md#export). Each database sink is an optional extra (`duckdb`, `influxdb`,
-`cratedb`, `postgresql`), imported only when its target is used, so install the one you schedule
-or the run fails at the very end, after the download. The `postgresql` extra installs psycopg2,
-while SQLAlchemy 2.1 resolves a bare `postgresql://` to psycopg 3, so spell that target
+`cratedb`, `postgresql`, `mysql`), imported only when its target is used, so install the one you
+schedule or the run fails at the very end, after the download. The `postgresql` extra installs
+psycopg2, while SQLAlchemy 2.1 resolves a bare `postgresql://` to psycopg 3, so spell that target
 `postgresql+psycopg2://…` (GH-2202).
 
 Three properties of the CLI matter for a scheduler:

@@ -82,7 +82,7 @@ Types of changes:
 - PostgreSQL and MySQL export targets no longer fail on `?table=`: it names the table and is no
   longer passed to the database driver, which refused it as a connection option, so no such target
   could be written to. The rest of the query, such as `sslmode` or `charset`, still reaches the
-  driver (GH-1974)
+  driver. With the `postgresql` extra, spell the target `postgresql+psycopg2://` (GH-1974)
 
 ## [0.139.0] - 2026-09-29
 
