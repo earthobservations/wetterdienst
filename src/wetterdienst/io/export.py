@@ -780,12 +780,16 @@ class ExportMixin:
                     chunk_size = int(999 / len(self.df.columns))
 
             log.info("Writing to SQL database")
-            if if_exists in ("skip", "fail"):
-                import sqlalchemy  # noqa: PLC0415
+            import sqlalchemy  # noqa: PLC0415
 
-                engine = sqlalchemy.create_engine(target)
-                insp = sqlalchemy.inspect(engine)
-                if insp.has_table(tablename):
+            # `table` is ours, read above to name the table; SQLAlchemy hands every query argument
+            # to the driver as a connection option, and psycopg, psycopg2, mysqlclient and pymysql
+            # refuse one they do not know, so a `postgresql://` or `mysql://` target could not
+            # connect at all. Only `table` goes: the rest of the query (`sslmode`, `charset`, ...)
+            # is the driver's
+            engine = sqlalchemy.create_engine(sqlalchemy.make_url(target).difference_update_query(["table"]))
+            try:
+                if if_exists in ("skip", "fail") and sqlalchemy.inspect(engine).has_table(tablename):
                     if if_exists == "skip":
                         log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
                         return
@@ -793,14 +797,16 @@ class ExportMixin:
                     # a refusal is one class wherever it comes from
                     msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
                     raise ExportRefusedError(msg)
-            self.df.with_columns(pl.col(pl.Enum).cast(pl.String)).to_pandas().to_sql(
-                name=tablename,
-                con=target,
-                if_exists=if_exists if if_exists != "skip" else "fail",
-                index=False,
-                method="multi",
-                chunksize=chunk_size,
-            )
+                self.df.with_columns(pl.col(pl.Enum).cast(pl.String)).to_pandas().to_sql(
+                    name=tablename,
+                    con=engine,
+                    if_exists=if_exists if if_exists != "skip" else "fail",
+                    index=False,
+                    method="multi",
+                    chunksize=chunk_size,
+                )
+            finally:
+                engine.dispose()
             log.info("Writing to SQL database finished")
 
 
