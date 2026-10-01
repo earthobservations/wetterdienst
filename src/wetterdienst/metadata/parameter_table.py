@@ -131,9 +131,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "cloud_cover_below_1000ft",
+        "cloud_cover_below_2km",
         "fraction",
-        "Fraction of the sky covered by cloud below 1000 ft.",
+        "Fraction of the sky covered by cloud below 2 km.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -468,9 +468,21 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "evapotranspiration_potential_grass_fao",
+        "precipitation",
+        "Potential evapotranspiration over grass, totalled over the period, after the FAO reference method.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "evapotranspiration_potential_grass_fao_last_24h",
         "precipitation",
         "Potential evapotranspiration over grass in the preceding 24 hours, after the FAO reference method.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "evapotranspiration_potential_grass_haude",
+        "precipitation",
+        "Potential evapotranspiration over grass, totalled over the period, after the Haude method.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
