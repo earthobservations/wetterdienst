@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
-import { defineAsyncComponent } from 'vue'
-import MapStationsNotLoaded from './MapStationsNotLoaded.vue'
 
 const props = defineProps<{
   modelValue?: { stations: Station[] }
@@ -14,11 +12,7 @@ const emit = defineEmits(['update:modelValue', 'update:selectedStations'])
 
 const { t } = useI18n()
 
-// where the map's code fails to load, as after a redeploy, the map area says so and offers a reload
-const MapStations = defineAsyncComponent({
-  loader: () => import('./MapStations.vue'),
-  errorComponent: MapStationsNotLoaded,
-})
+const { MapStations, notLoaded: mapNotLoaded } = useMapStations()
 
 const selectedStations = ref<Station[]>(props.modelValue?.stations ?? [])
 
@@ -254,7 +248,7 @@ function removeStation(station: Station) {
       />
       <template #content>
         <ClientOnly>
-          <p class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
+          <p v-if="!mapNotLoaded" class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
             <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
             {{ multiple ? t('stationSelection.mapHintMultiple') : t('stationSelection.mapHint') }}
           </p>

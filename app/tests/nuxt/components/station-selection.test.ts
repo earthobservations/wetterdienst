@@ -1,6 +1,7 @@
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import type { VueWrapper } from '@vue/test-utils'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import StationSelection from '~/components/StationSelection.vue'
 
 const parameterSelection = {
@@ -262,5 +263,45 @@ describe('stationSelection with postcode stations', () => {
     const chip = wrapper.findAll('.cursor-pointer').find(c => c.text().includes('01067'))
     expect(chip!.text()).toBe('01067 ×')
     expect(wrapper.text()).not.toContain('null')
+  })
+})
+
+// Nuxt's reload of the page: the test's document does not take it
+const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
+mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
+
+describe('the station selection\'s station map whose code could not be loaded', () => {
+  let wrapper: VueWrapper | undefined
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    vi.doUnmock('~/components/MapStations.vue')
+    vi.restoreAllMocks()
+    reloadNuxtApp.mockClear()
+  })
+
+  it('says so in place of the map, without the hint to tap it, and offers a reload', async () => {
+    registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '01001', name: 'JAN MAYEN', region: 'Norway', latitude: 70.93, longitude: -8.67 }],
+    }))
+    wrapper = await mountSuspended(StationSelection, { props: { parameterSelection, multiple: true }, attachTo: document.body })
+    // the map's chunk fails as it does where a redeploy has replaced it under an open tab
+    vi.doMock('~/components/MapStations.vue', () => {
+      throw new Error('chunk failed to load')
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await wrapper.findAll('button').find(b => b.text().includes('Choose on the map'))!.trigger('click')
+    const alert = await vi.waitFor(() => {
+      const found = wrapper!.find('[role="alert"]')
+      expect(found.exists()).toBe(true)
+      return found
+    })
+    expect(alert.text()).toBe('The stations could not be shown on the map. Reload the page to try again.')
+    expect(wrapper.text()).not.toContain('on the map to')
+    await wrapper.findAll('button').find(b => b.text() === 'Reload page')!.trigger('click')
+    // forced: unforced, Nuxt drops a second click within ten seconds of a first that did not help
+    expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
   })
 })

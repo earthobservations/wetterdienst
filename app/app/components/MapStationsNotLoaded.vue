@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Shown in place of the station map where its lazily loaded code could not be loaded. The realistic
 // cause is a redeploy replacing the map's hashed chunk under an open tab, which only reloading the
-// page mends; a passing network failure is retried by closing and opening the map again.
+// page mends.
 
 // the loader's error, passed by defineAsyncComponent: declared so it is not set on the element
 defineProps<{ error?: Error }>()
