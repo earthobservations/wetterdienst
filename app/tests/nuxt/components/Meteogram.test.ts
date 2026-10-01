@@ -35,8 +35,11 @@ describe('meteogram chart that could not be drawn', { timeout: 15_000 }, () => {
     await wrapper.setProps({ values })
   }
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Plotly mocked back, and that mock taken up at once: vitest resolves the mocks queued for the
+    // next import in parallel, so this one, still queued, could win over the next test's own
     vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    await import('plotly.js-basic-dist-min')
     vi.restoreAllMocks()
     wrapper?.unmount()
     wrapper = undefined

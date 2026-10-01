@@ -241,8 +241,11 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
   const toasts = () => [...document.body.querySelectorAll('[data-slot="title"]')].map(title => title.textContent?.trim())
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
-  afterEach(() => {
+  afterEach(async () => {
+    // Plotly mocked back, and that mock taken up at once: vitest resolves the mocks queued for the
+    // next import in parallel, so this one, still queued, could win over the next test's own
     vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    await import('plotly.js-basic-dist-min')
     vi.restoreAllMocks()
     wrapper?.unmount()
     wrapper = undefined
