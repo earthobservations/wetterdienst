@@ -22,7 +22,6 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.metadata import ParameterModel, build_metadata_model
-from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata, AemetObservationRequest
 from wetterdienst.provider.chmi.observation import ChmiObservationMetadata, ChmiObservationRequest
@@ -55,34 +54,36 @@ from wetterdienst.provider.rmi.observation import RmiObservationMetadata, RmiObs
 from wetterdienst.provider.smhi.observation import SmhiObservationMetadata, SmhiObservationRequest
 from wetterdienst.provider.wsv.pegel import WsvPegelMetadata, WsvPegelRequest
 
-# Networks whose request class needs a package only an optional extra installs: `dwd/derived` imports
-# pandas, which arrives with the `export` extra. CI installs the extras and so skips none of them.
-NETWORKS_NEEDING_AN_EXTRA = {("dwd", "derived")}
+# The third-party packages a network's request class may lack, because only an optional extra
+# installs them: `dwd/derived` imports pandas, which arrives with the `export` extra. CI installs
+# the extras and so skips none of them.
+NETWORKS_NEEDING_AN_EXTRA = {("dwd", "derived"): {"pandas"}}
 
 
-def _resolve(provider: str, network: str) -> type[TimeseriesRequest] | None:
+def _resolve(provider: str, network: str) -> type | None:
     """Resolve a provider/network, or return None with a warning when an optional extra it needs is missing.
 
     This is what lets the module collect on a bare `uv sync`, rather than importing `dwd/derived` at
     module level and failing as a whole for want of pandas.
 
-    Only a genuinely missing third-party module is excused -- a `metadata.py` that makes
-    `build_metadata_model` raise, or a mistyped intra-package import in a provider's `api.py`, has to
-    surface rather than quietly dropping that provider from the checks that loop over all of them.
-    `Wetterdienst.resolve` re-raises the `ModuleNotFoundError` as a plain `ImportError` and reports any
-    name it cannot import as a missing dependency, so the distinction is read off `__cause__`, and a
-    name inside this package is excluded rather than trusted to the message.
+    Only a missing package listed for that very network is excused -- a `metadata.py` that makes
+    `build_metadata_model` raise, a mistyped intra-package import in a provider's `api.py`, or a
+    misspelt or undeclared third-party import has to surface rather than quietly dropping that
+    provider from the checks that loop over all of them. `Wetterdienst.resolve` re-raises the
+    `ModuleNotFoundError` as a plain `ImportError` and reports any name it cannot import as a missing
+    dependency, so the missing name is read off `__cause__` rather than trusted to the message.
     """
     try:
         return Wetterdienst.resolve(provider, network)
     except ImportError as error:
         cause = error.__cause__
-        if not isinstance(cause, ModuleNotFoundError) or (cause.name or "").startswith("wetterdienst"):
+        missing = cause.name if isinstance(cause, ModuleNotFoundError) else None
+        if not missing or missing.partition(".")[0] == "wetterdienst":
             raise
-        if (provider, network) not in NETWORKS_NEEDING_AN_EXTRA:
+        if missing.partition(".")[0] not in NETWORKS_NEEDING_AN_EXTRA.get((provider, network), set()):
             msg = (
                 f"{provider}/{network} cannot be imported: {error}. "
-                f"Add it to NETWORKS_NEEDING_AN_EXTRA if that is intended."
+                f"Add {missing!r} to its NETWORKS_NEEDING_AN_EXTRA entry if that is intended."
             )
             raise AssertionError(msg) from error
         warnings.warn(f"{provider}/{network} not checked: {error}", stacklevel=2)
@@ -1274,6 +1275,22 @@ def test_resolve_helper_raises_a_missing_module_inside_the_package(monkeypatch: 
     _fail_import_with(monkeypatch, ModuleNotFoundError(f"No module named {name!r}", name=name))
 
     with pytest.raises(ImportError, match=r"requires wetterdienst\.provider\.dwd\.derived\.typo"):
+        _resolve("dwd", "derived")
+
+
+def test_resolve_helper_refuses_a_package_not_listed_for_the_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A listed network is excused only the package it is listed for, not a misspelt or undeclared one."""
+    _fail_import_with(monkeypatch, ModuleNotFoundError("No module named 'panadas'", name="panadas"))
+
+    with pytest.raises(AssertionError, match=r"Add 'panadas' to its NETWORKS_NEEDING_AN_EXTRA entry"):
+        _resolve("dwd", "derived")
+
+
+def test_resolve_helper_raises_a_missing_module_it_cannot_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A ModuleNotFoundError that names no module is not taken for a missing extra."""
+    _fail_import_with(monkeypatch, ModuleNotFoundError("something is missing"))
+
+    with pytest.raises(ImportError, match=r"not found"):
         _resolve("dwd", "derived")
 
 
