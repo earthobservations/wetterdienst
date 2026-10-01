@@ -2268,3 +2268,84 @@ def test_sql_sink_keeps_the_table_out_of_the_connection(
         assert connection.execute("SELECT station_id FROM weather").fetchall() == [("01048",)]
     finally:
         connection.close()
+
+
+def _gauge_stations_result() -> StationsResult:
+    """Build a stations result from a request declaring gauge_zero, as WSV Pegelonline's does.
+
+    Three stations: one with an elevation, one without, and one without an elevation but with a
+    gauge zero.
+    """
+
+    class GaugeRequestMock:
+        _base_columns = (*TimeseriesRequest._base_columns, "gauge_zero")  # noqa: SLF001
+
+    station = {"resolution": "15_minutes", "dataset": "data", "start_date": None, "end_date": None, "region": None}
+    df = pl.DataFrame(
+        [
+            {**station, "station_id": "a", "latitude": 50.0, "longitude": 8.0, "elevation": 100.0, "name": "A"},
+            {**station, "station_id": "b", "latitude": 51.0, "longitude": 9.0, "elevation": None, "name": "B"},
+            {**station, "station_id": "c", "latitude": 52.0, "longitude": 10.0, "elevation": None, "name": "C"},
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "elevation": pl.Float64,
+            "name": pl.String,
+            "region": pl.String,
+        },
+        orient="row",
+    ).with_columns(gauge_zero=pl.Series([None, None, -1.809], dtype=pl.Float64))
+    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, stations=GaugeRequestMock())
+
+
+# per station id: the feature's position and its gauge_zero property
+_GAUGE_FEATURES = {
+    "a": ([8.0, 50.0, 100.0], None),
+    "b": ([9.0, 51.0], None),
+    "c": ([10.0, 52.0], -1.809),
+}
+
+
+def test_stations_to_ogc_feature_collection_without_elevation_and_with_gauge_zero() -> None:
+    """A station without an elevation gets a 2D position, and gauge_zero reaches its properties.
+
+    RFC 7946 3.1.1 makes a position two or more numbers, so `[lon, lat, null]` is not one.
+    """
+    features = _gauge_stations_result().to_ogc_feature_collection()["data"]["features"]
+    assert {
+        feature["properties"]["id"]: (feature["geometry"]["coordinates"], feature["properties"]["gauge_zero"])
+        for feature in features
+    } == _GAUGE_FEATURES
+
+
+def test_values_to_ogc_feature_collection_without_elevation_and_with_gauge_zero() -> None:
+    """The values variant positions and describes its stations the same way."""
+    df_values = pl.DataFrame(
+        [
+            {
+                "station_id": station_id,
+                "resolution": "15_minutes",
+                "dataset": "data",
+                "parameter": "stage",
+                "timestamp": dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 1.0,
+                "quality": None,
+            }
+            for station_id in _GAUGE_FEATURES
+        ],
+        schema_overrides={"quality": pl.Float64},
+        orient="row",
+    )
+    result = ValuesResult(stations=_gauge_stations_result(), values=None, df=df_values)
+    features = json.loads(result.to_geojson())["data"]["features"]
+    assert {
+        feature["properties"]["id"]: (feature["geometry"]["coordinates"], feature["properties"]["gauge_zero"])
+        for feature in features
+    } == _GAUGE_FEATURES
+    assert [len(feature["values"]) for feature in features] == [1, 1, 1]

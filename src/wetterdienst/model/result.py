@@ -257,6 +257,42 @@ class StationsResult(ExportMixin):
             indent = None
         return json.dumps(self.to_dict(with_metadata=with_metadata), indent=indent)
 
+    def _to_ogc_feature(self, station: dict) -> _StationsOgcFeature:
+        """Format one station row, with its dates already ISO strings, as an OGC feature."""
+        from wetterdienst.model.request import TimeseriesRequest  # noqa: PLC0415
+
+        # the station columns a provider declares beyond the core ones, such as WSV's gauge_zero;
+        # a result built from a bare frame, with no request behind it, has none
+        core_columns = TimeseriesRequest._base_columns  # noqa: SLF001
+        extra_columns = [
+            column
+            for column in getattr(self.stations, "_base_columns", core_columns)
+            if column not in core_columns and column in station
+        ]
+        # A position is "longitude, latitude [, elevation]" in WGS84 decimal degrees, and per
+        # RFC 7946 3.1.1 it is two or more numbers, so a station without an elevation gets no z
+        # rather than a null one, which strict parsers reject.
+        coordinates = [station["longitude"], station["latitude"]]
+        if station["elevation"] is not None:
+            coordinates.append(station["elevation"])
+        return {
+            "type": "Feature",
+            "properties": {
+                "resolution": station["resolution"],
+                "dataset": station["dataset"],
+                "id": station["station_id"],
+                "name": station["name"],
+                "region": station["region"],
+                "start_date": station["start_date"],
+                "end_date": station["end_date"],
+                **{column: station[column] for column in extra_columns},
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": coordinates,
+            },
+        }
+
     def to_ogc_feature_collection(self, *, with_metadata: bool = False, **_kwargs) -> _StationsOgcFeatureCollection:  # noqa: ANN003  # ty: ignore[invalid-method-override]
         """Format station information as OGC feature collection.
 
@@ -277,32 +313,7 @@ class StationsResult(ExportMixin):
             pl.col("start_date").dt.to_string("iso:strict"),
             pl.col("end_date").dt.to_string("iso:strict"),
         ).iter_rows(named=True):
-            features.append(
-                {
-                    "type": "Feature",
-                    "properties": {
-                        "resolution": station["resolution"],
-                        "dataset": station["dataset"],
-                        "id": station["station_id"],
-                        "name": station["name"],
-                        "region": station["region"],
-                        "start_date": station["start_date"],
-                        "end_date": station["end_date"],
-                    },
-                    "geometry": {
-                        # WGS84 is implied and coordinates represent decimal degrees
-                        # ordered as "longitude, latitude [,elevation]" with z expressed
-                        # as metres above mean sea level per WGS84.
-                        # -- http://wiki.geojson.org/RFC-001
-                        "type": "Point",
-                        "coordinates": [
-                            station["longitude"],
-                            station["latitude"],
-                            station["elevation"],
-                        ],
-                    },
-                },
-            )
+            features.append(self._to_ogc_feature(station))
         data["data"] = {
             "type": "FeatureCollection",
             "features": features,
@@ -587,33 +598,7 @@ class ValuesResult(_ValuesResult):
             df_values = self.df.filter(pl.col("station_id") == station["station_id"]).select(
                 pl.all().exclude("station_id"),
             )
-            features.append(
-                {
-                    "type": "Feature",
-                    "properties": {
-                        "resolution": station["resolution"],
-                        "dataset": station["dataset"],
-                        "id": station["station_id"],
-                        "name": station["name"],
-                        "region": station["region"],
-                        "start_date": station["start_date"],
-                        "end_date": station["end_date"],
-                    },
-                    "geometry": {
-                        # WGS84 is implied and coordinates represent decimal degrees
-                        # ordered as "longitude, latitude [,elevation]" with z expressed
-                        # as metres above mean sea level per WGS84.
-                        # -- http://wiki.geojson.org/RFC-001
-                        "type": "Point",
-                        "coordinates": [
-                            station["longitude"],
-                            station["latitude"],
-                            station["elevation"],
-                        ],
-                    },
-                    "values": self._to_dict(df_values),
-                },
-            )
+            features.append({**self.stations._to_ogc_feature(station), "values": self._to_dict(df_values)})  # noqa: SLF001
         data["data"] = {
             "type": "FeatureCollection",
             "features": features,
