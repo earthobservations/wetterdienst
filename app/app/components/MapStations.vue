@@ -53,19 +53,9 @@ const mapBounds = computed(() => {
   const stations = centerOnSelectedStations.value ? mappedSelectedStations.value : mappedStations.value
   if (!stations.length)
     return null
-  // taken in one loop, where Math.min(...latitudes) threw past about 120k stations (65,536 in
-  // Safari), as NOAA GHCN daily lists
-  let south = Infinity
-  let west = Infinity
-  let north = -Infinity
-  let east = -Infinity
-  for (const { latitude, longitude } of stations) {
-    south = Math.min(south, latitude)
-    west = Math.min(west, longitude)
-    north = Math.max(north, latitude)
-    east = Math.max(east, longitude)
-  }
-  return L.latLngBounds(L.latLng(south, west), L.latLng(north, east))
+  // Leaflet extends the bounds by each position in turn, where Math.min(...latitudes) threw past
+  // about 120k stations (65,536 in Safari), as NOAA GHCN daily lists
+  return L.latLngBounds(stations.map(s => [s.latitude, s.longitude]))
 })
 
 // Counts the calls to createMarkers(), and the map's removal, so that a call overtaken by either

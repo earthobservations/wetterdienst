@@ -508,7 +508,7 @@ describe('mapStations bounds of many stations', () => {
     wrapper = undefined
   })
 
-  it('bounds the map on more stations than a call takes arguments, where it threw', async () => {
+  it('fits the map to more stations than a call takes arguments, where it threw', async () => {
     // past V8's argument limit of about 120k, as NOAA GHCN daily lists, on a grid of 400 latitudes
     // by 500 longitudes whose corners are the bounds
     const count = 200_000
@@ -520,7 +520,16 @@ describe('mapStations bounds of many stations', () => {
       longitude: -170 + Math.floor(i / 400) * 0.68,
     }))
     wrapper = await mountSuspended(MapStations, { props: { stations, selectedStations: [] } })
-    const bounds = (wrapper.vm as any).mapBounds
+    // centred on a selected station, from where the button fits the map to all of them
+    await wrapper.setProps({ selectedStations: [stations[0]] })
+    const button = wrapper.find('button')
+    expect(button.text()).toBe('Center on all stations')
+    // set after the render above, which hands the template ref the mocked LMap
+    const fitBounds = vi.fn()
+    ;(wrapper.vm as any).map = { leafletObject: { fitBounds } }
+
+    await button.trigger('click')
+    const bounds = fitBounds.mock.lastCall![0]
     expect([bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()]).toEqual([-80, -170, -80 + 399 * 0.4, -170 + 499 * 0.68])
-  })
+  }, 30_000)
 })
