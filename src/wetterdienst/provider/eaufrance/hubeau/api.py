@@ -456,9 +456,10 @@ class HubeauRequest(TimeseriesRequest):
         settings = cast("Settings", self.settings)
         try:
             rows = _paged_rows(_SITES_ENDPOINT, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
-        except (FSTimeoutError, OSError, ClientError) as e:
+        except (FSTimeoutError, OSError, ClientError, ValueError) as e:
             # what `download_file` hands back for a timeout, a missing file, and a refused or
-            # broken response; FSTimeoutError is named as it is no OSError before Python 3.11
+            # broken response, and a body that is not JSON; FSTimeoutError is named as it is no
+            # OSError before Python 3.11
             log.warning(f"Hubeau's sites referential could not be read, stations are listed without elevation: {e!r}")
             rows = []
         df = pl.from_dicts(rows, schema={"code_site": pl.String, "altitude_site": pl.Float64})

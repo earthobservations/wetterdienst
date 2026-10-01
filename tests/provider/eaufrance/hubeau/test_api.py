@@ -402,8 +402,13 @@ def test_all_takes_the_elevation_from_the_station_site(monkeypatch: pytest.Monke
 
 @pytest.mark.parametrize(
     "error",
-    [FSTimeoutError(), ServerDisconnectedError(), FileNotFoundError("referentiel/sites")],
-    ids=["timeout", "disconnected", "not_found"],
+    [
+        FSTimeoutError(),
+        ServerDisconnectedError(),
+        FileNotFoundError("referentiel/sites"),
+        json.JSONDecodeError("Expecting value", "<html>", 0),
+    ],
+    ids=["timeout", "disconnected", "not_found", "not_json"],
 )
 def test_all_lists_the_stations_when_the_sites_cannot_be_read(
     monkeypatch: pytest.MonkeyPatch,
