@@ -977,6 +977,18 @@ def test_dmo_the_newest_run_describes_the_stations(monkeypatch: pytest.MonkeyPat
     def listing(url: str, *_args: object, **_kwargs: object) -> list[str]:
         return [f"{url}/{name}" for name in runs]
 
+    # the stamps carry no month, so they are dated against the clock: pinned to the afternoon of
+    # 1 August, the 12 UTC run of that day is out and the 31st is July's. Unpinned, the 31st was
+    # dated in the month before today's (two before, in the first hours of a month), and where that
+    # month has 30 days or fewer the date does not exist, the runs could not be read, and the test
+    # failed (GH-2171). Naive, as the provider passes its UTC clock
+    now = dt.datetime(2026, 8, 1, 13, tzinfo=ZoneInfo("UTC")).replace(tzinfo=None)
+    add_date_from_filename = api.add_date_from_filename
+    monkeypatch.setattr(
+        api,
+        "add_date_from_filename",
+        lambda df, _current_date: add_date_from_filename(df, now),
+    )
     monkeypatch.setattr(api, "list_remote_files_fsspec", listing)
     monkeypatch.setattr(
         api.KMLReader,
