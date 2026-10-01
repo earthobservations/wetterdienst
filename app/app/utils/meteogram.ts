@@ -129,9 +129,10 @@ export function classifyPrecip(temperature: number, humidity?: number): 'rain' |
 /**
  * The parameter names each meteogram series is drawn from, in order of preference: the first one
  * found among the values wins, and a series none of them matches is left out without an error.
- * Each list leads with the canonical name the backend serves; the names after it are raw or older
- * ones kept as fallbacks. `tests/unit/meteogram.test.ts` holds each first choice to the app
- * glossary, so a canonical rename that misses this table fails a test instead of losing a panel.
+ * Each list leads with the canonical name the meteogram's MOSMIX request comes back under, and
+ * `tests/unit/meteogram.test.ts` holds that first choice to the app glossary, so a canonical rename
+ * that misses this table fails a test instead of losing a panel. The names after it are other
+ * canonical names or raw and older ones, kept as fallbacks; the test does not check them.
  */
 export const METEOGRAM_SERIES = {
   weather: ['weather_significant', 'significant_weather', 'ww', 'weather'],
@@ -143,7 +144,7 @@ export const METEOGRAM_SERIES = {
   humidity: ['humidity_relative', 'relative_humidity', 'rh', 'r'],
   windSpeed: ['wind_speed', 'ff'],
   windDirection: ['wind_direction', 'dd'],
-  gust: ['wind_gust_max', 'wind_gust', 'ffx', 'fx', 'wind_gust_max_last_1h', 'wind_gust_max_last_3h', 'fx1', 'fx3'],
+  gust: ['wind_gust_max_last_1h', 'wind_gust_max', 'wind_gust', 'ffx', 'fx', 'wind_gust_max_last_3h', 'fx1', 'fx3'],
   cloudCover: ['cloud_cover_total', 'n'],
   cloudCoverLow: ['cloud_cover_below_2km', 'nl'],
   cloudCoverMid: ['cloud_cover_between_2km_and_7km', 'cloud_cover_2_7km', 'nm'],
