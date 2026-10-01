@@ -4,15 +4,26 @@ import { nextTick } from 'vue'
 import MapStations from '~/components/MapStations.vue'
 import StripesPage from '~/pages/stripes.vue'
 
-// The station map's markers and Leaflet map are left out: real Leaflet draws nothing in happy-dom.
-mockNuxtImport('useLMarkerCluster', () => async ({ markers }: { markers: unknown[] }) => ({
-  markerCluster: { refreshClusters: () => {} },
-  markers: markers.map(() => ({ on: () => {}, setIcon: () => {} })),
+// The station map's markers and Leaflet map are stand-ins: real Leaflet draws nothing in happy-dom.
+// The map stub holds a stand-in Leaflet map, as LMap holds the real one; the cluster stand-in is
+// added to the map it is handed, as useLMarkerCluster() adds its cluster.
+const { leafletMap } = vi.hoisted(() => ({
+  leafletMap: { addLayer: vi.fn(), removeLayer: vi.fn(), fitBounds: vi.fn() },
 }))
+mockNuxtImport('useLMarkerCluster', () => async ({ leafletObject, markers }: { leafletObject: { addLayer: (layer: object) => unknown }, markers: unknown[] }) => {
+  const markerCluster = { refreshClusters: () => {} }
+  leafletObject.addLayer(markerCluster)
+  return { markerCluster, markers: markers.map(() => ({ on: () => {}, setIcon: () => {} })) }
+})
 vi.mock('@vue-leaflet/vue-leaflet', async () => {
   const { defineComponent, h } = await import('vue')
   return {
-    LMap: defineComponent({ setup: (_, { slots }) => () => h('div', slots.default?.()) }),
+    LMap: defineComponent({
+      setup: (_, { slots, expose }) => {
+        expose({ leafletObject: leafletMap })
+        return () => h('div', slots.default?.())
+      },
+    }),
     LTileLayer: defineComponent({ setup: () => () => null }),
   }
 })
@@ -129,6 +140,7 @@ describe('stripes Page station map', () => {
   afterEach(() => {
     wrapper?.unmount()
     wrapper = undefined
+    leafletMap.fitBounds.mockClear()
   })
 
   it('stays centred on all stations, as the user chose, when the map\'s section renders again', async () => {
@@ -140,13 +152,13 @@ describe('stripes Page station map', () => {
     await wrapper.findAll('button').find((b: { text: () => string }) => b.text().includes('Choose on the map'))!.trigger('click')
     await vi.waitFor(() => expect(wrapper!.findComponent(MapStations).exists()).toBe(true))
     const map = wrapper.findComponent(MapStations)
-    const fitBounds = vi.fn()
-    ;(map.vm as any).map = { leafletObject: { addLayer: () => {}, removeLayer: () => {}, fitBounds } }
+    const fitBounds = leafletMap.fitBounds
     const centreButton = () => map.findAll('button').find((b: { text: () => string }) => b.text().startsWith('Center on'))!
 
     // a station is chosen on the map, which centres on it
     map.vm.$emit('update:selectedStations', [tempelhof])
     await vi.waitFor(() => expect(centreButton().text()).toBe('Center on all stations'))
+    expect(fitBounds).toHaveBeenCalled()
     await centreButton().trigger('click')
     expect(centreButton().text()).toBe('Center on selected station')
     const fits = fitBounds.mock.calls.length
