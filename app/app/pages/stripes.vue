@@ -136,7 +136,6 @@ async function fetchAndPlotStripes() {
   // as of a display option changed, still draws, and tells its own failure
   if (plotFailed.value || lastFetchedData.value?.metadata.station.station_id !== selectedStation.value.station_id)
     clearStripes()
-  const station = selectedStation.value.station_id
   const started = ++fetchesStarted
   isLoading.value = true
   fetchError.value = null
@@ -144,7 +143,7 @@ async function fetchAndPlotStripes() {
   try {
     const params: StripesValuesQuery = {
       kind: kind.value,
-      station,
+      station: selectedStation.value.station_id,
       format: 'json',
     }
 
@@ -156,9 +155,9 @@ async function fetchAndPlotStripes() {
     const response = await $fetch<StripesValuesResponse>('/api/stripes/values', {
       query: params,
     })
-    // a newer fetch, or a Reset, came while this one was under way, or another station was chosen:
-    // it shows nothing
-    if (started !== fetchesStarted || selectedStation.value?.station_id !== station)
+    // a newer fetch, a Reset or another station chosen came while this one was under way: it shows
+    // nothing
+    if (started !== fetchesStarted)
       return
 
     // Wait for next tick to ensure DOM is updated
@@ -172,7 +171,7 @@ async function fetchAndPlotStripes() {
     await plotStripes(response)
   }
   catch (error) {
-    if (started !== fetchesStarted || selectedStation.value?.station_id !== station)
+    if (started !== fetchesStarted)
       return
     console.error('Failed to fetch stripes data:', error)
     // told above any stripes shown, which are this station's
@@ -528,6 +527,14 @@ function onSelectMenuUpdate(val: any) {
   const id = item ? item.value : null
   selectedStation.value = id ? stations.value.find(s => s.station_id === id) ?? null : null
 }
+
+// a fetch under way is for the station chosen before: it is stopped, and its answer shows nothing
+watch(() => selectedStation.value?.station_id, () => {
+  if (!isLoading.value)
+    return
+  fetchesStarted++
+  isLoading.value = false
+})
 
 watch(kind, () => {
   selectedStation.value = null

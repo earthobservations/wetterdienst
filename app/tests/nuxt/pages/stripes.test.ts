@@ -609,6 +609,9 @@ describe('stripes Page values that could not be fetched', () => {
 
     vm.selectedStation = potsdam
     await nextTick()
+    // the fetch stopped at once: Potsdam's stripes can be asked for
+    expect(vm.isLoading).toBe(false)
+    expect(button('Show').attributes('disabled')).toBeUndefined()
     answer.release()
     await settled()
     expect(plotly.newPlot).not.toHaveBeenCalled()
@@ -629,6 +632,9 @@ describe('stripes Page values that could not be fetched', () => {
 
     vm.selectedStation = potsdam
     await nextTick()
+    // the fetch stopped at once: Potsdam's stripes can be asked for
+    expect(vm.isLoading).toBe(false)
+    expect(button('Show').attributes('disabled')).toBeUndefined()
     failing.release()
     await settled()
     expect(note()).toBeUndefined()
