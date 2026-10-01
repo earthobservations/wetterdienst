@@ -1,12 +1,27 @@
 """Tests for station history of DWD Obs."""
 
 import datetime as dt
+import io
+import zipfile
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
+import polars as pl
 import pytest
 from dirty_equals import IsApprox, IsDatetime
+from fsspec.implementations.zip import ZipFileSystem
 
-from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
+from wetterdienst import Settings
+from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.provider.dwd.observation import api
+from wetterdienst.provider.dwd.observation.api import DwdObservationHistory, DwdObservationRequest
+from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
+from wetterdienst.util.network import File
+
+if TYPE_CHECKING:
+    from wetterdienst.model.metadata import DatasetModel
+    from wetterdienst.model.result import StationsResult
 
 
 @pytest.mark.remote
@@ -44,7 +59,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert len(history.parameter) == 30
     # FM parameters
     parameter_history = history.parameter[0]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1974, 1, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(1974, 12, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -60,7 +75,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[1]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1975, 1, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2007, 12, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -76,7 +91,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[2]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -93,7 +108,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # FX parameters
     parameter_history = history.parameter[3]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1974, 1, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(1974, 12, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -109,7 +124,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[4]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1975, 1, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2007, 12, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -125,7 +140,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[5]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -142,7 +157,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # NM parameters
     parameter_history = history.parameter[6]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2001, 3, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -158,7 +173,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[7]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -175,7 +190,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # PM parameters
     parameter_history = history.parameter[8]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2001, 3, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -191,7 +206,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[9]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -208,7 +223,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # RSK parameters
     parameter_history = history.parameter[10]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2001, 3, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -224,7 +239,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[11]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -241,7 +256,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # RSKF parameters
     parameter_history = history.parameter[12]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2001, 3, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -257,7 +272,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[13]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -274,7 +289,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # SDK parameters
     parameter_history = history.parameter[14]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2001, 3, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -290,7 +305,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[15]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2001, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2019, 5, 4, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -307,7 +322,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # SHK_TAG parameters
     parameter_history = history.parameter[16]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2001, 3, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -323,7 +338,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[17]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -344,7 +359,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # TGK parameters
     parameter_history = history.parameter[18]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2001, 3, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -360,7 +375,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[19]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2013, 5, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -377,7 +392,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # TMK parameters
     parameter_history = history.parameter[20]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2001, 3, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -393,7 +408,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[21]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -410,7 +425,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # TNK parameters
     parameter_history = history.parameter[22]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2001, 3, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -426,7 +441,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[23]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2006, 4, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -443,7 +458,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # TXK parameters
     parameter_history = history.parameter[24]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2001, 3, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -459,7 +474,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[25]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2006, 4, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -476,7 +491,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # UPM parameters
     parameter_history = history.parameter[26]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2001, 3, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -492,7 +507,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[27]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -509,7 +524,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.literature == ""
     # VPM parameters
     parameter_history = history.parameter[28]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(1986, 6, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == dt.datetime(2001, 3, 31, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -525,7 +540,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert parameter_history.special == ""
     assert parameter_history.literature == ""
     parameter_history = history.parameter[29]
-    assert parameter_history.station_id == "2564"
+    assert parameter_history.station_id == "02564"
     assert parameter_history.start_date == dt.datetime(2001, 4, 1, tzinfo=ZoneInfo("UTC"))
     assert parameter_history.end_date == IsDatetime(gt=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")))
     assert parameter_history.station_name == "Kiel-Holtenau"
@@ -543,7 +558,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert len(history.device) == 49
     device_history = history.device[0]
     assert device_history.device_type == "Stationsbarometer"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -554,7 +569,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Luftdruckmessung, konv."
     device_history = history.device[1]
     assert device_history.device_type == "Luftdrucksensor Vaisala PTB 220"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -565,7 +580,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Luftdruckmessung, elektr."
     device_history = history.device[2]
     assert device_history.device_type == "Luftdrucksensor Vaisala PTB 220"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -576,7 +591,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Luftdruckmessung, elektr."
     device_history = history.device[3]
     assert device_history.device_type == "Digitalbarometer PTB 330 (ohne Anzeige, einfach)"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -587,7 +602,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Luftdruckmessung, elektr."
     device_history = history.device[4]
     assert device_history.device_type == "Digitalbarometer PTB 330 (ohne Anzeige, einfach)"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -598,7 +613,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Luftdruckmessung, elektr."
     device_history = history.device[5]
     assert device_history.device_type == "Minimumthermometer"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -609,7 +624,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperaturmessung, konv."
     device_history = history.device[6]
     assert device_history.device_type == "PT 100 (Luft)"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -620,7 +635,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[7]
     assert device_history.device_type == "PT 100 (Luft)"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -631,7 +646,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[8]
     assert device_history.device_type == "PT 100 (Luft)"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -642,7 +657,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[9]
     assert device_history.device_type == "Psychrometerthermometer (trocken)"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -653,7 +668,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperatur/Feuchtemessung, konv."
     device_history = history.device[10]
     assert device_history.device_type == "PT 100 (Luft)"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -664,7 +679,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[11]
     assert device_history.device_type == "PT 100 (Luft)"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -675,7 +690,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[12]
     assert device_history.device_type == "Maximumthermometer"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -686,7 +701,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperaturmessung, konv."
     device_history = history.device[13]
     assert device_history.device_type == "PT 100 (Luft)"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -697,7 +712,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[14]
     assert device_history.device_type == "PT 100 (Luft)"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -708,7 +723,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[15]
     assert device_history.device_type == "Minimumthermometer"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -719,7 +734,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperaturmessung, konv."
     device_history = history.device[16]
     assert device_history.device_type == "PT 100 (Luft)"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -730,7 +745,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[17]
     assert device_history.device_type == "PT 100 (Luft)"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -741,7 +756,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Temperaturmessung, elektr."
     device_history = history.device[18]
     assert device_history.device_type == "Hellmann"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -752,7 +767,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Niederschlagsmenge, konv."
     device_history = history.device[19]
     assert device_history.device_type == "PLUVIO"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -763,7 +778,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Niederschlagsmenge, elektr."
     device_history = history.device[20]
     assert device_history.device_type == "PLUVIO"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -774,7 +789,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Niederschlagsmenge, elektr."
     device_history = history.device[21]
     assert device_history.device_type == "rain[e]H3, Wägetechnologie"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -785,7 +800,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Niederschlagsmenge, elektr."
     device_history = history.device[22]
     assert device_history.device_type == "Niederschlagswächter"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -796,7 +811,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Niederschlagsdauer, elektr."
     device_history = history.device[23]
     assert device_history.device_type == "Niederschlagswächter"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -807,7 +822,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Niederschlagsdauer, elektr."
     device_history = history.device[24]
     assert device_history.device_type == "Hygrograph nach Frankenberg"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -818,7 +833,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Feuchteregistrierung, konv."
     device_history = history.device[25]
     assert device_history.device_type == "Feuchtesonde HMP45D"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -829,7 +844,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Feuchtemessung, elektr."
     device_history = history.device[26]
     assert device_history.device_type == "Feuchtesonde HMP45D"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -840,7 +855,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Feuchtemessung, elektr."
     device_history = history.device[27]
     assert device_history.device_type == "EE33"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -851,7 +866,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Feuchtemessung, elektr."
     device_history = history.device[28]
     assert device_history.device_type == "EE33"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -862,7 +877,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Feuchtemessung, elektr."
     device_history = history.device[29]
     assert device_history.device_type == "Schneepegel"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -873,7 +888,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Schneehöhenmessung, manuell"
     device_history = history.device[30]
     assert device_history.device_type == "Schneehöhensensor SHM 30"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -884,7 +899,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Schneehöhenmessung, elektr."
     device_history = history.device[31]
     assert device_history.device_type == "Schneehöhensensor SHM 30"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -895,7 +910,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Schneehöhenmessung, elektr."
     device_history = history.device[32]
     assert device_history.device_type == "Schneehöhensensor SHM 31"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -906,7 +921,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Schneehöhenmessung, elektr."
     device_history = history.device[33]
     assert device_history.device_type == "Sonnenscheinschreiber nach Campbell-Stokes"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -917,7 +932,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Sonnenscheinregistrierung, konv."
     device_history = history.device[34]
     assert device_history.device_type == "SONIe Sonnenenergie-Sensor"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -928,7 +943,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Sonnenscheindauer, elektr."
     device_history = history.device[35]
     assert device_history.device_type == "SONIe Sonnenenergie-Sensor e3"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -939,7 +954,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Sonnenscheindauer, elektr."
     device_history = history.device[36]
     assert device_history.device_type == "SONIe Sonnenenergie-Sensor e2"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -950,7 +965,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Sonnenscheindauer, elektr."
     device_history = history.device[37]
     assert device_history.device_type == "Universal-Windschreiber 90"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.15
     assert device_history.latitude == 54.38
@@ -961,7 +976,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Windmessung, elektromechanisch"
     device_history = history.device[38]
     assert device_history.device_type == "Universal-Windschreiber 90"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -972,7 +987,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Windmessung, elektromechanisch"
     device_history = history.device[39]
     assert device_history.device_type == "Windmessanlage FA 106"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -983,7 +998,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Windmessung, elektromechanisch"
     device_history = history.device[40]
     assert device_history.device_type == "Windsensor Classic 4.3303"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -994,7 +1009,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Windmessung, elektr."
     device_history = history.device[41]
     assert device_history.device_type == "Windsensor Classic 4.3303"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -1005,7 +1020,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Windmessung, elektr."
     device_history = history.device[42]
     assert device_history.device_type == "Ultrasonic Anemometer 2D compact"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -1016,7 +1031,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Windmessung, elektr."
     device_history = history.device[43]
     assert device_history.device_type == "Universal-Windschreiber 90"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.15
     assert device_history.latitude == 54.38
@@ -1027,7 +1042,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Windmessung, elektromechanisch"
     device_history = history.device[44]
     assert device_history.device_type == "Universal-Windschreiber 90"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -1038,7 +1053,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Windmessung, elektromechanisch"
     device_history = history.device[45]
     assert device_history.device_type == "Windmessanlage FA 106"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -1049,7 +1064,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Windmessung, elektromechanisch"
     device_history = history.device[46]
     assert device_history.device_type == "Windsensor Classic 4.3303"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -1060,7 +1075,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Windmessung, elektr."
     device_history = history.device[47]
     assert device_history.device_type == "Windsensor Classic 4.3303"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -1071,7 +1086,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Windmessung, elektr."
     device_history = history.device[48]
     assert device_history.device_type == "Ultrasonic Anemometer 2D compact"
-    assert device_history.station_id == "2564"
+    assert device_history.station_id == "02564"
     assert device_history.station_name == "Kiel-Holtenau"
     assert device_history.longitude == 10.14
     assert device_history.latitude == 54.38
@@ -1082,7 +1097,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert device_history.method == "Windmessung, elektr."
     assert len(history.geography) == 8
     geography = history.geography[0]
-    assert geography.station_id == "2564"
+    assert geography.station_id == "02564"
     assert geography.station_elevation == 4.0
     assert geography.latitude == 54.3767
     assert geography.longitude == 10.1601
@@ -1090,7 +1105,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.end_date == dt.datetime(1935, 3, 31, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[1]
-    assert geography.station_id == "2564"
+    assert geography.station_id == "02564"
     assert geography.station_elevation == 26.0
     assert geography.latitude == 54.3766
     assert geography.longitude == 10.1485
@@ -1098,7 +1113,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.end_date == dt.datetime(1946, 8, 7, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[2]
-    assert geography.station_id == "2564"
+    assert geography.station_id == "02564"
     assert geography.station_elevation == 6.0
     assert geography.latitude == 54.3696
     assert geography.longitude == 10.1522
@@ -1106,7 +1121,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.end_date == dt.datetime(1967, 12, 31, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[3]
-    assert geography.station_id == "2564"
+    assert geography.station_id == "02564"
     assert geography.station_elevation == 27.0
     assert geography.latitude == 54.3773
     assert geography.longitude == 10.1469
@@ -1114,7 +1129,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.end_date == dt.datetime(1985, 8, 31, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[4]
-    assert geography.station_id == "2564"
+    assert geography.station_id == "02564"
     assert geography.station_elevation == 27.0
     assert geography.latitude == 54.3761
     assert geography.longitude == 10.1434
@@ -1122,7 +1137,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.end_date == dt.datetime(1986, 5, 31, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[5]
-    assert geography.station_id == "2564"
+    assert geography.station_id == "02564"
     assert geography.station_elevation == 27.0
     assert geography.latitude == 54.3761
     assert geography.longitude == 10.1434
@@ -1130,7 +1145,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.end_date == dt.datetime(2013, 2, 28, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[6]
-    assert geography.station_id == "2564"
+    assert geography.station_id == "02564"
     assert geography.station_elevation == 27.0
     assert geography.latitude == 54.3761
     assert geography.longitude == 10.1434
@@ -1138,7 +1153,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.end_date == dt.datetime(2019, 9, 17, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert geography.station_name == "Kiel-Holtenau"
     geography = history.geography[7]
-    assert geography.station_id == "2564"
+    assert geography.station_id == "02564"
     assert geography.station_elevation == 28.41
     assert geography.latitude == 54.3776
     assert geography.longitude == 10.1424
@@ -1314,3 +1329,106 @@ def test_dwd_obs_10_minutes_urban_wind_history() -> None:
     assert {parameter.parameter for parameter in history.parameter} == {"DD_ST_10", "FF_ST_10"}
     assert len(history.device) > 0
     assert len(history.geography) > 0
+
+
+def _metadata_zip(files: dict[str, str]) -> io.BytesIO:
+    """Zip the given metadata files in memory, latin-1 encoded like DWD's own archives."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        for name, text in files.items():
+            zf.writestr(name, text.encode("latin1"))
+    buffer.seek(0)
+    return buffer
+
+
+# lines as DWD publishes them in tageswerte_KL_01048_19340101_20251231_hist.zip: every file spells
+# the id without its leading zero, some with leading blanks
+_STATION_01048_METADATA = {
+    "Metadaten_Stationsname_Betreibername_01048.txt": (
+        "Stations_ID;Stationsname;Von_Datum;Bis_Datum\n"
+        "  1048;Dresden-Klotzsche;19350711;\n"
+        "\n"
+        "Stations_ID;Betreibername;Von_Datum;Bis_Datum\n"
+        "  1048;DWD;19910101;\n"
+        "generiert: 17.06.2026 --  Deutscher Wetterdienst  --\n"
+    ),
+    "Metadaten_Parameter_klima_tag_01048.txt": (
+        "Stations_ID;Von_Datum;Bis_Datum;Stationsname;Parameter;Parameterbeschreibung;Einheit;"
+        "Datenquelle (Strukturversion=SV);Zusatz-Info;Besonderheiten;Literaturhinweis;eor;\n"
+        "1048;20010401;20260418;Dresden-Klotzsche;VPM;Tagesmittel des Dampfdruckes;hpa;"
+        "Klimadaten aus der Klimaroutine;arithm.Mittel aus mind. 21 Stundenwerten;;;eor;\n"
+        "Legende: FT  = Folgetag; GZ = Gesetzliche Zeit\n"
+        "generiert: 17.06.2026 --  Deutscher Wetterdienst  --\n"
+    ),
+    "Metadaten_Geraete_Lufttemperatur_01048.txt": (
+        "Stations_ID;Stationsname;Geo. Laenge [Grad];Geo. Breite [Grad];Stationshoehe [m];"
+        "Geberhoehe ueber Grund [m];Von_Datum;Bis_Datum;Geraetetyp Name;Messverfahren;eor;\n"
+        "1048;Dresden-Klotzsche;13.75;51.13;227.57;2;20190814;20260419;PT 100 (Luft);"
+        "Temperaturmessung, elektr.;eor;\n"
+        "generiert: 17.06.2026 --  Deutscher Wetterdienst  --\n"
+    ),
+    "Metadaten_Geographie_01048.txt": (
+        "Stations_id;Stationshoehe;Geogr.Breite;Geogr.Laenge;von_datum;bis_datum;Stationsname\n"
+        "  1048;  227.57; 51.1278; 13.7543;20190814;        ;Dresden-Klotzsche\n"
+    ),
+    "Metadaten_Fehldaten_01048_19340101_20251231.txt": (
+        "Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Gesamt_Fehlwerte;Beschreibung;eor;\n"
+        "1048;Dresden-Klotzsche;TMK;01.01.1934;18.04.2026;5689;Gesamt_Messzeitraum;eor;\n"
+        "Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Anzahl_Fehlwerte;Beschreibung;eor;\n"
+        "1048;Dresden-Klotzsche;SHK_TAG;09.01.2024;10.01.2024;2;;eor;\n"
+        "generiert: 17.06.2026 --  Deutscher Wetterdienst  --\n"
+    ),
+}
+
+
+def test_dwd_obs_history_sections_pad_station_id() -> None:
+    """Test every history section spells the station id zero-padded, as stations and values do."""
+    zfs = ZipFileSystem(_metadata_zip(_STATION_01048_METADATA))
+    name = DwdObservationHistory.read_name_history(zfs)
+    missing_data = DwdObservationHistory.read_missing_data_history(zfs, Resolution.DAILY)
+    sections = {
+        "name.station": name.station,
+        "name.operator": name.operator,
+        "parameter": DwdObservationHistory.read_parameter_history(zfs),
+        "device": DwdObservationHistory.read_device_history(zfs),
+        "geography": DwdObservationHistory.read_geography_history(zfs),
+        "missing_data.summary": missing_data.summary,
+        "missing_data.periods": missing_data.periods,
+    }
+    assert {section: [record.station_id for record in records] for section, records in sections.items()} == {
+        section: ["01048"] for section in sections
+    }
+
+
+@pytest.mark.parametrize(
+    ("dataset", "urls"),
+    [
+        (DwdObservationMetadata.daily.climate_summary, ["https://opendata.dwd.de/tageswerte_KL_01048_hist.zip"]),
+        # subdaily wind_extreme reads one archive each for FX3 and FX6 and joins them into one history
+        (
+            DwdObservationMetadata.subdaily.wind_extreme,
+            [
+                "https://opendata.dwd.de/terminwerte_FX3_01048_hist.zip",
+                "https://opendata.dwd.de/terminwerte_FX6_01048_hist.zip",
+            ],
+        ),
+    ],
+)
+def test_dwd_obs_history_names_its_station(
+    monkeypatch: pytest.MonkeyPatch, dataset: "DatasetModel", urls: list[str]
+) -> None:
+    """Test a history carries its station's padded id beside the sections, also with no records in them."""
+    # only the name file: the other sections come back empty
+    files = {name: text for name, text in _STATION_01048_METADATA.items() if "Stationsname" in name}
+    monkeypatch.setattr(
+        api,
+        "create_file_index_for_climate_observations",
+        lambda **_: pl.LazyFrame({"station_id": ["01048"] * len(urls), "url": urls}),
+    )
+    monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=_metadata_zip(files), status=200))
+    stations = SimpleNamespace(stations=SimpleNamespace(settings=Settings()))
+    collector = DwdObservationHistory(sr=cast("StationsResult", stations))
+    histories = list(collector._collect_station_history("01048", [dataset]))  # noqa: SLF001
+    assert [
+        history.model_dump(include={"station_id", "parameter", "device", "geography"}) for history in histories
+    ] == [{"station_id": "01048", "parameter": [], "device": [], "geography": []}]

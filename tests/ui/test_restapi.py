@@ -2015,7 +2015,7 @@ def test_history_sections(client: TestClient) -> None:
         },
     )
     assert response.status_code == 200
-    assert [list(history) for history in response.json()["histories"]] == [["name", "geography"]]
+    assert [list(history) for history in response.json()["histories"]] == [["station_id", "name", "geography"]]
 
 
 @pytest.mark.remote
@@ -2038,7 +2038,8 @@ def test_history_dwd_observation(client: TestClient) -> None:
     assert data.keys() == {"metadata", "stations", "histories"}
     assert len(data["histories"]) == 1
     history = data["histories"][0]
-    assert history.keys() == {"name", "parameter", "device", "geography", "missing_data"}
+    assert history.keys() == {"station_id", "name", "parameter", "device", "geography", "missing_data"}
+    assert history["station_id"] == "02564"
     assert len(history["name"]) == 2
     assert history["name"].keys() == {"station", "operator"}
     assert history["name"]["station"][0] == {
@@ -2065,7 +2066,7 @@ def test_history_dwd_observation(client: TestClient) -> None:
         "parameter": "FM",
         "special": "",
         "start_date": "1974-01-01T00:00:00+00:00",
-        "station_id": "2564",
+        "station_id": "02564",
         "station_name": "Kiel-Holtenau",
         "unit": "m/sec",
     }
@@ -2079,7 +2080,7 @@ def test_history_dwd_observation(client: TestClient) -> None:
         "method": "Luftdruckmessung, konv.",
         "start_date": "1986-06-01T00:00:00+00:00",
         "station_elevation": 27.0,
-        "station_id": "2564",
+        "station_id": "02564",
         "station_name": "Kiel-Holtenau",
     }
     assert len(history["geography"]) == 8
@@ -2089,7 +2090,7 @@ def test_history_dwd_observation(client: TestClient) -> None:
         "longitude": 10.1601,
         "start_date": "1927-02-01T00:00:00+00:00",
         "station_elevation": 4.0,
-        "station_id": "2564",
+        "station_id": "02564",
         "station_name": "Kiel-Holtenau",
     }
     assert len(history["missing_data"]) == 2

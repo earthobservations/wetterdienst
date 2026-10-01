@@ -107,6 +107,11 @@ Types of changes:
   the unit targets, not to SI units: temperature stays in °C by default. The overview that listed
   options under commands that do not take them is gone, the `--sql_values` example on a column
   runs in the wide shape it needs, and the README counts nearly 600 parameters, not 514 (GH-2021)
+- DWD observation history gives the station id zero-padded in its `parameter`, `device` and
+  `geography` sections, `01048` as in `name`, `missing_data` and the stations and values frames.
+  They gave `1048`, so joining them with those frames on `station_id` found nothing. Each history
+  also gives its station's `station_id` beside the sections, whichever `sections` are asked for, so
+  one whose sections hold no records still names its station (GH-2058)
 - Values converted to a much larger unit keep their precision. Every converted value was rounded to
   four decimals, so with `WD_TS_UNIT_TARGETS='{"length_short": "mile"}'` 5 cm of snow came back as
   `0.0`. A conversion now keeps one more decimal per order of magnitude it shrinks a value by, so

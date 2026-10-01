@@ -134,6 +134,9 @@ class _MissingDataHistory(BaseModel):
 class History(BaseModel):
     """Model for history data."""
 
+    # the station the history belongs to, spelt as in the stations frame, so a history whose
+    # sections hold no records still names its station
+    station_id: str
     name: _NameHistory
     parameter: list[_ParameterHistory] = Field(default_factory=list)
     device: list[_DeviceHistory] = Field(default_factory=list)
