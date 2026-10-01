@@ -462,10 +462,9 @@ def _resolution_pages() -> tuple[list[tuple[str, str, object, Path]], set[tuple[
     `test_docs_cover_every_resolution` would otherwise read any resolution page published for it as
     naming a resolution the model does not declare.
 
-    Every network imports on a base install, so one that cannot be imported fails here rather than
-    being skipped: a missing package, a `metadata.py` that makes `build_metadata_model` raise,
-    or a mistyped import in a provider's `api.py` would otherwise excuse that provider from all four
-    tests below.
+    A network that cannot be imported fails here rather than being skipped: a missing package, a
+    `metadata.py` that makes `build_metadata_model` raise, or a mistyped import in a provider's
+    `api.py` would otherwise excuse that provider from all four tests below.
     """
     from wetterdienst import Wetterdienst  # noqa: PLC0415
 
