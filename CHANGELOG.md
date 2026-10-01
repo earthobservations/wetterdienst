@@ -126,6 +126,9 @@ Types of changes:
   `PermissionError: [Errno 13]` when two of its download threads read and replace the cache's
   metadata file at the same time; the threads of one process now take turns. Two processes
   sharing a cache directory can still meet that way (GH-1990)
+- `/api/values` answers a `ValueError` raised while reading a provider's values with a 400
+  carrying its message, where it answered a 500 with none, and the MCP `values` tool, which calls
+  it, now passes the message on. `wetterdienst values` still logs it and exits 1 (GH-2218)
 
 ## [0.139.0] - 2026-09-29
 

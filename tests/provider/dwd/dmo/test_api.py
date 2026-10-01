@@ -1545,7 +1545,7 @@ def test_dmo_a_refused_parameter_reaches_the_caller_as_a_message(
 ) -> None:
     """The REST API answers 400 with the refusal, and the CLI prints it without a traceback.
 
-    `get_values` ends any `ValueError` from the values with `sys.exit(1)`, which the REST API's
+    `get_values` ended any `ValueError` from the values with `sys.exit(1)`, which the REST API's
     `except Exception` does not catch, so built inside it the refusal was a 500 with no message.
     """
     from click.testing import CliRunner  # noqa: PLC0415
