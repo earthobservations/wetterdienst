@@ -1314,7 +1314,8 @@ def test_wetterdienst_api_refuses_to_skip_in_ci(monkeypatch: pytest.MonkeyPatch)
 
     with (
         pytest.warns(UserWarning, match=r"dwd/derived not checked"),
-        pytest.raises(pytest.fail.Exception, match=r"dwd/derived cannot be imported in CI"),
+        # a skip is caught too, so that it fails the match rather than skipping this test
+        pytest.raises((pytest.fail.Exception, pytest.skip.Exception), match=r"dwd/derived cannot be imported in CI"),
     ):
         test_wetterdienst_api("dwd", "derived")
 
