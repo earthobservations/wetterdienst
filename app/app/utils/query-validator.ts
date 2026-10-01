@@ -25,6 +25,11 @@ export interface QueryValidationResult {
 // depends on the token before them, as `a1e'` is an identifier and a string but `1e'` a number and
 // an escape string, and `a$x$` an identifier but `1$x$` a number and a dollar-quoted string.
 const SPACE = /[ \t\n\r\f]/
+// The Unicode spaces DuckDB turns into plain ones before it lexes a query (Parser::StripUnicodeSpaces),
+// outside what it takes for strings and line comments: the lexer here reads them as a word's
+// characters, as DuckDB does where it keeps them, so a word is split at them to give every bare word
+// DuckDB may read, `x\u00A0INSERT` as X and INSERT
+const UNICODE_SPACE = /[\u00A0\u2000-\u200B\u202F\u205F\u2060\u3000\uFEFF]/
 // a line comment, which ends at a carriage return as at a newline
 const LINE_COMMENT = /--[^\n\r]*/y
 const IDENT_START = /[A-Z_\u0080-\uFFFF]/i
@@ -202,7 +207,11 @@ export function validateQuery(query: string): QueryValidationResult {
   }
 
   const { tokens, unclosed } = tokenize(query)
-  const wordOf = (token: Token) => query.slice(token.start, token.end).toUpperCase()
+  // the bare words a token is to DuckDB: one for a word, more for a word with a Unicode space in it,
+  // none for a word of Unicode spaces only or for any other token
+  const wordsOf = (token: Token) => token.kind === 'word'
+    ? query.slice(token.start, token.end).toUpperCase().split(UNICODE_SPACE).filter(Boolean)
+    : []
 
   // no token at all, as DuckDB reads it: a nested comment can hide a SELECT
   if (tokens.length === 0 && !unclosed) {
@@ -213,8 +222,8 @@ export function validateQuery(query: string): QueryValidationResult {
   }
 
   // Check if query starts with SELECT (or WITH for CTEs)
-  const first = tokens[0]
-  const firstWord = first?.kind === 'word' ? wordOf(first) : undefined
+  const first = tokens.find(token => token.kind !== 'word' || wordsOf(token).length > 0)
+  const firstWord = first === undefined ? undefined : wordsOf(first)[0]
   if (firstWord !== 'SELECT' && firstWord !== 'WITH') {
     return {
       valid: false,
@@ -223,7 +232,7 @@ export function validateQuery(query: string): QueryValidationResult {
   }
 
   // Check for dangerous keywords, outside strings, quoted identifiers and comments
-  const words = tokens.filter(token => token.kind === 'word').map(wordOf)
+  const words = tokens.flatMap(wordsOf)
   const disallowed = words.find(word => DISALLOWED_KEYWORDS.has(word))
   if (disallowed !== undefined) {
     return {

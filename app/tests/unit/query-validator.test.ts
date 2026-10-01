@@ -279,4 +279,30 @@ describe('validateQuery keywords, as DuckDB reads them', () => {
   ])('warns about %j, whose LIMIT is no keyword', (sql) => {
     expect(validateQuery(sql)).toMatchObject({ valid: true, warningKey: 'validation.noLimit' })
   })
+
+  it('refuses a text of comments only as empty, as DuckDB reads no statement in it', () => {
+    expect(validateQuery('-- a note\n/* and another */')).toEqual({ valid: false, errorKey: 'validation.queryEmpty' })
+  })
+
+  // DuckDB turns these into plain spaces before it lexes the text
+  it.each(['\u00A0', '\u2003', '\u3000'])('refuses a keyword after the Unicode space %j', (space) => {
+    const sql = `WITH x AS (SELECT 1)${space}INSERT INTO data SELECT * FROM data`
+    const before = count()
+    conn.query(sql)
+    expect(count()).toBe(2 * before)
+    expect(validateQuery(sql)).toEqual({ valid: false, errorKey: 'validation.disallowedOperation', params: { op: 'INSERT' } })
+    expect(validateQuery(`WITH x AS (SELECT 1)${space}DELETE FROM data`)).toMatchObject({ valid: false, params: { op: 'DELETE' } })
+  })
+
+  it.each([
+    '\u00A0SELECT * FROM data LIMIT 1',
+    '\uFEFFSELECT * FROM data LIMIT 1',
+    '\u200B SELECT * FROM data LIMIT 1',
+    'SELECT * FROM data\u00A0LIMIT 1',
+  ])('lets %j through, its words apart at a Unicode space', (sql) => {
+    const result = validateQuery(sql)
+    expect(result).toMatchObject({ valid: true, statement: expect.any(String) })
+    expect(result.warningKey).toBeUndefined()
+    expect(conn.query(result.statement!).numRows).toBe(1)
+  })
 })
