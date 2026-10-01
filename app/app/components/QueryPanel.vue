@@ -214,10 +214,14 @@ function loadTable(rows: Value[], { again = false } = {}): Promise<void> {
 // longer it, or whose rows a Fetch has replaced, tells nothing: its statements may have met the
 // newer rows' load between its DROP and CREATE, and its answer is about text since edited
 let currentCheck = 0
+// a check has answered, or was answering, about rows a Fetch has since replaced or changed: entering
+// query mode checks the query again, rather than show its answer for the rows before (GH-2142)
+let recheck = false
 
 // Validate query syntax using DuckDB EXPLAIN
 async function validateQuerySyntax() {
   const check = ++currentCheck
+  recheck = false
   // the text checked, as validated, which can be edited while DuckDB starts or the table loads
   const sql = query.value
   const rows = props.data
@@ -241,6 +245,9 @@ async function validateQuerySyntax() {
     syntaxError.value = valText(validation.errorKey, validation.params)
     return
   }
+  // the one statement the text holds, without a `;` or comment after it, which the schema's
+  // subquery below could not close; the run runs the same
+  const statement = validation.statement!
 
   // Initialize DuckDB if needed (for EXPLAIN)
   await initDuckDB()
@@ -270,13 +277,14 @@ async function validateQuerySyntax() {
     }
 
     // Try to explain the query - this validates syntax
-    await conn.query(`EXPLAIN ${sql}`)
+    await conn.query(`EXPLAIN ${statement}`)
     if (!current())
       return
 
-    // The query as a subquery, with no row fetched: EXPLAIN passes a query of several statements,
-    // which a subquery refuses. Whatever columns it returns, the table shows them
-    await conn.query(`SELECT * FROM (${sql}) LIMIT 0`)
+    // The statement as a subquery, with no row fetched: the statement, not the text, as a `;` or a
+    // `--` comment after it would leave the subquery unclosed. Whatever columns it returns, the
+    // table shows them
+    await conn.query(`SELECT * FROM (${statement}) LIMIT 0`)
 
     // If we get here, the syntax is valid
     answer(null)
@@ -380,6 +388,8 @@ async function executeQuery() {
   if (validation.warningKey) {
     warning.value = valText(validation.warningKey, validation.params)
   }
+  // the one statement the text holds, as the check checked it: nothing after it reaches DuckDB
+  const statement = validation.statement!
 
   // running from here, so Run Query cannot start a second run while DuckDB starts or the table loads
   const run = ++currentRun
@@ -414,7 +424,7 @@ async function executeQuery() {
     if (run !== currentRun)
       return
 
-    const batches = await sendQuery(sql, () => run !== currentRun)
+    const batches = await sendQuery(statement, () => run !== currentRun)
 
     // left by Cancel, or by a Fetch whose newer rows the result would replace
     if (!batches || run !== currentRun)
@@ -458,6 +468,8 @@ function loadExample(exampleQuery: string) {
 // Toggle query mode
 function enableQueryMode() {
   isQueryMode.value = true
+  if (recheck)
+    validateQuerySyntax()
 }
 
 function disableQueryMode() {
@@ -476,6 +488,14 @@ watch(() => props.data, () => {
   // the table no longer holds the panel's rows: a load of them under way stops before its next
   // batch, and the next run or check loads the rows now held, replaced or changed in place
   tableLoad = null
+  // a query edited since the panel opened, whose check has answered about the rows before or is
+  // still due: entering query mode checks it against the rows now held, and a check still due is
+  // not run for the panel the Fetch has closed. The timer is left set once it has fired, when
+  // clearing it does nothing
+  if (validationTimeout || currentCheck > 0)
+    recheck = true
+  if (validationTimeout)
+    clearTimeout(validationTimeout)
   if (isQueryMode.value) {
     disableQueryMode()
   }

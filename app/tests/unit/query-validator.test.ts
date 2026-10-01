@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import type { DuckDBConnection } from '@duckdb/duckdb-wasm/blocking'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { validateColumns, validateQuery } from '../../app/utils/query-validator'
+import { nodeDuckDB } from '../duckdb-node'
 
 describe('query-validator', () => {
   describe('validateQuery', () => {
@@ -125,5 +127,106 @@ describe('query-validator', () => {
       expect(result.valid).toBe(false)
       expect(result.messageKey).toBe('validation.noColumns')
     })
+  })
+})
+
+describe('validateQuery statements', () => {
+  it.each([
+    'SELECT * FROM data LIMIT 1; SET threads = 1',
+    'SELECT * FROM data LIMIT 1; COPY data FROM \'https://example.org/rows.csv\'',
+    'SELECT 1; INSTALL httpfs',
+    'SELECT 1; LOAD httpfs',
+    'SELECT 1;\n-- then\nSET threads = 1;',
+  ])('refuses %j, of more than one statement', (sql) => {
+    // DuckDB-wasm ran each statement, the ones after the first unchecked
+    expect(validateQuery(sql)).toEqual({ valid: false, errorKey: 'validation.multipleStatements' })
+  })
+
+  it.each([
+    ['SELECT * FROM data LIMIT 10;', 'SELECT * FROM data LIMIT 10'],
+    ['SELECT * FROM data LIMIT 10 ;; ', 'SELECT * FROM data LIMIT 10'],
+    ['SELECT * FROM data LIMIT 10; -- the last ten', 'SELECT * FROM data LIMIT 10'],
+    ['SELECT * FROM data LIMIT 10 /* the last ten */', 'SELECT * FROM data LIMIT 10'],
+    ['-- the last ten\nSELECT * FROM data LIMIT 10', '-- the last ten\nSELECT * FROM data LIMIT 10'],
+    ['SELECT * FROM data WHERE parameter = \'a;b\' LIMIT 10', 'SELECT * FROM data WHERE parameter = \'a;b\' LIMIT 10'],
+    // a comment never closed, which DuckDB refuses, kept for the check to tell
+    ['SELECT * FROM data /* WHERE value > 0 LIMIT 10', 'SELECT * FROM data /* WHERE value > 0 LIMIT 10'],
+    ['SELECT * FROM data LIMIT 10; /* done', 'SELECT * FROM data LIMIT 10; /* done'],
+  ])('lets %j through as the one statement %j', (sql, statement) => {
+    expect(validateQuery(sql)).toMatchObject({ valid: true, statement })
+  })
+
+  it('refuses a text DuckDB reads as a comment only, rather than hand back an empty statement', () => {
+    // the nested comment hides the SELECT from DuckDB, not from the SELECT-only check, and the
+    // check explained, and the run ran, an empty statement
+    expect(validateQuery('/* /* */ SELECT * FROM data LIMIT 1 */')).toEqual({ valid: false, errorKey: 'validation.queryEmpty' })
+  })
+})
+
+describe('validateQuery statements, as DuckDB reads them', () => {
+  let conn: DuckDBConnection
+
+  beforeAll(async () => {
+    conn = (await nodeDuckDB()).connect()
+  })
+
+  // whether DuckDB, running the text, ran a statement after its first: each case's sets `ran`
+  function ranLater(sql: string): boolean {
+    conn.query('RESET VARIABLE ran')
+    try {
+      conn.query(sql)
+    }
+    catch {
+      // a statement that failed, which the case's own expectation tells
+    }
+    return conn.query('SELECT getvariable(\'ran\') AS ran').toArray()[0]!.toJSON().ran === 1
+  }
+
+  function rowsOf(sql: string) {
+    return conn.query(sql).toArray().map(row => row.toJSON())
+  }
+
+  it.each([
+    'SELECT 1; SET VARIABLE ran = 1',
+    // a comment DuckDB lets nest, and ends at a carriage return too
+    'SELECT 1 /* a /* b */ */ ; SET VARIABLE ran = 1',
+    'SELECT 1 /* //* */ */ ; SET VARIABLE ran = 1',
+    'SELECT 1 -- a\r; SET VARIABLE ran = 1',
+    // a backslash that escapes a quote in an escape string only, there across a continuation too
+    'SELECT E\'\\\'\'; SET VARIABLE ran = 1; SELECT \'\'',
+    'SELECT E\'\\\' ; \' ; SET VARIABLE ran = 1',
+    'SELECT \'a\\\'; SET VARIABLE ran = 1; --\'',
+    'SELECT E\'a\'\n\'\\\' ; \' ; SET VARIABLE ran = 1',
+    'SELECT E\'a\' -- b\n -- c\n\'\\\' ; \' ; SET VARIABLE ran = 1',
+    'SELECT E\'a\'\n\'\\\'\' ; SET VARIABLE ran = 1',
+    'SELECT E\'a\'\'\\\'\' ; SET VARIABLE ran = 1',
+    // quotes doubled in a string and in an identifier
+    'SELECT \'a\'\';\' ; SET VARIABLE ran = 1',
+    'SELECT 1 AS "a"";" ; SET VARIABLE ran = 1',
+    // a dollar sign in an identifier, which opens no dollar-quoted string there
+    'SELECT 1 AS a$b$, 2; SET VARIABLE ran = 1',
+  ])('refuses %j, whose later statement DuckDB runs', (sql) => {
+    expect(ranLater(sql)).toBe(true)
+    expect(validateQuery(sql).errorKey).toBe('validation.multipleStatements')
+  })
+
+  it.each([
+    'SELECT 1;',
+    'SELECT 1;; -- done',
+    'SELECT 1 -- ; SET VARIABLE ran = 1',
+    'SELECT 1 /* a /* b */ ; SET VARIABLE ran = 1; SELECT 2 */',
+    'SELECT \'a;\' -- b\n\'; SET VARIABLE ran = 1\'',
+    'SELECT E\'\\\' ; SET VARIABLE ran = 1\'',
+    'SELECT "a;" FROM (SELECT 1 AS "a;")',
+    'SELECT $$ ; SET VARIABLE ran = 1; $$',
+    'SELECT $x$ ; $$ ; SET VARIABLE ran = 1; $x$',
+    'SELECT 1 +/* ; */ 2',
+    // a dynamic PIVOT, which DuckDB runs as several statements of its own
+    'SELECT * FROM (PIVOT (SELECT \'x\' AS p, 1 AS a) ON p USING first(a))',
+  ])('lets %j through as one statement, which runs as the text does', (sql) => {
+    expect(ranLater(sql)).toBe(false)
+    const result = validateQuery(sql)
+    expect(result.valid).toBe(true)
+    expect(rowsOf(result.statement!)).toEqual(rowsOf(sql))
   })
 })

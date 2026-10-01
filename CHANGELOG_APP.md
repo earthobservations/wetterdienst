@@ -174,6 +174,14 @@ Types of changes:
 - `[Explorer]` A query's integers past ±2^53, which come as their digits, sort by their value among
   the column's numbers, where they sorted as text: `10000000000000000000` before
   `9007199254740993` (GH-2153)
+- `[Explorer]` The query panel refuses a query of more than one statement, in the syntax check and
+  in Run Query, before any of it runs. DuckDB ran each statement, so one after the SELECT, such as
+  `SET` or `COPY`, ran unchecked (GH-2139)
+- `[Explorer]` A query ending in a `;` or a `--` comment passes the syntax check. Its check failed
+  with a syntax error, which kept Run Query disabled for a query DuckDB runs as typed (GH-2165)
+- `[Explorer]` Entering query mode after a Fetch checks the query again against the new rows. The
+  syntax error shown, or its absence, was the answer for the rows fetched before, which could keep
+  Run Query disabled for a query that was fine for the new rows (GH-2142)
 
 ## [0.17.0] - 2026-09-29
 

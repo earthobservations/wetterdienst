@@ -578,6 +578,7 @@
     "queryEmpty": "La consulta no puede estar vacía",
     "onlySelect": "Solo se permiten consultas SELECT. La consulta debe empezar por SELECT o WITH.",
     "disallowedOperation": "La consulta contiene una operación no permitida: {op}",
+    "multipleStatements": "Solo se puede ejecutar una sentencia a la vez, y esta consulta contiene varias.",
     "noLimit": "La consulta no contiene una cláusula LIMIT. Los grandes conjuntos de resultados pueden afectar al rendimiento.",
     "noColumns": "La consulta no devolvió ninguna columna",
     "missingColumns": "A los resultados de la consulta les faltan columnas esperadas: {missing}. Columnas esperadas: {expected}",

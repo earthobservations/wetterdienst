@@ -578,6 +578,7 @@
     "queryEmpty": "La query non può essere vuota",
     "onlySelect": "Sono consentite solo query SELECT. La query deve iniziare con SELECT o WITH.",
     "disallowedOperation": "La query contiene un'operazione non consentita: {op}",
+    "multipleStatements": "È possibile eseguire una sola istruzione alla volta e questa query ne contiene più di una.",
     "noLimit": "La query non contiene una clausola LIMIT. Insiemi di risultati di grandi dimensioni possono influire sulle prestazioni.",
     "noColumns": "La query non ha restituito alcuna colonna",
     "missingColumns": "Ai risultati della query mancano colonne previste: {missing}. Colonne previste: {expected}",

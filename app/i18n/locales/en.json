@@ -578,6 +578,7 @@
     "queryEmpty": "Query cannot be empty",
     "onlySelect": "Only SELECT queries are allowed. Query must start with SELECT or WITH.",
     "disallowedOperation": "Query contains disallowed operation: {op}",
+    "multipleStatements": "Only one statement can run at a time, and this query holds more than one.",
     "noLimit": "Query does not contain a LIMIT clause. Large result sets may impact performance.",
     "noColumns": "Query returned no columns",
     "missingColumns": "Query results are missing expected columns: {missing}. Expected columns: {expected}",

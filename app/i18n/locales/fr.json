@@ -578,6 +578,7 @@
     "queryEmpty": "La requête ne peut pas être vide",
     "onlySelect": "Seules les requêtes SELECT sont autorisées. La requête doit commencer par SELECT ou WITH.",
     "disallowedOperation": "La requête contient une opération non autorisée : {op}",
+    "multipleStatements": "Une seule instruction peut être exécutée à la fois, et cette requête en contient plusieurs.",
     "noLimit": "La requête ne contient pas de clause LIMIT. De grands ensembles de résultats peuvent affecter les performances.",
     "noColumns": "La requête n'a renvoyé aucune colonne",
     "missingColumns": "Il manque des colonnes attendues dans les résultats : {missing}. Colonnes attendues : {expected}",
