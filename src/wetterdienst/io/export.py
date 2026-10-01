@@ -788,8 +788,7 @@ class ExportMixin:
             # refuse one they do not know, so a `postgresql://` or `mysql://` target could not
             # connect at all. Only `table` goes: the rest of the query (`sslmode`, `charset`, ...)
             # is the driver's
-            url = sqlalchemy.make_url(target).difference_update_query(["table"])
-            engine = sqlalchemy.create_engine(url)
+            engine = sqlalchemy.create_engine(sqlalchemy.make_url(target).difference_update_query(["table"]))
             try:
                 if if_exists in ("skip", "fail") and sqlalchemy.inspect(engine).has_table(tablename):
                     if if_exists == "skip":
