@@ -1083,12 +1083,11 @@ def test_dmo_one_unreadable_placemark_does_not_cost_the_others(
     ],
 )
 def test_dmo_a_run_stamp_becomes_the_hour_it_names(stamp: str, expected: dt.datetime) -> None:
-    """Every part of `DDHHMM` is padded back to two digits before the datetime is parsed.
+    """Every hour of `DDHHMM` is the hour it names, not only the `00` and `12` DMO publishes at.
 
-    The hour was not, so `3` made `...01300`, where `%H` takes the `30` it can see and rejects it as
-    an hour. `00` survived only because `%H` could take both its digits and leave `%M` the one it
-    needed. DMO publishes at `00` and `12` so no run has ever hit this, but the rule is about the
-    stamp rather than about which hours DWD happens to use.
+    The stamp was once concatenated and parsed as `%Y%m%d%H%M` with the hour unpadded, so `3` made
+    `...01300`, where `%H` takes the `30` it can see and rejects it as an hour. It is read as numbers
+    now (GH-2203), and this keeps the rule about the stamp rather than about which hours DWD uses.
     """
     from wetterdienst.provider.dwd.dmo.api import add_date_from_filename  # noqa: PLC0415
 

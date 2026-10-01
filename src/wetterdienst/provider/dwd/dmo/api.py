@@ -148,13 +148,13 @@ def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.Da
     (GH-2203).
     """
     stamps = df.get_column("date_str").drop_nulls().unique().to_list()
-    # joined rather than mapped with `replace_strict`, which with no stamp to map keeps the string
-    # dtype even when cast
-    dates = pl.DataFrame(
-        {"date_str": stamps, "timestamp": [_date_of_run_stamp(stamp, current_date) for stamp in stamps]},
-        schema={"date_str": pl.String, "timestamp": pl.Datetime("us", current_date.tzname())},
+    dates = {stamp: _date_of_run_stamp(stamp, current_date) for stamp in stamps}
+    # with a `default`, an empty frame gets the datetime dtype too; without one it stays a string
+    return df.with_columns(
+        pl.col("date_str")
+        .replace_strict(dates, default=None, return_dtype=pl.Datetime("us", current_date.tzname()))
+        .alias("timestamp"),
     )
-    return df.join(dates, on="date_str", how="left", maintain_order="left")
 
 
 # the station id in a single-station path, so one product's empty directory is reported once
