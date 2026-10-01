@@ -4,7 +4,7 @@ import type { StationSelectionState } from '~/types/station-selection-state.type
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { getQuery, setResponseStatus } from 'h3'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { UApp, USelectMenu } from '#components'
 import { useToast } from '#imports'
@@ -1667,6 +1667,76 @@ describe('dataViewer sort of integers past 2^53', () => {
     expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(ascending)
     await n().trigger('click')
     expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(ascending.toReversed())
+  })
+})
+
+describe('dataViewer chart of a query\'s timestamp text', () => {
+  // a browser an hour east of UTC, where a time without an offset read as local time is an hour early
+  let zone: string | undefined
+  beforeAll(() => {
+    zone = process.env.TZ
+    process.env.TZ = 'Europe/Berlin'
+    // the zone taken up, else the tests pass in UTC against `new Date(text)` as well
+    expect(new Date(2020, 0, 1).getTimezoneOffset()).toBe(-60)
+  })
+  afterAll(() => {
+    if (zone === undefined)
+      delete process.env.TZ
+    else
+      process.env.TZ = zone
+  })
+
+  // the forms timestampDate reads are tested in tests/unit/timestamp.test.ts
+  it('places a row whose timestamp has no offset at its time in UTC', async () => {
+    // `strftime(timestamp::TIMESTAMP, '%Y-%m-%d %H:%M')`: placed at 2019-12-31T23:00Z in Berlin
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery([{ ...row, timestamp: '2020-01-01 00:00', value: 9 }])
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    const [trace] = lastDrawn(false).traces
+    expect(trace!.x).toEqual(['2020-01-01T00:00:00.000Z'])
+  })
+
+  it('leaves out a row whose timestamp is a date that does not exist', async () => {
+    // read as 2020-03-01 by a Date, which rolls a day past the month's end over
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery([row, { ...row, timestamp: '2020-02-30', value: 9 }])
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    const [trace] = lastDrawn(false).traces
+    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
+  })
+})
+
+describe('dataViewer chart of a query\'s values that are no number', () => {
+  // two days' numbers, and a third day's value as a query can put it
+  const threeDays = (value: unknown) => [row, { ...row, timestamp: '2020-01-02T00:00:00Z', value: 2.5 }, { ...row, timestamp: '2020-01-03T00:00:00Z', value }]
+
+  it.each([
+    // `CAST(value AS VARCHAR) AS value`: the trendline added it up as text, and drew nothing
+    '3.5',
+    // the y axis turned into one of categories
+    'n/a',
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ])('leaves out a row whose value is %s, and draws the trendline of the others', async (value) => {
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery(threeDays(value))
+    await showChart(wrapper, false)
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(lastDrawn(false).traces).toHaveLength(2))
+    const [trace, trend] = lastDrawn(false).traces
+    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z', '2020-01-02T00:00:00.000Z'], [1.5, 2.5]])
+    expect(trend!.y.map(y => Math.round(y * 1e6) / 1e6)).toEqual([1.5, 2.5])
+  })
+
+  it('plots an integer past 2^53, which plainRows writes as its digits, as its number', async () => {
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery([{ ...row, value: '10000000000000000000' }, { ...row, timestamp: '2020-01-02T00:00:00Z', value: '-9007199254740993' }])
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    const [trace] = lastDrawn(false).traces
+    expect(trace!.y).toEqual([1e19, -9007199254740992])
   })
 })
 
