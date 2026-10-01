@@ -230,3 +230,116 @@ describe('validateQuery statements, as DuckDB reads them', () => {
     expect(rowsOf(result.statement!)).toEqual(rowsOf(sql))
   })
 })
+
+describe('validateQuery keywords, as DuckDB reads them', () => {
+  let conn: DuckDBConnection
+
+  beforeAll(async () => {
+    conn = (await nodeDuckDB()).connect()
+    conn.query('CREATE TABLE data AS SELECT 1 AS value')
+  })
+
+  function count(): number {
+    return Number(conn.query('SELECT count(*) AS n FROM data').toArray()[0]!.toJSON().n)
+  }
+
+  it('refuses a statement after a comment that nests, which DuckDB reads to its last \'*/\'', () => {
+    const sql = '/* /* */ SELECT 1 */ SET VARIABLE ran = 1'
+    conn.query('RESET VARIABLE ran')
+    conn.query(sql)
+    expect(conn.query('SELECT getvariable(\'ran\') AS ran').toArray()[0]!.toJSON().ran).toBe(1)
+    expect(validateQuery(sql)).toEqual({ valid: false, errorKey: 'validation.onlySelect' })
+    expect(validateQuery('/* /* */ SELECT */ COPY data FROM \'rows.csv\'')).toEqual({ valid: false, errorKey: 'validation.onlySelect' })
+  })
+
+  it('refuses a keyword after a \'--\' in a string, which DuckDB reads as no comment', () => {
+    const sql = 'WITH x AS (SELECT \'--\') INSERT INTO data SELECT * FROM data'
+    const before = count()
+    conn.query(sql)
+    expect(count()).toBe(2 * before)
+    expect(validateQuery(sql)).toEqual({ valid: false, errorKey: 'validation.disallowedOperation', params: { op: 'INSERT' } })
+  })
+
+  it.each([
+    'SELECT \'delete\' AS a, 1 AS "update" FROM data LIMIT 1',
+    'SELECT $$drop$$ AS a FROM data LIMIT 1 -- then insert',
+    'SELECT E\'\\\' insert\' AS a /* drop */ FROM data LIMIT 1',
+  ])('lets %j through, its keywords in strings, quoted identifiers or comments', (sql) => {
+    const result = validateQuery(sql)
+    expect(result).toMatchObject({ valid: true, statement: expect.any(String) })
+    expect(result.warningKey).toBeUndefined()
+    expect(conn.query(result.statement!).numRows).toBe(1)
+  })
+
+  it.each([
+    'SELECT * FROM data; -- LIMIT 10',
+    'SELECT * FROM data /* LIMIT 10 */',
+    'SELECT \'LIMIT 10\' AS a FROM data',
+    'SELECT 1 AS "limit" FROM data',
+  ])('warns about %j, whose LIMIT is no keyword', (sql) => {
+    expect(validateQuery(sql)).toMatchObject({ valid: true, warningKey: 'validation.noLimit' })
+  })
+
+  it('refuses a text of comments only as empty, as DuckDB reads no statement in it', () => {
+    expect(validateQuery('-- a note\n/* and another */')).toEqual({ valid: false, errorKey: 'validation.queryEmpty' })
+  })
+
+  // DuckDB turns these into plain spaces before it lexes the text
+  it.each(['\u00A0', '\u2003', '\u3000'])('refuses a keyword after the Unicode space %j', (space) => {
+    const sql = `WITH x AS (SELECT 1)${space}INSERT INTO data SELECT * FROM data`
+    const before = count()
+    conn.query(sql)
+    expect(count()).toBe(2 * before)
+    expect(validateQuery(sql)).toEqual({ valid: false, errorKey: 'validation.disallowedOperation', params: { op: 'INSERT' } })
+    expect(validateQuery(`WITH x AS (SELECT 1)${space}DELETE FROM data`)).toMatchObject({ valid: false, params: { op: 'DELETE' } })
+  })
+
+  it.each([
+    '\u00A0SELECT * FROM data LIMIT 1',
+    '\uFEFFSELECT * FROM data LIMIT 1',
+    '\u200B SELECT * FROM data LIMIT 1',
+    'SELECT * FROM data\u00A0LIMIT 1',
+  ])('lets %j through, its words apart at a Unicode space', (sql) => {
+    const result = validateQuery(sql)
+    expect(result).toMatchObject({ valid: true, statement: expect.any(String) })
+    expect(result.warningKey).toBeUndefined()
+    expect(conn.query(result.statement!).numRows).toBe(1)
+  })
+
+  it('refuses a statement after an escape string a Unicode space opens, as DuckDB reads it', () => {
+    // with the space plain, `E'\''` is an escape string that ends before the `;`, where a word
+    // `SELECT\u00A0E` would leave a plain string `'\''...` that runs to the end
+    const sql = 'SELECT\u00A0E\'\\\'\'; INSERT INTO data SELECT * FROM data --\''
+    const before = count()
+    conn.query(sql)
+    expect(count()).toBe(2 * before)
+    expect(validateQuery(sql)).toMatchObject({ valid: false, params: { op: 'INSERT' } })
+    expect(validateQuery('SELECT 1 AS a,\u3000e\'\\\'\'; SET VARIABLE ran = 1 --\'').errorKey).toBe('validation.multipleStatements')
+  })
+
+  it('reads a Unicode space DuckDB keeps, after what it takes for a quote, as a word\'s character', () => {
+    // the `'` in the comment opens a quote to DuckDB's reading of Unicode spaces, up to the `'`
+    // after `E`, so `x\u00A0E` stays one word, here a type's name, and `'\'` a plain string, which
+    // ends before the `;`
+    conn.query('CREATE TYPE "x\u00A0e" AS VARCHAR')
+    const sql = '/* \' */ SELECT x\u00A0E\'\\\' ; SET VARIABLE ran = 1'
+    conn.query('RESET VARIABLE ran')
+    conn.query(sql)
+    expect(conn.query('SELECT getvariable(\'ran\') AS ran').toArray()[0]!.toJSON().ran).toBe(1)
+    expect(validateQuery(sql).errorKey).toBe('validation.multipleStatements')
+  })
+
+  it.each([
+    ['SELECT * FROM data LIMIT 1;\u00A0\n', 'SELECT * FROM data LIMIT 1'],
+    ['SELECT * FROM data LIMIT 1;\u3000-- c\n', 'SELECT * FROM data LIMIT 1'],
+    ['SELECT 1 AS ınsert FROM data LIMIT 1', 'SELECT 1 AS ınsert FROM data LIMIT 1'],
+  ])('lets %j through as the one statement %j', (sql, statement) => {
+    expect(validateQuery(sql)).toEqual({ valid: true, statement })
+    expect(conn.query(statement).numRows).toBe(1)
+  })
+
+  it('refuses a text of Unicode spaces only as empty, and a word that is SELECT outside ASCII only', () => {
+    expect(validateQuery('\u200B\u2060')).toEqual({ valid: false, errorKey: 'validation.queryEmpty' })
+    expect(validateQuery('ſelect 1')).toEqual({ valid: false, errorKey: 'validation.onlySelect' })
+  })
+})
