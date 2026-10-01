@@ -732,8 +732,10 @@ function rowDate(row: Value): Date | null {
 
 // The rows the chart plots, each with its date: those with a value and a date to place it at. The
 // series and facets are made from these alone, so a series whose rows are all left out is not drawn
-// empty, and the large-dataset threshold counts the points drawn, not the rows left out
-const chartRows = computed(() => sortedValues.value.flatMap((row) => {
+// empty, and the large-dataset threshold counts the points drawn, not the rows left out. In the order
+// the rows were fetched or queried, not the table's sort: the series take their legend places and
+// colours in the order their first row comes, which a sort click swapped, and built the traces anew for
+const chartRows = computed(() => displayData.value.flatMap((row) => {
   const date = rowDate(row)
   return date && row.value !== null && row.value !== undefined ? [{ row, date, y: row.value }] : []
 }))
@@ -826,8 +828,9 @@ const chartTraces = computed(() => {
 // Check if chart has data
 const hasChartData = computed(() => chartTraces.value.length > 0)
 
-// For faceted charts - group data by parameter
-const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] }[] => {
+// For faceted charts - group data by parameter. Each facet is a chart of its own, large or not by its
+// own points: one of a few points was drawn as a large one where the other facets held many
+const facetedChartData = computed((): { parameter: string, traces: PlotlyData[], large: boolean }[] => {
   if (!facetByParameter.value || !chartRows.value.length)
     return []
 
@@ -859,10 +862,13 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
     series.y.push(y)
   }
 
-  const result: { parameter: string, traces: PlotlyData[] }[] = []
-  const isLargeDataset = isLargeChart.value
+  const result: { parameter: string, traces: PlotlyData[], large: boolean }[] = []
 
   for (const [parameter, stationMap] of parameterGroups) {
+    let points = 0
+    for (const data of stationMap.values())
+      points += data.x.length
+    const isLargeDataset = points > LARGE_DATASET_THRESHOLD
     const traces: PlotlyData[] = []
     const trendlineTraces: PlotlyData[] = []
     let colorIndex = 0
@@ -908,7 +914,7 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
     }
 
     // Add trendlines after main traces so they render on top
-    result.push({ parameter, traces: [...traces, ...trendlineTraces] })
+    result.push({ parameter, traces: [...traces, ...trendlineTraces], large: isLargeDataset })
   }
 
   return result
@@ -1030,9 +1036,8 @@ async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), ch
   return new Blob([Uint8Array.from(atob(image.slice(image.indexOf(',') + 1)), c => c.charCodeAt(0))], { type: `image/${format}` })
 }
 
-// Plotly layout - optimized for large datasets
+// Plotly layout, apart from its hover mode, which is each chart's own: see hoverMode
 const chartLayout = computed((): Partial<PlotlyLayout> => {
-  const isLargeDataset = isLargeChart.value
   return {
     autosize: true,
     margin: { l: 60, r: 20, t: 40, b: 60 },
@@ -1051,10 +1056,13 @@ const chartLayout = computed((): Partial<PlotlyLayout> => {
       y: 1.02,
       yanchor: 'bottom',
     },
-    // Use 'closest' for large datasets - 'x unified' is very slow
-    hovermode: isLargeDataset ? 'closest' : 'x unified',
   }
 })
+
+// Use 'closest' for a large chart - 'x unified' is very slow
+function hoverMode(large: boolean): PlotlyLayout['hovermode'] {
+  return large ? 'closest' : 'x unified'
+}
 
 const plotlyConfig: Partial<PlotlyConfig> = {
   responsive: true,
@@ -1109,7 +1117,7 @@ async function drawMainChart(newest: () => boolean) {
   if (chartRef.value && chartTraces.value.length > 0) {
     // Use newPlot for clean initialization
     plotly.purge(chartRef.value)
-    await plotly.newPlot(chartRef.value, chartTraces.value, chartLayout.value, plotlyConfig)
+    await plotly.newPlot(chartRef.value, chartTraces.value, { ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, plotlyConfig)
   }
 }
 
@@ -1130,6 +1138,7 @@ async function drawFacetedCharts(newest: () => boolean) {
       const splitTitle = String(facet.parameter).split('/').join('<br>')
       const layout: Partial<PlotlyLayout> = {
         ...chartLayout.value,
+        hovermode: hoverMode(facet.large),
         yaxis: {
           // Plotly yaxis.title can be either string or object; ensure we pass a string for typing
           title: splitTitle,

@@ -182,6 +182,11 @@ Types of changes:
 - `[Explorer]` Entering query mode after a Fetch checks the query again against the new rows. The
   syntax error shown, or its absence, was the answer for the rows fetched before, which could keep
   Run Query disabled for a query that was fine for the new rows (GH-2142)
+- `[Explorer]` Faceted, each parameter's chart counts its own points towards the 500 above which a
+  chart is drawn without markers and hovered point by point. All facets' points were counted
+  together, so six facets of 100 points each lost their markers (GH-2158)
+- `[Explorer]` The chart's series keep their colours and legend places when the table is sorted.
+  They followed the table's sort, so sorting by value could swap two stations' colours (GH-2159)
 - `[Explorer]` A chart that fails to draw, as when Plotly fails to load, says so in the chart area,
   with a Retry button that tries to draw it again. The chart area stayed empty without a word
   (GH-2169)
