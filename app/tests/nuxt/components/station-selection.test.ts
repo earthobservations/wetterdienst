@@ -304,11 +304,25 @@ describe('the station selection\'s station map whose code could not be loaded', 
     // forced: unforced, Nuxt drops a second click within ten seconds of a first that did not help
     expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
 
-    // where a later opening loads the map, the hint is back: Vue asks for the module again
-    vi.doMock('~/components/MapStations.vue', () => ({ __esModule: true, default: { render: () => h('div', 'Leaflet stand-in') } }))
+    // where a later opening loads the map, the hint is back: Vue asks for the module again. Not
+    // before it has loaded, which may fail again
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let asked = false
+    vi.doMock('~/components/MapStations.vue', async () => {
+      asked = true
+      await gate
+      return { __esModule: true, default: { render: () => h('div', 'Leaflet stand-in') } }
+    })
     const toggle = wrapper.findAll('button').find(b => b.text().includes('Choose on the map'))!
     await toggle.trigger('click')
     await toggle.trigger('click')
+    await vi.waitFor(() => expect(asked).toBe(true))
+    await nextTick()
+    expect(wrapper.text()).not.toContain('on the map to')
+    release()
     await vi.waitFor(() => expect(wrapper!.text()).toContain('Leaflet stand-in'))
     expect(wrapper.text()).toContain('Tap markers on the map to add or remove stations.')
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
