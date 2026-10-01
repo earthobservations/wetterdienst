@@ -125,3 +125,28 @@ export function classifyPrecip(temperature: number, humidity?: number): 'rain' |
     return 'mixed'
   return 'rain'
 }
+
+/**
+ * The parameter names each meteogram series is drawn from, in order of preference: the first one
+ * found among the values wins, and a series none of them matches is left out without an error.
+ * Each list leads with the canonical name the backend serves; the names after it are raw or older
+ * ones kept as fallbacks. `tests/unit/meteogram.test.ts` holds each first choice to the app
+ * glossary, so a canonical rename that misses this table fails a test instead of losing a panel.
+ */
+export const METEOGRAM_SERIES = {
+  weather: ['weather_significant', 'significant_weather', 'ww', 'weather'],
+  precipitation: ['precipitation_amount_significant_weather_last_1h', 'precipitation_amount_last_1h', 'rr1', 'rr1c'],
+  temperature: ['temperature_air_mean_2m', 'ttt'],
+  temperatureMax: ['temperature_air_max_2m', 'tx', 'tx12', 'tx6'],
+  temperatureMin: ['temperature_air_min_2m', 'tn', 'tn12', 'tn6'],
+  dewPoint: ['temperature_dew_point_mean_2m', 'dew_point', 'td', 'tdt', 'dew_point_2m'],
+  humidity: ['humidity_relative', 'relative_humidity', 'rh', 'r'],
+  windSpeed: ['wind_speed', 'ff'],
+  windDirection: ['wind_direction', 'dd'],
+  gust: ['wind_gust_max', 'wind_gust', 'ffx', 'fx', 'wind_gust_max_last_1h', 'wind_gust_max_last_3h', 'fx1', 'fx3'],
+  cloudCover: ['cloud_cover_total', 'n'],
+  cloudCoverLow: ['cloud_cover_below_2km', 'nl'],
+  cloudCoverMid: ['cloud_cover_between_2km_and_7km', 'cloud_cover_2_7km', 'nm'],
+  cloudCoverHigh: ['cloud_cover_above_7km', 'nh'],
+  pressure: ['pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'],
+} as const satisfies Record<string, readonly string[]>
