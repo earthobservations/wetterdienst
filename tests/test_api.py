@@ -5,8 +5,6 @@
 import collections
 import importlib
 import re
-
-
 import warnings
 import zoneinfo
 from datetime import datetime
@@ -1279,7 +1277,10 @@ def test_metadata_monthly_and_annual_parameters_carry_no_hourly_window() -> None
         if re.search(r"_\d+h$", parameter.name)
     ]
     assert windowed == []
-    soil = DwdDerivedMetadata["monthly"]["soil"]
+    if _DWD_DERIVED is None:
+        # without its extra, dwd/derived is left out of ALL_METADATA too; CI fails test_wetterdienst_api for it
+        return
+    soil = _DWD_DERIVED.metadata["monthly"]["soil"]
     assert soil["summe von vpgfao"].name == "evapotranspiration_potential_grass_fao"
     assert soil["summe von vpgh"].name == "evapotranspiration_potential_grass_haude"
 
