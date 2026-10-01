@@ -70,8 +70,9 @@ def _resolve(provider: str, network: str) -> type | None:
     `build_metadata_model` raise, a mistyped intra-package import in a provider's `api.py`, or a
     misspelt or undeclared third-party import has to surface rather than quietly dropping that
     provider from the checks that loop over all of them. `Wetterdienst.resolve` re-raises the
-    `ModuleNotFoundError` as a plain `ImportError` and reports any name it cannot import as a missing
-    dependency, so the missing name is read off `__cause__` rather than trusted to the message.
+    `ModuleNotFoundError` as a plain `ImportError`, and words a missing name inside this package as a
+    missing dependency just as it does a third-party one, so the missing name is read off `__cause__`
+    rather than trusted to the message.
     """
     try:
         return Wetterdienst.resolve(provider, network)
@@ -1316,6 +1317,18 @@ def test_wetterdienst_api_refuses_to_skip_in_ci(monkeypatch: pytest.MonkeyPatch)
         pytest.warns(UserWarning, match=r"dwd/derived not checked"),
         # a skip is caught too, so that it fails the match rather than skipping this test
         pytest.raises((pytest.fail.Exception, pytest.skip.Exception), match=r"dwd/derived cannot be imported in CI"),
+    ):
+        test_wetterdienst_api("dwd", "derived")
+
+
+def test_wetterdienst_api_skips_outside_ci(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Outside CI, a listed network whose extra is missing skips rather than failing a bare install."""
+    _fail_import_with(monkeypatch, ModuleNotFoundError("No module named 'pandas'", name="pandas"))
+    monkeypatch.setitem(globals(), "IS_CI", value=False)
+
+    with (
+        pytest.warns(UserWarning, match=r"dwd/derived not checked"),
+        pytest.raises((pytest.fail.Exception, pytest.skip.Exception), match=r"dwd/derived needs an optional extra"),
     ):
         test_wetterdienst_api("dwd", "derived")
 
