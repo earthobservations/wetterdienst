@@ -185,6 +185,9 @@ Types of changes:
 - `[Explorer/History/Stripes/Meteogram]` Collapsing "Choose on the map", or leaving the page, while
   its markers are still being built no longer adds them to the removed map, which could throw an
   error into the browser console (GH-2155)
+- `[Stripes]` The station map stays centred on all stations once "Center on all stations" is
+  pressed. Each time the map's section rendered again, it took the chosen station for a new choice,
+  centred the map on it once more and undid the user's pan and zoom (GH-2164)
 
 ## [0.17.0] - 2026-09-29
 

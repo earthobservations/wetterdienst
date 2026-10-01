@@ -67,6 +67,10 @@ const selectedStationItem = computed<{ label: string, value: string } | undefine
   },
 })
 
+// The map's selection, one array per chosen station: a new array on every render read to the map
+// as a new selection, which turned centring on it back on.
+const mapSelectedStations = computed(() => selectedStation.value ? [selectedStation.value] : [])
+
 const showMap = ref(false)
 const showSettings = ref(true)
 const showAbout = ref(false)
@@ -653,7 +657,7 @@ onMounted(async () => {
                 </p>
                 <MapStations
                   :stations="stations"
-                  :selected-stations="selectedStation ? [selectedStation] : []"
+                  :selected-stations="mapSelectedStations"
                   :multiple="false"
                   @update:selected-stations="onMapSelectedStations"
                 />

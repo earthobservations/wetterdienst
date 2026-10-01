@@ -1,6 +1,21 @@
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
+import MapStations from '~/components/MapStations.vue'
 import StripesPage from '~/pages/stripes.vue'
+
+// The station map's markers and Leaflet map are left out: real Leaflet draws nothing in happy-dom.
+mockNuxtImport('useLMarkerCluster', () => async ({ markers }: { markers: unknown[] }) => ({
+  markerCluster: { refreshClusters: () => {} },
+  markers: markers.map(() => ({ on: () => {}, setIcon: () => {} })),
+}))
+vi.mock('@vue-leaflet/vue-leaflet', async () => {
+  const { defineComponent, h } = await import('vue')
+  return {
+    LMap: defineComponent({ setup: (_, { slots }) => () => h('div', slots.default?.()) }),
+    LTileLayer: defineComponent({ setup: () => () => null }),
+  }
+})
 
 describe('stripes Page', () => {
   beforeEach(() => {
@@ -102,5 +117,47 @@ describe('stripes Page', () => {
     await wrapper.vm.$nextTick()
 
     expect(vm.hasPlot).toBe(false)
+  })
+})
+
+describe('stripes Page station map', () => {
+  const tempelhof = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+  const potsdam = { station_id: '3987', name: 'Potsdam', region: 'Brandenburg', latitude: 52.38, longitude: 13.06, start_date: '1893-01-01', end_date: '2020-01-01' }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+  })
+
+  it('stays centred on all stations, as the user chose, when the map\'s section renders again', async () => {
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [tempelhof, potsdam] }))
+    // precipitation, as the pages the tests above leave mounted hold the temperature stations' fetch
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(2))
+    await wrapper.findAll('button').find((b: { text: () => string }) => b.text().includes('Choose on the map'))!.trigger('click')
+    await vi.waitFor(() => expect(wrapper!.findComponent(MapStations).exists()).toBe(true))
+    const map = wrapper.findComponent(MapStations)
+    const fitBounds = vi.fn()
+    ;(map.vm as any).map = { leafletObject: { addLayer: () => {}, removeLayer: () => {}, fitBounds } }
+    const centreButton = () => map.findAll('button').find((b: { text: () => string }) => b.text().startsWith('Center on'))!
+
+    // a station is chosen on the map, which centres on it
+    map.vm.$emit('update:selectedStations', [tempelhof])
+    await vi.waitFor(() => expect(centreButton().text()).toBe('Center on all stations'))
+    await centreButton().trigger('click')
+    expect(centreButton().text()).toBe('Center on selected station')
+    const fits = fitBounds.mock.calls.length
+
+    // the map's section renders again, with the same station chosen: the component around the map
+    // renders the page's slot content anew
+    map.vm.$parent!.$forceUpdate()
+    await nextTick()
+    await nextTick()
+
+    expect(centreButton().text()).toBe('Center on selected station')
+    expect(fitBounds).toHaveBeenCalledTimes(fits)
   })
 })
