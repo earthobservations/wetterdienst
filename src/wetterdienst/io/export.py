@@ -787,7 +787,13 @@ class ExportMixin:
             # refuse one they do not know, so a `postgresql://` or `mysql://` target could not
             # connect at all. Only `table` goes: the rest of the query (`sslmode`, `charset`, ...)
             # is the driver's
-            engine = sqlalchemy.create_engine(sqlalchemy.make_url(target).difference_update_query(["table"]))
+            url = sqlalchemy.make_url(target).difference_update_query(["table"])
+            # a bare `postgresql://` means psycopg2 to SQLAlchemy 2.0 and psycopg 3 to 2.1, which
+            # needs Python 3.11, so both are allowed. The `postgresql` extra installs psycopg 3:
+            # named here, the same URL finds it on either. A target naming its driver keeps it
+            if url.drivername == "postgresql":
+                url = url.set(drivername="postgresql+psycopg")
+            engine = sqlalchemy.create_engine(url)
             try:
                 if if_exists in ("skip", "fail") and sqlalchemy.inspect(engine).has_table(tablename):
                     if if_exists == "skip":

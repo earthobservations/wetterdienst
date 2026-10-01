@@ -74,6 +74,10 @@ Types of changes:
 - **Breaking**: Eaufrance Hub'Eau stations list the altitude of the gauge's zero, in metres, as
   `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
   Read `gauge_zero` for it (GH-2020)
+- **Breaking**: the `postgresql` extra installs psycopg 3 instead of psycopg2, and a bare
+  `postgresql://` target writes through it on every SQLAlchemy version; under 2.1 it failed with
+  `No module named 'psycopg'`. `postgresql` and `mysql` bring SQLAlchemy and pandas, so neither
+  needs `export` beside it. For `postgresql+psycopg2://`, install `psycopg2-binary` (GH-2202)
 
 ### Fixed
 

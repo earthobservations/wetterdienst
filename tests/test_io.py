@@ -2224,7 +2224,7 @@ def test_duckdb_append_matches_columns_by_name(tmp_path: Path) -> None:
     [
         pytest.param(
             "postgresql://u:p@localhost/dwd?table=weather&sslmode=require",
-            "postgresql://u:p@localhost/dwd?sslmode=require",
+            "postgresql+psycopg://u:p@localhost/dwd?sslmode=require",
             id="postgresql",
         ),
         pytest.param(
@@ -2268,3 +2268,69 @@ def test_sql_sink_keeps_the_table_out_of_the_connection(
         assert connection.execute("SELECT station_id FROM weather").fetchall() == [("01048",)]
     finally:
         connection.close()
+
+
+@pytest.mark.parametrize(
+    ("target", "connects_to"),
+    [
+        pytest.param(
+            "postgresql://u:p@localhost/dwd?table=weather",
+            "postgresql+psycopg://u:p@localhost/dwd",
+            id="bare",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://u:p@localhost/dwd?table=weather",
+            "postgresql+psycopg2://u:p@localhost/dwd",
+            id="psycopg2",
+        ),
+        pytest.param(
+            "postgresql+pg8000://u:p@localhost/dwd?table=weather",
+            "postgresql+pg8000://u:p@localhost/dwd",
+            id="pg8000",
+        ),
+    ],
+)
+def test_sql_sink_names_psycopg_for_a_bare_postgresql_target(target: str, connects_to: str, tmp_path: Path) -> None:
+    """A bare `postgresql://` asks for psycopg 3, the driver the `postgresql` extra installs.
+
+    SQLAlchemy 2.0 resolves that URL to psycopg2 and 2.1 to psycopg 3, and 2.1 needs Python 3.11,
+    so which driver a target needed depended on the Python it ran on: with the extra's psycopg2,
+    2.1 failed with `No module named 'psycopg'`. A target that names its driver keeps it.
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pytest.importorskip("pandas")
+    database = tmp_path / "obs.sqlite"
+    create_engine = sqlalchemy.create_engine
+    asked = []
+
+    def engine_for(url: object, **kwargs: object) -> object:
+        asked.append(url)
+        return create_engine(f"sqlite:///{database}", **kwargs)
+
+    with mock.patch("sqlalchemy.create_engine", side_effect=engine_for):
+        _one_row().to_target(target)
+
+    assert [sqlalchemy.make_url(url).render_as_string(hide_password=False) for url in asked] == [connects_to]
+
+
+@pytest.mark.parametrize("extra", ["mysql", "postgresql"])
+def test_sql_extras_carry_what_the_sink_imports(extra: str) -> None:
+    """`pip install wetterdienst[mysql]` or `[postgresql]` alone is enough for its target.
+
+    The generic SQL sink imports SQLAlchemy and writes through pandas, which only the `export`
+    extra brought, so either extra on its own ended in `No module named 'sqlalchemy'` -- after
+    the download.
+    """
+    import re  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+
+    if sys.version_info >= (3, 11):
+        import tomllib  # noqa: PLC0415
+    else:  # pragma: no cover
+        import tomli as tomllib  # noqa: PLC0415
+
+    pyproject = tomllib.loads((Path(__file__).parent.parent / "pyproject.toml").read_text(encoding="utf8"))
+    requirements = pyproject["project"]["optional-dependencies"][extra]
+    names = {re.match(r"[A-Za-z0-9_.-]+", requirement).group(0).lower() for requirement in requirements}
+    assert {"pandas", "sqlalchemy"} <= names
+    assert {"mysql": "mysqlclient", "postgresql": "psycopg"}[extra] in names

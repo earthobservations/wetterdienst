@@ -190,9 +190,11 @@ interpolation = [
     "shapely>=2.0.6,<3",
     "utm>=0.7,<1",
 ]
+# `mysql` and `postgresql` carry what the SQL sink imports, so either works without `export`
 mysql = [
     "mysqlclient>=2,<3",
     "pandas>=2.2.2,<3",
+    "sqlalchemy>=2,<3",
 ]
 pdf = [
     "pypdf>=3.12.1,<7",
@@ -202,7 +204,10 @@ plotting = [
     "plotly>=6.1.1",
 ]
 postgresql = [
-    "psycopg2-binary>=2,<3",
+    "pandas>=2.2.2,<4",
+    # psycopg 3, which the sink names for a bare `postgresql://`; 3.0.2 is SQLAlchemy's floor for it
+    "psycopg[binary]>=3.0.2,<4",
+    "sqlalchemy>=2,<3",
 ]
 radar = [
     "h5netcdf>=1.7.3",
@@ -388,7 +393,7 @@ DEP002 = [
     "kaleido",
     "mysqlclient",
     "pandas",
-    "psycopg2-binary",
+    "psycopg",
     "pybufrkit",
     "sqlalchemy-cratedb",
     "tzdata",
