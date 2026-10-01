@@ -185,7 +185,7 @@ _SectionsField = Annotated[
     set[Literal["name", "parameter", "device", "geography", "missing_data"]] | None,
     Field(
         description="History sections to include: name, parameter, device, geography, missing_data. Each history "
-        "gives its station_id, resolution and dataset whichever are included.",
+        "gives its station_id, resolution and dataset, whichever are included.",
     ),
 ]
 _InterpolationStationDistanceField = Annotated[
