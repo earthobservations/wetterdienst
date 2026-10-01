@@ -1676,6 +1676,8 @@ describe('dataViewer chart of a query\'s timestamp text', () => {
   beforeAll(() => {
     zone = process.env.TZ
     process.env.TZ = 'Europe/Berlin'
+    // the zone taken up, else the tests pass in UTC against `new Date(text)` as well
+    expect(new Date(2020, 0, 1).getTimezoneOffset()).toBe(-60)
   })
   afterAll(() => {
     if (zone === undefined)
@@ -1684,37 +1686,25 @@ describe('dataViewer chart of a query\'s timestamp text', () => {
       process.env.TZ = zone
   })
 
+  // the forms timestampDate reads are tested in tests/unit/timestamp.test.ts
   it.each([
     // `strftime(timestamp::TIMESTAMP, '%Y-%m-%d %H:%M')`: placed at 2019-12-31T23:00Z in Berlin
     '2020-01-01 00:00',
-    '2020-01-01T00:00',
-    '2020-01-01 00:00:00.123456',
-    '2020-01-01',
-    // `CAST(timestamp::TIMESTAMPTZ AS VARCHAR)`, an offset of hours alone
-    '2020-01-01 00:00:00+00',
+    // `CAST(timestamp::TIMESTAMPTZ AS VARCHAR)`
     '2020-01-01 01:00:00+01',
-    '2019-12-31T18:30:00-05:30',
-    '2020-01-01T00:00:00Z',
   ])('places a row whose timestamp is %s at its time in UTC', async (timestamp) => {
     plotly.newPlot.mockClear()
     const { wrapper } = await withChartQuery([{ ...row, timestamp, value: 9 }])
     await showChart(wrapper, false)
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
     const [trace] = lastDrawn(false).traces
-    expect(trace!.x).toEqual([timestamp.includes('.') ? '2020-01-01T00:00:00.123Z' : '2020-01-01T00:00:00.000Z'])
+    expect(trace!.x).toEqual(['2020-01-01T00:00:00.000Z'])
   })
 
-  it.each([
+  it('leaves out a row whose timestamp is a date that does not exist', async () => {
     // read as 2020-03-01 by a Date, which rolls a day past the month's end over
-    '2020-02-30',
-    '2020-13-01',
-    '2020-01-01 24:00',
-    '2020-01-01 00:60',
-    '2020-01-01T00:00:00+24:00',
-    '2020-01-01 00:00:00 UTC',
-  ])('leaves out a row whose timestamp is %s', async (timestamp) => {
     plotly.newPlot.mockClear()
-    const { wrapper } = await withChartQuery([row, { ...row, timestamp, value: 9 }])
+    const { wrapper } = await withChartQuery([row, { ...row, timestamp: '2020-02-30', value: 9 }])
     await showChart(wrapper, false)
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
     const [trace] = lastDrawn(false).traces
