@@ -51,6 +51,7 @@ from wetterdienst.ui.core import (
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.extras import missing_dependency_message
 from wetterdienst.util.ui import read_list
+from wetterdienst.util.url import redact_password
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -666,7 +667,7 @@ def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: 
         log.error(str(e))  # noqa: TRY400
         sys.exit(1)
     except Exception:
-        log.exception(f"Failed to export to {target}")
+        log.exception(f"Failed to export to {redact_password(target)}")
         sys.exit(1)
 
 
