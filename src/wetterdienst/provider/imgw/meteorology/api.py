@@ -49,8 +49,9 @@ _STATUS_NO_MEASUREMENT = "8"
 _STATUS_NO_PHENOMENON = "9"
 # The status, carried into `quality` the way `metoffice/observation` carries MIDAS's `MESQL` flag. "8"
 # and "9" are IMGW's own codes; `quality` is a float column and `Z` is a letter, so `Z` is reported as
-# 10 -- the one value here this library assigns itself, documented on the provider's page. A blank
-# status is a plain measurement and stays null, which is what every other value carries.
+# 10 -- a value this library assigns itself, as it does `_QUALITY_ABSENT_DAY`, both documented on the
+# provider's page. A blank status is a plain measurement and stays null, which is what every other
+# value carries.
 _STATUS_QUALITY = {"8": 8.0, "9": 9.0, "Z": 10.0}
 # What a status is called between the rename and the unpivot, to keep it apart from the value of the
 # same name. No IMGW column name can collide with it: they are Polish prose.
@@ -734,7 +735,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             pl.lit(0.0, dtype=pl.Float64).alias("value"),
             pl.lit(_QUALITY_ABSENT_DAY, dtype=pl.Float64).alias("quality"),
         )
-        return pl.concat([values.select(absent.columns), absent])
+        return pl.concat([values, absent])
 
     @staticmethod
     def _unpivot(df: pl.DataFrame, resolution: Resolution, value_name: str) -> pl.DataFrame:

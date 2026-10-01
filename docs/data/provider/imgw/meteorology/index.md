@@ -39,12 +39,12 @@ says it is not that day's total alone.
 The other is 11. `o_d_format.txt` adds that *brak zjawiska* covers a day absent from a month that is
 itself present ("Brak zjawiska to również brak dnia w istniejącym miesiącu"), and the older `o_d`
 files rely on it: `o_d_02_2010` carries 14,229 rows for the 26,796 days in its stations' months,
-while `o_d_07_2024` writes every day out, with status `9` on the dry ones. `daily/precipitation` returns such a day
-as 0 mm with `quality` 11, so that a dry day reads the same whichever year IMGW wrote the file in,
-and 11 rather than 9 because no status in the file says so. Only `precipitation_amount` is filled:
-a day without rain is not a day without snow cover. A month the station has no row in at all is
-left empty, and `daily/climate` and `daily/synop` are read as published, since their format files
-carry no such sentence.
+while `o_d_07_2024` writes every day out, with status `9` on the dry ones. `daily/precipitation`
+returns such a day as 0 mm with `quality` 11, so that a dry day reads the same whichever year IMGW
+wrote the file in, and 11 rather than 9 because no status in the file says so. Only
+`precipitation_amount` is filled: a day without rain is not a day without snow cover. A month the
+station has no row in at all is left empty, and `daily/climate` and `daily/synop` are read as
+published, since their format files carry no such sentence.
 
 One thing the status cannot resolve: a `0` in `monthly/climate`'s `snow_depth_max` that is not
 qualified by a status means either that there was no snow cover in the month or that the maximum
