@@ -4,6 +4,7 @@
     "fetch": "Show",
     "clear": "Reset",
     "close": "Close",
+    "retry": "Retry",
     "open": "Open",
     "all": "All",
     "settings": "Settings",

@@ -941,10 +941,11 @@ async function chartsDrawn() {
 // A chart's renders, numbered as they start. A render started while another is under way draws the
 // change it was started for, and the older one stops before it draws again, where it would draw what
 // it read at its start over the newer drawing. Failed: the newest threw -- Plotly's import or its
-// drawing -- and the chart holds no drawing, which a chart image draws again rather than save
+// drawing -- and the chart holds no drawing, which a chart image draws again rather than save, and
+// the chart area says so
 interface ChartRenders { started: number, failed: boolean }
-const mainRenders: ChartRenders = { started: 0, failed: false }
-const facetRenders: ChartRenders = { started: 0, failed: false }
+const mainRenders = reactive<ChartRenders>({ started: 0, failed: false })
+const facetRenders = reactive<ChartRenders>({ started: 0, failed: false })
 
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   // a chart still being drawn holds no graph, which Plotly exports as an empty figure of its default
@@ -1083,6 +1084,9 @@ function renderShownChart() {
 function shownRenders() {
   return facetByParameter.value ? facetRenders : mainRenders
 }
+
+// the chart shown holds no drawing, its newest render having failed
+const chartNotDrawn = computed(() => chartShown() && shownRenders().failed)
 
 // Render chart helper functions
 async function drawMainChart(newest: () => boolean) {
@@ -1343,6 +1347,13 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }"
           />
           <div v-else class="py-4">
+            <div
+              v-if="chartNotDrawn" role="alert"
+              class="flex items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
+            >
+              <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+              <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
+            </div>
             <div
               v-if="allValues.length === 0 && fetchErrorMessage"
               class="flex flex-col items-center justify-center gap-1 py-12 text-center text-red-600 dark:text-red-400"
