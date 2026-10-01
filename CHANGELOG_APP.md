@@ -234,6 +234,9 @@ Types of changes:
   zoom (GH-2164)
 - `[Explorer/History/Stripes/Meteogram]` The station map no longer writes a warning holding the
   whole selection to the browser console each time the selection changes (GH-2168)
+- `[Explorer/History/Stripes/Meteogram]` A station map whose markers cannot be built, as when the
+  app was redeployed under an open tab, says so above the map and asks for a reload. The map stayed
+  empty without a word (GH-2185)
 
 ## [0.17.0] - 2026-09-29
 
