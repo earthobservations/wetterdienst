@@ -13,7 +13,7 @@ import pytest
 from fsspec.exceptions import FSTimeoutError
 from pydantic import ValidationError
 
-from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_WINDOWS
+from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_WINDOWS, skip_if_upstream_unavailable
 from wetterdienst import Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
@@ -863,6 +863,7 @@ def test_api_nws_observation(default_settings: Settings) -> None:
 
 
 @pytest.mark.remote
+@skip_if_upstream_unavailable()
 def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
     """Test eaufrance hubeau API."""
     request = HubeauRequest(parameters=[("5_minutes", "data", "discharge")], settings=default_settings).all()
