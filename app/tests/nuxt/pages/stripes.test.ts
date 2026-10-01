@@ -1,4 +1,5 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { createError, setResponseStatus } from 'h3'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { UApp } from '#components'
@@ -370,27 +371,19 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     expect(plotly.newPlot).not.toHaveBeenCalled()
   })
 
-  it('draws the stripes again at once where a display option changes, while they are fetched anew', async () => {
+  it('draws the stripes again from the values it has where a display option changes, and fetches nothing', async () => {
     const vm = await showStripes()
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
-    // the values fetched anew for the option held
-    let answer!: () => void
-    const answered = new Promise<void>((resolve) => {
-      answer = resolve
-    })
-    registerEndpoint('/api/stripes/values', async () => {
-      await answered
-      return { metadata: { station }, values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }] }
-    })
+    // a request is sent as the fetch starts, so one sent for the option is seen by the redraw
+    const fetched = vi.spyOn(globalThis, '$fetch')
     plotly.newPlot.mockClear()
 
     vm.showYears = false
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
     const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, { annotations: Array<{ text: string }> }]
     expect(layout.annotations.map(a => a.text)).not.toContain('2020')
-    // the held fetch let finish here, so it draws nothing into the next test
-    answer()
-    await vi.waitFor(() => expect(vm.isLoading).toBe(false))
+    expect(fetched).not.toHaveBeenCalled()
+    expect(vm.isLoading).toBe(false)
   })
 
   it('says the stripes image could not be saved where its export fails', async () => {
@@ -404,5 +397,248 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
 
     await vi.waitFor(() => expect(toasts()).toContain('The chart image could not be saved'))
     expect(logged).toHaveBeenCalledWith('The chart image could not be saved', failed)
+  })
+})
+
+describe('stripes Page values that could not be fetched', () => {
+  const tempelhof = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+  const potsdam = { station_id: '3987', name: 'Potsdam', region: 'Brandenburg', latitude: 52.38, longitude: 13.06, start_date: '1893-01-01', end_date: '2020-01-01' }
+  const values = (station: typeof tempelhof) => ({
+    metadata: { station },
+    values: [
+      { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
+      { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
+    ],
+  })
+
+  // the chart area's note of the failed fetch
+  const note = () => [...document.body.querySelectorAll('[role="alert"] > span')].map(line => line.textContent?.trim()).join(' / ') || undefined
+  const downloadMenu = () => document.body.querySelector('button[aria-haspopup="menu"]')
+
+  // an answer held until the test lets it go
+  function held<T>(answer: () => T) {
+    let release!: () => void
+    const released = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const handler = async () => {
+      await released
+      return answer()
+    }
+    return { release, handler }
+  }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    vi.restoreAllMocks()
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  // the requests the page makes, each settled however it ended
+  let requests: Promise<unknown>[] = []
+  function recordRequests() {
+    const original = globalThis.$fetch
+    requests = []
+    vi.spyOn(globalThis, '$fetch').mockImplementation(((...args: Parameters<typeof original>) => {
+      const request = original(...args)
+      requests.push(request.catch(() => {}))
+      return request
+    }) as typeof original)
+  }
+  // every request recorded settled, and the page done with its answer
+  async function settled() {
+    await Promise.all(requests)
+    await new Promise(resolve => setTimeout(resolve, 0))
+  }
+
+  const button = (label: string) => wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === label)!
+
+  // the page in the app's UApp, with the stations fetched
+  async function mountPage() {
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [tempelhof, potsdam] }))
+    wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
+    }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    const vm = wrapper.findComponent(StripesPage).vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(2))
+    return vm
+  }
+
+  async function show(vm: any, station: typeof tempelhof) {
+    vm.selectedStation = station
+    await nextTick()
+    await button('Show').trigger('click')
+  }
+
+  it('tells the backend\'s reason in the chart area', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    registerEndpoint('/api/stripes/values', (event) => {
+      setResponseStatus(event, 404)
+      return { detail: 'No precipitation data for station 1048' }
+    })
+    const vm = await mountPage()
+    await show(vm, tempelhof)
+
+    await vi.waitFor(() => expect(note()).toBe('Failed to load data / No precipitation data for station 1048'))
+    expect(vm.isLoading).toBe(false)
+    expect(document.body.textContent).not.toContain('Select a station and click Show')
+
+    // Reset takes the note away
+    await button('Reset').trigger('click')
+    expect(note()).toBeUndefined()
+    expect(document.body.textContent).toContain('Select a station and click Show')
+  })
+
+  it('takes another station\'s stripes away as this one\'s are fetched, and tells why they could not be', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    registerEndpoint('/api/stripes/values', () => values(tempelhof))
+    const vm = await mountPage()
+    await show(vm, tempelhof)
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+
+    const failing = held(() => {
+      throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
+    })
+    registerEndpoint('/api/stripes/values', failing.handler)
+    plotly.purge.mockClear()
+    await show(vm, potsdam)
+    // Tempelhof's stripes gone while Potsdam's are fetched
+    expect(vm.hasPlot).toBe(false)
+    expect(plotly.purge).toHaveBeenCalled()
+    expect(downloadMenu()).toBeNull()
+
+    failing.release()
+    await vi.waitFor(() => expect(note()).toBe('Failed to load data / 502 Bad Gateway'))
+    expect(vm.hasPlot).toBe(false)
+    expect(vm.lastFetchedData).toBeNull()
+  })
+
+  it('offers no image of stripes that could not be drawn, while or after they are fetched anew in vain', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    registerEndpoint('/api/stripes/values', () => values(tempelhof))
+    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    const vm = await mountPage()
+    await show(vm, tempelhof)
+    await vi.waitFor(() => expect(vm.plotFailed).toBe(true))
+
+    const failing = held(() => {
+      throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
+    })
+    registerEndpoint('/api/stripes/values', failing.handler)
+    await button('Show').trigger('click')
+    // no empty chart area, with an image of nothing offered
+    expect(vm.hasPlot).toBe(false)
+    expect(downloadMenu()).toBeNull()
+
+    failing.release()
+    await vi.waitFor(() => expect(note()).toBe('Failed to load data / 502 Bad Gateway'))
+    expect(vm.hasPlot).toBe(false)
+    expect(downloadMenu()).toBeNull()
+  })
+
+  it('keeps the station\'s stripes, and tells the failure above them, where Show fetches them anew in vain', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    registerEndpoint('/api/stripes/values', () => values(tempelhof))
+    const vm = await mountPage()
+    await show(vm, tempelhof)
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+
+    registerEndpoint('/api/stripes/values', () => {
+      throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
+    })
+    vm.startYear = 2019
+    await nextTick()
+    await button('Show').trigger('click')
+
+    await vi.waitFor(() => expect(note()).toBe('Failed to load data / 502 Bad Gateway'))
+    expect(vm.hasPlot).toBe(true)
+    expect(vm.lastFetchedData).not.toBeNull()
+    expect(downloadMenu()).not.toBeNull()
+  })
+
+  it('stops a fetch on Reset, where no stripes were shown, and draws nothing', async () => {
+    const vm = await mountPage()
+    recordRequests()
+    const answer = held(() => values(tempelhof))
+    registerEndpoint('/api/stripes/values', answer.handler)
+    plotly.newPlot.mockClear()
+    await show(vm, tempelhof)
+    expect(vm.isLoading).toBe(true)
+    expect(button('Reset').attributes('disabled')).toBeUndefined()
+    await button('Reset').trigger('click')
+    expect(vm.isLoading).toBe(false)
+
+    answer.release()
+    await settled()
+    expect(plotly.newPlot).not.toHaveBeenCalled()
+    expect(vm.hasPlot).toBe(false)
+    expect(document.body.textContent).toContain('Select a station and click Show')
+  })
+
+  it('tells nothing where the kind changed while a fetch that then failed was under way', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const failing = held(() => {
+      throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
+    })
+    registerEndpoint('/api/stripes/values', failing.handler)
+    const vm = await mountPage()
+    recordRequests()
+    await show(vm, tempelhof)
+    expect(vm.isLoading).toBe(true)
+
+    vm.kind = 'temperature'
+    await nextTick()
+    expect(vm.isLoading).toBe(false)
+
+    failing.release()
+    await settled()
+    expect(note()).toBeUndefined()
+    expect(vm.fetchError).toBeNull()
+  })
+
+  it('draws nothing where another station was chosen while the fetch was under way', async () => {
+    const vm = await mountPage()
+    recordRequests()
+    const answer = held(() => values(tempelhof))
+    registerEndpoint('/api/stripes/values', answer.handler)
+    plotly.newPlot.mockClear()
+    await show(vm, tempelhof)
+    expect(vm.isLoading).toBe(true)
+
+    vm.selectedStation = potsdam
+    await nextTick()
+    // the fetch stopped at once: Potsdam's stripes can be asked for
+    expect(vm.isLoading).toBe(false)
+    expect(button('Show').attributes('disabled')).toBeUndefined()
+    answer.release()
+    await settled()
+    expect(plotly.newPlot).not.toHaveBeenCalled()
+    expect(vm.hasPlot).toBe(false)
+    expect(vm.lastFetchedData).toBeNull()
+    expect(vm.isLoading).toBe(false)
+  })
+
+  it('tells nothing where another station was chosen while a fetch that then failed was under way', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const failing = held(() => {
+      throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
+    })
+    registerEndpoint('/api/stripes/values', failing.handler)
+    const vm = await mountPage()
+    recordRequests()
+    await show(vm, tempelhof)
+
+    vm.selectedStation = potsdam
+    await nextTick()
+    // the fetch stopped at once: Potsdam's stripes can be asked for
+    expect(vm.isLoading).toBe(false)
+    expect(button('Show').attributes('disabled')).toBeUndefined()
+    failing.release()
+    await settled()
+    expect(note()).toBeUndefined()
+    expect(vm.fetchError).toBeNull()
+    expect(vm.isLoading).toBe(false)
   })
 })

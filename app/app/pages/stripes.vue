@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { describeFetchError } from '~/utils/api-error'
+
 const { t } = useI18n()
 const toast = useToast()
 
@@ -97,6 +99,10 @@ const lastFetchedData = ref<StripesValuesResponse | null>(null)
 let plotsStarted = 0
 const plotFailed = ref(false)
 const plotFailures = ref(0)
+// The values' fetches, numbered as they start, so that only the newest, not stopped by a Reset, shows
+// what it fetched. Failed: why the newest could not fetch the values, told in the chart area
+let fetchesStarted = 0
+const fetchError = ref<string | null>(null)
 
 // Color maps
 const COLOR_MAPS: Record<StripesKind, Array<[number, string]>> = {
@@ -124,11 +130,15 @@ async function fetchAndPlotStripes() {
   if (!selectedStation.value)
     return
 
+  // Cleared as the fetch starts: another station's stripes, so they do not stand under this one,
+  // and stripes that could not be drawn, with their Retry of the earlier values. This station's
+  // drawn stripes stay while they are fetched anew, as for other years; a drawing of them under way,
+  // as of a display option changed, still draws, and tells its own failure
+  if (plotFailed.value || lastFetchedData.value?.metadata.station.station_id !== selectedStation.value.station_id)
+    clearStripes()
+  const started = ++fetchesStarted
   isLoading.value = true
-  // the stripes are about to be fetched anew: an earlier drawing's failure, and its Retry, which
-  // would draw the earlier values, go. A drawing under way, as of a display option changed, still
-  // draws, and tells its own failure
-  plotFailed.value = false
+  fetchError.value = null
 
   try {
     const params: StripesValuesQuery = {
@@ -145,6 +155,10 @@ async function fetchAndPlotStripes() {
     const response = await $fetch<StripesValuesResponse>('/api/stripes/values', {
       query: params,
     })
+    // a newer fetch, a Reset or another station chosen came while this one was under way: it shows
+    // nothing
+    if (started !== fetchesStarted)
+      return
 
     // Wait for next tick to ensure DOM is updated
     await nextTick()
@@ -157,11 +171,15 @@ async function fetchAndPlotStripes() {
     await plotStripes(response)
   }
   catch (error) {
+    if (started !== fetchesStarted)
+      return
     console.error('Failed to fetch stripes data:', error)
-    // You might want to show a toast notification here
+    // told above any stripes shown, which are this station's
+    fetchError.value = describeFetchError(error)
   }
   finally {
-    isLoading.value = false
+    if (started === fetchesStarted)
+      isLoading.value = false
   }
 }
 
@@ -468,6 +486,11 @@ function clearStripes() {
   // a drawing still under way is no longer the newest, so its failure is not told after the next Show
   plotsStarted++
   plotFailed.value = false
+  lastFetchedData.value = null
+  // a fetch still under way shows nothing, and its failure is not told
+  fetchesStarted++
+  isLoading.value = false
+  fetchError.value = null
 }
 
 const route = useRoute()
@@ -504,6 +527,14 @@ function onSelectMenuUpdate(val: any) {
   const id = item ? item.value : null
   selectedStation.value = id ? stations.value.find(s => s.station_id === id) ?? null : null
 }
+
+// a fetch under way is for the station chosen before: it is stopped, and its answer shows nothing
+watch(() => selectedStation.value?.station_id, () => {
+  if (!isLoading.value)
+    return
+  fetchesStarted++
+  isLoading.value = false
+})
 
 watch(kind, () => {
   selectedStation.value = null
@@ -613,13 +644,6 @@ watch(selectedStationItem, (item) => {
   // selectedStationItem is a single item or undefined
   const id = item ? item.value : null
   selectedStation.value = id ? stations.value.find(s => s.station_id === id) ?? null : null
-})
-
-// Re-plot when display options change (but only if we already have data)
-watch([showTitle, showYears, showDataAvailability], () => {
-  if (hasPlot.value) {
-    fetchAndPlotStripes()
-  }
 })
 
 // Load Plotly dynamically on mount; a failure is told where the stripes are drawn
@@ -748,7 +772,7 @@ onMounted(() => {
             :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!selectedStation || isLoading"
             :loading="isLoading" class="w-full" @click="fetchAndPlotStripes"
           />
-          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" :disabled="!hasPlot" @click="clearStripes" />
+          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" :disabled="!hasPlot && !isLoading && !fetchError" @click="clearStripes" />
         </div>
       </div>
     </UCard>
@@ -793,6 +817,14 @@ onMounted(() => {
             <UIcon name="i-lucide-loader-circle" class="animate-spin" />
             {{ t('stripes.loadingViz') }}
           </div>
+        </div>
+        <div
+          v-else-if="fetchError" role="alert"
+          class="flex flex-col items-center justify-center gap-1 text-center text-red-600 dark:text-red-400"
+          :class="hasPlot ? 'pb-4' : 'h-64'"
+        >
+          <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
+          <span class="text-sm">{{ fetchError }}</span>
         </div>
         <div v-else-if="!hasPlot" class="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
           <UIcon name="i-lucide-bar-chart-big" class="w-12 h-12 opacity-30" />
