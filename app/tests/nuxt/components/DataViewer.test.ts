@@ -1670,6 +1670,75 @@ describe('dataViewer sort of integers past 2^53', () => {
   })
 })
 
+describe('dataViewer facets large or small by their own points', () => {
+  // a day's row each of the parameter, from 2020-01-01 on
+  const daysOf = (parameter: string, count: number) => Array.from({ length: count }, (_, day) => ({ ...row, parameter, timestamp: new Date(Date.UTC(2020, 0, day + 1)).toISOString() }))
+
+  // each facet's trace mode and hover mode, as it was last drawn, by its parameter
+  function facetsDrawn() {
+    const drawn = new Map<string, [string, string]>()
+    for (const [, traces, layout] of plotly.react.mock.calls as unknown as [HTMLElement, { mode: string }[], { hovermode: string, yaxis: { title: string } }][])
+      drawn.set(layout.yaxis.title, [traces[0]!.mode, layout.hovermode])
+    return Object.fromEntries(drawn)
+  }
+
+  it('draws small facets as small ones where all of them together pass the threshold', async () => {
+    // all six facets' 600 points were counted: each drawn as thin lines without markers, hovered
+    // point by point
+    plotly.react.mockClear()
+    const parameters = ['a', 'b', 'c', 'd', 'e', 'f']
+    const { wrapper } = await withChartQuery(parameters.flatMap(parameter => daysOf(parameter, 100)))
+    await showChart(wrapper, true)
+    await vi.waitFor(() => expect(Object.keys(facetsDrawn())).toHaveLength(6))
+    expect(facetsDrawn()).toEqual(Object.fromEntries(parameters.map(parameter => [parameter, ['lines+markers', 'x unified']])))
+  })
+
+  it('draws a large facet as a large one beside a small one', async () => {
+    plotly.react.mockClear()
+    const { wrapper } = await withChartQuery([...daysOf('a', 501), ...daysOf('b', 10)])
+    await showChart(wrapper, true)
+    await vi.waitFor(() => expect(Object.keys(facetsDrawn())).toHaveLength(2))
+    expect(facetsDrawn()).toEqual({ a: ['lines', 'closest'], b: ['lines+markers', 'x unified'] })
+  })
+})
+
+describe('dataViewer chart series apart from the table\'s sort', () => {
+  // one parameter from two stations, the second station's value the greater
+  const twoStations = [row, { ...row, station_id: '04411', value: 2.5 }]
+
+  // the series the chart was last drawn with, each by its name and colour, faceted or not
+  function seriesDrawn(faceted: boolean) {
+    const [, traces] = (faceted ? plotly.react : plotly.newPlot).mock.lastCall as unknown as [HTMLElement, { name: string, line: { color: string } }[]]
+    return traces.map(trace => [trace.name, trace.line.color])
+  }
+
+  it.each([false, true])('keeps the series\' legend places and colours where the table is sorted, faceted: %s', async (faceted) => {
+    registerEndpoint('/api/values', () => ({ values: twoStations }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    plotly.newPlot.mockClear()
+    plotly.react.mockClear()
+    await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
+    const unsorted = seriesDrawn(faceted)
+    expect(unsorted.map(([name]) => name)).toEqual(faceted ? ['01048', '04411'] : ['01048 - temperature_air_mean_2m', '04411 - temperature_air_mean_2m'])
+    // back to the table, sorted by value descending, the second station's row first: the stations
+    // swapped their legend places and colours
+    await wrapper.findAll('button').find(button => button.find('[class~="i-lucide:table"]').exists())!.trigger('click')
+    const value = () => wrapper.findAll('thead th span').find(span => span.text().replace(/[↕↑↓]/g, '') === 'value')!
+    await value().trigger('click')
+    await value().trigger('click')
+    expect(wrapper.findAll('tbody tr').map(tr => tr.findAll('td')[0]!.text())).toEqual(['04411', '01048'])
+    plotly.newPlot.mockClear()
+    plotly.react.mockClear()
+    await wrapper.findAll('button').find(button => button.find('[class~="i-lucide:chart-line"]').exists())!.trigger('click')
+    await flushPromises()
+    await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
+    expect(seriesDrawn(faceted)).toEqual(unsorted)
+  })
+})
+
 describe('dataViewer parameter statistics of rows that are not long values', () => {
   function stats(viewer: Awaited<ReturnType<typeof mountDataViewer>>['viewer']) {
     return (viewer.vm as unknown as { parameterStats: unknown[] }).parameterStats
