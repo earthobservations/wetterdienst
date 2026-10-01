@@ -77,6 +77,9 @@ Types of changes:
 
 ### Fixed
 
+- DWD derived can be used on a base install. Its station lists were read with pandas, so
+  `Wetterdienst("dwd", "derived")` failed with an `ImportError` unless an extra that brings pandas,
+  such as `export`, was installed. They are read with polars now, with the same result (GH-2213)
 - Precipitation stripes colour dry years brown and wet years teal; they were the other way round.
   A year range holding fewer than two years with data is refused, where one beyond the station's
   record answered with no values and an empty image, and stripes start and end at a year with data.
