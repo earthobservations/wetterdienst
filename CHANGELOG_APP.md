@@ -182,6 +182,11 @@ Types of changes:
 - `[Explorer]` Entering query mode after a Fetch checks the query again against the new rows. The
   syntax error shown, or its absence, was the answer for the rows fetched before, which could keep
   Run Query disabled for a query that was fine for the new rows (GH-2142)
+- `[Explorer]` The chart places a query's timestamp text without an offset, as `2020-01-01 00:00`,
+  at that time in UTC, as the fetched rows are. The browser read it as its own local time, an hour or
+  more away from the row it came from. Text with a space before the time or an offset of hours alone
+  is placed the same in every browser, and a date that does not exist, as `2020-02-30`, is left out
+  where it was drawn in the next month (GH-2157)
 
 ## [0.17.0] - 2026-09-29
 

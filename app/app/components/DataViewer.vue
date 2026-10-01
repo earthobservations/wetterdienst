@@ -713,20 +713,37 @@ function calculateLinearRegression(xData: Date[], yData: number[]): { x: Date[],
 // Performance threshold - use WebGL and simplified rendering for large datasets
 const LARGE_DATASET_THRESHOLD = 500
 
-// A timestamp's text begins with its calendar date, as the REST API and a query's timestamps and
-// dates write it, a year of six digits signed
-const ISO_DATE = /^(?:\d{4}|[+-]\d{6})-\d{2}-\d{2}/
+// A timestamp's text, as the REST API and a query's timestamps and dates write it: a calendar date,
+// its year of four digits or six signed; then, or not, a time of day after a 'T' or a space, to the
+// minute, the second or a fraction of it; then, after a time, a 'Z' or an offset of hours, and of
+// minutes or not, as DuckDB writes a TIMESTAMPTZ cast to text: `2020-01-01 00:00:00+00`
+const ISO_TIMESTAMP = /^(\d{4}|[+-]\d{6})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?(Z|([+-])(\d{2})(?::?(\d{2}))?)?)?$/
 
 // The date a row is placed at on the chart, or null for a row the chart has no place for. A query
 // can put anything under `timestamp`: null; text that is no date, as a time of day or 'n/a', which
 // left an Invalid Date that threw once written as ISO text, and the chart was not drawn, or which a
 // browser reads as a date by rules of its own, '1' as 2001-01-01 in Chrome; or a number, as epoch
-// seconds, which a Date reads as milliseconds, and the point went to 1970
+// seconds, which a Date reads as milliseconds, and the point went to 1970. The text is read here
+// rather than by the browser, which reads a time without an offset as its own local time, and the
+// point went to where the row's time is in the browser's time zone, not in UTC as the rows the app
+// fetches; and which reads a space before the time, or an offset of hours alone, as each browser
+// will, and rolls a day past the month's end, 2020-02-30, over into the next month
 function rowDate(row: Value): Date | null {
   const timestamp: unknown = row.timestamp
-  if (typeof timestamp !== 'string' || !ISO_DATE.test(timestamp))
+  const parts = typeof timestamp === 'string' ? ISO_TIMESTAMP.exec(timestamp) : null
+  if (!parts)
     return null
-  const date = new Date(timestamp)
+  const [, year, month, day, hour = '0', minute = '0', second = '0', fraction = '', , sign, offsetHours = '0', offsetMinutes = '0'] = parts
+  const [y, mo, d, h, mi, s] = [year, month, day, hour, minute, second].map(Number) as [number, number, number, number, number, number]
+  const offset = (sign === '-' ? -1 : 1) * (Number(offsetHours) * 60 + Number(offsetMinutes))
+  if (h > 23 || mi > 59 || s > 59 || Number(offsetHours) > 23 || Number(offsetMinutes) > 59)
+    return null
+  const date = new Date(0)
+  date.setUTCFullYear(y, mo - 1, d)
+  // a month or day out of range rolls the date over, which leaves it on another day than written
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d)
+    return null
+  date.setUTCHours(h, mi - offset, s, Number(fraction.slice(0, 3).padEnd(3, '0')))
   return Number.isNaN(date.getTime()) ? null : date
 }
 

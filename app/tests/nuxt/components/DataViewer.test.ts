@@ -4,7 +4,7 @@ import type { StationSelectionState } from '~/types/station-selection-state.type
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { getQuery, setResponseStatus } from 'h3'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { UApp, USelectMenu } from '#components'
 import { useToast } from '#imports'
@@ -1667,5 +1667,57 @@ describe('dataViewer sort of integers past 2^53', () => {
     expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(ascending)
     await n().trigger('click')
     expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(ascending.toReversed())
+  })
+})
+
+describe('dataViewer chart of a query\'s timestamp text', () => {
+  // a browser an hour east of UTC, where a time without an offset read as local time is an hour early
+  let zone: string | undefined
+  beforeAll(() => {
+    zone = process.env.TZ
+    process.env.TZ = 'Europe/Berlin'
+  })
+  afterAll(() => {
+    if (zone === undefined)
+      delete process.env.TZ
+    else
+      process.env.TZ = zone
+  })
+
+  it.each([
+    // `strftime(timestamp::TIMESTAMP, '%Y-%m-%d %H:%M')`: placed at 2019-12-31T23:00Z in Berlin
+    '2020-01-01 00:00',
+    '2020-01-01T00:00',
+    '2020-01-01 00:00:00.123456',
+    '2020-01-01',
+    // `CAST(timestamp::TIMESTAMPTZ AS VARCHAR)`, an offset of hours alone
+    '2020-01-01 00:00:00+00',
+    '2020-01-01 01:00:00+01',
+    '2019-12-31T18:30:00-05:30',
+    '2020-01-01T00:00:00Z',
+  ])('places a row whose timestamp is %s at its time in UTC', async (timestamp) => {
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery([{ ...row, timestamp, value: 9 }])
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    const [trace] = lastDrawn(false).traces
+    expect(trace!.x).toEqual([timestamp.includes('.') ? '2020-01-01T00:00:00.123Z' : '2020-01-01T00:00:00.000Z'])
+  })
+
+  it.each([
+    // read as 2020-03-01 by a Date, which rolls a day past the month's end over
+    '2020-02-30',
+    '2020-13-01',
+    '2020-01-01 24:00',
+    '2020-01-01 00:60',
+    '2020-01-01T00:00:00+24:00',
+    '2020-01-01 00:00:00 UTC',
+  ])('leaves out a row whose timestamp is %s', async (timestamp) => {
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery([row, { ...row, timestamp, value: 9 }])
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    const [trace] = lastDrawn(false).traces
+    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
   })
 })
