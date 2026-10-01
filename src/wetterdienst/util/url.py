@@ -4,6 +4,41 @@
 
 from urllib.parse import parse_qs, urlparse
 
+# targets that name a file rather than a server, and so carry no credentials; a Windows path
+# such as `file://C:/data@x.csv` would otherwise read as user `C` with a password. Matched
+# exactly: a dialect such as `sqlite+pysqlcipher` takes its passphrase from the password slot
+_PATH_SCHEMES = frozenset({"file", "duckdb", "sqlite"})
+
+
+def redact_password(url: str) -> str:
+    """Give back a connection string with its password replaced by ``***``, for a log line.
+
+    The password slot is where a SQL or CrateDB target carries its password and where the
+    InfluxDB 2 and 3 targets carry their API token, and the CLI logs at INFO by default, so a
+    target printed verbatim lands in cron mail, journald or a CI log. The username stays: it says
+    which account was used and is no secret. The rest comes back as given.
+
+    The SQL sinks read the target with SQLAlchemy and the others with ``urlparse``, and the two
+    disagree on an unencoded ``@``, ``/``, ``#`` or ``?``, so whatever either reads as the password
+    is hidden. Both start it after the first ``:``, provided no ``/`` comes before it. SQLAlchemy
+    ends it at the first ``@`` after that, so a password holding a ``/`` is still found and an
+    Azure-style username such as ``user@server`` is kept; ``urlparse`` ends it at the last ``@``
+    before the host part ends at a ``/``, ``?`` or ``#``, so a password holding an ``@`` is found.
+    A target with no password but a ``host:port`` followed by an ``@`` in its path or query is cut
+    at that ``@``, as SQLAlchemy reads it. Nothing here raises, so a log line naming a malformed
+    target still prints.
+    """
+    scheme, separator, rest = url.partition("://")
+    username, colon, _ = rest.partition(":")
+    if not separator or scheme.lower() in _PATH_SCHEMES or not colon or "/" in username:
+        return url
+    start = len(username) + 1
+    host_end = min((i for i in (rest.find(c) for c in "/?#") if i != -1), default=len(rest))
+    end = max(rest.find("@", start), rest.rfind("@", start, host_end))
+    if end == -1:
+        return url
+    return f"{scheme}://{username}:***{rest[end:]}"
+
 
 class ConnectionString:
     """Helper class to support ``IoAccessor.export()``."""
