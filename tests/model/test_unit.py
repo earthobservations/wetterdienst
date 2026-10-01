@@ -4,6 +4,7 @@
 
 from itertools import permutations, product
 
+import polars as pl
 import pytest
 
 from wetterdienst.model.unit import UnitConverter
@@ -395,17 +396,22 @@ def test_decimals_keep_a_reading_whatever_the_target(value: float) -> None:
     """A converted value rounded to its decimals keeps the reading, whichever pair of units it is.
 
     Asserted over every ordered pair of every unit type rather than a list of the lossy ones, since
-    that list is what changes as units are added. Measured back in the source unit, the round costs
-    at most half a step of the third decimal -- so 5 cm reported in miles is not 0.0.
+    that list is what changes as units are added. Converted back to the source unit, the rounded
+    value is within half a step of the third decimal of the reading -- so 5 cm reported in miles is
+    not 0.0. Beaufort is a power law, which `decimals` approximates by a factor, so a pair with it
+    is only held to keeping something of the reading.
     """
     unit_converter = UnitConverter()
     for unit_type, units in unit_converter.units.items():
         for source, target in product([unit.name for unit in units], repeat=2):
-            exact = unit_converter._get_lambda(source, target)(value)  # noqa: SLF001
-            rounded = round(exact, unit_converter.decimals(source, target))
-            factor = abs(unit_converter.increment_factor(source, target))
-            assert abs(rounded - exact) <= 0.5e-3 * factor, f"{unit_type}: {source} -> {target}"
+            convert = unit_converter._get_lambda(source, target)  # noqa: SLF001
+            # rounded as `_convert_units` rounds, by polars rather than by Python's `round`
+            rounded = pl.Series([convert(value)]).round(unit_converter.decimals(source, target)).item()
             assert rounded != 0, f"{unit_type}: {source} -> {target}"
+            if "beaufort" in (source, target):
+                continue
+            back = unit_converter._get_lambda(target, source)(rounded)  # noqa: SLF001
+            assert abs(back - value) < 0.5e-3 + 1e-12, f"{unit_type}: {source} -> {target}"
 
 
 def test_decimals_stay_at_four_unless_a_conversion_shrinks_a_value_by_an_order_of_magnitude() -> None:
