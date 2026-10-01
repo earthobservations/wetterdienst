@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` Where the chart's code could not be loaded, as after a new version of the app was
+  deployed under an open tab, the chart area says that reloading the page helps where Retry does
+  not, and offers a Reload page button. Retry asked for the replaced code again and failed every
+  time, with no word that only a reload would help (GH-2183)
 - `[Explorer]` The SQL query panel runs the string function `replace()` and
   `SELECT * REPLACE (...)`, and takes a refused keyword after `AS` or a `.` for a name, as in
   `1 AS update` or `t.delete`, where it refused each as a disallowed operation. A query that writes

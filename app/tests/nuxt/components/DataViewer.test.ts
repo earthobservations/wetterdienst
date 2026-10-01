@@ -1,7 +1,7 @@
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelection } from '~/types/parameter-selection-state.type'
 import type { StationSelectionState } from '~/types/station-selection-state.type'
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { getQuery, setResponseStatus } from 'h3'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -58,6 +58,11 @@ const plotly = vi.hoisted(() => {
   }
 })
 vi.mock('plotly.js-basic-dist-min', () => plotly)
+
+// Nuxt's reload of the page, for every test in the file: the test's document, whose address earlier
+// tests' downloads have moved, does not take it
+const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
+mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
 
 const settings: DataSettings = {
   humanize: true,
@@ -2020,6 +2025,57 @@ describe('dataViewer chart image whose export fails', () => {
     await vi.waitFor(() => expect(document.body.textContent).toContain('The chart image could not be saved'))
     expect(document.body.textContent).not.toContain('Chart downloaded')
     expect(saved).toHaveLength(0)
+  })
+})
+
+describe('dataViewer chart whose Plotly chunk a redeploy replaced', () => {
+  // A redeploy replaces Plotly's hashed chunk under an open tab: every Retry asks for the gone chunk
+  // again and fails, and only reloading the page loads the new one, which nothing said
+  const button = (label: string) => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === label)
+  const note = () => button('Retry')?.parentElement?.querySelector('[role="alert"]')?.textContent?.trim()
+  const hint = 'If trying again does not help, reload the page.'
+
+  afterEach(() => {
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    reloadNuxtApp.mockClear()
+  })
+
+  async function shownWithoutPlotly(faceted: boolean) {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const mountedViewer = await mountDataViewer()
+    await fetchData(mountedViewer.viewer)
+    vi.doMock('plotly.js-basic-dist-min', () => {
+      throw new Error('chunk failed to load')
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await showChart(mountedViewer.wrapper, faceted)
+    await vi.waitFor(() => expect(button('Retry')).toBeDefined())
+    return mountedViewer
+  }
+
+  it.each([false, true])('says to reload the page, and reloads it, where Plotly failed to load, faceted: %s', async (faceted) => {
+    await shownWithoutPlotly(faceted)
+    // the two apart, as a screen reader reads the alert
+    expect(note()).toBe(`The chart could not be drawn. Its code could not be loaded. ${hint}`)
+    button('Reload page')!.click()
+    // forced: unforced, Nuxt drops a second click within ten seconds of a first that did not help
+    expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
+  })
+
+  it.each([false, true])('offers no reload once Plotly loaded and only its drawing failed, faceted: %s', async (faceted) => {
+    // a reload loads nothing the drawing needs: Retry is the way
+    await shownWithoutPlotly(faceted)
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    const draw = faceted ? plotly.react : plotly.newPlot
+    draw.mockRejectedValueOnce(new Error('drawing failed'))
+    const calls = draw.mock.calls.length
+    button('Retry')!.click()
+    // the module loaded anew, which a busy runner can take a while over
+    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 1), { timeout: 5000 })
+    await flushPromises()
+    expect(note()).toContain('The chart could not be drawn')
+    expect(note()).not.toContain(hint)
+    expect(button('Reload page')).toBeUndefined()
   })
 })
 
