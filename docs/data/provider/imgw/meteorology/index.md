@@ -21,7 +21,6 @@ Every measurement in these files is followed by a status column, documented per 
 | `8`     | *brak pomiaru* -- no measurement                  | null          | 8         |
 | `9`     | *brak zjawiska* -- the phenomenon did not occur   | 0             | 9         |
 | `Z`     | *opad zbiorczy* -- a collective total (`o_d` only)| as published  | 10        |
-| no row  | a day missing from a month present (`o_d` only)   | 0             | 11        |
 
 Neither code can be taken from the value column, because the files do not write it the same way
 twice. Where the status is `8` the value is not left empty but holds a literal zero, which is why

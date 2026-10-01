@@ -931,8 +931,8 @@ def test_imgw_meteorology_daily_synop_returns_the_columns_it_reads(parameter: st
 
 
 # `o_d` rows for February 2010, as (station, day, SMDB, its status): field 6 is `SMDB` and field 7 its
-# status, and `PKSN` and `HSS`, fields 9 and 11, carry "8" -- not measured -- the way WARSZOWICE's do
-# in every row of `o_d_02_2010`.
+# status, and `PKSN` and `HSS`, fields 9 and 11, carry "8" -- not measured -- in their status fields
+# 10 and 12, the way WARSZOWICE's do in every row of `o_d_02_2010`.
 def _o_d_zip(rows: list[tuple[str, int, str, str]]) -> File:
     lines = []
     for station_id, day, value, status in rows:

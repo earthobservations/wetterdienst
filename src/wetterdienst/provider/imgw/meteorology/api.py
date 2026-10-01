@@ -654,11 +654,11 @@ class ImgwMeteorologyValues(TimeseriesValues):
                 schema=schema,
                 statusless=_STATUSLESS_COLUMNS.get(file_pattern, frozenset()),
             )
-            absent_day_names = _ABSENT_DAY_NO_PHENOMENON.get(file_pattern, frozenset())
-            if absent_day_names and not df.is_empty():
-                df = self._fill_absent_days(df, absent_day_names)
-            if not df.is_empty():
-                data.append(df)
+            if df.is_empty():
+                continue
+            if file_pattern in _ABSENT_DAY_NO_PHENOMENON:
+                df = self._fill_absent_days(df, _ABSENT_DAY_NO_PHENOMENON[file_pattern])
+            data.append(df)
         try:
             df = pl.concat(data)
         except ValueError:

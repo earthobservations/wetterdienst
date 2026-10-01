@@ -48,8 +48,8 @@ Types of changes:
   pydantic's echo of every option given (GH-2056)
 - **Breaking**: `imgw/meteorology` `daily/precipitation` returns `precipitation_amount` as 0 mm,
   with `quality` 11, for a day the file leaves out of a month the station reports in; such a day
-  was missing, so a dry day in an older file read differently from one in a newer file. Drop
-  `quality` 11 to get the rows as before. Other parameters and datasets are unchanged (GH-2000)
+  was missing. Drop `quality` 11 to get the rows as before. Other parameters and datasets are
+  unchanged (GH-2000)
 
 ### Fixed
 
