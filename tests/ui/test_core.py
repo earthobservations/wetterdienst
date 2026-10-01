@@ -393,10 +393,12 @@ def test_point_on_the_equator_is_a_point(
     assert recorder.calls == [("point", (0.0, 8.97))]
 
 
-def test_select_history_sections_keeps_station_id() -> None:
-    """Test a history narrowed to some sections still names its station, first as in the history."""
+def test_select_history_sections_keeps_station_and_dataset() -> None:
+    """Test a history narrowed to some sections still names its station and dataset, first as in the history."""
     history = {
         "station_id": "01048",
+        "resolution": "daily",
+        "dataset": "climate_summary",
         "name": {"station": [], "operator": []},
         "parameter": [],
         "device": [],
@@ -404,4 +406,9 @@ def test_select_history_sections_keeps_station_id() -> None:
         "missing_data": {"summary": [], "periods": []},
     }
     selected = core.select_history_sections(history, {"missing_data"})
-    assert list(selected.items()) == [("station_id", "01048"), ("missing_data", {"summary": [], "periods": []})]
+    assert list(selected.items()) == [
+        ("station_id", "01048"),
+        ("resolution", "daily"),
+        ("dataset", "climate_summary"),
+        ("missing_data", {"summary": [], "periods": []}),
+    ]

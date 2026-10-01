@@ -132,11 +132,19 @@ class _MissingDataHistory(BaseModel):
 
 
 class History(BaseModel):
-    """Model for history data."""
+    """Model for history data.
+
+    A collector yields one history per station and dataset when the provider keeps its station
+    metadata per dataset, as DWD observation does, so `resolution` and `dataset` say which one an
+    entry belongs to. A provider whose history covers the station as a whole would give them as None.
+    """
 
     # the station the history belongs to, spelt as in the stations frame, so a history whose
     # sections hold no records still names its station
     station_id: str
+    # the resolution and dataset the history was read for, spelt as in the stations and values frames
+    resolution: str | None
+    dataset: str | None
     name: _NameHistory
     parameter: list[_ParameterHistory] = Field(default_factory=list)
     device: list[_DeviceHistory] = Field(default_factory=list)
