@@ -26,7 +26,9 @@ const isQueryMode = ref(false)
 
 // Query state
 const query = ref(`SELECT * FROM data LIMIT 100`)
-const queryResults = ref<Value[]>([])
+// the rows of the run that answered last, null while none has: a result of no rows is a result,
+// which the table shows empty and the panel tells (GH-2163)
+const queryResults = ref<Value[] | null>(null)
 const isExecuting = ref(false)
 const error = ref<string | null>(null)
 const warning = ref<string | null>(null)
@@ -147,23 +149,30 @@ async function loadDataIntoDB(rows: Value[], superseded: () => boolean) {
   // Every column any row carries, in the order they first appear, a DOUBLE where it holds numbers
   // and nothing else but nulls, found in one pass over the rows: the first row alone left out a
   // column only later rows carry, and made one it held null in VARCHAR, which `avg` and `>` refuse.
-  // A column with no value at all stays VARCHAR, which compares with a string where a DOUBLE fails
-  const kinds = new Map<string, 'none' | 'number' | 'text'>()
+  // A column with no value at all stays VARCHAR, which compares with a string where a DOUBLE fails.
+  // A column of lists and nulls, an interpolation's `taken_station_ids`, is a VARCHAR[], which
+  // `list_contains` and `unnest` take, where its lists went in as their text joined by commas
+  const kinds = new Map<string, 'none' | 'number' | 'list' | 'text'>()
   for (const row of rows) {
     for (const [col, value] of Object.entries(row)) {
       const kind = kinds.get(col) ?? 'none'
-      if (value === null || value === undefined)
+      if (value === null || value === undefined) {
         kinds.set(col, kind)
-      else if (typeof value !== 'number')
-        kinds.set(col, 'text')
-      else if (kind === 'none')
-        kinds.set(col, 'number')
+        continue
+      }
+      const found = typeof value === 'number' ? 'number' : Array.isArray(value) ? 'list' : 'text'
+      // a column holding values of two kinds is text
+      kinds.set(col, kind === 'none' || kind === found ? found : 'text')
     }
   }
   const columns = [...kinds.keys()]
-  const columnDefs = columns.map(col => `"${col}" ${kinds.get(col) === 'number' ? 'DOUBLE' : 'VARCHAR'}`).join(', ')
+  const types = { none: 'VARCHAR', number: 'DOUBLE', list: 'VARCHAR[]', text: 'VARCHAR' }
+  const columnDefs = columns.map(col => `"${col}" ${types[kinds.get(col)!]}`).join(', ')
 
   await conn.query(`CREATE TABLE data (${columnDefs})`)
+
+  // A value as an SQL string, its single quotes escaped
+  const text = (value: unknown) => `'${String(value).replace(/'/g, '\'\'')}'`
 
   // Insert data in batches to avoid query size limits
   const batchSize = 100
@@ -176,10 +185,12 @@ async function loadDataIntoDB(rows: Value[], superseded: () => boolean) {
         const value = field(row, col)
         if (value === null || value === undefined)
           return 'NULL'
+        // a list as a list literal, `['01048', '04411']`
+        if (kinds.get(col) === 'list')
+          return `[${(value as unknown[]).map(item => item === null || item === undefined ? 'NULL' : text(item)).join(', ')}]`
         if (typeof value === 'number')
           return value
-        // Escape single quotes in strings
-        return `'${String(value).replace(/'/g, '\'\'')}'`
+        return text(value)
       }).join(', ')
       return `(${vals})`
     }).join(', ')
@@ -362,8 +373,8 @@ function leaveRun() {
 // which would read as its own (GH-2138)
 function fail(message: string) {
   error.value = message
-  if (queryResults.value.length > 0) {
-    queryResults.value = []
+  if (queryResults.value) {
+    queryResults.value = null
     emit('dataTransformed', props.data)
   }
 }
@@ -476,7 +487,7 @@ function disableQueryMode() {
   leaveRun()
   isExecuting.value = false
   isQueryMode.value = false
-  queryResults.value = []
+  queryResults.value = null
   error.value = null
   warning.value = null
   columnValidationMessage.value = null
@@ -655,7 +666,7 @@ onUnmounted(async () => {
         />
 
         <!-- Results Info -->
-        <div v-if="queryResults.length > 0" class="text-sm font-medium text-green-600 dark:text-green-400">
+        <div v-if="queryResults" class="text-sm font-medium text-green-600 dark:text-green-400">
           ✓ Query executed successfully: {{ queryResults.length }} row(s) returned
         </div>
       </div>

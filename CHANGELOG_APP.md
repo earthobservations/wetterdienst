@@ -18,6 +18,12 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` The query panel loads an interpolation's `taken_station_ids` as a list, which
+  `list_contains` and `unnest` take, where it loaded them as text joined by commas and refused both;
+  a query's result hands the column on as a list (GH-2162)
+- `[Explorer]` A query that returns no rows shows an empty table and "0 row(s) returned", where the
+  table went on showing every fetched row with no word, as if the query had filtered nothing. Cancel
+  brings the fetched rows back (GH-2163)
 - `[Explorer]` A refused request is told in the error toast by each parameter and what is wrong
   with it -- "station: Cannot be combined with name" -- where a 422 showed `[object Object]`. A
   GeoJSON download the backend refuses shows that toast instead of saving the error as the file and

@@ -1079,3 +1079,55 @@ describe('queryPanel query left running', () => {
     expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(rows)
   })
 })
+
+describe('queryPanel column of lists', () => {
+  // an interpolated row, whose `taken_station_ids` the REST API answers as a list
+  const { parameter: _parameter, value: _value, quality: _quality, ...key } = data[0]!
+  const interpolated = (ids: unknown, value = 1.5) => ({ ...key, parameter: 'temperature_air_mean_2m', value, distance_mean: 3.25, taken_station_ids: ids })
+
+  it('loads a column of lists as lists, which list_contains and unnest take, and hands them on as lists', async () => {
+    // the lists went in as their text, '01048,04411', which list_contains and unnest refused
+    const rows = [interpolated(['01048', '04411']), interpolated(['O\'Hare', null], 2.5), interpolated(null, 3.5)] as unknown as Value[]
+    const wrapper = await queryMode(rows)
+    await wrapper.find('textarea').setValue('SELECT *, len(taken_station_ids) AS n FROM data WHERE list_contains(taken_station_ids, \'01048\') OR list_contains(taken_station_ids, \'O\'\'Hare\') ORDER BY value')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual([
+      { ...rows[0], n: 2 },
+      { ...rows[1], n: 2 },
+    ])
+    await wrapper.find('textarea').setValue('SELECT unnest(taken_station_ids) AS id FROM data ORDER BY id')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(2))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![1]![0]).toEqual([{ id: '01048' }, { id: '04411' }, { id: 'O\'Hare' }, { id: null }])
+  })
+
+  it.each([
+    { order: 'text first', rows: [interpolated('01048'), interpolated(['01048', '04411'], 2.5)] },
+    { order: 'list first', rows: [interpolated(['01048', '04411'], 2.5), interpolated('01048')] },
+  ])('keeps a column holding lists and text as text, $order', async ({ rows }) => {
+    const wrapper = await queryMode(rows as unknown as Value[])
+    await wrapper.find('textarea').setValue('SELECT taken_station_ids FROM data ORDER BY value')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual([{ taken_station_ids: '01048' }, { taken_station_ids: '01048,04411' }])
+  })
+})
+
+describe('queryPanel result of no rows', () => {
+  it('tells a query that returned no rows, and hands back the fetched rows when the next fails', async () => {
+    // nothing told a query that matched nothing, and a failing query after it handed nothing back
+    const wrapper = await queryMode()
+    await wrapper.find('textarea').setValue('SELECT * FROM data WHERE value > 100000')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual([])
+    expect(wrapper.text()).toContain('Query executed successfully: 0 row(s) returned')
+    await wrapper.find('textarea').setValue('SELECT * FROM data WHERE valu > 1')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(2))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![1]![0]).toBe(data)
+    expect(wrapper.text()).toContain('Query error')
+    expect(wrapper.text()).not.toContain('Query executed successfully')
+  })
+})

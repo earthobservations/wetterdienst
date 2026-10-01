@@ -287,9 +287,11 @@ const displayData = computed(() => isDataTransformed.value ? transformedData.val
 // hands back the fetched rows themselves changes nothing shown and aborts nothing.
 watch(displayData, () => abortGeojson(), { flush: 'sync' })
 
+// The query panel's rows, shown in place of the fetched rows also when a query returned none, where
+// the table went on showing the fetched rows (GH-2163); the fetched rows themselves are its way back
 function handleDataTransformed(data: Value[]) {
   transformedData.value = data
-  isDataTransformed.value = data.length > 0 && data !== allValues.value
+  isDataTransformed.value = data !== allValues.value
 }
 
 // The table's own columns, in its order, each with the cell it shows where that is other than the
