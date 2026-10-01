@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from freezegun import freeze_time
 
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
@@ -954,6 +955,11 @@ def test_dmo_the_run_is_read_once_per_product_per_request(monkeypatch: pytest.Mo
     assert len(listed) == 1
 
 
+# the stamps carry no month, so they are dated against the clock: on the afternoon of 1 August the
+# 12 UTC run of that day is out and the 31st is July's. Unpinned, the 31st was dated in the month
+# before today's (two before, in the first hours of a month), and where that month has 30 days or
+# fewer the date does not exist, the runs could not be read, and the test failed (GH-2171)
+@freeze_time(dt.datetime(2026, 8, 1, 13, tzinfo=ZoneInfo("UTC")))
 def test_dmo_the_newest_run_describes_the_stations(monkeypatch: pytest.MonkeyPatch) -> None:
     """A station list read from a run should be the current one, not whichever the directory names first.
 
@@ -977,17 +983,6 @@ def test_dmo_the_newest_run_describes_the_stations(monkeypatch: pytest.MonkeyPat
     def listing(url: str, *_args: object, **_kwargs: object) -> list[str]:
         return [f"{url}/{name}" for name in runs]
 
-    # the stamps carry no month, so they are dated against the clock: pinned to the afternoon of
-    # 1 August, the 12 UTC run of that day is out and the 31st is July's. Unpinned, the 31st was
-    # dated in the month before today's (two before, in the first hours of a month), and where that
-    # month has 30 days or fewer the date does not exist, the runs could not be read, and the test
-    # failed (GH-2171). Naive, as the provider passes its UTC clock
-    now = dt.datetime(2026, 8, 1, 13, tzinfo=ZoneInfo("UTC")).replace(tzinfo=None)
-    monkeypatch.setattr(
-        api,
-        "add_date_from_filename",
-        lambda df, _current_date: add_date_from_filename(df, now),
-    )
     monkeypatch.setattr(api, "list_remote_files_fsspec", listing)
     monkeypatch.setattr(
         api.KMLReader,
