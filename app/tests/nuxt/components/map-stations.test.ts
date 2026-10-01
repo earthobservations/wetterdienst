@@ -499,3 +499,28 @@ describe('mapStations when leaflet.markercluster fails to load', () => {
     expect(error).toHaveBeenCalledWith('The station markers could not be built', expect.any(TypeError))
   })
 })
+
+describe('mapStations bounds of many stations', () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+  })
+
+  it('bounds the map on more stations than a call takes arguments, where it threw', async () => {
+    // past V8's argument limit of about 120k, as NOAA GHCN daily lists, on a grid of 400 latitudes
+    // by 500 longitudes whose corners are the bounds
+    const count = 200_000
+    const stations = Array.from({ length: count }, (_, i) => ({
+      station_id: String(i),
+      name: `Station ${i}`,
+      region: null,
+      latitude: -80 + (i % 400) * 0.4,
+      longitude: -170 + Math.floor(i / 400) * 0.68,
+    }))
+    wrapper = await mountSuspended(MapStations, { props: { stations, selectedStations: [] } })
+    const bounds = (wrapper.vm as any).mapBounds
+    expect([bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()]).toEqual([-80, -170, -80 + 399 * 0.4, -170 + 499 * 0.68])
+  })
+})

@@ -18,6 +18,9 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` The station map's "Center on all stations" fits the map to a network of any number of
+  stations, where it did nothing past about 120,000 stations (65,536 in Safari), as NOAA GHCN daily
+  lists (GH-2189)
 - `[Explorer]` The chart's trendline is drawn for a series of any number of points, where the chart
   was not drawn once the trendline was ticked past about 120,000 points (65,536 in Safari), as three
   years of one station's 10-minute data (GH-2189)
