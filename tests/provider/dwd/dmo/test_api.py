@@ -166,14 +166,14 @@ def test_dwd_dmo_available_issues(default_settings: Settings) -> None:
         pytest.param([], "a listing that failed looks the same", id="directory-holding-nothing"),
         pytest.param(
             ["https://example.com/kmz/README.txt"],
-            "is a forecast file",
+            "is a 78 h forecast",
             id="nothing-that-is-a-forecast",
         ),
         pytest.param(
             # six digits and a strip of four is not a forecast file: the extension says so, and
             # `.kmz.md5` failing the stamp test is luck rather than a rule
             ["https://example.com/kmz/ptp_gdmog_10147_078_1_210000.txt"],
-            "is a forecast file",
+            "is a 78 h forecast",
             id="a-sidecar-that-survives-the-strip",
         ),
     ],
@@ -1384,3 +1384,40 @@ def test_dmo_a_run_in_feet_as_recorded_says_nothing(caplog: pytest.LogCaptureFix
         df = _placemark_metadata(run)
     assert df.height == len(_ELEVATION_IN_FEET)
     assert caplog.records == []
+
+
+# one run per lead time, an hour apart, so which was listed is visible in the answer
+_ONE_RUN_PER_LEAD_TIME = [
+    "https://example.com/kmz/ptp_gdmog_01001_078_1_010000.kmz",
+    "https://example.com/kmz/ptp_gdmog_01001_168_3_011200.kmz",
+]
+
+
+def test_dmo_available_issues_lists_by_default_the_runs_a_default_request_accepts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With no lead time given, the runs of the `078` file alone, as `DwdDmoRequest` defaults to.
+
+    It listed every lead time, so `wetterdienst issues --provider dwd --network dmo` named runs of
+    the `168` file that the default `values` request then rejected with `IndexError: Unable to find
+    a 078 h forecast within ...` (GH-2009). The CLI passes no lead time unless one is given, so it
+    is asked here too, and `get_issues`, which the CLI and the REST API reach it through.
+    """
+    import json  # noqa: PLC0415
+
+    from click.testing import CliRunner  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+    from wetterdienst.ui.cli import cli  # noqa: PLC0415
+    from wetterdienst.ui.core import IssuesRequest, get_issues  # noqa: PLC0415
+
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: _ONE_RUN_PER_LEAD_TIME)
+
+    assert [issue.hour for issue in DwdDmoRequest.available_issues("01001", Settings())] == [0]
+    request = IssuesRequest(provider="dwd", network="dmo", station="01001")
+    listed = get_issues(api=DwdDmoRequest, request=request, settings=Settings())
+    assert [dt.datetime.fromisoformat(issue).hour for issue in listed] == [0]
+    result = CliRunner().invoke(cli, ["issues", "--provider=dwd", "--network=dmo", "--station=01001"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == {"issues": listed}
+

@@ -636,7 +636,7 @@ class DwdDmoRequest(TimeseriesRequest):
         *,
         dataset: DatasetModel | str = "icon",
         station_group: DwdDmoStationGroup | str | None = None,
-        lead_time: DwdDmoLeadTime | str | None = None,
+        lead_time: DwdDmoLeadTime | str | None = DwdDmoLeadTime.SHORT,
     ) -> list[dt.datetime]:
         """Return the run start times DWD publishes for one product, in ascending UTC order.
 
@@ -651,9 +651,11 @@ class DwdDmoRequest(TimeseriesRequest):
         the one the values path reads.
 
         The defaults are `DwdDmoRequest`'s own, so what this answers with no arguments is what a
-        request built with no arguments accepts. Pass `lead_time=None` for the old behaviour of
-        listing the runs of every lead time together, which is a question about the directory rather
-        than about anything that can be asked for.
+        request built with no arguments accepts. `lead_time` defaulted to `None` until GH-2009, and
+        so pooled the runs of both lead times: `wetterdienst issues` named runs of the `168` file
+        that the default `values` request then rejected. Pass `lead_time=None` to list the runs of
+        every lead time together, which is a question about the directory rather than about anything
+        that can be asked for.
 
         Args:
             station_id: The station to answer for, where the product is published per station.

@@ -79,6 +79,10 @@ Types of changes:
   the unit targets, not to SI units: temperature stays in °C by default. The overview that listed
   options under commands that do not take them is gone, the `--sql_values` example on a column
   runs in the wide shape it needs, and the README counts nearly 600 parameters, not 514 (GH-2021)
+- `DwdDmoRequest.available_issues` lists the runs of `lead_time="short"` by default, as its
+  docstring said and a default request reads; it listed every lead time, so `wetterdienst issues`
+  and `/api/issues` named runs the default `values` request rejected with `IndexError`. Pass
+  `lead_time=None` to list every lead time together (GH-2009)
 
 ## [0.139.0] - 2026-09-29
 
