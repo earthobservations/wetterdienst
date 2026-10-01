@@ -83,6 +83,10 @@ Types of changes:
   longer passed to the database driver, which refused it as a connection option, so no such target
   could be written to. The rest of the query, such as `sslmode` or `charset`, still reaches the
   driver (GH-1974)
+- On Windows, a request that downloads many files at once with a cache no longer fails with
+  `PermissionError: [Errno 13]` when two of its download threads read and replace the cache's
+  metadata file at the same time; the threads of one process now take turns. Two processes
+  sharing a cache directory can still meet that way (GH-1990)
 
 ## [0.139.0] - 2026-09-29
 
