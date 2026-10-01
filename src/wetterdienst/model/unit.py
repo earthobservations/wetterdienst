@@ -391,13 +391,11 @@ class UnitConverter:
         every order of magnitude the conversion makes a value smaller by. A fixed four rounded away
         what a much larger target holds of a reading: 5 cm is 0.0000311 miles, 0.0 at four decimals.
         Scaled like this, a converted value keeps at least the precision three decimals would give
-        it in the source unit, whatever unit it is reported in. A conversion that keeps a value
-        within one order of magnitude, or makes it larger, keeps four.
+        it in the source unit, whatever unit it is reported in. A conversion that shrinks a value by
+        less than a factor of ten, or makes it larger, keeps four.
         """
         factor = abs(self.increment_factor(source, target))
-        # the tolerance keeps a factor of an exact power of ten, which floats may put a hair off it,
-        # at the order of magnitude it is
-        return 4 + max(0, math.floor(-math.log10(factor) + 1e-9))
+        return 4 + max(0, math.floor(-math.log10(factor)))
 
     def update_targets(self, targets: dict[str, str]) -> None:
         """Update the target units for each unit type.
