@@ -1,5 +1,5 @@
 import type { DuckDBConnection } from '@duckdb/duckdb-wasm/blocking'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { validateColumns, validateQuery } from '../../app/utils/query-validator'
 import { nodeDuckDB } from '../duckdb-node'
 
@@ -341,5 +341,62 @@ describe('validateQuery keywords, as DuckDB reads them', () => {
   it('refuses a text of Unicode spaces only as empty, and a word that is SELECT outside ASCII only', () => {
     expect(validateQuery('\u200B\u2060')).toEqual({ valid: false, errorKey: 'validation.queryEmpty' })
     expect(validateQuery('ſelect 1')).toEqual({ valid: false, errorKey: 'validation.onlySelect' })
+  })
+})
+
+describe('validateQuery words that are keywords elsewhere', () => {
+  let conn: DuckDBConnection
+
+  beforeAll(async () => {
+    conn = (await nodeDuckDB()).connect()
+  })
+
+  // each case starts from the one row, as a refused case writes when run
+  beforeEach(() => {
+    conn.query('CREATE OR REPLACE TABLE data AS SELECT 1 AS value, \'010\' AS station_id')
+  })
+
+  function rows(): unknown[] {
+    return conn.query('SELECT * FROM data').toArray().map(row => row.toJSON())
+  }
+
+  it.each([
+    'SELECT replace(station_id, \'0\', \'\') AS s FROM data LIMIT 10',
+    'SELECT * REPLACE (value * 10 AS value) FROM data LIMIT 10',
+    'SELECT station_id.replace(\'0\', \'x\') AS s FROM data LIMIT 10',
+  ])('lets the read-only REPLACE of %j through', (sql) => {
+    const before = rows()
+    expect(validateQuery(sql)).toEqual({ valid: true, statement: sql })
+    expect(conn.query(sql).numRows).toBe(1)
+    expect(rows()).toEqual(before)
+  })
+
+  it.each([
+    ['CREATE OR REPLACE TABLE data AS SELECT 2 AS value', 'validation.onlySelect', undefined],
+    ['WITH x AS (SELECT 2, \'a\') INSERT OR REPLACE INTO data SELECT * FROM x', 'validation.disallowedOperation', { op: 'INSERT' }],
+  ])('refuses %j, a statement REPLACE joins, by the SELECT-only check or INSERT', (sql, errorKey, params) => {
+    expect(validateQuery(sql)).toEqual({ valid: false, errorKey, ...(params && { params }) })
+  })
+
+  it.each([
+    'SELECT 1 AS update FROM data LIMIT 1',
+    'SELECT t.delete FROM (SELECT 1 AS "delete") t LIMIT 1',
+    'SELECT 1 AS create, 2 AS /* a name */ insert, m.drop FROM (SELECT 3 AS drop) AS m, data AS merge LIMIT 1',
+  ])('lets %j through, its keywords names after AS or a \'.\'', (sql) => {
+    const before = rows()
+    expect(validateQuery(sql)).toEqual({ valid: true, statement: sql })
+    expect(conn.query(sql).numRows).toBe(1)
+    expect(rows()).toEqual(before)
+  })
+
+  it.each([
+    ['WITH x AS (SELECT 1 AS update) UPDATE data SET value = 2', 'UPDATE'],
+    ['WITH x AS (SELECT 1 AS delete) DELETE FROM data', 'DELETE'],
+    ['WITH x AS (SELECT 5 AS value, \'a\' AS station_id) MERGE INTO data AS t USING x ON false WHEN NOT MATCHED THEN INSERT VALUES (5, \'a\')', 'MERGE'],
+  ])('refuses %j, which writes, by its keyword after the CTE', (sql, op) => {
+    expect(validateQuery(sql)).toEqual({ valid: false, errorKey: 'validation.disallowedOperation', params: { op } })
+    const before = rows()
+    conn.query(sql)
+    expect(rows()).not.toEqual(before)
   })
 })

@@ -18,6 +18,16 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` The SQL query panel runs the string function `replace()` and
+  `SELECT * REPLACE (...)`, and takes a refused keyword after `AS` or a `.` for a name, as in
+  `1 AS update` or `t.delete`, where it refused each as a disallowed operation. A query that writes
+  is still refused (GH-2181)
+- `[Explorer]` The chart faceted by parameter gives each station one colour in every facet, where a
+  station took another colour in a facet that lacked a station before it or listed the stations in
+  another order (GH-2178)
+- `[Explorer]` The parameter statistics show for a parameter of any number of values, where they
+  failed to show past about 120,000 values (65,536 in Safari), as three years of one station's
+  10-minute data or a year of daily data for 400 stations (GH-2179)
 - `[Explorer]` The query panel loads an interpolation's `taken_station_ids` as a list, which
   `list_contains` and `unnest` take, where it loaded them as text joined by commas and refused both;
   a query's result hands the column on as a list (GH-2162)
@@ -228,6 +238,9 @@ Types of changes:
   zoom (GH-2164)
 - `[Explorer/History/Stripes/Meteogram]` The station map no longer writes a warning holding the
   whole selection to the browser console each time the selection changes (GH-2168)
+- `[Explorer/History/Stripes/Meteogram]` A station map whose markers cannot be built, as when the
+  app was redeployed under an open tab, says so above the map and asks for a reload. The map stayed
+  empty without a word (GH-2185)
 - `[Stripes]` The stripes are labelled with the years the backend gives in a browser west of UTC,
   where every stripe's year, as its hover and the first and last years shown give it, was one year
   early (GH-2184)
