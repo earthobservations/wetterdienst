@@ -25,7 +25,7 @@ wetterdienst values \
 `cratedb`, `postgresql`, `mysql`), imported only when its target is used, so install the one you
 schedule or the run fails at the very end, after the download. A bare `postgresql://` target
 writes through psycopg 3, which the `postgresql` extra installs; `postgresql+psycopg2://…` needs
-psycopg2 installed beside it.
+`pip install psycopg2-binary` beside it.
 
 Three properties of the CLI matter for a scheduler:
 
