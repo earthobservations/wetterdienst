@@ -60,6 +60,10 @@ let Plotly: typeof import('plotly.js-basic-dist-min') | null = null
 // Plotly is ~1 MB, and the default view is the table -- so it is fetched when a chart is first
 // actually wanted rather than on mount. The promise is kept so concurrent callers share one import.
 let plotlyImport: Promise<typeof import('plotly.js-basic-dist-min')> | null = null
+// Plotly's newest import failed. Where a redeploy has replaced its chunk, a Retry asks for the same
+// chunk again and fails every time, and only reloading the page loads the new one: the chart area
+// says so, and offers the reload
+const plotlyNotLoaded = ref(false)
 
 async function ensurePlotly(): Promise<typeof import('plotly.js-basic-dist-min')> {
   if (Plotly)
@@ -69,10 +73,18 @@ async function ensurePlotly(): Promise<typeof import('plotly.js-basic-dist-min')
   // redeploy invalidating the hashed chunk under an open tab.
   plotlyImport ??= import('plotly.js-basic-dist-min').catch((error) => {
     plotlyImport = null
+    plotlyNotLoaded.value = true
     throw error
   })
   Plotly = await plotlyImport
+  plotlyNotLoaded.value = false
   return Plotly
+}
+
+function reloadPage() {
+  // forced: the user's click, not a reload loop, which is what Nuxt's guard stops. Unforced, a
+  // second click within ten seconds of a first that did not help would do nothing
+  reloadNuxtApp({ force: true })
 }
 
 // Parameter label format options and chart display
@@ -693,19 +705,21 @@ function calculateLinearRegression(xData: Date[], yData: number[]): { x: Date[],
   let sumY = 0
   let sumXY = 0
   let sumXX = 0
+  // taken in the loop, where Math.min(...xNums) threw past about 120k points (65,536 in Safari)
+  let minX = Infinity
+  let maxX = -Infinity
 
   for (let i = 0; i < n; i++) {
     sumX += xNums[i]!
     sumY += yData[i]!
     sumXY += xNums[i]! * yData[i]!
     sumXX += xNums[i]! * xNums[i]!
+    minX = Math.min(minX, xNums[i]!)
+    maxX = Math.max(maxX, xNums[i]!)
   }
 
   const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
   const intercept = (sumY - slope * sumX) / n
-
-  const minX = Math.min(...xNums)
-  const maxX = Math.max(...xNums)
 
   return {
     x: [new Date(minX), new Date(maxX)],
@@ -1382,12 +1396,21 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
           <div v-else class="py-4">
             <div
               v-if="chartNotDrawn"
-              class="flex items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
+              class="flex flex-wrap items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
             >
               <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
                    button stays, and keeps its focus -->
-              <span :key="shownRenders().failures" role="alert" class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+              <span :key="shownRenders().failures" role="alert" class="text-center">
+                <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+                <!-- a sentence apart from the note, which ends with no full stop: the alert's text, as
+                     a screen reader reads it, otherwise runs the two together -->
+                <template v-if="plotlyNotLoaded">
+                  <span class="sr-only">{{ '. ' }}</span>
+                  <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
+                </template>
+              </span>
               <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
+              <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
             </div>
             <div
               v-if="allValues.length === 0 && fetchErrorMessage"

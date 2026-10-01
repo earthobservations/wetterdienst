@@ -1,7 +1,7 @@
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelection } from '~/types/parameter-selection-state.type'
 import type { StationSelectionState } from '~/types/station-selection-state.type'
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { getQuery, setResponseStatus } from 'h3'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -58,6 +58,11 @@ const plotly = vi.hoisted(() => {
   }
 })
 vi.mock('plotly.js-basic-dist-min', () => plotly)
+
+// Nuxt's reload of the page, for every test in the file: the test's document, whose address earlier
+// tests' downloads have moved, does not take it
+const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
+mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
 
 const settings: DataSettings = {
   humanize: true,
@@ -2023,6 +2028,57 @@ describe('dataViewer chart image whose export fails', () => {
   })
 })
 
+describe('dataViewer chart whose Plotly chunk a redeploy replaced', () => {
+  // A redeploy replaces Plotly's hashed chunk under an open tab: every Retry asks for the gone chunk
+  // again and fails, and only reloading the page loads the new one, which nothing said
+  const button = (label: string) => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === label)
+  const note = () => button('Retry')?.parentElement?.querySelector('[role="alert"]')?.textContent?.trim()
+  const hint = 'If trying again does not help, reload the page.'
+
+  afterEach(() => {
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    reloadNuxtApp.mockClear()
+  })
+
+  async function shownWithoutPlotly(faceted: boolean) {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const mountedViewer = await mountDataViewer()
+    await fetchData(mountedViewer.viewer)
+    vi.doMock('plotly.js-basic-dist-min', () => {
+      throw new Error('chunk failed to load')
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await showChart(mountedViewer.wrapper, faceted)
+    await vi.waitFor(() => expect(button('Retry')).toBeDefined())
+    return mountedViewer
+  }
+
+  it.each([false, true])('says to reload the page, and reloads it, where Plotly failed to load, faceted: %s', async (faceted) => {
+    await shownWithoutPlotly(faceted)
+    // the two apart, as a screen reader reads the alert
+    expect(note()).toBe(`The chart could not be drawn. Its code could not be loaded. ${hint}`)
+    button('Reload page')!.click()
+    // forced: unforced, Nuxt drops a second click within ten seconds of a first that did not help
+    expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
+  })
+
+  it.each([false, true])('offers no reload once Plotly loaded and only its drawing failed, faceted: %s', async (faceted) => {
+    // a reload loads nothing the drawing needs: Retry is the way
+    await shownWithoutPlotly(faceted)
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    const draw = faceted ? plotly.react : plotly.newPlot
+    draw.mockRejectedValueOnce(new Error('drawing failed'))
+    const calls = draw.mock.calls.length
+    button('Retry')!.click()
+    // the module loaded anew, which a busy runner can take a while over
+    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 1), { timeout: 5000 })
+    await flushPromises()
+    expect(note()).toContain('The chart could not be drawn')
+    expect(note()).not.toContain(hint)
+    expect(button('Reload page')).toBeUndefined()
+  })
+})
+
 describe('dataViewer facets\' station colours', () => {
   // each facet's series as it was last drawn, each by its name and colour, by the facet's parameter
   function facetsDrawn() {
@@ -2072,4 +2128,24 @@ describe('dataViewer parameter statistics of many values', () => {
       { parameter: 'temperature_air_mean_2m', dataset: '', count, min: -100_000, max: 99_999, mean: sum / count, sum },
     ])
   })
+})
+
+describe('dataViewer trendline of many points', () => {
+  it('draws the trendline of a series of more points than a call takes arguments, where it threw', async () => {
+    // past V8's argument limit of about 120k, as 3 years of one station's 10-minute values, each
+    // ten minutes on and one more than the last
+    const count = 200_000
+    const start = Date.UTC(2020, 0, 1)
+    const rows = Array.from({ length: count }, (_, i) => ({ ...row, timestamp: new Date(start + i * 600_000).toISOString(), value: i }))
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery(rows)
+    await showChart(wrapper, false)
+    await toggleTrendline(wrapper)
+    // each drawing sorts and formats every point, which a busy runner can take a while over
+    await vi.waitFor(() => expect(lastDrawn(false).traces).toHaveLength(2), { timeout: 10_000 })
+    const [, trend] = lastDrawn(false).traces
+    expect(trend!.x).toEqual([new Date(start).toISOString(), new Date(start + (count - 1) * 600_000).toISOString()])
+    expect(trend!.y[0]).toBeCloseTo(0, 0)
+    expect(trend!.y[1]).toBeCloseTo(count - 1, 0)
+  }, 30_000)
 })
