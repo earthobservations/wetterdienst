@@ -332,6 +332,17 @@ function getSortIcon(column: string) {
   return sortDirection.value === 'asc' ? '↑' : '↓'
 }
 
+// An integer past 2^53 as plainRows writes it, its digits with no leading zero, as its value; any
+// other text is none: digits within 2^53, such as a station's `01048`, and digits with a leading
+// zero, which would tie with the same value written without. Text shorter than 2^53's sixteen digits
+// is told at once, as the comparator asks for each value many times over
+function bigIntegerValue(value: unknown): bigint | undefined {
+  if (typeof value !== 'string' || value.length < 16 || !/^-?[1-9]\d*$/.test(value))
+    return undefined
+  const integer = BigInt(value)
+  return Number.isSafeInteger(Number(integer)) ? undefined : integer
+}
+
 const sortedValues = computed(() => {
   const column = sortColumn.value
   // by a column the rows shown carry: one sorted by in other rows (a query's, left since) compares
@@ -351,14 +362,20 @@ const sortedValues = computed(() => {
     if (aMissing || bMissing)
       return Number(aMissing) - Number(bMissing)
 
-    let comparison = 0
-    if (typeof aVal === 'number' && typeof bVal === 'number') {
-      comparison = aVal - bVal
-    }
-    else {
+    // the numbers before the text, each compared within its kind: a number and text compared as text
+    // left no one order (2 < 10, '10000000000000000000' < 2, 10 < '10000000000000000000') for a
+    // query's column holding both. An integer past 2^53, which plainRows writes as its digits, is a
+    // number by its value (GH-2153). A NaN reaches no row, plainRows makes it null
+    const aNumber = typeof aVal === 'number' ? aVal : bigIntegerValue(aVal)
+    const bNumber = typeof bVal === 'number' ? bVal : bigIntegerValue(bVal)
+    let comparison: number
+    if (aNumber !== undefined && bNumber !== undefined)
+      comparison = aNumber < bNumber ? -1 : aNumber > bNumber ? 1 : 0
+    else if (aNumber !== undefined || bNumber !== undefined)
+      comparison = aNumber !== undefined ? -1 : 1
+    else
       // a query's struct by its JSON text, as a column of the rows' own shows it
       comparison = fieldText(aVal).localeCompare(fieldText(bVal))
-    }
 
     return sortDirection.value === 'asc' ? comparison : -comparison
   })
@@ -375,27 +392,14 @@ watch(allValues, () => {
 })
 
 // The mode the rows on screen were fetched in, and the selected one only while the table is empty:
-// the column picker, the query panel and the chart describe the rows shown, which a mode selected
-// since has not fetched. The request sent once its answer is in, which the fetch sets together with
-// its rows: fetchedRequest follows a few microtasks later, and the new rows were drawn in the mode of
-// the request before until then
+// the query panel and the chart describe the rows shown, which a mode selected since has not
+// fetched, and the column picker hides only its default columns again when it changes. The request
+// sent once its answer is in, which the fetch sets together with its rows: fetchedRequest follows a
+// few microtasks later, and the new rows were drawn in the mode of the request before until then
 const rowsMode = computed((): StationMode => {
   const answered = valuesStatus.value === 'success' ? sentRequest.value : fetchedRequest.value
   const request = allValues.value.length ? answered : null
   return request?.mode ?? stationSelection.value.mode
-})
-
-// The columns of the rows' mode, the mode-specific one only for rows of that mode: what the picker
-// offers while the table is empty
-const modeColumns = computed(() => {
-  const base: (keyof Value)[] = ['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality']
-  if (rowsMode.value === 'summary') {
-    return [...base, 'taken_station_id']
-  }
-  if (rowsMode.value === 'interpolation') {
-    return [...base, 'taken_station_ids']
-  }
-  return base
 })
 
 // The columns the table knows, in its order: the ones it, the picker and a download put first
@@ -408,10 +412,12 @@ const TABLE_ORDER: string[] = columnDefinitions.map(c => c.key)
 const queryColumns = computed(() => exportColumns(allValues.value, TABLE_ORDER))
 
 // The picker's options: every column the rows shown carry, as a download writes them -- the table's
-// own in its order first, then a wide-shaped table's parameters or a query's `avg_value` -- and the
-// mode's own while the table is empty. The nine fixed columns alone left those out, and showed a
-// wide table's `parameter`, `value` and `quality` empty
-const columnOptions = computed(() => displayData.value.length ? exportColumns(displayData.value, TABLE_ORDER) : modeColumns.value)
+// own in its order first, then a wide-shaped table's parameters or a query's `avg_value` -- and none
+// while the table is empty, when the picker is disabled. The nine fixed columns alone left those out,
+// and showed a wide table's `parameter`, `value` and `quality` empty; the mode's long-shaped columns,
+// offered while empty whatever the shape, were a guess at columns a Fetch may not bring, and one
+// hidden then stayed hidden once it did
+const columnOptions = computed(() => exportColumns(displayData.value, TABLE_ORDER))
 
 // The picker keeps the columns it hides rather than those it shows, so a column the rows bring along
 // is shown as it comes in; by default only `resolution` and `dataset` are hidden
@@ -1270,7 +1276,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         <div class="flex items-center gap-4">
           <div v-if="viewMode === 'table'" class="flex items-center gap-2">
             <span class="text-sm">{{ t('dataViewer.columns') }}:</span>
-            <USelectMenu v-model="selectedColumns" :items="columnOptions" multiple class="w-40" />
+            <USelectMenu v-model="selectedColumns" :items="columnOptions" :disabled="!columnOptions.length" multiple class="w-40" />
           </div>
           <div class="flex items-center gap-1">
             <template v-if="viewMode === 'table'">
