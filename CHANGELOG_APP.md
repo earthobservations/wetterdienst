@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Stripes]` `[Meteogram]` Where the chart's code could not be loaded, as after a new version of
+  the app was deployed under an open tab, the chart area says that reloading the page helps where
+  Retry does not, and offers a Reload page button, as the explorer's chart does. Retry asked for the
+  replaced code again and failed every time, with no word that only a reload would help (GH-2200)
 - `[Stripes]` A station's values that fail to load are told in the chart area, with the backend's
   reason or the answer's status, where nothing was said. Another station's stripes go as Show
   fetches the chosen one's, where they stayed. A fetch under way when Reset is clicked, the kind
