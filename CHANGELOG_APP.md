@@ -182,6 +182,9 @@ Types of changes:
 - `[Explorer]` Entering query mode after a Fetch checks the query again against the new rows. The
   syntax error shown, or its absence, was the answer for the rows fetched before, which could keep
   Run Query disabled for a query that was fine for the new rows (GH-2142)
+- `[Explorer/History/Stripes/Meteogram]` Collapsing "Choose on the map", or leaving the page, while
+  its markers are still being built no longer adds them to the removed map, which could throw an
+  error into the browser console (GH-2155)
 
 ## [0.17.0] - 2026-09-29
 

@@ -5,7 +5,7 @@ import MapStations from '~/components/MapStations.vue'
 
 // The markers handed to leaflet.markercluster; the map itself is left to the e2e tests.
 const { markerCluster } = vi.hoisted(() => ({
-  markerCluster: vi.fn(async ({ markers }: { markers: unknown[] }) => ({
+  markerCluster: vi.fn(async ({ markers }: { leafletObject: { addLayer: (layer: object) => unknown }, markers: unknown[] }) => ({
     markerCluster: { refreshClusters: () => {} },
     markers: markers.map(() => ({ on: (_event: string, _handler: () => void) => {}, setIcon: () => {} })),
   })),
@@ -139,18 +139,20 @@ describe('mapStations when its list changes while the markers are built', () => 
 
   // A cluster per call, whose markers keep their click handlers. The first call is held on a gate
   // until the test releases it, as the import of leaflet.markercluster holds it on a cold load.
+  // Like useLMarkerCluster(), each call adds its cluster to the map it is handed before returning.
   function clustersWithFirstHeld() {
     const clusters: { markerCluster: object, clicks: (() => void)[] }[] = []
     let release!: () => void
     const gate = new Promise<void>((resolve) => {
       release = resolve
     })
-    markerCluster.mockImplementation(async ({ markers }: { markers: unknown[] }) => {
+    markerCluster.mockImplementation(async ({ leafletObject, markers }: { leafletObject: { addLayer: (layer: object) => unknown }, markers: unknown[] }) => {
       const cluster = { markerCluster: { refreshClusters: () => {} }, clicks: [] as (() => void)[] }
       const first = clusters.length === 0
       clusters.push(cluster)
       if (first)
         await gate
+      leafletObject.addLayer(cluster.markerCluster)
       return {
         markerCluster: cluster.markerCluster,
         markers: markers.map(() => ({
@@ -167,23 +169,24 @@ describe('mapStations when its list changes while the markers are built', () => 
   async function mountBuilding(stations: unknown[]) {
     wrapper = await mountSuspended(MapStations, { props: { stations, selectedStations: [] } })
     const vm = wrapper.vm as any
+    const addLayer = vi.fn()
     const removeLayer = vi.fn()
-    vm.map = { leafletObject: { removeLayer, fitBounds: () => {} } }
+    vm.map = { leafletObject: { addLayer, removeLayer, fitBounds: () => {} } }
     const ready: Promise<void> = vm.onMapReady()
-    return { removeLayer, ready }
+    return { addLayer, removeLayer, ready }
   }
 
-  it('takes the older list\'s cluster off the map when it arrives after the newer one', async () => {
+  it('keeps the older list\'s cluster off the map when it arrives after the newer one', async () => {
     const { clusters, release } = clustersWithFirstHeld()
-    const { removeLayer, ready } = await mountBuilding([berlin])
+    const { addLayer, removeLayer, ready } = await mountBuilding([berlin])
 
     await wrapper!.setProps({ stations: [jan] })
     await vi.waitFor(() => expect(clusters).toHaveLength(2))
     release()
     await ready
 
-    expect(removeLayer).toHaveBeenCalledWith(clusters[0]!.markerCluster)
-    expect(removeLayer).not.toHaveBeenCalledWith(clusters[1]!.markerCluster)
+    expect(addLayer.mock.calls).toEqual([[clusters[1]!.markerCluster]])
+    expect(removeLayer).not.toHaveBeenCalled()
     // the older list's markers were never wired up, and the newer one's select their own station
     expect(clusters[0]!.clicks).toEqual([])
     clusters[1]!.clicks[0]!()
@@ -192,14 +195,29 @@ describe('mapStations when its list changes while the markers are built', () => 
 
   it('leaves the map empty when the list is cleared while the markers are built', async () => {
     const { clusters, release } = clustersWithFirstHeld()
-    const { removeLayer, ready } = await mountBuilding([berlin])
+    const { addLayer, ready } = await mountBuilding([berlin])
 
     await wrapper!.setProps({ stations: [] })
     release()
     await ready
 
     expect(clusters).toHaveLength(1)
-    expect(removeLayer).toHaveBeenCalledWith(clusters[0]!.markerCluster)
+    expect(addLayer).not.toHaveBeenCalled()
+    expect(clusters[0]!.clicks).toEqual([])
+  })
+
+  it('leaves a removed map alone when it goes while the markers are built', async () => {
+    const { clusters, release } = clustersWithFirstHeld()
+    const { addLayer, removeLayer, ready } = await mountBuilding([berlin])
+
+    // the "Choose on the map" section is collapsed: LMap removes its map
+    wrapper!.unmount()
+    wrapper = undefined
+    release()
+    await ready
+
+    expect(addLayer).not.toHaveBeenCalled()
+    expect(removeLayer).not.toHaveBeenCalled()
     expect(clusters[0]!.clicks).toEqual([])
   })
 })
