@@ -192,8 +192,24 @@ describe('plainRows of a map with a NaN or an infinite key', () => {
   })
 
   it('reads a map with an infinite timestamp key, which Arrow\'s getter cannot', () => {
-    // read only a float key from the getter, which throws on these ticks; the keys collide (GH-2148)
+    // read only a float key from the getter, which throws on these ticks
     expect(() => rows('SELECT MAP {\'infinity\'::TIMESTAMP: 1, \'-infinity\'::TIMESTAMP: 2} AS m')).not.toThrow()
+  })
+})
+
+describe('plainRows of a map with an infinite date or timestamp key', () => {
+  it('keeps each such key apart, by DuckDB\'s text', () => {
+    // each was keyed by "null", the last one's value the only one kept (GH-2148)
+    const finite = '2020-01-01T00:00:00.000000+00:00'
+    expect(value('SELECT MAP {\'infinity\'::DATE: 1, \'-infinity\'::DATE: 2, DATE \'2020-01-01\': 3}')).toEqual({ 'infinity': 1, '-infinity': 2, [finite]: 3 })
+    for (const type of ['TIMESTAMP', 'TIMESTAMPTZ', 'TIMESTAMP_S', 'TIMESTAMP_MS', 'TIMESTAMP_NS'])
+      expect(value(`SELECT MAP {'infinity'::${type}: 1, '-infinity'::${type}: 2, TIMESTAMP '2020-01-01'::${type}: 3}`), type).toEqual({ 'infinity': 1, '-infinity': 2, [finite]: 3 })
+  })
+
+  it('gives each row its own keys across the chunks a large result comes in', () => {
+    const plain = rows('SELECT MAP {(CASE WHEN range % 2 = 0 THEN \'infinity\' ELSE \'-infinity\' END)::DATE: range} AS d, MAP {(CASE WHEN range % 2 = 0 THEN \'-infinity\' ELSE \'infinity\' END)::TIMESTAMP: range} AS t FROM range(5000)')
+    expect(plain[0]).toEqual({ d: { infinity: 0 }, t: { '-infinity': 0 } })
+    expect(plain[4999]).toEqual({ d: { '-infinity': 4999 }, t: { infinity: 4999 } })
   })
 })
 
