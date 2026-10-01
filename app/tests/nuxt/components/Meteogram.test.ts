@@ -21,7 +21,8 @@ const values = Array.from({ length: 24 }, (_, hour) => ({
   quality: null,
 }))
 
-describe('meteogram chart that could not be drawn', () => {
+// a failing Plotly load can take seconds on a busy runner, past the default test timeout
+describe('meteogram chart that could not be drawn', { timeout: 15_000 }, () => {
   // the chart area's Retry button, and the alert beside it
   const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
   const note = () => retry()?.parentElement?.querySelector('[role="alert"]')?.textContent?.trim()

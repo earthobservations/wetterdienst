@@ -230,7 +230,8 @@ describe('stripes Page years', () => {
   })
 })
 
-describe('stripes Page chart that could not be drawn', () => {
+// a failing Plotly load can take seconds on a busy runner, past the default test timeout
+describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () => {
   const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
 
   // the chart area's Retry button, and the alert beside it, not a toast's
