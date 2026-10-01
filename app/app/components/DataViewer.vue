@@ -728,12 +728,14 @@ function rowDate(row: Value): Date | null {
 // The rows the chart plots, each with its date: those with a value and a date to place it at. The
 // series and facets are made from these alone, so a series whose rows are all left out is not drawn
 // empty, and the large-dataset threshold counts the points drawn, not the rows left out. A value is
-// a finite number: a query can put text under `value`, `CAST(value AS VARCHAR)` or 'n/a', which the
-// trendline added up as text, drawing nothing, and which turned the y axis into one of categories
+// a finite number, or an integer past 2^53 as plainRows writes it, its digits: any other text a
+// query puts under `value`, `CAST(value AS VARCHAR)` or 'n/a', the trendline added up as text,
+// drawing nothing, and text that is no number turned the y axis into one of categories
 const chartRows = computed(() => sortedValues.value.flatMap((row) => {
   const date = rowDate(row)
   const value: unknown = row.value
-  return date && typeof value === 'number' && Number.isFinite(value) ? [{ row, date, y: value }] : []
+  const y = typeof value === 'number' ? value : bigIntegerValue(value) === undefined ? Number.NaN : Number(value)
+  return date && Number.isFinite(y) ? [{ row, date, y }] : []
 }))
 
 const isLargeChart = computed(() => chartRows.value.length > LARGE_DATASET_THRESHOLD)

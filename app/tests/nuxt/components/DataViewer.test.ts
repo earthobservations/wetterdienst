@@ -1733,4 +1733,13 @@ describe('dataViewer chart of a query\'s values that are no number', () => {
     expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z', '2020-01-02T00:00:00.000Z'], [1.5, 2.5]])
     expect(trend!.y.map(y => Math.round(y * 1e6) / 1e6)).toEqual([1.5, 2.5])
   })
+
+  it('plots an integer past 2^53, which plainRows writes as its digits, as its number', async () => {
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery([{ ...row, value: '10000000000000000000' }, { ...row, timestamp: '2020-01-02T00:00:00Z', value: '-9007199254740993' }])
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    const [trace] = lastDrawn(false).traces
+    expect(trace!.y).toEqual([1e19, -9007199254740992])
+  })
 })
