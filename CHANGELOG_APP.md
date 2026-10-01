@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` The SQL query panel runs the string function `replace()` and
+  `SELECT * REPLACE (...)`, and takes a refused keyword after `AS` or a `.` for a name, as in
+  `1 AS update` or `t.delete`, where it refused each as a disallowed operation. A query that writes
+  is still refused (GH-2181)
 - `[Explorer]` The chart faceted by parameter gives each station one colour in every facet, where a
   station took another colour in a facet that lacked a station before it or listed the stations in
   another order (GH-2178)
