@@ -28,6 +28,8 @@ request = DwdObservationRequest(
 ).filter_by_station_id(1048)
 history = next(request.history.query())
 # access history for climate summary daily station 1048 (Dresden Klotzsche)
+# the station it belongs to, "01048" as the stations frame spells it
+print(history.history.station_id)
 # naming
 for station_name_change in history.history.name.station:
     print(station_name_change)
