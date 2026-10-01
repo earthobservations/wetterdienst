@@ -188,6 +188,8 @@ Types of changes:
 - `[Stripes]` The station map stays centred on all stations once "Center on all stations" is
   pressed. Each time the map's section rendered again, it took the chosen station for a new choice,
   centred the map on it once more and undid the user's pan and zoom (GH-2164)
+- `[Explorer/History/Stripes/Meteogram]` The station map no longer writes a warning holding the
+  whole selection to the browser console each time the selection changes (GH-2168)
 
 ## [0.17.0] - 2026-09-29
 

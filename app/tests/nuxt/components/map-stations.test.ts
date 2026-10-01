@@ -285,3 +285,26 @@ describe('mapStations centring on selected stations that have no position', () =
     expect(vm.centerOnSelectedStations).toBe(false)
   })
 })
+
+describe('mapStations when the selection changes', () => {
+  const berlin = { station_id: '00001', name: 'Test Station', region: 'Berlin', latitude: 52.5, longitude: 13.4 }
+  const jan = { station_id: '01001', name: 'JAN MAYEN', region: null, latitude: 70.9, longitude: -8.7 }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    vi.restoreAllMocks()
+  })
+
+  it('writes nothing to the console', async () => {
+    const warn = vi.spyOn(console, 'warn')
+    wrapper = await mountSuspended(MapStations, { props: { stations: [berlin, jan], selectedStations: [], multiple: true } })
+
+    await wrapper.setProps({ selectedStations: [berlin] })
+    await wrapper.setProps({ selectedStations: [berlin, jan] })
+
+    expect(warn).not.toHaveBeenCalled()
+  })
+})

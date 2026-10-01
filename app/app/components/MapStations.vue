@@ -167,8 +167,6 @@ watch(() => props.stations, async () => {
 })
 
 watch(() => props.selectedStations, () => {
-  // avoid noisy logs in production; keep a warn for visibility when needed
-  console.warn('selectedStations changed', props.selectedStations)
   updateMarkerIcons()
   // when user selects stations by clicking, indicate map is centered on selection -- for a selection
   // with a position, as one without leaves nothing to centre on. Centring already on stays on, so
