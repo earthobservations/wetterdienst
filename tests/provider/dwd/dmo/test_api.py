@@ -1421,3 +1421,87 @@ def test_dmo_available_issues_lists_by_default_the_runs_a_default_request_accept
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == {"issues": listed}
 
+
+def _dmo_values_for(parameters: list[str], lead_time: Literal["short", "long"]) -> object:
+    """Stand up the values of a DMO request for these parameters, with no network."""
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+
+    df_stations = _stub_dmo_values().sr.df
+    return StationsResult(
+        stations=DwdDmoRequest(parameters=parameters, lead_time=lead_time),
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.BY_STATION_ID,
+    ).values
+
+
+@pytest.mark.parametrize(
+    ("parameters", "lead_time", "refused"),
+    [
+        pytest.param(
+            ["hourly/icon/precipitation_amount_last_3h", "hourly/icon/temperature_air_mean_2m"],
+            "short",
+            "hourly/icon/precipitation_amount_last_3h (carried by lead_time='long')",
+            id="a-3-hourly-parameter-of-the-default-run",
+        ),
+        pytest.param(
+            ["hourly/icon/radiation_global"],
+            "long",
+            "hourly/icon/radiation_global (carried by lead_time='short')",
+            id="a-1-hourly-parameter-of-the-long-run",
+        ),
+        pytest.param(
+            ["hourly/icon_eu/water_equivalent_snow_depth_new_last_1h"],
+            "long",
+            "hourly/icon_eu/water_equivalent_snow_depth_new_last_1h (carried by lead_time='short')",
+            id="icon_eu",
+        ),
+    ],
+)
+def test_dmo_a_parameter_the_run_does_not_carry_is_refused(
+    parameters: list[str],
+    lead_time: Literal["short", "long"],
+    refused: str,
+) -> None:
+    """A parameter asked for by name that the requested run never carries is named, not left empty.
+
+    It answered with an empty frame, which reads exactly like a station with no data (GH-1976).
+    """
+    with pytest.raises(ValueError, match="does not carry") as excinfo:
+        _dmo_values_for(parameters, lead_time)
+
+    assert str(excinfo.value).endswith(f"lead_time='{lead_time}', does not carry {refused}")
+
+
+@pytest.mark.parametrize(
+    ("parameters", "lead_time"),
+    [
+        pytest.param(["hourly/icon"], "short", id="the-whole-dataset-short"),
+        pytest.param(["hourly/icon"], "long", id="the-whole-dataset-long"),
+        pytest.param(["hourly/icon/precipitation_amount_last_3h"], "long", id="a-3-hourly-parameter-long"),
+        pytest.param(["hourly/icon/precipitation_amount_last_1h"], "short", id="a-1-hourly-parameter-short"),
+        pytest.param(["hourly/icon/temperature_air_mean_2m"], "long", id="a-parameter-both-carry"),
+    ],
+)
+def test_dmo_a_parameter_the_run_carries_is_not_refused(
+    parameters: list[str],
+    lead_time: Literal["short", "long"],
+) -> None:
+    """A whole dataset asks for what the run carries, so it is answered under either lead time."""
+    assert _dmo_values_for(parameters, lead_time) is not None
+
+
+def test_dmo_the_lead_times_the_request_knows_are_the_ones_upstream_serves() -> None:
+    """The partition the values path refuses by agrees with the element sets pinned against upstream.
+
+    `test_dmo_declares_the_elements_its_runs_carry` pins what each run carries; this pins that the
+    provider's own table says the same of every parameter it declares, so the two cannot drift apart.
+    """
+    from wetterdienst.provider.dwd.dmo.api import _CARRIED_ONLY_BY, DwdDmoLeadTime  # noqa: PLC0415
+
+    by_run = {"078": DwdDmoLeadTime.SHORT, "168": DwdDmoLeadTime.LONG}
+    for dataset in ("icon", "icon_eu"):
+        for parameter in DwdDmoRequest.metadata["hourly"][dataset]:
+            carried_by = {lead for run, lead in by_run.items() if parameter.name_original in _DMO_SERVED_BY[run]}
+            known = _CARRIED_ONLY_BY.get(parameter.name_original)
+            assert carried_by == ({known} if known else set(by_run.values())), parameter.name_original

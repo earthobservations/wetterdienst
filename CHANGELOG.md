@@ -83,6 +83,10 @@ Types of changes:
   docstring said and a default request reads; it listed every lead time, so `wetterdienst issues`
   and `/api/issues` named runs the default `values` request rejected with `IndexError`. Pass
   `lead_time=None` to list every lead time together (GH-2009)
+- DWD DMO raises a `ValueError` for the values of a parameter, asked for by name, that the requested
+  lead time's run does not carry, naming the lead time that does: `icon`'s four 3-hourly parameters
+  under the default `lead_time="short"`, and its three 1-hourly ones under `"long"`. They answered
+  with an empty frame. A request for a whole dataset still returns what the run carries (GH-1976)
 
 ## [0.139.0] - 2026-09-29
 

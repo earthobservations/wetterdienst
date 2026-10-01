@@ -22,7 +22,7 @@ from lxml.etree import iterparse
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.metadata import DatasetModel
+from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
@@ -65,6 +65,23 @@ class DwdDmoLeadTime(Enum):
 
     SHORT = 78
     LONG = 168
+
+
+# the declared elements only one lead time's run carries, by `name_original` (GH-1976). Both runs
+# carry the same 16 others, and the 078 run the 1-hourly quantities where the 168 run carries the
+# 3-hourly ones. `DatasetModel` has no lead-time axis, so `icon` declares both families, and a
+# parameter the requested run does not carry answered with an empty frame -- which reads exactly like
+# a station with no data. `test_dmo_the_lead_times_the_request_knows_are_the_ones_upstream_serves`
+# ties this to the element sets the remote test pins per run
+_CARRIED_ONLY_BY = {
+    "rad1h": DwdDmoLeadTime.SHORT,
+    "rr1": DwdDmoLeadTime.SHORT,
+    "rrs1c": DwdDmoLeadTime.SHORT,
+    "radl3": DwdDmoLeadTime.LONG,
+    "rads3": DwdDmoLeadTime.LONG,
+    "rr3": DwdDmoLeadTime.LONG,
+    "rrs3c": DwdDmoLeadTime.LONG,
+}
 
 
 def _run_stamp(urls: pl.Expr, lead_time: DwdDmoLeadTime | None = None) -> pl.Expr:
@@ -424,6 +441,34 @@ def _dmo_kmz_path(dataset_name_original: str, station_group: DwdDmoStationGroup,
     return f"{path}/{station_id}/kmz/"
 
 
+def _refuse_parameters_the_run_does_not_carry(parameters: list[ParameterModel], lead_time: DwdDmoLeadTime) -> None:
+    """Raise where a parameter is asked for by name that the requested lead time's run never carries.
+
+    Such a parameter answered with an empty frame, indistinguishable from a station with no data
+    (GH-1976). A request for a whole dataset is left alone: it asks for what the run carries, and
+    refusing it would refuse every default `icon` request, the dataset declaring both families.
+    Asked of the values rather than of the request, because the stations a product covers do not
+    depend on the lead time, and `wetterdienst stations` takes none to change it with.
+    """
+    refused = []
+    for dataset, requested in group_parameters_by_dataset(parameters):
+        if len(requested) == len([*dataset]):
+            continue
+        refused.extend(
+            (parameter, carried_by)
+            for parameter in requested
+            if (carried_by := _CARRIED_ONLY_BY.get(parameter.name_original, lead_time)) is not lead_time
+        )
+    if refused:
+        named = ", ".join(
+            f"{parameter.dataset.resolution.name}/{parameter.dataset.name}/{parameter.name} "
+            f"(carried by lead_time='{carried_by.name.lower()}')"
+            for parameter, carried_by in refused
+        )
+        msg = f"DWD DMO's {lead_time.value:03d} h run, lead_time='{lead_time.name.lower()}', does not carry {named}"
+        raise ValueError(msg)
+
+
 class DwdDmoValues(TimeseriesValues):
     """Fetch DWD DMO data."""
 
@@ -432,6 +477,11 @@ class DwdDmoValues(TimeseriesValues):
         from typing import cast  # noqa: PLC0415
 
         super().__post_init__()
+        stations = cast("DwdDmoRequest", self.sr.stations)
+        _refuse_parameters_the_run_does_not_carry(
+            cast("list[ParameterModel]", stations.parameters),
+            cast("DwdDmoLeadTime", stations.lead_time),
+        )
         self.kml = KMLReader(
             station_ids=self.sr.station_id.to_list(),
             settings=cast("Settings", self.sr.stations.settings),
