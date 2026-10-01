@@ -368,14 +368,13 @@ export function validateQuery(query: string): QueryValidationResult {
     return before !== undefined && (text.slice(before.start, before.end) === '.'
       || (before.kind === 'word' && wordOf(before) === 'AS'))
   }
-  const disallowed = tokens
-    .map((token, index) => token.kind === 'word' && !isName(index) ? wordOf(token) : undefined)
-    .find(word => word !== undefined && DISALLOWED_KEYWORDS.has(word))
+  const disallowed = tokens.find((token, index) =>
+    token.kind === 'word' && DISALLOWED_KEYWORDS.has(wordOf(token)) && !isName(index))
   if (disallowed !== undefined) {
     return {
       valid: false,
       errorKey: 'validation.disallowedOperation',
-      params: { op: disallowed },
+      params: { op: wordOf(disallowed) },
     }
   }
 

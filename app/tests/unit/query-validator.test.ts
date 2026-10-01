@@ -1,5 +1,5 @@
 import type { DuckDBConnection } from '@duckdb/duckdb-wasm/blocking'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { validateColumns, validateQuery } from '../../app/utils/query-validator'
 import { nodeDuckDB } from '../duckdb-node'
 
@@ -349,7 +349,11 @@ describe('validateQuery words that are keywords elsewhere', () => {
 
   beforeAll(async () => {
     conn = (await nodeDuckDB()).connect()
-    conn.query('CREATE TABLE data AS SELECT 1 AS value, \'010\' AS station_id')
+  })
+
+  // each case starts from the one row, as a refused case writes when run
+  beforeEach(() => {
+    conn.query('CREATE OR REPLACE TABLE data AS SELECT 1 AS value, \'010\' AS station_id')
   })
 
   function rows(): unknown[] {
