@@ -230,10 +230,10 @@ describe('mapStations when its list changes while the markers are built', () => 
     expect(clusters[0]!.clicks).toEqual([])
   })
 
-  it('takes a cluster off the map when a newer call comes after it is added, before its call resumes', async () => {
+  it('keeps a cluster off the map when a newer call comes as useLMarkerCluster() returns', async () => {
     const clusters: { markerCluster: object, clicks: (() => void)[] }[] = []
-    // runs once, right after the first cluster is added: the newer call made by a scheduler flush
-    // that runs before the first call resumes
+    // runs once, as the first call's useLMarkerCluster() adds its cluster and returns: the newer
+    // call made by a scheduler flush that runs before the first call resumes
     let overtake: (() => Promise<void>) | undefined
     let overtaking: Promise<void> | undefined
     markerCluster.mockImplementation(async ({ leafletObject, markers }: { leafletObject: { addLayer: (layer: object) => unknown }, markers: unknown[] }) => {
@@ -264,15 +264,15 @@ describe('mapStations when its list changes while the markers are built', () => 
     await overtaking
 
     expect(clusters).toHaveLength(2)
-    expect(addLayer.mock.calls).toEqual([[clusters[0]!.markerCluster], [clusters[1]!.markerCluster]])
-    expect(removeLayer.mock.calls).toEqual([[clusters[0]!.markerCluster]])
+    expect(addLayer.mock.calls).toEqual([[clusters[1]!.markerCluster]])
+    expect(removeLayer).not.toHaveBeenCalled()
     // the overtaken call's markers were never wired up, and the newer call's select their station
     expect(clusters[0]!.clicks).toEqual([])
     clusters[1]!.clicks[0]!()
     expect(wrapper!.emitted('update:selectedStations')).toEqual([[[berlin]]])
   })
 
-  it('leaves the cluster of a map removed after it is added, before its call resumes, alone', async () => {
+  it('leaves a map removed as useLMarkerCluster() returns alone', async () => {
     const refreshClusters = vi.fn()
     const setIcon = vi.fn()
     let unmount: (() => void) | undefined
@@ -285,7 +285,8 @@ describe('mapStations when its list changes while the markers are built', () => 
     })
     wrapper = await mountSuspended(MapStations, { props: { stations: [berlin], selectedStations: [] } })
     const vm = wrapper.vm as any
-    vm.map = { leafletObject: { addLayer: () => {}, removeLayer: () => {}, fitBounds: () => {} } }
+    const addLayer = vi.fn()
+    vm.map = { leafletObject: { addLayer, removeLayer: () => {}, fitBounds: () => {} } }
     unmount = () => {
       wrapper!.unmount()
       wrapper = undefined
@@ -293,6 +294,7 @@ describe('mapStations when its list changes while the markers are built', () => 
 
     await vm.onMapReady()
 
+    expect(addLayer).not.toHaveBeenCalled()
     expect(refreshClusters).not.toHaveBeenCalled()
     expect(setIcon).not.toHaveBeenCalled()
   })
