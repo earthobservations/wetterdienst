@@ -563,7 +563,7 @@
     "downloadCancelled": "Download abgebrochen: die Tabelle hat sich geändert",
     "downloadedChart": "Diagramm als {format} heruntergeladen",
     "chartNotDrawn": "Das Diagramm konnte nicht gezeichnet werden",
-    "chartCodeNotLoaded": "Sein Programmcode konnte nicht geladen werden. Hilft nochmal versuchen nicht, lad die Seite neu.",
+    "chartCodeNotLoaded": "Sein Programmcode konnte nicht geladen werden. Hilft ein neuer Versuch nicht, lad die Seite neu.",
     "chartImageNotSaved": "Das Diagrammbild konnte nicht gespeichert werden",
     "axisDate": "Datum",
     "axisValue": "Wert",
