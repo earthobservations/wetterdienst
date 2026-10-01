@@ -20,6 +20,7 @@ from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadat
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
+    from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.model.result import StationsResult
 
 
@@ -1399,20 +1400,35 @@ def test_dwd_obs_history_sections_pad_station_id() -> None:
     }
 
 
-def test_dwd_obs_history_names_its_station(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    ("dataset", "urls"),
+    [
+        (DwdObservationMetadata.daily.climate_summary, ["https://opendata.dwd.de/tageswerte_KL_01048_hist.zip"]),
+        # subdaily wind_extreme reads one archive each for FX3 and FX6 and joins them into one history
+        (
+            DwdObservationMetadata.subdaily.wind_extreme,
+            [
+                "https://opendata.dwd.de/terminwerte_FX3_01048_hist.zip",
+                "https://opendata.dwd.de/terminwerte_FX6_01048_hist.zip",
+            ],
+        ),
+    ],
+)
+def test_dwd_obs_history_names_its_station(
+    monkeypatch: pytest.MonkeyPatch, dataset: "DatasetModel", urls: list[str]
+) -> None:
     """Test a history carries its station's padded id beside the sections, also with no records in them."""
-    url = "https://opendata.dwd.de/tageswerte_KL_01048_19340101_20251231_hist.zip"
     # only the name file: the other sections come back empty
     files = {name: text for name, text in _STATION_01048_METADATA.items() if "Stationsname" in name}
     monkeypatch.setattr(
         api,
         "create_file_index_for_climate_observations",
-        lambda **_: pl.LazyFrame({"station_id": ["01048"], "url": [url]}),
+        lambda **_: pl.LazyFrame({"station_id": ["01048"] * len(urls), "url": urls}),
     )
-    monkeypatch.setattr(api, "download_file", lambda **_: File(url=url, content=_metadata_zip(files), status=200))
+    monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=_metadata_zip(files), status=200))
     stations = SimpleNamespace(stations=SimpleNamespace(settings=Settings()))
     collector = DwdObservationHistory(sr=cast("StationsResult", stations))
-    histories = list(collector._collect_station_history("01048", [DwdObservationMetadata.daily.climate_summary]))  # noqa: SLF001
+    histories = list(collector._collect_station_history("01048", [dataset]))  # noqa: SLF001
     assert [
         history.model_dump(include={"station_id", "parameter", "device", "geography"}) for history in histories
     ] == [{"station_id": "01048", "parameter": [], "device": [], "geography": []}]
