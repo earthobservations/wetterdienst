@@ -536,7 +536,8 @@
   "map": {
     "centerAll": "Centreren op alle stations",
     "centerSelected": "Centreren op het geselecteerde station",
-    "centerSelectedPlural": "Centreren op de geselecteerde stations"
+    "centerSelectedPlural": "Centreren op de geselecteerde stations",
+    "markersNotShown": "De stations konden niet op de kaart worden getoond. Laad de pagina opnieuw om het nog eens te proberen."
   },
   "dataViewer": {
     "loadingValues": "Waarden laden …",

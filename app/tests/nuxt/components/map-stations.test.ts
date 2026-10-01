@@ -387,3 +387,115 @@ describe('mapStations when the selection changes', () => {
     expect(warn.mock.calls.filter(([message]) => !String(message).startsWith('[Vue warn]'))).toEqual([])
   })
 })
+
+describe('mapStations when leaflet.markercluster fails to load', () => {
+  const berlin = { station_id: '00001', name: 'Test Station', region: 'Berlin', latitude: 52.5, longitude: 13.4 }
+  const jan = { station_id: '01001', name: 'JAN MAYEN', region: null, latitude: 70.9, longitude: -8.7 }
+  // what a browser rejects the import with once a redeploy has replaced the chunk
+  const chunkError = () => new TypeError('Failed to fetch dynamically imported module')
+  const message = 'The stations could not be shown on the map. Reload the page to try again.'
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    // back to the implementation the mock was made with
+    markerCluster.mockReset()
+    vi.restoreAllMocks()
+  })
+
+  const alert = () => wrapper!.find('[role="alert"]')
+
+  async function mountWith(stations: unknown[]) {
+    wrapper = await mountSuspended(MapStations, { props: { stations, selectedStations: [] } })
+    const vm = wrapper.vm as any
+    const addLayer = vi.fn()
+    // set again after the message comes or goes: re-rendering sets the ref back to the LMap stub,
+    // which holds no map
+    const setMap = () => {
+      vm.map = { leafletObject: { addLayer, removeLayer: () => {}, fitBounds: () => {} } }
+    }
+    setMap()
+    return { vm, addLayer, setMap }
+  }
+
+  it('says so above the map, and settles rather than rejecting', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    markerCluster.mockImplementation(async () => {
+      throw chunkError()
+    })
+    const { vm, addLayer } = await mountWith([berlin])
+
+    await expect(vm.onMapReady()).resolves.toBeUndefined()
+
+    expect(alert().text()).toBe(message)
+    expect(addLayer).not.toHaveBeenCalled()
+    expect(error).toHaveBeenCalledWith('The station markers could not be built', expect.any(TypeError))
+  })
+
+  it('tells a newer list that fails too anew', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    markerCluster.mockImplementation(async () => {
+      throw chunkError()
+    })
+    const { vm, setMap } = await mountWith([berlin])
+    await vm.onMapReady()
+    const first = alert().element
+
+    setMap()
+    await wrapper!.setProps({ stations: [jan] })
+    await vi.waitFor(() => expect(markerCluster).toHaveBeenCalledTimes(2))
+    // a new alert, which a screen reader announces, where the old one stayed silent
+    await vi.waitFor(() => expect(alert().element).not.toBe(first))
+    expect(alert().text()).toBe(message)
+  })
+
+  it('takes the message away once a newer list\'s markers are built, or it has none to show', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    markerCluster.mockImplementationOnce(async () => {
+      throw chunkError()
+    })
+    const { vm, addLayer, setMap } = await mountWith([berlin])
+    await vm.onMapReady()
+    expect(alert().exists()).toBe(true)
+
+    setMap()
+    await wrapper!.setProps({ stations: [jan] })
+    await vi.waitFor(() => expect(addLayer).toHaveBeenCalledTimes(1))
+    expect(alert().exists()).toBe(false)
+
+    markerCluster.mockImplementationOnce(async () => {
+      throw chunkError()
+    })
+    setMap()
+    await wrapper!.setProps({ stations: [berlin] })
+    await vi.waitFor(() => expect(alert().exists()).toBe(true))
+    setMap()
+    await wrapper!.setProps({ stations: [] })
+    await vi.waitFor(() => expect(alert().exists()).toBe(false))
+  })
+
+  it('says nothing on the map of an older list\'s failure that comes after the newer list\'s markers', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    let fail!: () => void
+    const gate = new Promise<void>((resolve) => {
+      fail = resolve
+    })
+    markerCluster.mockImplementationOnce(async () => {
+      await gate
+      throw chunkError()
+    })
+    const { vm, addLayer } = await mountWith([berlin])
+    const ready: Promise<void> = vm.onMapReady()
+
+    await wrapper!.setProps({ stations: [jan] })
+    await vi.waitFor(() => expect(addLayer).toHaveBeenCalledTimes(1))
+    fail()
+    await ready
+
+    expect(alert().exists()).toBe(false)
+    // but leaves its error in the console, where it went unhandled before
+    expect(error).toHaveBeenCalledWith('The station markers could not be built', expect.any(TypeError))
+  })
+})

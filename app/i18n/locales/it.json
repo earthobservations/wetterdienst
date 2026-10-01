@@ -536,7 +536,8 @@
   "map": {
     "centerAll": "Centra su tutte le stazioni",
     "centerSelected": "Centra sulla stazione selezionata",
-    "centerSelectedPlural": "Centra sulle stazioni selezionate"
+    "centerSelectedPlural": "Centra sulle stazioni selezionate",
+    "markersNotShown": "Impossibile mostrare le stazioni sulla mappa. Ricarica la pagina per riprovare."
   },
   "dataViewer": {
     "loadingValues": "Caricamento dei valori …",
