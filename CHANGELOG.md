@@ -75,9 +75,9 @@ Types of changes:
   `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
   Read `gauge_zero` for it (GH-2020)
 - Each station history gives the `resolution` and `dataset` it belongs to beside its `station_id`,
-  whichever `sections` are asked for. DWD observation answers one history per station and dataset
-  with a historical archive, and a request for several datasets left them to be told apart by the
-  records inside (GH-2224)
+  whichever `sections` are asked for. DWD observation answers up to one history per station and
+  dataset, and a request for several datasets left them to be told apart by the records inside
+  (GH-2224)
 
 ### Fixed
 
