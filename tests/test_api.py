@@ -56,7 +56,7 @@ from wetterdienst.provider.wsv.pegel import WsvPegelMetadata, WsvPegelRequest
 
 # The third-party packages a network's request class may lack, because only an optional extra
 # installs them: `dwd/derived` imports pandas, which the `export` extra installs (as do `duckdb`,
-# `cratedb` and `mysql`). CI installs the extras, so there a missing one fails instead of skipping.
+# `cratedb` and `mysql`). CI installs the extras, so there `test_wetterdienst_api` fails on one.
 NETWORKS_NEEDING_AN_EXTRA = {("dwd", "derived"): {"pandas"}}
 
 
@@ -78,17 +78,14 @@ def _resolve(provider: str, network: str) -> type | None:
     except ImportError as error:
         cause = error.__cause__
         missing = cause.name if isinstance(cause, ModuleNotFoundError) else None
-        if not missing or missing.partition(".")[0] == "wetterdienst":
+        package = (missing or "").partition(".")[0]
+        if not package or package == "wetterdienst":
             raise
-        package = missing.partition(".")[0]
         if package not in NETWORKS_NEEDING_AN_EXTRA.get((provider, network), set()):
             msg = (
                 f"{provider}/{network} cannot be imported: {error} "
                 f"List {package!r} for it in NETWORKS_NEEDING_AN_EXTRA if that is intended."
             )
-            raise AssertionError(msg) from error
-        if IS_CI:
-            msg = f"{provider}/{network} cannot be imported in CI, which installs every extra: {error}"
             raise AssertionError(msg) from error
         warnings.warn(f"{provider}/{network} not checked: {error}", stacklevel=2)
         return None
@@ -183,6 +180,10 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
     """Test wetterdienst API."""
     request = _resolve(provider, network)
     if request is None:
+        # every CI test job installs the extras, so there this can only mean one was dropped, and the
+        # network would have left ALL_METADATA and the source-description loops behind a warning
+        if IS_CI:
+            pytest.fail(f"{provider}/{network} cannot be imported in CI, which installs every extra")
         pytest.skip(f"{provider}/{network} needs an optional extra that is not installed")
     assert request
 
@@ -1264,7 +1265,6 @@ def _fail_import_with(monkeypatch: pytest.MonkeyPatch, error: Exception) -> None
 def test_resolve_helper_skips_a_network_whose_extra_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     """A listed network missing a third-party package is skipped, and says so rather than silently."""
     _fail_import_with(monkeypatch, ModuleNotFoundError("No module named 'pandas'", name="pandas"))
-    monkeypatch.setitem(globals(), "IS_CI", value=False)
 
     with pytest.warns(UserWarning, match=r"dwd/derived not checked: .*requires pandas"):
         assert _resolve("dwd", "derived") is None
@@ -1303,13 +1303,20 @@ def test_resolve_helper_raises_a_missing_module_it_cannot_name(monkeypatch: pyte
         _resolve("dwd", "derived")
 
 
-def test_resolve_helper_refuses_to_skip_in_ci(monkeypatch: pytest.MonkeyPatch) -> None:
-    """CI installs every extra, so a listed network that cannot be imported there is a failure, not a skip."""
+def test_wetterdienst_api_refuses_to_skip_in_ci(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CI installs every extra, so a listed network that cannot be imported there fails, not skips.
+
+    Checked in a test rather than in `_resolve`, which also runs at collection to build
+    ALL_METADATA, so that it fails this one case instead of the whole module.
+    """
     _fail_import_with(monkeypatch, ModuleNotFoundError("No module named 'pandas'", name="pandas"))
     monkeypatch.setitem(globals(), "IS_CI", value=True)
 
-    with pytest.raises(AssertionError, match=r"dwd/derived cannot be imported in CI"):
-        _resolve("dwd", "derived")
+    with (
+        pytest.warns(UserWarning, match=r"dwd/derived not checked"),
+        pytest.raises(pytest.fail.Exception, match=r"dwd/derived cannot be imported in CI"),
+    ):
+        test_wetterdienst_api("dwd", "derived")
 
 
 def test_resolve_helper_raises_any_other_error(monkeypatch: pytest.MonkeyPatch) -> None:
