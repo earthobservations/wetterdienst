@@ -26,6 +26,7 @@ from aiohttp import (
 )
 from diskcache import Cache
 from fsspec.exceptions import FSTimeoutError
+from fsspec.implementations.cache_metadata import CacheMetadata
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
 from pydantic import SecretStr
@@ -2109,3 +2110,119 @@ def test_a_file_is_named_before_the_cache_probe_that_may_fail_on_it(
     said = [record.message for record in caplog.records if record.name == "wetterdienst.util.network"]
 
     assert "Fetching file https://example.com/unreachable.txt" in said
+
+
+def test_a_fan_out_never_reads_the_metadata_file_while_another_thread_replaces_it(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Windows will not open a file another thread is replacing, nor replace one another has open.
+
+    Each thread of `download_files` builds a filesystem of its own, but they all share the one
+    metadata file, and fsspec's save is a read, a merge and a replace of it -- once per file. On
+    Windows a read that met another thread's replace was `PermissionError: [Errno 13]` out of
+    `CacheMetadata._load`, which failed the whole fan-out (GH-1990). That is simulated here by having
+    the read and the write refuse to run while the other is in flight, the way Windows does, and
+    each held open for a moment so that an unguarded pool cannot help but meet itself.
+    """
+    source = MemoryFileSystem()
+    urls = [f"/gh-1990/{i:02d}.txt" for i in range(32)]
+    for url in urls:
+        source.pipe_file(url, b"payload")
+    monkeypatch.setattr(network, "HTTPFileSystem", lambda **_kwargs: source)
+
+    in_flight: dict[str, list[str]] = {}
+    bookkeeping = threading.Lock()
+    saves: list[str] = []
+    original_load = CacheMetadata._load  # noqa: SLF001
+    original_save = CacheMetadata._save  # noqa: SLF001
+
+    def enter(fn: str, operation: str) -> None:
+        with bookkeeping:
+            others = in_flight.setdefault(fn, [])
+            # two reads may share a file; a replace shares it with nothing
+            if others and (operation == "write" or "write" in others):
+                raise PermissionError(13, "Permission denied", fn)
+            others.append(operation)
+        time.sleep(0.005)
+
+    def leave(fn: str, operation: str) -> None:
+        with bookkeeping:
+            in_flight[fn].remove(operation)
+
+    def load(self: CacheMetadata, fn: str) -> dict:
+        enter(fn, "read")
+        try:
+            return original_load(self, fn)
+        finally:
+            leave(fn, "read")
+
+    def save(self: CacheMetadata, metadata_to_save: dict, fn: str) -> None:
+        enter(fn, "write")
+        try:
+            original_save(self, metadata_to_save, fn)
+            saves.append(fn)
+        finally:
+            leave(fn, "write")
+
+    monkeypatch.setattr(CacheMetadata, "_load", load)
+    monkeypatch.setattr(CacheMetadata, "_save", save)
+
+    try:
+        files = download_files(urls=urls, cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+    finally:
+        source.rm("/gh-1990", recursive=True)
+
+    assert [file.content.getvalue() for file in files] == [b"payload"] * len(urls)
+    # one save per file, all of them to the one file the threads share -- else nothing was contended
+    assert len(saves) == len(urls)
+    assert len(set(saves)) == 1
+
+
+@pytest.mark.parametrize(
+    ("method", "args"),
+    [
+        ("load_cache", ()),
+        ("save_cache", ()),
+        ("pop_from_cache", ("/a.txt",)),
+        ("clear_expired_cache", (60,)),
+        ("clear_cache", ()),
+    ],
+)
+def test_every_way_into_the_metadata_file_takes_the_cache_lock(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    method: str,
+    args: tuple,
+) -> None:
+    """Whichever of fsspec's methods reaches the metadata file, it does so holding `_cache_dir_lock`.
+
+    The fan-out test above meets only the load and the save a download makes; the others reach the
+    same file -- MOSMIX pops a truncated run, the sweep clears expired entries -- and one left out
+    is the same Windows `PermissionError` for whichever thread it meets (GH-1990).
+    """
+    filesystem = network._LockedWholeFileCacheFileSystem(  # noqa: SLF001
+        fs=MemoryFileSystem(),
+        cache_storage=str(tmp_path),
+        expiry_time=3600,
+    )
+    held: list[bool] = []
+
+    def probe(free: list[bool]) -> None:
+        acquired = network._cache_dir_lock.acquire(blocking=False)  # noqa: SLF001
+        if acquired:
+            network._cache_dir_lock.release()  # noqa: SLF001
+        free.append(acquired)
+
+    def record(_self: object, *_args: object, **_kwargs: object) -> None:
+        # asked from another thread, because the lock is reentrant and would admit this one
+        free: list[bool] = []
+        thread = threading.Thread(target=probe, args=(free,))
+        thread.start()
+        thread.join()
+        held.append(not free[0])
+
+    monkeypatch.setattr(WholeFileCacheFileSystem, method, record)
+    getattr(filesystem, method)(*args)
+
+    assert held == [True]
