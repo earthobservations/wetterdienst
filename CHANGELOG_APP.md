@@ -20,8 +20,9 @@ Types of changes:
 
 - `[Stripes]` A station's values that fail to load are told in the chart area, with the backend's
   reason or the answer's status, where nothing was said. Another station's stripes go as Show
-  fetches the chosen one's, where they stayed, and Reset or a change of kind stops a fetch under
-  way, whose answer drew the stripes again into the area just cleared (GH-2195)
+  fetches the chosen one's, where they stayed. A fetch under way when Reset is clicked, the kind
+  changes or another station is chosen draws nothing and tells no failure, where it drew its
+  stripes into the cleared area or under the newly chosen station (GH-2195)
 - `[Explorer]` The station map's "Center on all stations" fits the map to a network of any number of
   stations, where it did nothing past about 120,000 stations (65,536 in Safari), as NOAA GHCN daily
   lists (GH-2189)

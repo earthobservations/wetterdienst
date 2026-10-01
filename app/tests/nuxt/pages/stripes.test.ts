@@ -603,4 +603,42 @@ describe('stripes Page values that could not be fetched', () => {
     expect(note()).toBeUndefined()
     expect(vm.fetchError).toBeNull()
   })
+
+  it('draws nothing where another station was chosen while the fetch was under way', async () => {
+    const vm = await mountPage()
+    recordRequests()
+    const answer = held(() => values(tempelhof))
+    registerEndpoint('/api/stripes/values', answer.handler)
+    plotly.newPlot.mockClear()
+    await show(vm, tempelhof)
+    expect(vm.isLoading).toBe(true)
+
+    vm.selectedStation = potsdam
+    await nextTick()
+    answer.release()
+    await settled()
+    expect(plotly.newPlot).not.toHaveBeenCalled()
+    expect(vm.hasPlot).toBe(false)
+    expect(vm.lastFetchedData).toBeNull()
+    expect(vm.isLoading).toBe(false)
+  })
+
+  it('tells nothing where another station was chosen while a fetch that then failed was under way', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const failing = held(() => {
+      throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
+    })
+    registerEndpoint('/api/stripes/values', failing.handler)
+    const vm = await mountPage()
+    recordRequests()
+    await show(vm, tempelhof)
+
+    vm.selectedStation = potsdam
+    await nextTick()
+    failing.release()
+    await settled()
+    expect(note()).toBeUndefined()
+    expect(vm.fetchError).toBeNull()
+    expect(vm.isLoading).toBe(false)
+  })
 })
