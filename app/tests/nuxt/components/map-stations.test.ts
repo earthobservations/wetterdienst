@@ -407,13 +407,6 @@ describe('mapStations when leaflet.markercluster fails to load', () => {
 
   const alert = () => wrapper!.find('[role="alert"]')
 
-  // a cluster built as useLMarkerCluster() builds it, added to the map it is handed
-  async function built({ leafletObject, markers }: { leafletObject: { addLayer: (layer: object) => unknown }, markers: unknown[] }) {
-    const cluster = { refreshClusters: () => {} }
-    leafletObject.addLayer(cluster)
-    return { markerCluster: cluster, markers: markers.map(() => ({ on: () => {}, setIcon: () => {} })) }
-  }
-
   async function mountWith(stations: unknown[]) {
     wrapper = await mountSuspended(MapStations, { props: { stations, selectedStations: [] } })
     const vm = wrapper.vm as any
@@ -441,11 +434,28 @@ describe('mapStations when leaflet.markercluster fails to load', () => {
     expect(error).toHaveBeenCalledWith('The station markers could not be built', expect.any(TypeError))
   })
 
+  it('tells a newer list that fails too anew', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    markerCluster.mockImplementation(async () => {
+      throw chunkError()
+    })
+    const { vm, setMap } = await mountWith([berlin])
+    await vm.onMapReady()
+    const first = alert().element
+
+    setMap()
+    await wrapper!.setProps({ stations: [jan] })
+    await vi.waitFor(() => expect(markerCluster).toHaveBeenCalledTimes(2))
+    // a new alert, which a screen reader announces, where the old one stayed silent
+    await vi.waitFor(() => expect(alert().element).not.toBe(first))
+    expect(alert().text()).toBe(message)
+  })
+
   it('takes the message away once a newer list\'s markers are built, or it has none to show', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     markerCluster.mockImplementationOnce(async () => {
       throw chunkError()
-    }).mockImplementation(built)
+    })
     const { vm, addLayer, setMap } = await mountWith([berlin])
     await vm.onMapReady()
     expect(alert().exists()).toBe(true)
@@ -475,7 +485,7 @@ describe('mapStations when leaflet.markercluster fails to load', () => {
     markerCluster.mockImplementationOnce(async () => {
       await gate
       throw chunkError()
-    }).mockImplementation(built)
+    })
     const { vm, addLayer } = await mountWith([berlin])
     const ready: Promise<void> = vm.onMapReady()
 

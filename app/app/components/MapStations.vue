@@ -25,8 +25,10 @@ const markersMap: Map<string, any> = new Map()
 
 const centerOnSelectedStations = ref(false)
 // The newest list's markers could not be built: leaflet.markercluster failed to load, as when a
-// redeploy has replaced its chunk under an open tab, or the network dropped
+// redeploy has replaced its chunk under an open tab, or the network dropped. Failures: counted, so
+// a newer list that fails too is told again
 const markersFailed = ref(false)
+const markersFailures = ref(0)
 
 function isSelected(stationId: string) {
   return props.selectedStations.some((s: any) => s.station_id === stationId)
@@ -104,6 +106,7 @@ async function createMarkers() {
     // told for the newest list only: an older list's failure says nothing about the map shown
     if (generation === markersGeneration) {
       markersFailed.value = true
+      markersFailures.value++
       console.error('The station markers could not be built', error)
     }
     return
@@ -218,7 +221,8 @@ watch([
         :disabled="!mappedSelectedStations.length && !centerOnSelectedStations"
         @click="toggleCenter"
       />
-      <p v-if="markersFailed" role="alert" class="text-sm font-medium text-center text-red-600 dark:text-red-400">
+      <!-- mounted anew for each failure, so a newer list that fails too is announced again -->
+      <p v-if="markersFailed" :key="markersFailures" role="alert" class="text-sm font-medium text-center text-red-600 dark:text-red-400">
         {{ t('map.markersNotShown') }}
       </p>
       <LMap
