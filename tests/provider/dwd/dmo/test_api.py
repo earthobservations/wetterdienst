@@ -1734,10 +1734,11 @@ def test_dmo_a_run_stamp_slightly_ahead_of_the_clock_is_today() -> None:
     """A clock that lags DWD's still dates today's newest run as today's, not as last month's.
 
     DWD lists a run about three hours after its stamp, so the listing is never ahead of DWD's clock;
-    a stamp ahead of this one means this clock is behind. Within a day of it, the stamp is this
-    month's; further ahead, the latest date it can name is the month before.
+    a stamp ahead of this one means this clock is behind -- here by four hours, at 15:30 by DWD's
+    clock, once the 12 UTC run is listed. Within a day of the clock the stamp is this month's;
+    further ahead, the latest date it can name is the month before.
     """
-    now = dt.datetime(2026, 10, 1, 2, 0, tzinfo=ZoneInfo("UTC"))
+    now = dt.datetime(2026, 10, 1, 11, 30, tzinfo=ZoneInfo("UTC"))
     assert _dated(["010000", "011200", "021200"], now) == [
         dt.datetime(2026, 10, 1, 0, tzinfo=ZoneInfo("UTC")),
         dt.datetime(2026, 10, 1, 12, tzinfo=ZoneInfo("UTC")),
