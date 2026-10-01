@@ -24,6 +24,9 @@ let markerClusterGroup: any = null
 const markersMap: Map<string, any> = new Map()
 
 const centerOnSelectedStations = ref(false)
+// The newest list's markers could not be built: leaflet.markercluster failed to load, as when a
+// redeploy has replaced its chunk under an open tab, or the network dropped
+const markersFailed = ref(false)
 
 function isSelected(stationId: string) {
   return props.selectedStations.some((s: any) => s.station_id === stationId)
@@ -76,27 +79,41 @@ async function createMarkers() {
     markersMap.clear()
   }
   const stations = mappedStations.value
-  if (!stations.length)
+  if (!stations.length) {
+    markersFailed.value = false
     return
+  }
   // useLMarkerCluster() adds the cluster to the map it is handed itself, as soon as
   // leaflet.markercluster has loaded, before it returns. It is handed a stand-in that ignores the
   // add: the cluster is added below, once this call is known to be still the current one.
-  const result = await useLMarkerCluster({
-    leafletObject: { addLayer: () => leafletMap } as unknown as L.Map,
-    markers: stations.map(station => ({
-      name: station.name,
-      lat: station.latitude,
-      lng: station.longitude,
-      options: {
-        title: stationLabel(station),
-      },
-    })),
-  })
+  let result
+  try {
+    result = await useLMarkerCluster({
+      leafletObject: { addLayer: () => leafletMap } as unknown as L.Map,
+      markers: stations.map(station => ({
+        name: station.name,
+        lat: station.latitude,
+        lng: station.longitude,
+        options: {
+          title: stationLabel(station),
+        },
+      })),
+    })
+  }
+  catch (error) {
+    // told for the newest list only: an older list's failure says nothing about the map shown
+    if (generation === markersGeneration) {
+      markersFailed.value = true
+      console.error('The station markers could not be built', error)
+    }
+    return
+  }
   // The list changed, or the map was removed (its section collapsed, the page left), while
   // leaflet.markercluster was loading: the cluster is an older list's, or has no map to go on -- a
   // removed map has no panes to draw it on.
   if (generation !== markersGeneration)
     return
+  markersFailed.value = false
   markerClusterGroup = result.markerCluster
   leafletMap.addLayer(markerClusterGroup)
   result.markers.forEach((marker, index) => {
@@ -201,6 +218,9 @@ watch([
         :disabled="!mappedSelectedStations.length && !centerOnSelectedStations"
         @click="toggleCenter"
       />
+      <p v-if="markersFailed" role="alert" class="text-sm font-medium text-center text-red-600 dark:text-red-400">
+        {{ t('map.markersNotShown') }}
+      </p>
       <LMap
         ref="map"
         :zoom="6"

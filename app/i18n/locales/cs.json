@@ -536,7 +536,8 @@
   "map": {
     "centerAll": "Vycentrovat na všechny stanice",
     "centerSelected": "Vycentrovat na vybranou stanici",
-    "centerSelectedPlural": "Vycentrovat na vybrané stanice"
+    "centerSelectedPlural": "Vycentrovat na vybrané stanice",
+    "markersNotShown": "Stanice se nepodařilo zobrazit na mapě. Zkuste stránku načíst znovu."
   },
   "dataViewer": {
     "loadingValues": "Načítání hodnot …",
