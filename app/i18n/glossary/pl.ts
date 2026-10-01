@@ -380,7 +380,7 @@ export const parameters: Record<string, string> = {
   climate_correction_factor: 'Współczynnik korekty klimatycznej',
   cloud_base_convective: 'Podstawa chmur konwekcyjnych',
   cloud_cover_above_7km: 'Zachmurzenie powyżej 7 km',
-  cloud_cover_below_1000ft: 'Zachmurzenie poniżej 1000 ft',
+  cloud_cover_below_2km: 'Zachmurzenie poniżej 2 km',
   cloud_cover_below_500ft: 'Zachmurzenie poniżej 500 ft',
   cloud_cover_below_7km: 'Zachmurzenie poniżej 7 km',
   cloud_cover_between_2km_and_7km: 'Zachmurzenie między 2 a 7 km',

@@ -398,7 +398,7 @@ export const parameters: Record<string, string> = {
   climate_correction_factor: 'Klimakorrekturfaktor',
   cloud_base_convective: 'Konvektive Wolkenuntergrenze',
   cloud_cover_above_7km: 'Bedeckungsgrad oberhalb 7 km',
-  cloud_cover_below_1000ft: 'Bedeckungsgrad unterhalb 1000 ft',
+  cloud_cover_below_2km: 'Bedeckungsgrad unterhalb 2 km',
   cloud_cover_below_500ft: 'Bedeckungsgrad unterhalb 500 ft',
   cloud_cover_below_7km: 'Bedeckungsgrad unterhalb 7 km',
   cloud_cover_between_2km_and_7km: 'Bedeckungsgrad zwischen 2 und 7 km',

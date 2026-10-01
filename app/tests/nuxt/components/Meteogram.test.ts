@@ -167,3 +167,25 @@ describe('meteogram chart whose code a redeploy replaced', { timeout: 15_000 }, 
     expect(button('Reload page')).toBeUndefined()
   })
 })
+
+describe('meteogram low clouds', { timeout: 15_000 }, () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  it('draws DWD\'s low cloud cover under its canonical name, cloud_cover_below_2km', async () => {
+    // the cloud panel is drawn for a total cover, as MOSMIX and DMO carry beside the low one
+    const clouds = ['cloud_cover_total', 'cloud_cover_below_2km'].flatMap(parameter =>
+      values.map(value => ({ ...value, parameter, value: 40 })))
+    plotly.newPlot.mockClear()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: [...values, ...clouds] })
+
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    const traces = plotly.newPlot.mock.calls[0]![1] as unknown as { name: string }[]
+    expect(traces.map(trace => trace.name)).toContain('Low Clouds %')
+  })
+})

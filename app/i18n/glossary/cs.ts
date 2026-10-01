@@ -380,7 +380,7 @@ export const parameters: Record<string, string> = {
   climate_correction_factor: 'Klimatický korekční faktor',
   cloud_base_convective: 'Základna konvektivní oblačnosti',
   cloud_cover_above_7km: 'Oblačnost nad 7 km',
-  cloud_cover_below_1000ft: 'Oblačnost pod 1000 ft',
+  cloud_cover_below_2km: 'Oblačnost pod 2 km',
   cloud_cover_below_500ft: 'Oblačnost pod 500 ft',
   cloud_cover_below_7km: 'Oblačnost pod 7 km',
   cloud_cover_between_2km_and_7km: 'Oblačnost mezi 2 a 7 km',

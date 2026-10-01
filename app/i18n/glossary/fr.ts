@@ -380,7 +380,7 @@ export const parameters: Record<string, string> = {
   climate_correction_factor: 'Facteur de correction climatique',
   cloud_base_convective: 'Base des nuages convectifs',
   cloud_cover_above_7km: 'Nébulosité au-dessus de 7 km',
-  cloud_cover_below_1000ft: 'Nébulosité sous 1000 ft',
+  cloud_cover_below_2km: 'Nébulosité sous 2 km',
   cloud_cover_below_500ft: 'Nébulosité sous 500 ft',
   cloud_cover_below_7km: 'Nébulosité sous 7 km',
   cloud_cover_between_2km_and_7km: 'Nébulosité entre 2 et 7 km',

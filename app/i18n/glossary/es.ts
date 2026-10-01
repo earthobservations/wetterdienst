@@ -380,7 +380,7 @@ export const parameters: Record<string, string> = {
   climate_correction_factor: 'Factor de corrección climática',
   cloud_base_convective: 'Base de nubes convectivas',
   cloud_cover_above_7km: 'Nubosidad por encima de 7 km',
-  cloud_cover_below_1000ft: 'Nubosidad por debajo de 1000 ft',
+  cloud_cover_below_2km: 'Nubosidad por debajo de 2 km',
   cloud_cover_below_500ft: 'Nubosidad por debajo de 500 ft',
   cloud_cover_below_7km: 'Nubosidad por debajo de 7 km',
   cloud_cover_between_2km_and_7km: 'Nubosidad entre 2 y 7 km',

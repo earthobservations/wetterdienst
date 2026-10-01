@@ -380,7 +380,7 @@ export const parameters: Record<string, string> = {
   climate_correction_factor: 'Klimakorrekturfaktor',
   cloud_base_convective: 'Konvektiv Wollekenënnergrenz',
   cloud_cover_above_7km: 'Bewölkungsgrad iwwer 7 km',
-  cloud_cover_below_1000ft: 'Bewölkungsgrad ënner 1000 ft',
+  cloud_cover_below_2km: 'Bewölkungsgrad ënner 2 km',
   cloud_cover_below_500ft: 'Bewölkungsgrad ënner 500 ft',
   cloud_cover_below_7km: 'Bewölkungsgrad ënner 7 km',
   cloud_cover_between_2km_and_7km: 'Bewölkungsgrad tëscht 2 an 7 km',
