@@ -79,6 +79,9 @@ Types of changes:
   the unit targets, not to SI units: temperature stays in °C by default. The overview that listed
   options under commands that do not take them is gone, the `--sql_values` example on a column
   runs in the wide shape it needs, and the README counts nearly 600 parameters, not 514 (GH-2021)
+- DWD observation history gives the station id zero-padded in its `parameter`, `device` and
+  `geography` sections, `01048` as in `name`, `missing_data` and the stations and values frames.
+  They gave `1048`, so joining them with those frames on `station_id` found nothing (GH-2058)
 
 ## [0.139.0] - 2026-09-29
 

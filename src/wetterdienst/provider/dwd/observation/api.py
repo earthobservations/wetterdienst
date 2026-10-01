@@ -429,7 +429,7 @@ class DwdObservationHistory(TimeseriesHistory):
             if len(parts) < 8:
                 continue
             record = {
-                "station_id": parts[0].strip(),
+                "station_id": parts[0].strip().zfill(5),
                 "start_date": dt.datetime.strptime(parts[1].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
                 "end_date": dt.datetime.strptime(parts[2].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
                 "station_name": parts[3].strip(),
@@ -464,7 +464,7 @@ class DwdObservationHistory(TimeseriesHistory):
                 if len(parts) < 10:
                     continue
                 record = {
-                    "station_id": parts[0].strip(),
+                    "station_id": parts[0].strip().zfill(5),
                     "station_name": parts[1].strip(),
                     "longitude": parts[2].strip() or None,
                     "latitude": parts[3].strip() or None,
@@ -496,7 +496,7 @@ class DwdObservationHistory(TimeseriesHistory):
                 if len(parts) < 7:
                     continue
                 record = {
-                    "station_id": parts[0].strip(),
+                    "station_id": parts[0].strip().zfill(5),
                     "station_elevation": float(parts[1].strip()),
                     "latitude": float(parts[2].strip()),
                     "longitude": float(parts[3].strip()),
