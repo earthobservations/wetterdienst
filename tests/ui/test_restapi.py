@@ -4,6 +4,7 @@
 
 import json
 import logging
+from types import SimpleNamespace
 from typing import get_args
 
 import pytest
@@ -2608,8 +2609,6 @@ def test_values_a_value_error_from_the_values_is_a_400(
     Stubbed at `get_stations` rather than provoked from a provider: what is under test is how the
     error travels, and a real one would need the network to arrive at.
     """
-    from types import SimpleNamespace  # noqa: PLC0415
-
     msg = "can only call '.item()' if the dataframe has a single element"
 
     def fail() -> None:

@@ -1107,8 +1107,7 @@ def get_values(
     )
 
     # a `ValueError` from the values -- a provider refusing a request it cannot serve as phrased
-    # (`ParameterNotCarriedError`), or a parse failure -- is the caller's to report: the CLI logs it
-    # and exits 1, the REST API answers 400 with the message. A `sys.exit` here was a REST API 500
+    # (`ParameterNotCarriedError`), or a parse failure -- propagates: reporting it is the caller's
     # TODO: Add stream-based processing here.
     values_ = stations_.values.all()
 
