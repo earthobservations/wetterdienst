@@ -131,9 +131,9 @@ Types of changes:
   `UnicodeDecodeError` and `/api/history` answered 400 (GH-2214)
 - MySQL and MariaDB export targets create `DATETIME` columns holding UTC, so values before 1970
   can be written. Their `TIMESTAMP` columns started in 1970, so the first earlier row was refused or
-  stored as zeros. A table created by an earlier version keeps its `TIMESTAMP` columns: change them
-  with `ALTER TABLE ... MODIFY <column> DATETIME`, run under the session time zone the rows were
-  written with, or write the table anew with `if_exists='replace'`, which drops its rows (GH-2229)
+  stored as zeros. A table created by an earlier version keeps its `TIMESTAMP` columns and what
+  they stored; to get `DATETIME`, write it anew with `if_exists='replace'`, which drops every row
+  it held (GH-2229)
 
 ## [0.139.0] - 2026-09-29
 
