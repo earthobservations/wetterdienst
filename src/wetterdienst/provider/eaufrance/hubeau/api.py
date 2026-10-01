@@ -454,14 +454,19 @@ class HubeauRequest(TimeseriesRequest):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
+        error: Exception | None = None
         try:
             rows = _paged_rows(_SITES_ENDPOINT, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
         except (FSTimeoutError, OSError, ClientError, ValueError) as e:
             # what `download_file` hands back for a timeout, a missing file, and a refused or
             # broken response, and a body that is not JSON; FSTimeoutError is named as it is no
             # OSError before Python 3.11
-            log.warning(f"Hubeau's sites referential could not be read, stations are listed without elevation: {e!r}")
-            rows = []
+            rows, error = [], e
+        # no rows without an error is a connection that could not be made, which `_paged_rows`
+        # reads as an empty answer -- the referential itself always lists thousands of sites
+        if not rows:
+            reason = f": {error!r}" if error else ""
+            log.warning(f"Hubeau's sites referential could not be read, stations are listed without elevation{reason}")
         df = pl.from_dicts(rows, schema={"code_site": pl.String, "altitude_site": pl.Float64})
         altitude = pl.col("altitude_site")
         return df.select(

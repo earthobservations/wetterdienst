@@ -407,23 +407,27 @@ def test_all_takes_the_elevation_from_the_station_site(monkeypatch: pytest.Monke
         ServerDisconnectedError(),
         FileNotFoundError("referentiel/sites"),
         json.JSONDecodeError("Expecting value", "<html>", 0),
+        None,
     ],
-    ids=["timeout", "disconnected", "not_found", "not_json"],
+    ids=["timeout", "disconnected", "not_found", "not_json", "no_connection"],
 )
 def test_all_lists_the_stations_when_the_sites_cannot_be_read(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
-    error: Exception,
+    error: Exception | None,
 ) -> None:
     """Test that a sites referential that cannot be read leaves the elevation null, not the list empty.
 
     The sites referential supplies the elevation and nothing else. It answered 503 on 2026-10-01
     while the station referential answered, and failing the station list over it would bring back
-    the very failure a slow referential caused.
+    the very failure a slow referential caused. A connection that cannot be made is no error at
+    all: ``_paged_rows`` reads it as an empty answer (``no_connection``), and is warned about too.
     """
 
     def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
         if "referentiel/sites" in url:
+            if error is None:
+                return []
             raise error
         if "referentiel/stations" in url:
             return [{**_station("O972001001"), "code_site": "O9720010"}]
