@@ -155,6 +155,12 @@ describe('validateQuery statements', () => {
   ])('lets %j through as the one statement %j', (sql, statement) => {
     expect(validateQuery(sql)).toMatchObject({ valid: true, statement })
   })
+
+  it('refuses a text DuckDB reads as a comment only, rather than hand back an empty statement', () => {
+    // the nested comment hides the SELECT from DuckDB, not from the SELECT-only check, and the
+    // check explained, and the run ran, an empty statement
+    expect(validateQuery('/* /* */ SELECT * FROM data LIMIT 1 */')).toEqual({ valid: false, errorKey: 'validation.queryEmpty' })
+  })
 })
 
 describe('validateQuery statements, as DuckDB reads them', () => {

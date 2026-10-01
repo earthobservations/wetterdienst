@@ -233,6 +233,13 @@ export function validateQuery(query: string): QueryValidationResult {
       errorKey: 'validation.multipleStatements',
     }
   }
+  // no token at all, as DuckDB reads it: a nested comment can hide the SELECT the regex above saw
+  if (end === 0) {
+    return {
+      valid: false,
+      errorKey: 'validation.queryEmpty',
+    }
+  }
   const statement = query.slice(0, end)
 
   // Warning for queries without LIMIT
