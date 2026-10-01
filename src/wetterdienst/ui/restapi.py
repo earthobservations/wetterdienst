@@ -18,6 +18,7 @@ from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
     NoStationsWithElevationError,
+    ParameterNotCarriedError,
     StartDateEndDateError,
 )
 
@@ -633,6 +634,10 @@ def _values(
     """
     try:
         return get_values(api=api, request=request, settings=settings)
+    except ParameterNotCarriedError as e:
+        # the message is the whole of it: which parameters, and the lead time that carries them
+        log.info(f"Failed to get values: {e}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except StartDateEndDateError as e:
         log.exception("Failed to get values.")
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -664,9 +669,10 @@ def _geo_values(
     """
     try:
         return get(api=api, request=request, settings=settings)
-    except NoStationsWithElevationError as e:
+    except (NoStationsWithElevationError, ParameterNotCarriedError) as e:
         # the message is the whole of it: which parameters lost their stations, and that asking
-        # without an elevation gets them back
+        # without an elevation gets them back; or which parameters the run does not carry, and the
+        # lead time that does
         log.info(f"Failed to {what}: {e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
     except StartDateEndDateError as e:

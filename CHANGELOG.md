@@ -51,6 +51,17 @@ Types of changes:
   terms, a line per problem -- `Missing option '--longitude'`, `Options '--station' and '--name'
   cannot be used together`, `Invalid value for '--distance'` with the value refused -- instead of
   pydantic's echo of every option given (GH-2056)
+- **Breaking**: `DwdDmoRequest.available_issues` lists the runs of `lead_time="short"` by default,
+  as its docstring said and a default request reads; it listed every lead time, so `wetterdienst
+  issues` and `/api/issues` named runs the default `values` request rejected with `IndexError`.
+  Pass `lead_time="long"` (`--lead_time long`) for the long runs, or `lead_time=None` in Python
+  for every lead time together (GH-2009)
+- **Breaking**: DWD DMO refuses the values of a request naming a parameter its lead time's run does
+  not carry with `ParameterNotCarriedError`, a `ValueError` naming the lead time that does, where
+  the parameter answered with an empty frame: `icon`'s four 3-hourly parameters under the default
+  `lead_time="short"`, its three 1-hourly ones under `"long"`. The REST API answers 400. Ask for
+  them with the lead time named, apart from any parameter only the other lead time carries; a
+  request for a whole dataset is not refused (GH-1976)
 - **Breaking**: `cloud_cover_below_1000ft` is `cloud_cover_below_2km`. It is DWD's `nl` in
   `dwd/mosmix` and `dwd/dmo`, low cloud below 2 km, which the old name and its glossary entry put
   at 1000 ft. Request the new name; the old one in a request, as a `ts_geo_station_distance` key or
