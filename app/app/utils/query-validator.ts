@@ -13,7 +13,8 @@ export interface QueryValidationResult {
   params?: Record<string, string>
   /**
    * The one statement a valid query holds, without the `;` and the comments after it, which DuckDB
-   * runs as the query and can wrap in a subquery.
+   * runs as the query and can wrap in a subquery. A text with a comment never closed is handed back
+   * whole, `;` included, for DuckDB to refuse with its own error.
    */
   statement?: string
 }
