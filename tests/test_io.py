@@ -2389,7 +2389,9 @@ def test_psycopg_counts_as_installed_only_when_it_imports() -> None:
     """
     from wetterdienst.io.export import _psycopg_imports  # noqa: PLC0415
 
-    with mock.patch("importlib.import_module", side_effect=ImportError("no pq wrapper available")):
+    with mock.patch("importlib.import_module", side_effect=ImportError("no pq wrapper available")) as probe:
         assert not _psycopg_imports()
-    with mock.patch("importlib.import_module", return_value=mock.sentinel.psycopg):
+    probe.assert_called_once_with("psycopg")
+    with mock.patch("importlib.import_module", return_value=mock.sentinel.psycopg) as probe:
         assert _psycopg_imports()
+    probe.assert_called_once_with("psycopg")
