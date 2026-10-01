@@ -2078,3 +2078,54 @@ describe('dataViewer chart whose Plotly chunk a redeploy replaced', () => {
     expect(button('Reload page')).toBeUndefined()
   })
 })
+
+describe('dataViewer facets\' station colours', () => {
+  // each facet's series as it was last drawn, each by its name and colour, by the facet's parameter
+  function facetsDrawn() {
+    const drawn = new Map<string, string[][]>()
+    for (const [, traces, layout] of plotly.react.mock.calls as unknown as [HTMLElement, { name: string, line: { color: string } }[], { yaxis: { title: string } }][])
+      drawn.set(layout.yaxis.title, traces.map(trace => [trace.name, trace.line.color]))
+    return Object.fromEntries(drawn)
+  }
+
+  const second = { ...row, station_id: '04411' }
+  const precipitation = { ...row, parameter: 'precipitation_height', value: 0.2 }
+  const blue = '#3b82f6'
+  const green = '#22c55e'
+
+  it.each([
+    // the first station has no precipitation: the second station was coloured first in that facet
+    ['a facet lacks the first station', [row, second, { ...precipitation, station_id: '04411' }], [['04411', green]]],
+    // the second station's precipitation comes before the first's: it was coloured first in that facet
+    ['a facet\'s rows come in another order', [row, second, { ...precipitation, station_id: '04411' }, precipitation], [['04411', green], ['01048', blue]]],
+  ])('gives each station one colour in every facet where %s', async (_, values, precipitationSeries) => {
+    registerEndpoint('/api/values', () => ({ values }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    plotly.react.mockClear()
+    await showChart(wrapper, true)
+    await vi.waitFor(() => expect(Object.keys(facetsDrawn())).toHaveLength(2))
+    expect(facetsDrawn()).toEqual({
+      temperature_air_mean_2m: [['01048', blue], ['04411', green]],
+      precipitation_height: precipitationSeries,
+    })
+  })
+})
+
+describe('dataViewer parameter statistics of many values', () => {
+  it('takes a parameter of more values than a call takes arguments, where it threw', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    // past V8's argument limit of about 120k, as 3 years of one station's 10-minute values
+    const count = 200_000
+    const rows = Array.from({ length: count }, (_, i) => ({ parameter: 'temperature_air_mean_2m', value: i - 100_000 }))
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', rows)
+    await wrapper.vm.$nextTick()
+    const sum = (count * (count - 1)) / 2 - count * 100_000
+    expect((viewer.vm as unknown as { parameterStats: unknown[] }).parameterStats).toEqual([
+      { parameter: 'temperature_air_mean_2m', dataset: '', count, min: -100_000, max: 99_999, mean: sum / count, sum },
+    ])
+  })
+})

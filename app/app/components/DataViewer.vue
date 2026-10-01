@@ -851,6 +851,10 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[],
   const parameterGroups = new Map<string, Map<string, { x: Date[], y: number[] }>>()
   // the mode the rows shown were fetched in, as the single chart's
   const mode = rowsMode.value
+  // Each station's colour, the same in every facet: numbered once, in the order its first row comes
+  // across all plotted rows. Numbered per facet, a station took another colour in a facet that lacked
+  // a station coming before it
+  const stationColors = new Map<string, string>()
 
   for (const { row: value, date, y } of chartRows.value) {
     let param = value.parameter
@@ -865,6 +869,8 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[],
     }
 
     const stationKey = mode === 'station' ? value.station_id : 'interpolated'
+    if (!stationColors.has(stationKey))
+      stationColors.set(stationKey, chartColors[stationColors.size % chartColors.length] ?? '#3b82f6')
     const stationMap = parameterGroups.get(param)!
 
     if (!stationMap.has(stationKey)) {
@@ -885,10 +891,9 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[],
     const isLargeDataset = points > LARGE_DATASET_THRESHOLD
     const traces: PlotlyData[] = []
     const trendlineTraces: PlotlyData[] = []
-    let colorIndex = 0
 
     for (const [stationKey, data] of stationMap) {
-      const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
+      const color = stationColors.get(stationKey) ?? '#3b82f6'
 
       const pairs = data.x.map((x, i) => ({ x, y: data.y[i]! })).sort((a, b) => a.x.getTime() - b.x.getTime())
       const sortedXDates = pairs.map(p => p.x)
@@ -923,8 +928,6 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[],
           showlegend: true,
         })
       }
-
-      colorIndex++
     }
 
     // Add trendlines after main traces so they render on top
@@ -1204,7 +1207,9 @@ interface ParameterStats {
 // missing: a wide-shaped row (a column per parameter) and a query's own columns (`avg_value`) carry
 // none, and grouped as long rows they showed one row for an undefined parameter, counting nothing
 const parameterStats = computed((): ParameterStats[] => {
-  const statsMap = new Map<string, { values: number[], dataset: string, parameter: string }>()
+  // a running count, min, max and sum: spreading the values into Math.min/max throws past the
+  // engine's argument limit (about 120k in V8, 65,536 in JavaScriptCore)
+  const statsMap = new Map<string, { count: number, min: number, max: number, sum: number, dataset: string, parameter: string }>()
 
   for (const row of displayData.value) {
     const parameter = field(row, 'parameter')
@@ -1214,26 +1219,25 @@ const parameterStats = computed((): ParameterStats[] => {
     // as the table shows it: a query may leave the dataset out, or give one of its own, a year
     const dataset = fieldText(field(row, 'dataset'))
     const key = `${dataset}/${parameter}`
-    if (!statsMap.has(key))
-      statsMap.set(key, { values: [], dataset, parameter })
-    if (value !== null)
-      statsMap.get(key)!.values.push(value)
+    let entry = statsMap.get(key)
+    if (!entry) {
+      entry = { count: 0, min: Infinity, max: -Infinity, sum: 0, dataset, parameter }
+      statsMap.set(key, entry)
+    }
+    if (value !== null) {
+      entry.count++
+      entry.min = Math.min(entry.min, value)
+      entry.max = Math.max(entry.max, value)
+      entry.sum += value
+    }
   }
 
   const stats: ParameterStats[] = []
-  for (const { values, dataset, parameter } of statsMap.values()) {
-    const count = values.length
-
-    if (count === 0) {
+  for (const { count, min, max, sum, dataset, parameter } of statsMap.values()) {
+    if (count === 0)
       stats.push({ parameter, dataset, count, min: null, max: null, mean: null, sum: null })
-    }
-    else {
-      const min = Math.min(...values)
-      const max = Math.max(...values)
-      const sum = values.reduce((a, b) => a + b, 0)
-      const mean = sum / count
-      stats.push({ parameter, dataset, count, min, max, mean, sum })
-    }
+    else
+      stats.push({ parameter, dataset, count, min, max, mean: sum / count, sum })
   }
 
   return stats.sort((a, b) => `${a.dataset}/${a.parameter}`.localeCompare(`${b.dataset}/${b.parameter}`))
