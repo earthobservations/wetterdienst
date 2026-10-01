@@ -4,7 +4,7 @@ import type { StationSelectionState } from '~/types/station-selection-state.type
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { getQuery, setResponseStatus } from 'h3'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { UApp, USelectMenu } from '#components'
 import { useToast } from '#imports'
@@ -1689,6 +1689,76 @@ describe('dataViewer query of no rows', () => {
   })
 })
 
+describe('dataViewer chart of a query\'s timestamp text', () => {
+  // a browser an hour east of UTC, where a time without an offset read as local time is an hour early
+  let zone: string | undefined
+  beforeAll(() => {
+    zone = process.env.TZ
+    process.env.TZ = 'Europe/Berlin'
+    // the zone taken up, else the tests pass in UTC against `new Date(text)` as well
+    expect(new Date(2020, 0, 1).getTimezoneOffset()).toBe(-60)
+  })
+  afterAll(() => {
+    if (zone === undefined)
+      delete process.env.TZ
+    else
+      process.env.TZ = zone
+  })
+
+  // the forms timestampDate reads are tested in tests/unit/timestamp.test.ts
+  it('places a row whose timestamp has no offset at its time in UTC', async () => {
+    // `strftime(timestamp::TIMESTAMP, '%Y-%m-%d %H:%M')`: placed at 2019-12-31T23:00Z in Berlin
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery([{ ...row, timestamp: '2020-01-01 00:00', value: 9 }])
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    const [trace] = lastDrawn(false).traces
+    expect(trace!.x).toEqual(['2020-01-01T00:00:00.000Z'])
+  })
+
+  it('leaves out a row whose timestamp is a date that does not exist', async () => {
+    // read as 2020-03-01 by a Date, which rolls a day past the month's end over
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery([row, { ...row, timestamp: '2020-02-30', value: 9 }])
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    const [trace] = lastDrawn(false).traces
+    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
+  })
+})
+
+describe('dataViewer chart of a query\'s values that are no number', () => {
+  // two days' numbers, and a third day's value as a query can put it
+  const threeDays = (value: unknown) => [row, { ...row, timestamp: '2020-01-02T00:00:00Z', value: 2.5 }, { ...row, timestamp: '2020-01-03T00:00:00Z', value }]
+
+  it.each([
+    // `CAST(value AS VARCHAR) AS value`: the trendline added it up as text, and drew nothing
+    '3.5',
+    // the y axis turned into one of categories
+    'n/a',
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ])('leaves out a row whose value is %s, and draws the trendline of the others', async (value) => {
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery(threeDays(value))
+    await showChart(wrapper, false)
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(lastDrawn(false).traces).toHaveLength(2))
+    const [trace, trend] = lastDrawn(false).traces
+    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z', '2020-01-02T00:00:00.000Z'], [1.5, 2.5]])
+    expect(trend!.y.map(y => Math.round(y * 1e6) / 1e6)).toEqual([1.5, 2.5])
+  })
+
+  it('plots an integer past 2^53, which plainRows writes as its digits, as its number', async () => {
+    plotly.newPlot.mockClear()
+    const { wrapper } = await withChartQuery([{ ...row, value: '10000000000000000000' }, { ...row, timestamp: '2020-01-02T00:00:00Z', value: '-9007199254740993' }])
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    const [trace] = lastDrawn(false).traces
+    expect(trace!.y).toEqual([1e19, -9007199254740992])
+  })
+})
+
 describe('dataViewer facets large or small by their own points', () => {
   // a day's row each of the parameter, from 2020-01-01 on
   const daysOf = (parameter: string, count: number) => Array.from({ length: count }, (_, day) => ({ ...row, parameter, timestamp: new Date(Date.UTC(2020, 0, day + 1)).toISOString() }))
@@ -1755,5 +1825,57 @@ describe('dataViewer chart series apart from the table\'s sort', () => {
     await flushPromises()
     await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
     expect(seriesDrawn(faceted)).toEqual(unsorted)
+  })
+})
+
+describe('dataViewer parameter statistics of rows that are not long values', () => {
+  function stats(viewer: Awaited<ReturnType<typeof mountDataViewer>>['viewer']) {
+    return (viewer.vm as unknown as { parameterStats: unknown[] }).parameterStats
+  }
+
+  it('takes none of a wide-shaped table, where it showed one row for an undefined parameter', async () => {
+    const wide = { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5, temperature_air_mean_2m_quality: 10 }
+    registerEndpoint('/api/values', () => ({ values: [wide] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    // the wide row is in the table, so it is the statistics that leave it out
+    expect(wrapper.findAll('tbody tr')).toHaveLength(1)
+    expect(wrapper.find('tbody').text()).toContain('1.5')
+    expect(stats(viewer)).toEqual([])
+  })
+
+  it('takes a query\'s rows that carry a parameter and a value, and none of those with its own columns', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([{ parameter: 'temperature_air_mean_2m', dataset: 'climate_summary', count: 1, min: 1.5, max: 1.5, mean: 1.5, sum: 1.5 }])
+    const panel = wrapper.findComponent(QueryPanel)
+    // `SELECT timestamp, parameter, AVG(value) AS avg_value FROM data GROUP BY timestamp, parameter`
+    panel.vm.$emit('dataTransformed', [{ timestamp: '2020-01-01T00:00:00Z', parameter: 'temperature_air_mean_2m', avg_value: 1.5 }])
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([])
+    // `SELECT parameter, value FROM data`: no dataset, a missing value counted as none, and a value
+    // as text, `value::VARCHAR AS value`, left out
+    panel.vm.$emit('dataTransformed', [{ parameter: 'precipitation_height', value: 2 }, { parameter: 'precipitation_height', value: 4 }, { parameter: 'wind_speed', value: null }, { parameter: 'wind_speed', value: '3' }, { parameter: 'humidity', value: '50' }])
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([
+      { parameter: 'precipitation_height', dataset: '', count: 2, min: 2, max: 4, mean: 3, sum: 6 },
+      { parameter: 'wind_speed', dataset: '', count: 0, min: null, max: null, mean: null, sum: null },
+    ])
+  })
+
+  it('takes a query\'s dataset of another type as its text, each its own', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    // `SELECT year(timestamp) AS dataset, parameter, value FROM data`
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [{ dataset: 2019, parameter: 'wind_speed', value: 1 }, { dataset: 2020, parameter: 'wind_speed', value: 3 }])
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([
+      { parameter: 'wind_speed', dataset: '2019', count: 1, min: 1, max: 1, mean: 1, sum: 1 },
+      { parameter: 'wind_speed', dataset: '2020', count: 1, min: 3, max: 3, mean: 3, sum: 3 },
+    ])
   })
 })

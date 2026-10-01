@@ -9,6 +9,7 @@ import QueryPanel from '~/components/QueryPanel.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
 import { describeFetchError } from '~/utils/api-error'
 import { formatDate } from '~/utils/format'
+import { timestampDate } from '~/utils/timestamp'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
 
 const props = defineProps<{
@@ -715,31 +716,30 @@ function calculateLinearRegression(xData: Date[], yData: number[]): { x: Date[],
 // Performance threshold - use WebGL and simplified rendering for large datasets
 const LARGE_DATASET_THRESHOLD = 500
 
-// A timestamp's text begins with its calendar date, as the REST API and a query's timestamps and
-// dates write it, a year of six digits signed
-const ISO_DATE = /^(?:\d{4}|[+-]\d{6})-\d{2}-\d{2}/
-
 // The date a row is placed at on the chart, or null for a row the chart has no place for. A query
 // can put anything under `timestamp`: null; text that is no date, as a time of day or 'n/a', which
 // left an Invalid Date that threw once written as ISO text, and the chart was not drawn, or which a
 // browser reads as a date by rules of its own, '1' as 2001-01-01 in Chrome; or a number, as epoch
-// seconds, which a Date reads as milliseconds, and the point went to 1970
+// seconds, which a Date reads as milliseconds, and the point went to 1970. Text without an offset is
+// UTC, as the rows the app fetches are, where the browser read a time without one as local time
 function rowDate(row: Value): Date | null {
   const timestamp: unknown = row.timestamp
-  if (typeof timestamp !== 'string' || !ISO_DATE.test(timestamp))
-    return null
-  const date = new Date(timestamp)
-  return Number.isNaN(date.getTime()) ? null : date
+  return typeof timestamp === 'string' ? timestampDate(timestamp) : null
 }
 
 // The rows the chart plots, each with its date: those with a value and a date to place it at. The
 // series and facets are made from these alone, so a series whose rows are all left out is not drawn
 // empty, and the large-dataset threshold counts the points drawn, not the rows left out. In the order
 // the rows were fetched or queried, not the table's sort: the series take their legend places and
-// colours in the order their first row comes, which a sort click swapped, and built the traces anew for
+// colours in the order their first row comes, which a sort click swapped, and built the traces anew for.
+// A value is a finite number, or an integer past 2^53 as plainRows writes it, its digits: any other
+// text a query puts under `value`, `CAST(value AS VARCHAR)` or 'n/a', the trendline added up as
+// text, drawing nothing, and text that is no number turned the y axis into one of categories
 const chartRows = computed(() => displayData.value.flatMap((row) => {
   const date = rowDate(row)
-  return date && row.value !== null && row.value !== undefined ? [{ row, date, y: row.value }] : []
+  const value: unknown = row.value
+  const y = typeof value === 'number' ? value : Number(bigIntegerValue(value) ?? Number.NaN)
+  return date && Number.isFinite(y) ? [{ row, date, y }] : []
 }))
 
 const isLargeChart = computed(() => chartRows.value.length > LARGE_DATASET_THRESHOLD)
@@ -1168,26 +1168,28 @@ interface ParameterStats {
   sum: number | null
 }
 
+// Statistics are taken of long rows alone, those that carry a parameter and a value, numeric or
+// missing: a wide-shaped row (a column per parameter) and a query's own columns (`avg_value`) carry
+// none, and grouped as long rows they showed one row for an undefined parameter, counting nothing
 const parameterStats = computed((): ParameterStats[] => {
-  if (!displayData.value.length)
-    return []
+  const statsMap = new Map<string, { values: number[], dataset: string, parameter: string }>()
 
-  const statsMap = new Map<string, { values: number[], dataset: string }>()
-
-  for (const value of displayData.value) {
-    const key = `${value.dataset}/${value.parameter}`
-    if (!statsMap.has(key)) {
-      statsMap.set(key, { values: [], dataset: value.dataset })
-    }
-    if (value.value !== null && value.value !== undefined) {
-      statsMap.get(key)!.values.push(value.value)
-    }
+  for (const row of displayData.value) {
+    const parameter = field(row, 'parameter')
+    const value = field(row, 'value')
+    if (typeof parameter !== 'string' || (typeof value !== 'number' && value !== null))
+      continue
+    // as the table shows it: a query may leave the dataset out, or give one of its own, a year
+    const dataset = fieldText(field(row, 'dataset'))
+    const key = `${dataset}/${parameter}`
+    if (!statsMap.has(key))
+      statsMap.set(key, { values: [], dataset, parameter })
+    if (value !== null)
+      statsMap.get(key)!.values.push(value)
   }
 
   const stats: ParameterStats[] = []
-  for (const [key, data] of statsMap) {
-    const parameter = key.split('/').slice(1).join('/')
-    const { values, dataset } = data
+  for (const { values, dataset, parameter } of statsMap.values()) {
     const count = values.length
 
     if (count === 0) {

@@ -12,6 +12,9 @@ const TICKS_PER_SECOND: Record<TimeUnit, bigint> = {
 // DuckDB's infinite timestamps, in any unit: the largest 64-bit integer and its negative
 const INFINITE_TICKS = 2n ** 63n - 1n
 
+// DuckDB's infinite dates, in days: the largest 32-bit integer and its negative
+const INFINITE_DAYS = 2n ** 31n - 1n
+
 // A division rounded down, so a moment before 1970 is floored to the microsecond rather than rounded
 // towards 1970
 function floorDiv(dividend: bigint, divisor: bigint): bigint {
@@ -151,6 +154,32 @@ function childRanges(vector: Vector): ([number, number] | null)[] {
 }
 
 /**
+ * The names of a map's keys that are made null as any value is, so that each stays apart: a float's
+ * NaN or infinity by its own name (GH-2116), and an infinite date or timestamp by DuckDB's text,
+ * `infinity` or `-infinity` (GH-2148), read from its ticks, as Arrow's getter throws on a
+ * timestamp's. A key is never NULL. Other keys made null still collide: a date or timestamp past
+ * what a Date holds, and an infinity or a NaN inside a list, a struct or a union.
+ *
+ * @returns The name of the key at a row of the key column, counted across all chunks
+ */
+function nullKeyNames(vector: Vector): (at: number) => string {
+  switch (vector.type.typeId) {
+    case Type.Float:
+      return at => String(vector.get(at))
+    case Type.Date:
+    case Type.Timestamp: {
+      const infinite = vector.type.typeId === Type.Date ? INFINITE_DAYS : INFINITE_TICKS
+      const names = vector.data.flatMap(data => Array.from({ length: data.length }, (_, index) => {
+        const ticks = BigInt((data.values as Int32Array | BigInt64Array)[index]!)
+        return ticks === infinite ? 'infinity' : ticks === -infinite ? '-infinity' : 'null'
+      }))
+      return at => names[at]!
+    }
+  }
+  return () => 'null'
+}
+
+/**
  * The plain values of a column, by its type. A nested column is made plain from its children's
  * columns, so a value inside a list, a struct or a map is made plain as it would be on its own. A
  * timestamp is read from its column's 64-bit integers: Arrow's getter gives it as a double of
@@ -191,12 +220,9 @@ function plainColumn(vector: Vector, field: Field): unknown[] {
       const entries = vector.getChildAt(0)!
       const [keyField, valueField] = entries.type.children as Field[]
       const keyVector = entries.getChildAt(0)!
-      const floatKeys = keyVector.type.typeId === Type.Float
-      // a float key of NaN or an infinity, which is made null as any value is, by its own name, so
-      // that each stays apart (GH-2116); a key is never NULL. Other keys made null, as an infinite
-      // date, still collide (GH-2148)
-      const keys = plainColumn(keyVector, keyField!).map((key, at) => key === null && floatKeys
-        ? String(keyVector.get(at))
+      const nullKeyName = nullKeyNames(keyVector)
+      const keys = plainColumn(keyVector, keyField!).map((key, at) => key === null
+        ? nullKeyName(at)
         : typeof key === 'string' ? key : JSON.stringify(key))
       const values = plainColumn(entries.getChildAt(1)!, valueField!)
       return childRanges(vector).map(range => range && Object.fromEntries(keys.slice(...range).map((key, index) =>

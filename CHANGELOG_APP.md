@@ -141,6 +141,9 @@ Types of changes:
 - `[Explorer]` A query's MAP with DOUBLE or FLOAT keys of NaN, infinity and negative infinity keeps
   each of them, as `NaN`, `Infinity` and `-Infinity`. All three were keyed `null`, so only the
   last one's value was shown and downloaded (GH-2116)
+- `[Explorer]` A query's MAP with DATE or TIMESTAMP keys of infinity and negative infinity keeps
+  both, as `infinity` and `-infinity`, as DuckDB writes them. Both were keyed `null`, so only the
+  last one's value was shown and downloaded (GH-2148)
 - `[Explorer]` The query panel's note on the types the browser's DuckDB misreads names GEOMETRY,
   which comes as its WKB bytes, and `CAST(column AS VARCHAR)` reads it as text (GH-2134)
 - `[Explorer]` The query panel's table has every column any row carries, each numeric when all
@@ -193,6 +196,19 @@ Types of changes:
   together, so six facets of 100 points each lost their markers (GH-2158)
 - `[Explorer]` The chart's series keep their colours and legend places when the table is sorted.
   They followed the table's sort, so sorting by value could swap two stations' colours (GH-2159)
+- `[Explorer]` The chart places a query's timestamp text without an offset, as `2020-01-01 00:00`,
+  at that time in UTC, as the fetched rows are. The browser read it as its own local time, an hour
+  or more away from the row it came from. Text with a space before the time or an offset of hours
+  alone is placed the same in every browser, and a date or time that does not exist, as
+  `2020-02-30`, is left out where it was drawn in the next month (GH-2157)
+- `[Explorer]` The chart plots only a query's values that are numbers, and integers past ±2^53,
+  which come as their digits. Other text under `value`, as from `CAST(value AS VARCHAR)`, is left
+  out: the trendline added it up as text and drew nothing but its legend entry, and text that is no
+  number, as `'n/a'`, turned the y axis into categories (GH-2156)
+- `[Explorer]` The parameter statistics take only rows that carry a `parameter` and a `value` that
+  is a number or missing. A wide table, or a query result with its own columns such as `avg_value`,
+  shows no statistics, where it showed a row for an undefined parameter, or for an empty dataset,
+  counting nothing (GH-2161)
 
 ## [0.17.0] - 2026-09-29
 
