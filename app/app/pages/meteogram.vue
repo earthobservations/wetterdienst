@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { Station } from '#shared/types/api'
-import { defineAsyncComponent, nextTick } from 'vue'
+import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 import { describeApiError } from '~/utils/api-error'
 
-const MapStations = defineAsyncComponent(() => import('~/components/MapStations.vue'))
+const { MapStations, notLoaded: mapNotLoaded } = useMapStations()
 
 // Auto-composed MOSMIX parameters – user never configures these
 const MOSMIX = {
@@ -296,7 +296,7 @@ onMounted(async () => {
               <span>{{ t('stationSelection.loading') }}</span>
             </div>
             <template v-else-if="mapStations.length">
-              <p class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
+              <p v-if="!mapNotLoaded" class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
                 <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
                 {{ t('meteogram.mapHint') }}
               </p>

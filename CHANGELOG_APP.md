@@ -18,6 +18,9 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` `[History]` `[Meteogram]` Where the station map's code could not be loaded, as
+  after a new version of the app was deployed under an open tab, the map area says the stations
+  could not be shown and offers a Reload page button. It stayed empty, with no word why (GH-2194)
 - `[Explorer]` The station map's "Center on all stations" fits the map to a network of any number of
   stations, where it did nothing past about 120,000 stations (65,536 in Safari), as NOAA GHCN daily
   lists (GH-2189)
