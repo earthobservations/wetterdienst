@@ -134,9 +134,10 @@ class _MissingDataHistory(BaseModel):
 class History(BaseModel):
     """Model for history data.
 
-    A collector yields one history per station and dataset when the provider keeps its station
-    metadata per dataset, as DWD observation does, so `resolution` and `dataset` say which one an
-    entry belongs to. A provider whose history covers the station as a whole would give them as None.
+    A collector yields a history per station and dataset when the provider keeps its station
+    metadata per dataset, as DWD observation does (for each dataset with a historical archive of
+    the station), so `resolution` and `dataset` say which one an entry belongs to. A provider whose
+    history covers the station as a whole would give them as None.
     """
 
     # the station the history belongs to, spelt as in the stations frame, so a history whose

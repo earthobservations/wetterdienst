@@ -65,9 +65,10 @@ wetterdienst history --provider dwd --network observation --parameters daily/kl 
 
 Available `--sections` are `name`, `parameter`, `device`, `geography` and `missing_data`.
 Each history also gives its station's `station_id`, whichever sections are asked for.
-DWD observation keeps station metadata per dataset, so a request for several datasets answers one
-history per station and dataset; each gives the `resolution` and `dataset` it belongs to beside
-its `station_id`.
+DWD observation keeps station metadata in each dataset's historical archive, so a request for
+several datasets answers one history per station and dataset it has such an archive for (a dataset
+without one is left out); each gives the `resolution` and `dataset` it belongs to beside its
+`station_id`.
 The result is returned as JSON; use `--target file://history.json` to write it to a file
 (the target must end with `.json`).
 
