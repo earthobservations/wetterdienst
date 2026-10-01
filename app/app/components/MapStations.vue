@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import * as L from 'leaflet'
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 const props = defineProps<{
   stations: any[]
@@ -56,8 +56,12 @@ const mapBounds = computed(() => {
   )
 })
 
-// Counts the calls to createMarkers(), so that one overtaken while it waits can tell.
+// Counts the calls to createMarkers(), and the map's removal, so that a call overtaken by either
+// while it waits can tell.
 let markersGeneration = 0
+onBeforeUnmount(() => {
+  markersGeneration++
+})
 
 async function createMarkers() {
   const generation = ++markersGeneration
@@ -74,8 +78,11 @@ async function createMarkers() {
   const stations = mappedStations.value
   if (!stations.length)
     return
+  // useLMarkerCluster() adds the cluster to the map it is handed itself, as soon as
+  // leaflet.markercluster has loaded, before it returns. It is handed a stand-in that ignores the
+  // add: the cluster is added below, once this call is known to be still the current one.
   const result = await useLMarkerCluster({
-    leafletObject: leafletMap,
+    leafletObject: { addLayer: () => leafletMap } as unknown as L.Map,
     markers: stations.map(station => ({
       name: station.name,
       lat: station.latitude,
@@ -85,13 +92,13 @@ async function createMarkers() {
       },
     })),
   })
-  // The list changed while leaflet.markercluster was loading, and a later call was made for the
-  // newer one: this call's cluster, already added to the map, is an older list's.
-  if (generation !== markersGeneration) {
-    leafletMap.removeLayer(result.markerCluster)
+  // The list changed, or the map was removed (its section collapsed, the page left), while
+  // leaflet.markercluster was loading: the cluster is an older list's, or has no map to go on -- a
+  // removed map has no panes to draw it on.
+  if (generation !== markersGeneration)
     return
-  }
   markerClusterGroup = result.markerCluster
+  leafletMap.addLayer(markerClusterGroup)
   result.markers.forEach((marker, index) => {
     const station = stations[index]
     if (station) {
@@ -159,8 +166,6 @@ watch(() => props.stations, async () => {
 })
 
 watch(() => props.selectedStations, () => {
-  // avoid noisy logs in production; keep a warn for visibility when needed
-  console.warn('selectedStations changed', props.selectedStations)
   updateMarkerIcons()
   // when user selects stations by clicking, indicate map is centered on selection -- for a selection
   // with a position, as one without leaves nothing to centre on. Centring already on stays on, so

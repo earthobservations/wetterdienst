@@ -214,6 +214,14 @@ Types of changes:
   is a number or missing. A wide table, or a query result with its own columns such as `avg_value`,
   shows no statistics, where it showed a row for an undefined parameter, or for an empty dataset,
   counting nothing (GH-2161)
+- `[Explorer/History/Stripes/Meteogram]` Collapsing the station map, or leaving the page, while its
+  markers are still being built no longer adds them to the removed map, which could throw an error
+  into the browser console (GH-2155)
+- `[Stripes]` The station map stays centred on all stations once "Center on all stations" is
+  pressed, where it could move back to the chosen station by itself and undo the user's pan and
+  zoom (GH-2164)
+- `[Explorer/History/Stripes/Meteogram]` The station map no longer writes a warning holding the
+  whole selection to the browser console each time the selection changes (GH-2168)
 
 ## [0.17.0] - 2026-09-29
 
