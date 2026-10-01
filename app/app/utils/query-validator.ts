@@ -297,8 +297,8 @@ function tokenize(query: string): { tokens: Token[], unclosed: boolean } {
 }
 
 // Keywords of statements that change data, the schema or the database, which a query may not hold.
-// Not REPLACE, which names the read-only replace() and SELECT * REPLACE (...): each statement it
-// joins, CREATE OR REPLACE and INSERT OR REPLACE, is refused by its first keyword.
+// Not REPLACE, which names the read-only replace() and SELECT * REPLACE (...): CREATE OR REPLACE is
+// refused by the SELECT-only check, and INSERT OR REPLACE, after a WITH, by INSERT.
 const DISALLOWED_KEYWORDS = new Set([
   'CREATE',
   'DROP',

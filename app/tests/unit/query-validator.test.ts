@@ -374,7 +374,7 @@ describe('validateQuery words that are keywords elsewhere', () => {
   it.each([
     ['CREATE OR REPLACE TABLE data AS SELECT 2 AS value', 'validation.onlySelect', undefined],
     ['WITH x AS (SELECT 2, \'a\') INSERT OR REPLACE INTO data SELECT * FROM x', 'validation.disallowedOperation', { op: 'INSERT' }],
-  ])('refuses %j, a statement REPLACE joins, by its first keyword', (sql, errorKey, params) => {
+  ])('refuses %j, a statement REPLACE joins, by the SELECT-only check or INSERT', (sql, errorKey, params) => {
     expect(validateQuery(sql)).toEqual({ valid: false, errorKey, ...(params && { params }) })
   })
 
