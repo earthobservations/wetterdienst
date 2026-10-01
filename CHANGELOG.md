@@ -46,6 +46,11 @@ Types of changes:
   terms, a line per problem -- `Missing option '--longitude'`, `Options '--station' and '--name'
   cannot be used together`, `Invalid value for '--distance'` with the value refused -- instead of
   pydantic's echo of every option given (GH-2056)
+- **Breaking**: `imgw/meteorology` `daily/precipitation` returns 0 mm for a day the file leaves out
+  of a month the station reports in, which `o_d_format.txt` documents as *brak zjawiska*; such a
+  day was missing. Older files omit most dry days -- WARSZOWICE has 17 rows for February 2010 --
+  while newer ones write them with status `9`. The filled days carry `quality` 11, so filter that
+  out to get the rows as before. Only `precipitation_amount` is filled, and only there (GH-2000)
 
 ### Fixed
 

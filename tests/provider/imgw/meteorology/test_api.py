@@ -3,6 +3,8 @@
 """Tests for meteorological data provider."""
 
 import datetime as dt
+import zipfile
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -11,12 +13,14 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.imgw.meteorology.api import (
+    _ABSENT_DAY_NO_PHENOMENON,
     _STATUSLESS_COLUMNS,
     _STRUCTURAL_COLUMNS,
     ImgwMeteorologyMetadata,
     ImgwMeteorologyRequest,
     ImgwMeteorologyValues,
 )
+from wetterdienst.util.network import File
 
 
 @pytest.mark.remote
@@ -924,3 +928,108 @@ def test_imgw_meteorology_daily_synop_returns_the_columns_it_reads(parameter: st
         .df
     )
     assert values.get_column("value").to_list() == [expected]
+
+
+# `o_d` rows for February 2010, as (station, day, SMDB, its status): field 6 is `SMDB` and field 7 its
+# status, and `PKSN` and `HSS`, fields 9 and 11, carry "8" -- not measured -- the way WARSZOWICE's do
+# in every row of `o_d_02_2010`.
+def _o_d_zip(rows: list[tuple[str, int, str, str]]) -> File:
+    lines = []
+    for station_id, day, value, status in rows:
+        fields = [""] * 16
+        fields[0] = station_id
+        fields[2] = "2010"
+        fields[3] = "02"
+        fields[4] = f"{day:02d}"
+        fields[5] = value
+        fields[6] = status
+        fields[8] = "0"
+        fields[9] = "8"
+        fields[10] = "0"
+        fields[11] = "8"
+        lines.append(",".join(fields))
+    content = BytesIO()
+    with zipfile.ZipFile(content, "w") as archive:
+        archive.writestr("o_d_02_2010.csv", "\n".join(lines).encode("latin-1"))
+    content.seek(0)
+    return File(url="https://example.invalid/2010_02_o.zip", content=content, status=200)
+
+
+def test_imgw_meteorology_a_day_absent_from_a_present_month_is_no_precipitation() -> None:
+    """A day ``o_d`` leaves out of a month the station reports in is a dry day (GH-2000).
+
+    ``o_d_format.txt`` says so -- "Brak zjawiska to również brak dnia w istniejącym miesiącu" -- and
+    the older files rely on it, while the newer ones write the same days out with status "9". So the
+    series of one rain gauge read 0 mm or nothing for a dry day depending on the year of the file.
+    Only ``SMDB`` is filled: ``PKSN`` and ``HSS`` are "8" in the rows that are there, and a dry day
+    says nothing about snow cover. A day written with "8" stays a missing measurement, and the filled
+    days carry 11 rather than IMGW's 9, since no status in the file says so.
+    """
+    values = ImgwMeteorologyValues._parse_file(  # noqa: SLF001
+        ImgwMeteorologyValues.__new__(ImgwMeteorologyValues),
+        file=_o_d_zip(
+            [
+                ("249180020", 1, ".2", ""),
+                ("249180020", 3, "2.1", ""),
+                ("249180020", 5, ".0", "8"),
+                # another station's rows do not make a month present for this one
+                ("250000000", 2, "4.0", ""),
+            ],
+        ),
+        station_id="249180020",
+        resolution=Resolution.DAILY,
+        file_schema=ImgwMeteorologyValues._file_schema[Resolution.DAILY]["precipitation"],  # noqa: SLF001
+    ).sort("parameter", "timestamp")
+    precipitation = values.filter(pl.col("parameter") == "suma dobowa opadów")
+    assert precipitation.get_column("timestamp").dt.strftime("%Y-%m-%d").to_list() == [
+        f"2010-02-{day:02d}" for day in range(1, 29)
+    ]
+    assert precipitation.get_column("value").to_list()[:6] == [0.2, 0.0, 2.1, 0.0, None, 0.0]
+    assert precipitation.get_column("quality").to_list()[:6] == [None, 11.0, None, 11.0, 8.0, 11.0]
+    assert set(precipitation.get_column("value").to_list()[6:]) == {0.0}
+    assert set(precipitation.get_column("quality").to_list()[6:]) == {11.0}
+    # the snow columns keep only the rows the file has
+    assert values.filter(pl.col("parameter") != "suma dobowa opadów").height == 6
+    # a station with no row in the month gets none either
+    absent_station = ImgwMeteorologyValues._parse_file(  # noqa: SLF001
+        ImgwMeteorologyValues.__new__(ImgwMeteorologyValues),
+        file=_o_d_zip([("250000000", 2, "4.0", "")]),
+        station_id="249180020",
+        resolution=Resolution.DAILY,
+        file_schema=ImgwMeteorologyValues._file_schema[Resolution.DAILY]["precipitation"],  # noqa: SLF001
+    )
+    assert absent_station.is_empty()
+
+
+def test_imgw_meteorology_absent_day_columns_agree_with_the_file_schema() -> None:
+    """Every entry of ``_ABSENT_DAY_NO_PHENOMENON`` must name a file and a column the parser reads.
+
+    It is keyed by the same regex strings as ``_file_schema``, so rewording a pattern, or renaming
+    the column, would leave the entry with nothing to match and the dry days quietly absent again.
+    """
+    schemas = {
+        file_pattern: set(columns.values())
+        for datasets in ImgwMeteorologyValues._file_schema.values()  # noqa: SLF001
+        for files in datasets.values()
+        for file_pattern, columns in files.items()
+    }
+    for file_pattern, names in _ABSENT_DAY_NO_PHENOMENON.items():
+        assert file_pattern in schemas
+        assert names <= schemas[file_pattern]
+
+
+@pytest.mark.remote
+def test_imgw_meteorology_daily_precipitation_returns_a_dry_day_the_file_leaves_out() -> None:
+    """WARSZOWICE has no row for 2010-02-16 in ``o_d_02_2010``: a dry day, returned as 0 mm (GH-2000)."""
+    values = (
+        ImgwMeteorologyRequest(
+            parameters=[("daily", "precipitation", "precipitation_amount")],
+            start_date="2010-02-16",
+            end_date="2010-02-16",
+        )
+        .filter_by_station_id("249180020")
+        .values.all()
+        .df
+    )
+    assert values.get_column("value").to_list() == [0.0]
+    assert values.get_column("quality").to_list() == [11.0]
