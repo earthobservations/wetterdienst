@@ -955,11 +955,11 @@ def test_dmo_the_run_is_read_once_per_product_per_request(monkeypatch: pytest.Mo
     assert len(listed) == 1
 
 
-# the stamps carry no month, so they are dated against the clock: on the afternoon of 1 August the
-# 12 UTC run of that day is out and the 31st is July's. Unpinned, the 31st was dated in the month
-# before today's (two before, in the first hours of a month), and where that month has 30 days or
-# fewer the date does not exist, the runs could not be read, and the test failed (GH-2171)
-@freeze_time(dt.datetime(2026, 8, 1, 13, tzinfo=ZoneInfo("UTC")))
+# the stamps carry no month, so they are dated against the clock: at 18 UTC on 1 August the 12 UTC
+# run of that day is out (DWD lists it at about 15:15 UTC) and the 31st is July's. Unpinned, the
+# 31st was dated in the month before today's (two before, in the first hours of a month), and where
+# that month has 30 days or fewer the date does not exist, so the runs could not be read (GH-2171)
+@freeze_time(dt.datetime(2026, 8, 1, 18, tzinfo=ZoneInfo("UTC")))
 def test_dmo_the_newest_run_describes_the_stations(monkeypatch: pytest.MonkeyPatch) -> None:
     """A station list read from a run should be the current one, not whichever the directory names first.
 
