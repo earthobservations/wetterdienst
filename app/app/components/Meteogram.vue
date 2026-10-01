@@ -955,7 +955,6 @@ async function renderChartActual() {
   const humidityKey = findFirstAvailable(['humidity_relative', 'relative_humidity', 'rh', 'r'], available)
   const dewKey = findFirstAvailable(['temperature_dew_point_mean_2m', 'dew_point', 'td', 'tdt', 'dew_point_2m'], available)
   const pressureKey = findFirstAvailable(['pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'], available)
-  const tempStdKey = findFirstAvailable(['temperature_standard_deviation', 'ttt_sd', 'temperature_sd', 'ttt_std', 'temperature_std', 'ttt_sigma'], available)
   const txKey = findFirstAvailable(['temperature_air_max_2m', 'tx', 'tx12', 'tx6'], available)
   const tnKey = findFirstAvailable(['temperature_air_min_2m', 'tn', 'tn12', 'tn6'], available)
 
@@ -1215,27 +1214,7 @@ async function renderChartActual() {
     const sTx = hasTxTn ? resampledSeries.get(txKey)! : null
     const sTn = hasTxTn ? resampledSeries.get(tnKey)! : null
 
-    if (tempStdKey && resampledSeries.has(tempStdKey)) {
-      const sStd = resampledSeries.get(tempStdKey)!
-      const lower: number[] = []
-      const upper: number[] = []
-      for (let i = 0; i < xs.length; i++) {
-        const tIso = xs[i]!
-        const tMs = new Date(tIso).getTime()
-        const std = interpSeries(sStd.x, sStd.y, tMs) ?? (sStd.y[0] ?? 0)
-        const base = s.y[i] ?? 0
-        lower.push(base - std)
-        upper.push(base + std)
-      }
-      tempMinY = Math.min(tempMinY, ...lower)
-      tempMaxY = Math.max(tempMaxY, ...upper)
-
-      traces.push({ x: xs, y: lower, type: 'scatter', mode: 'lines', line: { width: 0 }, showlegend: false, hoverinfo: 'skip', yaxis: 'y3' })
-      traces.push({ x: xs, y: upper, type: 'scatter', mode: 'lines', line: { width: 0 }, fill: 'tonexty', fillcolor: isDark.value ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.12)', showlegend: false, hoverinfo: 'skip', yaxis: 'y3' })
-    }
-    else {
-      traces.push({ x: xs, y: Array.from({ length: xs.length }).fill(tempMinY), type: 'scatter', mode: 'none', showlegend: false, yaxis: 'y3', hoverinfo: 'skip' })
-    }
+    traces.push({ x: xs, y: Array.from({ length: xs.length }).fill(tempMinY), type: 'scatter', mode: 'none', showlegend: false, yaxis: 'y3', hoverinfo: 'skip' })
 
     const dewLookup = new Map<string, number>()
     if (dewKey && resampledSeries.has(dewKey)) {
@@ -1275,7 +1254,8 @@ async function renderChartActual() {
       type: 'scatter',
       mode: 'lines',
       line: { color: '#ef4444', width: 2, shape: 'spline' },
-      ...(tempStdKey && resampledSeries.has(tempStdKey) ? {} : { fill: 'tozeroy', fillcolor: isDark.value ? 'rgba(239,68,68,0.02)' : 'rgba(239,68,68,0.04)' }),
+      fill: 'tozeroy',
+      fillcolor: isDark.value ? 'rgba(239,68,68,0.02)' : 'rgba(239,68,68,0.04)',
       yaxis: 'y3',
       hovertemplate: hasTxTn
         ? `<b>${t('meteogram.chart.hoverMeanTemp')}</b>: %{y:.1f}°C<extra></extra>`
