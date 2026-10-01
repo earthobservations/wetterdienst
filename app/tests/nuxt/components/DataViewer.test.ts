@@ -1669,3 +1669,38 @@ describe('dataViewer sort of integers past 2^53', () => {
     expect(wrapper.findAll('tbody td').map(td => td.text())).toEqual(ascending.toReversed())
   })
 })
+
+describe('dataViewer parameter statistics of rows that are not long values', () => {
+  function stats(viewer: Awaited<ReturnType<typeof mountDataViewer>>['viewer']) {
+    return (viewer.vm as unknown as { parameterStats: unknown[] }).parameterStats
+  }
+
+  it('takes none of a wide-shaped table, where it showed one row for an undefined parameter', async () => {
+    const wide = { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5, temperature_air_mean_2m_quality: 10 }
+    registerEndpoint('/api/values', () => ({ values: [wide] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([])
+  })
+
+  it('takes a query\'s rows that carry a parameter and a value, and none of those with its own columns', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([{ parameter: 'temperature_air_mean_2m', dataset: 'climate_summary', count: 1, min: 1.5, max: 1.5, mean: 1.5, sum: 1.5 }])
+    const panel = wrapper.findComponent(QueryPanel)
+    // `SELECT timestamp, parameter, AVG(value) AS avg_value FROM data GROUP BY timestamp, parameter`
+    panel.vm.$emit('dataTransformed', [{ timestamp: '2020-01-01T00:00:00Z', parameter: 'temperature_air_mean_2m', avg_value: 1.5 }])
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([])
+    // `SELECT parameter, value FROM data`: no dataset, and a missing value counted as none
+    panel.vm.$emit('dataTransformed', [{ parameter: 'precipitation_height', value: 2 }, { parameter: 'precipitation_height', value: 4 }, { parameter: 'wind_speed', value: null }])
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([
+      { parameter: 'precipitation_height', dataset: '', count: 2, min: 2, max: 4, mean: 3, sum: 6 },
+      { parameter: 'wind_speed', dataset: '', count: 0, min: null, max: null, mean: null, sum: null },
+    ])
+  })
+})
