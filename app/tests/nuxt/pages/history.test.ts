@@ -25,7 +25,7 @@ async function mountHistory(options?: Record<string, unknown>) {
 
 const HISTORY = {
   histories: [
-    { parameter: [{ station_id: '00001', station_name: 'Foo Station', start_date: '2000-01-01', end_date: null, parameter: 'temperature_air_mean_2m', description: 'Air temp', unit: '°C' }] },
+    { station_id: '00001', parameter: [{ station_id: '00001', station_name: 'Foo Station', start_date: '2000-01-01', end_date: null, parameter: 'temperature_air_mean_2m', description: 'Air temp', unit: '°C' }] },
   ],
 }
 
@@ -117,7 +117,7 @@ describe('history Page', () => {
     const wrapper = await mountHistory()
     const vm = wrapper.vm as any
 
-    vm.data = { histories: [{ name: { station: [{ station_name: 'Foo' }] } }] }
+    vm.data = { histories: [{ station_id: '00001', name: { station: [{ station_name: 'Foo' }] } }] }
     await wrapper.vm.$nextTick()
 
     vm.clear()
@@ -141,6 +141,7 @@ describe('history Page', () => {
     endpoints.push(registerEndpoint('/api/history', () => ({
       histories: [
         {
+          station_id: '00001',
           parameter: [{ station_id: '00001', station_name: 'Foo Station', start_date: '2000-01-01', end_date: null, parameter: 'temperature_air_mean_2m', description: 'Air temp', unit: '°C' }],
           name: { station: [{ start_date: '2000-01-01', end_date: null, station_name: 'Foo Station' }] },
         },
@@ -265,7 +266,7 @@ describe('history Page', () => {
     const { wrapper, vm, showButton } = await mountWithSelection(async (event) => {
       const station = String(getQuery(event).station)
       await new Promise<void>(resolve => gates.push(resolve))
-      return { histories: [{ parameter: [{ ...HISTORY.histories[0]!.parameter[0], station_id: station }] }] }
+      return { histories: [{ station_id: station, parameter: [{ ...HISTORY.histories[0]!.parameter[0], station_id: station }] }] }
     })
     // the id and name of each station in the Selected stations overview
     const overview = () => {
@@ -303,6 +304,7 @@ describe('history Page', () => {
     // position is in `geography`, one record per period, and nowhere at the top of the history
     const { wrapper, vm, showButton } = await mountWithSelection(() => ({
       histories: [{
+        station_id: '00001',
         name: {
           station: [{ station_id: '00001', station_name: 'Foo Station', start_date: '1926-05-01T00:00:00+00:00', end_date: null }],
           operator: [],
@@ -373,6 +375,7 @@ describe('history Page results', () => {
     // each table a row with its numbers at 0, and one with them null, as the backend sends a field it has no value for
     const { wrapper, showButton } = await mountWithSelection(() => ({
       histories: [{
+        station_id: '00001',
         device: [
           { ...period, device_type: 'Thermometer', device_height: 0, latitude: 0, longitude: 0, station_elevation: 0, method: 'M' },
           { ...period, device_type: 'Thermometer', device_height: null, latitude: null, longitude: null, station_elevation: null, method: 'M' },
@@ -424,9 +427,9 @@ describe('history Page results', () => {
   const measured = (parameter: string, station_name: string, start_date: string, end_date: string) =>
     ({ station_id: '00001', station_name, parameter, start_date, end_date, description: null, unit: null, data_source: null, extra_info: null, special: null, literature: null })
 
-  // the station card's header, after Show has answered with `history`
+  // the station card's header, after Show has answered with `history` of station 00001
   async function cardHeader(history: Record<string, unknown>) {
-    const { wrapper, showButton } = await mountWithSelection(() => ({ histories: [history] }))
+    const { wrapper, showButton } = await mountWithSelection(() => ({ histories: [{ station_id: '00001', ...history }] }))
     await showButton().trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
     return { wrapper, header: wrapper.findAll('h3').find(h => h.text().startsWith('Station ID'))!.text() }
@@ -525,21 +528,12 @@ describe('history Page results', () => {
     const missing = (station_name: string, end_date: string) =>
       ({ station_id: '00001', station_name, parameter: 'TMK', start_date: '1926-05-01T00:00:00+00:00', end_date, missing_count: 3, description: null })
     const { header } = await cardHeader({
-      // the id from a section with no name
+      // a section before it whose record has no name
       device: [{ ...placed('', '1926-05-01T00:00:00+00:00', '2026-09-30T00:00:00+00:00'), station_name: null, device_type: null, device_height: null, method: null }],
       missing_data: {
         summary: [missing('Dresden-Klotzsche', '2026-09-30T00:00:00+00:00'), missing('Dresden-Heller', '1935-07-10T00:00:00+00:00')],
         periods: [],
       },
-    })
-
-    expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
-  })
-
-  it('takes the station id from the next section where a record\'s is empty', async () => {
-    const { header } = await cardHeader({
-      parameter: [{ ...measured('TMK', 'Dresden-Klotzsche', '1935-07-10T00:00:00+00:00', '2026-09-30T00:00:00+00:00'), station_id: '' }],
-      geography: [placed('Dresden-Klotzsche', '1935-07-10T00:00:00+00:00', '2026-09-30T00:00:00+00:00')],
     })
 
     expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
@@ -570,30 +564,25 @@ describe('history Page station card id', () => {
     return header()!.text()
   }
 
-  const period = { station_id: '00001', start_date: '1934-01-01T00:00:00+00:00', end_date: null }
-  const missing = { ...period, station_name: null, parameter: 'TMK', end_date: '2026-09-30T00:00:00+00:00', missing_count: 3, description: null }
+  it('takes the id from the history where its sections hold no records', async () => {
+    // as the backend answers the name and missing data sections for a station with no gaps and no
+    // name records: the id only at the top of the history
+    const header = await cardHeader({
+      station_id: '01048',
+      name: { station: [], operator: [] },
+      missing_data: { summary: [], periods: [] },
+    })
 
-  it('takes the id from the station names where only the name section is fetched', async () => {
-    const header = await cardHeader({ name: { station: [{ ...period, station_name: 'Dresden-Klotzsche' }], operator: [] } })
-
-    expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
+    expect(header).toBe('Station ID: 01048')
   })
 
-  it('takes the id from the operator names where the name section has no station name', async () => {
-    const header = await cardHeader({ name: { station: [], operator: [{ ...period, operator_name: 'DWD' }] } })
+  it('takes the id from the history over its records\' spelling', async () => {
+    // a record whose id is spelt otherwise than the history's, so the header tells which it reads
+    const header = await cardHeader({
+      station_id: '01048',
+      parameter: [{ station_id: '1048', station_name: 'Dresden-Klotzsche', parameter: 'TMK', start_date: '1934-01-01T00:00:00+00:00', end_date: '2026-09-30T00:00:00+00:00', description: null, unit: null, data_source: null, extra_info: null, special: null, literature: null }],
+    })
 
-    expect(header).toBe('Station ID: 00001')
-  })
-
-  it('takes the id from the missing data summary where only the missing data section is fetched', async () => {
-    const header = await cardHeader({ missing_data: { summary: [missing], periods: [] } })
-
-    expect(header).toBe('Station ID: 00001')
-  })
-
-  it('takes the id from the missing data periods where the missing data section has no summary', async () => {
-    const header = await cardHeader({ missing_data: { summary: [], periods: [missing] } })
-
-    expect(header).toBe('Station ID: 00001')
+    expect(header).toBe('Station ID: 01048 Dresden-Klotzsche')
   })
 })

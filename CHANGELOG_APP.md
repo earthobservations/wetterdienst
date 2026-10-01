@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `[History]` A station's card names its id whatever sections are fetched, where it read
+  "Station ID:" with nothing after it when the sections fetched held no records, as the missing
+  data of a station without gaps. The id is the one the backend now sends with each history,
+  spelt as in the stations list (GH-2215)
 - `[Explorer]` DWD DMO's `icon` offers a choice of forecast run: short (to 78 h, hourly, the
   default) or long (78 to 168 h, 3-hourly). The 3-hourly parameters, such as
   `precipitation_amount_last_3h`, are carried only by the long run, which the explorer could not
