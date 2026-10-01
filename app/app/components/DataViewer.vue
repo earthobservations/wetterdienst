@@ -9,6 +9,7 @@ import QueryPanel from '~/components/QueryPanel.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
 import { describeFetchError } from '~/utils/api-error'
 import { formatDate } from '~/utils/format'
+import { timestampDate } from '~/utils/timestamp'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
 
 const props = defineProps<{
@@ -713,29 +714,30 @@ function calculateLinearRegression(xData: Date[], yData: number[]): { x: Date[],
 // Performance threshold - use WebGL and simplified rendering for large datasets
 const LARGE_DATASET_THRESHOLD = 500
 
-// A timestamp's text begins with its calendar date, as the REST API and a query's timestamps and
-// dates write it, a year of six digits signed
-const ISO_DATE = /^(?:\d{4}|[+-]\d{6})-\d{2}-\d{2}/
-
 // The date a row is placed at on the chart, or null for a row the chart has no place for. A query
 // can put anything under `timestamp`: null; text that is no date, as a time of day or 'n/a', which
 // left an Invalid Date that threw once written as ISO text, and the chart was not drawn, or which a
 // browser reads as a date by rules of its own, '1' as 2001-01-01 in Chrome; or a number, as epoch
-// seconds, which a Date reads as milliseconds, and the point went to 1970
+// seconds, which a Date reads as milliseconds, and the point went to 1970. Text without an offset is
+// UTC, as the rows the app fetches are, where the browser read a time without one as local time
 function rowDate(row: Value): Date | null {
   const timestamp: unknown = row.timestamp
-  if (typeof timestamp !== 'string' || !ISO_DATE.test(timestamp))
-    return null
-  const date = new Date(timestamp)
-  return Number.isNaN(date.getTime()) ? null : date
+  return typeof timestamp === 'string' ? timestampDate(timestamp) : null
 }
 
 // The rows the chart plots, each with its date: those with a value and a date to place it at. The
 // series and facets are made from these alone, so a series whose rows are all left out is not drawn
-// empty, and the large-dataset threshold counts the points drawn, not the rows left out
-const chartRows = computed(() => sortedValues.value.flatMap((row) => {
+// empty, and the large-dataset threshold counts the points drawn, not the rows left out. In the order
+// the rows were fetched or queried, not the table's sort: the series take their legend places and
+// colours in the order their first row comes, which a sort click swapped, and built the traces anew for.
+// A value is a finite number, or an integer past 2^53 as plainRows writes it, its digits: any other
+// text a query puts under `value`, `CAST(value AS VARCHAR)` or 'n/a', the trendline added up as
+// text, drawing nothing, and text that is no number turned the y axis into one of categories
+const chartRows = computed(() => displayData.value.flatMap((row) => {
   const date = rowDate(row)
-  return date && row.value !== null && row.value !== undefined ? [{ row, date, y: row.value }] : []
+  const value: unknown = row.value
+  const y = typeof value === 'number' ? value : Number(bigIntegerValue(value) ?? Number.NaN)
+  return date && Number.isFinite(y) ? [{ row, date, y }] : []
 }))
 
 const isLargeChart = computed(() => chartRows.value.length > LARGE_DATASET_THRESHOLD)
@@ -826,8 +828,9 @@ const chartTraces = computed(() => {
 // Check if chart has data
 const hasChartData = computed(() => chartTraces.value.length > 0)
 
-// For faceted charts - group data by parameter
-const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] }[] => {
+// For faceted charts - group data by parameter. Each facet is a chart of its own, large or not by its
+// own points: one of a few points was drawn as a large one where the other facets held many
+const facetedChartData = computed((): { parameter: string, traces: PlotlyData[], large: boolean }[] => {
   if (!facetByParameter.value || !chartRows.value.length)
     return []
 
@@ -859,10 +862,13 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
     series.y.push(y)
   }
 
-  const result: { parameter: string, traces: PlotlyData[] }[] = []
-  const isLargeDataset = isLargeChart.value
+  const result: { parameter: string, traces: PlotlyData[], large: boolean }[] = []
 
   for (const [parameter, stationMap] of parameterGroups) {
+    let points = 0
+    for (const data of stationMap.values())
+      points += data.x.length
+    const isLargeDataset = points > LARGE_DATASET_THRESHOLD
     const traces: PlotlyData[] = []
     const trendlineTraces: PlotlyData[] = []
     let colorIndex = 0
@@ -908,7 +914,7 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[] 
     }
 
     // Add trendlines after main traces so they render on top
-    result.push({ parameter, traces: [...traces, ...trendlineTraces] })
+    result.push({ parameter, traces: [...traces, ...trendlineTraces], large: isLargeDataset })
   }
 
   return result
@@ -1020,9 +1026,8 @@ async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), ch
   return new Blob([Uint8Array.from(atob(image.slice(image.indexOf(',') + 1)), c => c.charCodeAt(0))], { type: `image/${format}` })
 }
 
-// Plotly layout - optimized for large datasets
+// Plotly layout, apart from its hover mode, which is each chart's own: see hoverMode
 const chartLayout = computed((): Partial<PlotlyLayout> => {
-  const isLargeDataset = isLargeChart.value
   return {
     autosize: true,
     margin: { l: 60, r: 20, t: 40, b: 60 },
@@ -1041,10 +1046,13 @@ const chartLayout = computed((): Partial<PlotlyLayout> => {
       y: 1.02,
       yanchor: 'bottom',
     },
-    // Use 'closest' for large datasets - 'x unified' is very slow
-    hovermode: isLargeDataset ? 'closest' : 'x unified',
   }
 })
+
+// Use 'closest' for a large chart - 'x unified' is very slow
+function hoverMode(large: boolean): PlotlyLayout['hovermode'] {
+  return large ? 'closest' : 'x unified'
+}
 
 const plotlyConfig: Partial<PlotlyConfig> = {
   responsive: true,
@@ -1096,7 +1104,7 @@ async function drawMainChart(newest: () => boolean) {
   if (chartRef.value && chartTraces.value.length > 0) {
     // Use newPlot for clean initialization
     plotly.purge(chartRef.value)
-    await plotly.newPlot(chartRef.value, chartTraces.value, chartLayout.value, plotlyConfig)
+    await plotly.newPlot(chartRef.value, chartTraces.value, { ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, plotlyConfig)
   }
 }
 
@@ -1117,6 +1125,7 @@ async function drawFacetedCharts(newest: () => boolean) {
       const splitTitle = String(facet.parameter).split('/').join('<br>')
       const layout: Partial<PlotlyLayout> = {
         ...chartLayout.value,
+        hovermode: hoverMode(facet.large),
         yaxis: {
           // Plotly yaxis.title can be either string or object; ensure we pass a string for typing
           title: splitTitle,
@@ -1157,26 +1166,28 @@ interface ParameterStats {
   sum: number | null
 }
 
+// Statistics are taken of long rows alone, those that carry a parameter and a value, numeric or
+// missing: a wide-shaped row (a column per parameter) and a query's own columns (`avg_value`) carry
+// none, and grouped as long rows they showed one row for an undefined parameter, counting nothing
 const parameterStats = computed((): ParameterStats[] => {
-  if (!displayData.value.length)
-    return []
+  const statsMap = new Map<string, { values: number[], dataset: string, parameter: string }>()
 
-  const statsMap = new Map<string, { values: number[], dataset: string }>()
-
-  for (const value of displayData.value) {
-    const key = `${value.dataset}/${value.parameter}`
-    if (!statsMap.has(key)) {
-      statsMap.set(key, { values: [], dataset: value.dataset })
-    }
-    if (value.value !== null && value.value !== undefined) {
-      statsMap.get(key)!.values.push(value.value)
-    }
+  for (const row of displayData.value) {
+    const parameter = field(row, 'parameter')
+    const value = field(row, 'value')
+    if (typeof parameter !== 'string' || (typeof value !== 'number' && value !== null))
+      continue
+    // as the table shows it: a query may leave the dataset out, or give one of its own, a year
+    const dataset = fieldText(field(row, 'dataset'))
+    const key = `${dataset}/${parameter}`
+    if (!statsMap.has(key))
+      statsMap.set(key, { values: [], dataset, parameter })
+    if (value !== null)
+      statsMap.get(key)!.values.push(value)
   }
 
   const stats: ParameterStats[] = []
-  for (const [key, data] of statsMap) {
-    const parameter = key.split('/').slice(1).join('/')
-    const { values, dataset } = data
+  for (const { values, dataset, parameter } of statsMap.values()) {
     const count = values.length
 
     if (count === 0) {
