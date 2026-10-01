@@ -271,6 +271,31 @@ describe('mapStations when its list changes while the markers are built', () => 
     clusters[1]!.clicks[0]!()
     expect(wrapper!.emitted('update:selectedStations')).toEqual([[[berlin]]])
   })
+
+  it('leaves the cluster of a map removed after it is added, before its call resumes, alone', async () => {
+    const refreshClusters = vi.fn()
+    const setIcon = vi.fn()
+    let unmount: (() => void) | undefined
+    markerCluster.mockImplementation(async ({ leafletObject, markers }: { leafletObject: { addLayer: (layer: object) => unknown }, markers: unknown[] }) => {
+      const cluster = { refreshClusters }
+      leafletObject.addLayer(cluster)
+      // the map's section is collapsed in a scheduler flush that runs before this call resumes
+      unmount?.()
+      return { markerCluster: cluster, markers: markers.map(() => ({ on: () => {}, setIcon })) }
+    })
+    wrapper = await mountSuspended(MapStations, { props: { stations: [berlin], selectedStations: [] } })
+    const vm = wrapper.vm as any
+    vm.map = { leafletObject: { addLayer: () => {}, removeLayer: () => {}, fitBounds: () => {} } }
+    unmount = () => {
+      wrapper!.unmount()
+      wrapper = undefined
+    }
+
+    await vm.onMapReady()
+
+    expect(refreshClusters).not.toHaveBeenCalled()
+    expect(setIcon).not.toHaveBeenCalled()
+  })
 })
 
 describe('mapStations centring on selected stations that have no position', () => {

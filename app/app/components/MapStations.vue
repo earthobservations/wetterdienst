@@ -57,10 +57,12 @@ const mapBounds = computed(() => {
 })
 
 // Counts the calls to createMarkers(), and the map's removal, so that a call overtaken by either
-// while it waits can tell.
+// while it waits can tell. The removed map's cluster and markers go with it.
 let markersGeneration = 0
 onBeforeUnmount(() => {
   markersGeneration++
+  markerClusterGroup = null
+  markersMap.clear()
 })
 
 async function createMarkers() {
