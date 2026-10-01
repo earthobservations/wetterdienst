@@ -74,6 +74,10 @@ Types of changes:
 - **Breaking**: Eaufrance Hub'Eau stations list the altitude of the gauge's zero, in metres, as
   `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
   Read `gauge_zero` for it (GH-2020)
+- Eaufrance Hub'Eau stations list as `elevation` the altitude of their site, `altitude_site` from
+  Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
+  one below -10 m or from 4810 m up; 2401 of the 3052 stations listed on 2026-10-01 have one. The
+  station list reads one more referential to get it (GH-2223)
 
 ### Fixed
 

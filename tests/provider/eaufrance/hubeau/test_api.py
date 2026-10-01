@@ -355,3 +355,44 @@ def test_all_gives_the_referential_the_budget_of_the_other_requests(monkeypatch:
     referential = {url: timeout for url, timeout in timeouts.items() if "referentiel" in url}
     assert referential
     assert set(referential.values()) == {api._SNIFF_TIMEOUT} == {api._VALUES_TIMEOUT}  # noqa: SLF001
+
+
+def test_all_takes_the_elevation_from_the_station_site(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a station's elevation is the altitude of the site it names, where that is one.
+
+    The station referential publishes only the altitude of the gauge's zero, which is not the
+    ground's. The sites referential publishes ``altitude_site``, but not always a usable one: on
+    2026-10-01, 48 stations in service were on a site at 0 m, inland ones among them whose gauge
+    zero lies hundreds of metres up, 3 on a site at -999 m and 4 on one at 12000 m or more.
+    """
+    altitudes = {
+        "O9720010": 4.0,  # La Garonne à Bordeaux
+        "M6220010": -3.0,  # La Loire à Mauves-sur-Loire, on the tidal Loire
+        "O7161510": 0.0,  # Le Lot à Espalion, whose gauge zero is at 331.5 m
+        "I3103010": -999.0,
+        "30530001": 130000.0,
+        "K4470010": None,
+    }
+    # H2270003 names a site the sites referential does not list
+    stations = [{**_station(f"{site}01"), "code_site": site} for site in [*altitudes, "H2270003"]]
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        if "referentiel/sites" in url:
+            return [{"code_site": site, "altitude_site": altitude} for site, altitude in altitudes.items()]
+        if "referentiel/stations" in url:
+            return stations
+        return _observations([date for station in stations for date in _dates(station["code_station"], 5, 8)])
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert dict(df.select("station_id", "elevation").iter_rows()) == {
+        "O972001001": 4.0,
+        "M622001001": -3.0,
+        "O716151001": None,
+        "I310301001": None,
+        "3053000101": None,
+        "K447001001": None,
+        "H227000301": None,
+    }
