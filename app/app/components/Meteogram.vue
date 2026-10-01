@@ -856,6 +856,25 @@ let renderPending = false
 // counted, so a Retry that fails too is told again
 const renderFailed = ref(false)
 const renderFailures = ref(0)
+// The newest render could not import the chart's code: Plotly, or suncalc for the day bands. Where a
+// redeploy has replaced its chunk, a Retry asks for the same chunk again and fails every time, and
+// only reloading the page loads the new one: the chart area says so, and offers the reload. Set by
+// the render under way, which is one at a time, and taken up as it fails
+const chartCodeNotLoaded = ref(false)
+let codeImportFailed = false
+
+function importChartCode<T>(load: () => Promise<T>): Promise<T> {
+  return load().catch((error) => {
+    codeImportFailed = true
+    throw error
+  })
+}
+
+function reloadPage() {
+  // forced: the user's click, not a reload loop, which is what Nuxt's guard stops. Unforced, a
+  // second click within ten seconds of a first that did not help would do nothing
+  reloadNuxtApp({ force: true })
+}
 
 async function renderChart() {
   if (isRendering) {
@@ -865,6 +884,7 @@ async function renderChart() {
   isRendering = true
   renderPending = false
 
+  codeImportFailed = false
   try {
     await renderChartActual()
     renderFailed.value = false
@@ -874,6 +894,7 @@ async function renderChart() {
     // a render queued meanwhile draws next, and tells its own outcome
     if (!renderPending) {
       renderFailed.value = true
+      chartCodeNotLoaded.value = codeImportFailed
       renderFailures.value++
     }
   }
@@ -915,7 +936,7 @@ async function renderChartActual() {
   }
 
   if (!plotlyLoaded.value) {
-    Plotly = await import('plotly.js-basic-dist-min')
+    Plotly = await importChartCode(() => import('plotly.js-basic-dist-min'))
     plotlyLoaded.value = true
   }
 
@@ -1077,7 +1098,7 @@ async function renderChartActual() {
   const dayShapes: any[] = []
   const days = getCalendarDays(minTime, displayMaxTime, stationTZ)
   if (props.stationCoords && props.stationCoords.latitude != null && props.stationCoords.longitude != null) {
-    const SunCalc = await import('suncalc')
+    const SunCalc = await importChartCode(() => import('suncalc'))
     const lat = props.stationCoords.latitude
     const lon = props.stationCoords.longitude
     for (const day of days) {
@@ -2085,12 +2106,21 @@ watch(
       <div v-if="!compact" class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
         <div
           v-if="renderFailed"
-          class="flex items-center justify-center gap-3 p-4 text-red-600 dark:text-red-400"
+          class="flex flex-wrap items-center justify-center gap-3 p-4 text-red-600 dark:text-red-400"
         >
           <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
                button stays, and keeps its focus -->
-          <span :key="renderFailures" role="alert" class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+          <span :key="renderFailures" role="alert" class="text-center">
+            <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+            <!-- a sentence apart from the note, which ends with no full stop: the alert's text, as
+                 a screen reader reads it, otherwise runs the two together -->
+            <template v-if="chartCodeNotLoaded">
+              <span class="sr-only">{{ '. ' }}</span>
+              <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
+            </template>
+          </span>
           <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderChart()" />
+          <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
         </div>
         <div ref="chartRef" :style="{ width: '100%', height: chartHeight, position: 'relative' }" />
       </div>

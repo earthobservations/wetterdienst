@@ -1,4 +1,4 @@
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import Meteogram from '~/components/Meteogram.vue'
 
@@ -9,6 +9,10 @@ const plotly = vi.hoisted(() => ({
   purge: vi.fn(),
 }))
 vi.mock('plotly.js-basic-dist-min', () => plotly)
+
+// Nuxt's reload of the page: the test's document does not take it
+const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
+mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
 
 // a day of hourly temperatures, which the meteogram draws as its temperature panel
 const values = Array.from({ length: 24 }, (_, hour) => ({
@@ -55,7 +59,7 @@ describe('meteogram chart that could not be drawn', { timeout: 15_000 }, () => {
     await showMeteogram()
     // the failing module loaded, which a busy runner can take a while over
     await vi.waitFor(() => expect(retry()).toBeDefined(), { timeout: 5000 })
-    expect(note()).toBe('The chart could not be drawn')
+    expect(note()).toBe('The chart could not be drawn. Its code could not be loaded. If trying again does not help, reload the page.')
     expect(logged).toHaveBeenCalledWith('The chart could not be drawn', expect.any(Error))
 
     vi.doMock('plotly.js-basic-dist-min', () => plotly)
@@ -96,5 +100,70 @@ describe('meteogram chart that could not be drawn', { timeout: 15_000 }, () => {
     // never told: the alert was not mounted for it
     expect((wrapper!.vm as any).renderFailures).toBe(0)
     expect(retry()).toBeUndefined()
+  })
+})
+
+describe('meteogram chart whose code a redeploy replaced', { timeout: 15_000 }, () => {
+  // A redeploy replaces the chart code's hashed chunks under an open tab: every Retry asks for the
+  // gone chunk again and fails, and only reloading the page loads the new one
+  const button = (label: string) => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === label)
+  const note = () => button('Retry')?.parentElement?.querySelector('[role="alert"]')?.textContent?.trim()
+  const hint = 'If trying again does not help, reload the page.'
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(async () => {
+    // the modules mocked back, and those mocks taken up at once, as the tests above do
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    await import('plotly.js-basic-dist-min')
+    vi.doUnmock('suncalc')
+    await import('suncalc')
+    vi.restoreAllMocks()
+    reloadNuxtApp.mockClear()
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  // mounted, then handed its values, with a station's position, which the day bands need suncalc for
+  async function showMeteogram() {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    wrapper = await mountSuspended(Meteogram, {
+      props: { values: [], stationName: 'Berlin', stationCoords: { latitude: 52.47, longitude: 13.4 } },
+      attachTo: document.body,
+    })
+    await wrapper.setProps({ values })
+    // the failing module loaded, which a busy runner can take a while over
+    await vi.waitFor(() => expect(button('Retry')).toBeDefined(), { timeout: 5000 })
+  }
+
+  it.each([
+    ['Plotly', 'plotly.js-basic-dist-min'],
+    ['suncalc', 'suncalc'],
+  ])('says to reload the page, and reloads it, where %s failed to load', async (_, module) => {
+    vi.doMock(module, () => {
+      throw new Error('chunk failed to load')
+    })
+    await showMeteogram()
+    // the two apart, as a screen reader reads the alert
+    expect(note()).toBe(`The chart could not be drawn. Its code could not be loaded. ${hint}`)
+    button('Reload page')!.click()
+    // forced: unforced, Nuxt drops a second click within ten seconds of a first that did not help
+    expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
+  })
+
+  it('offers no reload once the code loaded and only the drawing failed', async () => {
+    // a reload loads nothing the drawing needs: Retry is the way
+    vi.doMock('plotly.js-basic-dist-min', () => {
+      throw new Error('chunk failed to load')
+    })
+    await showMeteogram()
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    plotly.newPlot.mockClear()
+    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    button('Retry')!.click()
+    // the module loaded anew, which a busy runner can take a while over
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    await vi.waitFor(() => expect(note()).toBe('The chart could not be drawn'))
+    expect(button('Reload page')).toBeUndefined()
   })
 })

@@ -1,4 +1,4 @@
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, setResponseStatus } from 'h3'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
@@ -33,6 +33,10 @@ const plotly = vi.hoisted(() => ({
   downloadImage: vi.fn(async () => 'stripes'),
 }))
 vi.mock('plotly.js-basic-dist-min', () => plotly)
+
+// Nuxt's reload of the page: the test's document does not take it
+const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
+mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
 
 describe('stripes Page', () => {
   beforeEach(() => {
@@ -284,7 +288,7 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     await showStripes()
     // the failing module loaded, which a busy runner can take a while over
     await vi.waitFor(() => expect(retry()).toBeDefined(), { timeout: 5000 })
-    expect(note()).toBe('The chart could not be drawn')
+    expect(note()).toBe('The chart could not be drawn. Its code could not be loaded. If trying again does not help, reload the page.')
     expect(logged).toHaveBeenCalledWith('The chart could not be drawn', expect.any(Error))
     // no image of stripes that are not drawn
     expect(downloadMenu()).toBeNull()
@@ -640,5 +644,72 @@ describe('stripes Page values that could not be fetched', () => {
     expect(note()).toBeUndefined()
     expect(vm.fetchError).toBeNull()
     expect(vm.isLoading).toBe(false)
+  })
+})
+
+describe('stripes Page chart whose Plotly chunk a redeploy replaced', { timeout: 15_000 }, () => {
+  // A redeploy replaces Plotly's hashed chunk under an open tab: every Retry asks for the gone chunk
+  // again and fails, and only reloading the page loads the new one
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+  const button = (label: string) => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === label)
+  const note = () => button('Retry')?.parentElement?.querySelector('[role="alert"]')?.textContent?.trim()
+  const hint = 'If trying again does not help, reload the page.'
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(async () => {
+    // Plotly mocked back, and that mock taken up at once, as the tests above do
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    await import('plotly.js-basic-dist-min')
+    vi.restoreAllMocks()
+    reloadNuxtApp.mockClear()
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  // the page with the station chosen and Show clicked, while Plotly's chunk fails to load
+  async function shownWithoutPlotly() {
+    vi.doMock('plotly.js-basic-dist-min', () => {
+      throw new Error('chunk failed to load')
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/stripes/values', () => ({
+      metadata: { station },
+      values: [
+        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
+        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
+      ],
+    }))
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    button('Show')!.click()
+    // the failing module loaded, which a busy runner can take a while over
+    await vi.waitFor(() => expect(button('Retry')).toBeDefined(), { timeout: 5000 })
+  }
+
+  it('says to reload the page, and reloads it, where Plotly failed to load', async () => {
+    await shownWithoutPlotly()
+    // the two apart, as a screen reader reads the alert
+    expect(note()).toBe(`The chart could not be drawn. Its code could not be loaded. ${hint}`)
+    button('Reload page')!.click()
+    // forced: unforced, Nuxt drops a second click within ten seconds of a first that did not help
+    expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
+  })
+
+  it('offers no reload once Plotly loaded and only its drawing failed', async () => {
+    // a reload loads nothing the drawing needs: Retry is the way
+    await shownWithoutPlotly()
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    plotly.newPlot.mockClear()
+    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    button('Retry')!.click()
+    // the module loaded anew, which a busy runner can take a while over
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    await vi.waitFor(() => expect(note()).toBe('The chart could not be drawn'))
+    expect(button('Reload page')).toBeUndefined()
   })
 })
