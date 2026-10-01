@@ -2594,3 +2594,40 @@ def test_a_reader_missing_on_the_server_is_a_501(
     # the install line is for whoever runs the instance, and reaches them through the log
     assert "pip install" not in detail
     assert "pip install wetterdienst[bufr]" in caplog.text
+
+
+def test_values_a_value_error_from_the_values_is_a_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A `ValueError` raised while collecting the values reaches the caller as a 400 with its message.
+
+    `get_values` ended it with `sys.exit(1)`, a `SystemExit` the endpoint's `except Exception` does
+    not catch, so the caller got a 500 with no message (GH-2218).
+
+    Stubbed at `get_stations` rather than provoked from a provider: what is under test is how the
+    error travels, and a real one would need the network to arrive at.
+    """
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    msg = "can only call '.item()' if the dataframe has a single element"
+
+    def fail() -> None:
+        raise ValueError(msg)
+
+    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl",
+            "station": "01048",
+            "date": "2020-06-30",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == msg
