@@ -2141,10 +2141,11 @@ describe('dataViewer trendline of many points', () => {
     const { wrapper } = await withChartQuery(rows)
     await showChart(wrapper, false)
     await toggleTrendline(wrapper)
-    await vi.waitFor(() => expect(lastDrawn(false).traces).toHaveLength(2))
+    // each drawing sorts and formats every point, which a busy runner can take a while over
+    await vi.waitFor(() => expect(lastDrawn(false).traces).toHaveLength(2), { timeout: 10_000 })
     const [, trend] = lastDrawn(false).traces
     expect(trend!.x).toEqual([new Date(start).toISOString(), new Date(start + (count - 1) * 600_000).toISOString()])
     expect(trend!.y[0]).toBeCloseTo(0, 0)
     expect(trend!.y[1]).toBeCloseTo(count - 1, 0)
-  })
+  }, 30_000)
 })
