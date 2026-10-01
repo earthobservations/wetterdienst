@@ -562,6 +562,7 @@
     "downloadCancelled": "Stahování zrušeno: tabulka se změnila",
     "downloadedChart": "Graf stažen jako {format}",
     "chartNotDrawn": "Graf se nepodařilo vykreslit",
+    "chartImageNotSaved": "Obrázek grafu se nepodařilo uložit",
     "axisDate": "Datum",
     "axisValue": "Hodnota",
     "paramLabelParameter": "Parametr",

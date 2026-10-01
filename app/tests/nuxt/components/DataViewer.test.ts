@@ -1751,3 +1751,28 @@ describe('dataViewer chart that could not be drawn', () => {
     expect(retry()).toBeUndefined()
   })
 })
+
+describe('dataViewer chart image whose export fails', () => {
+  // the step that fails: Plotly's own download of the single chart, a facet's SVG, or the stacked
+  // SVG turned into PNG, as where it passes the browser's canvas size. Nothing was saved, unhandled,
+  // and nothing said so
+  it.each([
+    { faceted: false, format: 'PNG', item: 0, step: () => plotly.downloadImage },
+    { faceted: true, format: 'SVG', item: 2, step: () => plotly.toImage },
+    { faceted: true, format: 'PNG', item: 0, step: () => plotly.Snapshot.svgToImg },
+  ])('says the image could not be saved, faceted: $faceted, $format', async ({ faceted, item, step }) => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    const saved = catchDownload()
+    const failed = new Error('export failed')
+    ;(step() as unknown as { mockRejectedValueOnce: (error: Error) => void }).mockRejectedValueOnce(failed)
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    ;(await openDownloads(wrapper))[item]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('The chart image could not be saved'))
+    expect(logged).toHaveBeenCalledWith('The chart image could not be saved', failed)
+    expect(document.body.textContent).not.toContain('Chart downloaded')
+    expect(saved).toHaveLength(0)
+  })
+})

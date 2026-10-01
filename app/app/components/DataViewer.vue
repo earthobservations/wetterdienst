@@ -975,18 +975,27 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
     return
   }
 
-  const plotly = await ensurePlotly()
-  if (faceted) {
-    saveBlob(await stackCharts(plotly, charts as HTMLDivElement[], format), `chart.${format}`)
+  // the export itself can fail too, such as a stack of many facets past the browser's canvas size,
+  // which turning it into PNG or JPEG draws on: nothing is saved, and that is told
+  try {
+    const plotly = await ensurePlotly()
+    if (faceted) {
+      saveBlob(await stackCharts(plotly, charts as HTMLDivElement[], format), `chart.${format}`)
+    }
+    else {
+      await plotly.downloadImage(charts[0]!, {
+        format,
+        filename: 'chart',
+        // Plotly expects number | undefined for width/height; use undefined to let it auto-size
+        width: undefined,
+        height: undefined,
+      })
+    }
   }
-  else {
-    await plotly.downloadImage(charts[0]!, {
-      format,
-      filename: 'chart',
-      // Plotly expects number | undefined for width/height; use undefined to let it auto-size
-      width: undefined,
-      height: undefined,
-    })
+  catch (error) {
+    console.error('The chart image could not be saved', error)
+    toast.add({ title: t('dataViewer.chartImageNotSaved'), color: 'error' })
+    return
   }
 
   toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedChart', { format: format.toUpperCase() }), color: 'success' })

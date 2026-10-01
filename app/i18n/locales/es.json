@@ -562,6 +562,7 @@
     "downloadCancelled": "Descarga cancelada: la tabla cambió",
     "downloadedChart": "Gráfico descargado como {format}",
     "chartNotDrawn": "No se pudo dibujar el gráfico",
+    "chartImageNotSaved": "No se pudo guardar la imagen del gráfico",
     "axisDate": "Fecha",
     "axisValue": "Valor",
     "paramLabelParameter": "Parámetro",
