@@ -77,6 +77,9 @@ Types of changes:
 
 ### Fixed
 
+- `to_target` and the CLI's `--target` log the target with its password as `***`. They logged it
+  verbatim at INFO, which the CLI shows by default, so a database password or the InfluxDB 2/3 API
+  token in the password slot reached stderr and any log it was captured in (GH-2219)
 - DWD derived can be used on a base install. Its station lists were read with pandas, so
   `Wetterdienst("dwd", "derived")` failed with an `ImportError` unless an extra that brings pandas,
   such as `export`, was installed. They are read with polars now, with the same result (GH-2213)
