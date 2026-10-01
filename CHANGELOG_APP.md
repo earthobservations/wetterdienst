@@ -20,8 +20,8 @@ Types of changes:
 
 - `[History]` A station's card names its id whatever sections are fetched, where it read
   "Station ID:" with nothing after it when the sections fetched held no records, as the missing
-  data of a station without gaps. The id is the history's own, spelt as in the stations list
-  (GH-2215)
+  data of a station without gaps. The id is the one the backend now sends with each history,
+  spelt as in the stations list (GH-2215)
 - `[Stripes]` `[Meteogram]` Where the chart's code could not be loaded, as after a new version of
   the app was deployed under an open tab, the chart area says that reloading the page helps where
   Retry does not, and offers a Reload page button, as the explorer's chart does. Retry asked for the

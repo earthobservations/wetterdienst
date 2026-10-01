@@ -577,7 +577,7 @@ describe('history Page station card id', () => {
   })
 
   it('takes the id from the history over its records\' spelling', async () => {
-    // a record spelling the id as archives before #2209 did, unpadded
+    // a record whose id is spelt otherwise than the history's, so the header tells which it reads
     const header = await cardHeader({
       station_id: '01048',
       parameter: [{ station_id: '1048', station_name: 'Dresden-Klotzsche', parameter: 'TMK', start_date: '1934-01-01T00:00:00+00:00', end_date: '2026-09-30T00:00:00+00:00', description: null, unit: null, data_source: null, extra_info: null, special: null, literature: null }],
