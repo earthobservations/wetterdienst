@@ -852,6 +852,10 @@ function weatherCodeToSymbol(code: number | null | undefined): string {
 
 let isRendering = false
 let renderPending = false
+// The newest render threw -- Plotly's import or its drawing -- and the chart area says so; failures
+// counted, so a Retry that fails too is told again
+const renderFailed = ref(false)
+const renderFailures = ref(0)
 
 async function renderChart() {
   if (isRendering) {
@@ -863,6 +867,12 @@ async function renderChart() {
 
   try {
     await renderChartActual()
+    renderFailed.value = false
+  }
+  catch (error) {
+    console.error('The chart could not be drawn', error)
+    renderFailed.value = true
+    renderFailures.value++
   }
   finally {
     isRendering = false
@@ -2070,6 +2080,15 @@ watch(
 
       <!-- Main Interactive Chart Container -->
       <div v-if="!compact" class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+        <div
+          v-if="renderFailed"
+          class="flex items-center justify-center gap-3 p-4 text-red-600 dark:text-red-400"
+        >
+          <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
+               button stays, and keeps its focus -->
+          <span :key="renderFailures" role="alert" class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+          <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderChart()" />
+        </div>
         <div ref="chartRef" :style="{ width: '100%', height: chartHeight, position: 'relative' }" />
       </div>
 

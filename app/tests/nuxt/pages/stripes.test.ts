@@ -1,6 +1,8 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
+import { UApp } from '#components'
+import { useToast } from '#imports'
 import MapStations from '~/components/MapStations.vue'
 import StripesPage from '~/pages/stripes.vue'
 
@@ -188,6 +190,7 @@ describe('stripes Page years', () => {
     // the zone taken up, else the test passes in UTC against getFullYear as well
     expect(new Date(2020, 0, 1).getTimezoneOffset()).toBe(300)
   })
+
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
   afterEach(() => {
     wrapper?.unmount()
@@ -224,5 +227,106 @@ describe('stripes Page years', () => {
     const [, traces, layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, Array<{ x: number[] }>, { annotations: Array<{ text: string }> }]
     expect(traces[0]!.x).toEqual([2019, 2020])
     expect(layout.annotations.map(a => a.text)).toEqual(expect.arrayContaining(['2019', '2020']))
+  })
+})
+
+describe('stripes Page chart that could not be drawn', () => {
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+
+  // the chart area's Retry button, and the alert beside it, not a toast's
+  const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
+  const note = () => retry()?.parentElement?.querySelector('[role="alert"]')?.textContent?.trim()
+  const downloadMenu = () => document.body.querySelector('button[aria-haspopup="menu"]')
+  const toasts = () => [...document.body.querySelectorAll('[data-slot="title"]')].map(title => title.textContent?.trim())
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    vi.restoreAllMocks()
+    wrapper?.unmount()
+    wrapper = undefined
+    useToast().clear()
+    document.body.innerHTML = ''
+  })
+
+  // the page in the app's UApp, which shows its toasts, with the station chosen and Show clicked
+  async function showStripes() {
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/stripes/values', () => ({
+      metadata: { station },
+      values: [
+        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
+        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
+      ],
+    }))
+    wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
+    }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    const vm = wrapper.findComponent(StripesPage).vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+    return vm
+  }
+
+  it('says so where Plotly failed to load, and loads it again on Retry', async () => {
+    vi.doMock('plotly.js-basic-dist-min', () => {
+      throw new Error('chunk failed to load')
+    })
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    plotly.newPlot.mockClear()
+    await showStripes()
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+    expect(note()).toBe('The chart could not be drawn')
+    expect(logged).toHaveBeenCalledWith('The chart could not be drawn', expect.any(Error))
+    // no image of stripes that are not drawn
+    expect(downloadMenu()).toBeNull()
+
+    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    retry()!.click()
+    // the module loaded anew, which a busy runner can take a while over
+    await vi.waitFor(() => expect(retry()).toBeUndefined(), { timeout: 5000 })
+    expect(plotly.newPlot).toHaveBeenCalledOnce()
+    expect(downloadMenu()).not.toBeNull()
+  })
+
+  it('says so where drawing fails, and draws the stripes on Retry', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    plotly.newPlot.mockClear()
+    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    await showStripes()
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+    expect(note()).toBe('The chart could not be drawn')
+
+    retry()!.click()
+    await vi.waitFor(() => expect(retry()).toBeUndefined())
+    expect(plotly.newPlot).toHaveBeenCalledTimes(2)
+  })
+
+  it('takes the note away with the stripes on Reset where Plotly failed to load', async () => {
+    vi.doMock('plotly.js-basic-dist-min', () => {
+      throw new Error('chunk failed to load')
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await showStripes()
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+
+    await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Reset')!.trigger('click')
+    expect(retry()).toBeUndefined()
+    expect(document.body.textContent).toContain('Select a station and click Show')
+  })
+
+  it('says the stripes image could not be saved where its export fails', async () => {
+    const vm = await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    const failed = new Error('export failed')
+    plotly.downloadImage.mockRejectedValueOnce(failed)
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await vm.downloadStripes('png')
+
+    await vi.waitFor(() => expect(toasts()).toContain('The chart image could not be saved'))
+    expect(logged).toHaveBeenCalledWith('The chart image could not be saved', failed)
   })
 })
