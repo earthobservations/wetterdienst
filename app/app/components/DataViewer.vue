@@ -1361,7 +1361,8 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
               class="flex items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
             >
               <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
-              <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
+              <!-- loading, and so disabled, until the render it started has settled -->
+              <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" loading-auto @click="renderShownChart()" />
             </div>
             <div
               v-if="allValues.length === 0 && fetchErrorMessage"

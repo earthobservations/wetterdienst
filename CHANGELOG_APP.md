@@ -182,9 +182,9 @@ Types of changes:
 - `[Explorer]` Entering query mode after a Fetch checks the query again against the new rows. The
   syntax error shown, or its absence, was the answer for the rows fetched before, which could keep
   Run Query disabled for a query that was fine for the new rows (GH-2142)
-- `[Explorer]` A chart that fails to draw, as when Plotly fails to load after a redeploy, says so
-  in the chart area, with a Retry button that draws it again. The chart area stayed empty without a
-  word (GH-2169)
+- `[Explorer]` A chart that fails to draw, as when Plotly fails to load, says so in the chart area,
+  with a Retry button that tries to draw it again. The chart area stayed empty without a word
+  (GH-2169)
 - `[Explorer]` A chart image whose export fails, such as a stack of many facets past the browser's
   canvas size, says the image could not be saved. Nothing was saved, and nothing said so (GH-2170)
 
