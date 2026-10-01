@@ -1609,3 +1609,144 @@ def test_dmo_a_refused_parameter_is_a_400_from_the_geo_endpoints_too(
     )
     assert response.status_code == 400, response.text
     assert response.json()["detail"] == msg
+
+
+def _dated(stamps: list[str], now: dt.datetime) -> list[dt.datetime]:
+    return add_date_from_filename(pl.DataFrame({"date_str": stamps}), now).get_column("timestamp").to_list()
+
+
+@pytest.mark.parametrize(
+    ("stamps", "now", "expected"),
+    [
+        # the listing of 1 October once its 00 UTC run is out (DWD lists it at about 03:09), within
+        # the hour the first-hours-of-the-month rule still fired and after it
+        pytest.param(
+            ["291200", "300000", "301200", "010000"],
+            dt.datetime(2026, 10, 1, 3, 30, tzinfo=ZoneInfo("UTC")),
+            [
+                dt.datetime(2026, 9, 29, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 9, 30, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 9, 30, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 10, 1, 0, tzinfo=ZoneInfo("UTC")),
+            ],
+            id="1-october-03:30",
+        ),
+        pytest.param(
+            ["291200", "300000", "301200", "010000"],
+            dt.datetime(2026, 10, 1, 4, 30, tzinfo=ZoneInfo("UTC")),
+            [
+                dt.datetime(2026, 9, 29, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 9, 30, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 9, 30, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 10, 1, 0, tzinfo=ZoneInfo("UTC")),
+            ],
+            id="1-october-04:30",
+        ),
+        # a 31st after a 31-day month that follows a 30-day one, which was dated as 31 June
+        pytest.param(
+            ["301200", "310000", "311200", "010000"],
+            dt.datetime(2026, 8, 1, 3, 30, tzinfo=ZoneInfo("UTC")),
+            [
+                dt.datetime(2026, 7, 30, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 7, 31, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 7, 31, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 8, 1, 0, tzinfo=ZoneInfo("UTC")),
+            ],
+            id="1-august-03:30",
+        ),
+        pytest.param(
+            ["301200", "310000", "311200", "010000"],
+            dt.datetime(2026, 8, 1, 4, 30, tzinfo=ZoneInfo("UTC")),
+            [
+                dt.datetime(2026, 7, 30, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 7, 31, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 7, 31, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 8, 1, 0, tzinfo=ZoneInfo("UTC")),
+            ],
+            id="1-august-04:30",
+        ),
+        pytest.param(
+            ["131200", "140000", "141200", "150000"],
+            dt.datetime(2026, 10, 15, 4, 30, tzinfo=ZoneInfo("UTC")),
+            [
+                dt.datetime(2026, 10, 13, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 10, 14, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 10, 14, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 10, 15, 0, tzinfo=ZoneInfo("UTC")),
+            ],
+            id="mid-month",
+        ),
+        # into the year before, where the 31st is December's after a 30-day November
+        pytest.param(
+            ["301200", "310000", "311200", "010000"],
+            dt.datetime(2027, 1, 1, 3, 30, tzinfo=ZoneInfo("UTC")),
+            [
+                dt.datetime(2026, 12, 30, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 12, 31, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 12, 31, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2027, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
+            ],
+            id="1-january",
+        ),
+        # a day February does not have is the latest one that exists: January's
+        pytest.param(
+            ["281200", "290000", "300000", "310000", "010000"],
+            dt.datetime(2026, 3, 1, 3, 30, tzinfo=ZoneInfo("UTC")),
+            [
+                dt.datetime(2026, 2, 28, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 1, 29, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 1, 30, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 1, 31, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2026, 3, 1, 0, tzinfo=ZoneInfo("UTC")),
+            ],
+            id="1-march",
+        ),
+        pytest.param(
+            ["281200", "290000", "300000", "310000", "010000"],
+            dt.datetime(2028, 3, 1, 3, 30, tzinfo=ZoneInfo("UTC")),
+            [
+                dt.datetime(2028, 2, 28, 12, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2028, 2, 29, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2028, 1, 30, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2028, 1, 31, 0, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2028, 3, 1, 0, tzinfo=ZoneInfo("UTC")),
+            ],
+            id="1-march-leap-year",
+        ),
+    ],
+)
+def test_dmo_a_run_stamp_is_the_latest_date_it_can_name(
+    stamps: list[str],
+    now: dt.datetime,
+    expected: list[dt.datetime],
+) -> None:
+    """Each `DDHHMM` is the latest real date on or before the clock that it can stand for (GH-2203).
+
+    Two rules about the listing as a whole dated runs before: a step a month back in the first hours
+    of a month, and days above 25 a month back when the listing spanned more than 20 days. Once the
+    1st's 00 UTC run was listed both fired, so until 04:01 every run was a month early, and on 1
+    August the 31st became 31 June and did not parse.
+    """
+    assert _dated(stamps, now) == expected
+
+
+def test_dmo_a_run_stamp_slightly_ahead_of_the_clock_is_today() -> None:
+    """A clock that lags DWD's still dates today's newest run as today's, not as last month's.
+
+    DWD lists a run about three hours after its stamp, so the listing is never ahead of DWD's clock;
+    a stamp ahead of this one means this clock is behind. Within a day of it, the stamp is this
+    month's; further ahead, the latest date it can name is the month before.
+    """
+    now = dt.datetime(2026, 10, 1, 2, 0, tzinfo=ZoneInfo("UTC"))
+    assert _dated(["010000", "011200", "021200"], now) == [
+        dt.datetime(2026, 10, 1, 0, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2026, 10, 1, 12, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2026, 9, 2, 12, tzinfo=ZoneInfo("UTC")),
+    ]
+
+
+@pytest.mark.parametrize("stamp", ["000000", "321200"])
+def test_dmo_a_run_stamp_without_a_real_day_is_refused(stamp: str) -> None:
+    """No month has day 0 or day 32, so the walk back through the months would never end."""
+    with pytest.raises(ValueError, match="is not a DDHHMM run stamp"):
+        _dated([stamp], dt.datetime(2026, 10, 1, 4, 30, tzinfo=ZoneInfo("UTC")))
