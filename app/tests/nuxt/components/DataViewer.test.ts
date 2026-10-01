@@ -1851,4 +1851,20 @@ describe('dataViewer chart image whose export fails', () => {
     expect(document.body.textContent).not.toContain('Chart downloaded')
     expect(saved).toHaveLength(0)
   })
+
+  it.each(['PNG', 'JPEG'])('says the image could not be saved where the stack passes the canvas size, %s', async (format) => {
+    // Plotly answers with an empty "data:," there rather than failing: an empty file was saved, and
+    // reported downloaded
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, true)
+    const saved = catchDownload()
+    plotly.Snapshot.svgToImg.mockResolvedValueOnce('data:,')
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    ;(await openDownloads(wrapper))[format === 'PNG' ? 0 : 1]!.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('The chart image could not be saved'))
+    expect(document.body.textContent).not.toContain('Chart downloaded')
+    expect(saved).toHaveLength(0)
+  })
 })

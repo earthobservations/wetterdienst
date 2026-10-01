@@ -1032,8 +1032,13 @@ async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), ch
   if (format === 'svg')
     return new Blob([svg], { type: 'image/svg+xml' })
   const image = await plotly.Snapshot.svgToImg({ svg, format, width, height, canvas: document.createElement('canvas'), promise: true })
+  const data = image.slice(image.indexOf(',') + 1)
+  // a canvas past the browser's size limit draws nothing, and Plotly answers with an empty "data:,"
+  // rather than failing
+  if (!data)
+    throw new Error(`The stacked chart of ${width} x ${height} px could not be drawn as ${format}`)
   // a data URL, decoded rather than linked to, as a browser refuses a long one as a download link
-  return new Blob([Uint8Array.from(atob(image.slice(image.indexOf(',') + 1)), c => c.charCodeAt(0))], { type: `image/${format}` })
+  return new Blob([Uint8Array.from(atob(data), c => c.charCodeAt(0))], { type: `image/${format}` })
 }
 
 // Plotly layout, apart from its hover mode, which is each chart's own: see hoverMode
