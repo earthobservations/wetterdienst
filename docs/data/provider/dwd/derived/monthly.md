@@ -104,8 +104,8 @@ To distinguish different base temperatures, there exist three datasets with the 
 | {term}`soil_moisture_winter_wheat_loamy_silt_00cm_60cm`   | mittel von bfwl_ag   | mean soil moisture for winter wheat on loamy silt 0-60cm      | %    | 0-100       |
 | {term}`soil_moisture_corn_sand_00cm_60cm`                 | mittel von bfms_ag   | mean soil moisture for corn on sand 0-60cm                    | %    | 0-100       |
 | {term}`soil_moisture_corn_loamy_silt_00cm_60cm`           | mittel von bfml_ag   | mean soil moisture for corn on loamy silt 0-60cm              | %    | 0-100       |
-| {term}`evapotranspiration_potential_grass_fao_last_24h`   | summe von vpgfao     | sum of potential evapotranspiration for meadow (FAO method)   | mm   | >=0         |
-| {term}`evapotranspiration_potential_grass_haude_last_24h` | summe von vpgh       | sum of potential evapotranspiration for meadow (Haude method) | mm   | >=0         |
+| {term}`evapotranspiration_potential_grass_fao`            | summe von vpgfao     | sum of potential evapotranspiration for meadow (FAO method)   | mm   | >=0         |
+| {term}`evapotranspiration_potential_grass_haude`          | summe von vpgh       | sum of potential evapotranspiration for meadow (Haude method) | mm   | >=0         |
 | {term}`evaporation_amount_grass_sand`                     | summe von vrgs_ag    | sum of evaporation height for meadow on sand                  | mm   | >=0         |
 | {term}`evaporation_amount_grass_loamy_silt`               | summe von vrgl_ag    | sum of evaporation height for meadow on loamy silt            | mm   | >=0         |
 | {term}`evaporation_amount_winter_wheat_sand`              | summe von vrws_ag    | sum of evaporation height for winter wheat on sand            | mm   | >=0         |

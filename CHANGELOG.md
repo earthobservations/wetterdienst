@@ -18,6 +18,11 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: DWD derived `monthly/soil` returns its monthly totals of potential
+  evapotranspiration as the new `evapotranspiration_potential_grass_fao` and
+  `evapotranspiration_potential_grass_haude`, where they came as the daily `..._last_24h` names.
+  Use the new names for monthly in requests, `parameter` filters, wide-frame columns and
+  `ts_geo_station_distance`; daily keeps `..._last_24h` (GH-2042)
 - **Breaking**: `/api/stripes/*` and MCP match a stripes `name` at a threshold of 0.8 by default,
   as the CLI and the stations and values requests do; it was 0.9, so a name may now find a station
   where it found none. Pass `name_threshold=0.9` to match as before (GH-2063)
@@ -57,6 +62,18 @@ Types of changes:
   `lead_time="short"`, its three 1-hourly ones under `"long"`. The REST API answers 400. Ask for
   them with the lead time named, apart from any parameter only the other lead time carries; a
   request for a whole dataset is not refused (GH-1976)
+- **Breaking**: `cloud_cover_below_1000ft` is `cloud_cover_below_2km`. It is DWD's `nl` in
+  `dwd/mosmix` and `dwd/dmo`, low cloud below 2 km, which the old name and its glossary entry put
+  at 1000 ft. Request the new name; the old one in a request, as a `ts_geo_station_distance` key or
+  as a wide column in a SQL filter is reported with its replacement. A wide DuckDB, SQLite or
+  PostgreSQL table `to_target` wrote before takes no append of it: write it anew (GH-1977)
+- **Breaking**: `imgw/meteorology` `daily/precipitation` returns `precipitation_amount` as 0 mm,
+  with `quality` 11, for a day the file leaves out of a month the station reports in; such a day
+  was missing. Drop `quality` 11 to get the rows as before. Other parameters and datasets are
+  unchanged (GH-2000)
+- **Breaking**: Eaufrance Hub'Eau stations list the altitude of the gauge's zero, in metres, as
+  `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
+  Read `gauge_zero` for it (GH-2020)
 
 ### Fixed
 
@@ -90,6 +107,14 @@ Types of changes:
   the unit targets, not to SI units: temperature stays in °C by default. The overview that listed
   options under commands that do not take them is gone, the `--sql_values` example on a column
   runs in the wide shape it needs, and the README counts nearly 600 parameters, not 514 (GH-2021)
+- PostgreSQL and MySQL export targets no longer fail on `?table=`: it names the table and is no
+  longer passed to the database driver, which refused it as a connection option, so no such target
+  could be written to. The rest of the query, such as `sslmode` or `charset`, still reaches the
+  driver (GH-1974)
+- On Windows, a request that downloads many files at once with a cache no longer fails with
+  `PermissionError: [Errno 13]` when two of its download threads read and replace the cache's
+  metadata file at the same time; the threads of one process now take turns. Two processes
+  sharing a cache directory can still meet that way (GH-1990)
 
 ## [0.139.0] - 2026-09-29
 

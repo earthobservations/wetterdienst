@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
+from tests.conftest import skip_if_upstream_unavailable
 from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest, api
@@ -265,6 +266,7 @@ def test_all_serves_only_the_resolutions_asked_for() -> None:
 
 
 @pytest.mark.remote
+@skip_if_upstream_unavailable()
 def test_hubeau_station_belongs_to_exactly_one_resolution(default_settings: Settings) -> None:
     """Test that the live network places every station under a single interval.
 
@@ -281,6 +283,7 @@ def test_hubeau_station_belongs_to_exactly_one_resolution(default_settings: Sett
 
 
 @pytest.mark.remote
+@skip_if_upstream_unavailable()
 def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(default_settings: Settings) -> None:
     """Test that a station listed at fifteen minutes actually returns a fifteen-minute series.
 
@@ -305,3 +308,26 @@ def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(defaul
     assert max(set(steps), key=steps.count) == 15
     on_grid = sum(step % 15 == 0 for step in steps) / len(steps)
     assert on_grid > 0.9, f"{station_id}: only {on_grid:.0%} of its intervals fall on a 15-minute grid"
+
+
+def test_all_reports_the_gauge_datum_as_gauge_zero_not_as_elevation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the altitude of a gauge's zero is listed as ``gauge_zero`` and not as ``elevation``.
+
+    ``altitude_ref_alti_station`` is the datum a stage is read from -- -1.809 m on the tidal Garonne
+    at Bordeaux -- and not the ground the station stands on, which is what ``elevation`` means for
+    every other provider. Pegelonline lists its gauge datum the same way.
+    """
+    bordeaux = {**_station("O972001001"), "altitude_ref_alti_station": -1.809}
+    no_datum = {**_station("K447001001"), "altitude_ref_alti_station": None}
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        if "referentiel" in url:
+            return [bordeaux, no_datum]
+        return _observations([*_dates("O972001001", 5, 8), *_dates("K447001001", 5, 8)])
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert dict(df.select("station_id", "gauge_zero").iter_rows()) == {"O972001001": -1.809, "K447001001": None}
+    assert df.get_column("elevation").null_count() == df.height == 2
