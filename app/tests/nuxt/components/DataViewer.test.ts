@@ -1742,9 +1742,11 @@ describe('dataViewer chart series apart from the table\'s sort', () => {
 })
 
 describe('dataViewer chart that could not be drawn', () => {
-  // the chart area's note and its Retry button: the chart area stayed empty without a word
-  const note = () => document.body.querySelector('[role="alert"]')?.textContent?.trim()
+  // the chart area's Retry button, and the alert beside it, not a toast's: the chart area stayed
+  // empty without a word
   const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
+  const alert = () => retry()?.parentElement?.querySelector('[role="alert"]') ?? undefined
+  const note = () => alert()?.textContent?.trim()
   const draws = (faceted: boolean) => faceted ? plotly.react : plotly.newPlot
 
   afterEach(() => {
@@ -1816,7 +1818,8 @@ describe('dataViewer chart that could not be drawn', () => {
     plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
     await toggleTrendline(wrapper)
     await vi.waitFor(() => expect(retry()).toBeDefined())
-    const first = document.body.querySelector('[role="alert"]')
+    const first = alert()
+    expect(first?.textContent).toContain('The chart could not be drawn')
     const held = gate()
     plotly.newPlot.mockImplementationOnce(async () => {
       await held.opened
@@ -1828,7 +1831,8 @@ describe('dataViewer chart that could not be drawn', () => {
     await vi.waitFor(() => expect(note()).toBeUndefined())
     held.open()
     await vi.waitFor(() => expect(retry()).toBeDefined())
-    expect(document.body.querySelector('[role="alert"]')).not.toBe(first)
+    expect(alert()).toBeDefined()
+    expect(alert()).not.toBe(first)
   })
 })
 
