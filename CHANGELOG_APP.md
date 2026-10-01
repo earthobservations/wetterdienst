@@ -187,6 +187,10 @@ Types of changes:
   together, so six facets of 100 points each lost their markers (GH-2158)
 - `[Explorer]` The chart's series keep their colours and legend places when the table is sorted.
   They followed the table's sort, so sorting by value could swap two stations' colours (GH-2159)
+- `[Explorer]` The parameter statistics take only rows that carry a `parameter` and a `value` that
+  is a number or missing. A wide table, or a query result with its own columns such as `avg_value`,
+  shows no statistics, where it showed a row for an undefined parameter, or for an empty dataset,
+  counting nothing (GH-2161)
 
 ## [0.17.0] - 2026-09-29
 

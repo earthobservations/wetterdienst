@@ -1166,26 +1166,28 @@ interface ParameterStats {
   sum: number | null
 }
 
+// Statistics are taken of long rows alone, those that carry a parameter and a value, numeric or
+// missing: a wide-shaped row (a column per parameter) and a query's own columns (`avg_value`) carry
+// none, and grouped as long rows they showed one row for an undefined parameter, counting nothing
 const parameterStats = computed((): ParameterStats[] => {
-  if (!displayData.value.length)
-    return []
+  const statsMap = new Map<string, { values: number[], dataset: string, parameter: string }>()
 
-  const statsMap = new Map<string, { values: number[], dataset: string }>()
-
-  for (const value of displayData.value) {
-    const key = `${value.dataset}/${value.parameter}`
-    if (!statsMap.has(key)) {
-      statsMap.set(key, { values: [], dataset: value.dataset })
-    }
-    if (value.value !== null && value.value !== undefined) {
-      statsMap.get(key)!.values.push(value.value)
-    }
+  for (const row of displayData.value) {
+    const parameter = field(row, 'parameter')
+    const value = field(row, 'value')
+    if (typeof parameter !== 'string' || (typeof value !== 'number' && value !== null))
+      continue
+    // as the table shows it: a query may leave the dataset out, or give one of its own, a year
+    const dataset = fieldText(field(row, 'dataset'))
+    const key = `${dataset}/${parameter}`
+    if (!statsMap.has(key))
+      statsMap.set(key, { values: [], dataset, parameter })
+    if (value !== null)
+      statsMap.get(key)!.values.push(value)
   }
 
   const stats: ParameterStats[] = []
-  for (const [key, data] of statsMap) {
-    const parameter = key.split('/').slice(1).join('/')
-    const { values, dataset } = data
+  for (const { values, dataset, parameter } of statsMap.values()) {
     const count = values.length
 
     if (count === 0) {

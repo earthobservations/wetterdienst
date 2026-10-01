@@ -1738,3 +1738,55 @@ describe('dataViewer chart series apart from the table\'s sort', () => {
     expect(seriesDrawn(faceted)).toEqual(unsorted)
   })
 })
+
+describe('dataViewer parameter statistics of rows that are not long values', () => {
+  function stats(viewer: Awaited<ReturnType<typeof mountDataViewer>>['viewer']) {
+    return (viewer.vm as unknown as { parameterStats: unknown[] }).parameterStats
+  }
+
+  it('takes none of a wide-shaped table, where it showed one row for an undefined parameter', async () => {
+    const wide = { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5, temperature_air_mean_2m_quality: 10 }
+    registerEndpoint('/api/values', () => ({ values: [wide] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    // the wide row is in the table, so it is the statistics that leave it out
+    expect(wrapper.findAll('tbody tr')).toHaveLength(1)
+    expect(wrapper.find('tbody').text()).toContain('1.5')
+    expect(stats(viewer)).toEqual([])
+  })
+
+  it('takes a query\'s rows that carry a parameter and a value, and none of those with its own columns', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([{ parameter: 'temperature_air_mean_2m', dataset: 'climate_summary', count: 1, min: 1.5, max: 1.5, mean: 1.5, sum: 1.5 }])
+    const panel = wrapper.findComponent(QueryPanel)
+    // `SELECT timestamp, parameter, AVG(value) AS avg_value FROM data GROUP BY timestamp, parameter`
+    panel.vm.$emit('dataTransformed', [{ timestamp: '2020-01-01T00:00:00Z', parameter: 'temperature_air_mean_2m', avg_value: 1.5 }])
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([])
+    // `SELECT parameter, value FROM data`: no dataset, a missing value counted as none, and a value
+    // as text, `value::VARCHAR AS value`, left out
+    panel.vm.$emit('dataTransformed', [{ parameter: 'precipitation_height', value: 2 }, { parameter: 'precipitation_height', value: 4 }, { parameter: 'wind_speed', value: null }, { parameter: 'wind_speed', value: '3' }, { parameter: 'humidity', value: '50' }])
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([
+      { parameter: 'precipitation_height', dataset: '', count: 2, min: 2, max: 4, mean: 3, sum: 6 },
+      { parameter: 'wind_speed', dataset: '', count: 0, min: null, max: null, mean: null, sum: null },
+    ])
+  })
+
+  it('takes a query\'s dataset of another type as its text, each its own', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    // `SELECT year(timestamp) AS dataset, parameter, value FROM data`
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [{ dataset: 2019, parameter: 'wind_speed', value: 1 }, { dataset: 2020, parameter: 'wind_speed', value: 3 }])
+    await wrapper.vm.$nextTick()
+    expect(stats(viewer)).toEqual([
+      { parameter: 'wind_speed', dataset: '2019', count: 1, min: 1, max: 1, mean: 1, sum: 1 },
+      { parameter: 'wind_speed', dataset: '2020', count: 1, min: 3, max: 3, mean: 3, sum: 3 },
+    ])
+  })
+})
