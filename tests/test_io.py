@@ -2274,7 +2274,8 @@ def _gauge_stations_result() -> StationsResult:
     """Build a stations result from a request declaring gauge_zero, as WSV Pegelonline's does.
 
     Three stations: one with an elevation, one without, and one without an elevation but with a
-    gauge zero.
+    gauge zero. They also carry the `distance` a rank filter adds, which the provider does not
+    declare.
     """
 
     class GaugeRequestMock:
@@ -2300,7 +2301,7 @@ def _gauge_stations_result() -> StationsResult:
             "region": pl.String,
         },
         orient="row",
-    ).with_columns(gauge_zero=pl.Series([None, None, -1.809], dtype=pl.Float64))
+    ).with_columns(gauge_zero=pl.Series([None, None, -1.809], dtype=pl.Float64), distance=pl.lit(1.0))
     return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, stations=GaugeRequestMock())
 
 
@@ -2322,6 +2323,8 @@ def test_stations_to_ogc_feature_collection_without_elevation_and_with_gauge_zer
         feature["properties"]["id"]: (feature["geometry"]["coordinates"], feature["properties"]["gauge_zero"])
         for feature in features
     } == _GAUGE_FEATURES
+    # a column a filter adds is not one the provider declares
+    assert not any("distance" in feature["properties"] for feature in features)
 
 
 def test_values_to_ogc_feature_collection_without_elevation_and_with_gauge_zero() -> None:
