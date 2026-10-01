@@ -2337,10 +2337,10 @@ def test_values_to_ogc_feature_collection_without_elevation_and_with_gauge_zero(
                 "dataset": "data",
                 "parameter": "stage",
                 "timestamp": dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 1.0,
+                "value": value,
                 "quality": None,
             }
-            for station_id in _GAUGE_FEATURES
+            for value, station_id in enumerate(_GAUGE_FEATURES)
         ],
         schema_overrides={"quality": pl.Float64},
         orient="row",
@@ -2353,4 +2353,9 @@ def test_values_to_ogc_feature_collection_without_elevation_and_with_gauge_zero(
         feature["properties"]["id"]: (feature["geometry"]["coordinates"], feature["properties"]["gauge_zero"])
         for feature in features
     } == _GAUGE_FEATURES
-    assert [len(feature["values"]) for feature in features] == [1, 1, 1]
+    # each feature carries its own station's value
+    assert {feature["properties"]["id"]: [v["value"] for v in feature["values"]] for feature in features} == {
+        "a": [0.0],
+        "b": [1.0],
+        "c": [2.0],
+    }
