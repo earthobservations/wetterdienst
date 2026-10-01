@@ -560,6 +560,7 @@
     "downloadedValues": "Values downloaded as {format}",
     "downloadCancelled": "Download cancelled: the table changed",
     "downloadedChart": "Chart downloaded as {format}",
+    "chartNotDrawn": "The chart could not be drawn",
     "axisDate": "Date",
     "axisValue": "Value",
     "paramLabelParameter": "Parameter",
@@ -581,7 +582,7 @@
     "noColumns": "Query returned no columns",
     "missingColumns": "Query results are missing expected columns: {missing}. Expected columns: {expected}",
     "extraColumns": "Query results contain additional columns: {extra}",
-    "misreadTypes": "The browser's DuckDB misreads BIT, TIME WITH TIME ZONE (the offset is dropped) and UHUGEINT values of 2^127 or more (they turn negative). Cast such a column to text: CAST(column AS VARCHAR)."
+    "misreadTypes": "The browser's DuckDB misreads BIT, TIME WITH TIME ZONE (the offset is dropped) and UHUGEINT values of 2^127 or more (they turn negative), and gives a GEOMETRY as its WKB bytes. Cast such a column to text: CAST(column AS VARCHAR)."
   },
   "history": {
     "title": "Station history",

@@ -1,4 +1,6 @@
 import type { DuckDBConnection } from '@duckdb/duckdb-wasm/blocking'
+import { readdirSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { plainRows } from '../../app/utils/arrow-rows'
 import { fieldText, valuesToCsv, valuesToJson } from '../../app/utils/values-export'
@@ -173,5 +175,40 @@ describe('plainRows of a BIGNUM', () => {
 
   it('leaves a BLOB of the same bytes as its bytes', () => {
     expect(value('SELECT \'\\x80\\x00\\x01\\x7B\'::BLOB')).toEqual([128, 0, 1, 123])
+  })
+})
+
+describe('plainRows of a map with a NaN or an infinite key', () => {
+  it('keeps each such key apart, by its own name', () => {
+    // each was keyed by "null", the last one's value the only one kept
+    expect(value('SELECT MAP {\'nan\'::DOUBLE: 1, \'inf\'::DOUBLE: 2, \'-inf\'::DOUBLE: 3, 1.5::DOUBLE: 4}')).toEqual({ 'NaN': 1, 'Infinity': 2, '-Infinity': 3, '1.5': 4 })
+    expect(value('SELECT MAP {\'nan\'::FLOAT: 1, \'inf\'::FLOAT: 2}')).toEqual({ NaN: 1, Infinity: 2 })
+  })
+
+  it('gives each row its own keys across the chunks a large result comes in', () => {
+    const plain = rows('SELECT MAP {\'nan\'::DOUBLE: range, (CASE WHEN range % 2 = 0 THEN \'inf\' ELSE \'-inf\' END)::DOUBLE: -range} AS m FROM range(5000)')
+    expect(plain[0]).toEqual({ m: { NaN: 0, Infinity: 0 } })
+    expect(plain[4999]).toEqual({ m: { 'NaN': 4999, '-Infinity': -4999 } })
+  })
+
+  it('reads a map with an infinite timestamp key, which Arrow\'s getter cannot', () => {
+    // read only a float key from the getter, which throws on these ticks; the keys collide (GH-2148)
+    expect(() => rows('SELECT MAP {\'infinity\'::TIMESTAMP: 1, \'-infinity\'::TIMESTAMP: 2} AS m')).not.toThrow()
+  })
+})
+
+describe('plainRows of a GEOMETRY', () => {
+  // DuckDB hands one over as its WKB bytes, which the query panel's note names with the cast
+  it('comes as its WKB bytes, and as its text once cast to VARCHAR', () => {
+    expect(value('SELECT \'POINT(1 2)\'::GEOMETRY')).toEqual([1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 0, 0, 0, 64])
+    expect(value('SELECT CAST(\'POINT(1 2)\'::GEOMETRY AS VARCHAR)')).toBe('POINT (1 2)')
+  })
+
+  it('is named by the query panel\'s note in every language, with the cast that reads it', () => {
+    const dir = fileURLToPath(new URL('../../i18n/locales', import.meta.url))
+    for (const name of readdirSync(dir).filter(name => name.endsWith('.json'))) {
+      const note: string = JSON.parse(readFileSync(`${dir}/${name}`, 'utf-8')).validation.misreadTypes
+      expect(note, name).toMatch(/GEOMETRY.*WKB.*CAST\(\w+ AS VARCHAR\)/)
+    }
   })
 })

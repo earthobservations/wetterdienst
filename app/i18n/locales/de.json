@@ -560,6 +560,7 @@
     "downloadedValues": "Werte als {format} heruntergeladen",
     "downloadCancelled": "Download abgebrochen: die Tabelle hat sich geändert",
     "downloadedChart": "Diagramm als {format} heruntergeladen",
+    "chartNotDrawn": "Das Diagramm konnte nicht gezeichnet werden",
     "axisDate": "Datum",
     "axisValue": "Wert",
     "paramLabelParameter": "Parameter",
@@ -581,7 +582,7 @@
     "noColumns": "Die Abfrage hat keine Spalten zurückgegeben",
     "missingColumns": "In den Ergebnissen fehlen erwartete Spalten: {missing}. Erwartete Spalten: {expected}",
     "extraColumns": "Die Ergebnisse enthalten zusätzliche Spalten: {extra}",
-    "misreadTypes": "Das DuckDB im Browser liest BIT, TIME WITH TIME ZONE (der Offset fällt weg) und UHUGEINT-Werte ab 2^127 (sie werden negativ) falsch. Wandeln Sie eine solche Spalte in Text um: CAST(spalte AS VARCHAR)."
+    "misreadTypes": "Das DuckDB im Browser liest BIT, TIME WITH TIME ZONE (der Offset fällt weg) und UHUGEINT-Werte ab 2^127 (sie werden negativ) falsch und gibt eine GEOMETRY als ihre WKB-Bytes aus. Wandeln Sie eine solche Spalte in Text um: CAST(spalte AS VARCHAR)."
   },
   "history": {
     "title": "Stationschronik",

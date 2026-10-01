@@ -560,6 +560,7 @@
     "downloadedValues": "Wäerter als {format} erofgelueden",
     "downloadCancelled": "Download ofgebrach: d'Tabell huet sech geännert",
     "downloadedChart": "Diagramm als {format} erofgelueden",
+    "chartNotDrawn": "D'Diagramm konnt net gezeechent ginn",
     "axisDate": "Datum",
     "axisValue": "Wäert",
     "paramLabelParameter": "Parameter",
@@ -581,7 +582,7 @@
     "noColumns": "D'Ufro huet keng Kolonne zréckginn",
     "missingColumns": "An den Ufroresultater feelen erwaart Kolonnen: {missing}. Erwaart Kolonnen: {expected}",
     "extraColumns": "D'Ufroresultater enthalen zousätzlech Kolonnen: {extra}",
-    "misreadTypes": "D'DuckDB am Browser liest BIT, TIME WITH TIME ZONE (den Offset fält ewech) an UHUGEINT-Wäerter vun 2^127 un (si ginn negativ) falsch. Konvertéiert esou eng Kolonn an Text: CAST(kolonn AS VARCHAR)."
+    "misreadTypes": "D'DuckDB am Browser liest BIT, TIME WITH TIME ZONE (den Offset fält ewech) an UHUGEINT-Wäerter vun 2^127 un (si ginn negativ) falsch a weist eng GEOMETRY als hir WKB-Bytes. Konvertéiert esou eng Kolonn an Text: CAST(kolonn AS VARCHAR)."
   },
   "history": {
     "title": "Statioune-Historique",

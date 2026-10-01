@@ -18,7 +18,12 @@ vi.mock('@duckdb/duckdb-wasm', async () => {
       async instantiate() {}
       async connect() {
         const conn = db.connect()
-        return { query: async (sql: string) => conn.query(sql), close: async () => conn.close() }
+        return {
+          query: async (sql: string) => conn.query(sql),
+          send: async (sql: string) => conn.send(sql),
+          cancelSent: async () => conn.cancelSent(),
+          close: async () => conn.close(),
+        }
       }
 
       async terminate() {}
@@ -49,7 +54,7 @@ afterEach(() => {
 
 // the rows the panel hands on for a query
 async function transform(query: string) {
-  const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
+  const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!) } })
   mounted.push(wrapper)
   await wrapper.find('button').trigger('click')
   await wrapper.find('textarea').setValue(query)
@@ -85,21 +90,46 @@ afterEach(() => {
 })
 
 // The statements the panel hands DuckDB, in order, each held until `hold` answers for it; `ran`,
-// those DuckDB was handed on, in the order it was. The connection closes once `closing` answers
+// those DuckDB was handed on, in the order it was; `cancelled`, the queries sent that a cancel ended
+// while held. The connection closes once `closing` answers
 function watchStatements(hold: (sql: string) => Promise<void> | undefined = () => undefined, closing: () => Promise<void> = async () => {}) {
   const statements: string[] = []
   const ran: string[] = []
+  const cancelled: string[] = []
   const connect = AsyncDuckDB.prototype.connect
   const spy = vi.spyOn(AsyncDuckDB.prototype, 'connect').mockImplementation(async function (this: AsyncDuckDB) {
     const conn = await connect.call(this)
     const query = conn.query.bind(conn)
+    const send = conn.send.bind(conn)
     const close = conn.close.bind(conn)
+    // the query sent on this connection and held, which DuckDB runs between polls: a cancel ends it,
+    // and so does a statement on the same connection
+    let pending: { sql: string, end: (reason: Error) => void } | null = null
     return Object.assign(conn, {
       query: async (sql: string) => {
+        pending?.end(new Error('Attempting to execute an unsuccessful or closed pending query result'))
         statements.push(sql)
         await hold(sql)
         ran.push(sql)
         return query(sql)
+      },
+      send: async (sql: string) => {
+        statements.push(sql)
+        await new Promise<void>((resolve, reject) => {
+          pending = { sql, end: reject }
+          Promise.resolve(hold(sql)).then(resolve, reject)
+        }).finally(() => {
+          pending = null
+        })
+        ran.push(sql)
+        return send(sql)
+      },
+      cancelSent: async () => {
+        if (!pending)
+          return false
+        cancelled.push(pending.sql)
+        pending.end(new Error('query was canceled'))
+        return true
       },
       close: async () => {
         await closing()
@@ -108,12 +138,12 @@ function watchStatements(hold: (sql: string) => Promise<void> | undefined = () =
     })
   })
   unwatched.push(() => spy.mockRestore())
-  return Object.assign(statements, { ran })
+  return Object.assign(statements, { ran, cancelled })
 }
 
 // a panel in query mode on `rows`
 async function queryMode(rows = data) {
-  const wrapper = await mountSuspended(QueryPanel, { props: { data: rows, expectedColumns: Object.keys(rows[0]!), mode: 'station' } })
+  const wrapper = await mountSuspended(QueryPanel, { props: { data: rows, expectedColumns: Object.keys(rows[0]!) } })
   mounted.push(wrapper)
   await wrapper.find('button').trigger('click')
   return wrapper
@@ -306,7 +336,7 @@ describe('queryPanel run left behind', () => {
 describe('queryPanel unmounted', () => {
   // a panel in query mode, left out of `mounted`, as the test unmounts it itself
   async function unmountable() {
-    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
+    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!) } })
     await wrapper.find('button').trigger('click')
     return wrapper
   }
@@ -655,11 +685,260 @@ describe('queryPanel note on misread types', () => {
   it('names the types the browser\'s DuckDB misreads and the cast that reads them', async () => {
     // a BIT reads as DuckDB's bytes, a TIME WITH TIME ZONE without its offset, a UHUGEINT of 2^127
     // or more as negative
-    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
+    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!) } })
     mounted.push(wrapper)
     await wrapper.find('button').trigger('click')
     const text = wrapper.text()
     for (const part of ['BIT', 'TIME WITH TIME ZONE', 'UHUGEINT', '2^127', 'CAST(column AS VARCHAR)'])
       expect(text).toContain(part)
+  })
+})
+
+describe('queryPanel table columns', () => {
+  it('types a column by all its values and keeps a column only later rows carry', async () => {
+    // a column null in the first row was VARCHAR, which `avg` refused and which handed `quality`
+    // on as text, and a column the first row lacked was no column at all
+    const rows = [
+      { ...data[0]!, value: null, quality: null },
+      { ...data[0]!, timestamp: '2020-01-02T00:00:00.000000+00:00', value: 2.5, quality: 10, distance: 1.25 },
+    ] as Value[]
+    const wrapper = await queryMode(rows)
+    await wrapper.find('textarea').setValue('SELECT *, avg(value) OVER () AS mean FROM data ORDER BY timestamp')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual([
+      { ...rows[0], distance: null, mean: 2.5 },
+      { ...rows[1], mean: 2.5 },
+    ])
+  })
+
+  it('keeps a column with no value at all as text, which compares with a string', async () => {
+    // a summary that found no station has no `taken_station_id` in any row; as a DOUBLE, matching it
+    // against a pattern failed
+    const rows = [{ ...data[0]!, taken_station_id: null }] as unknown as Value[]
+    const wrapper = await queryMode(rows)
+    await wrapper.find('textarea').setValue('SELECT * FROM data WHERE taken_station_id IS NULL OR taken_station_id LIKE \'01%\'')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(rows)
+  })
+})
+
+describe('queryPanel columns of the rows queried', () => {
+  const { parameter: _parameter, value: _value, quality: _quality, ...key } = data[0]!
+  // each shape of row the panel queries, as the REST API answers it, and the examples it offers
+  const shapes = [
+    {
+      shape: 'long',
+      rows: data,
+      examples: ['All data (limited)', 'Filter by parameter', 'Aggregate by timestamp', 'Filter by value range', 'Recent data only'],
+    },
+    {
+      shape: 'wide',
+      rows: [{ ...key, temperature_air_mean_2m: 1.5 }],
+      examples: ['All data (limited)', 'Recent data only'],
+    },
+    {
+      shape: 'interpolated',
+      rows: [{ ...key, parameter: 'temperature_air_mean_2m', value: 1.5, distance_mean: 3.25, taken_station_ids: ['01048', '04411'] }],
+      examples: ['All data (limited)', 'Filter by parameter', 'Aggregate by timestamp', 'Filter by value range', 'Recent data only', 'Group by source stations'],
+    },
+    {
+      shape: 'summarized',
+      rows: [{ ...key, parameter: 'temperature_air_mean_2m', value: 1.5, distance: 1.25, taken_station_id: '01048' }],
+      examples: ['All data (limited)', 'Filter by parameter', 'Aggregate by timestamp', 'Filter by value range', 'Recent data only', 'Group by source station'],
+    },
+  ] as unknown as { shape: string, rows: Value[], examples: string[] }[]
+
+  it.each(shapes)('offers the examples the $shape rows carry the columns of, and runs each', async ({ rows, examples }) => {
+    // every query was refused unless it returned the long rows' parameter, value and quality, and an
+    // example on a column the rows lack failed on it
+    const wrapper = await queryMode(rows)
+    expect(wrapper.text()).not.toContain('Required columns')
+    expect(wrapper.findAll('details button').map(button => button.text())).toEqual(examples)
+    // a run refused, or failed, hands nothing on
+    for (const [i, example] of examples.entries()) {
+      await buttonLabelled(wrapper, example).trigger('click')
+      await runButton(wrapper).trigger('click')
+      await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(i + 1))
+    }
+  })
+
+  it('tells no syntax error for a query returning columns of its own', async () => {
+    // the check refused a result without the long rows' columns, and Run Query stayed disabled
+    const sql = 'SELECT timestamp, temperature_air_mean_2m * 2 AS doubled FROM data LIMIT 10'
+    const statements = watchStatements()
+    const wrapper = await queryMode(shapes[1]!.rows)
+    await editNow(wrapper, sql)
+    await vi.waitFor(() => expect(statements).toContain(`SELECT * FROM (${sql}) LIMIT 0`))
+    await vi.waitFor(() => expect(wrapper.find('div.absolute.top-2.right-2').exists()).toBe(false))
+    expect(wrapper.text()).not.toContain('Syntax Error')
+    expect(runButton(wrapper).attributes('disabled')).toBeUndefined()
+  })
+
+  it('notes the columns a result lacks against the rows queried, and hands it on', async () => {
+    const wrapper = await queryMode()
+    await wrapper.find('textarea').setValue('SELECT parameter, avg(value) AS mean FROM data GROUP BY parameter')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual([{ parameter: 'temperature_air_mean_2m', mean: 1.5 }])
+    expect(wrapper.text()).toContain('missing expected columns: station_id, resolution, dataset, timestamp, value, quality')
+  })
+})
+
+describe('queryPanel failed run', () => {
+  it.each([
+    { failure: 'DuckDB refusing it', sql: 'SELECT * FROM data WHERE valu > 1', told: 'Query error' },
+    { failure: 'the validator refusing it', sql: 'DELETE FROM data', told: 'Only SELECT queries' },
+  ])('hands back the fetched rows for a query failing by $failure, not the query\'s before it', async ({ sql, told }) => {
+    // the table went on showing the previous query's rows under the new query's error, as its output
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).not.toBe(data)
+    await wrapper.find('textarea').setValue(sql)
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(2))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![1]![0]).toBe(data)
+    expect(wrapper.text()).toContain(told)
+    expect(wrapper.text()).not.toContain('Query executed successfully')
+  })
+
+  it('hands back nothing for a failing query when no query\'s rows are shown', async () => {
+    const wrapper = await queryMode()
+    await wrapper.find('textarea').setValue('SELECT * FROM data WHERE valu > 1')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Query error'))
+    expect(wrapper.emitted('dataTransformed')).toBeUndefined()
+  })
+})
+
+describe('queryPanel query left running', () => {
+  // the query the panel opens with, held until cancelled, as a slow query runs on
+  const opening = 'SELECT * FROM data LIMIT 100'
+  const newer = [{ ...data[0]!, station_id: '04411' }]
+
+  it.each([
+    { leaving: 'Cancel', leave: (wrapper: Awaited<ReturnType<typeof queryMode>>) => buttonLabelled(wrapper, 'Cancel').trigger('click'), rows: data },
+    { leaving: 'a Fetch', leave: (wrapper: Awaited<ReturnType<typeof queryMode>>) => wrapper.setProps({ data: newer }), rows: newer },
+  ])('cancels the query of a run left by $leaving, and runs the next one without it', async ({ leave, rows }) => {
+    // DuckDB ran it on to its end, and the next run and the syntax check waited behind it
+    const statements = watchStatements(sql => sql === opening ? new Promise<void>(() => {}) : undefined)
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(statements).toContain(opening))
+    await leave(wrapper)
+    await flushPromises()
+    expect(statements.cancelled).toEqual([opening])
+    await buttonLabelled(wrapper, 'Transform with SQL Query').trigger('click')
+    await wrapper.find('textarea').setValue('SELECT * FROM data LIMIT 50')
+    await runButton(wrapper).trigger('click')
+    // the rows handed back as query mode was left, then the next run's result
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(2))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![1]![0]).toEqual(rows)
+    expect(wrapper.text()).not.toMatch(/Query error|Failed to/)
+  })
+
+  it('cancels the query of a run under way as the panel goes', async () => {
+    // it ran on until the worker was terminated
+    const statements = watchStatements(sql => sql === opening ? new Promise<void>(() => {}) : undefined)
+    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!), mode: 'station' } })
+    await wrapper.find('button').trigger('click')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(statements).toContain(opening))
+    wrapper.unmount()
+    await flushPromises()
+    expect(statements.cancelled).toEqual([opening])
+  })
+
+  it('keeps a run\'s query running through a syntax check made while it runs', async () => {
+    // the check's statements, on the connection of the query under way, would end that query
+    const hold = gate()
+    const statements = watchStatements(sql => sql === opening ? hold.opened : undefined)
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(statements).toContain(opening))
+    await editNow(wrapper, 'SELECT * FROM data LIMIT 10')
+    await vi.waitFor(() => expect(statements).toContain('EXPLAIN SELECT * FROM data LIMIT 10'))
+    hold.open()
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(data)
+    expect(wrapper.text()).not.toContain('Query error')
+  })
+
+  it('sends no query for a run left while its connection opened', async () => {
+    // sent once the connection was open, it ran with no run to cancel it
+    const connect = AsyncDuckDB.prototype.connect
+    const hold = gate()
+    let connects = 0
+    const sent: string[] = []
+    const held = vi.spyOn(AsyncDuckDB.prototype, 'connect').mockImplementation(async function (this: AsyncDuckDB) {
+      // the panel's own connection, then the run's
+      if (++connects === 2)
+        await hold.opened
+      const conn = await connect.call(this)
+      const send = conn.send.bind(conn)
+      return Object.assign(conn, {
+        send: async (sql: string) => {
+          sent.push(sql)
+          return send(sql)
+        },
+      })
+    })
+    unwatched.push(() => held.mockRestore())
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(connects).toBe(2))
+    await buttonLabelled(wrapper, 'Cancel').trigger('click')
+    hold.open()
+    await flushPromises()
+    expect(sent).toEqual([])
+  })
+
+  it('reads no more of a result once its run is left', async () => {
+    // a Cancel once the query had ended, which a cancel no longer stops, left every batch to be read
+    const connect = AsyncDuckDB.prototype.connect
+    const hold = gate()
+    let read = 0
+    const spy = vi.spyOn(AsyncDuckDB.prototype, 'connect').mockImplementation(async function (this: AsyncDuckDB) {
+      const conn = await connect.call(this)
+      const send = conn.send.bind(conn)
+      return Object.assign(conn, {
+        // the result's batches, the second held until the test opens it
+        send: async (sql: string) => {
+          const reader = await send(sql)
+          return (async function* () {
+            for (const batch of reader) {
+              if (read === 1)
+                await hold.opened
+              read++
+              yield batch
+            }
+          })()
+        },
+      })
+    })
+    unwatched.push(() => spy.mockRestore())
+    // three batches of 2048 rows at most
+    const rows = Array.from({ length: 5000 }, (_, i) => ({ ...data[0]!, value: i }))
+    const wrapper = await queryMode(rows)
+    await wrapper.find('textarea').setValue('SELECT * FROM data')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(read).toBe(1))
+    await buttonLabelled(wrapper, 'Cancel').trigger('click')
+    hold.open()
+    await flushPromises()
+    expect(read).toBe(2)
+    expect(wrapper.emitted('dataTransformed')).toEqual([[rows]])
+  })
+
+  it('hands on every batch of a result DuckDB sends in several', async () => {
+    // a sent query's result is read a batch at a time, 2048 rows each
+    const rows = Array.from({ length: 3000 }, (_, i) => ({ ...data[0]!, value: i }))
+    const wrapper = await queryMode(rows)
+    await wrapper.find('textarea').setValue('SELECT * FROM data ORDER BY value')
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
+    expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual(rows)
   })
 })

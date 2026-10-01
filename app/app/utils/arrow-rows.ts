@@ -1,4 +1,4 @@
-import type { DataType, Decimal, Field, FixedSizeList, Struct, Table, Time, Timestamp, Union, Vector } from 'apache-arrow'
+import type { DataType, Decimal, Field, FixedSizeList, RecordBatch, Struct, Table, Time, Timestamp, Union, Vector } from 'apache-arrow'
 import { TimeUnit, Type } from 'apache-arrow/enum'
 
 // A time's ticks in a second, by the unit of its type
@@ -190,10 +190,17 @@ function plainColumn(vector: Vector, field: Field): unknown[] {
       // type it is told by, which a list, a struct or a union inside them keeps
       const entries = vector.getChildAt(0)!
       const [keyField, valueField] = entries.type.children as Field[]
-      const keys = plainColumn(entries.getChildAt(0)!, keyField!)
+      const keyVector = entries.getChildAt(0)!
+      const floatKeys = keyVector.type.typeId === Type.Float
+      // a float key of NaN or an infinity, which is made null as any value is, by its own name, so
+      // that each stays apart (GH-2116); a key is never NULL. Other keys made null, as an infinite
+      // date, still collide (GH-2148)
+      const keys = plainColumn(keyVector, keyField!).map((key, at) => key === null && floatKeys
+        ? String(keyVector.get(at))
+        : typeof key === 'string' ? key : JSON.stringify(key))
       const values = plainColumn(entries.getChildAt(1)!, valueField!)
       return childRanges(vector).map(range => range && Object.fromEntries(keys.slice(...range).map((key, index) =>
-        [typeof key === 'string' ? key : JSON.stringify(key), values[range[0] + index]])))
+        [key, values[range[0] + index]])))
     }
     case Type.Interval: {
       // DuckDB's intervals are all MONTH_DAY_NANO, four 32-bit integers a row -- months, days and the
@@ -231,10 +238,10 @@ function plainColumn(vector: Vector, field: Field): unknown[] {
  *
  * A name given to two columns holds the last one's value, as `toJSON()` keeps.
  *
- * @param table - The result, as DuckDB answers a query
+ * @param table - The result, or a batch of it, as DuckDB answers a query
  * @returns One object per row, keyed by column name
  */
-export function plainRows(table: Table): Record<string, unknown>[] {
+export function plainRows(table: Table | RecordBatch): Record<string, unknown>[] {
   // DuckDB answers a result of no rows with an empty batch whose nested columns have no children to read
   if (table.numRows === 0)
     return []

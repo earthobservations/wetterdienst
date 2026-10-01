@@ -938,11 +938,25 @@ async function chartsDrawn() {
     await Promise.allSettled(chartRenders)
 }
 
+// A chart's renders, numbered as they start. A render started while another is under way draws the
+// change it was started for, and the older one stops before it draws again, where it would draw what
+// it read at its start over the newer drawing. Failed: the newest threw -- Plotly's import or its
+// drawing -- and the chart holds no drawing, which a chart image draws again rather than save
+interface ChartRenders { started: number, failed: boolean }
+const mainRenders: ChartRenders = { started: 0, failed: false }
+const facetRenders: ChartRenders = { started: 0, failed: false }
+
 async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   // a chart still being drawn holds no graph, which Plotly exports as an empty figure of its default
   // size: with a drawing under way, the charts are taken once it is done, as the page shows them then
   if (chartRenders.size > 0)
     await chartsDrawn()
+  // a chart whose render failed holds no drawing either: it is drawn again, and where that fails too,
+  // the image is not saved (told once there is a chart to save, below)
+  if (chartShown() && shownRenders().failed) {
+    void renderShownChart()
+    await chartsDrawn()
+  }
   // faceted, one chart per parameter, in the order the page shows them. Taken once: faceting turned
   // on or off while Plotly loads would otherwise export these charts the other way
   const faceted = facetByParameter.value
@@ -953,6 +967,10 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   // still arrives here, where the page has yet to take the chart away, and there is nothing to save
   if (!chartShown() || !charts.every(chart => chart)) {
     toast.add({ title: t('dataViewer.noChartData'), color: 'warning' })
+    return
+  }
+  if (shownRenders().failed) {
+    toast.add({ title: t('dataViewer.chartNotDrawn'), color: 'error' })
     return
   }
 
@@ -1034,21 +1052,47 @@ const plotlyConfig: Partial<PlotlyConfig> = {
   modeBarButtonsToRemove: ['lasso2d', 'select2d'],
 }
 
+function startRender(renders: ChartRenders, draw: (newest: () => boolean) => Promise<void>) {
+  const number = ++renders.started
+  const newest = () => number === renders.started
+  return tracked(draw(newest).then(() => {
+    if (newest())
+      renders.failed = false
+  }, (error: unknown) => {
+    // a newer render draws the chart, and tells its own failure
+    if (!newest())
+      return
+    renders.failed = true
+    console.error('The chart could not be drawn', error)
+  }))
+}
+
 function renderMainChart() {
-  return tracked(drawMainChart())
+  return startRender(mainRenders, drawMainChart)
 }
 
 function renderFacetedCharts() {
-  return tracked(drawFacetedCharts())
+  return startRender(facetRenders, drawFacetedCharts)
+}
+
+// the chart the page shows, faceted or single, and its renders
+function renderShownChart() {
+  return facetByParameter.value ? renderFacetedCharts() : renderMainChart()
+}
+
+function shownRenders() {
+  return facetByParameter.value ? facetRenders : mainRenders
 }
 
 // Render chart helper functions
-async function drawMainChart() {
+async function drawMainChart(newest: () => boolean) {
   if (viewMode.value !== 'graph' || facetByParameter.value)
     return
   const plotly = await ensurePlotly()
 
   await nextTick()
+  if (!newest())
+    return
   if (chartRef.value && chartTraces.value.length > 0) {
     // Use newPlot for clean initialization
     plotly.purge(chartRef.value)
@@ -1056,13 +1100,15 @@ async function drawMainChart() {
   }
 }
 
-async function drawFacetedCharts() {
+async function drawFacetedCharts(newest: () => boolean) {
   if (viewMode.value !== 'graph' || !facetByParameter.value)
     return
   const plotly = await ensurePlotly()
 
   await nextTick()
   for (const facet of facetedChartData.value) {
+    if (!newest())
+      return
     const el = facetChartRefs.value.get(facet.parameter)
     if (el) {
       // Ensure y-axis title does not overflow by enabling automargin and using standoff
@@ -1087,12 +1133,7 @@ async function drawFacetedCharts() {
 // Render whatever the current view calls for. In table view -- the default -- this does no work
 // and, importantly, does not reach for Plotly.
 onMounted(async () => {
-  if (facetByParameter.value) {
-    await renderFacetedCharts()
-  }
-  else {
-    await renderMainChart()
-  }
+  await renderShownChart()
 })
 
 // Render main chart when data changes
@@ -1202,7 +1243,6 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         v-if="allValues.length > 0"
         :data="allValues"
         :expected-columns="queryColumns"
-        :mode="rowsMode"
         @data-transformed="handleDataTransformed"
       />
 

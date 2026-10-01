@@ -560,6 +560,7 @@
     "downloadedValues": "Valeurs téléchargées au format {format}",
     "downloadCancelled": "Téléchargement annulé : le tableau a changé",
     "downloadedChart": "Graphique téléchargé au format {format}",
+    "chartNotDrawn": "Le graphique n'a pas pu être dessiné",
     "axisDate": "Date",
     "axisValue": "Valeur",
     "paramLabelParameter": "Paramètre",
@@ -581,7 +582,7 @@
     "noColumns": "La requête n'a renvoyé aucune colonne",
     "missingColumns": "Il manque des colonnes attendues dans les résultats : {missing}. Colonnes attendues : {expected}",
     "extraColumns": "Les résultats contiennent des colonnes supplémentaires : {extra}",
-    "misreadTypes": "Le DuckDB du navigateur lit mal BIT, TIME WITH TIME ZONE (le décalage est perdu) et les valeurs UHUGEINT à partir de 2^127 (elles deviennent négatives). Convertissez une telle colonne en texte : CAST(colonne AS VARCHAR)."
+    "misreadTypes": "Le DuckDB du navigateur lit mal BIT, TIME WITH TIME ZONE (le décalage est perdu) et les valeurs UHUGEINT à partir de 2^127 (elles deviennent négatives) et affiche une GEOMETRY comme ses octets WKB. Convertissez une telle colonne en texte : CAST(colonne AS VARCHAR)."
   },
   "history": {
     "title": "Historique des stations",

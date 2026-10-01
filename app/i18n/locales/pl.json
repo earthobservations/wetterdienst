@@ -560,6 +560,7 @@
     "downloadedValues": "Wartości pobrane jako {format}",
     "downloadCancelled": "Pobieranie anulowane: tabela się zmieniła",
     "downloadedChart": "Wykres pobrany jako {format}",
+    "chartNotDrawn": "Nie udało się narysować wykresu",
     "axisDate": "Data",
     "axisValue": "Wartość",
     "paramLabelParameter": "Parametr",
@@ -581,7 +582,7 @@
     "noColumns": "Zapytanie nie zwróciło żadnych kolumn",
     "missingColumns": "W wynikach zapytania brakuje oczekiwanych kolumn: {missing}. Oczekiwane kolumny: {expected}",
     "extraColumns": "Wyniki zapytania zawierają dodatkowe kolumny: {extra}",
-    "misreadTypes": "DuckDB w przeglądarce błędnie odczytuje BIT, TIME WITH TIME ZONE (przesunięcie jest tracone) i wartości UHUGEINT od 2^127 (stają się ujemne). Przekształć taką kolumnę na tekst: CAST(kolumna AS VARCHAR)."
+    "misreadTypes": "DuckDB w przeglądarce błędnie odczytuje BIT, TIME WITH TIME ZONE (przesunięcie jest tracone) i wartości UHUGEINT od 2^127 (stają się ujemne), a GEOMETRY pokazuje jako jej bajty WKB. Przekształć taką kolumnę na tekst: CAST(kolumna AS VARCHAR)."
   },
   "history": {
     "title": "Historia stacji",
