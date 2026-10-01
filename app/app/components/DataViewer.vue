@@ -81,11 +81,6 @@ async function ensurePlotly(): Promise<typeof import('plotly.js-basic-dist-min')
   return Plotly
 }
 
-function reloadPage() {
-  // forced: unforced, a reload Nuxt made of the same page in the last seconds stops it
-  reloadNuxtApp({ force: true })
-}
-
 // Parameter label format options and chart display
 // Options: 'parameter' (default), 'dataset/parameter', 'resolution/dataset/parameter'
 type ParamLabelFormat = 'parameter' | 'dataset/parameter' | 'resolution/dataset/parameter'
@@ -1398,7 +1393,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
                 <span v-if="plotlyNotLoaded" class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
               </span>
               <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
-              <UButton v-if="plotlyNotLoaded" :label="t('dataViewer.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
+              <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadNuxtApp()" />
             </div>
             <div
               v-if="allValues.length === 0 && fetchErrorMessage"

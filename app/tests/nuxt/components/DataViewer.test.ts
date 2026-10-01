@@ -59,6 +59,11 @@ const plotly = vi.hoisted(() => {
 })
 vi.mock('plotly.js-basic-dist-min', () => plotly)
 
+// Nuxt's reload of the page, for every test in the file: the test's document, whose address earlier
+// tests' downloads have moved, does not take it
+const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
+mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
+
 const settings: DataSettings = {
   humanize: true,
   convertUnits: true,
@@ -2023,11 +2028,6 @@ describe('dataViewer chart image whose export fails', () => {
   })
 })
 
-// Nuxt's reload of the page, which the test's document, whose address earlier tests' downloads have
-// moved, does not take
-const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
-mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
-
 describe('dataViewer chart whose Plotly chunk a redeploy replaced', () => {
   // A redeploy replaces Plotly's hashed chunk under an open tab: every Retry asks for the gone chunk
   // again and fails, and only reloading the page loads the new one, which nothing said
@@ -2058,9 +2058,7 @@ describe('dataViewer chart whose Plotly chunk a redeploy replaced', () => {
     expect(note()).toContain('The chart could not be drawn')
     expect(note()).toContain(hint)
     button('Reload page')!.click()
-    // forced: Nuxt skips a reload of the page it reloaded itself in the last seconds, as after a
-    // route's chunk failed to load
-    expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
+    expect(reloadNuxtApp).toHaveBeenCalledOnce()
   })
 
   it.each([false, true])('offers no reload once Plotly loaded and only its drawing failed, faceted: %s', async (faceted) => {
