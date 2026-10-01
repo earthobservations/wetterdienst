@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ServerDisconnectedError
+from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import skip_if_upstream_unavailable
 from wetterdienst import Settings
@@ -353,7 +355,7 @@ def test_all_gives_the_referential_the_budget_of_the_other_requests(monkeypatch:
     HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all()
 
     referential = {url: timeout for url, timeout in timeouts.items() if "referentiel" in url}
-    assert referential
+    assert {url.split("?")[0].rsplit("/", 1)[-1] for url in referential} == {"stations", "sites"}
     assert set(referential.values()) == {api._SNIFF_TIMEOUT} == {api._VALUES_TIMEOUT}  # noqa: SLF001
 
 
@@ -396,3 +398,35 @@ def test_all_takes_the_elevation_from_the_station_site(monkeypatch: pytest.Monke
         "K447001001": None,
         "H227000301": None,
     }
+
+
+@pytest.mark.parametrize(
+    "error",
+    [FSTimeoutError(), ServerDisconnectedError(), FileNotFoundError("referentiel/sites")],
+    ids=["timeout", "disconnected", "not_found"],
+)
+def test_all_lists_the_stations_when_the_sites_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    error: Exception,
+) -> None:
+    """Test that a sites referential that cannot be read leaves the elevation null, not the list empty.
+
+    The sites referential supplies the elevation and nothing else. It answered 503 on 2026-10-01
+    while the station referential answered, and failing the station list over it would bring back
+    the very failure a slow referential caused.
+    """
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        if "referentiel/sites" in url:
+            raise error
+        if "referentiel/stations" in url:
+            return [{**_station("O972001001"), "code_site": "O9720010"}]
+        return _observations(_dates("O972001001", 5, 8))
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert dict(df.select("station_id", "elevation").iter_rows()) == {"O972001001": None}
+    assert "sites referential could not be read" in caplog.text

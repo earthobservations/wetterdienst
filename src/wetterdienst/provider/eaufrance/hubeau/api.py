@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
+from aiohttp import ClientError
+from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import (
@@ -444,13 +446,21 @@ class HubeauRequest(TimeseriesRequest):
 
         Returns:
             Frame of ``code_site`` and ``elevation``, null where the site publishes no altitude or
-            one that cannot be the ground's -- see ``_ELEVATION_MIN``.
+            one that cannot be the ground's -- see ``_ELEVATION_MIN``. Empty when the referential
+            cannot be read: the elevation is all it supplies, and a station list without one is
+            better than none at all.
 
         """
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
-        rows = _paged_rows(_SITES_ENDPOINT, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
+        try:
+            rows = _paged_rows(_SITES_ENDPOINT, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
+        except (FSTimeoutError, OSError, ClientError) as e:
+            # what `download_file` hands back for a timeout, a missing file, and a refused or
+            # broken response; FSTimeoutError is named as it is no OSError before Python 3.11
+            log.warning(f"Hubeau's sites referential could not be read, stations are listed without elevation: {e!r}")
+            rows = []
         df = pl.from_dicts(rows, schema={"code_site": pl.String, "altitude_site": pl.Float64})
         altitude = pl.col("altitude_site")
         return df.select(
