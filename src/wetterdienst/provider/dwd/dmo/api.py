@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 from lxml.etree import iterparse
 
-from wetterdienst.exceptions import InvalidEnumerationError
+from wetterdienst.exceptions import InvalidEnumerationError, ParameterNotCarriedError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
@@ -466,7 +466,7 @@ def _refuse_parameters_the_run_does_not_carry(parameters: list[ParameterModel], 
             for parameter, carried_by in refused
         )
         msg = f"DWD DMO's {lead_time.value:03d} h run, lead_time='{lead_time.name.lower()}', does not carry {named}"
-        raise ValueError(msg)
+        raise ParameterNotCarriedError(msg)
 
 
 class DwdDmoValues(TimeseriesValues):

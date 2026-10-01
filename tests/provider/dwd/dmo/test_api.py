@@ -1422,17 +1422,33 @@ def test_dmo_available_issues_lists_by_default_the_runs_a_default_request_accept
     assert json.loads(result.output) == {"issues": listed}
 
 
-def _dmo_values_for(parameters: list[str], lead_time: Literal["short", "long"]) -> object:
-    """Stand up the values of a DMO request for these parameters, with no network."""
+def test_dmo_available_issues_asked_for_every_lead_time_says_so_when_none_is_a_forecast(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`lead_time=None`, the opt-in for every lead time, warns without naming one."""
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: ["https://example.com/kmz/README"])
+
+    assert DwdDmoRequest.available_issues("01001", Settings(), lead_time=None) == []
+    assert "is a forecast file" in caplog.text
+
+
+def _dmo_stations_for(parameters: list[str], lead_time: Literal["short", "long"]) -> object:
+    """Stand up the stations of a DMO request for these parameters, with no network."""
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
 
-    df_stations = _stub_dmo_values().sr.df
+    df_stations = pl.DataFrame(
+        {"resolution": ["hourly"], "dataset": ["icon"], "station_id": ["10382"], "name": ["Berlin-Tegel"]},
+    )
     return StationsResult(
         stations=DwdDmoRequest(parameters=parameters, lead_time=lead_time),
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.BY_STATION_ID,
-    ).values
+    )
 
 
 @pytest.mark.parametrize(
@@ -1467,8 +1483,10 @@ def test_dmo_a_parameter_the_run_does_not_carry_is_refused(
 
     It answered with an empty frame, which reads exactly like a station with no data (GH-1976).
     """
-    with pytest.raises(ValueError, match="does not carry") as excinfo:
-        _dmo_values_for(parameters, lead_time)
+    from wetterdienst.exceptions import ParameterNotCarriedError  # noqa: PLC0415
+
+    with pytest.raises(ParameterNotCarriedError) as excinfo:
+        _dmo_stations_for(parameters, lead_time).values  # noqa: B018
 
     assert str(excinfo.value).endswith(f"lead_time='{lead_time}', does not carry {refused}")
 
@@ -1488,14 +1506,17 @@ def test_dmo_a_parameter_the_run_carries_is_not_refused(
     lead_time: Literal["short", "long"],
 ) -> None:
     """A whole dataset asks for what the run carries, so it is answered under either lead time."""
-    assert _dmo_values_for(parameters, lead_time) is not None
+    assert _dmo_stations_for(parameters, lead_time).values is not None
 
 
-def test_dmo_the_lead_times_the_request_knows_are_the_ones_upstream_serves() -> None:
+def test_dmo_the_lead_times_the_refusal_knows_are_the_ones_each_run_carries() -> None:
     """The partition the values path refuses by agrees with the element sets pinned against upstream.
 
     `test_dmo_declares_the_elements_its_runs_carry` pins what each run carries; this pins that the
-    provider's own table says the same of every parameter it declares, so the two cannot drift apart.
+    provider's own table says the same of every parameter either product declares, so the two
+    cannot drift apart. The runs of both products carry the same elements per lead time; that
+    `icon_eu` publishes no 168 h run at all is the remote test's to pin, and a request for it fails
+    with `Unable to find a 168 h forecast`.
     """
     from wetterdienst.provider.dwd.dmo.api import _CARRIED_ONLY_BY, DwdDmoLeadTime  # noqa: PLC0415
 
@@ -1505,3 +1526,40 @@ def test_dmo_the_lead_times_the_request_knows_are_the_ones_upstream_serves() -> 
             carried_by = {lead for run, lead in by_run.items() if parameter.name_original in _DMO_SERVED_BY[run]}
             known = _CARRIED_ONLY_BY.get(parameter.name_original)
             assert carried_by == ({known} if known else set(by_run.values())), parameter.name_original
+
+
+def test_dmo_a_refused_parameter_reaches_the_caller_as_a_message(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The REST API answers 400 with the refusal, and the CLI prints it without a traceback.
+
+    `get_values` ends any `ValueError` from the values with `sys.exit(1)`, which the REST API's
+    `except Exception` does not catch, so built inside it the refusal was a 500 with no message.
+    """
+    from click.testing import CliRunner  # noqa: PLC0415
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui import core  # noqa: PLC0415
+    from wetterdienst.ui.cli import cli  # noqa: PLC0415
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    parameter = "hourly/icon/precipitation_amount_last_3h"
+    monkeypatch.setattr(core, "get_stations", lambda **_kwargs: _dmo_stations_for([parameter], "short"))
+    expected = f"does not carry {parameter} (carried by lead_time='long')"
+
+    response = TestClient(app).get(
+        "/api/values",
+        params={"provider": "dwd", "network": "dmo", "parameters": parameter, "station": "10382"},
+    )
+    assert response.status_code == 400
+    assert expected in response.json()["detail"]
+
+    caplog.set_level(logging.ERROR)
+    caplog.clear()
+    result = CliRunner().invoke(
+        cli,
+        ["values", "--provider=dwd", "--network=dmo", f"--parameters={parameter}", "--station=10382"],
+    )
+    assert result.exit_code == 1
+    assert [(record.getMessage().endswith(expected), record.exc_info) for record in caplog.records] == [(True, None)]
