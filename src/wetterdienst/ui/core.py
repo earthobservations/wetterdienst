@@ -1106,9 +1106,9 @@ def get_values(
         settings=settings,
     )
 
+    # TODO: Add stream-based processing here.
     # a `ValueError` from the values -- a provider refusing a request it cannot serve as phrased
     # (`ParameterNotCarriedError`), or a parse failure -- propagates: reporting it is the caller's
-    # TODO: Add stream-based processing here.
     values_ = stations_.values.all()
 
     if values_.df.is_empty():
