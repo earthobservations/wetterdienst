@@ -12,14 +12,13 @@ from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
-from urllib.parse import urlunparse
 
 import polars as pl
 import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError
 from wetterdienst.metadata.renamed import renamed_column
-from wetterdienst.util.url import ConnectionString, redact_password, unencoded_password_delimiters
+from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
     import plotly.graph_objs as go
@@ -297,36 +296,17 @@ class ExportMixin:
         Raises:
             ExportRefusedError: The sink will not perform this export -- a mode it does not
                 do, a target already holding data under ``if_exists='fail'``, a format or
-                protocol nothing here writes, or a password holding a delimiter it would misread.
+                protocol nothing here writes, or a target that cannot be read, such as one whose
+                password holds an unencoded ``@``.
 
         Returns:
             None (data is emitted to the target)
 
         """
-        # a password holding an unencoded delimiter is split where the parser reading this sink's
-        # target splits it, and the pieces become the host, port, database or table, which a log
-        # line -- the one below included -- or a driver's error then prints. So such a target is
-        # refused first, and the refusal names no piece of it. InfluxDB is read with `urlparse`
-        # alone, which finds a password holding an `@`; CrateDB with `urlparse` and then
-        # SQLAlchemy; the SQL sinks connect with SQLAlchemy, which finds one holding a `/`, but
-        # take the table from what `urlparse` reads as the query. The sink is told apart as the
-        # dispatch below tells it, which reads the protocol with `urlparse` too
+        # read once, and before anything is logged: a target its sink cannot read is refused
+        # here, with a message that names no part of it
         connspec = ConnectionString(target)
         protocol = connspec.protocol
-        if protocol.startswith("influxdb"):
-            misread = "/?#"
-        elif target.startswith("crate://"):
-            misread = "/?#@"
-        else:
-            misread = "?#@"
-        if unencoded_password_delimiters(target) & set(misread):
-            encoded = ", ".join(f"'{c}' as %{ord(c):02X}" for c in misread)
-            msg = (
-                "The target's password holds a character this sink would read as the end of it, so "
-                "the target would be read with the wrong host, port, password, database or table. "
-                f"Percent-encode them in the password: {encoded}."
-            )
-            raise ExportRefusedError(msg)
 
         log.info(f"Exporting records to {redact_password(target)}\n{self.df.select(pl.len())}")
 
@@ -608,7 +588,7 @@ class ExportMixin:
                 from influxdb_client.client.write_api import SYNCHRONOUS  # noqa: PLC0415
 
                 ssl = protocol.endswith("s")
-                url = f"http{(ssl and 's') or ''}://{connspec.url.hostname}:{connspec.url.port or 8086}"
+                url = f"http{(ssl and 's') or ''}://{connspec.host}:{connspec.port or 8086}"
                 client = InfluxDBClientV2(url=url, org=connspec.username or "", token=connspec.password or "")
                 write_api = client.write_api(write_options=SYNCHRONOUS)
             elif version == 3:
@@ -736,8 +716,11 @@ class ExportMixin:
             log.info(f"Writing to CrateDB. target={redact_password(target)}, table={tablename}")
 
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
-            cratedb_url = connspec.url._replace(path="", query="")
-            cratedb_target = urlunparse(cratedb_url)
+            # rebuilt from the reading above, with the password encoded again, so SQLAlchemy reads
+            # it back as the same password whatever it holds
+            cratedb_target = (
+                connspec.to_sqlalchemy_url().set(database=None, query={}).render_as_string(hide_password=False)
+            )
 
             # Convert timezone-aware datetime fields to naive ones.
             # FIXME: Omit this as soon as the CrateDB driver is capable of supporting timezone-qualified timestamps.
@@ -811,7 +794,7 @@ class ExportMixin:
             # refuse one they do not know, so a `postgresql://` or `mysql://` target could not
             # connect at all. Only `table` goes: the rest of the query (`sslmode`, `charset`, ...)
             # is the driver's
-            url = sqlalchemy.make_url(target).difference_update_query(["table"])
+            url = connspec.to_sqlalchemy_url().difference_update_query(["table"])
             if url.get_backend_name() == "postgresql":
                 # a bare `postgresql://` means psycopg2 to SQLAlchemy 2.0 and psycopg 3 to 2.1,
                 # which needs Python 3.11, so both are allowed. The `postgresql` extra installs

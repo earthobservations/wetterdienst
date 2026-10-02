@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from wetterdienst.util.url import ConnectionString, redact_password, unencoded_password_delimiters
+from wetterdienst.exceptions import ExportRefusedError
+from wetterdienst.util.url import ConnectionString, redact_password
 
 
 def test_connectionstring_database_from_path() -> None:
@@ -147,45 +148,85 @@ def test_redact_password_hides_the_password_and_keeps_the_rest(url: str, redacte
 
 
 @pytest.mark.parametrize(
-    ("url", "found"),
+    "url",
     [
-        # `urlparse` ends the host part at the first `/`, `?` or `#`
-        pytest.param("influxdb2://acme:Ab/Cd==@localhost", {"/"}, id="slash"),
-        pytest.param("crate://crate:hun/ter2@localhost:4200/dwd", {"/"}, id="crate-slash"),
-        pytest.param("postgresql://scott:pa?ss@db/dwd?table=obs", {"?"}, id="question-mark"),
-        pytest.param("postgresql://scott:p#ss@db/dwd", {"#"}, id="hash"),
-        # SQLAlchemy ends the password at the first `@`
-        pytest.param("postgresql://scott:p@ss:w0rd@db/dwd", {"@"}, id="at-then-colon"),
-        pytest.param("postgresql://scott:p@ss@db/dwd", {"@"}, id="at"),
-        pytest.param("postgresql://scott:a/b@c@db/dwd", {"/", "@"}, id="slash-and-at"),
-        # both parsers end it at the first `@` and agree on host `C`, so only the widest reading,
-        # up to the last `@`, finds what it holds
-        pytest.param("influxdb2://acme:Ab@C/d==@localhost/?database=dwd", {"/", "@"}, id="at-before-slash"),
-        # an `@` in the query is not the password's
-        pytest.param("postgresql://scott:tiger@db/dwd?table=weather&note=a@b", set(), id="at-in-query"),
-        pytest.param("influxdb2://acme:tok@localhost/?database=dwd&table=a@b", set(), id="at-in-query-influxdb"),
-        # a password of digits before a `/` is not a port when the `@` is not in the query
-        pytest.param("influxdb://root:2024/Winter@localhost/?database=dwd", {"/"}, id="digits-then-slash"),
-        # an IPv6 host has colons of its own
-        pytest.param("postgresql://[::1]:5432/dwd?table=a@b", set(), id="ipv6-no-password"),
-        pytest.param("postgresql://u:p/w@[::1]:5432/dwd", {"/"}, id="ipv6-password"),
-        # encoded, nothing is left to misread
-        pytest.param("postgresql://scott:pa%2Fss%40x%3F%23@db/dwd", set(), id="percent-encoded"),
-        pytest.param("crate://crate@localhost/dwd?table=weather", set(), id="no-password"),
-        pytest.param("influxdb://localhost:8086/?database=dwd", set(), id="port-no-password"),
-        pytest.param(
-            "postgresql://user@srv:secret@srv.postgres.database.azure.com:5432/dwd", set(), id="at-in-username"
-        ),
-        pytest.param("file://C:/data@x:y.csv", set(), id="file"),
-        pytest.param("duckdb://C:/data/obs@1:2.duckdb", set(), id="duckdb"),
-        # with no password, digits after the `:` are a port, whatever follows the host part
-        pytest.param("influxdb://localhost:8086/?table=a@b", set(), id="port-then-at-in-query"),
-        pytest.param("crate://localhost:4200/?table=a@b", set(), id="crate-port-then-at-in-query"),
+        "postgresql://scott:tiger@db.example.org:5432/dwd?table=weather&sslmode=require",
+        "postgresql+psycopg2://scott:pa/ss@db/dwd?table=obs",
+        "postgresql://scott:pa?ss@db/dwd?table=obs",
+        "postgresql://scott:p#ss@db/dwd",
+        "postgresql://scott:pa%2Fss%40x@db/dwd",
+        "postgresql://user@srv:secret@srv.postgres.database.azure.com:5432/dwd?sslmode=require",
+        "postgresql://u:p@[::1]:5432/dwd",
+        "postgresql://[::1]:5432/dwd?table=a@b",
+        "postgresql://scott:tiger@db/dwd?options=a&options=b",
+        "mysql://:secret@localhost/dwd",
+        "sqlite:///dwd.sqlite?table=weather",
+        "sqlite+pysqlcipher://:passphrase@/dwd.db?table=weather",
+        "crate://crate:hun/ter2@localhost:4200/dwd?table=weather",
+        "influxdb2://acme:Ab/Cd==@localhost/?database=dwd",
     ],
 )
-def test_unencoded_password_delimiters_names_what_the_password_holds(url: str, found: set[str]) -> None:
-    """Each delimiter a password holds unencoded is named, and nothing is named for one encoded."""
-    assert unencoded_password_delimiters(url) == found
+def test_connectionstring_reads_a_target_as_sqlalchemy_does(url: str) -> None:
+    """Every sink reads a target as the SQL sinks' SQLAlchemy reads it, so they cannot disagree."""
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    assert ConnectionString(url).to_sqlalchemy_url() == sqlalchemy.make_url(url)
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        # `urlparse` ended the host part at the first `/`, `?` or `#` and read port `Ab`
+        pytest.param(
+            "influxdb2://acme:Ab/Cd==@localhost/?database=dwd",
+            ("influxdb2", "localhost", None, "acme", "Ab/Cd==", "dwd", "weather"),
+            id="slash",
+        ),
+        pytest.param(
+            "crate://crate:hun?ter#2@localhost:4200/dwd?table=obs",
+            ("crate", "localhost", 4200, "crate", "hun?ter#2", "dwd", "obs"),
+            id="question-mark-and-hash",
+        ),
+        pytest.param(
+            "influxdb://root:a:b@localhost:8087/obs",
+            ("influxdb", "localhost", 8087, "root", "a:b", "obs", "weather"),
+            id="colon",
+        ),
+    ],
+)
+def test_connectionstring_reads_a_password_holding_delimiters(url: str, expected: tuple) -> None:
+    """A `/`, `?`, `#` or `:` in a password stays in it, and the host, port and database are read."""
+    cs = ConnectionString(url)
+    assert (cs.protocol, cs.host, cs.port, cs.username, cs.password, cs.database, cs.table) == expected
+
+
+@pytest.mark.parametrize(
+    ("url", "pieces"),
+    [
+        pytest.param("postgresql://scott:pw-HEAD@ss:pw-TAIL@db/dwd", ["pw-HEAD", "ss:pw-TAIL"], id="at-then-colon"),
+        pytest.param("influxdb2://acme:tok-HEAD@tok-TAIL@localhost/", ["tok-HEAD", "tok-TAIL"], id="at"),
+    ],
+)
+def test_connectionstring_refuses_a_password_holding_an_unencoded_at(url: str, pieces: list[str]) -> None:
+    """An `@` that would end the password leaves an `@` in the host or port; the refusal names neither."""
+    with pytest.raises(ExportRefusedError, match="%40") as excinfo:
+        ConnectionString(url)
+    for piece in pieces:
+        assert piece not in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        pytest.param("not a url:secret", id="no-scheme"),
+        pytest.param("influxdb2://acme@localhost:se-cret/", id="port-not-a-number"),
+    ],
+)
+def test_connectionstring_refuses_a_target_it_cannot_read_without_naming_it(url: str) -> None:
+    """A target that is not a URL, or names a port that is not a number, is refused, naming neither."""
+    with pytest.raises(ExportRefusedError) as excinfo:
+        ConnectionString(url)
+    assert "secret" not in str(excinfo.value)
+    assert "se-cret" not in str(excinfo.value)
 
 
 def test_connectionstring_decodes_a_percent_encoded_username_and_password() -> None:

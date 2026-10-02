@@ -73,8 +73,8 @@ class ExportRefusedError(Exception):
 
     Four shapes of the same thing: `if_exists` asked for something this sink does not do, the
     target already holds data and `if_exists` said to stop, the target names a format or protocol
-    nothing here writes, or its password holds a delimiter the sink would misread unless it is
-    percent-encoded. What they share is that the message is the whole of what is
+    nothing here writes, or the target cannot be read, such as one whose password holds an
+    unencoded `@`. What they share is that the message is the whole of what is
     useful -- there is nothing in the traceback a caller would read.
 
     Its own type, because every caller that reports one as an instruction rather than as a crash

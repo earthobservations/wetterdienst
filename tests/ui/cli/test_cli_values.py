@@ -1037,7 +1037,7 @@ def test_cli_export_failure_names_the_target_without_its_password(caplog: pytest
 @pytest.mark.parametrize(
     "target",
     [
-        pytest.param("influxdb2://acme:tok3n-HEAD/tok3n-TAIL==@localhost/?database=dwd", id="influxdb2-slash"),
+        pytest.param("influxdb2://acme:tok3n-HEAD@tok3n-TAIL@localhost/?database=dwd", id="influxdb2-at"),
         pytest.param("postgresql://scott:pw-HEAD@ss:pw-TAIL@localhost/dwd?table=weather", id="sql-at-then-colon"),
     ],
 )
@@ -1051,7 +1051,7 @@ def test_cli_export_refuses_an_unencoded_password_without_printing_it(
     with caplog.at_level(logging.DEBUG, logger="wetterdienst"), pytest.raises(SystemExit):
         _export_or_exit(ExportMixin(df=pl.DataFrame({"station_id": ["01048"]})), target, "replace")
 
-    assert "Percent-encode" in caplog.text
+    assert "%40" in caplog.text
     assert "Traceback" not in caplog.text
     assert "Failed to export" not in caplog.text
     for piece in ("tok3n-HEAD", "tok3n-TAIL", "pw-HEAD", "pw-TAIL"):

@@ -86,9 +86,10 @@ Types of changes:
   Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
   one below -10 m or from 4810 m up, and for every station when that referential cannot be read,
   which is logged as a warning. About three stations in four have one (GH-2223)
-- **Breaking**: the InfluxDB sinks percent-decode the username and password of a target, as the
-  SQL sinks do, so a `/` in a token can be written `%2F`. A literal `%` followed by two hex digits
-  in an InfluxDB org, password or token is now written `%25` (GH-2248)
+- **Breaking**: the InfluxDB sinks read a target as the SQL and CrateDB sinks' SQLAlchemy does: the
+  password ends at the first `@`, and the username, password and database are percent-decoded.
+  Write an `@` in an InfluxDB org, password or token as `%40`, and a literal `%` followed by two hex
+  digits as `%25` (GH-2248)
 
 ### Fixed
 
@@ -107,9 +108,10 @@ Types of changes:
 - `to_target` and the CLI's `--target` log the target with its password as `***`. They logged it
   verbatim at INFO, which the CLI shows by default, so a database password or the InfluxDB 2/3 API
   token in the password slot reached stderr and any log it was captured in (GH-2219)
-- `to_target` refuses with `ExportRefusedError` a target whose password holds a `/`, `?`, `#` or
-  `@` the sink would misread, naming none of it. It went to the wrong host, port or database, and
-  pieces of the password reached the log. Percent-encode them: `%2F`, `%3F`, `%23`, `%40` (GH-2248)
+- A `/`, `?` or `#` in the password of an InfluxDB or CrateDB target, or a `?` or `#` in a SQL one,
+  is read as part of it. It was read as the end of the host part, so the export went to the wrong
+  host, port, database or table, and pieces of the password reached the log. A password whose
+  unencoded `@` cannot be read is refused with `ExportRefusedError`, naming none of it (GH-2248)
 - DWD derived can be used on a base install. Its station lists were read with pandas, so
   `Wetterdienst("dwd", "derived")` failed with an `ImportError` unless an extra that brings pandas,
   such as `export`, was installed. They are read with polars now, with the same result (GH-2213)

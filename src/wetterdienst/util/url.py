@@ -2,7 +2,14 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Helper class to support ``IoAccessor.export()``."""
 
-from urllib.parse import parse_qs, unquote, urlparse
+import re
+from typing import TYPE_CHECKING
+from urllib.parse import parse_qs, parse_qsl, unquote, urlparse
+
+from wetterdienst.exceptions import ExportRefusedError
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import URL
 
 # targets that name a file rather than a server, and so carry no credentials; a Windows path
 # such as `file://C:/data@x.csv` would otherwise read as user `C` with a password. Matched
@@ -40,43 +47,52 @@ def redact_password(url: str) -> str:
     return f"{scheme}://{username}:***{rest[end:]}"
 
 
-def unencoded_password_delimiters(url: str) -> frozenset[str]:
-    """Name the delimiters a target's password may hold unencoded, of ``/``, ``?``, ``#`` and ``@``.
+# the pattern SQLAlchemy's `make_url` reads a URL with (`sqlalchemy/engine/url.py`), so that
+# the sinks that do not connect through SQLAlchemy read a target as the ones that do. The
+# password runs to the first `@`, so it may hold a `/`, `?`, `#` or `:` unencoded
+_URL_PATTERN = re.compile(
+    r"""
+        (?P<name>[\w\+]+)://
+        (?:
+            (?P<username>[^:/]*)
+            (?::(?P<password>[^@]*))?
+        @)?
+        (?:
+            (?:
+                \[(?P<ipv6host>[^/\?]+)\] |
+                (?P<ipv4host>[^/:\?]+)
+            )?
+            (?::(?P<port>[^/\?]*))?
+        )?
+        (?:/(?P<database>[^\?]*))?
+        (?:\?(?P<query>.*))?
+    """,
+    re.VERBOSE,
+)
 
-    The two parsers that read a target split such a password differently. ``urlparse`` ends the
-    host part at the first ``/``, ``?`` or ``#``, so a password holding one of them is cut there
-    and the rest is read as the path, query or fragment. SQLAlchemy ends the password at the
-    first ``@``, so a password holding one is cut there and the rest is read as the host and
-    port. Either way the target is read with the wrong host, port, password, database or table.
-
-    The password starts after the first ``:``, provided no ``/`` comes before it and the host is
-    not an IPv6 literal. Where it ends cannot be told from the string once it may hold an ``@``,
-    so this takes the last ``@`` before the query: a password holding an ``@`` is found whatever
-    follows it up to there, and an ``@`` in the query, as in ``?application_name=me@host``, is
-    not counted. A ``host:port`` whose first ``@`` is in the query has no password, so
-    ``influxdb://localhost:8086/?table=a@b`` names nothing. What this cannot find: a password
-    holding an ``@`` with a ``?`` or ``#`` after it, or one of digits followed by a ``?`` or
-    ``#``, reads as a shorter password or as a port. Nothing here raises, and nothing of the
-    password comes back but which delimiters it may hold.
-    """
-    scheme, separator, rest = url.partition("://")
-    username, colon, _ = rest.partition(":")
-    if not separator or scheme.lower() in _PATH_SCHEMES or not colon or "/" in username or username.startswith("["):
-        return frozenset()
-    start = len(username) + 1
-    first = rest.find("@", start)
-    if first == -1:
-        return frozenset()
-    host_end = min((i for i in (rest.find(c, start) for c in "/?#") if i != -1), default=len(rest))
-    if rest[start:host_end].isdigit() and any(c in rest[start:first] for c in "?#"):
-        return frozenset()
-    query = min((i for i in (rest.find(c, first) for c in "?#") if i != -1), default=len(rest))
-    end = rest.rfind("@", start, query)
-    return frozenset(c for c in "/?#@" if c in rest[start:end])
+# a file sink is addressed by a path, which is read as `urlparse` reads it: a Windows path
+# such as `duckdb:///C:\data\dwd.duckdb` would give SQLAlchemy's pattern a host `C`
+_FILE_PREFIXES = ("file://", "duckdb://")
 
 
 class ConnectionString:
-    """Helper class to support ``IoAccessor.export()``."""
+    """Read an export target, once, for every sink.
+
+    A server target is read as SQLAlchemy reads it, whichever sink it is for: InfluxDB and
+    CrateDB read it with `urlparse` before, which ends the host part at the first `/`, `?` or
+    `#`, so a password holding one was split and its pieces became the port and database, and
+    from there a log line. The username, password and database are percent-decoded, as
+    SQLAlchemy decodes them.
+
+    Raises:
+        ExportRefusedError: The target is not a URL, or its password holds an unencoded `@`.
+            SQLAlchemy ends the password at the first `@`, so the rest of it would be read as
+            the host and port; that is told apart from a real host by the `@` left in it. The
+            message names no part of the target. A password holding an `@` and, after it, a
+            `/` or `?` reads as a shorter password, a host and a database or query, which no
+            reading of the string can tell from a target that means just that.
+
+    """
 
     def __init__(self, url: str) -> None:
         """Initialize a ConnectionString object.
@@ -86,32 +102,57 @@ class ConnectionString:
 
         """
         self.url_raw = url
-        self.url = urlparse(url)
+        self._file = url.startswith(_FILE_PREFIXES)
+        if self._file:
+            self._url = urlparse(url)
+            return
+        match = _URL_PATTERN.match(url)
+        if match is None:
+            msg = "The target is not a URL of the form scheme://[user[:password]@]host[:port][/database][?query]."
+            raise ExportRefusedError(msg)
+        parts = match.groupdict()
+        self._name: str = parts["name"]
+        self._host: str | None = parts["ipv4host"] or parts["ipv6host"]
+        port = parts["port"] or None
+        if "@" in (self._host or "") or "@" in (port or ""):
+            msg = (
+                "The target's password holds an '@' that is not percent-encoded, which ends it "
+                "early, so the rest of it would be read as the host and port. Write it as %40."
+            )
+            raise ExportRefusedError(msg)
+        if port is not None and not port.isdigit():
+            msg = "The target's port is not a number."
+            raise ExportRefusedError(msg)
+        self._port = None if port is None else int(port)
+        self._username = None if parts["username"] is None else unquote(parts["username"])
+        self._password = None if parts["password"] is None else unquote(parts["password"])
+        self._database = None if parts["database"] is None else unquote(parts["database"])
+        self._query: str = parts["query"] or ""
 
     @property
     def protocol(self) -> str:
         """Get the protocol from the URL."""
-        return self.url.scheme
+        return self._url.scheme if self._file else self._name.lower()
 
     @property
     def host(self) -> str | None:
         """Get the host from the URL."""
-        return self.url.hostname
+        return self._url.hostname if self._file else self._host
 
     @property
     def port(self) -> int | None:
         """Get the port from the URL."""
-        return self.url.port
+        return self._url.port if self._file else self._port
 
     @property
     def username(self) -> str | None:
-        """Get the username from the URL, percent-decoded as SQLAlchemy decodes it."""
-        return None if self.url.username is None else unquote(self.url.username)
+        """Get the username from the URL, percent-decoded."""
+        return None if self._file else self._username
 
     @property
     def password(self) -> str | None:
-        """Get the password from the URL, percent-decoded as SQLAlchemy decodes it."""
-        return None if self.url.password is None else unquote(self.url.password)
+        """Get the password from the URL, percent-decoded."""
+        return None if self._file else self._password
 
     @property
     def database(self) -> str:
@@ -120,8 +161,12 @@ class ConnectionString:
         database = self.get_query_param("database") or self.get_query_param("bucket")
 
         # Try to get database name from URL path.
-        if not database and self.url.path.startswith("/"):
-            database = self.url.path[1:]
+        if not database:
+            if self._file:
+                if self._url.path.startswith("/"):
+                    database = self._url.path[1:]
+            else:
+                database = self._database
 
         return database or "dwd"
 
@@ -133,12 +178,35 @@ class ConnectionString:
     @property
     def path(self) -> str:
         """Get the path from the URL."""
-        return self.url.path or self.url.netloc
+        if self._file:
+            return self._url.path or self._url.netloc
+        return self._database or ""
 
     def get_query_param(self, name: str) -> str | None:
         """Get a query parameter from the URL."""
-        query = parse_qs(self.url.query)
+        query = parse_qs(self._url.query if self._file else self._query)
         try:
             return query[name][0]
         except (KeyError, IndexError):
             return None
+
+    def to_sqlalchemy_url(self) -> "URL":
+        """Give back the target as the SQLAlchemy URL `make_url` reads it as, from this reading."""
+        from sqlalchemy.engine import URL  # noqa: PLC0415
+
+        query: dict[str, str | tuple[str, ...]] = {}
+        for key, value in parse_qsl(self._query):
+            if key in query:
+                previous = query[key]
+                query[key] = (*previous, value) if isinstance(previous, tuple) else (previous, value)
+            else:
+                query[key] = value
+        return URL.create(
+            self._name,
+            username=self._username,
+            password=self._password,
+            host=self._host,
+            port=self._port,
+            database=self._database,
+            query=query,
+        )

@@ -2661,67 +2661,38 @@ def test_timeseries_values_to_target_logs_the_target_without_its_password(caplog
 @pytest.mark.parametrize(
     ("target", "pieces"),
     [
-        # `urlparse` reads `tok3n-HEAD` as the port and `tok3n-TAIL==@localhost/` as the database
+        # SQLAlchemy's reading ends the password at the first `@`, which left `tok3n-TAIL@localhost`
+        # as the host
         pytest.param(
-            "influxdb2://acme:tok3n-HEAD/tok3n-TAIL==@localhost/?database=dwd&table=weather",
+            "influxdb2://acme:tok3n-HEAD@tok3n-TAIL@localhost/?database=dwd&table=weather",
             ["tok3n-HEAD", "tok3n-TAIL"],
-            id="influxdb2-slash",
+            id="influxdb2-at",
         ),
-        pytest.param(
-            "influxdb3://acme:tok3n-HEAD?tok3n-TAIL@localhost/?database=dwd&table=weather",
-            ["tok3n-HEAD", "tok3n-TAIL"],
-            id="influxdb3-question-mark",
-        ),
-        pytest.param(
-            "influxdb://root:pw-HEAD#pw-TAIL@localhost/?database=dwd",
-            ["pw-HEAD", "pw-TAIL"],
-            id="influxdb1-hash",
-        ),
-        # both parsers read host `tok3n-MID`, and the redacted INFO line kept `tok3n-MID/tok3n-TAIL`
-        pytest.param(
-            "influxdb2://acme:tok3n-HEAD@tok3n-MID/tok3n-TAIL==@localhost/?database=dwd",
-            ["tok3n-HEAD", "tok3n-MID", "tok3n-TAIL"],
-            id="influxdb2-at-before-slash",
-        ),
-        # `urlparse` reads `hun-HEAD` as the port, then SQLAlchemy is handed `crate://crate:hun-HEAD`
-        pytest.param(
-            "crate://crate:hun-HEAD/ter-TAIL@localhost:4200/dwd?table=weather",
-            ["hun-HEAD", "ter-TAIL"],
-            id="crate-slash",
-        ),
-        # `urlparse` reads it, but SQLAlchemy, which CrateDB is handed to, ends it at the first `@`
         pytest.param(
             "crate://crate:hun-HEAD@ter-TAIL@localhost:4200/dwd?table=weather",
             ["hun-HEAD", "ter-TAIL"],
             id="crate-at",
         ),
-        # `make_url` raises `invalid literal for int() with base 10: 'pw-TAIL@db'`
+        # `make_url` raised `invalid literal for int() with base 10: 'pw-TAIL@db'`
         pytest.param(
             "postgresql://scott:pw-HEAD@ss:pw-TAIL@db/dwd?table=weather",
             ["pw-HEAD", "pw-TAIL"],
             id="sql-at-then-colon",
         ),
-        # SQLAlchemy connects, but `urlparse` reads the table from `pw-TAIL@db/dwd?table=obs`
-        pytest.param(
-            "postgresql://scott:pw-HEAD?pw-TAIL@db/dwd?table=obs",
-            ["pw-HEAD", "pw-TAIL"],
-            id="sql-question-mark",
-        ),
     ],
 )
-def test_to_target_refuses_a_password_holding_an_unencoded_delimiter(
+def test_to_target_refuses_a_password_holding_an_unencoded_at(
     target: str,
     pieces: list[str],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A password the sink would split is refused before anything is logged, naming none of it.
+    """A password whose `@` would be read as the end of it is refused before anything is logged.
 
-    Read wrongly, its pieces became the host, port or database, which the INFO lines naming the
-    target and the database and the traceback of the failed connection then printed.
+    Read that way, the rest of it became the host and port, which a driver's error then printed.
     """
     with (
         caplog.at_level(logging.DEBUG, logger="wetterdienst"),
-        pytest.raises(ExportRefusedError, match="Percent-encode") as excinfo,
+        pytest.raises(ExportRefusedError, match="%40") as excinfo,
     ):
         _one_row().to_target(target)
 
@@ -2729,50 +2700,86 @@ def test_to_target_refuses_a_password_holding_an_unencoded_delimiter(
     assert caplog.text == ""
     for piece in pieces:
         assert piece not in str(excinfo.value)
-        assert piece not in caplog.text
+
+
+# a password holding every delimiter `urlparse` ends the host part at, and a colon
+_PASSWORD = "p/a?s#s:w"  # noqa: S105
+
+
+def test_to_target_writes_influxdb1_with_a_password_holding_delimiters() -> None:
+    """InfluxDB 1 is handed the host, port, password and database the target names."""
+    pytest.importorskip("influxdb")
+    with mock.patch("influxdb.InfluxDBClient") as client:
+        _one_row().to_target(f"influxdb://root:{_PASSWORD}@localhost:8087/?database=obs")
+
+    client.assert_called_once_with(
+        host="localhost", port=8087, username="root", password=_PASSWORD, database="obs", ssl=False
+    )
+
+
+def test_to_target_writes_influxdb2_with_a_token_holding_delimiters() -> None:
+    """InfluxDB 2 is handed the URL, org and token the target names, and writes to its bucket."""
+    pytest.importorskip("influxdb_client")
+    with mock.patch("influxdb_client.InfluxDBClient") as client:
+        _one_row().to_target(f"influxdb2://acme:{_PASSWORD}@localhost/?database=obs&table=weather")
+
+    client.assert_called_once_with(url="http://localhost:8086", org="acme", token=_PASSWORD)
+    assert client.return_value.write_api.return_value.write.call_args.kwargs["bucket"] == "obs"
+
+
+def test_to_target_writes_influxdb3_with_a_token_holding_delimiters() -> None:
+    """InfluxDB 3 is handed the host, org, token and database the target names."""
+    pytest.importorskip("influxdb_client_3")
+    with mock.patch("influxdb_client_3.InfluxDBClient3") as client:
+        _one_row().to_target(f"influxdb3://acme:{_PASSWORD}@eu.example.org/?database=obs")
+
+    kwargs = client.call_args.kwargs
+    assert (kwargs["host"], kwargs["org"], kwargs["token"], kwargs["database"]) == (
+        "eu.example.org",
+        "acme",
+        _PASSWORD,
+        "obs",
+    )
+
+
+def test_to_target_writes_cratedb_with_a_password_holding_delimiters() -> None:
+    """CrateDB is handed a URL that reads back as the same host, port and password."""
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pytest.importorskip("pandas")
+    with mock.patch("pandas.DataFrame.to_sql") as to_sql:
+        _one_row().to_target(f"crate://crate:{_PASSWORD}@localhost:4200/obs?table=readings")
+
+    url = sqlalchemy.make_url(to_sql.call_args.kwargs["con"])
+    assert (url.drivername, url.username, url.password, url.host, url.port) == (
+        "crate",
+        "crate",
+        _PASSWORD,
+        "localhost",
+        4200,
+    )
+    assert (to_sql.call_args.kwargs["schema"], to_sql.call_args.kwargs["name"]) == ("obs", "readings")
 
 
 @pytest.mark.parametrize(
-    ("target", "token"),
-    [
-        pytest.param("influxdb2://acme:Ab%2FCd%3D%3D@localhost/?database=dwd", "Ab/Cd==", id="percent-encoded"),
-        # `urlparse` ends the userinfo at the last `@`, so an InfluxDB password may hold one
-        pytest.param("influxdb2://acme:Ab@Cd==@localhost/?database=dwd", "Ab@Cd==", id="unencoded-at"),
-    ],
+    "password",
+    [pytest.param(_PASSWORD, id="delimiters"), pytest.param("pa/ss", id="slash")],
 )
-def test_to_target_hands_influxdb_the_password_it_reads(target: str, token: str) -> None:
-    """An encoded token reaches InfluxDB decoded, and an `@` it reads correctly is not refused."""
-    pytest.importorskip("influxdb_client")
-    with mock.patch("influxdb_client.InfluxDBClient") as client:
-        _one_row().to_target(target)
-
-    client.assert_called_once_with(url="http://localhost:8086", org="acme", token=token)
-
-
-def test_to_target_hands_sqlalchemy_a_password_holding_a_slash() -> None:
-    """SQLAlchemy reads a `/` in a password, and the table comes through, so it is not refused."""
+def test_to_target_writes_sql_with_a_password_holding_delimiters(password: str) -> None:
+    """SQLAlchemy is handed the password the target names, and the table is the one it names."""
     pytest.importorskip("sqlalchemy")
     pytest.importorskip("pandas")
     with mock.patch("sqlalchemy.create_engine") as create_engine, mock.patch("pandas.DataFrame.to_sql") as to_sql:
-        _one_row().to_target("postgresql+psycopg2://scott:pa/ss@db/dwd?table=obs")
+        _one_row().to_target(f"postgresql+psycopg2://scott:{password}@db/dwd?table=obs")
 
-    assert create_engine.call_args.args[0].password == "pa/ss"  # noqa: S105
+    url = create_engine.call_args.args[0]
+    assert (url.password, url.host, url.database) == (password, "db", "dwd")
     assert to_sql.call_args.kwargs["name"] == "obs"
 
 
-@pytest.mark.parametrize(
-    ("target", "named", "not_named"),
-    [
-        pytest.param("postgresql://scott:p@ss@db/dwd", "'@' as %40", "'/' as %2F", id="sql"),
-        pytest.param("influxdb2://acme:Ab/Cd==@localhost", "'/' as %2F", "'@' as %40", id="influxdb"),
-        # `urlparse` strips the space, and the InfluxDB sink is chosen by what it reads
-        pytest.param(" influxdb2://acme:Ab/Cd==@localhost", "'/' as %2F", "'@' as %40", id="influxdb-leading-space"),
-    ],
-)
-def test_to_target_refusal_names_what_the_sink_misreads(target: str, named: str, not_named: str) -> None:
-    """The refusal asks to encode what this sink misreads, not what it reads correctly."""
-    with pytest.raises(ExportRefusedError) as excinfo:
-        _one_row().to_target(target)
+def test_to_target_hands_influxdb_an_encoded_token_decoded() -> None:
+    """A percent-encoded token reaches InfluxDB decoded, as SQLAlchemy decodes a password."""
+    pytest.importorskip("influxdb_client")
+    with mock.patch("influxdb_client.InfluxDBClient") as client:
+        _one_row().to_target("influxdb2://acme:Ab%2FCd%40%3D%3D@localhost/?database=dwd")
 
-    assert named in str(excinfo.value)
-    assert not_named not in str(excinfo.value)
+    client.assert_called_once_with(url="http://localhost:8086", org="acme", token="Ab/Cd@==")  # noqa: S106
