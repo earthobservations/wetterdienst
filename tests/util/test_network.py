@@ -2341,6 +2341,8 @@ def test_download_file_retries_a_download_that_failed_after_a_long_transfer() ->
         return payload
 
     mock_fs.cat_file.side_effect = cat_file
+    # a network read: a bare mock would answer the cache probe with a truthy mock
+    mock_fs._check_file.return_value = False  # noqa: SLF001
 
     with (
         patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
@@ -2354,4 +2356,5 @@ def test_download_file_retries_a_download_that_failed_after_a_long_transfer() ->
     assert any(reading >= 60 for reading in readings)
     assert mock_fs.cat_file.call_count == 2
     assert result.status == 200
+    assert result.from_cache is False
     assert result.content.getvalue() == payload

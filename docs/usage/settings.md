@@ -102,10 +102,11 @@ settings
 to allow requesting through a proxy.
 
 A number given as `timeout` in `fsspec_client_kwargs` (30 in the default ones, which a dict of
-your own replaces) is how many seconds a server may stay silent before a request fails: while
-connecting, before the first byte of its answer, or between two bytes of it. A download that keeps
-arriving is not cut off, however long it takes. Eaufrance Hub'Eau replaces the number with 120
-seconds of its own, as its service can take longer than 30 seconds to answer.
+your own replaces) is how many seconds a request may wait before it fails: for a connection
+(including a free one from the pool), for the first byte of the answer, or between two bytes of
+it. It does not limit the request as a whole, so a download that keeps arriving is not cut off,
+however long it takes. Eaufrance Hub'Eau replaces the number with 120 seconds of its own, as its
+service can take longer than 30 seconds to answer.
 
 If you're experiencing SSL certificate verification issues, especially in corporate environments or
 when system certificates are outdated, you can enable the certifi certificate bundle:
