@@ -1791,3 +1791,38 @@ def test_dmo_a_run_stamp_ahead_of_a_clock_still_in_the_month_before_is_the_next_
     month's, which is a month back.
     """
     assert _dated(stamps, now) == expected
+
+
+def test_dmo_coverage_names_the_lead_times_whose_run_carries_each_parameter() -> None:
+    """`/api/coverage` lists per parameter the lead times whose run carries it, `short` first.
+
+    Values refuse a parameter asked for by name that the run does not carry (GH-1976), and the app
+    had no way to tell which those are, so it offered `icon`'s 1-hourly and 3-hourly parameters
+    under either run and a selection of most of them was refused under both (GH-2256). Checked
+    against the element sets the remote test pins per run, and `icon_eu` publishes the 078 run
+    alone. The key is added to the ones the coverage had, which stay as they were.
+    """
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    response = TestClient(app).get("/api/coverage", params={"provider": "dwd", "network": "dmo"})
+    assert response.status_code == 200, response.text
+
+    by_run = {"078": "short", "168": "long"}
+    published = {"icon": ("078", "168"), "icon_eu": ("078",)}
+    datasets = response.json()["hourly"]["datasets"]
+    assert set(datasets) == set(published)
+    for dataset, described in datasets.items():
+        for parameter in described["parameters"]:
+            carried_by = [
+                lead
+                for run, lead in by_run.items()
+                if run in published[dataset] and parameter["name_original"] in _DMO_SERVED_BY[run]
+            ]
+            assert parameter["lead_times"] == carried_by, (dataset, parameter["name"])
+            assert set(parameter) == {"name", "name_original", "unit_type", "unit", "description", "lead_times"}
+    icon = {parameter["name"]: parameter["lead_times"] for parameter in datasets["icon"]["parameters"]}
+    assert icon["precipitation_amount_last_3h"] == ["long"]
+    assert icon["precipitation_amount_last_1h"] == ["short"]
+    assert icon["temperature_air_mean_2m"] == ["short", "long"]

@@ -2656,3 +2656,270 @@ def test_timeseries_values_to_target_logs_the_target_without_its_password(caplog
     assert (
         "Exported data for station 01048 to influxdb2://acme:***@localhost/?database=dwd&table=weather." in caplog.text
     )
+
+
+@pytest.mark.parametrize(
+    ("target", "datetime_type"),
+    [
+        pytest.param(
+            "mssql+pyodbc://u:p@localhost/dwd?driver=ODBC+Driver+18+for+SQL+Server&table=weather",
+            "DATETIME2",
+            id="mssql+pyodbc",
+        ),
+        pytest.param("mssql+pymssql://u:p@localhost/dwd?table=weather", "DATETIME2", id="mssql+pymssql"),
+        # the control: MySQL's naive datetimes stay its own `DATETIME`
+        pytest.param("mysql+pymysql://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql+pymysql"),
+    ],
+)
+def test_sql_sink_writes_sql_server_datetimes_as_naive_utc_datetime2(target: str, datetime_type: str) -> None:
+    """A SQL Server table gets `DATETIME2` columns holding UTC, where it got a `timestamp` (GH-2249).
+
+    pandas maps a zoned datetime to `TIMESTAMP(timezone=True)`, which the SQL Server dialect
+    compiles to `TIMESTAMP`, SQL Server's name for `rowversion`: a row counter refusing any value
+    written to it, so the first row failed. A naive one would be `DATETIME`, from 1753 only.
+    No server is needed: the engine carries the target's dialect over a stand-in driver,
+    `to_sql` is stubbed, and the frame and types it is handed are compiled into the
+    `CREATE TABLE` that dialect would send.
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    from pandas.io.sql import SQLDatabase, SQLTable  # noqa: PLC0415
+    from sqlalchemy.schema import CreateTable  # noqa: PLC0415
+
+    # 1700 is before `DATETIME`'s 1753. Midnight in Berlin in 1850 is 23:06:32 UTC the day before
+    # (local mean time), so a zone dropped without converting to UTC first would show
+    export = ExportMixin(
+        df=pl.DataFrame(
+            {
+                "station_id": ["01048"],
+                "timestamp": [dt.datetime(1700, 1, 1, tzinfo=ZoneInfo("UTC"))],
+                "start_date": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("Europe/Berlin"))],
+                "end_date": pl.Series([None], dtype=pl.Datetime("us", "UTC")),
+                "value": [1.0],
+            }
+        )
+    )
+    create_engine = sqlalchemy.create_engine
+    engines = []
+    handed = []
+
+    def engine_for(url: object, **kwargs: object) -> object:
+        # the target's real dialect, with a stand-in driver: nothing connects before `to_sql`.
+        # pyodbc's dialect reads the driver's version as it is built
+        driver = mock.MagicMock(version="5.2.0", __version__="2.3.13")
+        engines.append(create_engine(url, module=driver, **kwargs))
+        return engines[-1]
+
+    def to_sql(frame: object, **kwargs: object) -> None:
+        handed.append((frame, kwargs["dtype"]))
+
+    with (
+        mock.patch("sqlalchemy.create_engine", side_effect=engine_for),
+        mock.patch.object(pd.DataFrame, "to_sql", autospec=True, side_effect=to_sql),
+    ):
+        export.to_target(target)
+
+    ((engine,), ((frame, dtype),)) = engines, handed
+    with SQLDatabase(create_engine("sqlite://")) as database:
+        table = SQLTable("weather", database, frame=frame, index=False, dtype=dtype).table
+        ddl = str(CreateTable(table).compile(dialect=engine.dialect))
+    assert f"timestamp {datetime_type}" in ddl
+    assert f"start_date {datetime_type}" in ddl
+    assert f"end_date {datetime_type}" in ddl
+    assert "TIMESTAMP" not in ddl
+    assert frame["timestamp"].tolist() == [pd.Timestamp("1700-01-01 00:00:00")]
+    assert frame["start_date"].tolist() == [pd.Timestamp("1849-12-31 23:06:32")]
+    assert frame["end_date"].isna().tolist() == [True]
+
+
+def _two_dataset_stations_result() -> StationsResult:
+    """Build a stations result of one station in two daily datasets, one row per dataset.
+
+    As DWD observation lists it: a stations frame holds one row per resolution, dataset and
+    station, and a station in two datasets gets two rows.
+    """
+    station = {
+        "resolution": "daily",
+        "station_id": "01048",
+        "start_date": None,
+        "end_date": None,
+        "latitude": 51.1,
+        "longitude": 13.8,
+        "elevation": 228.0,
+        "name": "Dresden-Klotzsche",
+        "region": "Sachsen",
+    }
+    df = pl.DataFrame(
+        [{**station, "dataset": "climate_summary"}, {**station, "dataset": "precipitation_more"}],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "elevation": pl.Float64,
+            "name": pl.String,
+            "region": pl.String,
+        },
+        orient="row",
+    )
+    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, stations=None)
+
+
+def _values_result(stations: StationsResult, rows: list[dict]) -> ValuesResult:
+    """Build a values result of hand-written rows, its metadata columns Enum as a real one's are."""
+    df_values = pl.DataFrame(rows, schema_overrides={"timestamp": pl.Datetime(time_zone="UTC")}, orient="row")
+    df_values = TimeseriesValues._cast_metadata_to_enum(df_values)  # noqa: SLF001
+    return ValuesResult(stations=stations, values=None, df=df_values)
+
+
+def test_values_to_ogc_feature_collection_gives_each_dataset_its_own_values() -> None:
+    """A station in two datasets gets one feature per dataset, each with that dataset's values only.
+
+    Both features carried the values of both datasets, so every value appeared twice, once under
+    a feature whose dataset did not match it.
+    """
+    timestamp = dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC"))
+    value = {"station_id": "01048", "resolution": "daily", "timestamp": timestamp, "quality": 1.0}
+    result = _values_result(
+        _two_dataset_stations_result(),
+        [
+            {**value, "dataset": "climate_summary", "parameter": "temperature_air_mean_2m", "value": 1.0},
+            {**value, "dataset": "precipitation_more", "parameter": "precipitation_height", "value": 2.0},
+        ],
+    )
+    features = json.loads(result.to_geojson())["data"]["features"]
+    assert [
+        (feature["properties"]["dataset"], [(v["dataset"], v["value"]) for v in feature["values"]])
+        for feature in features
+    ] == [
+        ("climate_summary", [("climate_summary", 1.0)]),
+        ("precipitation_more", [("precipitation_more", 2.0)]),
+    ]
+    # a feature's values still leave out the station id its properties carry
+    assert all("station_id" not in v for feature in features for v in feature["values"])
+
+
+def test_values_to_ogc_feature_collection_leaves_out_a_dataset_without_values() -> None:
+    """A dataset the station returned no values for gets no feature, nor the other dataset's values."""
+    result = _values_result(
+        _two_dataset_stations_result(),
+        [
+            {
+                "station_id": "01048",
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_mean_2m",
+                "timestamp": dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 1.0,
+                "quality": 1.0,
+            },
+        ],
+    )
+    features = json.loads(result.to_geojson())["data"]["features"]
+    assert [(feature["properties"]["dataset"], len(feature["values"])) for feature in features] == [
+        ("climate_summary", 1),
+    ]
+
+
+def test_values_to_ogc_feature_collection_wide_rows_spanning_datasets() -> None:
+    """A wide row spanning two datasets of one resolution, and so naming none, is not dropped.
+
+    Such a row holds the columns of each dataset, so it goes, whole, to the feature of each of
+    them, as it did before features were split by dataset; GH-2274 tracks splitting it too.
+    """
+    result = _values_result(
+        _two_dataset_stations_result(),
+        [
+            {
+                "station_id": "01048",
+                "resolution": "daily",
+                "dataset": None,
+                "timestamp": dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "climate_summary_temperature_air_mean_2m": 1.0,
+                "precipitation_more_precipitation_height": 2.0,
+            },
+        ],
+    )
+    features = json.loads(result.to_geojson())["data"]["features"]
+    row = {
+        "resolution": "daily",
+        "dataset": None,
+        "timestamp": "2026-01-01T00:00:00.000000+00:00",
+        "climate_summary_temperature_air_mean_2m": 1.0,
+        "precipitation_more_precipitation_height": 2.0,
+    }
+    assert [(feature["properties"]["dataset"], feature["values"]) for feature in features] == [
+        ("climate_summary", [row]),
+        ("precipitation_more", [row]),
+    ]
+
+
+def _unlocated_stations_result() -> StationsResult:
+    """Build a stations result of one located station and two without a full position.
+
+    "10115" is a postcode, which DWD derived's climate_correction_factor lists as a station with
+    no latitude, longitude or elevation; "half" has a latitude but no longitude.
+    """
+    station = {"resolution": "monthly", "dataset": "climate_correction_factor", "start_date": None, "end_date": None}
+    df = pl.DataFrame(
+        [
+            {**station, "station_id": "located", "latitude": 50.0, "longitude": 8.0, "elevation": None, "name": "A"},
+            {**station, "station_id": "10115", "latitude": None, "longitude": None, "elevation": None, "name": None},
+            {**station, "station_id": "half", "latitude": 51.0, "longitude": None, "elevation": 10.0, "name": None},
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "elevation": pl.Float64,
+            "name": pl.String,
+        },
+        orient="row",
+    ).with_columns(region=pl.lit(None, dtype=pl.String))
+    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, stations=None)
+
+
+# per station id: the feature's geometry, null where the station has no position
+_UNLOCATED_GEOMETRIES = {
+    "located": {"type": "Point", "coordinates": [8.0, 50.0]},
+    "10115": None,
+    "half": None,
+}
+
+
+def test_stations_to_ogc_feature_collection_without_position() -> None:
+    """A station without a latitude or longitude gets a null geometry, not a Point of null coordinates.
+
+    RFC 7946 3.1.1 makes a position two or more numbers, and 3.2 writes an unlocated feature with a
+    null geometry.
+    """
+    features = json.loads(_unlocated_stations_result().to_geojson())["data"]["features"]
+    assert {feature["properties"]["id"]: feature["geometry"] for feature in features} == _UNLOCATED_GEOMETRIES
+
+
+def test_values_to_ogc_feature_collection_without_position() -> None:
+    """The values variant writes a station without a position with a null geometry too."""
+    result = _values_result(
+        _unlocated_stations_result(),
+        [
+            {
+                "station_id": station_id,
+                "resolution": "monthly",
+                "dataset": "climate_correction_factor",
+                "parameter": "climate_correction_factor",
+                "timestamp": dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 1.0,
+                "quality": None,
+            }
+            for station_id in _UNLOCATED_GEOMETRIES
+        ],
+    )
+    features = json.loads(result.to_geojson())["data"]["features"]
+    assert {feature["properties"]["id"]: feature["geometry"] for feature in features} == _UNLOCATED_GEOMETRIES

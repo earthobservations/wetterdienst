@@ -439,3 +439,50 @@ def test_all_lists_the_stations_when_the_sites_cannot_be_read(
 
     assert dict(df.select("station_id", "elevation").iter_rows()) == {"O972001001": None}
     assert "sites referential could not be read" in caplog.text
+
+
+def test_all_names_the_vertical_datum_of_the_gauge_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that ``gauge_zero_datum`` names the system ``gauge_zero`` is given in, by its Sandre label.
+
+    Hub'Eau gives ``altitude_ref_alti_station`` in the system ``code_systeme_alti_site`` names, from
+    Sandre nomenclature 76, and stations differ: of those in service on 2026-10-01, 1765 were on
+    IGN 1969 and 493 on NGF 1884, and many overseas gauges on a system of their own territory's. A
+    code the labels do not cover is given as the code itself, and no code as null.
+    """
+    systems = {
+        "O972001001": 3,  # La Garonne à Bordeaux
+        "2115000201": 9,  # La rivière Capot au Lorrain, on Martinique
+        "5143000101": 31,  # La Tapanahoni à Grand-Santi, in Guyane, on a local relative system
+        "ngf_1884": 2,
+        "unknown": 0,
+        "unmapped": 99,
+        "no_code": None,
+    }
+    stations = [{**_station(station_id), "code_systeme_alti_site": code} for station_id, code in systems.items()]
+    urls: list[str] = []
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        urls.append(url)
+        if "referentiel/sites" in url:
+            return []
+        if "referentiel/stations" in url:
+            return stations
+        return _observations([date for station_id in systems for date in _dates(station_id, 5, 8)])
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert dict(df.select("station_id", "gauge_zero_datum").iter_rows()) == {
+        "O972001001": "IGN 1969",
+        "2115000201": "IGN 1987 (Martinique)",
+        "5143000101": "Système local - hauteur relative",
+        "ngf_1884": "Nivellement Général de la France 1884",
+        "unknown": "Système altimétrique inconnu",
+        "unmapped": "99",
+        "no_code": None,
+    }
+    assert df.schema["gauge_zero_datum"] == pl.String
+    # the station referential has to be asked for the code, or its live answer carries none
+    (stations_url,) = [url for url in urls if "referentiel/stations" in url]
+    assert "code_systeme_alti_site" in stations_url.split("fields=")[1].split("&")[0].split(",")
