@@ -973,3 +973,62 @@ def test_cli_values_target_reports_an_unwritable_format_the_same_way_in_every_mo
     # a refusal, so no traceback and no "Failed to export" preamble
     assert "Traceback" not in caplog.text
     assert "Failed to export" not in caplog.text
+
+
+@pytest.mark.parametrize("target", [None, "values.csv"])
+def test_cli_values_a_value_error_from_the_values_exits_1(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+    target: str | None,
+) -> None:
+    """A `ValueError` raised while collecting the values is logged, and the CLI exits 1.
+
+    `core.get_values`, which the REST API shares, raises it rather than exiting itself (GH-2218);
+    the CLI's own handler reports it, with or without a `--target`, which collects the same way.
+    """
+    msg = "can only call '.item()' if the dataframe has a single element"
+
+    def fail() -> None:
+        raise ValueError(msg)
+
+    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+    given = [f"--target={tmp_path / target}"] if target else []
+
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            [
+                "values",
+                "--provider=dwd",
+                "--network=observation",
+                "--parameters=daily/kl",
+                "--station=01048",
+                "--date=2020-06-30",
+                *given,
+            ],
+        )
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    [record] = caplog.records
+    assert record.getMessage() == "Error during data acquisition"
+    assert record.exc_info is not None
+    assert str(record.exc_info[1]) == msg
+    if target:
+        assert not (tmp_path / target).exists()
+
+
+def test_cli_export_failure_names_the_target_without_its_password(caplog: pytest.LogCaptureFixture) -> None:
+    """A sink that breaks is logged with the target it was writing to, its password left out."""
+    from wetterdienst.ui.cli import _export_or_exit  # noqa: PLC0415
+
+    result = MagicMock()
+    result.to_target.side_effect = RuntimeError("connection refused")
+
+    with pytest.raises(SystemExit):
+        _export_or_exit(result, "postgresql+psycopg2://scott:tiger-secret@localhost/dwd?table=weather", "replace")
+
+    assert "tiger-secret" not in caplog.text
+    assert "Failed to export to postgresql+psycopg2://scott:***@localhost/dwd?table=weather" in caplog.text

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 from collections.abc import Mapping, Sequence  # noqa: TC003
 from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
@@ -185,7 +184,7 @@ _SectionsField = Annotated[
     set[Literal["name", "parameter", "device", "geography", "missing_data"]] | None,
     Field(
         description="History sections to include: name, parameter, device, geography, missing_data. Each history "
-        "gives its station_id whichever are included.",
+        "gives its station_id, resolution and dataset, whichever are included.",
     ),
 ]
 _InterpolationStationDistanceField = Annotated[
@@ -1063,15 +1062,19 @@ def get_stations(
     raise AssertionError(msg)
 
 
+_HISTORY_IDENTIFIERS = frozenset({"station_id", "resolution", "dataset"})
+
+
 def select_history_sections(history: dict[str, Any], sections: AbstractSet[str] | None) -> dict[str, Any]:
     """Keep the requested sections of a dumped station history, all of them when none are requested.
 
     In the history's own field order rather than the order of `sections`, which is a set, so the
-    same request always answers the same document. `station_id` is not a section and is always kept.
+    same request always answers the same document. `station_id`, `resolution` and `dataset` say
+    which station and dataset the history belongs to, are not sections and are always kept.
     """
     if not sections:
         return history
-    return {key: value for key, value in history.items() if key == "station_id" or key in sections}
+    return {key: value for key, value in history.items() if key in _HISTORY_IDENTIFIERS or key in sections}
 
 
 def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
@@ -1107,16 +1110,10 @@ def get_values(
         settings=settings,
     )
 
-    # built before the `try` below: a provider refuses a request it cannot serve as phrased here
-    # (`ParameterNotCarriedError`), and that is the caller's to report, where `sys.exit` would turn
-    # it into a REST API 500 with no message
-    values = stations_.values
-    try:
-        # TODO: Add stream-based processing here.
-        values_ = values.all()
-    except ValueError:
-        log.exception("Error while fetching values")
-        sys.exit(1)
+    # TODO: Add stream-based processing here.
+    # a `ValueError` from the values -- a provider refusing a request it cannot serve as phrased
+    # (`ParameterNotCarriedError`), or a parse failure -- propagates: reporting it is the caller's
+    values_ = stations_.values.all()
 
     if values_.df.is_empty():
         # nothing to filter, and nothing more to say about it. An empty window is the caller's

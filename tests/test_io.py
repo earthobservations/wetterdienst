@@ -2,8 +2,10 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for export of timeseries data."""
 
+import contextlib
 import datetime as dt
 import json
+import logging
 import math
 import re
 import sqlite3
@@ -2395,3 +2397,262 @@ def test_psycopg_counts_as_installed_only_when_it_imports() -> None:
     with mock.patch("importlib.import_module", return_value=mock.sentinel.psycopg) as probe:
         assert _psycopg_imports()
     probe.assert_called_once_with("psycopg")
+
+
+@pytest.mark.parametrize(
+    ("target", "datetime_type"),
+    [
+        pytest.param("mysql://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql"),
+        pytest.param("mysql+pymysql://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql+pymysql"),
+        pytest.param("mariadb://u:p@localhost/dwd?table=weather", "DATETIME", id="mariadb"),
+        # a dialect built on MySQL's under a name of its own, as TiDB's or SingleStore's are
+        pytest.param("wdmysqlfork://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql-derived"),
+        # the control: PostgreSQL's `timestamptz` holds any year and keeps the zone, so it is left alone
+        pytest.param(
+            "postgresql+pg8000://u:p@localhost/dwd?table=weather", "TIMESTAMP WITH TIME ZONE", id="postgresql"
+        ),
+    ],
+)
+def test_sql_sink_writes_mysql_datetimes_as_naive_utc(
+    target: str, datetime_type: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A MySQL or MariaDB table gets `DATETIME` columns holding UTC, so a year before 1970 fits.
+
+    pandas maps a zoned datetime to `TIMESTAMP(timezone=True)`, which the MySQL dialect compiles
+    to a plain `TIMESTAMP`; that type starts in 1970, so the first row of a historical DWD series
+    was refused (strict mode) or stored as zeros. No server is needed: the engine carries the
+    target's dialect over a stand-in driver, `to_sql` is stubbed, and the frame it is handed is
+    compiled into the `CREATE TABLE` that dialect would send.
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    from pandas.io.sql import SQLDatabase, SQLTable  # noqa: PLC0415
+    from sqlalchemy.dialects import registry  # noqa: PLC0415
+    from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql  # noqa: PLC0415
+    from sqlalchemy.schema import CreateTable  # noqa: PLC0415
+
+    class ForkDialect(MySQLDialect_pymysql):
+        name = "wdmysqlfork"
+
+    monkeypatch.setitem(registry.impls, "wdmysqlfork", lambda: ForkDialect)
+    # `start_date` and `end_date` stand for the station frame's other datetime columns, the latter
+    # empty as an active station's is. Midnight in Berlin in 1850 is 23:06:32 UTC the day before
+    # (local mean time), so a zone dropped without converting to UTC first would show
+    export = ExportMixin(
+        df=pl.DataFrame(
+            {
+                "station_id": ["01048"],
+                "timestamp": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("UTC"))],
+                "start_date": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("Europe/Berlin"))],
+                "end_date": pl.Series([None], dtype=pl.Datetime("us", "UTC")),
+                "value": [1.0],
+            }
+        )
+    )
+    create_engine = sqlalchemy.create_engine
+    engines = []
+    handed = []
+
+    def engine_for(url: object, **kwargs: object) -> object:
+        # the target's real dialect, with a stand-in driver: nothing connects before `to_sql`
+        engines.append(create_engine(url, module=mock.MagicMock(), **kwargs))
+        return engines[-1]
+
+    def to_sql(frame: object, **_kwargs: object) -> None:
+        handed.append(frame)
+
+    with (
+        mock.patch("sqlalchemy.create_engine", side_effect=engine_for),
+        mock.patch.object(pd.DataFrame, "to_sql", autospec=True, side_effect=to_sql),
+    ):
+        export.to_target(target)
+
+    ((engine,), (frame,)) = engines, handed
+    with SQLDatabase(create_engine("sqlite://")) as database:
+        table = SQLTable("weather", database, frame=frame, index=False).table
+        ddl = str(CreateTable(table).compile(dialect=engine.dialect))
+    assert f"timestamp {datetime_type}" in ddl
+    assert f"start_date {datetime_type}" in ddl
+    assert f"end_date {datetime_type}" in ddl
+    assert frame["end_date"].isna().tolist() == [True]
+    if datetime_type == "DATETIME":
+        assert frame["timestamp"].tolist() == [pd.Timestamp("1850-01-01 00:00:00")]
+        assert frame["start_date"].tolist() == [pd.Timestamp("1849-12-31 23:06:32")]
+    else:
+        assert frame["timestamp"].tolist() == [pd.Timestamp("1850-01-01 00:00:00", tz="UTC")]
+        # compared as an instant: pandas rounds Berlin's 1850 offset to whole minutes when it builds one
+        assert isinstance(frame["start_date"].dtype, pd.DatetimeTZDtype)
+        assert str(frame["start_date"].dtype.tz) == "Europe/Berlin"
+        assert frame["start_date"].dt.tz_convert("UTC").tolist() == [pd.Timestamp("1849-12-31 23:06:32", tz="UTC")]
+
+
+def _gauge_stations_result() -> StationsResult:
+    """Build a stations result from a request declaring gauge_zero, as WSV Pegelonline's does.
+
+    Three stations: one with an elevation, one without, and one without an elevation but with a
+    gauge zero. They also carry the `distance` a rank filter adds, which the provider does not
+    declare.
+    """
+
+    class GaugeRequestMock:
+        _base_columns = (*TimeseriesRequest._base_columns, "gauge_zero")  # noqa: SLF001
+
+    station = {"resolution": "15_minutes", "dataset": "data", "start_date": None, "end_date": None, "region": None}
+    df = pl.DataFrame(
+        [
+            {**station, "station_id": "a", "latitude": 50.0, "longitude": 8.0, "elevation": 100.0, "name": "A"},
+            {**station, "station_id": "b", "latitude": 51.0, "longitude": 9.0, "elevation": None, "name": "B"},
+            {**station, "station_id": "c", "latitude": 52.0, "longitude": 10.0, "elevation": None, "name": "C"},
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "elevation": pl.Float64,
+            "name": pl.String,
+            "region": pl.String,
+        },
+        orient="row",
+    ).with_columns(gauge_zero=pl.Series([None, None, -1.809], dtype=pl.Float64), distance=pl.lit(1.0))
+    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, stations=GaugeRequestMock())
+
+
+# per station id: the feature's position and its gauge_zero property
+_GAUGE_FEATURES = {
+    "a": ([8.0, 50.0, 100.0], None),
+    "b": ([9.0, 51.0], None),
+    "c": ([10.0, 52.0], -1.809),
+}
+
+
+def test_stations_to_ogc_feature_collection_without_elevation_and_with_gauge_zero() -> None:
+    """A station without an elevation gets a 2D position, and gauge_zero reaches its properties.
+
+    RFC 7946 3.1.1 makes a position two or more numbers, so `[lon, lat, null]` is not one.
+    """
+    features = _gauge_stations_result().to_ogc_feature_collection()["data"]["features"]
+    assert {
+        feature["properties"]["id"]: (feature["geometry"]["coordinates"], feature["properties"]["gauge_zero"])
+        for feature in features
+    } == _GAUGE_FEATURES
+    # a column a filter adds is not one the provider declares
+    assert not any("distance" in feature["properties"] for feature in features)
+
+
+def test_values_to_ogc_feature_collection_without_elevation_and_with_gauge_zero() -> None:
+    """The values variant positions and describes its stations the same way."""
+    df_values = pl.DataFrame(
+        [
+            {
+                "station_id": station_id,
+                "resolution": "15_minutes",
+                "dataset": "data",
+                "parameter": "stage",
+                "timestamp": dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": value,
+                "quality": None,
+            }
+            for value, station_id in enumerate(_GAUGE_FEATURES)
+        ],
+        schema_overrides={"quality": pl.Float64},
+        orient="row",
+    )
+    # station_id as Enum, as a real values frame has it
+    df_values = TimeseriesValues._cast_metadata_to_enum(df_values)  # noqa: SLF001
+    result = ValuesResult(stations=_gauge_stations_result(), values=None, df=df_values)
+    features = json.loads(result.to_geojson())["data"]["features"]
+    assert {
+        feature["properties"]["id"]: (feature["geometry"]["coordinates"], feature["properties"]["gauge_zero"])
+        for feature in features
+    } == _GAUGE_FEATURES
+    # each feature carries its own station's value
+    assert {feature["properties"]["id"]: [v["value"] for v in feature["values"]] for feature in features} == {
+        "a": [0.0],
+        "b": [1.0],
+        "c": [2.0],
+    }
+
+
+@pytest.mark.parametrize(
+    ("target", "secret", "logged", "stubs"),
+    [
+        pytest.param(
+            "postgresql+psycopg2://scott:tiger-secret@db.example.org:5432/dwd?table=weather&sslmode=require",
+            "tiger-secret",
+            "postgresql+psycopg2://scott:***@db.example.org:5432/dwd?table=weather&sslmode=require",
+            ["sqlalchemy.create_engine", "pandas.DataFrame.to_sql"],
+            id="sql",
+        ),
+        pytest.param(
+            "influxdb2://acme:SECRET-TOKEN==@localhost/?database=dwd&table=weather",
+            "SECRET-TOKEN",
+            "influxdb2://acme:***@localhost/?database=dwd&table=weather",
+            ["influxdb_client.InfluxDBClient"],
+            id="influxdb2",
+        ),
+        pytest.param(
+            "influxdb3://acme:SECRET-TOKEN==@eu-central-1-1.aws.cloud2.influxdata.com/?database=dwd&table=weather",
+            "SECRET-TOKEN",
+            "influxdb3://acme:***@eu-central-1-1.aws.cloud2.influxdata.com/?database=dwd&table=weather",
+            ["influxdb_client_3.InfluxDBClient3"],
+            id="influxdb3",
+        ),
+        pytest.param(
+            "crate://crate:hunter2-secret@localhost:4200/dwd?table=weather",
+            "hunter2-secret",
+            "crate://crate:***@localhost:4200/dwd?table=weather",
+            ["pandas.DataFrame.to_sql"],
+            id="crate",
+        ),
+    ],
+)
+def test_to_target_logs_the_target_without_its_password(
+    target: str,
+    secret: str,
+    logged: str,
+    stubs: list[str],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The target is logged with its password slot as `***`, and the rest of it as given.
+
+    `to_target` logged the target verbatim at INFO, which the CLI shows by default, so a password,
+    or the API token the documented InfluxDB 2/3 spelling carries in the password slot, went to
+    stderr and from there into cron mail, journald or a CI log. No sink is reached: each driver is
+    stubbed, and what is read is the log.
+    """
+    with contextlib.ExitStack() as stack:
+        for stub in stubs:
+            # each case skips on the driver it needs, not on another case's
+            pytest.importorskip(stub.split(".")[0])
+            stack.enter_context(mock.patch(stub))
+        stack.enter_context(caplog.at_level(logging.INFO, logger="wetterdienst"))
+        _one_row().to_target(target)
+
+    assert secret not in caplog.text
+    assert f"Exporting records to {logged}" in caplog.text
+    if target.startswith("crate://"):
+        assert f"Writing to CrateDB. target={logged}, table=weather" in caplog.text
+
+
+def test_timeseries_values_to_target_logs_the_target_without_its_password(caplog: pytest.LogCaptureFixture) -> None:
+    """The line the multi-station export logs after each station shows the target redacted too."""
+    target = "influxdb2://acme:SECRET-TOKEN@localhost/?database=dwd&table=weather"
+    result = mock.MagicMock()
+    result.df = pl.DataFrame({"station_id": ["01048"]})
+    values = mock.MagicMock()
+    values.query.return_value = iter([result])
+    values.sr.station_id = ["01048"]
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst"):
+        TimeseriesValues.to_target(values, target)
+
+    # the sink is still handed the target with its token, which it needs to connect
+    result.to_target.assert_called_once_with(target, if_exists="fail")
+    assert "SECRET-TOKEN" not in caplog.text
+    assert (
+        "Exported data for station 01048 to influxdb2://acme:***@localhost/?database=dwd&table=weather." in caplog.text
+    )

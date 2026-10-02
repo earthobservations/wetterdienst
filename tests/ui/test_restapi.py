@@ -4,6 +4,7 @@
 
 import json
 import logging
+from types import SimpleNamespace
 from typing import get_args
 
 import pytest
@@ -838,7 +839,7 @@ def test_interpolate_dwd(client: TestClient) -> None:
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "timestamp": "1986-10-31T00:00:00.000000+00:00",
-            "value": 6.64,
+            "value": 6.6422,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
         },
@@ -916,7 +917,7 @@ def test_interpolate_dwd_dont_use_nearby_station(client: TestClient) -> None:
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "timestamp": "1986-10-31T00:00:00.000000+00:00",
-            "value": 6.64,
+            "value": 6.6422,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
         },
@@ -958,7 +959,7 @@ def test_interpolate_dwd_custom_unit(client: TestClient) -> None:
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "timestamp": "1986-10-31T00:00:00.000000+00:00",
-            "value": 43.96,
+            "value": 43.9559,
             "distance_mean": 16.99,
             "taken_station_ids": ["00072", "02074", "02638", "04703"],
         },
@@ -1130,7 +1131,7 @@ def test_summarize_dwd(client: TestClient) -> None:
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "timestamp": "1986-10-31T00:00:00.000000+00:00",
-            "value": 6.83,
+            "value": 6.8275,
             "distance": 6.97,
             "taken_station_id": "00072",
         },
@@ -1172,7 +1173,7 @@ def test_summarize_dwd_custom_unit(client: TestClient) -> None:
             "dataset": "climate_summary",
             "parameter": "temperature_air_mean_2m",
             "timestamp": "1986-10-31T00:00:00.000000+00:00",
-            "value": 44.29,
+            "value": 44.2895,
             "distance": 6.97,
             "taken_station_id": "00072",
         },
@@ -2015,7 +2016,9 @@ def test_history_sections(client: TestClient) -> None:
         },
     )
     assert response.status_code == 200
-    assert [list(history) for history in response.json()["histories"]] == [["station_id", "name", "geography"]]
+    assert [list(history) for history in response.json()["histories"]] == [
+        ["station_id", "resolution", "dataset", "name", "geography"]
+    ]
 
 
 @pytest.mark.remote
@@ -2038,8 +2041,17 @@ def test_history_dwd_observation(client: TestClient) -> None:
     assert data.keys() == {"metadata", "stations", "histories"}
     assert len(data["histories"]) == 1
     history = data["histories"][0]
-    assert history.keys() == {"station_id", "name", "parameter", "device", "geography", "missing_data"}
-    assert history["station_id"] == "02564"
+    assert history.keys() == {
+        "station_id",
+        "resolution",
+        "dataset",
+        "name",
+        "parameter",
+        "device",
+        "geography",
+        "missing_data",
+    }
+    assert (history["station_id"], history["resolution"], history["dataset"]) == ("02564", "daily", "climate_summary")
     assert len(history["name"]) == 2
     assert history["name"].keys() == {"station", "operator"}
     assert history["name"]["station"][0] == {
@@ -2594,3 +2606,108 @@ def test_a_reader_missing_on_the_server_is_a_501(
     # the install line is for whoever runs the instance, and reaches them through the log
     assert "pip install" not in detail
     assert "pip install wetterdienst[bufr]" in caplog.text
+
+
+def test_values_a_value_error_from_the_values_is_a_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A `ValueError` raised while collecting the values reaches the caller as a 400 with its message.
+
+    `get_values` ended it with `sys.exit(1)`, a `SystemExit` the endpoint's `except Exception` does
+    not catch, so the caller got a 500 with no message (GH-2218).
+
+    Stubbed at `get_stations` rather than provoked from a provider: what is under test is how the
+    error travels, and a real one would need the network to arrive at.
+    """
+    msg = "can only call '.item()' if the dataframe has a single element"
+
+    def fail() -> None:
+        raise ValueError(msg)
+
+    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl",
+            "station": "01048",
+            "date": "2020-06-30",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == msg
+
+
+def test_stations_schema_admits_null_core_columns_and_provider_columns(client: TestClient) -> None:
+    """The station schema in /openapi.json admits the nulls and provider columns stations come with (GH-2226).
+
+    `elevation` is null for every WSV and Eaufrance station, and `latitude`, `longitude` and `name`
+    are null for the postcodes of dwd/derived climate_correction_factor; the schema typed them as a
+    required number or string. Columns a provider adds (`gauge_zero`, `icao_id`, ...) were not part
+    of the schema at all, so a client generated from it dropped them.
+    """
+    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+    # the endpoint's dict response carries its stations as `_Station` items
+    assert schemas["_StationsDict"]["properties"]["stations"]["items"] == {"$ref": "#/components/schemas/_Station"}
+    station = schemas["_Station"]
+    nullable = {"latitude": "number", "longitude": "number", "elevation": "number", "name": "string"}
+    for field, json_type in nullable.items():
+        branches = station["properties"][field].get("anyOf", [station["properties"][field]])
+        assert {branch.get("type") for branch in branches} == {json_type, "null"}, f"_Station.{field}"
+    # provider station columns are admitted rather than declared one by one
+    assert station["additionalProperties"] is True
+    # the GeoJSON feature properties carry the same nullable name
+    name = schemas["_OgcFeatureProperties"]["properties"]["name"]
+    assert {branch.get("type") for branch in name.get("anyOf", [name])} == {"string", "null"}
+
+
+@pytest.mark.remote
+def test_mcp_stations_tool_wsv_null_elevation() -> None:
+    """The stations MCP tool returns WSV stations, whose elevation is null (GH-2226).
+
+    FastMCP validates a tool result against the output schema derived from the endpoint's
+    `response_model`; with `elevation` typed as a number it failed with "None is not of type 'number'".
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> object:
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "stations",
+                {
+                    "provider": "wsv",
+                    "network": "pegel",
+                    "parameters": "15_minutes/data/stage",
+                    "station": "48900237",
+                },
+            )
+            return result.structured_content
+
+    data = asyncio.run(_call())
+    (station,) = data["result"]["stations"]
+    assert station["station_id"] == "48900237"
+    assert station["elevation"] is None
+
+
+def test_ogc_feature_properties_schema_allows_provider_station_columns() -> None:
+    """The GeoJSON feature properties schema admits the station columns a provider adds.
+
+    A feature carries the columns its provider declares beyond the core ones, such as WSV's
+    `gauge_zero`, so the served schema must not read as a closed list of the core columns.
+    """
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    assert app.openapi()["components"]["schemas"]["_OgcFeatureProperties"].get("additionalProperties") is True

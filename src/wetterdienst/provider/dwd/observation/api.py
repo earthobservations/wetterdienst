@@ -299,6 +299,8 @@ class DwdObservationHistory(TimeseriesHistory):
                     missing_data_histories.append(missing_data_history)
                 yield History(
                     station_id=station_id,
+                    resolution=dataset.resolution.name,
+                    dataset=dataset.name,
                     name=_NameHistory(
                         station=[station for nh in name_histories for station in nh.station],
                         operator=[operator for nh in name_histories for operator in nh.operator],
@@ -342,6 +344,8 @@ class DwdObservationHistory(TimeseriesHistory):
                 missing_data_history = self.read_missing_data_history(zfs, dataset.resolution.value)
                 yield History(
                     station_id=station_id,
+                    resolution=dataset.resolution.name,
+                    dataset=dataset.name,
                     name=name_history,
                     parameter=parameter_history_list,
                     device=device_history_list,
@@ -527,7 +531,7 @@ class DwdObservationHistory(TimeseriesHistory):
         missing_data_file = cast("str", next(iter(missing_data_files)))
         missing_data_text = zfs.open(missing_data_file).read()
         if isinstance(missing_data_text, (bytes, bytearray)):
-            text = missing_data_text.decode("utf-8")
+            text = missing_data_text.decode("latin1")
         else:
             text = missing_data_text
         lines = text.strip().splitlines()
@@ -546,7 +550,7 @@ class DwdObservationHistory(TimeseriesHistory):
         for line in summary_lines:
             parts = line.split(";")
             record = {
-                "station_id": parts[0].zfill(5),
+                "station_id": parts[0].strip().zfill(5),
                 "station_name": parts[1],
                 "parameter": parts[2],
                 "start_date": dt.datetime.strptime(parts[3], "%d.%m.%Y").replace(tzinfo=ZoneInfo("UTC")),
@@ -560,7 +564,7 @@ class DwdObservationHistory(TimeseriesHistory):
         for line in period_lines:
             parts = line.split(";")
             record = {
-                "station_id": parts[0].zfill(5),
+                "station_id": parts[0].strip().zfill(5),
                 "station_name": parts[1],
                 "parameter": parts[2],
                 "start_date": dt.datetime.strptime(parts[3], date_format).replace(tzinfo=ZoneInfo("UTC")),
