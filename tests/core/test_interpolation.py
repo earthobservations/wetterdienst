@@ -987,3 +987,115 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
     assert df.height == 6
     values = dict(df.group_by("parameter").agg(pl.col("value").unique()).iter_rows())
     assert values == {"snow_depth": [snow_depth], "cloud_cover_total": [cloud_cover]}
+
+
+def test_decimals_for_keeps_a_reading_in_a_small_source_unit_when_units_are_not_converted() -> None:
+    """A value left in its source unit is rounded as finely as one converted into it from the target.
+
+    `dwd/road` publishes a precipitation intensity in mm/s, where 0.1 mm/h is 0.0000278. A fixed four
+    decimals rounded that to 0.0; seven, what a value converted from mm/h into mm/s is rounded to,
+    keep it. A source unit whose numbers run no smaller than the target's keeps four.
+    """
+    from wetterdienst.core.util import decimals_for  # noqa: PLC0415
+    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+    from wetterdienst.provider.dwd.road import DwdRoadRequest  # noqa: PLC0415
+
+    (intensity,) = DwdRoadRequest(parameters=[("15_minutes", "data", "precipitation_intensity")]).parameters
+    temperature, snow_depth = DwdObservationRequest(
+        parameters=[
+            ("daily", "climate_summary", "temperature_air_mean_2m"),
+            ("daily", "climate_summary", "snow_depth"),
+        ],
+    ).parameters
+    unit_converter = UnitConverter()
+    assert intensity.unit == "millimeter_per_second"
+    decimals = decimals_for(intensity, unit_converter, convert_units=False)
+    assert decimals == unit_converter.decimals("millimeter_per_hour", "millimeter_per_second") == 7
+    assert round(0.1 / 3600, decimals) == pytest.approx(0.1 / 3600, rel=0.01)
+    # a conversion to mm/h makes the reading larger, so `values` rounds it to four
+    assert decimals_for(intensity, unit_converter, convert_units=True) == 4
+    assert decimals_for(temperature, unit_converter, convert_units=False) == 4
+    assert decimals_for(snow_depth, unit_converter, convert_units=False) == 4
+
+
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
+def test_interpolate_and_summarize_keep_a_reading_in_a_small_source_unit_when_units_are_not_converted(
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+) -> None:
+    """With `ts_convert_units` off, a reading published in mm/s is not rounded away.
+
+    `values` returns 0.1 mm/h of `dwd/road` precipitation intensity as the 0.0000278 mm/s it was
+    published as. Both rounded every unconverted value to four decimals, so it came back as 0.0, and
+    0.5 mm/h (0.000139 mm/s) as 0.0001, 28 % off. Four stations around the point all report the same
+    readings, so whichever of them a result is drawn from, it is what `values` returned. The
+    stations and their readings are stubbed, so nothing leaves the machine.
+    """
+    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.road import DwdRoadRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.road import api as road_api  # noqa: PLC0415
+
+    latitude, longitude = 52.5, 13.4
+    offsets = {"A001": (-0.03, -0.03), "A002": (-0.03, 0.03), "A003": (0.03, 0.03), "A004": (0.03, -0.03)}
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "15_minutes",
+                "dataset": "data",
+                "station_id": station_id,
+                "latitude": latitude + d_lat,
+                "longitude": longitude + d_lon,
+                "elevation": 40.0,
+                "distance": 4.0 + index / 10,
+            }
+            for index, (station_id, (d_lat, d_lon)) in enumerate(offsets.items())
+        ],
+    )
+    # 0.1 mm/h and 0.5 mm/h as published, in mm/s, which is what `values` returns unconverted
+    readings = {
+        dt.datetime(2025, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")): 0.1 / 3600,
+        dt.datetime(2025, 1, 1, 0, 15, tzinfo=ZoneInfo("UTC")): 0.5 / 3600,
+    }
+
+    def _filter_by_distance(
+        self: DwdRoadRequest,
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,  # noqa: ARG001
+    ) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+
+    def _query(self: road_api.DwdRoadValues) -> Iterator[object]:  # noqa: ARG001
+        for station_id in offsets:
+            df = pl.DataFrame(
+                [
+                    {
+                        "station_id": station_id,
+                        "resolution": "15_minutes",
+                        "dataset": "data",
+                        "parameter": "precipitation_intensity",
+                        "timestamp": timestamp,
+                        "value": value,
+                        "quality": None,
+                    }
+                    for timestamp, value in readings.items()
+                ],
+                schema_overrides={"quality": pl.Float64},
+            )
+            yield SimpleNamespace(df=df)
+
+    # the readings are stubbed, so nothing needs the BUFR decoder this network otherwise asks for
+    monkeypatch.setattr(road_api, "require_bufr", lambda _what: None)
+    monkeypatch.setattr(DwdRoadRequest, "filter_by_distance", _filter_by_distance)
+    monkeypatch.setattr(road_api.DwdRoadValues, "query", _query)
+    request = DwdRoadRequest(
+        parameters=[("15_minutes", "data", "precipitation_intensity")],
+        start_date=min(readings),
+        end_date=max(readings),
+        settings=Settings(ts_convert_units=False),
+    )
+    get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
+    df = get_df(request, latitude, longitude)
+    assert df.get_column("timestamp").to_list() == list(readings)
+    assert df.get_column("value").to_list() == pytest.approx(list(readings.values()), rel=0.01)
