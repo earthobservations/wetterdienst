@@ -17,6 +17,7 @@ from scipy.interpolate import LinearNDInterpolator
 from scipy.spatial import QhullError
 from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
+from utm.error import OutOfRangeError
 
 from wetterdienst.core.util import (
     DroppedForElevation,
@@ -33,6 +34,7 @@ from wetterdienst.core.util import (
     report_elevation_exclusions,
     unanswerable_at_elevation,
 )
+from wetterdienst.exceptions import LocationOutOfRangeError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.logging import TqdmToLogger
@@ -72,7 +74,11 @@ def get_interpolated_df(
             of unknown elevation leaves nothing that can answer it
 
     """
-    utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
+    try:
+        utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
+    except OutOfRangeError as e:
+        # UTM covers 80 deg S to 84 deg N, so a point beyond is the caller's to move
+        raise LocationOutOfRangeError(str(e)) from e
     settings = cast("Settings", request.settings)
     stations_dict, param_dict, dropped_for_elevation, unanswerable = request_stations(
         request,

@@ -180,11 +180,15 @@ def parse_date_span(date_string: str) -> tuple[dt.datetime, dt.datetime | None]:
     start, precision = _parse_date_with_precision(date_string)
     if precision == _INSTANT:
         return start, None
-    if precision == _DAY:
-        return start, start + dt.timedelta(days=1)
-    if precision == _MONTH:
-        return start, start + relativedelta(months=1)
-    return start, start + relativedelta(years=1)
+    try:
+        if precision == _DAY:
+            return start, start + dt.timedelta(days=1)
+        if precision == _MONTH:
+            return start, start + relativedelta(months=1)
+        return start, start + relativedelta(years=1)
+    except (OverflowError, ValueError) as e:
+        # a span reaching past year 9999, the last a datetime holds: `9999`, `9999-12`, `9999-12-31`
+        raise InvalidTimeIntervalError(str(e)) from e
 
 
 def parse_date_window(date_string: str) -> tuple[dt.datetime, dt.datetime]:

@@ -2856,6 +2856,27 @@ _OBSERVATION = {"provider": "dwd", "network": "observation", "parameters": "dail
             "start_date and end_date are required for summarization",
             id="summarize-empty-date",
         ),
+        pytest.param(
+            "/api/values",
+            {**_OBSERVATION, "station": "01048", "date": "9999"},
+            400,
+            "year 10000 is out of range",
+            id="values-date-past-the-last-year",
+        ),
+        pytest.param(
+            "/api/interpolate",
+            {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": "9999-12-31"},
+            404,
+            "date value out of range",
+            id="interpolate-date-past-the-last-day",
+        ),
+        pytest.param(
+            "/api/interpolate",
+            {**_OBSERVATION, "latitude": 85.0, "longitude": 10.0, "date": "2020-06-30"},
+            404,
+            "latitude out of range (must be between 80 deg S and 84 deg N)",
+            id="interpolate-point-beyond-utm",
+        ),
     ],
 )
 def test_a_refusal_of_the_request_keeps_its_4xx(
@@ -3021,8 +3042,10 @@ def test_the_refusal_types_keep_the_type_they_were_raised_as() -> None:
         InvalidEnumerationError,
         InvalidTimeIntervalError,
         IssueNotFoundError,
+        LocationOutOfRangeError,
     )
 
+    assert issubclass(LocationOutOfRangeError, ValueError)
     assert issubclass(InvalidBoundingBoxError, ValueError)
     assert issubclass(InvalidEnumerationError, ValueError)
     assert issubclass(InvalidTimeIntervalError, ValueError)

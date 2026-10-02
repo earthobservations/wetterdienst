@@ -22,6 +22,7 @@ from wetterdienst.exceptions import (
     InvalidEnumerationError,
     InvalidTimeIntervalError,
     IssueNotFoundError,
+    LocationOutOfRangeError,
     NoParametersFoundError,
     NoPeriodsFoundError,
     NoStationsWithElevationError,
@@ -631,7 +632,8 @@ def _geo_settings(
 
 # what a request can provoke on its way through `get_values`, `get_interpolate` and
 # `get_summarize` besides the refusals the helpers below name: a date, period, parameter, bounding
-# box, unit target or issue that cannot be served as given, or a station the lookup does not know.
+# box, point, unit target or issue that cannot be served as given, or a station the lookup does not
+# know.
 # Anything else -- a provider's file in a layout its parser does not expect, an upstream that does
 # not answer, a frame of an unexpected shape -- is not the caller's to fix, and is a 500
 _CALLER_REFUSALS = (
@@ -639,6 +641,7 @@ _CALLER_REFUSALS = (
     InvalidEnumerationError,
     InvalidTimeIntervalError,
     IssueNotFoundError,
+    LocationOutOfRangeError,
     NoParametersFoundError,
     NoPeriodsFoundError,
     StationNotFoundError,
@@ -648,11 +651,15 @@ _CALLER_REFUSALS = (
 def _is_caller_refusal(e: Exception) -> bool:
     """Tell whether a failure is the request's own, which the caller can rephrase.
 
-    A DuckDB error comes from the caller's own `sql` or `sql_values`, the only SQL run on the way.
-    DuckDB is optional, and an error of its can only be raised once it has been imported.
+    The caller's own `sql` or `sql_values` is the only SQL run on the way, so a DuckDB error about
+    the statement -- its syntax, a column or function it names, a value it compares -- is theirs;
+    one running out of memory or failing inside DuckDB is not. DuckDB is optional, and an error of
+    its can only be raised once it has been imported.
     """
     duckdb = sys.modules.get("duckdb")
-    return isinstance(e, _CALLER_REFUSALS) or (duckdb is not None and isinstance(e, duckdb.Error))
+    return isinstance(e, _CALLER_REFUSALS) or (
+        duckdb is not None and isinstance(e, (duckdb.ProgrammingError, duckdb.DataError))
+    )
 
 
 def _values(

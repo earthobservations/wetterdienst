@@ -86,12 +86,13 @@ Types of changes:
   Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
   one below -10 m or from 4810 m up, and for every station when that referential cannot be read,
   which is logged as a warning. About three stations in four have one (GH-2223)
-- `/api/values`, `/api/interpolate`, `/api/summarize` and their MCP tools answer a failure on the
-  server's or the data source's side with a 500 carrying its message, where values answered 400 and
-  the other two 404, as if the request were at fault. A request refused for what it asks keeps its
-  400 or 404. Such refusals raise new subclasses of the `ValueError` or `IndexError` they raised:
-  `InvalidBoundingBoxError`, `IssueNotFoundError`, `InvalidTimeIntervalError` and
-  `InvalidEnumerationError` (GH-2252)
+- **Breaking**: `/api/values`, `/api/interpolate`, `/api/summarize` and their MCP tools answer a
+  failure on the server's or the data source's side with a 500 carrying its message, where values
+  answered 400 and the other two 404, as if the request were at fault. Retry or report a 500
+  rather than rephrasing. A request refused for what it asks keeps its 400 or 404, and raises a
+  subclass of the `ValueError` or `IndexError` it raised: `InvalidTimeIntervalError`,
+  `InvalidEnumerationError`, or the new `InvalidBoundingBoxError`, `LocationOutOfRangeError` and
+  `IssueNotFoundError` (GH-2252)
 
 ### Fixed
 

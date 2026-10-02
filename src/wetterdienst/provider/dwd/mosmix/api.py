@@ -292,11 +292,14 @@ class DwdMosmixValues(TimeseriesValues):
             ).str.to_datetime("%Y%m%d%H%M"),
         )
 
+        # the caller's only where the listing held forecasts, none of them of this issue: one holding
+        # no forecast at all is the product's state, whichever issue was asked for
+        listed = not df.is_empty()
         df = df.filter(pl.col("timestamp").eq(date))
 
         if df.is_empty():
             msg = f"Unable to find {date} file within {url}"
-            raise IssueNotFoundError(msg)
+            raise (IssueNotFoundError if listed else IndexError)(msg)
 
         # `.item()` raises on two rows rather than answering, and two rows are possible: a second
         # lead time in one directory (`..._120.kmz` beside `..._240.kmz`) carries one run stamp on
