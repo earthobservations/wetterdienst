@@ -229,9 +229,12 @@ Types of changes:
   refuses any value written to it (GH-2249)
 - GeoJSON of values gives each feature, one per dataset of a station, that dataset's values only,
   and no feature to a dataset the station returned no values for; each feature carried the values
-  of every dataset, so each value appeared once per dataset. The wide shape is unchanged where it
-  merges several datasets of one resolution into rows that name none: each of those datasets
-  still gets a feature, and each such feature carries all of those rows (GH-2253)
+  of every dataset, so each value appeared once per dataset (GH-2253)
+- GeoJSON of values in the wide shape gives a station one feature per resolution into which
+  several requested datasets were merged, with `dataset` null as its rows have it, and dates from
+  the earliest start to the latest end of those datasets. Each merged dataset got a feature holding
+  all of the rows, so each value appeared once per dataset. Read a value's dataset from its column
+  prefix; the REST API's schema types `dataset` as nullable (GH-2274)
 - GeoJSON of stations and values gives a station without a latitude or longitude, such as a
   postcode of DWD derived `monthly/climate_correction_factor`, the geometry `null`, as RFC 7946
   has an unlocated feature; it was a `Point` of null coordinates, which strict parsers reject. The
