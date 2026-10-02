@@ -16,6 +16,8 @@ const props = defineProps<{
   parameterSelection: ParameterSelectionState['selection']
   stationSelection: StationSelectionState
   settings: DataSettings
+  /** DWD DMO's run, `lead_time`, where the selection offers a choice of one; every endpoint takes it */
+  leadTime?: 'short' | 'long'
 }>()
 
 const { t } = useI18n()
@@ -147,6 +149,8 @@ const apiQuery = computed(() => {
     humanize: props.settings.humanize,
     convert_units: props.settings.convertUnits,
   }
+  if (props.leadTime)
+    base.lead_time = props.leadTime
 
   // Add unit targets if provided (filter out empty values)
   const unitTargets = Object.entries(props.settings.unitTargets)

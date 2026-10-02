@@ -175,6 +175,23 @@ const stationSelectionState = ref<StationSelectionState>({
 })
 const initialStationIds = ref<string[]>(stationIdsFromQuery(route.query))
 
+// DWD DMO's `icon` is published as two runs, and which one is read is the request's `lead_time`
+// (GH-2227): the short run (the backend's default) carries the 1-hourly precipitation, radiation and
+// snow, the long one the 3-hourly ones in their place, and a parameter the run does not carry is
+// refused. `icon_eu` publishes only the short run, so the choice is offered for `icon` alone, and it
+// is sent, and kept in the URL, only where it is offered
+type LeadTime = 'short' | 'long'
+const leadTime = ref<LeadTime>(route.query.leadTime === 'long' ? 'long' : 'short')
+const offersLeadTime = computed(() => {
+  const { provider, network, dataset } = parameterSelectionState.value.selection
+  return provider === 'dwd' && network === 'dmo' && dataset === 'icon'
+})
+const selectedLeadTime = computed(() => offersLeadTime.value ? leadTime.value : undefined)
+const leadTimeOptions = computed(() => [
+  { value: 'short' as const, label: t('explorer.leadTimeShort') },
+  { value: 'long' as const, label: t('explorer.leadTimeLong') },
+])
+
 // Data settings
 const dataSettings = ref<DataSettings>({
   humanize: route.query.humanize != null ? route.query.humanize.toString() === 'true' : true,
@@ -249,6 +266,8 @@ watch(
       dateRange: {},
     }
     initialStationIds.value = []
+    // a run chosen for one product is not carried over to the next one that offers the choice
+    leadTime.value = 'short'
   },
 )
 
@@ -263,10 +282,18 @@ watch(
     () => dataSettings.value.shape,
     () => dataSettings.value.skipEmpty,
     () => dataSettings.value.dropNulls,
+    selectedLeadTime,
   ],
   // A rejected navigation (e.g. superseded by a subsequent replace() before
   // this one resolves) would otherwise be an unhandled promise rejection.
-  () => router.replace({ query: { ...toQuery(parameterSelectionState.value, stationSelectionState.value), ...dataSettingsToQuery(dataSettings.value) } }).catch(() => {}),
+  () => router.replace({
+    query: {
+      ...toQuery(parameterSelectionState.value, stationSelectionState.value),
+      ...dataSettingsToQuery(dataSettings.value),
+      // the default run is left out, as the data settings' defaults are
+      ...(selectedLeadTime.value === 'long' ? { leadTime: 'long' } : {}),
+    },
+  }).catch(() => {}),
   { deep: true },
 )
 
@@ -542,6 +569,33 @@ function handleUnitTargetChange(unitType: string, value: string) {
     </UCollapsible>
 
     <ParameterSelection v-model="parameterSelectionState.selection" />
+
+    <UCard v-if="offersLeadTime" data-testid="lead-time">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-clock" class="text-primary-500 shrink-0" />
+          <h2 class="text-lg font-bold">
+            {{ t('explorer.leadTime') }}
+          </h2>
+        </div>
+      </template>
+      <div class="space-y-3">
+        <UFieldGroup>
+          <UButton
+            v-for="option in leadTimeOptions"
+            :key="option.value"
+            :label="option.label"
+            color="neutral"
+            :variant="leadTime === option.value ? 'solid' : 'ghost'"
+            size="sm"
+            @click="leadTime = option.value"
+          />
+        </UFieldGroup>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          {{ t('explorer.leadTimeHint') }}
+        </p>
+      </div>
+    </UCard>
 
     <!-- Mode Selection -->
     <UCard v-if="showModeSelection">
@@ -992,7 +1046,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
 
     <DataViewer
       v-if="hasLocationSelection" ref="dataViewerRef" :parameter-selection="parameterSelectionState.selection"
-      :station-selection="stationSelectionState" :settings="dataSettings"
+      :station-selection="stationSelectionState" :settings="dataSettings" :lead-time="selectedLeadTime"
     />
   </UContainer>
 </template>

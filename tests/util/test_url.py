@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from wetterdienst.util.url import ConnectionString
+from wetterdienst.util.url import ConnectionString, redact_password
 
 
 def test_connectionstring_database_from_path() -> None:
@@ -69,3 +69,78 @@ def test_connectionstring_gives_back_the_file_path_it_was_given(database: str) -
     `Cannot open file "//C:\..."` on Windows, DuckDB reading the leftover slash as a UNC share.
     """
     assert ConnectionString(f"duckdb:///{database}?table=stations").database == database
+
+
+@pytest.mark.parametrize(
+    ("url", "redacted"),
+    [
+        pytest.param(
+            "postgresql://scott:tiger@db.example.org:5432/dwd?table=weather",
+            "postgresql://scott:***@db.example.org:5432/dwd?table=weather",
+            id="sql",
+        ),
+        pytest.param(
+            "influxdb2://acme:t5PJry6Tye==@localhost/?database=dwd&table=weather",
+            "influxdb2://acme:***@localhost/?database=dwd&table=weather",
+            id="influxdb2-token",
+        ),
+        pytest.param("mysql://:secret@localhost/dwd", "mysql://:***@localhost/dwd", id="no-username"),
+        pytest.param("mysql://root:p@ss:w@rd@localhost/dwd", "mysql://root:***@localhost/dwd", id="at-in-password"),
+        pytest.param(
+            "crate://crate@localhost/dwd?table=weather", "crate://crate@localhost/dwd?table=weather", id="no-password"
+        ),
+        pytest.param("duckdb:///dwd.duckdb?table=weather", "duckdb:///dwd.duckdb?table=weather", id="file"),
+        pytest.param("file:///C:/data/obs@1.csv", "file:///C:/data/obs@1.csv", id="file-drive-letter-and-at"),
+        pytest.param("influxdb://localhost/?database=dwd", "influxdb://localhost/?database=dwd", id="no-userinfo"),
+        # `urlparse` ends the host part at the first `/`, `#` or `?` and so finds no password in
+        # these, while SQLAlchemy connects with `pa/ss`, `p#ss` and `pa?ss` as the password
+        pytest.param("postgresql://scott:pa/ss@db/dwd", "postgresql://scott:***@db/dwd", id="slash-in-password"),
+        pytest.param(
+            "postgresql://scott:p#ss@db/dwd?table=weather",
+            "postgresql://scott:***@db/dwd?table=weather",
+            id="hash-in-password",
+        ),
+        pytest.param(
+            "postgresql://scott:pa?ss@db/dwd", "postgresql://scott:***@db/dwd", id="question-mark-in-password"
+        ),
+        pytest.param(
+            "influxdb2://acme:ab/cd==@localhost/?database=dwd",
+            "influxdb2://acme:***@localhost/?database=dwd",
+            id="influxdb2-token-with-slash",
+        ),
+        # nothing but the password is touched, not even what `urlunparse` would normalise
+        pytest.param("PostgreSQL://scott:x@h/db?", "PostgreSQL://scott:***@h/db?", id="kept-verbatim"),
+        # an `@` in the path or query is not the end of the password
+        pytest.param(
+            "postgresql://scott:tiger@db/dwd?table=weather&note=a@b",
+            "postgresql://scott:***@db/dwd?table=weather&note=a@b",
+            id="at-in-query",
+        ),
+        pytest.param(
+            "postgresql://scott:pa/ss@db/dwd?note=a@b",
+            "postgresql://scott:***@db/dwd?note=a@b",
+            id="slash-and-at-in-query",
+        ),
+        # Azure Database for PostgreSQL logs in as `user@server`, which SQLAlchemy connects with
+        pytest.param(
+            "postgresql://user@srv:secret@srv.postgres.database.azure.com:5432/dwd?sslmode=require",
+            "postgresql://user@srv:***@srv.postgres.database.azure.com:5432/dwd?sslmode=require",
+            id="at-in-username",
+        ),
+        # a path is not a password, whatever it holds
+        pytest.param("file://C:/data@x.csv", "file://C:/data@x.csv", id="file-two-slashes"),
+        pytest.param("duckdb://C:/data/obs@1.duckdb", "duckdb://C:/data/obs@1.duckdb", id="duckdb-two-slashes"),
+        pytest.param("sqlite://C:/obs@1.db", "sqlite://C:/obs@1.db", id="sqlite-two-slashes"),
+        # but a dialect that takes its passphrase from the password slot is not a plain path
+        pytest.param(
+            "sqlite+pysqlcipher://:passphrase@/dwd.db?table=weather",
+            "sqlite+pysqlcipher://:***@/dwd.db?table=weather",
+            id="sqlcipher-passphrase",
+        ),
+        # `urlparse` raises on this; the log line naming it must not
+        pytest.param("postgresql://u:p@[::1/db", "postgresql://u:***@[::1/db", id="malformed-ipv6"),
+    ],
+)
+def test_redact_password_hides_the_password_and_keeps_the_rest(url: str, redacted: str) -> None:
+    """The password slot reads `***`; the username, host, path and query read as they were given."""
+    assert redact_password(url) == redacted

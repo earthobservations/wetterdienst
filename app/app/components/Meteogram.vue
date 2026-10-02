@@ -4,7 +4,7 @@ import type { Value } from '#shared/types/api'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { interpSeries, nearestNeighbor, wetBulbApprox } from '~/utils/meteogram'
+import { interpSeries, METEOGRAM_SERIES, nearestNeighbor, wetBulbApprox } from '~/utils/meteogram'
 
 const props = defineProps<{
   values: Value[]
@@ -193,10 +193,10 @@ const compactDays = computed(() => {
   const out: { date: any, emoji: string, label: string, tempLabel?: string | null, precipLabel?: string | null, isToday: boolean }[] = []
   const series = seriesCache.value
   const available = new Set(series.keys())
-  const weatherKey = findFirstAvailable(['weather_significant', 'significant_weather', 'ww', 'weather'], available)
-  const precipKey = findFirstAvailable(['precipitation_amount_significant_weather_last_1h', 'precipitation_amount_last_1h', 'rr1', 'rr1c'], available)
-  const tempKey = findFirstAvailable(['temperature_air_mean_2m', 'ttt'], available)
-  const cloudKey = findFirstAvailable(['cloud_cover_total', 'n'], available)
+  const weatherKey = findFirstAvailable(METEOGRAM_SERIES.weather, available)
+  const precipKey = findFirstAvailable(METEOGRAM_SERIES.precipitation, available)
+  const tempKey = findFirstAvailable(METEOGRAM_SERIES.temperature, available)
+  const cloudKey = findFirstAvailable(METEOGRAM_SERIES.cloudCover, available)
 
   // determine timezone
   let stationTZ = 'UTC'
@@ -372,11 +372,11 @@ const summaryStats = computed(() => {
     return null
   const available = new Set(series.keys())
 
-  const tempKey = findFirstAvailable(['temperature_air_mean_2m', 'ttt'], available)
-  const precipKey = findFirstAvailable(['precipitation_amount_significant_weather_last_1h', 'precipitation_amount_last_1h', 'rr1', 'rr1c'], available)
-  const gustKey = findFirstAvailable(['wind_gust_max', 'wind_gust', 'ffx', 'fx', 'wind_gust_max_last_1h', 'wind_gust_max_last_3h', 'fx1', 'fx3'], available)
-  const cloudKey = findFirstAvailable(['cloud_cover_total', 'n'], available)
-  const pressureKey = findFirstAvailable(['pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'], available)
+  const tempKey = findFirstAvailable(METEOGRAM_SERIES.temperature, available)
+  const precipKey = findFirstAvailable(METEOGRAM_SERIES.precipitation, available)
+  const gustKey = findFirstAvailable(METEOGRAM_SERIES.gust, available)
+  const cloudKey = findFirstAvailable(METEOGRAM_SERIES.cloudCover, available)
+  const pressureKey = findFirstAvailable(METEOGRAM_SERIES.pressure, available)
 
   let minTemp = Number.POSITIVE_INFINITY
   let maxTemp = Number.NEGATIVE_INFINITY
@@ -725,7 +725,7 @@ function cleanupPlotlyOverlayHandlers() {
   }
 }
 
-function findFirstAvailable(names: string[], available: Set<string>) {
+function findFirstAvailable(names: readonly string[], available: Set<string>) {
   for (const n of names) {
     if (available.has(n))
       return n
@@ -943,21 +943,20 @@ async function renderChartActual() {
   const series = seriesCache.value
   const available = new Set(series.keys())
 
-  const tempKey = findFirstAvailable(['temperature_air_mean_2m', 'ttt'], available)
-  const precipKey = findFirstAvailable(['precipitation_amount_significant_weather_last_1h', 'precipitation_amount_last_1h', 'rr1', 'rr1c'], available)
-  const windKey = findFirstAvailable(['wind_speed', 'ff'], available)
-  const windDirKey = findFirstAvailable(['wind_direction', 'dd'], available)
-  const gustKey = findFirstAvailable(['wind_gust_max', 'wind_gust', 'ffx', 'fx', 'wind_gust_max_last_1h', 'wind_gust_max_last_3h', 'fx1', 'fx3'], available)
-  const cloudKey = findFirstAvailable(['cloud_cover_total', 'n'], available)
-  const cloudLowKey = findFirstAvailable(['cloud_cover_below_2km', 'nl'], available)
-  const cloudMidKey = findFirstAvailable(['cloud_cover_between_2km_and_7km', 'cloud_cover_2_7km', 'nm'], available)
-  const cloudHighKey = findFirstAvailable(['cloud_cover_above_7km', 'nh'], available)
-  const humidityKey = findFirstAvailable(['humidity_relative', 'relative_humidity', 'rh', 'r'], available)
-  const dewKey = findFirstAvailable(['temperature_dew_point_mean_2m', 'dew_point', 'td', 'tdt', 'dew_point_2m'], available)
-  const pressureKey = findFirstAvailable(['pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'], available)
-  const tempStdKey = findFirstAvailable(['temperature_standard_deviation', 'ttt_sd', 'temperature_sd', 'ttt_std', 'temperature_std', 'ttt_sigma'], available)
-  const txKey = findFirstAvailable(['temperature_air_max_2m', 'tx', 'tx12', 'tx6'], available)
-  const tnKey = findFirstAvailable(['temperature_air_min_2m', 'tn', 'tn12', 'tn6'], available)
+  const tempKey = findFirstAvailable(METEOGRAM_SERIES.temperature, available)
+  const precipKey = findFirstAvailable(METEOGRAM_SERIES.precipitation, available)
+  const windKey = findFirstAvailable(METEOGRAM_SERIES.windSpeed, available)
+  const windDirKey = findFirstAvailable(METEOGRAM_SERIES.windDirection, available)
+  const gustKey = findFirstAvailable(METEOGRAM_SERIES.gust, available)
+  const cloudKey = findFirstAvailable(METEOGRAM_SERIES.cloudCover, available)
+  const cloudLowKey = findFirstAvailable(METEOGRAM_SERIES.cloudCoverLow, available)
+  const cloudMidKey = findFirstAvailable(METEOGRAM_SERIES.cloudCoverMid, available)
+  const cloudHighKey = findFirstAvailable(METEOGRAM_SERIES.cloudCoverHigh, available)
+  const humidityKey = findFirstAvailable(METEOGRAM_SERIES.humidity, available)
+  const dewKey = findFirstAvailable(METEOGRAM_SERIES.dewPoint, available)
+  const pressureKey = findFirstAvailable(METEOGRAM_SERIES.pressure, available)
+  const txKey = findFirstAvailable(METEOGRAM_SERIES.temperatureMax, available)
+  const tnKey = findFirstAvailable(METEOGRAM_SERIES.temperatureMin, available)
 
   const allTimes = [...series.values()].flatMap(s => s.x.map(d => d.getTime()))
   const minTime = Math.min(...allTimes)
@@ -1215,28 +1214,6 @@ async function renderChartActual() {
     const sTx = hasTxTn ? resampledSeries.get(txKey)! : null
     const sTn = hasTxTn ? resampledSeries.get(tnKey)! : null
 
-    if (tempStdKey && resampledSeries.has(tempStdKey)) {
-      const sStd = resampledSeries.get(tempStdKey)!
-      const lower: number[] = []
-      const upper: number[] = []
-      for (let i = 0; i < xs.length; i++) {
-        const tIso = xs[i]!
-        const tMs = new Date(tIso).getTime()
-        const std = interpSeries(sStd.x, sStd.y, tMs) ?? (sStd.y[0] ?? 0)
-        const base = s.y[i] ?? 0
-        lower.push(base - std)
-        upper.push(base + std)
-      }
-      tempMinY = Math.min(tempMinY, ...lower)
-      tempMaxY = Math.max(tempMaxY, ...upper)
-
-      traces.push({ x: xs, y: lower, type: 'scatter', mode: 'lines', line: { width: 0 }, showlegend: false, hoverinfo: 'skip', yaxis: 'y3' })
-      traces.push({ x: xs, y: upper, type: 'scatter', mode: 'lines', line: { width: 0 }, fill: 'tonexty', fillcolor: isDark.value ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.12)', showlegend: false, hoverinfo: 'skip', yaxis: 'y3' })
-    }
-    else {
-      traces.push({ x: xs, y: Array.from({ length: xs.length }).fill(tempMinY), type: 'scatter', mode: 'none', showlegend: false, yaxis: 'y3', hoverinfo: 'skip' })
-    }
-
     const dewLookup = new Map<string, number>()
     if (dewKey && resampledSeries.has(dewKey)) {
       const ds = resampledSeries.get(dewKey)!
@@ -1275,7 +1252,8 @@ async function renderChartActual() {
       type: 'scatter',
       mode: 'lines',
       line: { color: '#ef4444', width: 2, shape: 'spline' },
-      ...(tempStdKey && resampledSeries.has(tempStdKey) ? {} : { fill: 'tozeroy', fillcolor: isDark.value ? 'rgba(239,68,68,0.02)' : 'rgba(239,68,68,0.04)' }),
+      fill: 'tozeroy',
+      fillcolor: isDark.value ? 'rgba(239,68,68,0.02)' : 'rgba(239,68,68,0.04)',
       yaxis: 'y3',
       hovertemplate: hasTxTn
         ? `<b>${t('meteogram.chart.hoverMeanTemp')}</b>: %{y:.1f}°C<extra></extra>`
