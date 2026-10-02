@@ -86,6 +86,10 @@ Types of changes:
   Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
   one below -10 m or from 4810 m up, and for every station when that referential cannot be read,
   which is logged as a warning. About three stations in four have one (GH-2223)
+- DWD DMO's coverage, from `discover`, `/api/coverage`, the CLI and MCP, gives each parameter
+  `lead_times`: the lead times whose run carries it, such as `["long"]` for `icon`'s
+  `precipitation_amount_last_3h` and `["short"]` for every `icon_eu` parameter. A caller can offer
+  only what the `lead_time` it sends will answer; the other keys are as they were (GH-2256)
 - **Breaking**: the InfluxDB sinks read a target as the SQL and CrateDB sinks' SQLAlchemy does: the
   password ends at the first `@`, and the username, password and database are percent-decoded.
   Write an `@` in an InfluxDB org, password or token as `%40`, and a literal `%` followed by two hex
