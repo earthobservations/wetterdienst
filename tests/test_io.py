@@ -2656,3 +2656,100 @@ def test_timeseries_values_to_target_logs_the_target_without_its_password(caplog
     assert (
         "Exported data for station 01048 to influxdb2://acme:***@localhost/?database=dwd&table=weather." in caplog.text
     )
+
+
+@pytest.mark.parametrize(
+    ("target", "pieces"),
+    [
+        # `urlparse` reads `tok3n-HEAD` as the port and `tok3n-TAIL==@localhost/` as the database
+        pytest.param(
+            "influxdb2://acme:tok3n-HEAD/tok3n-TAIL==@localhost/?database=dwd&table=weather",
+            ["tok3n-HEAD", "tok3n-TAIL"],
+            id="influxdb2-slash",
+        ),
+        pytest.param(
+            "influxdb3://acme:tok3n-HEAD?tok3n-TAIL@localhost/?database=dwd&table=weather",
+            ["tok3n-HEAD", "tok3n-TAIL"],
+            id="influxdb3-question-mark",
+        ),
+        pytest.param(
+            "influxdb://root:pw-HEAD#pw-TAIL@localhost/?database=dwd",
+            ["pw-HEAD", "pw-TAIL"],
+            id="influxdb1-hash",
+        ),
+        # `urlparse` reads `hun-HEAD` as the port, then SQLAlchemy is handed `crate://crate:hun-HEAD`
+        pytest.param(
+            "crate://crate:hun-HEAD/ter-TAIL@localhost:4200/dwd?table=weather",
+            ["hun-HEAD", "ter-TAIL"],
+            id="crate-slash",
+        ),
+        # `urlparse` reads it, but SQLAlchemy, which CrateDB is handed to, ends it at the first `@`
+        pytest.param(
+            "crate://crate:hun-HEAD@ter-TAIL@localhost:4200/dwd?table=weather",
+            ["hun-HEAD", "ter-TAIL"],
+            id="crate-at",
+        ),
+        # `make_url` raises `invalid literal for int() with base 10: 'pw-TAIL@db'`
+        pytest.param(
+            "postgresql://scott:pw-HEAD@ss:pw-TAIL@db/dwd?table=weather",
+            ["pw-HEAD", "pw-TAIL"],
+            id="sql-at-then-colon",
+        ),
+        # SQLAlchemy connects, but `urlparse` reads the table from `pw-TAIL@db/dwd?table=obs`
+        pytest.param(
+            "postgresql://scott:pw-HEAD?pw-TAIL@db/dwd?table=obs",
+            ["pw-HEAD", "pw-TAIL"],
+            id="sql-question-mark",
+        ),
+    ],
+)
+def test_to_target_refuses_a_password_holding_an_unencoded_delimiter(
+    target: str,
+    pieces: list[str],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A password the sink would split is refused before anything connects, naming none of it.
+
+    Read wrongly, its pieces became the host, port or database, which the INFO line naming the
+    database and the traceback of the failed connection then printed.
+    """
+    with (
+        mock.patch("sqlalchemy.create_engine") as create_engine,
+        caplog.at_level(logging.DEBUG, logger="wetterdienst"),
+        pytest.raises(ExportRefusedError, match="percent-encoded") as excinfo,
+    ):
+        _one_row().to_target(target)
+
+    create_engine.assert_not_called()
+    assert "%2F" in str(excinfo.value)
+    assert "%40" in str(excinfo.value)
+    for piece in pieces:
+        assert piece not in str(excinfo.value)
+        assert piece not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("target", "token"),
+    [
+        pytest.param("influxdb2://acme:Ab%2FCd%3D%3D@localhost/?database=dwd", "Ab/Cd==", id="percent-encoded"),
+        # `urlparse` ends the userinfo at the last `@`, so an InfluxDB password may hold one
+        pytest.param("influxdb2://acme:Ab@Cd==@localhost/?database=dwd", "Ab@Cd==", id="unencoded-at"),
+    ],
+)
+def test_to_target_hands_influxdb_the_password_it_reads(target: str, token: str) -> None:
+    """An encoded token reaches InfluxDB decoded, and an `@` it reads correctly is not refused."""
+    pytest.importorskip("influxdb_client")
+    with mock.patch("influxdb_client.InfluxDBClient") as client:
+        _one_row().to_target(target)
+
+    client.assert_called_once_with(url="http://localhost:8086", org="acme", token=token)
+
+
+def test_to_target_hands_sqlalchemy_a_password_holding_a_slash() -> None:
+    """SQLAlchemy reads a `/` in a password, and the table comes through, so it is not refused."""
+    pytest.importorskip("sqlalchemy")
+    with mock.patch("sqlalchemy.create_engine") as create_engine, mock.patch("pandas.DataFrame.to_sql") as to_sql:
+        _one_row().to_target("postgresql+psycopg2://scott:pa/ss@db/dwd?table=obs")
+
+    assert create_engine.call_args.args[0].password == "pa/ss"  # noqa: S105
+    assert to_sql.call_args.kwargs["name"] == "obs"

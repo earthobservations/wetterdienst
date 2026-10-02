@@ -2,7 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Helper class to support ``IoAccessor.export()``."""
 
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 # targets that name a file rather than a server, and so carry no credentials; a Windows path
 # such as `file://C:/data@x.csv` would otherwise read as user `C` with a password. Matched
@@ -40,6 +40,36 @@ def redact_password(url: str) -> str:
     return f"{scheme}://{username}:***{rest[end:]}"
 
 
+def unencoded_password_delimiters(url: str) -> frozenset[str]:
+    """Name the delimiters a target's password holds unencoded, of ``/``, ``?``, ``#`` and ``@``.
+
+    The two parsers that read a target split such a password differently. ``urlparse`` ends the
+    host part at the first ``/``, ``?`` or ``#``, so a password holding one of them is cut there
+    and the rest is read as the path, query or fragment. SQLAlchemy ends the password at the
+    first ``@``, so a password holding one is cut there and the rest is read as the host and
+    port. Either way the target is read with the wrong host, port, password, database or table.
+
+    The password is found as `redact_password` finds it: after the first ``:``, provided no ``/``
+    comes before it, up to the first ``@`` after that. A further ``@`` before the host part ends
+    means the password held one. A target with no password but a ``host:port`` followed by an
+    ``@`` in its path or query reads the same way, and SQLAlchemy misreads it the same way too.
+    Nothing here raises, and nothing of the password comes back but which delimiters it holds.
+    """
+    scheme, separator, rest = url.partition("://")
+    username, colon, _ = rest.partition(":")
+    if not separator or scheme.lower() in _PATH_SCHEMES or not colon or "/" in username:
+        return frozenset()
+    start = len(username) + 1
+    end = rest.find("@", start)
+    if end == -1:
+        return frozenset()
+    found = {c for c in "/?#" if c in rest[start:end]}
+    host_end = min((i for i in (rest.find(c, end) for c in "/?#") if i != -1), default=len(rest))
+    if "@" in rest[end + 1 : host_end]:
+        found.add("@")
+    return frozenset(found)
+
+
 class ConnectionString:
     """Helper class to support ``IoAccessor.export()``."""
 
@@ -70,13 +100,13 @@ class ConnectionString:
 
     @property
     def username(self) -> str | None:
-        """Get the username from the URL."""
-        return self.url.username
+        """Get the username from the URL, percent-decoded as SQLAlchemy decodes it."""
+        return None if self.url.username is None else unquote(self.url.username)
 
     @property
     def password(self) -> str | None:
-        """Get the password from the URL."""
-        return self.url.password
+        """Get the password from the URL, percent-decoded as SQLAlchemy decodes it."""
+        return None if self.url.password is None else unquote(self.url.password)
 
     @property
     def database(self) -> str:

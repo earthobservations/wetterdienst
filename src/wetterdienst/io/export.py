@@ -19,7 +19,7 @@ import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError
 from wetterdienst.metadata.renamed import renamed_column
-from wetterdienst.util.url import ConnectionString, redact_password
+from wetterdienst.util.url import ConnectionString, redact_password, unencoded_password_delimiters
 
 if TYPE_CHECKING:
     import plotly.graph_objs as go
@@ -296,8 +296,8 @@ class ExportMixin:
 
         Raises:
             ExportRefusedError: The sink will not perform this export -- a mode it does not
-                do, a target already holding data under ``if_exists='fail'``, or a format or
-                protocol nothing here writes.
+                do, a target already holding data under ``if_exists='fail'``, a format or
+                protocol nothing here writes, or a password holding a delimiter it would misread.
 
         Returns:
             None (data is emitted to the target)
@@ -309,6 +309,28 @@ class ExportMixin:
         protocol = connspec.protocol
         database = connspec.database
         tablename = connspec.table
+
+        # a password holding an unencoded delimiter is split where the parser reading this sink's
+        # target splits it, and the pieces become the host, port, database or table, which a log
+        # line or a driver's error then prints. So such a target is refused before anything
+        # connects, and the refusal names no piece of it. InfluxDB is read with `urlparse` alone,
+        # which finds a password holding an `@`; CrateDB with `urlparse` and then SQLAlchemy; the
+        # SQL sinks connect with SQLAlchemy, which finds one holding a `/`, but take the table
+        # from what `urlparse` reads as the query
+        if protocol.startswith("influxdb"):
+            misread = {"/", "?", "#"}
+        elif target.startswith("crate://"):
+            misread = {"/", "?", "#", "@"}
+        else:
+            misread = {"?", "#", "@"}
+        if unencoded_password_delimiters(target) & misread:
+            msg = (
+                "The target's password holds a '/', '?', '#' or '@' that is not percent-encoded, so "
+                "it would be read with the wrong host, port, password, database or table. Encode "
+                "these in the password: '/' as %2F, '?' as %3F, '#' as %23 and '@' as %40. An '@' "
+                "in the path or query is read the same way; write it as %40 there."
+            )
+            raise ExportRefusedError(msg)
 
         if target.startswith("file://"):
             if if_exists == "append":

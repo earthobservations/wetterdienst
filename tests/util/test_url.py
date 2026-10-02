@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from wetterdienst.util.url import ConnectionString, redact_password
+from wetterdienst.util.url import ConnectionString, redact_password, unencoded_password_delimiters
 
 
 def test_connectionstring_database_from_path() -> None:
@@ -144,3 +144,46 @@ def test_connectionstring_gives_back_the_file_path_it_was_given(database: str) -
 def test_redact_password_hides_the_password_and_keeps_the_rest(url: str, redacted: str) -> None:
     """The password slot reads `***`; the username, host, path and query read as they were given."""
     assert redact_password(url) == redacted
+
+
+@pytest.mark.parametrize(
+    ("url", "found"),
+    [
+        # `urlparse` ends the host part at the first `/`, `?` or `#`
+        pytest.param("influxdb2://acme:Ab/Cd==@localhost", {"/"}, id="slash"),
+        pytest.param("crate://crate:hun/ter2@localhost:4200/dwd", {"/"}, id="crate-slash"),
+        pytest.param("postgresql://scott:pa?ss@db/dwd?table=obs", {"?"}, id="question-mark"),
+        pytest.param("postgresql://scott:p#ss@db/dwd", {"#"}, id="hash"),
+        # SQLAlchemy ends the password at the first `@`
+        pytest.param("postgresql://scott:p@ss:w0rd@db/dwd", {"@"}, id="at-then-colon"),
+        pytest.param("postgresql://scott:p@ss@db/dwd", {"@"}, id="at"),
+        pytest.param("postgresql://scott:a/b@c@db/dwd", {"/", "@"}, id="slash-and-at"),
+        # encoded, nothing is left to misread
+        pytest.param("postgresql://scott:pa%2Fss%40x%3F%23@db/dwd", set(), id="percent-encoded"),
+        pytest.param("crate://crate@localhost/dwd?table=weather", set(), id="no-password"),
+        pytest.param("influxdb://localhost:8086/?database=dwd", set(), id="port-no-password"),
+        pytest.param("postgresql://scott:tiger@db/dwd?table=weather&note=a@b", set(), id="at-in-query"),
+        pytest.param(
+            "postgresql://user@srv:secret@srv.postgres.database.azure.com:5432/dwd", set(), id="at-in-username"
+        ),
+        pytest.param("file://C:/data@x:y.csv", set(), id="file"),
+        pytest.param("duckdb://C:/data/obs@1:2.duckdb", set(), id="duckdb"),
+        # with no password, a port followed by an `@` in the query reads as a password holding
+        # a `/` and a `?`, and SQLAlchemy reads it that way too
+        pytest.param("influxdb://localhost:8086/?table=a@b", {"/", "?"}, id="port-then-at-in-query"),
+    ],
+)
+def test_unencoded_password_delimiters_names_what_the_password_holds(url: str, found: set[str]) -> None:
+    """Each delimiter a password holds unencoded is named, and nothing is named for one encoded."""
+    assert unencoded_password_delimiters(url) == found
+
+
+def test_connectionstring_decodes_a_percent_encoded_username_and_password() -> None:
+    """An encoded password reaches InfluxDB decoded, as SQLAlchemy decodes one for the SQL sinks.
+
+    Without it, the advice to write a `/` in a token as `%2F` would send InfluxDB `Ab%2FCd==`.
+    """
+    cs = ConnectionString("influxdb2://ac%40me:Ab%2FCd%3D%3D@localhost/?database=dwd")
+    assert cs.username == "ac@me"
+    assert cs.password == "Ab/Cd=="  # noqa: S105
+    assert ConnectionString("influxdb://localhost/?database=dwd").password is None
