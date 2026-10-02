@@ -192,6 +192,9 @@ Types of changes:
   `end_date`: Brocken was listed at 135 m and Zugspitze at 956 m, both with a null `end_date`.
   This affects the monthly degree-day and degree-hour datasets and hourly `radiation_global` and
   `sunshine_duration` (GH-2234)
+- NOAA GHCN daily stations without a known elevation have a null `elevation`. They were listed at
+  -999.9 m, the station list's missing value, which `interpolate` and `summarize` asked for a point
+  with an elevation took for a known one (GH-2247)
 
 ## [0.139.0] - 2026-09-29
 

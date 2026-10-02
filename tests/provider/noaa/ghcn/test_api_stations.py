@@ -3,6 +3,7 @@
 """Tests for NOAA GHCN stations."""
 
 import datetime as dt
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -11,6 +12,7 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
+from wetterdienst.util.network import File
 
 
 @pytest.mark.remote
@@ -89,3 +91,24 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
         orient="row",
     )
     assert_frame_equal(df.drop("end_date"), df_expected)
+
+
+def test_noaa_ghcn_daily_stations_missing_elevation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station that `ghcnd-stations.txt` lists at -999.9, its missing value, has a null elevation (GH-2247).
+
+    The rows are copied from `ghcnd-stations.txt` and `ghcnd-inventory.txt` as NOAA publishes them.
+    """
+    stations = (
+        "ACW00011604  17.1167  -61.7833   10.1    ST JOHNS COOLIDGE FLD                       \n"
+        "ASN00001011 -16.0497  124.9500 -999.9    PANTA DOWNS                                 \n"
+    )
+    inventory = "ACW00011604  17.1167  -61.7833 TMAX 1949 1949\nASN00001011 -16.0497  124.9500 PRCP 1906 1931\n"
+    contents = {"ghcnd-stations.txt": stations, "ghcnd-inventory.txt": inventory}
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        content = contents[url.rsplit("/", 1)[-1]]
+        return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")]).all().df
+    assert df.select("station_id", "elevation").rows() == [("ACW00011604", 10.1), ("ASN00001011", None)]
