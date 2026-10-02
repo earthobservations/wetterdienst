@@ -352,13 +352,22 @@ class HTTPFileSystem(_HTTPFileSystem):
         # aiohttp >= 3.9 rejects any bare numeric timeout -- int and float alike -- so wrap one in
         # ClientTimeout. ``client_kwargs`` is optional and may legitimately be passed as None (that
         # is fsspec's own default), so check for a dict rather than for the key being present.
+        #
+        # A number is how long the server may stay silent: connecting, and then each wait for the
+        # next bytes, the first ones included. It is not a bound on the whole request, which is
+        # what ``total`` would be -- that failed a download still streaming steadily once it ran
+        # past the number, so a slow link failed every file larger than that many seconds of its
+        # bandwidth (GH-2258). A caller who wants a bound on the whole passes a ClientTimeout.
         client_kwargs = kwargs.get("client_kwargs")
         client_kwargs = client_kwargs if isinstance(client_kwargs, dict) else {}
         timeout = client_kwargs.get("timeout")
         if isinstance(timeout, (int, float)) and not isinstance(timeout, bool):
             import aiohttp  # noqa: PLC0415
 
-            kwargs["client_kwargs"] = {**client_kwargs, "timeout": aiohttp.ClientTimeout(total=timeout)}
+            kwargs["client_kwargs"] = {
+                **client_kwargs,
+                "timeout": aiohttp.ClientTimeout(total=None, sock_connect=timeout, sock_read=timeout),
+            }
 
         kwargs.update(
             {
@@ -1252,8 +1261,9 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     return error
 
 
-# How long a post waits when the caller's ``client_kwargs`` does not say. Settings carries a
-# default of the same length, so this stands in only for a caller that passes none at all.
+# How long a post waits on a silent server when the caller's ``client_kwargs`` does not say.
+# Settings carries a default of the same length, so this stands in only for a caller that passes
+# none at all -- who would otherwise get aiohttp's own, five minutes for the whole request.
 _POST_TIMEOUT_SECONDS = 30.0
 
 

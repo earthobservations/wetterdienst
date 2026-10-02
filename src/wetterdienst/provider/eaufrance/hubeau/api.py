@@ -107,12 +107,15 @@ _SNIFF_WINDOW_QUIET = dt.timedelta(hours=24)
 _SNIFF_QUIET_BATCH = 120
 _SNIFF_PAGE_SIZE = 20000
 # Twenty thousand records is the largest page the service serves and, at some ten to twenty seconds
-# each, the fewest round trips -- but well past the thirty seconds a single file is given. The
-# timeout is per call, so this raises it only for the pages that ask about the whole network.
+# each, the fewest round trips. A timeout bounds how long the service may stay silent, not the whole
+# page (GH-2258), but the service can be silent for longer than the thirty seconds a request is
+# given before it sends the first byte -- see the referential below. The timeout is per call, so
+# this raises it only for the pages that ask about the whole network.
 _SNIFF_TIMEOUT = 120
 # The station referential is one page of four thousand stations, but not a quick one: on 2026-10-01
-# it took 25 to 78 seconds to arrive, streaming at 16 to 32 KB/s, so it gets the same budget, as
-# does the sites referential beside it.
+# it took 25 to 78 seconds to arrive, streaming at 16 to 32 KB/s, and 5 to 50 seconds before its
+# first byte did (GH-2221). That wait is silence, so it gets the same budget, as does the sites
+# referential beside it.
 _REFERENTIAL_TIMEOUT = 120
 # One page of observations per request, followed by its cursor. The window is chunked to about a
 # page so that most requests need only one.

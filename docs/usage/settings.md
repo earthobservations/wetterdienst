@@ -29,7 +29,7 @@ The following settings are available:
 |----------------------|-----------------------------------------------------------------------|------------------------------------|
 | cache_disable        | switch off caching                                                    | False                              |
 | cache_dir            | set the directory where the cache is stored                           | platform specific / "wetterdienst" |
-| fsspec_client_kwargs | pass arguments to fsspec, especially for querying data behind a proxy | {}                                 |
+| fsspec_client_kwargs | pass arguments to fsspec, especially for querying data behind a proxy | User-Agent header, timeout 30      |
 | use_certifi          | use certifi certificate bundle instead of system certificates         | False                              |
 | read_bufr            | parse DWD radar BUFR products into `RadarResult.df` (needs the `bufr` extra) | False               |
 
@@ -100,6 +100,12 @@ settings
 ```
 
 to allow requesting through a proxy.
+
+A number given as `timeout` in `fsspec_client_kwargs` (30 in the default ones, which a dict of
+your own replaces) is how many seconds a server may stay silent before a request fails: while
+connecting, before the first byte of its answer, or between two bytes of it. A download that keeps
+arriving is not cut off, however long it takes. To bound the whole request instead, pass an
+`aiohttp.ClientTimeout`, e.g. `ClientTimeout(total=60)`.
 
 If you're experiencing SSL certificate verification issues, especially in corporate environments or
 when system certificates are outdated, you can enable the certifi certificate bundle:

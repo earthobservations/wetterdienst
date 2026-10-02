@@ -570,8 +570,7 @@ def test_http_filesystem_wraps_int_timeout_in_client_timeout(tmp_path: Path) -> 
         client_kwargs={"timeout": 30, "headers": {"User-Agent": "wetterdienst"}},
         skip_instance_cache=True,
     )
-    assert isinstance(fs.client_kwargs["timeout"], ClientTimeout)
-    assert fs.client_kwargs["timeout"].total == 30
+    assert fs.client_kwargs["timeout"] == ClientTimeout(total=None, sock_connect=30, sock_read=30)
     assert fs.client_kwargs["headers"] == {"User-Agent": "wetterdienst"}
 
 
@@ -584,8 +583,7 @@ def test_http_filesystem_wraps_float_timeout_in_client_timeout(tmp_path: Path) -
         client_kwargs={"timeout": 30.5},
         skip_instance_cache=True,
     )
-    assert isinstance(fs.client_kwargs["timeout"], ClientTimeout)
-    assert fs.client_kwargs["timeout"].total == 30.5
+    assert fs.client_kwargs["timeout"] == ClientTimeout(total=None, sock_connect=30.5, sock_read=30.5)
 
 
 def test_http_filesystem_leaves_client_timeout_untouched(tmp_path: Path) -> None:
@@ -2218,3 +2216,101 @@ def test_every_way_into_the_metadata_file_takes_the_cache_lock(
     getattr(filesystem, method)(*args)
 
     assert held == [True]
+
+
+class _TrickleEndpoint(BaseHTTPRequestHandler):
+    """Answers slowly: `/steady` keeps sending, `/stall-*` stops until the test lets it go."""
+
+    # a chunk every tenth of a second, a fifth of the timeout the tests below give, for a body that
+    # takes more than twice that timeout to arrive whole
+    chunk = b"x" * 64
+    chunks = 12
+    interval = 0.1
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        """Keep the test output quiet."""
+
+    def do_GET(self) -> None:
+        """Trickle, or stall, according to the path."""
+        if self.path == "/stall-before-headers":
+            self.server.release.wait(10)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(self.chunk) * self.chunks))
+        self.end_headers()
+        for _ in range(self.chunks):
+            self.wfile.write(self.chunk)
+            self.wfile.flush()
+            if self.path == "/stall-mid-body":
+                self.server.release.wait(10)
+                return
+            time.sleep(self.interval)
+
+
+@pytest.fixture
+def trickle_server() -> Iterator[str]:
+    """Run `_TrickleEndpoint` on a port of its own and hand back its URL."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _TrickleEndpoint)
+    server.release = threading.Event()
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        # a stalled handler waits on this, and closing the server waits on the handler
+        server.release.set()
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_a_numeric_timeout_lets_a_slow_but_steady_download_finish(tmp_path: Path, trickle_server: str) -> None:
+    """A number in the client kwargs bounds silence, not the whole download (GH-2258).
+
+    The body takes about 1.2 seconds to arrive against a timeout of 0.5, but never pauses for more
+    than a tenth of a second. As a bound on the whole request, the timeout failed it with
+    `FSTimeoutError` while bytes were still arriving -- a slow link failed every file larger than
+    the timeout's worth of its bandwidth.
+    """
+    started = time.monotonic()
+    with stamina.set_testing(True, attempts=1):
+        result = download_file(
+            url=f"{trickle_server}/steady",
+            cache_dir=tmp_path,
+            client_kwargs={"timeout": 0.5},
+            cache_disable=True,
+        )
+    elapsed = time.monotonic() - started
+
+    assert result.status == 200, result.content
+    assert result.content.getvalue() == _TrickleEndpoint.chunk * _TrickleEndpoint.chunks
+    # longer than the timeout, or this would pass under a bound on the whole request as well
+    assert elapsed > 0.5
+
+
+@pytest.mark.parametrize("path", ["/stall-before-headers", "/stall-mid-body"])
+def test_a_numeric_timeout_still_fails_a_server_that_stops_sending(
+    tmp_path: Path,
+    trickle_server: str,
+    path: str,
+) -> None:
+    """A server that goes quiet for longer than the timeout still fails the request (GH-2258).
+
+    Before it answers at all, or halfway through a body it promised: either way nothing arrives for
+    longer than the timeout, and the download gives up rather than waiting on it indefinitely.
+    """
+    started = time.monotonic()
+    with stamina.set_testing(True, attempts=1):
+        result = download_file(
+            url=f"{trickle_server}{path}",
+            cache_dir=tmp_path,
+            client_kwargs={"timeout": 0.5},
+            cache_disable=True,
+        )
+    elapsed = time.monotonic() - started
+
+    assert result.status == 408
+    assert isinstance(result.content, FSTimeoutError)
+    # given up at the timeout, well before the server would have let go of the request
+    assert elapsed < 5
