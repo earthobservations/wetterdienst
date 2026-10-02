@@ -86,6 +86,8 @@ Types of changes:
   Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
   one below -10 m or from 4810 m up, and for every station when that referential cannot be read,
   which is logged as a warning. About three stations in four have one (GH-2223)
+- The `mysql` extra takes pandas 3, as the other extras that bring pandas do. It asked for pandas
+  below 3, so installing it downgraded an environment on pandas 3 to 2.x (GH-2250)
 
 ### Fixed
 
