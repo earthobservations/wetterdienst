@@ -89,7 +89,7 @@ Types of changes:
 - **Breaking**: `/api/values`, `/api/interpolate`, `/api/summarize` and their MCP tools answer a
   failure on the server's or the data source's side with a 500 carrying its message, where values
   answered 400 and the other two 404. Retry or report a 500 rather than rephrasing. A request
-  refused for what it asks keeps its 400 or 404. Refusals that raised a bare `ValueError` or
+  refused for what it asks keeps its 400 or 404. Those refusals that raised a bare `ValueError` or
   `IndexError` raise a subclass of it: `InvalidTimeIntervalError`, `InvalidEnumerationError`, or
   the new `InvalidBoundingBoxError`, `LocationOutOfRangeError` and `IssueNotFoundError`. Catch
   `InvalidTimeIntervalError` for the day `9999-12-31`, which raised `OverflowError`, and
