@@ -161,8 +161,14 @@ def test_redact_password_hides_the_password_and_keeps_the_rest(url: str, redacte
         # both parsers end it at the first `@` and agree on host `C`, so only the widest reading,
         # up to the last `@`, finds what it holds
         pytest.param("influxdb2://acme:Ab@C/d==@localhost/?database=dwd", {"/", "@"}, id="at-before-slash"),
-        # which cannot be told apart from an `@` in the query of a target with a password
-        pytest.param("postgresql://scott:tiger@db/dwd?table=weather&note=a@b", {"/", "?", "@"}, id="at-in-query"),
+        # an `@` in the query is not the password's
+        pytest.param("postgresql://scott:tiger@db/dwd?table=weather&note=a@b", set(), id="at-in-query"),
+        pytest.param("influxdb2://acme:tok@localhost/?database=dwd&table=a@b", set(), id="at-in-query-influxdb"),
+        # a password of digits before a `/` is not a port when the `@` is not in the query
+        pytest.param("influxdb://root:2024/Winter@localhost/?database=dwd", {"/"}, id="digits-then-slash"),
+        # an IPv6 host has colons of its own
+        pytest.param("postgresql://[::1]:5432/dwd?table=a@b", set(), id="ipv6-no-password"),
+        pytest.param("postgresql://u:p/w@[::1]:5432/dwd", {"/"}, id="ipv6-password"),
         # encoded, nothing is left to misread
         pytest.param("postgresql://scott:pa%2Fss%40x%3F%23@db/dwd", set(), id="percent-encoded"),
         pytest.param("crate://crate@localhost/dwd?table=weather", set(), id="no-password"),

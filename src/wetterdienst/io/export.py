@@ -322,8 +322,7 @@ class ExportMixin:
             msg = (
                 "The target's password holds a character this sink would read as the end of it, so "
                 "the target would be read with the wrong host, port, password, database or table. "
-                f"Percent-encode them in the password: {encoded}. An '@' in the query is read as "
-                "part of the password; write it as %40 there."
+                f"Percent-encode them in the password: {encoded}."
             )
             raise ExportRefusedError(msg)
 

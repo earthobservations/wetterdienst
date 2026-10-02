@@ -49,25 +49,29 @@ def unencoded_password_delimiters(url: str) -> frozenset[str]:
     first ``@``, so a password holding one is cut there and the rest is read as the host and
     port. Either way the target is read with the wrong host, port, password, database or table.
 
-    Where the password ends cannot be told from the string once it may hold an ``@``, so this
-    takes the widest reading: from the first ``:``, provided no ``/`` comes before it, to the
-    last ``@``. An ``@`` in the path or query of a target with a password is therefore counted
-    too. Digits alone from the ``:`` to where ``urlparse`` ends the host part are a port, not a
-    password, so ``influxdb://localhost:8086/?table=a@b`` names nothing; a password of digits
-    followed by a ``/`` reads as one too. Nothing here raises, and nothing of the password comes
-    back but which delimiters it may hold.
+    The password starts after the first ``:``, provided no ``/`` comes before it and the host is
+    not an IPv6 literal. Where it ends cannot be told from the string once it may hold an ``@``,
+    so this takes the last ``@`` before the query: a password holding an ``@`` is found whatever
+    follows it up to there, and an ``@`` in the query, as in ``?application_name=me@host``, is
+    not counted. A ``host:port`` whose first ``@`` is in the query has no password, so
+    ``influxdb://localhost:8086/?table=a@b`` names nothing. What this cannot find: a password
+    holding an ``@`` with a ``?`` or ``#`` after it, or one of digits followed by a ``?`` or
+    ``#``, reads as a shorter password or as a port. Nothing here raises, and nothing of the
+    password comes back but which delimiters it may hold.
     """
     scheme, separator, rest = url.partition("://")
     username, colon, _ = rest.partition(":")
-    if not separator or scheme.lower() in _PATH_SCHEMES or not colon or "/" in username:
+    if not separator or scheme.lower() in _PATH_SCHEMES or not colon or "/" in username or username.startswith("["):
         return frozenset()
     start = len(username) + 1
-    end = rest.rfind("@", start)
-    if end == -1:
+    first = rest.find("@", start)
+    if first == -1:
         return frozenset()
     host_end = min((i for i in (rest.find(c, start) for c in "/?#") if i != -1), default=len(rest))
-    if rest[start:host_end].isdigit():
+    if rest[start:host_end].isdigit() and any(c in rest[start:first] for c in "?#"):
         return frozenset()
+    query = min((i for i in (rest.find(c, first) for c in "?#") if i != -1), default=len(rest))
+    end = rest.rfind("@", start, query)
     return frozenset(c for c in "/?#@" if c in rest[start:end])
 
 
