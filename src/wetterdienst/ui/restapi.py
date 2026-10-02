@@ -634,9 +634,13 @@ def _geo_settings(
 # `get_summarize` besides the refusals the helpers below name: a date, period, parameter, bounding
 # box, point, unit target or issue that cannot be served as given, or a station the lookup does not
 # know.
-# Anything else -- a provider's file in a layout its parser does not expect, an upstream that does
-# not answer, a frame of an unexpected shape -- is not the caller's to fix, and is a 500
+# An `OverflowError` is a date at the edge of what a datetime holds -- `9999-12-31T23:00Z` once a
+# provider converts it to its own zone, an issue a negative offset carries past year 9999 -- and the
+# dates on the way that come that close are the request's. Anything else -- a provider's file in a
+# layout its parser does not expect, an upstream that does not answer, a frame of an unexpected
+# shape -- is not the caller's to fix, and is a 500
 _CALLER_REFUSALS = (
+    OverflowError,
     InvalidBoundingBoxError,
     InvalidEnumerationError,
     InvalidTimeIntervalError,

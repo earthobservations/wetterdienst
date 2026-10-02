@@ -2884,6 +2884,26 @@ _OBSERVATION = {"provider": "dwd", "network": "observation", "parameters": "dail
             "date value out of range",
             id="values-instant-past-the-last-day-in-utc",
         ),
+        pytest.param(
+            "/api/values",
+            {**_OBSERVATION, "station": "01048", "date": "9999-12-31T23:00Z"},
+            400,
+            "date value out of range",
+            id="values-instant-past-the-last-day-in-the-providers-zone",
+        ),
+        pytest.param(
+            "/api/values",
+            {
+                "provider": "dwd",
+                "network": "dmo",
+                "parameters": "hourly/icon/temperature_air_mean_2m",
+                "station": "10382",
+                "issue": "0001-01-01T00:00+01:00",
+            },
+            400,
+            "date value out of range",
+            id="values-dmo-issue-before-the-first-day-in-utc",
+        ),
     ],
 )
 def test_a_refusal_of_the_request_keeps_its_4xx(

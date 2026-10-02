@@ -87,3 +87,15 @@ def test_parse_date_window() -> None:
     # an instant is a window of itself, so a filter closed on both sides keeps exactly it
     instant = dt.datetime(2020, 2, 2, 2, tzinfo=utc)
     assert parse_date_window("2020-02-02T02") == (instant, instant)
+
+
+@pytest.mark.parametrize("date_string", ["0001-01-01T00:00", "9999-12-31T12:00"])
+def test_parse_date_window_takes_a_naive_instant_at_the_edge_of_the_range_as_utc(date_string: str) -> None:
+    """A naive instant on the first or last day a datetime holds is read as UTC, not refused (GH-2252).
+
+    Converting it to UTC to check its range read it as the server's local time, which can move it
+    out of the range it was in.
+    """
+    start, end = parse_date_window(date_string)
+
+    assert start == end == dt.datetime.fromisoformat(date_string).replace(tzinfo=ZoneInfo("UTC"))
