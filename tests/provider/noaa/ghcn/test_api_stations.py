@@ -104,7 +104,7 @@ def test_noaa_ghcn_daily_stations_missing_elevation(
         "ACW00011604  17.1167  -61.7833   10.1    ST JOHNS COOLIDGE FLD                       \n"
         "ASN00001011 -16.0497  124.9500 -999.9    PANTA DOWNS                                 \n"
     )
-    inventory = "ACW00011604  17.1167  -61.7833 TMAX 1949 1949\nASN00001011 -16.0497  124.9500 PRCP 1906 1931\n"
+    inventory = "ACW00011604  17.1167  -61.7833 TMAX 1949 1949\nASN00001011 -16.0497  124.9500 PRCP 1966 1969\n"
     contents = {"ghcnd-stations.txt": stations, "ghcnd-inventory.txt": inventory}
 
     def fake_download_file(url: str, **_kwargs: object) -> File:
