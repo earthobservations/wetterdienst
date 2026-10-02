@@ -20,6 +20,8 @@ from rapidfuzz import fuzz, process
 from rapidfuzz import utils as fuzz_utils
 
 from wetterdienst.exceptions import (
+    InvalidBoundingBoxError,
+    InvalidTimeIntervalError,
     NoParametersFoundError,
     NoPeriodsFoundError,
     StartDateEndDateError,
@@ -647,11 +649,11 @@ class TimeseriesRequest:
 
         if left >= right:
             msg = "bbox left border should be smaller then right"
-            raise ValueError(msg)
+            raise InvalidBoundingBoxError(msg)
 
         if bottom >= top:
             msg = "bbox bottom border should be smaller then top"
-            raise ValueError(msg)
+            raise InvalidBoundingBoxError(msg)
 
         df = self.all().df
 
@@ -712,7 +714,7 @@ class TimeseriesRequest:
 
         if not self.start_date:
             msg = "start_date and end_date are required for interpolation"
-            raise ValueError(msg)
+            raise InvalidTimeIntervalError(msg)
 
         resolutions = {
             parameter.dataset.resolution.value for parameter in self.parameters if isinstance(parameter, ParameterModel)
@@ -810,7 +812,7 @@ class TimeseriesRequest:
 
         if not self.start_date:
             msg = "start_date and end_date are required for summarization"
-            raise ValueError(msg)
+            raise InvalidTimeIntervalError(msg)
 
         resolutions = {
             parameter.dataset.resolution.value for parameter in self.parameters if isinstance(parameter, ParameterModel)

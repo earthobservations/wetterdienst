@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from dateutil.relativedelta import relativedelta
 
+from wetterdienst.exceptions import InvalidTimeIntervalError
 from wetterdienst.metadata.resolution import Resolution
 
 
@@ -129,7 +130,7 @@ def _parse_date_with_precision(date_string: str) -> tuple[dt.datetime, str]:
             continue
         return _as_utc(date_parsed), precision
     msg = f"date_string {date_string} could not be parsed"
-    raise ValueError(msg)
+    raise InvalidTimeIntervalError(msg)
 
 
 def _as_utc(date_parsed: dt.datetime) -> dt.datetime:
