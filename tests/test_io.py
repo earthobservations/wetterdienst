@@ -2703,17 +2703,17 @@ def test_to_target_refuses_a_password_holding_an_unencoded_at(
 
 
 # a password holding every delimiter `urlparse` ends the host part at, and a colon
-_PASSWORD = "p/a?s#s:w"  # noqa: S105
+_DELIMITED = "p/a?s#s:w"
 
 
 def test_to_target_writes_influxdb1_with_a_password_holding_delimiters() -> None:
     """InfluxDB 1 is handed the host, port, password and database the target names."""
     pytest.importorskip("influxdb")
     with mock.patch("influxdb.InfluxDBClient") as client:
-        _one_row().to_target(f"influxdb://root:{_PASSWORD}@localhost:8087/?database=obs")
+        _one_row().to_target(f"influxdb://root:{_DELIMITED}@localhost:8087/?database=obs")
 
     client.assert_called_once_with(
-        host="localhost", port=8087, username="root", password=_PASSWORD, database="obs", ssl=False
+        host="localhost", port=8087, username="root", password=_DELIMITED, database="obs", ssl=False
     )
 
 
@@ -2721,9 +2721,9 @@ def test_to_target_writes_influxdb2_with_a_token_holding_delimiters() -> None:
     """InfluxDB 2 is handed the URL, org and token the target names, and writes to its bucket."""
     pytest.importorskip("influxdb_client")
     with mock.patch("influxdb_client.InfluxDBClient") as client:
-        _one_row().to_target(f"influxdb2://acme:{_PASSWORD}@localhost/?database=obs&table=weather")
+        _one_row().to_target(f"influxdb2://acme:{_DELIMITED}@localhost/?database=obs&table=weather")
 
-    client.assert_called_once_with(url="http://localhost:8086", org="acme", token=_PASSWORD)
+    client.assert_called_once_with(url="http://localhost:8086", org="acme", token=_DELIMITED)
     assert client.return_value.write_api.return_value.write.call_args.kwargs["bucket"] == "obs"
 
 
@@ -2731,13 +2731,13 @@ def test_to_target_writes_influxdb3_with_a_token_holding_delimiters() -> None:
     """InfluxDB 3 is handed the host, org, token and database the target names."""
     pytest.importorskip("influxdb_client_3")
     with mock.patch("influxdb_client_3.InfluxDBClient3") as client:
-        _one_row().to_target(f"influxdb3://acme:{_PASSWORD}@eu.example.org/?database=obs")
+        _one_row().to_target(f"influxdb3://acme:{_DELIMITED}@eu.example.org/?database=obs")
 
     kwargs = client.call_args.kwargs
     assert (kwargs["host"], kwargs["org"], kwargs["token"], kwargs["database"]) == (
         "eu.example.org",
         "acme",
-        _PASSWORD,
+        _DELIMITED,
         "obs",
     )
 
@@ -2747,13 +2747,13 @@ def test_to_target_writes_cratedb_with_a_password_holding_delimiters() -> None:
     sqlalchemy = pytest.importorskip("sqlalchemy")
     pytest.importorskip("pandas")
     with mock.patch("pandas.DataFrame.to_sql") as to_sql:
-        _one_row().to_target(f"crate://crate:{_PASSWORD}@localhost:4200/obs?table=readings")
+        _one_row().to_target(f"crate://crate:{_DELIMITED}@localhost:4200/obs?table=readings")
 
     url = sqlalchemy.make_url(to_sql.call_args.kwargs["con"])
     assert (url.drivername, url.username, url.password, url.host, url.port) == (
         "crate",
         "crate",
-        _PASSWORD,
+        _DELIMITED,
         "localhost",
         4200,
     )
@@ -2761,18 +2761,18 @@ def test_to_target_writes_cratedb_with_a_password_holding_delimiters() -> None:
 
 
 @pytest.mark.parametrize(
-    "password",
-    [pytest.param(_PASSWORD, id="delimiters"), pytest.param("pa/ss", id="slash")],
+    "written",
+    [pytest.param(_DELIMITED, id="delimiters"), pytest.param("pa/ss", id="slash")],
 )
-def test_to_target_writes_sql_with_a_password_holding_delimiters(password: str) -> None:
+def test_to_target_writes_sql_with_a_password_holding_delimiters(written: str) -> None:
     """SQLAlchemy is handed the password the target names, and the table is the one it names."""
     pytest.importorskip("sqlalchemy")
     pytest.importorskip("pandas")
     with mock.patch("sqlalchemy.create_engine") as create_engine, mock.patch("pandas.DataFrame.to_sql") as to_sql:
-        _one_row().to_target(f"postgresql+psycopg2://scott:{password}@db/dwd?table=obs")
+        _one_row().to_target(f"postgresql+psycopg2://scott:{written}@db/dwd?table=obs")
 
     url = create_engine.call_args.args[0]
-    assert (url.password, url.host, url.database) == (password, "db", "dwd")
+    assert (url.password, url.host, url.database) == (written, "db", "dwd")
     assert to_sql.call_args.kwargs["name"] == "obs"
 
 
