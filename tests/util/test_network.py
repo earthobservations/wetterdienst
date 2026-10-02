@@ -2358,3 +2358,39 @@ def test_download_file_retries_a_download_that_failed_after_a_long_transfer() ->
     assert result.status == 200
     assert result.from_cache is False
     assert result.content.getvalue() == payload
+
+
+def test_post_file_retries_a_post_that_failed_after_a_long_attempt() -> None:
+    """A post whose first attempt ran for a minute before failing still gets its second (GH-2258).
+
+    Connecting and each silence are bounded separately now, so an attempt can run past stamina's
+    default time budget of 45 seconds. The clock is faked as for the download above.
+    """
+    clock = [0.0]
+    readings: list[float] = []
+    payload = b'{"access_token": "t"}'
+    calls: list[int] = []
+
+    def monotonic() -> float:
+        readings.append(clock[0])
+        return clock[0]
+
+    def post(*_args: object) -> tuple[int, bytes]:
+        calls.append(1)
+        clock[0] += 60
+        if len(calls) == 1:
+            raise ServerDisconnectedError
+        return 200, payload
+
+    with (
+        patch("wetterdienst.util.network.sync", side_effect=post),
+        patch("tenacity.time", SimpleNamespace(monotonic=monotonic)),
+        patch("tenacity.nap.time", SimpleNamespace(sleep=lambda _seconds: None)),
+    ):
+        result = post_file("http://example.com/token")
+
+    # read after the minute had passed, or the retry ran on the real clock and proves nothing
+    assert any(reading >= 60 for reading in readings)
+    assert len(calls) == 2
+    assert result.status == 200
+    assert result.content.getvalue() == payload

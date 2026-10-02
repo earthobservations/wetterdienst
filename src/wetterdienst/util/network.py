@@ -1341,8 +1341,10 @@ def post_file(
         # fsspec keeps one filesystem instance -- and so one aiohttp session and its keep-alive
         # pool -- for the life of the process, where a token is minted days apart. The first attempt
         # can therefore pick a pooled connection the server closed hours ago, which the second gets
-        # to retry on a fresh one. What else is worth asking twice, `_worth_retrying` says.
-        for attempt in stamina.retry_context(on=_worth_retrying, attempts=2):
+        # to retry on a fresh one. What else is worth asking twice, `_worth_retrying` says. No time
+        # budget, as for a download: a numeric timeout bounds connecting and each silence, not the
+        # attempt, so one can outlast stamina's default of 45 seconds and leave no room (GH-2258)
+        for attempt in stamina.retry_context(on=_worth_retrying, attempts=2, timeout=None):
             with attempt:
                 try:
                     status, payload = sync(filesystem.loop, _post)
