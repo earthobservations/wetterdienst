@@ -72,6 +72,18 @@ Types of changes:
   was missing. Drop `quality` 11 to get the rows as before. Other parameters and datasets are
   unchanged (GH-2000)
 - **Breaking**: Eaufrance Hub'Eau stations list the altitude of the gauge's zero, in metres, as
+  `gauge_zero`, as WSV Pegelonline does; it was listed as `elevation`. Read `gauge_zero` for it
+  (GH-2020)
+- Eaufrance Hub'Eau stations list as `elevation` the altitude of their site, `altitude_site` from
+  Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
+  one below -10 m or from 4810 m up, and for every station when that referential cannot be read,
+  which is logged as a warning. About three stations in four have one (GH-2223)
+
+### Fixed
+
+- Eaufrance Hub'Eau stations are listed when the station referential takes more than 30 seconds
+  to arrive, which it often does; the list failed with `FSTimeoutError`. The referential now has
+  the 120 seconds the observations requests have (GH-2221)
   `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
   Read `gauge_zero` for it (GH-2020)
 - Each station history gives the `resolution` and `dataset` it belongs to beside its `station_id`,
