@@ -471,7 +471,7 @@ class _ValuesResult(ExportMixin):
 
         This method is used both by ``to_dict()``,
         and ``to_ogc_feature_collection()``, however, the latter one splits
-        the DataFrame into multiple DataFrames by station and calls this method for each of them.
+        the DataFrame by resolution, dataset and station and calls this method for each part.
         """
         if not df.is_empty():
             df = df.with_columns(
@@ -605,17 +605,24 @@ class ValuesResult(_ValuesResult):
             data["metadata"] = self.stations.get_metadata()
         # The stations frame holds one row per resolution, dataset and station, so a feature is one
         # dataset of one station and carries that dataset's values only. The values frame stores
-        # these columns as Enum (see TimeseriesValues._cast_metadata_to_enum), and its partition
-        # keys are plain strings all the same, as the stations frame's are.
+        # these columns as Enum (see TimeseriesValues._cast_metadata_to_enum); its partition keys
+        # are plain strings all the same, as the stations frame's are, and the cast is for the join.
         values_by_series = {
             key: df.drop("station_id")
             for key, df in self.df.partition_by(
                 ["resolution", "dataset", "station_id"], as_dict=True, maintain_order=True
             ).items()
         }
+        # cut down to the stations that returned values before walking the rows: a ranked request
+        # keeps the whole network in the stations frame (see TimeseriesRequest.filter_by_rank)
+        df_stations = self.stations.df.join(
+            self.df.select(pl.col("resolution", "station_id").cast(pl.String)).unique(),
+            on=["resolution", "station_id"],
+            how="semi",
+        )
         extra_columns = self.stations._ogc_extra_columns()  # noqa: SLF001
         features = []
-        for station in self.stations.df.with_columns(
+        for station in df_stations.with_columns(
             pl.col("start_date").dt.to_string("iso:strict"),
             pl.col("end_date").dt.to_string("iso:strict"),
         ).iter_rows(named=True):

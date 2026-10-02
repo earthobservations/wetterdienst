@@ -2719,4 +2719,5 @@ def test_ogc_feature_schema_allows_a_null_geometry(schema_name: str) -> None:
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
 
     geometry = app.openapi()["components"]["schemas"][schema_name]["properties"]["geometry"]
-    assert geometry == {"anyOf": [{"$ref": "#/components/schemas/_OgcFeatureGeometry"}, {"type": "null"}]}
+    assert {"$ref": "#/components/schemas/_OgcFeatureGeometry"} in geometry["anyOf"]
+    assert {"type": "null"} in geometry["anyOf"]

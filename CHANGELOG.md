@@ -191,8 +191,8 @@ Types of changes:
 - GeoJSON of values gives each feature, one per dataset of a station, that dataset's values only,
   and no feature to a dataset the station returned no values for; each feature carried the values
   of every dataset, so each value appeared once per dataset. The wide shape is unchanged where it
-  merges several datasets of one resolution into rows that name none: those rows still go to each
-  of the datasets' features (GH-2253)
+  merges several datasets of one resolution into rows that name none: each of those datasets
+  still gets a feature, and each such feature carries all of those rows (GH-2253)
 - GeoJSON of stations and values gives a station without a latitude or longitude, such as a
   postcode of DWD derived `monthly/climate_correction_factor`, the geometry `null`, as RFC 7946
   has an unlocated feature; it was a `Point` of null coordinates, which strict parsers reject. The
