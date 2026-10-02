@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- WSV Pegelonline and Eaufrance Hub'Eau stations name the vertical datum of their `gauge_zero` in
+  a new string column `gauge_zero_datum`: Pegelonline's as published (`m. ü. NHN`, `m. ü. NN`,
+  ...), Hub'Eau's as the Sandre label of `code_systeme_alti_site` (`IGN 1969`, ...), or the code
+  where it has none. Stations differ in it, so compare gauge zeros only where it agrees, and not
+  between Hub'Eau stations labelled as on an unknown or a local system (GH-2228)
+
 ### Changed
 
 - **Breaking**: DWD derived `monthly/soil` returns its monthly totals of potential
@@ -86,11 +94,6 @@ Types of changes:
   Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
   one below -10 m or from 4810 m up, and for every station when that referential cannot be read,
   which is logged as a warning. About three stations in four have one (GH-2223)
-- WSV Pegelonline and Eaufrance Hub'Eau stations name the vertical datum of their `gauge_zero` in
-  a new string column `gauge_zero_datum`: Pegelonline's as published (`m. ü. NHN`, `m. ü. NN`,
-  ...), Hub'Eau's as the Sandre label of `code_systeme_alti_site` (`IGN 1969`, ...), or the code
-  where it has none. Stations differ in it, so compare gauge zeros only where it agrees, and not
-  between Hub'Eau stations labelled as on an unknown or a local system (GH-2228)
 
 ### Fixed
 
