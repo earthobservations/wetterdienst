@@ -2607,6 +2607,65 @@ def test_a_reader_missing_on_the_server_is_a_501(
     assert "pip install wetterdienst[bufr]" in caplog.text
 
 
+def test_stations_schema_admits_null_core_columns_and_provider_columns(client: TestClient) -> None:
+    """The station schema in /openapi.json admits the nulls and provider columns stations come with (GH-2226).
+
+    `elevation` is null for every WSV and Eaufrance station, and `latitude`, `longitude` and `name`
+    are null for the postcodes of dwd/derived climate_correction_factor; the schema typed them as a
+    required number or string. Columns a provider adds (`gauge_zero`, `icao_id`, ...) were not part
+    of the schema at all, so a client generated from it dropped them.
+    """
+    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+    # the endpoint's dict response carries its stations as `_Station` items
+    assert schemas["_StationsDict"]["properties"]["stations"]["items"] == {"$ref": "#/components/schemas/_Station"}
+    station = schemas["_Station"]
+    nullable = {"latitude": "number", "longitude": "number", "elevation": "number", "name": "string"}
+    for field, json_type in nullable.items():
+        branches = station["properties"][field].get("anyOf", [station["properties"][field]])
+        assert {branch.get("type") for branch in branches} == {json_type, "null"}, f"_Station.{field}"
+    # provider station columns are admitted rather than declared one by one
+    assert station["additionalProperties"] is True
+    # the GeoJSON feature properties carry the same nullable name
+    name = schemas["_OgcFeatureProperties"]["properties"]["name"]
+    assert {branch.get("type") for branch in name.get("anyOf", [name])} == {"string", "null"}
+
+
+@pytest.mark.remote
+def test_mcp_stations_tool_wsv_null_elevation() -> None:
+    """The stations MCP tool returns WSV stations, whose elevation is null (GH-2226).
+
+    FastMCP validates a tool result against the output schema derived from the endpoint's
+    `response_model`; with `elevation` typed as a number it failed with "None is not of type 'number'".
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui import restapi  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> object:
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "stations",
+                {
+                    "provider": "wsv",
+                    "network": "pegel",
+                    "parameters": "15_minutes/data/stage",
+                    "station": "48900237",
+                },
+            )
+            return result.structured_content
+
+    data = asyncio.run(_call())
+    (station,) = data["result"]["stations"]
+    assert station["station_id"] == "48900237"
+    assert station["elevation"] is None
+
+
 def test_ogc_feature_properties_schema_allows_provider_station_columns() -> None:
     """The GeoJSON feature properties schema admits the station columns a provider adds.
 

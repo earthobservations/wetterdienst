@@ -148,6 +148,11 @@ Types of changes:
   `PermissionError: [Errno 13]` when two of its download threads read and replace the cache's
   metadata file at the same time; the threads of one process now take turns. Two processes
   sharing a cache directory can still meet that way (GH-1990)
+- The REST API's OpenAPI schema types a station's `elevation`, `latitude`, `longitude` and `name`
+  as nullable, and declares that a station may carry the columns its provider adds, such as
+  `gauge_zero`, so a client generated from it keeps them. MCP tools no longer fail output
+  validation on a station row holding such a null, as every WSV station does; a GeoJSON point
+  with a null coordinate still fails (GH-2226)
 - GeoJSON of stations and values gives a station without an elevation the position `[lon, lat]`;
   it was `[lon, lat, null]`, which strict GeoJSON parsers reject. One collection can now hold both
   lengths, so read an elevation from a third number only where there is one. Each feature's
