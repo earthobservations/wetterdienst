@@ -3071,4 +3071,3 @@ def test_values_a_duckdb_failure_that_is_not_about_the_statement_is_a_500(
 
     assert response.status_code == 500
     assert response.json()["detail"] == msg
-
