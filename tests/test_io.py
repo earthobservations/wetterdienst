@@ -2751,9 +2751,10 @@ def test_values_to_ogc_feature_collection_leaves_out_a_dataset_without_values() 
 
 
 def test_values_to_ogc_feature_collection_wide_rows_spanning_datasets() -> None:
-    """A wide row spanning two datasets of one resolution, and so naming none, still reaches a feature.
+    """A wide row spanning two datasets of one resolution, and so naming none, is not dropped.
 
-    Such a row holds the columns of each dataset, so it goes to the feature of each of them.
+    Such a row holds the columns of each dataset, so it goes, whole, to the feature of each of
+    them, as it did before features were split by dataset; GH-2274 tracks splitting it too.
     """
     result = _values_result(
         _two_dataset_stations_result(),
@@ -2769,9 +2770,16 @@ def test_values_to_ogc_feature_collection_wide_rows_spanning_datasets() -> None:
         ],
     )
     features = json.loads(result.to_geojson())["data"]["features"]
-    assert [(feature["properties"]["dataset"], len(feature["values"])) for feature in features] == [
-        ("climate_summary", 1),
-        ("precipitation_more", 1),
+    row = {
+        "resolution": "daily",
+        "dataset": None,
+        "timestamp": "2026-01-01T00:00:00.000000+00:00",
+        "climate_summary_temperature_air_mean_2m": 1.0,
+        "precipitation_more_precipitation_height": 2.0,
+    }
+    assert [(feature["properties"]["dataset"], feature["values"]) for feature in features] == [
+        ("climate_summary", [row]),
+        ("precipitation_more", [row]),
     ]
 
 

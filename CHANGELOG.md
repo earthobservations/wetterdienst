@@ -188,10 +188,11 @@ Types of changes:
   stored as zeros. A table created by an earlier version keeps its `TIMESTAMP` columns and what
   they stored; to get `DATETIME`, write it anew with `if_exists='replace'`, which drops every row
   it held (GH-2229)
-- GeoJSON of values gives a station in several datasets one feature per dataset carrying that
-  dataset's values only; each feature carried the values of every dataset, so each value appeared
-  once per dataset. A dataset the station returned no values for gets no feature. A wide row that
-  spans several datasets of one resolution, and names none, still goes to each of theirs (GH-2253)
+- GeoJSON of values gives each feature, one per dataset of a station, that dataset's values only,
+  and no feature to a dataset the station returned no values for; each feature carried the values
+  of every dataset, so each value appeared once per dataset. The wide shape is unchanged where it
+  merges several datasets of one resolution into rows that name none: those rows still go to each
+  of the datasets' features (GH-2253)
 - GeoJSON of stations and values gives a station without a latitude or longitude, such as a
   postcode of DWD derived `monthly/climate_correction_factor`, the geometry `null`, as RFC 7946
   has an unlocated feature; it was a `Point` of null coordinates, which strict parsers reject. The

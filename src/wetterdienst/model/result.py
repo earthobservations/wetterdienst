@@ -605,31 +605,25 @@ class ValuesResult(_ValuesResult):
             data["metadata"] = self.stations.get_metadata()
         # The stations frame holds one row per resolution, dataset and station, so a feature is one
         # dataset of one station and carries that dataset's values only. The values frame stores
-        # these columns as Enum (see TimeseriesValues._cast_metadata_to_enum); its partition keys
-        # are plain strings all the same, and the cast is for the join against the String columns
-        # of the stations frame.
+        # these columns as Enum (see TimeseriesValues._cast_metadata_to_enum), and its partition
+        # keys are plain strings all the same, as the stations frame's are.
         values_by_series = {
             key: df.drop("station_id")
             for key, df in self.df.partition_by(
                 ["resolution", "dataset", "station_id"], as_dict=True, maintain_order=True
             ).items()
         }
-        df_stations = self.stations.df.join(
-            self.df.select(pl.col("resolution", "station_id").cast(pl.String)).unique(),
-            on=["resolution", "station_id"],
-            how="semi",
-        )
         extra_columns = self.stations._ogc_extra_columns()  # noqa: SLF001
         features = []
-        for station in df_stations.with_columns(
+        for station in self.stations.df.with_columns(
             pl.col("start_date").dt.to_string("iso:strict"),
             pl.col("end_date").dt.to_string("iso:strict"),
         ).iter_rows(named=True):
             df_values = values_by_series.get((station["resolution"], station["dataset"], station["station_id"]))
             if df_values is None:
                 # the wide shape names no dataset on a row of a resolution it merged several
-                # requested datasets into (see TimeseriesValues._widen_df), and such a row holds
-                # the columns of each of them
+                # requested datasets into (see TimeseriesValues._widen_df). Such a row holds the
+                # columns of each of them, so it goes to each of their features (GH-2274)
                 df_values = values_by_series.get((station["resolution"], None, station["station_id"]))
             if df_values is None:
                 continue
