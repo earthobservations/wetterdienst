@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ServerDisconnectedError
+from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import skip_if_upstream_unavailable
 from wetterdienst import Settings
@@ -331,3 +333,109 @@ def test_all_reports_the_gauge_datum_as_gauge_zero_not_as_elevation(monkeypatch:
 
     assert dict(df.select("station_id", "gauge_zero").iter_rows()) == {"O972001001": -1.809, "K447001001": None}
     assert df.get_column("elevation").null_count() == df.height == 2
+
+
+def test_all_gives_the_referential_the_budget_of_the_other_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that reading the station referential may take as long as reading the observations.
+
+    The referential is a single page, but a slow one: on 2026-10-01 it took 25 to 78 seconds to
+    arrive, and four of six reads ran past the 30 seconds it was given, so the station list failed
+    with ``FSTimeoutError`` more often than not.
+    """
+    timeouts: dict[str, int] = {}
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        timeouts[url] = timeout
+        if "referentiel" in url:
+            return [_station("O972001001")]
+        return _observations(_dates("O972001001", 5, 8))
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+
+    HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all()
+
+    referential = {url: timeout for url, timeout in timeouts.items() if "referentiel" in url}
+    assert {url.split("?")[0].rsplit("/", 1)[-1] for url in referential} == {"stations", "sites"}
+    assert set(referential.values()) == {api._SNIFF_TIMEOUT} == {api._VALUES_TIMEOUT}  # noqa: SLF001
+
+
+def test_all_takes_the_elevation_from_the_station_site(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a station's elevation is the altitude of the site it names, where that is one.
+
+    The station referential publishes only the altitude of the gauge's zero, which is not the
+    ground's. The sites referential publishes ``altitude_site``, but not always a usable one: on
+    2026-10-01, 48 stations in service were on a site at 0 m, inland ones among them whose gauge
+    zero lies hundreds of metres up, 3 on a site at -999 m and 4 on one at 12000 m or more.
+    """
+    altitudes = {
+        "O9720010": 4.0,  # La Garonne à Bordeaux
+        "M6220010": -3.0,  # La Loire à Mauves-sur-Loire, on the tidal Loire
+        "O7161510": 0.0,  # Le Lot à Espalion, whose gauge zero is at 331.5 m
+        "I3103010": -999.0,
+        "30530001": 130000.0,
+        "K4470010": None,
+    }
+    # H2270003 names a site the sites referential does not list
+    stations = [{**_station(f"{site}01"), "code_site": site} for site in [*altitudes, "H2270003"]]
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        if "referentiel/sites" in url:
+            return [{"code_site": site, "altitude_site": altitude} for site, altitude in altitudes.items()]
+        if "referentiel/stations" in url:
+            return stations
+        return _observations([date for station in stations for date in _dates(station["code_station"], 5, 8)])
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert dict(df.select("station_id", "elevation").iter_rows()) == {
+        "O972001001": 4.0,
+        "M622001001": -3.0,
+        "O716151001": None,
+        "I310301001": None,
+        "3053000101": None,
+        "K447001001": None,
+        "H227000301": None,
+    }
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        FSTimeoutError(),
+        ServerDisconnectedError(),
+        FileNotFoundError("referentiel/sites"),
+        json.JSONDecodeError("Expecting value", "<html>", 0),
+        None,
+    ],
+    ids=["timeout", "disconnected", "not_found", "not_json", "no_connection"],
+)
+def test_all_lists_the_stations_when_the_sites_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    error: Exception | None,
+) -> None:
+    """Test that a sites referential that cannot be read leaves the elevation null, not the list empty.
+
+    The sites referential supplies the elevation and nothing else. It answered 503 on 2026-10-01
+    while the station referential answered, and failing the station list over it would bring back
+    the very failure a slow referential caused. A connection that cannot be made is no error at
+    all: ``_paged_rows`` reads it as an empty answer (``no_connection``), and is warned about too.
+    """
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        if "referentiel/sites" in url:
+            if error is None:
+                return []
+            raise error
+        if "referentiel/stations" in url:
+            return [{**_station("O972001001"), "code_site": "O9720010"}]
+        return _observations(_dates("O972001001", 5, 8))
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert dict(df.select("station_id", "elevation").iter_rows()) == {"O972001001": None}
+    assert "sites referential could not be read" in caplog.text

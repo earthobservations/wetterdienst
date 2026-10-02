@@ -2015,7 +2015,9 @@ def test_history_sections(client: TestClient) -> None:
         },
     )
     assert response.status_code == 200
-    assert [list(history) for history in response.json()["histories"]] == [["station_id", "name", "geography"]]
+    assert [list(history) for history in response.json()["histories"]] == [
+        ["station_id", "resolution", "dataset", "name", "geography"]
+    ]
 
 
 @pytest.mark.remote
@@ -2038,8 +2040,17 @@ def test_history_dwd_observation(client: TestClient) -> None:
     assert data.keys() == {"metadata", "stations", "histories"}
     assert len(data["histories"]) == 1
     history = data["histories"][0]
-    assert history.keys() == {"station_id", "name", "parameter", "device", "geography", "missing_data"}
-    assert history["station_id"] == "02564"
+    assert history.keys() == {
+        "station_id",
+        "resolution",
+        "dataset",
+        "name",
+        "parameter",
+        "device",
+        "geography",
+        "missing_data",
+    }
+    assert (history["station_id"], history["resolution"], history["dataset"]) == ("02564", "daily", "climate_summary")
     assert len(history["name"]) == 2
     assert history["name"].keys() == {"station", "operator"}
     assert history["name"]["station"][0] == {
@@ -2653,3 +2664,14 @@ def test_mcp_stations_tool_wsv_null_elevation() -> None:
     (station,) = data["result"]["stations"]
     assert station["station_id"] == "48900237"
     assert station["elevation"] is None
+
+
+def test_ogc_feature_properties_schema_allows_provider_station_columns() -> None:
+    """The GeoJSON feature properties schema admits the station columns a provider adds.
+
+    A feature carries the columns its provider declares beyond the core ones, such as WSV's
+    `gauge_zero`, so the served schema must not read as a closed list of the core columns.
+    """
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    assert app.openapi()["components"]["schemas"]["_OgcFeatureProperties"].get("additionalProperties") is True
