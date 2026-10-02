@@ -216,12 +216,13 @@ def _merge_fsspec_client_kwargs(given: dict) -> dict:
     ``headers`` is merged one level deeper, so that a header of the caller's own does not drop the
     User-Agent. Header names are case-insensitive, so a default header is left out where the caller
     gives the same name in any spelling; keeping both would send it twice. Headers given as anything
-    but a mapping -- aiohttp also takes a list of pairs -- are used as they are.
+    but a plain dict -- aiohttp also takes a list of pairs, or a ``CIMultiDict`` that may repeat a
+    name -- are used as they are, since copying them into a dict would drop a repeated header.
     """
     defaults = _default_fsspec_client_kwargs()
     merged = {**defaults, **given}
     headers = given.get("headers")
-    if isinstance(headers, Mapping):
+    if isinstance(headers, dict):
         named = {str(name).lower() for name in headers}
         merged["headers"] = {
             **{name: value for name, value in defaults["headers"].items() if name.lower() not in named},

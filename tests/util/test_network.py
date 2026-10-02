@@ -2396,8 +2396,16 @@ def test_post_file_retries_a_post_that_failed_after_a_long_attempt() -> None:
     assert result.content.getvalue() == payload
 
 
-def test_http_filesystem_receives_the_defaults_beside_a_callers_own_kwargs(tmp_path: Path) -> None:
+def test_http_filesystem_receives_the_defaults_beside_a_callers_own_kwargs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The proxy example from the docs reaches the filesystem with the timeout and User-Agent (GH-2269)."""
+    # client kwargs set in the developer's environment or `.env` would be merged in as well
+    for name in os.environ:
+        if name.upper().startswith("WD_FSSPEC_CLIENT_KWARGS"):
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
     client_kwargs = Settings(fsspec_client_kwargs={"trust_env": True}).fsspec_client_kwargs
 
     fs = HTTPFileSystem(

@@ -104,8 +104,9 @@ Types of changes:
   only what the `lead_time` it sends will answer; the other keys are as they were (GH-2256)
 - **Breaking**: a dict given as `fsspec_client_kwargs` or `WD_FSSPEC_CLIENT_KWARGS` is merged into
   the defaults, `headers` one level deep, where it replaced them, so the docs' proxy example
-  `{"trust_env": True}` no longer drops the 30 s timeout and the User-Agent. A key given still wins.
-  A dict without `timeout` used to get aiohttp's own; give `"timeout": None` to keep that (GH-2269)
+  `{"trust_env": True}` no longer drops the 30 s timeout and the User-Agent. A key given still wins:
+  give `"timeout": None` for aiohttp's own timeout, which a dict without one used to get, and a
+  `User-Agent` header of your own to send that instead of wetterdienst's (GH-2269)
 
 ### Fixed
 
