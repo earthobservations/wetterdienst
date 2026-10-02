@@ -558,15 +558,6 @@ def test_a_masked_value_is_refused_as_a_credential(auth: dict) -> None:
         Settings(auth=auth)
 
 
-@pytest.fixture
-def _no_client_kwargs_configured(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Keep client kwargs set in the developer's environment or `.env` out of the tests below."""
-    for name in os.environ:
-        if name.upper().startswith("WD_FSSPEC_CLIENT_KWARGS"):
-            monkeypatch.delenv(name)
-    monkeypatch.chdir(tmp_path)
-
-
 @pytest.mark.usefixtures("_no_client_kwargs_configured")
 def test_fsspec_client_kwargs_are_merged_into_the_defaults() -> None:
     """A dict of one's own keeps the timeout and the User-Agent it does not name (GH-2269).

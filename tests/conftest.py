@@ -9,6 +9,7 @@ import socket
 import sys
 from collections.abc import Generator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -452,3 +453,16 @@ def metadata() -> dict:
             "url": "https://opendata.dwd.de/climate_environment/CDC/",
         },
     }
+
+
+@pytest.fixture
+def _no_client_kwargs_configured(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Keep client kwargs set in the developer's environment or a `.env` file out of a test.
+
+    `Settings` merges them into its default `fsspec_client_kwargs`, so a test comparing against
+    those defaults would otherwise depend on the machine it runs on.
+    """
+    for name in os.environ:
+        if name.upper().startswith("WD_FSSPEC_CLIENT_KWARGS"):
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)

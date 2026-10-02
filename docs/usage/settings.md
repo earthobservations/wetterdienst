@@ -105,8 +105,7 @@ A dict given as `fsspec_client_kwargs`, as an argument or as `WD_FSSPEC_CLIENT_K
 into the defaults rather than replacing them: the example above keeps the User-Agent header and the
 timeout of 30. A key you give wins over the default of the same name, and `headers`, given as a
 dict, is merged the same way, so a header of your own is sent alongside the User-Agent, and a
-`User-Agent` of your own (in any capitalisation) replaces it. Headers given in any other form, such
-as a list of pairs, are used as they are, without the User-Agent. Give `"timeout": None` (`null` in
+`User-Agent` of your own (in any capitalisation) replaces it. Give `"timeout": None` (`null` in
 the environment variable) to use aiohttp's own default instead: five minutes for the whole request,
 30 seconds to connect. Assigning to `fsspec_client_kwargs` on a `Settings` object that already
 exists sets it as given, without merging.
