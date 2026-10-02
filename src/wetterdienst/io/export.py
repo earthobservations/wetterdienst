@@ -720,11 +720,17 @@ class ExportMixin:
             log.info(f"Writing to CrateDB. target={redact_password(target)}, table={tablename}")
 
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
-            # rebuilt from the reading above, with the password encoded again, so SQLAlchemy reads
+            # Rebuilt from the reading above, with the password encoded again, so SQLAlchemy reads
             # it back as the same password whatever it holds
-            cratedb_target = (
-                connspec.to_sqlalchemy_url().set(database=None, query={}).render_as_string(hide_password=False)
-            )
+            from sqlalchemy.engine import URL  # noqa: PLC0415
+
+            cratedb_target = URL.create(
+                "crate",
+                username=connspec.username,
+                password=connspec.password,
+                host=connspec.host,
+                port=connspec.port,
+            ).render_as_string(hide_password=False)
 
             # Convert timezone-aware datetime fields to naive ones.
             # FIXME: Omit this as soon as the CrateDB driver is capable of supporting timezone-qualified timestamps.

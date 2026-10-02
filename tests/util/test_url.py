@@ -169,7 +169,15 @@ def test_redact_password_hides_the_password_and_keeps_the_rest(url: str, redacte
 def test_connectionstring_reads_a_target_as_sqlalchemy_does(url: str) -> None:
     """Every sink reads a target as the SQL sinks' SQLAlchemy reads it, so they cannot disagree."""
     sqlalchemy = pytest.importorskip("sqlalchemy")
-    assert ConnectionString(url).to_sqlalchemy_url() == sqlalchemy.make_url(url)
+    cs = ConnectionString(url)
+    reference = sqlalchemy.make_url(url)
+    assert (cs.username, cs.password, cs.host, cs.port, cs.table) == (
+        reference.username,
+        reference.password,
+        reference.host,
+        reference.port,
+        reference.query.get("table", "weather"),
+    )
 
 
 @pytest.mark.parametrize(
@@ -247,8 +255,6 @@ def test_connectionstring_refuses_a_port_of_non_ascii_digits() -> None:
 
 
 def test_connectionstring_reads_a_file_target_as_a_path() -> None:
-    """A DuckDB target is read as `urlparse` reads it, and still gives a SQLAlchemy URL."""
+    """A DuckDB target is read as `urlparse` reads it, into the fields a server target fills."""
     cs = ConnectionString("duckdb:///dwd.duckdb?table=stations")
     assert (cs.protocol, cs.database, cs.table, cs.password) == ("duckdb", "dwd.duckdb", "stations", None)
-    pytest.importorskip("sqlalchemy")
-    assert cs.to_sqlalchemy_url().database == "dwd.duckdb"

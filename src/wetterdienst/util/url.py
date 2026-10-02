@@ -3,13 +3,9 @@
 """Helper class to support ``IoAccessor.export()``."""
 
 import re
-from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, unquote, urlparse
 
 from wetterdienst.exceptions import ExportRefusedError
-
-if TYPE_CHECKING:
-    from sqlalchemy.engine import URL
 
 # targets that name a file rather than a server, and so carry no credentials; a Windows path
 # such as `file://C:/data@x.csv` would otherwise read as user `C` with a password. Matched
@@ -187,20 +183,3 @@ class ConnectionString:
             return query[name][0]
         except (KeyError, IndexError):
             return None
-
-    def to_sqlalchemy_url(self) -> "URL":
-        """Give back the target as the SQLAlchemy URL `make_url` reads it as, from this reading.
-
-        The database is decoded, as SQLAlchemy 2.1 decodes it; 2.0 leaves it as written.
-        """
-        from sqlalchemy.engine import URL  # noqa: PLC0415
-
-        url = URL.create(
-            self._name,
-            username=self._username,
-            password=self._password,
-            host=self._host,
-            port=self._port,
-            database=self._database,
-        )
-        return url.update_query_string(self._query)
