@@ -625,9 +625,7 @@ class ValuesResult(_ValuesResult):
         # datasets into (see TimeseriesValues._widen_df), as such a row holds the columns of each.
         # A station there gets one feature with a null dataset, which spans the merged datasets'
         # dates: the earliest start and the latest end.
-        merged_resolutions = (
-            self.df.filter(pl.col("dataset").is_null()).get_column("resolution").cast(pl.String).unique().to_list()
-        )
+        merged_resolutions = {resolution for resolution, dataset, _ in values_by_series if dataset is None}
         if merged_resolutions:
             merged = pl.col("resolution").is_in(merged_resolutions)
             station_key = ["resolution", "station_id"]
