@@ -2773,3 +2773,71 @@ def test_values_to_ogc_feature_collection_wide_rows_spanning_datasets() -> None:
         ("climate_summary", 1),
         ("precipitation_more", 1),
     ]
+
+
+def _unlocated_stations_result() -> StationsResult:
+    """Build a stations result of one located station and two without a full position.
+
+    "10115" is a postcode, which DWD derived's climate_correction_factor lists as a station with
+    no latitude, longitude or elevation; "half" has a latitude but no longitude.
+    """
+    station = {"resolution": "monthly", "dataset": "climate_correction_factor", "start_date": None, "end_date": None}
+    df = pl.DataFrame(
+        [
+            {**station, "station_id": "located", "latitude": 50.0, "longitude": 8.0, "elevation": None, "name": "A"},
+            {**station, "station_id": "10115", "latitude": None, "longitude": None, "elevation": None, "name": None},
+            {**station, "station_id": "half", "latitude": 51.0, "longitude": None, "elevation": 10.0, "name": None},
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "elevation": pl.Float64,
+            "name": pl.String,
+        },
+        orient="row",
+    ).with_columns(region=pl.lit(None, dtype=pl.String))
+    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, stations=None)
+
+
+# per station id: the feature's geometry, null where the station has no position
+_UNLOCATED_GEOMETRIES = {
+    "located": {"type": "Point", "coordinates": [8.0, 50.0]},
+    "10115": None,
+    "half": None,
+}
+
+
+def test_stations_to_ogc_feature_collection_without_position() -> None:
+    """A station without a latitude or longitude gets a null geometry, not a Point of null coordinates.
+
+    RFC 7946 3.1.1 makes a position two or more numbers, and 3.2 writes an unlocated feature with a
+    null geometry.
+    """
+    features = json.loads(_unlocated_stations_result().to_geojson())["data"]["features"]
+    assert {feature["properties"]["id"]: feature["geometry"] for feature in features} == _UNLOCATED_GEOMETRIES
+
+
+def test_values_to_ogc_feature_collection_without_position() -> None:
+    """The values variant writes a station without a position with a null geometry too."""
+    result = _values_result(
+        _unlocated_stations_result(),
+        [
+            {
+                "station_id": station_id,
+                "resolution": "monthly",
+                "dataset": "climate_correction_factor",
+                "parameter": "climate_correction_factor",
+                "timestamp": dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 1.0,
+                "quality": None,
+            }
+            for station_id in _UNLOCATED_GEOMETRIES
+        ],
+    )
+    features = json.loads(result.to_geojson())["data"]["features"]
+    assert {feature["properties"]["id"]: feature["geometry"] for feature in features} == _UNLOCATED_GEOMETRIES

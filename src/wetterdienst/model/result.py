@@ -128,7 +128,8 @@ class _StationsOgcFeature(TypedDict):
 
     type: Literal["Feature"]
     properties: _OgcFeatureProperties
-    geometry: _OgcFeatureGeometry
+    # null for a station without a position: RFC 7946 3.2 writes an unlocated feature that way
+    geometry: _OgcFeatureGeometry | None
 
 
 class _StationsOgcFeatureCollectionData(TypedDict):
@@ -285,10 +286,15 @@ class StationsResult(ExportMixin):
         """Format one station row, with its dates already ISO strings, as an OGC feature."""
         # A position is "longitude, latitude [, elevation]" in WGS84 decimal degrees, and per
         # RFC 7946 3.1.1 it is two or more numbers, so a station without an elevation gets no z
-        # rather than a null one, which strict parsers reject.
-        coordinates = [station["longitude"], station["latitude"]]
-        if station["elevation"] is not None:
-            coordinates.append(station["elevation"])
+        # rather than a null one, which strict parsers reject. A station without a latitude or
+        # longitude, such as a postcode of DWD derived's climate_correction_factor, has no position
+        # at all, and RFC 7946 3.2 writes such an unlocated feature with a null geometry.
+        geometry: _OgcFeatureGeometry | None = None
+        if station["longitude"] is not None and station["latitude"] is not None:
+            coordinates = [station["longitude"], station["latitude"]]
+            if station["elevation"] is not None:
+                coordinates.append(station["elevation"])
+            geometry = {"type": "Point", "coordinates": coordinates}
         return {
             "type": "Feature",
             "properties": {
@@ -301,10 +307,7 @@ class StationsResult(ExportMixin):
                 "end_date": station["end_date"],
                 **{column: station[column] for column in extra_columns},
             },
-            "geometry": {
-                "type": "Point",
-                "coordinates": coordinates,
-            },
+            "geometry": geometry,
         }
 
     def to_ogc_feature_collection(self, *, with_metadata: bool = False, **_kwargs) -> _StationsOgcFeatureCollection:  # noqa: ANN003  # ty: ignore[invalid-method-override]
@@ -563,7 +566,8 @@ class _ValuesOgcFeature(TypedDict):
 
     type: Literal["Feature"]
     properties: _OgcFeatureProperties
-    geometry: _OgcFeatureGeometry
+    # null for a station without a position: RFC 7946 3.2 writes an unlocated feature that way
+    geometry: _OgcFeatureGeometry | None
     values: list[_ValuesItemDict]
 
 
