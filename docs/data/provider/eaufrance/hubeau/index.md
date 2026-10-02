@@ -16,7 +16,11 @@ is required.
 
 A site publishes no altitude for about a quarter of the stations, and a few publish 0 or a value
 no ground in France lies at (-999 m, or 12 km and more); their `elevation` is null. The altitude
-of the gauge's zero, the datum a stage is read from, is listed separately as `gauge_zero`.
+of the gauge's zero, the datum a stage is read from, is listed separately as `gauge_zero`, and the
+vertical reference system it is given in as `gauge_zero_datum`: the Sandre label of the station's
+`code_systeme_alti_site` (nomenclature 76), such as `IGN 1969` or
+`Nivellement Général de la France 1884`, or the code itself for one without a label. Stations
+differ in it, mainland ones too, so compare two gauge zeros only where their datums agree.
 
 The recording interval is a property of the station rather than of the network, and unlike most
 services Hubeau publishes it nowhere: neither the station referential nor the observations carry
