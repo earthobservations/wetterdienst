@@ -465,7 +465,7 @@
     "leadTime": "Previsiounslaf",
     "leadTimeShort": "Kuerz: bis 78 h, stëndlech",
     "leadTimeLong": "Laang: 78 bis 168 h, all 3 Stonnen",
-    "leadTimeHint": "Den DWD publizéiert d'ICON-DMO-Previsioun als zwee Leef. De kuerzen huet déi stëndlech Nidderschlags-, Stralungs- a Schnéiparameter, de laangen amplaz déi vun all 3 Stonnen; all déi aner sinn an deenen zwee. Wiel de Laf, deen déi gewielte Parameteren huet: eng Auswiel, déi stëndlech an 3-stëndlech mëscht, gëtt refuséiert, ausser et ass de ganzen Datesaz, deen liest, wat de Laf huet.",
+    "leadTimeHint": "Den DWD publizéiert d'ICON-DMO-Previsioun als zwee Leef. De kuerzen huet déi stëndlech Nidderschlags-, Stralungs- a Schnéiparameter, de laangen amplaz déi vun all 3 Stonnen; all déi aner sinn an deenen zwee. Ugebuede ginn d'Parameteren, déi de gewielte Laf huet.",
     "modeStationDesc": "Fetch observations directly from one or more weather stations.",
     "modeInterpolationDesc": "Mathematically estimates the weather value at any location, even without a station there.",
     "modeSummaryDesc": "Returns the actual measured value from the nearest station that has data at each moment in time.",
