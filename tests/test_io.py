@@ -2751,10 +2751,11 @@ def test_values_to_ogc_feature_collection_leaves_out_a_dataset_without_values() 
 
 
 def test_values_to_ogc_feature_collection_wide_rows_spanning_datasets() -> None:
-    """A wide row spanning two datasets of one resolution, and so naming none, is not dropped.
+    """A wide row spanning two datasets of one resolution, and so naming none, goes to one feature.
 
-    Such a row holds the columns of each dataset, so it goes, whole, to the feature of each of
-    them, as it did before features were split by dataset; GH-2274 tracks splitting it too.
+    Such a row holds the columns of each dataset, and it went, whole, to the feature of each of
+    them, so every value appeared once per dataset (GH-2274). The station gets one feature for
+    the resolution, with a null dataset as its rows carry.
     """
     result = _values_result(
         _two_dataset_stations_result(),
@@ -2777,10 +2778,18 @@ def test_values_to_ogc_feature_collection_wide_rows_spanning_datasets() -> None:
         "climate_summary_temperature_air_mean_2m": 1.0,
         "precipitation_more_precipitation_height": 2.0,
     }
-    assert [(feature["properties"]["dataset"], feature["values"]) for feature in features] == [
-        ("climate_summary", [row]),
-        ("precipitation_more", [row]),
-    ]
+    assert [(feature["properties"]["dataset"], feature["values"]) for feature in features] == [(None, [row])]
+    # position, name and the other station columns come from the station's rows
+    assert features[0]["geometry"] == {"type": "Point", "coordinates": [13.8, 51.1, 228.0]}
+    assert features[0]["properties"] == {
+        "resolution": "daily",
+        "dataset": None,
+        "id": "01048",
+        "name": "Dresden-Klotzsche",
+        "region": "Sachsen",
+        "start_date": None,
+        "end_date": None,
+    }
 
 
 def _unlocated_stations_result() -> StationsResult:
@@ -2849,3 +2858,82 @@ def test_values_to_ogc_feature_collection_without_position() -> None:
     )
     features = json.loads(result.to_geojson())["data"]["features"]
     assert {feature["properties"]["id"]: feature["geometry"] for feature in features} == _UNLOCATED_GEOMETRIES
+
+
+def test_values_to_ogc_feature_collection_merged_datasets_span_their_dates() -> None:
+    """A merged resolution's feature spans its datasets' dates, per station; another resolution is kept.
+
+    Each station gets one daily feature, from the earliest start to the latest end of its two daily
+    datasets, a null date not counting. The hourly resolution holds one dataset, so the wide shape
+    names it on its rows and its feature keeps that name and its own dates (GH-2274).
+    """
+
+    def utc(year: int, month: int = 1) -> dt.datetime:
+        return dt.datetime(year, month, 1, tzinfo=ZoneInfo("UTC"))
+
+    stations = pl.DataFrame(
+        [
+            ("daily", "climate_summary", "01048", utc(1950), utc(2026)),
+            ("daily", "precipitation_more", "01048", utc(1940), utc(2025, 6)),
+            ("daily", "climate_summary", "00011", utc(2000), utc(2020)),
+            ("daily", "precipitation_more", "00011", None, utc(2021)),
+            ("hourly", "temperature_air", "01048", utc(1990), utc(2026, 2)),
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+        },
+        orient="row",
+    ).with_columns(
+        latitude=pl.lit(51.1),
+        longitude=pl.lit(13.8),
+        elevation=pl.lit(None, dtype=pl.Float64),
+        name=pl.col("station_id"),
+        region=pl.lit(None, dtype=pl.String),
+    )
+    wide = {
+        "climate_summary_temperature_air_mean_2m": 1.0,
+        "precipitation_more_precipitation_height": 2.0,
+        "temperature_air_temperature_air_mean_2m": None,
+    }
+    result = _values_result(
+        StationsResult(df=stations, df_all=stations, stations_filter=StationsFilter.ALL, stations=None),
+        [
+            {"station_id": "01048", "resolution": "daily", "dataset": None, "timestamp": utc(2025), **wide},
+            {"station_id": "00011", "resolution": "daily", "dataset": None, "timestamp": utc(2019), **wide},
+            {
+                "station_id": "01048",
+                "resolution": "hourly",
+                "dataset": "temperature_air",
+                "timestamp": utc(2025),
+                **wide,
+                "temperature_air_temperature_air_mean_2m": 3.0,
+            },
+        ],
+    )
+    features = json.loads(result.to_geojson())["data"]["features"]
+    assert [
+        (
+            feature["properties"]["resolution"],
+            feature["properties"]["dataset"],
+            feature["properties"]["id"],
+            feature["properties"]["start_date"],
+            feature["properties"]["end_date"],
+            [value["timestamp"][:4] for value in feature["values"]],
+        )
+        for feature in features
+    ] == [
+        ("daily", None, "01048", "1940-01-01T00:00:00.000000+00:00", "2026-01-01T00:00:00.000000+00:00", ["2025"]),
+        ("daily", None, "00011", "2000-01-01T00:00:00.000000+00:00", "2021-01-01T00:00:00.000000+00:00", ["2019"]),
+        (
+            "hourly",
+            "temperature_air",
+            "01048",
+            "1990-01-01T00:00:00.000000+00:00",
+            "2026-02-01T00:00:00.000000+00:00",
+            ["2025"],
+        ),
+    ]

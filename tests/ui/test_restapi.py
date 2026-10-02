@@ -2721,3 +2721,14 @@ def test_ogc_feature_schema_allows_a_null_geometry(schema_name: str) -> None:
     geometry = app.openapi()["components"]["schemas"][schema_name]["properties"]["geometry"]
     assert {"$ref": "#/components/schemas/_OgcFeatureGeometry"} in geometry["anyOf"]
     assert {"type": "null"} in geometry["anyOf"]
+
+
+def test_ogc_feature_properties_schema_allows_a_null_dataset() -> None:
+    """The GeoJSON feature properties admit a null dataset (GH-2274).
+
+    A values feature of a resolution the wide shape merged several datasets into names none.
+    """
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    dataset = app.openapi()["components"]["schemas"]["_OgcFeatureProperties"]["properties"]["dataset"]
+    assert {branch.get("type") for branch in dataset.get("anyOf", [dataset])} == {"string", "null"}
