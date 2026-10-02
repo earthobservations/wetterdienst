@@ -1057,7 +1057,7 @@ def issues_cmd(
     "--sections",
     type=click.STRING,
     help="History sections to include, comma-separated: name, parameter, device, geography, missing_data. "
-    "Default: all. Each history gives its station_id whichever are included",
+    "Default: all. Each history gives its station_id, resolution and dataset, whichever are included",
 )
 @click.option(
     "--format",

@@ -1434,6 +1434,41 @@ def test_dwd_obs_history_names_its_station(
     ] == [{"station_id": "01048", "parameter": [], "device": [], "geography": []}]
 
 
+def test_dwd_obs_history_names_its_dataset(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test each of one station's dataset histories names its resolution and dataset, as the values frame does."""
+    files = {name: text for name, text in _STATION_01048_METADATA.items() if "Stationsname" in name}
+    datasets = [
+        DwdObservationMetadata.daily.climate_summary,
+        DwdObservationMetadata.hourly.temperature_air,
+        # subdaily wind_extreme joins its FX3 and FX6 archives into one history in a branch of its own
+        DwdObservationMetadata.subdaily.wind_extreme,
+    ]
+    urls = {
+        "climate_summary": ["https://opendata.dwd.de/tageswerte_KL_01048_hist.zip"],
+        "temperature_air": ["https://opendata.dwd.de/stundenwerte_TU_01048_hist.zip"],
+        "wind_extreme": [
+            "https://opendata.dwd.de/terminwerte_FX3_01048_hist.zip",
+            "https://opendata.dwd.de/terminwerte_FX6_01048_hist.zip",
+        ],
+    }
+    monkeypatch.setattr(
+        api,
+        "create_file_index_for_climate_observations",
+        lambda dataset, **_: pl.LazyFrame(
+            {"station_id": ["01048"] * len(urls[dataset.name]), "url": urls[dataset.name]}
+        ),
+    )
+    monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=_metadata_zip(files), status=200))
+    stations = SimpleNamespace(stations=SimpleNamespace(settings=Settings()))
+    collector = DwdObservationHistory(sr=cast("StationsResult", stations))
+    histories = list(collector._collect_station_history("01048", datasets))  # noqa: SLF001
+    assert [history.model_dump(include={"station_id", "resolution", "dataset"}) for history in histories] == [
+        {"station_id": "01048", "resolution": "daily", "dataset": "climate_summary"},
+        {"station_id": "01048", "resolution": "hourly", "dataset": "temperature_air"},
+        {"station_id": "01048", "resolution": "subdaily", "dataset": "wind_extreme"},
+    ]
+
+
 def test_dwd_obs_missing_data_history_reads_latin1() -> None:
     """Test the missing-data file is decoded as latin-1, the encoding DWD writes a name like Görlitz in.
 
