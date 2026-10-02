@@ -23,10 +23,9 @@ wetterdienst values \
 `duckdb:///obs.duckdb?table=weather`, `influxdb://…` or `crate://…` work equally well — see
 [Export](python-api.md#export). Each database sink is an optional extra (`duckdb`, `influxdb`,
 `cratedb`, `postgresql`, `mysql`), imported only when its target is used, so install the one you
-schedule or the run fails at the very end, after the download. `postgresql` and `mysql` need
-`export` beside them, which brings SQLAlchemy and pandas. The `postgresql` extra installs psycopg2,
-while SQLAlchemy 2.1 resolves a bare `postgresql://` to psycopg 3, so spell that target
-`postgresql+psycopg2://…` (GH-2202).
+schedule or the run fails at the very end, after the download. A bare `postgresql://` target
+writes through psycopg 3, which the `postgresql` extra installs; `postgresql+psycopg2://…` needs
+`pip install psycopg2-binary` beside it.
 
 Three properties of the CLI matter for a scheduler:
 

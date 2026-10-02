@@ -72,6 +72,14 @@ Types of changes:
   was missing. Drop `quality` 11 to get the rows as before. Other parameters and datasets are
   unchanged (GH-2000)
 - **Breaking**: Eaufrance Hub'Eau stations list the altitude of the gauge's zero, in metres, as
+  `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
+  Read `gauge_zero` for it (GH-2020)
+- **Breaking**: the `postgresql` extra installs psycopg 3 instead of psycopg2, and a bare
+  `postgresql://` target writes through psycopg 3 whenever it is installed, on every SQLAlchemy
+  version; under 2.1 it failed with `No module named 'psycopg'`. `postgresql` and `mysql` bring
+  SQLAlchemy and pandas, so neither needs `export` beside it. For `postgresql+psycopg2://`,
+  install `psycopg2-binary` yourself; the Docker image has psycopg 3 only, so drop `+psycopg2`
+  there (GH-2202)
   `gauge_zero`, as WSV Pegelonline does; it was listed as `elevation`. Read `gauge_zero` for it
   (GH-2020)
 - Eaufrance Hub'Eau stations list as `elevation` the altitude of their site, `altitude_site` from
