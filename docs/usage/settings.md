@@ -105,7 +105,8 @@ A number given as `timeout` in `fsspec_client_kwargs` (30 in the default ones, w
 your own replaces) is how many seconds a server may stay silent before a request fails: while
 connecting, before the first byte of its answer, or between two bytes of it. A download that keeps
 arriving is not cut off, however long it takes. To bound the whole request instead, pass an
-`aiohttp.ClientTimeout`, e.g. `ClientTimeout(total=60)`.
+`aiohttp.ClientTimeout`, e.g. `ClientTimeout(total=60)`. Eaufrance Hub'Eau replaces either with
+120 seconds of silence of its own, as its service can take longer than 30 seconds to answer.
 
 If you're experiencing SSL certificate verification issues, especially in corporate environments or
 when system certificates are outdated, you can enable the certifi certificate bundle:

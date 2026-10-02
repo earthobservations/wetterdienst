@@ -12,6 +12,7 @@ from collections.abc import Callable, Iterator, MutableMapping
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -570,7 +571,7 @@ def test_http_filesystem_wraps_int_timeout_in_client_timeout(tmp_path: Path) -> 
         client_kwargs={"timeout": 30, "headers": {"User-Agent": "wetterdienst"}},
         skip_instance_cache=True,
     )
-    assert fs.client_kwargs["timeout"] == ClientTimeout(total=None, sock_connect=30, sock_read=30)
+    assert fs.client_kwargs["timeout"] == ClientTimeout(total=None, connect=30, sock_connect=30, sock_read=30)
     assert fs.client_kwargs["headers"] == {"User-Agent": "wetterdienst"}
 
 
@@ -583,7 +584,7 @@ def test_http_filesystem_wraps_float_timeout_in_client_timeout(tmp_path: Path) -
         client_kwargs={"timeout": 30.5},
         skip_instance_cache=True,
     )
-    assert fs.client_kwargs["timeout"] == ClientTimeout(total=None, sock_connect=30.5, sock_read=30.5)
+    assert fs.client_kwargs["timeout"] == ClientTimeout(total=None, connect=30.5, sock_connect=30.5, sock_read=30.5)
 
 
 def test_http_filesystem_leaves_client_timeout_untouched(tmp_path: Path) -> None:
@@ -2221,11 +2222,11 @@ def test_every_way_into_the_metadata_file_takes_the_cache_lock(
 class _TrickleEndpoint(BaseHTTPRequestHandler):
     """Answers slowly: `/steady` keeps sending, `/stall-*` stops until the test lets it go."""
 
-    # a chunk every tenth of a second, a fifth of the timeout the tests below give, for a body that
-    # takes more than twice that timeout to arrive whole
+    # a chunk every twentieth of a second, a tenth of the timeout the tests below give -- a margin
+    # wide enough for a loaded runner -- for a body that takes more than twice that timeout to arrive
     chunk = b"x" * 64
-    chunks = 12
-    interval = 0.1
+    chunks = 24
+    interval = 0.05
 
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
         """Keep the test output quiet."""
@@ -2269,7 +2270,7 @@ def test_a_numeric_timeout_lets_a_slow_but_steady_download_finish(tmp_path: Path
     """A number in the client kwargs bounds silence, not the whole download (GH-2258).
 
     The body takes about 1.2 seconds to arrive against a timeout of 0.5, but never pauses for more
-    than a tenth of a second. As a bound on the whole request, the timeout failed it with
+    than a twentieth of a second. As a bound on the whole request, the timeout failed it with
     `FSTimeoutError` while bytes were still arriving -- a slow link failed every file larger than
     the timeout's worth of its bandwidth.
     """
@@ -2314,3 +2315,35 @@ def test_a_numeric_timeout_still_fails_a_server_that_stops_sending(
     assert isinstance(result.content, FSTimeoutError)
     # given up at the timeout, well before the server would have let go of the request
     assert elapsed < 5
+
+
+def test_download_file_retries_a_download_that_failed_after_a_long_transfer() -> None:
+    """A download that streamed for a minute before failing still gets its second attempt (GH-2258).
+
+    A numeric timeout bounds silence, so an attempt can run for longer than stamina's default time
+    budget of 45 seconds -- which would leave no room for the retry. The clock is faked rather than
+    waited out, and stamina's test mode is not used, as it drops the time budget this is about.
+    """
+    clock = [0.0]
+    payload = b"data"
+    mock_fs = MagicMock()
+
+    def cat_file(_url: str) -> bytes:
+        clock[0] += 60
+        if mock_fs.cat_file.call_count == 1:
+            msg = "the connection dropped a minute in"
+            raise ClientPayloadError(msg)
+        return payload
+
+    mock_fs.cat_file.side_effect = cat_file
+
+    with (
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+        patch("tenacity.time", SimpleNamespace(monotonic=lambda: clock[0])),
+        patch("tenacity.nap.time", SimpleNamespace(sleep=lambda _seconds: None)),
+    ):
+        result = download_file(url="http://example.com/file.txt", cache_dir=Path(), cache_disable=True)
+
+    assert mock_fs.cat_file.call_count == 2
+    assert result.status == 200
+    assert result.content.getvalue() == payload
