@@ -2659,6 +2659,144 @@ def test_timeseries_values_to_target_logs_the_target_without_its_password(caplog
 
 
 @pytest.mark.parametrize(
+    ("target", "pieces"),
+    [
+        # SQLAlchemy's reading ends the password at the first `@`, which left `tok3n-TAIL@localhost`
+        # as the host
+        pytest.param(
+            "influxdb2://acme:tok3n-HEAD@tok3n-TAIL@localhost/?database=dwd&table=weather",
+            ["tok3n-HEAD", "tok3n-TAIL"],
+            id="influxdb2-at",
+        ),
+        pytest.param(
+            "crate://crate:hun-HEAD@ter-TAIL@localhost:4200/dwd?table=weather",
+            ["hun-HEAD", "ter-TAIL"],
+            id="crate-at",
+        ),
+        # `make_url` raised `invalid literal for int() with base 10: 'pw-TAIL@db'`
+        pytest.param(
+            "postgresql://scott:pw-HEAD@ss:pw-TAIL@db/dwd?table=weather",
+            ["pw-HEAD", "pw-TAIL"],
+            id="sql-at-then-colon",
+        ),
+    ],
+)
+def test_to_target_refuses_a_password_holding_an_unencoded_at(
+    target: str,
+    pieces: list[str],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A password whose `@` would be read as the end of it is refused before anything is logged.
+
+    Read that way, the rest of it became the host and port, which a driver's error then printed.
+    """
+    with (
+        caplog.at_level(logging.DEBUG, logger="wetterdienst"),
+        pytest.raises(ExportRefusedError, match="%40") as excinfo,
+    ):
+        _one_row().to_target(target)
+
+    # refused first, so nothing was logged and nothing connected
+    assert caplog.text == ""
+    for piece in pieces:
+        assert piece not in str(excinfo.value)
+
+
+# a password holding every delimiter `urlparse` ends the host part at, and a colon
+_DELIMITED = "p/a?s#s:w"
+
+
+def test_to_target_writes_influxdb1_with_a_password_holding_delimiters() -> None:
+    """InfluxDB 1 is handed the host, port, password and database the target names."""
+    pytest.importorskip("influxdb")
+    with mock.patch("influxdb.InfluxDBClient") as client:
+        _one_row().to_target(f"influxdb://root:{_DELIMITED}@localhost:8087/?database=obs")
+
+    client.assert_called_once_with(
+        host="localhost", port=8087, username="root", password=_DELIMITED, database="obs", ssl=False
+    )
+
+
+def test_to_target_writes_influxdb2_with_a_token_holding_delimiters() -> None:
+    """InfluxDB 2 is handed the URL, org and token the target names, and writes to its bucket."""
+    pytest.importorskip("influxdb_client")
+    with mock.patch("influxdb_client.InfluxDBClient") as client:
+        _one_row().to_target(f"influxdb2://acme:{_DELIMITED}@localhost/?database=obs&table=weather")
+
+    client.assert_called_once_with(url="http://localhost:8086", org="acme", token=_DELIMITED)
+    assert client.return_value.write_api.return_value.write.call_args.kwargs["bucket"] == "obs"
+
+
+def test_to_target_writes_influxdb3_with_a_token_holding_delimiters() -> None:
+    """InfluxDB 3 is handed the host, org, token and database the target names."""
+    pytest.importorskip("influxdb_client_3")
+    with mock.patch("influxdb_client_3.InfluxDBClient3") as client:
+        _one_row().to_target(f"influxdb3://acme:{_DELIMITED}@eu.example.org/?database=obs")
+
+    kwargs = client.call_args.kwargs
+    assert (kwargs["host"], kwargs["org"], kwargs["token"], kwargs["database"]) == (
+        "eu.example.org",
+        "acme",
+        _DELIMITED,
+        "obs",
+    )
+
+
+def test_to_target_writes_cratedb_with_a_password_holding_delimiters() -> None:
+    """CrateDB is handed a URL that reads back as the same host, port and password."""
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pytest.importorskip("pandas")
+    with mock.patch("pandas.DataFrame.to_sql") as to_sql:
+        _one_row().to_target(f"crate://crate:{_DELIMITED}@localhost:4200/obs?table=readings")
+
+    url = sqlalchemy.make_url(to_sql.call_args.kwargs["con"])
+    assert (url.drivername, url.username, url.password, url.host, url.port) == (
+        "crate",
+        "crate",
+        _DELIMITED,
+        "localhost",
+        4200,
+    )
+    assert (to_sql.call_args.kwargs["schema"], to_sql.call_args.kwargs["name"]) == ("obs", "readings")
+
+
+@pytest.mark.parametrize(
+    "written",
+    [pytest.param(_DELIMITED, id="delimiters"), pytest.param("pa/ss", id="slash")],
+)
+def test_to_target_writes_sql_with_a_password_holding_delimiters(written: str) -> None:
+    """SQLAlchemy is handed the password the target names, and the table is the one it names."""
+    pytest.importorskip("sqlalchemy")
+    pytest.importorskip("pandas")
+    with mock.patch("sqlalchemy.create_engine") as create_engine, mock.patch("pandas.DataFrame.to_sql") as to_sql:
+        _one_row().to_target(f"postgresql+psycopg2://scott:{written}@db/dwd?table=obs")
+
+    url = create_engine.call_args.args[0]
+    assert (url.password, url.host, url.database) == (written, "db", "dwd")
+    assert to_sql.call_args.kwargs["name"] == "obs"
+
+
+def test_to_target_hands_influxdb_an_encoded_token_decoded() -> None:
+    """A percent-encoded token reaches InfluxDB decoded, as SQLAlchemy decodes a password."""
+    pytest.importorskip("influxdb_client")
+    with mock.patch("influxdb_client.InfluxDBClient") as client:
+        _one_row().to_target("influxdb2://acme:Ab%2FCd%40%3D%3D@localhost/?database=dwd")
+
+    client.assert_called_once_with(url="http://localhost:8086", org="acme", token="Ab/Cd@==")  # noqa: S106
+
+
+def test_to_target_hands_sql_the_database_as_the_installed_sqlalchemy_reads_it() -> None:
+    """SQLAlchemy 2.0 leaves an encoded database as written and 2.1 decodes it; neither is changed."""
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pytest.importorskip("pandas")
+    target = "postgresql+psycopg2://scott:tiger@db/data%20base?table=obs"
+    with mock.patch("sqlalchemy.create_engine") as create_engine, mock.patch("pandas.DataFrame.to_sql"):
+        _one_row().to_target(target)
+
+    assert create_engine.call_args.args[0] == sqlalchemy.make_url(target).difference_update_query(["table"])
+
+
+@pytest.mark.parametrize(
     ("target", "datetime_type"),
     [
         pytest.param(
