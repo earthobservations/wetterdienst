@@ -4,7 +4,7 @@
 
 import re
 from typing import TYPE_CHECKING
-from urllib.parse import parse_qs, parse_qsl, unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from wetterdienst.exceptions import ExportRefusedError
 
@@ -82,15 +82,17 @@ class ConnectionString:
     CrateDB read it with `urlparse` before, which ends the host part at the first `/`, `?` or
     `#`, so a password holding one was split and its pieces became the port and database, and
     from there a log line. The username, password and database are percent-decoded, as
-    SQLAlchemy decodes them.
+    SQLAlchemy decodes them. A file or DuckDB target is a path, and is read with `urlparse`.
 
     Raises:
-        ExportRefusedError: The target is not a URL, or its password holds an unencoded `@`.
-            SQLAlchemy ends the password at the first `@`, so the rest of it would be read as
-            the host and port; that is told apart from a real host by the `@` left in it. The
-            message names no part of the target. A password holding an `@` and, after it, a
-            `/` or `?` reads as a shorter password, a host and a database or query, which no
-            reading of the string can tell from a target that means just that.
+        ExportRefusedError: The target is not a URL, names a port that is not a number, or its
+            password holds an unencoded `@`. SQLAlchemy ends the password at the first `@`, so
+            the rest of it would be read as the host and port; that is told apart from a real
+            host by the `@` left in it. The message names no part of the target. A password
+            holding an `@` and, after it, a `/` or `?` reads as a shorter password, a host and
+            a database or query, and a target with no password but a `host:port` and an `@` in
+            its path or query reads as one with a password; no reading of the string can tell
+            either from a target that means just that, so such an `@` is written `%40`.
 
     """
 
@@ -102,73 +104,70 @@ class ConnectionString:
 
         """
         self.url_raw = url
-        self._file = url.startswith(_FILE_PREFIXES)
-        if self._file:
-            self._url = urlparse(url)
+        if url.startswith(_FILE_PREFIXES):
+            parsed = urlparse(url)
+            self._name = parsed.scheme
+            self._host = self._port = self._username = self._password = None
+            self._database = parsed.path[1:] if parsed.path.startswith("/") else None
+            self._query = parsed.query
+            self._path = parsed.path or parsed.netloc
             return
         match = _URL_PATTERN.match(url)
         if match is None:
             msg = "The target is not a URL of the form scheme://[user[:password]@]host[:port][/database][?query]."
             raise ExportRefusedError(msg)
         parts = match.groupdict()
-        self._name: str = parts["name"]
-        self._host: str | None = parts["ipv4host"] or parts["ipv6host"]
+        host = parts["ipv4host"] or parts["ipv6host"]
         port = parts["port"] or None
-        if "@" in (self._host or "") or "@" in (port or ""):
+        if "@" in (host or "") or "@" in (port or ""):
             msg = (
                 "The target's password holds an '@' that is not percent-encoded, which ends it "
                 "early, so the rest of it would be read as the host and port. Write it as %40."
             )
             raise ExportRefusedError(msg)
-        if port is not None and not port.isdigit():
+        # `int` reads digits such as `²` that a port is not made of, and names them when it fails
+        if port is not None and not (port.isascii() and port.isdigit()):
             msg = "The target's port is not a number."
             raise ExportRefusedError(msg)
-        self._port = None if port is None else int(port)
-        self._username = None if parts["username"] is None else unquote(parts["username"])
-        self._password = None if parts["password"] is None else unquote(parts["password"])
-        self._database = None if parts["database"] is None else unquote(parts["database"])
+        self._name: str = parts["name"]
+        self._host: str | None = host
+        self._port: int | None = None if port is None else int(port)
+        self._username: str | None = None if parts["username"] is None else unquote(parts["username"])
+        self._password: str | None = None if parts["password"] is None else unquote(parts["password"])
+        self._database: str | None = None if parts["database"] is None else unquote(parts["database"])
         self._query: str = parts["query"] or ""
+        self._path: str = self._database or ""
 
     @property
     def protocol(self) -> str:
         """Get the protocol from the URL."""
-        return self._url.scheme if self._file else self._name.lower()
+        return self._name.lower()
 
     @property
     def host(self) -> str | None:
         """Get the host from the URL."""
-        return self._url.hostname if self._file else self._host
+        return self._host
 
     @property
     def port(self) -> int | None:
         """Get the port from the URL."""
-        return self._url.port if self._file else self._port
+        return self._port
 
     @property
     def username(self) -> str | None:
         """Get the username from the URL, percent-decoded."""
-        return None if self._file else self._username
+        return self._username
 
     @property
     def password(self) -> str | None:
         """Get the password from the URL, percent-decoded."""
-        return None if self._file else self._password
+        return self._password
 
     @property
     def database(self) -> str:
         """Get the database name from the URL."""
-        # Try to get database name from query parameter.
-        database = self.get_query_param("database") or self.get_query_param("bucket")
-
-        # Try to get database name from URL path.
-        if not database:
-            if self._file:
-                if self._url.path.startswith("/"):
-                    database = self._url.path[1:]
-            else:
-                database = self._database
-
-        return database or "dwd"
+        # Try to get database name from query parameter, then from the URL path.
+        return self.get_query_param("database") or self.get_query_param("bucket") or self._database or "dwd"
 
     @property
     def table(self) -> str:
@@ -178,13 +177,11 @@ class ConnectionString:
     @property
     def path(self) -> str:
         """Get the path from the URL."""
-        if self._file:
-            return self._url.path or self._url.netloc
-        return self._database or ""
+        return self._path
 
     def get_query_param(self, name: str) -> str | None:
         """Get a query parameter from the URL."""
-        query = parse_qs(self._url.query if self._file else self._query)
+        query = parse_qs(self._query)
         try:
             return query[name][0]
         except (KeyError, IndexError):
@@ -194,19 +191,12 @@ class ConnectionString:
         """Give back the target as the SQLAlchemy URL `make_url` reads it as, from this reading."""
         from sqlalchemy.engine import URL  # noqa: PLC0415
 
-        query: dict[str, str | tuple[str, ...]] = {}
-        for key, value in parse_qsl(self._query):
-            if key in query:
-                previous = query[key]
-                query[key] = (*previous, value) if isinstance(previous, tuple) else (previous, value)
-            else:
-                query[key] = value
-        return URL.create(
+        url = URL.create(
             self._name,
             username=self._username,
             password=self._password,
             host=self._host,
             port=self._port,
             database=self._database,
-            query=query,
         )
+        return url.update_query_string(self._query)

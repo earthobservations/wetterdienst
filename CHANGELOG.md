@@ -89,7 +89,8 @@ Types of changes:
 - **Breaking**: the InfluxDB sinks read a target as the SQL and CrateDB sinks' SQLAlchemy does: the
   password ends at the first `@`, and the username, password and database are percent-decoded.
   Write an `@` in an InfluxDB org, password or token as `%40`, and a literal `%` followed by two hex
-  digits as `%25` (GH-2248)
+  digits as `%25`. An `@` in the path or query of an InfluxDB or CrateDB target with a `host:port`
+  is read as ending a password too; write it as `%40` there (GH-2248)
 
 ### Fixed
 

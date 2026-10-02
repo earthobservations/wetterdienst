@@ -238,3 +238,17 @@ def test_connectionstring_decodes_a_percent_encoded_username_and_password() -> N
     assert cs.username == "ac@me"
     assert cs.password == "Ab/Cd=="  # noqa: S105
     assert ConnectionString("influxdb://localhost/?database=dwd").password is None
+
+
+def test_connectionstring_refuses_a_port_of_non_ascii_digits() -> None:
+    """`²` is a digit to `str.isdigit` but not to `int`, which would fail naming it."""
+    with pytest.raises(ExportRefusedError, match="port is not a number"):
+        ConnectionString("influxdb://localhost:²/")
+
+
+def test_connectionstring_reads_a_file_target_as_a_path() -> None:
+    """A DuckDB target is read as `urlparse` reads it, and still gives a SQLAlchemy URL."""
+    cs = ConnectionString("duckdb:///dwd.duckdb?table=stations")
+    assert (cs.protocol, cs.database, cs.table, cs.password) == ("duckdb", "dwd.duckdb", "stations", None)
+    pytest.importorskip("sqlalchemy")
+    assert cs.to_sqlalchemy_url().database == "dwd.duckdb"
