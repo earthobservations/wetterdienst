@@ -96,6 +96,8 @@ Types of changes:
   Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
   one below -10 m or from 4810 m up, and for every station when that referential cannot be read,
   which is logged as a warning. About three stations in four have one (GH-2223)
+- The `mysql` extra takes pandas 3, as the other extras that bring pandas do. It asked for pandas
+  below 3, so installing it downgraded an environment on pandas 3 to 2.x (GH-2250)
 - DWD DMO's coverage, from `discover`, `/api/coverage`, the CLI and MCP, gives each parameter
   `lead_times`: the lead times whose run carries it, such as `["long"]` for `icon`'s
   `precipitation_amount_last_3h` and `["short"]` for every `icon_eu` parameter. A caller can offer
@@ -199,6 +201,9 @@ Types of changes:
   stored as zeros. A table created by an earlier version keeps its `TIMESTAMP` columns and what
   they stored; to get `DATETIME`, write it anew with `if_exists='replace'`, which drops every row
   it held (GH-2229)
+- SQL Server export targets (`mssql://`) create `DATETIME2` columns holding UTC for datetimes.
+  They created `timestamp` columns, which SQL Server takes as `rowversion`, a row counter that
+  refuses any value written to it (GH-2249)
 - GeoJSON of values gives each feature, one per dataset of a station, that dataset's values only,
   and no feature to a dataset the station returned no values for; each feature carried the values
   of every dataset, so each value appeared once per dataset. The wide shape is unchanged where it

@@ -781,6 +781,7 @@ class ExportMixin:
 
             log.info("Writing to SQL database")
             import sqlalchemy  # noqa: PLC0415
+            from sqlalchemy.dialects.mssql.base import DATETIME2, MSDialect  # noqa: PLC0415
             from sqlalchemy.dialects.mysql.base import MySQLDialect  # noqa: PLC0415
 
             # `table` is ours, read above to name the table; SQLAlchemy hands every query argument
@@ -811,13 +812,21 @@ class ExportMixin:
                     msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
                     raise ExportRefusedError(msg)
                 columns = [pl.col(pl.Enum).cast(pl.String)]
-                if isinstance(engine.dialect, MySQLDialect):
+                # `to_sql` takes SQLAlchemy types here, which pandas' annotation leaves out
+                dtype: dict[Any, Any] | None = None
+                if isinstance(engine.dialect, (MySQLDialect, MSDialect)):
                     # pandas writes a zoned datetime as `TIMESTAMP(timezone=True)`, which MySQL,
                     # MariaDB and the dialects built on theirs compile to a plain `TIMESTAMP`:
                     # nothing before 1970, and converted from the session's time zone, so a
                     # pre-1970 row is refused or stored as zeros. A naive one becomes `DATETIME`
-                    # (years 1000 to 9999), so every datetime column goes in as naive UTC
+                    # (years 1000 to 9999), so every datetime column goes in as naive UTC.
+                    # SQL Server compiles it to `TIMESTAMP` too, which there is `rowversion`, a
+                    # row counter that takes no value at all
                     columns.append(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
+                if isinstance(engine.dialect, MSDialect):
+                    # a naive datetime would be SQL Server's `DATETIME`, which starts in 1753 and
+                    # rounds to 1/300 s; `DATETIME2` holds every year a Python datetime can
+                    dtype = {name: DATETIME2() for name in self.df.select(cs.datetime()).columns}
                 self.df.with_columns(columns).to_pandas().to_sql(
                     name=tablename,
                     con=engine,
@@ -825,6 +834,7 @@ class ExportMixin:
                     index=False,
                     method="multi",
                     chunksize=chunk_size,
+                    dtype=dtype,
                 )
             finally:
                 engine.dispose()
