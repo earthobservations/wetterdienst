@@ -108,7 +108,8 @@ class _OgcFeatureProperties(TypedDict):
     """Type definition for OGC feature properties."""
 
     resolution: str
-    dataset: str
+    # null on a values feature of a resolution the wide shape merged several datasets into
+    dataset: str | None
     id: str
     name: str | None
     region: str | None
@@ -604,9 +605,11 @@ class ValuesResult(_ValuesResult):
         if with_metadata:
             data["metadata"] = self.stations.get_metadata()
         # The stations frame holds one row per resolution, dataset and station, so a feature is one
-        # dataset of one station and carries that dataset's values only. The values frame stores
-        # these columns as Enum (see TimeseriesValues._cast_metadata_to_enum); its partition keys
-        # are plain strings all the same, as the stations frame's are, and the cast is for the join.
+        # dataset of one station and carries that dataset's values only, save in a resolution the
+        # wide shape merged several datasets into, which is one feature per station (see below).
+        # The values frame stores these columns as Enum (see TimeseriesValues._cast_metadata_to_enum);
+        # its partition keys are plain strings all the same, as the stations frame's are, and the
+        # cast is for the join.
         values_by_series = {
             key: df.drop("station_id")
             for key, df in self.df.partition_by(
@@ -620,6 +623,25 @@ class ValuesResult(_ValuesResult):
             on=["resolution", "station_id"],
             how="semi",
         )
+        # The wide shape names no dataset on a row of a resolution it merged several requested
+        # datasets into (see TimeseriesValues._widen_df), as such a row holds the columns of each.
+        # A station there gets one feature with a null dataset, which spans the merged datasets'
+        # dates: the earliest start and the latest end.
+        merged_resolutions = {resolution for resolution, dataset, _ in values_by_series if dataset is None}
+        if merged_resolutions:
+            merged = pl.col("resolution").is_in(merged_resolutions)
+            station_key = ["resolution", "station_id"]
+            df_stations = df_stations.with_columns(
+                pl.when(merged).then(None).otherwise(pl.col("dataset")).alias("dataset"),
+                pl.when(merged)
+                .then(pl.col("start_date").min().over(station_key))
+                .otherwise(pl.col("start_date"))
+                .alias("start_date"),
+                pl.when(merged)
+                .then(pl.col("end_date").max().over(station_key))
+                .otherwise(pl.col("end_date"))
+                .alias("end_date"),
+            ).unique(subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True)
         extra_columns = self.stations._ogc_extra_columns()  # noqa: SLF001
         features = []
         for station in df_stations.with_columns(
@@ -627,11 +649,6 @@ class ValuesResult(_ValuesResult):
             pl.col("end_date").dt.to_string("iso:strict"),
         ).iter_rows(named=True):
             df_values = values_by_series.get((station["resolution"], station["dataset"], station["station_id"]))
-            if df_values is None:
-                # the wide shape names no dataset on a row of a resolution it merged several
-                # requested datasets into (see TimeseriesValues._widen_df). Such a row holds the
-                # columns of each of them, so it goes to each of their features (GH-2274)
-                df_values = values_by_series.get((station["resolution"], None, station["station_id"]))
             if df_values is None:
                 continue
             feature = self.stations._to_ogc_feature(station, extra_columns)  # noqa: SLF001

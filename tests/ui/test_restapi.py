@@ -2608,14 +2608,16 @@ def test_a_reader_missing_on_the_server_is_a_501(
     assert "pip install wetterdienst[bufr]" in caplog.text
 
 
-def test_values_a_value_error_from_the_values_is_a_400(
+def test_values_a_value_error_from_the_values_is_a_500(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A `ValueError` raised while collecting the values reaches the caller as a 400 with its message.
+    """A `ValueError` raised while collecting the values reaches the caller as a 500 with its message.
 
     `get_values` ended it with `sys.exit(1)`, a `SystemExit` the endpoint's `except Exception` does
-    not catch, so the caller got a 500 with no message (GH-2218).
+    not catch, so the caller got a 500 with no message (GH-2218). It then answered a 400, which
+    told the caller to rephrase a request that was fine; a failure that is not a refusal of the
+    request is the server's (GH-2252).
 
     Stubbed at `get_stations` rather than provoked from a provider: what is under test is how the
     error travels, and a real one would need the network to arrive at.
@@ -2639,7 +2641,7 @@ def test_values_a_value_error_from_the_values_is_a_400(
         },
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 500
     assert response.json()["detail"] == msg
 
 
@@ -2713,6 +2715,407 @@ def test_ogc_feature_properties_schema_allows_provider_station_columns() -> None
     assert app.openapi()["components"]["schemas"]["_OgcFeatureProperties"].get("additionalProperties") is True
 
 
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point"),
+    [("/api/interpolate", "get_interpolate"), ("/api/summarize", "get_summarize")],
+)
+def test_geo_a_failure_that_is_not_a_refusal_is_a_500(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    entry_point: str,
+) -> None:
+    """A failure on the server's side is a 500 with its message, not a 404 saying there is no such thing.
+
+    The same failure answered 400 from `/api/values` and 404 from these, and neither is the
+    caller's to fix (GH-2252).
+    """
+    msg = "can only call '.item()' if the dataframe has a single element"
+
+    def fail(**_kwargs: object) -> None:
+        raise ValueError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", fail)
+    response = client.get(
+        endpoint,
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "01048",
+            "date": "2020-06-30",
+        },
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == msg
+
+
+_OBSERVATION = {"provider": "dwd", "network": "observation", "parameters": "daily/kl/temperature_air_mean_2m"}
+
+
+def _year_10000_message() -> str:
+    """Python's own words for a year past 9999, which 3.14 changed."""
+    import datetime as dt  # noqa: PLC0415
+
+    try:
+        dt.datetime(9999, 1, 1, tzinfo=dt.timezone.utc).replace(year=10000)
+    except ValueError as e:
+        return str(e)
+    msg = "a datetime held year 10000"
+    raise AssertionError(msg)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "params", "status", "detail"),
+    [
+        pytest.param(
+            "/api/values",
+            {**_OBSERVATION, "station": "01048", "date": "foo"},
+            400,
+            "date_string foo could not be parsed",
+            id="values-unparseable-date",
+        ),
+        pytest.param(
+            "/api/interpolate",
+            {**_OBSERVATION, "station": "01048", "date": "foo"},
+            404,
+            "date_string foo could not be parsed",
+            id="interpolate-unparseable-date",
+        ),
+        pytest.param(
+            "/api/summarize",
+            {**_OBSERVATION, "station": "01048", "date": "foo"},
+            404,
+            "date_string foo could not be parsed",
+            id="summarize-unparseable-date",
+        ),
+        pytest.param(
+            "/api/values",
+            {**_OBSERVATION, "station": "01048", "date": "2020/2021/2022"},
+            400,
+            "Invalid ISO 8601 time interval",
+            id="values-three-part-interval",
+        ),
+        pytest.param(
+            "/api/values",
+            {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
+            400,
+            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            id="values-unknown-parameter",
+        ),
+        pytest.param(
+            "/api/interpolate",
+            {**_OBSERVATION, "parameters": "daily/abc", "station": "01048", "date": "2020-06-30"},
+            404,
+            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            id="interpolate-unknown-parameter",
+        ),
+        pytest.param(
+            "/api/values",
+            {**_OBSERVATION, "station": "01048", "periods": "foo"},
+            400,
+            "foo could not be parsed from Period.",
+            id="values-unknown-period",
+        ),
+        pytest.param(
+            "/api/values",
+            {**_OBSERVATION, "station": "01048", "periods": "now"},
+            400,
+            "None of the periods now is published for the datasets requested from DwdObservationRequest. "
+            "Available periods: historical, recent",
+            id="values-unpublished-period",
+        ),
+        pytest.param(
+            "/api/values",
+            {**_OBSERVATION, "left": 10, "bottom": 50, "right": 5, "top": 52},
+            400,
+            "bbox left border should be smaller then right",
+            id="values-bbox-the-wrong-way-round",
+        ),
+        pytest.param(
+            "/api/values",
+            {"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "station": "10382", "issue": "foo"},
+            400,
+            "Invalid isoformat string: 'foo'",
+            id="values-mosmix-unparseable-issue",
+        ),
+        pytest.param(
+            "/api/interpolate",
+            {
+                "provider": "dwd",
+                "network": "dmo",
+                "parameters": "hourly/icon/temperature_air_mean_2m",
+                "station": "10382",
+                "issue": "foo",
+                "date": "2026-10-01",
+            },
+            404,
+            "Invalid isoformat string: 'foo'",
+            id="interpolate-dmo-unparseable-issue",
+        ),
+        pytest.param(
+            "/api/interpolate",
+            {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": ""},
+            404,
+            "start_date and end_date are required for interpolation",
+            id="interpolate-empty-date",
+        ),
+        pytest.param(
+            "/api/summarize",
+            {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": ""},
+            404,
+            "start_date and end_date are required for summarization",
+            id="summarize-empty-date",
+        ),
+        pytest.param(
+            "/api/values",
+            {**_OBSERVATION, "station": "01048", "date": "9999"},
+            400,
+            _year_10000_message(),
+            id="values-date-past-the-last-year",
+        ),
+        pytest.param(
+            "/api/interpolate",
+            {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": "9999-12-31"},
+            404,
+            "date value out of range",
+            id="interpolate-date-past-the-last-day",
+        ),
+        pytest.param(
+            "/api/interpolate",
+            {**_OBSERVATION, "latitude": 85.0, "longitude": 10.0, "date": "2020-06-30"},
+            404,
+            "latitude out of range (must be between 80 deg S and 84 deg N)",
+            id="interpolate-point-beyond-utm",
+        ),
+        pytest.param(
+            "/api/values",
+            {**_OBSERVATION, "station": "01048", "date": "9999-12-31T23:00-05:00"},
+            400,
+            "date value out of range",
+            id="values-instant-past-the-last-day-in-utc",
+        ),
+        pytest.param(
+            "/api/values",
+            {**_OBSERVATION, "station": "01048", "date": "9999-12-31T23:00Z"},
+            400,
+            "date value out of range",
+            id="values-instant-past-the-last-day-in-the-providers-zone",
+        ),
+        pytest.param(
+            "/api/values",
+            {
+                "provider": "dwd",
+                "network": "dmo",
+                "parameters": "hourly/icon/temperature_air_mean_2m",
+                "station": "10382",
+                "issue": "0001-01-01T00:00+01:00",
+            },
+            400,
+            "date value out of range",
+            id="values-dmo-issue-before-the-first-day-in-utc",
+        ),
+    ],
+)
+def test_a_refusal_of_the_request_keeps_its_4xx(
+    client: TestClient,
+    endpoint: str,
+    params: dict[str, object],
+    status: int,
+    detail: str,
+) -> None:
+    """A request refused for what it asks is still the caller's to fix, and answers as it did (GH-2252).
+
+    Each is refused before anything is downloaded, so these are real requests rather than stubs.
+    The 404s from the geo endpoints are the status those answered with before; only failures that
+    are not a refusal of the request moved, to a 500.
+    """
+    response = client.get(endpoint, params=params)
+
+    assert response.status_code == status
+    assert response.json()["detail"] == detail
+
+
+def _raise_unit_target_refusal(**_kwargs: object) -> None:
+    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+
+    UnitConverter().update_targets({"temperature": "foo"})
+
+
+def _raise_sql_refusal(**_kwargs: object) -> None:
+    import polars as pl  # noqa: PLC0415
+
+    from wetterdienst.io.export import ExportMixin  # noqa: PLC0415
+
+    ExportMixin._filter_by_sql(pl.DataFrame({"value": [1.0]}), "foo = 1")  # noqa: SLF001
+
+
+def _raise_station_not_found(**_kwargs: object) -> None:
+    from wetterdienst.exceptions import StationNotFoundError  # noqa: PLC0415
+
+    msg = "no station found for 99999"
+    raise StationNotFoundError(msg)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point", "refuse", "status", "detail"),
+    [
+        pytest.param(
+            "/api/values",
+            None,
+            _raise_unit_target_refusal,
+            400,
+            "Unit foo not supported for type temperature",
+            id="values-unknown-unit-target",
+        ),
+        pytest.param(
+            "/api/interpolate",
+            "get_interpolate",
+            _raise_unit_target_refusal,
+            404,
+            "Unit foo not supported for type temperature",
+            id="interpolate-unknown-unit-target",
+        ),
+        pytest.param(
+            "/api/values", None, _raise_sql_refusal, 400, 'Referenced column "foo" not found', id="values-sql"
+        ),
+        pytest.param(
+            "/api/summarize",
+            "get_summarize",
+            _raise_sql_refusal,
+            404,
+            'Referenced column "foo" not found',
+            id="summarize-sql",
+        ),
+        pytest.param(
+            "/api/interpolate",
+            "get_interpolate",
+            _raise_station_not_found,
+            404,
+            "no station found for 99999",
+            id="interpolate-unknown-station",
+        ),
+        pytest.param(
+            "/api/summarize",
+            "get_summarize",
+            _raise_station_not_found,
+            404,
+            "no station found for 99999",
+            id="summarize-unknown-station",
+        ),
+    ],
+)
+def test_a_refusal_raised_past_the_station_lookup_keeps_its_4xx(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    entry_point: str | None,
+    refuse: object,
+    status: int,
+    detail: str,
+) -> None:
+    """A refusal raised once stations are known still answers as it did (GH-2252).
+
+    The refusal is raised by the code that raises it on the real path -- the unit converter, the SQL
+    filter -- from a stub at the point the network would otherwise be needed to reach it.
+    """
+    if entry_point is None:
+        stations = SimpleNamespace(values=SimpleNamespace(all=refuse))
+        monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+    else:
+        monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
+
+    response = client.get(endpoint, params={**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+
+    assert response.status_code == status
+    assert detail in response.json()["detail"]
+
+
+def test_values_an_issue_the_source_does_not_list_keeps_its_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A forecast run asked for by an issue the listing does not hold is still a 400 (GH-2252)."""
+    import polars as pl  # noqa: PLC0415
+
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo import api as dmo_api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        dmo_api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: ["https://example.com/kmz/ptp_gdmog_10382_078_1_210000.kmz"],
+    )
+    df_stations = pl.DataFrame(
+        {"resolution": ["hourly"], "dataset": ["icon"], "station_id": ["10382"], "name": ["Berlin-Tegel"]},
+    )
+    stations = StationsResult(
+        stations=DwdDmoRequest(parameters=["hourly/icon/temperature_air_mean_2m"], issue="2020-01-01T00:00"),
+        df=df_stations,
+        df_all=df_stations,
+        stations_filter=StationsFilter.BY_STATION_ID,
+    )
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "dmo",
+            "parameters": "hourly/icon/temperature_air_mean_2m",
+            "station": "10382",
+            "issue": "2020-01-01T00:00",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"].startswith("Unable to find 2020-01-01 00:00:00 file within")
+
+
+def test_the_refusal_types_keep_the_type_they_were_raised_as() -> None:
+    """A library caller catching `ValueError` or `IndexError` still catches them (GH-2252).
+
+    Two were raised as something narrower: a date past year 9999 as an `OverflowError`, which is not
+    a `ValueError`, and a point beyond UTM as utm's `OutOfRangeError`, which is one.
+    """
+    from wetterdienst.exceptions import (  # noqa: PLC0415
+        InvalidBoundingBoxError,
+        InvalidEnumerationError,
+        InvalidTimeIntervalError,
+        IssueNotFoundError,
+        LocationOutOfRangeError,
+    )
+
+    assert issubclass(LocationOutOfRangeError, ValueError)
+    assert issubclass(InvalidBoundingBoxError, ValueError)
+    assert issubclass(InvalidEnumerationError, ValueError)
+    assert issubclass(InvalidTimeIntervalError, ValueError)
+    assert issubclass(IssueNotFoundError, IndexError)
+
+
+def test_values_a_duckdb_failure_that_is_not_about_the_statement_is_a_500(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """DuckDB running out of memory is the server's failure, however the caller's SQL reads (GH-2252)."""
+    import duckdb  # noqa: PLC0415
+
+    msg = "Out of Memory Error: failed to allocate data of size 1.0 GiB"
+
+    def fail() -> None:
+        raise duckdb.OutOfMemoryException(msg)
+
+    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+
+    response = client.get("/api/values", params={**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == msg
+
+
 @pytest.mark.parametrize("schema_name", ["_StationsOgcFeature", "_ValuesOgcFeature"])
 def test_ogc_feature_schema_allows_a_null_geometry(schema_name: str) -> None:
     """The GeoJSON feature schemas admit a null geometry, which a station without a position gets."""
@@ -2721,3 +3124,14 @@ def test_ogc_feature_schema_allows_a_null_geometry(schema_name: str) -> None:
     geometry = app.openapi()["components"]["schemas"][schema_name]["properties"]["geometry"]
     assert {"$ref": "#/components/schemas/_OgcFeatureGeometry"} in geometry["anyOf"]
     assert {"type": "null"} in geometry["anyOf"]
+
+
+def test_ogc_feature_properties_schema_allows_a_null_dataset() -> None:
+    """The GeoJSON feature properties admit a null dataset (GH-2274).
+
+    A values feature of a resolution the wide shape merged several datasets into names none.
+    """
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    dataset = app.openapi()["components"]["schemas"]["_OgcFeatureProperties"]["properties"]["dataset"]
+    assert {branch.get("type") for branch in dataset.get("anyOf", [dataset])} == {"string", "null"}

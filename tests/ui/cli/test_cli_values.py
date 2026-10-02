@@ -1032,3 +1032,27 @@ def test_cli_export_failure_names_the_target_without_its_password(caplog: pytest
 
     assert "tiger-secret" not in caplog.text
     assert "Failed to export to postgresql+psycopg2://scott:***@localhost/dwd?table=weather" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        pytest.param("influxdb2://acme:tok3n-HEAD@tok3n-TAIL@localhost/?database=dwd", id="influxdb2-at"),
+        pytest.param("postgresql://scott:pw-HEAD@ss:pw-TAIL@localhost/dwd?table=weather", id="sql-at-then-colon"),
+    ],
+)
+def test_cli_export_refuses_an_unencoded_password_without_printing_it(
+    target: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The refusal is printed as advice, with no traceback, and no piece of the password is logged."""
+    from wetterdienst.io.export import ExportMixin  # noqa: PLC0415
+    from wetterdienst.ui.cli import _export_or_exit  # noqa: PLC0415
+
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst"), pytest.raises(SystemExit):
+        _export_or_exit(ExportMixin(df=pl.DataFrame({"station_id": ["01048"]})), target, "replace")
+
+    assert "%40" in caplog.text
+    assert "Traceback" not in caplog.text
+    assert "Failed to export" not in caplog.text
+    for piece in ("tok3n-HEAD", "tok3n-TAIL", "pw-HEAD", "pw-TAIL"):
+        assert piece not in caplog.text

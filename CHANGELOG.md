@@ -96,6 +96,15 @@ Types of changes:
   Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
   one below -10 m or from 4810 m up, and for every station when that referential cannot be read,
   which is logged as a warning. About three stations in four have one (GH-2223)
+- **Breaking**: `/api/values`, `/api/interpolate`, `/api/summarize` and their MCP tools answer a
+  failure on the server's or the data source's side with a 500 carrying its message, where values
+  answered 400 and the other two 404. Retry or report a 500 rather than rephrasing. A request
+  refused for what it asks keeps its 400 or 404. Those refusals that raised a bare `ValueError` or
+  `IndexError` raise a subclass of it: `InvalidTimeIntervalError`, `InvalidEnumerationError`, or
+  the new `InvalidBoundingBoxError`, `LocationOutOfRangeError` and `IssueNotFoundError`. Catch
+  `InvalidTimeIntervalError` for the day `9999-12-31`, which raised `OverflowError`, and
+  `LocationOutOfRangeError` for a point outside UTM, which raised `utm.error.OutOfRangeError`
+  (GH-2252)
 - The `mysql` extra takes pandas 3, as the other extras that bring pandas do. It asked for pandas
   below 3, so installing it downgraded an environment on pandas 3 to 2.x (GH-2250)
 - DWD DMO's coverage, from `discover`, `/api/coverage`, the CLI and MCP, gives each parameter
@@ -107,6 +116,12 @@ Types of changes:
   `{"trust_env": True}` no longer drops the 30 s timeout and the User-Agent. A key given still wins:
   give `"timeout": None` for aiohttp's own timeout, which a dict without one used to get, and a
   `User-Agent` header of your own to send that instead of wetterdienst's (GH-2269)
+- **Breaking**: the InfluxDB sinks read a target as the SQL sinks' SQLAlchemy does: the password
+  ends at the first `@`, and the username, password and database are percent-decoded, as the
+  CrateDB database (its schema) now is too. Write an `@` in an InfluxDB org, password or token as
+  `%40`, and a literal `%` followed by two hex digits there or in an InfluxDB database or CrateDB
+  schema as `%25`. An `@` in the path or query of an InfluxDB or CrateDB target with a `host:port`
+  is read as ending a password too; write it as `%40` there (GH-2248)
 
 ### Fixed
 
@@ -120,6 +135,10 @@ Types of changes:
 - `to_target` and the CLI's `--target` log the target with its password as `***`. They logged it
   verbatim at INFO, which the CLI shows by default, so a database password or the InfluxDB 2/3 API
   token in the password slot reached stderr and any log it was captured in (GH-2219)
+- A `/`, `?` or `#` in the password of an InfluxDB or CrateDB target, or a `?` or `#` in a SQL one,
+  is read as part of it. It was read as the end of the host part, so the export went to the wrong
+  host, port, database or table, and pieces of the password reached the log. A password whose
+  unencoded `@` cannot be read is refused with `ExportRefusedError`, naming none of it (GH-2248)
 - DWD derived can be used on a base install. Its station lists were read with pandas, so
   `Wetterdienst("dwd", "derived")` failed with an `ImportError` unless an extra that brings pandas,
   such as `export`, was installed. They are read with polars now, with the same result (GH-2213)
@@ -215,9 +234,12 @@ Types of changes:
   refuses any value written to it (GH-2249)
 - GeoJSON of values gives each feature, one per dataset of a station, that dataset's values only,
   and no feature to a dataset the station returned no values for; each feature carried the values
-  of every dataset, so each value appeared once per dataset. The wide shape is unchanged where it
-  merges several datasets of one resolution into rows that name none: each of those datasets
-  still gets a feature, and each such feature carries all of those rows (GH-2253)
+  of every dataset, so each value appeared once per dataset (GH-2253)
+- GeoJSON of values in the wide shape gives a station one feature per resolution into which
+  several requested datasets were merged, with `dataset` null as its rows have it, and dates from
+  the earliest start to the latest end of those datasets. Each merged dataset got a feature holding
+  all of the rows, so each value appeared once per dataset. Read a value's dataset from its column
+  prefix; the REST API's schema types `dataset` as nullable (GH-2274)
 - GeoJSON of stations and values gives a station without a latitude or longitude, such as a
   postcode of DWD derived `monthly/climate_correction_factor`, the geometry `null`, as RFC 7946
   has an unlocated feature; it was a `Point` of null coordinates, which strict parsers reject. The
