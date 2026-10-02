@@ -427,9 +427,22 @@ def test_read_meta_df_four_digit_elevation() -> None:
     content = BytesIO("".join(f"{line}\r\n" for line in ["header", "rule", *rows]).encode("latin-1"))
     file = File(url="https://example.org/KL_Monatswerte_Beschreibung_Stationen.txt", content=content, status=200)
     df = _read_meta_df(DwdDerivedMetadata.monthly.heating_degreedays, file=file).collect()
-    end_date = dt.datetime(2026, 8, 31, tzinfo=ZoneInfo("UTC"))
-    assert df.select("station_id", "end_date", "elevation", "latitude", "name").rows() == [
-        ("00722", end_date, 1135.0, 51.7986, "Brocken"),
-        ("04878", end_date, 505.0, 51.6647, "Oberharz am Brocken-Stiege"),
-        ("05792", end_date, 2956.0, 47.4210, "Zugspitze"),
+
+    def date(year: int, month: int, day: int) -> dt.datetime:
+        return dt.datetime(year, month, day, tzinfo=ZoneInfo("UTC"))
+
+    end_date = date(2026, 8, 31)
+    assert df.rows() == [
+        ("00722", date(1881, 6, 1), end_date, 1135.0, 51.7986, 10.6183, "Brocken", "Sachsen-Anhalt"),
+        (
+            "04878",
+            date(1906, 1, 1),
+            end_date,
+            505.0,
+            51.6647,
+            10.8810,
+            "Oberharz am Brocken-Stiege",
+            "Sachsen-Anhalt",
+        ),
+        ("05792", date(1900, 8, 1), end_date, 2956.0, 47.4210, 10.9848, "Zugspitze", "Bayern"),
     ]
