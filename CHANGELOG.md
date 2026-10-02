@@ -88,12 +88,13 @@ Types of changes:
   which is logged as a warning. About three stations in four have one (GH-2223)
 - **Breaking**: `/api/values`, `/api/interpolate`, `/api/summarize` and their MCP tools answer a
   failure on the server's or the data source's side with a 500 carrying its message, where values
-  answered 400 and the other two 404, as if the request were at fault. Retry or report a 500
-  rather than rephrasing. A request refused for what it asks keeps its 400 or 404. Refusals that
-  raised a bare `ValueError` or `IndexError` raise a subclass of it: `InvalidTimeIntervalError`,
-  `InvalidEnumerationError`, or the new `InvalidBoundingBoxError`, `LocationOutOfRangeError` and
-  `IssueNotFoundError`. The day `9999-12-31` raised `OverflowError`, and a point beyond UTM utm's
-  `OutOfRangeError`: catch `InvalidTimeIntervalError` and `LocationOutOfRangeError` (GH-2252)
+  answered 400 and the other two 404. Retry or report a 500 rather than rephrasing. A request
+  refused for what it asks keeps its 400 or 404. Refusals that raised a bare `ValueError` or
+  `IndexError` raise a subclass of it: `InvalidTimeIntervalError`, `InvalidEnumerationError`, or
+  the new `InvalidBoundingBoxError`, `LocationOutOfRangeError` and `IssueNotFoundError`. Catch
+  `InvalidTimeIntervalError` for the day `9999-12-31`, which raised `OverflowError`, and
+  `LocationOutOfRangeError` for a point outside UTM, which raised `utm.error.OutOfRangeError`
+  (GH-2252)
 
 ### Fixed
 
