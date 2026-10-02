@@ -93,7 +93,9 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
     assert_frame_equal(df.drop("end_date"), df_expected)
 
 
-def test_noaa_ghcn_daily_stations_missing_elevation(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_noaa_ghcn_daily_stations_missing_elevation(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
     """A station that `ghcnd-stations.txt` lists at -999.9, its missing value, has a null elevation (GH-2247).
 
     The rows are copied from `ghcnd-stations.txt` and `ghcnd-inventory.txt` as NOAA publishes them.
@@ -110,5 +112,5 @@ def test_noaa_ghcn_daily_stations_missing_elevation(monkeypatch: pytest.MonkeyPa
         return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
 
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
-    df = NoaaGhcnRequest(parameters=[("daily", "data")]).all().df
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
     assert df.select("station_id", "elevation").rows() == [("ACW00011604", 10.1), ("ASN00001011", None)]

@@ -314,7 +314,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             "wmo_id",
         ]
         # the readme marks a missing elevation as -999.9
-        df = df.with_columns(pl.col("elevation").cast(pl.Float64).replace(-999.9, None))
+        df = df.with_columns(pl.col("elevation").replace("-999.9", None))
 
         inventory_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
         inventory_file = download_file(
