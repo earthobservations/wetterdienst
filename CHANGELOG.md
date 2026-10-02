@@ -155,9 +155,10 @@ Types of changes:
 - With `WD_TS_CONVERT_UNITS=false`, `interpolate` and `summarize` no longer round away a reading
   published in mm/s: `dwd/road` publishes 0.1 mm/h of precipitation intensity as 0.0000278 mm/s,
   which came back as `0.0`. A value is now rounded as one converted into its source unit from its
-  target unit would be: under the default targets mm/s keeps seven decimals, as do durations in
-  hours and visibility in km, durations in minutes, kPa and depths in metres keep five or six, and
-  every other unit four (GH-2257)
+  target unit would be, so the decimals follow `WD_TS_UNIT_TARGETS` even though nothing is
+  converted. Under the default targets mm/s keeps seven, as do durations in hours and visibility in
+  km, durations in minutes, kPa and depths in metres keep five or six, and every other unit four
+  (GH-2257)
 - PostgreSQL and MySQL export targets no longer fail on `?table=`: it names the table and is no
   longer passed to the database driver, which refused it as a connection option, so no such target
   could be written to. The rest of the query, such as `sslmode` or `charset`, still reaches the
