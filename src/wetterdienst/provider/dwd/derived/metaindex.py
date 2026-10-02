@@ -44,12 +44,14 @@ SOIL_COLUMN_NAMES_MAPPING = {
     "Bundesland": "region",
 }
 
-# first and last character of each field, both inclusive, as read_fwf_from_df takes them
+# first and last character of each field, both inclusive, as read_fwf_from_df takes them. The data
+# rows do not line up with the header's ---- rule, so these are measured on the rows: Stationshoehe
+# is right-aligned to end at character 37, and four digits wide from 1000 m up.
 COL_SPECS = (
     (0, 4),  # Stations_id
     (5, 14),  # von_datum
-    (15, 34),  # bis_datum
-    (35, 42),  # Stationshoehe
+    (15, 22),  # bis_datum
+    (23, 37),  # Stationshoehe
     (43, 52),  # geoBreite
     (53, 59),  # geoLaenge
     (61, 100),  # Stationsname

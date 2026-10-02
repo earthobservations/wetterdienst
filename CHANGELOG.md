@@ -193,6 +193,13 @@ Types of changes:
   stored as zeros. A table created by an earlier version keeps its `TIMESTAMP` columns and what
   they stored; to get `DATETIME`, write it anew with `if_exists='replace'`, which drops every row
   it held (GH-2229)
+- DWD derived stations at 1000 m or higher keep the first digit of their elevation and their
+  `end_date`: Brocken was listed at 135 m and Zugspitze at 956 m, both with a null `end_date`.
+  This affects the monthly degree-day and degree-hour datasets and hourly `radiation_global` and
+  `sunshine_duration` (GH-2234)
+- NOAA GHCN daily stations without a known elevation have a null `elevation`. They were listed at
+  -999.9 m, the station list's missing value, and `interpolate` and `summarize` given an elevation
+  took it for a known one (GH-2247)
 
 ## [0.139.0] - 2026-09-29
 
