@@ -309,9 +309,11 @@ class ExportMixin:
         # refused first, and the refusal names no piece of it. InfluxDB is read with `urlparse`
         # alone, which finds a password holding an `@`; CrateDB with `urlparse` and then
         # SQLAlchemy; the SQL sinks connect with SQLAlchemy, which finds one holding a `/`, but
-        # take the table from what `urlparse` reads as the query
-        scheme = target.partition("://")[0].lower()
-        if scheme.startswith("influxdb"):
+        # take the table from what `urlparse` reads as the query. The sink is told apart as the
+        # dispatch below tells it, which reads the protocol with `urlparse` too
+        connspec = ConnectionString(target)
+        protocol = connspec.protocol
+        if protocol.startswith("influxdb"):
             misread = "/?#"
         elif target.startswith("crate://"):
             misread = "/?#@"
@@ -328,8 +330,6 @@ class ExportMixin:
 
         log.info(f"Exporting records to {redact_password(target)}\n{self.df.select(pl.len())}")
 
-        connspec = ConnectionString(target)
-        protocol = connspec.protocol
         database = connspec.database
         tablename = connspec.table
 

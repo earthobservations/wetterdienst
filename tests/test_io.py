@@ -2765,6 +2765,8 @@ def test_to_target_hands_sqlalchemy_a_password_holding_a_slash() -> None:
     [
         pytest.param("postgresql://scott:p@ss@db/dwd", "'@' as %40", "'/' as %2F", id="sql"),
         pytest.param("influxdb2://acme:Ab/Cd==@localhost", "'/' as %2F", "'@' as %40", id="influxdb"),
+        # `urlparse` strips the space, and the InfluxDB sink is chosen by what it reads
+        pytest.param(" influxdb2://acme:Ab/Cd==@localhost", "'/' as %2F", "'@' as %40", id="influxdb-leading-space"),
     ],
 )
 def test_to_target_refusal_names_what_the_sink_misreads(target: str, named: str, not_named: str) -> None:
