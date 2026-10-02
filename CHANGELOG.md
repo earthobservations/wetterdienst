@@ -181,8 +181,7 @@ Types of changes:
 - The REST API's OpenAPI schema types a station's `elevation`, `latitude`, `longitude` and `name`
   as nullable, and declares that a station may carry the columns its provider adds, such as
   `gauge_zero`, so a client generated from it keeps them. MCP tools no longer fail output
-  validation on a station row holding such a null, as every WSV station does; a GeoJSON point
-  with a null coordinate still fails (GH-2226)
+  validation on a station row holding such a null, as every WSV station does (GH-2226)
 - GeoJSON of stations and values gives a station without an elevation the position `[lon, lat]`;
   it was `[lon, lat, null]`, which strict GeoJSON parsers reject. One collection can now hold both
   lengths, so read an elevation from a third number only where there is one. Each feature's
@@ -200,6 +199,15 @@ Types of changes:
   stored as zeros. A table created by an earlier version keeps its `TIMESTAMP` columns and what
   they stored; to get `DATETIME`, write it anew with `if_exists='replace'`, which drops every row
   it held (GH-2229)
+- GeoJSON of values gives each feature, one per dataset of a station, that dataset's values only,
+  and no feature to a dataset the station returned no values for; each feature carried the values
+  of every dataset, so each value appeared once per dataset. The wide shape is unchanged where it
+  merges several datasets of one resolution into rows that name none: each of those datasets
+  still gets a feature, and each such feature carries all of those rows (GH-2253)
+- GeoJSON of stations and values gives a station without a latitude or longitude, such as a
+  postcode of DWD derived `monthly/climate_correction_factor`, the geometry `null`, as RFC 7946
+  has an unlocated feature; it was a `Point` of null coordinates, which strict parsers reject. The
+  REST API's schema types `geometry` as nullable, so check for `null` before reading it (GH-2241)
 - DWD derived stations at 1000 m or higher keep the first digit of their elevation and their
   `end_date`: Brocken was listed at 135 m and Zugspitze at 956 m, both with a null `end_date`.
   This affects the monthly degree-day and degree-hour datasets and hourly `radiation_global` and

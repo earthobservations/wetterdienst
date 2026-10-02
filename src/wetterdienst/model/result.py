@@ -128,7 +128,8 @@ class _StationsOgcFeature(TypedDict):
 
     type: Literal["Feature"]
     properties: _OgcFeatureProperties
-    geometry: _OgcFeatureGeometry
+    # null for a station without a position: RFC 7946 3.2 writes an unlocated feature that way
+    geometry: _OgcFeatureGeometry | None
 
 
 class _StationsOgcFeatureCollectionData(TypedDict):
@@ -285,10 +286,15 @@ class StationsResult(ExportMixin):
         """Format one station row, with its dates already ISO strings, as an OGC feature."""
         # A position is "longitude, latitude [, elevation]" in WGS84 decimal degrees, and per
         # RFC 7946 3.1.1 it is two or more numbers, so a station without an elevation gets no z
-        # rather than a null one, which strict parsers reject.
-        coordinates = [station["longitude"], station["latitude"]]
-        if station["elevation"] is not None:
-            coordinates.append(station["elevation"])
+        # rather than a null one, which strict parsers reject. A station without a latitude or
+        # longitude, such as a postcode of DWD derived's climate_correction_factor, has no position
+        # at all, and RFC 7946 3.2 writes such an unlocated feature with a null geometry.
+        geometry: _OgcFeatureGeometry | None = None
+        if station["longitude"] is not None and station["latitude"] is not None:
+            coordinates = [station["longitude"], station["latitude"]]
+            if station["elevation"] is not None:
+                coordinates.append(station["elevation"])
+            geometry = {"type": "Point", "coordinates": coordinates}
         return {
             "type": "Feature",
             "properties": {
@@ -301,10 +307,7 @@ class StationsResult(ExportMixin):
                 "end_date": station["end_date"],
                 **{column: station[column] for column in extra_columns},
             },
-            "geometry": {
-                "type": "Point",
-                "coordinates": coordinates,
-            },
+            "geometry": geometry,
         }
 
     def to_ogc_feature_collection(self, *, with_metadata: bool = False, **_kwargs) -> _StationsOgcFeatureCollection:  # noqa: ANN003  # ty: ignore[invalid-method-override]
@@ -468,7 +471,7 @@ class _ValuesResult(ExportMixin):
 
         This method is used both by ``to_dict()``,
         and ``to_ogc_feature_collection()``, however, the latter one splits
-        the DataFrame into multiple DataFrames by station and calls this method for each of them.
+        the DataFrame by resolution, dataset and station and calls this method for each part.
         """
         if not df.is_empty():
             df = df.with_columns(
@@ -563,7 +566,8 @@ class _ValuesOgcFeature(TypedDict):
 
     type: Literal["Feature"]
     properties: _OgcFeatureProperties
-    geometry: _OgcFeatureGeometry
+    # null for a station without a position: RFC 7946 3.2 writes an unlocated feature that way
+    geometry: _OgcFeatureGeometry | None
     values: list[_ValuesItemDict]
 
 
@@ -599,11 +603,22 @@ class ValuesResult(_ValuesResult):
         data = {}
         if with_metadata:
             data["metadata"] = self.stations.get_metadata()
-        # the values frame stores station_id as Enum (see TimeseriesValues._cast_metadata_to_enum),
-        # so cast back to String to match the String station_id of the stations frame for the join
+        # The stations frame holds one row per resolution, dataset and station, so a feature is one
+        # dataset of one station and carries that dataset's values only. The values frame stores
+        # these columns as Enum (see TimeseriesValues._cast_metadata_to_enum); its partition keys
+        # are plain strings all the same, as the stations frame's are, and the cast is for the join.
+        values_by_series = {
+            key: df.drop("station_id")
+            for key, df in self.df.partition_by(
+                ["resolution", "dataset", "station_id"], as_dict=True, maintain_order=True
+            ).items()
+        }
+        # cut down to the stations that returned values before walking the rows: a ranked request
+        # keeps the whole network in the stations frame (see TimeseriesRequest.filter_by_rank)
         df_stations = self.stations.df.join(
-            self.df.select(pl.col("station_id").cast(pl.String)).unique(),
-            on="station_id",
+            self.df.select(pl.col("resolution", "station_id").cast(pl.String)).unique(),
+            on=["resolution", "station_id"],
+            how="semi",
         )
         extra_columns = self.stations._ogc_extra_columns()  # noqa: SLF001
         features = []
@@ -611,9 +626,14 @@ class ValuesResult(_ValuesResult):
             pl.col("start_date").dt.to_string("iso:strict"),
             pl.col("end_date").dt.to_string("iso:strict"),
         ).iter_rows(named=True):
-            df_values = self.df.filter(pl.col("station_id") == station["station_id"]).select(
-                pl.all().exclude("station_id"),
-            )
+            df_values = values_by_series.get((station["resolution"], station["dataset"], station["station_id"]))
+            if df_values is None:
+                # the wide shape names no dataset on a row of a resolution it merged several
+                # requested datasets into (see TimeseriesValues._widen_df). Such a row holds the
+                # columns of each of them, so it goes to each of their features (GH-2274)
+                df_values = values_by_series.get((station["resolution"], None, station["station_id"]))
+            if df_values is None:
+                continue
             feature = self.stations._to_ogc_feature(station, extra_columns)  # noqa: SLF001
             features.append({**feature, "values": self._to_dict(df_values)})
         data["data"] = {
