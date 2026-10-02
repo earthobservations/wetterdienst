@@ -95,19 +95,6 @@ watch(
   { deep: true },
 )
 
-// The station's id, from the first record of the first of these sections, in this order, that has one:
-// every section's records carry it
-function getStationId(history: StationHistory): string | null {
-  return history.parameter?.[0]?.station_id
-    || history.device?.[0]?.station_id
-    || history.geography?.[0]?.station_id
-    || history.name?.station?.[0]?.station_id
-    || history.name?.operator?.[0]?.station_id
-    || history.missing_data?.summary?.[0]?.station_id
-    || history.missing_data?.periods?.[0]?.station_id
-    || null
-}
-
 // The name a section's records give the station now: that of the record still open (no end date), or
 // else of the one that ended last, of those the one begun last; none where that record has none. A
 // section's records aren't in date order: the parameter and device sections list theirs per parameter
@@ -376,7 +363,7 @@ function clear() {
                     <div class="flex items-center gap-2 flex-wrap">
                       <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
                       <h3 class="text-lg font-bold">
-                        {{ t('history.stationIdPrefix') }}: {{ getStationId(history) }}
+                        {{ t('history.stationIdPrefix') }}: {{ history.station_id }}
                         <span
                           v-if="getStationName(history)"
                           class="text-sm text-gray-600 dark:text-gray-400 font-normal ml-2"

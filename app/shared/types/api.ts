@@ -313,6 +313,8 @@ export interface HistoryMissingData {
 
 /** One station's history: the sections asked for, all of them where none were. */
 export interface StationHistory {
+  /** The station's id, spelt as in the stations listing: sent whatever sections were asked for. */
+  station_id: string
   name?: { station: HistoryStationName[], operator: HistoryOperatorName[] }
   parameter?: HistoryParameter[]
   device?: HistoryDevice[]
