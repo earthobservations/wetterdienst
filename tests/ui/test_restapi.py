@@ -2754,6 +2754,18 @@ def test_geo_a_failure_that_is_not_a_refusal_is_a_500(
 _OBSERVATION = {"provider": "dwd", "network": "observation", "parameters": "daily/kl/temperature_air_mean_2m"}
 
 
+def _year_10000_message() -> str:
+    """Python's own words for a year past 9999, which 3.14 changed."""
+    import datetime as dt  # noqa: PLC0415
+
+    try:
+        dt.datetime(9999, 1, 1, tzinfo=dt.timezone.utc).replace(year=10000)
+    except ValueError as e:
+        return str(e)
+    msg = "a datetime held year 10000"
+    raise AssertionError(msg)
+
+
 @pytest.mark.parametrize(
     ("endpoint", "params", "status", "detail"),
     [
@@ -2860,7 +2872,7 @@ _OBSERVATION = {"provider": "dwd", "network": "observation", "parameters": "dail
             "/api/values",
             {**_OBSERVATION, "station": "01048", "date": "9999"},
             400,
-            "year 10000 is out of range",
+            _year_10000_message(),
             id="values-date-past-the-last-year",
         ),
         pytest.param(
