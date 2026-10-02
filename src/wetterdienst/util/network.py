@@ -352,13 +352,25 @@ class HTTPFileSystem(_HTTPFileSystem):
         # aiohttp >= 3.9 rejects any bare numeric timeout -- int and float alike -- so wrap one in
         # ClientTimeout. ``client_kwargs`` is optional and may legitimately be passed as None (that
         # is fsspec's own default), so check for a dict rather than for the key being present.
+        #
+        # A number is how long the server may stay silent: connecting, and then each wait for the
+        # next bytes, the first ones included. It is not a bound on the whole request, which is
+        # what ``total`` would be -- that failed a download still streaming steadily once it ran
+        # past the number, so a slow link failed every file larger than that many seconds of its
+        # bandwidth (GH-2258). A ClientTimeout passed in is used as it is.
+        # ``connect`` as well as ``sock_connect``, because only ``connect`` covers the name lookup,
+        # which ``total`` used to bound; it also counts a wait for a free pooled connection, as
+        # ``total`` did.
         client_kwargs = kwargs.get("client_kwargs")
         client_kwargs = client_kwargs if isinstance(client_kwargs, dict) else {}
         timeout = client_kwargs.get("timeout")
         if isinstance(timeout, (int, float)) and not isinstance(timeout, bool):
             import aiohttp  # noqa: PLC0415
 
-            kwargs["client_kwargs"] = {**client_kwargs, "timeout": aiohttp.ClientTimeout(total=timeout)}
+            kwargs["client_kwargs"] = {
+                **client_kwargs,
+                "timeout": aiohttp.ClientTimeout(total=None, connect=timeout, sock_connect=timeout, sock_read=timeout),
+            }
 
         kwargs.update(
             {
@@ -1112,8 +1124,11 @@ def download_file(
     try:
         # a 429 is not asked again: the providers that rate-limit are rate-limiting a free
         # account, and a second request a tenth of a second later is how that gets worse. What is
-        # worth asking twice, `_worth_retrying_download` says, and it says the same as a post does
-        for attempt in stamina.retry_context(on=_worth_retrying_download, attempts=2):
+        # worth asking twice, `_worth_retrying_download` says, and it says the same as a post does.
+        # Two attempts and no time budget: stamina's default of 45 seconds would deny the second
+        # attempt to a download that streamed for longer than that before failing, and a numeric
+        # timeout no longer ends an attempt after that many seconds (GH-2258)
+        for attempt in stamina.retry_context(on=_worth_retrying_download, attempts=2, timeout=None):
             with attempt:
                 try:
                     # asked per attempt and before the read, because reading is what populates the
@@ -1252,8 +1267,9 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     return error
 
 
-# How long a post waits when the caller's ``client_kwargs`` does not say. Settings carries a
-# default of the same length, so this stands in only for a caller that passes none at all.
+# How long a post waits on a silent server when the caller's ``client_kwargs`` does not say.
+# Settings carries a default of the same length, so this stands in only for a caller that passes
+# none at all -- who would otherwise get aiohttp's own, five minutes for the whole request.
 _POST_TIMEOUT_SECONDS = 30.0
 
 
@@ -1325,8 +1341,10 @@ def post_file(
         # fsspec keeps one filesystem instance -- and so one aiohttp session and its keep-alive
         # pool -- for the life of the process, where a token is minted days apart. The first attempt
         # can therefore pick a pooled connection the server closed hours ago, which the second gets
-        # to retry on a fresh one. What else is worth asking twice, `_worth_retrying` says.
-        for attempt in stamina.retry_context(on=_worth_retrying, attempts=2):
+        # to retry on a fresh one. What else is worth asking twice, `_worth_retrying` says. No time
+        # budget, as for a download: a numeric timeout bounds connecting and each silence, not the
+        # attempt, so one can outlast stamina's default of 45 seconds and leave no room (GH-2258)
+        for attempt in stamina.retry_context(on=_worth_retrying, attempts=2, timeout=None):
             with attempt:
                 try:
                     status, payload = sync(filesystem.loop, _post)

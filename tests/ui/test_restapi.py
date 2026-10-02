@@ -3114,3 +3114,13 @@ def test_values_a_duckdb_failure_that_is_not_about_the_statement_is_a_500(
 
     assert response.status_code == 500
     assert response.json()["detail"] == msg
+
+
+@pytest.mark.parametrize("schema_name", ["_StationsOgcFeature", "_ValuesOgcFeature"])
+def test_ogc_feature_schema_allows_a_null_geometry(schema_name: str) -> None:
+    """The GeoJSON feature schemas admit a null geometry, which a station without a position gets."""
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    geometry = app.openapi()["components"]["schemas"][schema_name]["properties"]["geometry"]
+    assert {"$ref": "#/components/schemas/_OgcFeatureGeometry"} in geometry["anyOf"]
+    assert {"type": "null"} in geometry["anyOf"]

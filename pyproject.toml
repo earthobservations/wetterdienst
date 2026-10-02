@@ -193,7 +193,7 @@ interpolation = [
 # `mysql` and `postgresql` carry what the SQL sink imports, so either works without `export`
 mysql = [
     "mysqlclient>=2,<3",
-    "pandas>=2.2.2,<3",
+    "pandas>=2.2.2,<4",
     "sqlalchemy>=2,<3",
 ]
 pdf = [

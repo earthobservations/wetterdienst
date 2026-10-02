@@ -12,6 +12,7 @@ from collections.abc import Callable, Iterator, MutableMapping
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -570,8 +571,7 @@ def test_http_filesystem_wraps_int_timeout_in_client_timeout(tmp_path: Path) -> 
         client_kwargs={"timeout": 30, "headers": {"User-Agent": "wetterdienst"}},
         skip_instance_cache=True,
     )
-    assert isinstance(fs.client_kwargs["timeout"], ClientTimeout)
-    assert fs.client_kwargs["timeout"].total == 30
+    assert fs.client_kwargs["timeout"] == ClientTimeout(total=None, connect=30, sock_connect=30, sock_read=30)
     assert fs.client_kwargs["headers"] == {"User-Agent": "wetterdienst"}
 
 
@@ -584,8 +584,7 @@ def test_http_filesystem_wraps_float_timeout_in_client_timeout(tmp_path: Path) -
         client_kwargs={"timeout": 30.5},
         skip_instance_cache=True,
     )
-    assert isinstance(fs.client_kwargs["timeout"], ClientTimeout)
-    assert fs.client_kwargs["timeout"].total == 30.5
+    assert fs.client_kwargs["timeout"] == ClientTimeout(total=None, connect=30.5, sock_connect=30.5, sock_read=30.5)
 
 
 def test_http_filesystem_leaves_client_timeout_untouched(tmp_path: Path) -> None:
@@ -2218,3 +2217,180 @@ def test_every_way_into_the_metadata_file_takes_the_cache_lock(
     getattr(filesystem, method)(*args)
 
     assert held == [True]
+
+
+class _TrickleEndpoint(BaseHTTPRequestHandler):
+    """Answers slowly: `/steady` keeps sending, `/stall-*` stops until the test lets it go."""
+
+    # a chunk every twentieth of a second, a tenth of the timeout the tests below give -- a margin
+    # wide enough for a loaded runner -- for a body that takes more than twice that timeout to arrive
+    chunk = b"x" * 64
+    chunks = 24
+    interval = 0.05
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        """Keep the test output quiet."""
+
+    def do_GET(self) -> None:
+        """Trickle, or stall, according to the path."""
+        if self.path == "/stall-before-headers":
+            self.server.release.wait(10)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(self.chunk) * self.chunks))
+        self.end_headers()
+        for _ in range(self.chunks):
+            self.wfile.write(self.chunk)
+            self.wfile.flush()
+            if self.path == "/stall-mid-body":
+                self.server.release.wait(10)
+                return
+            time.sleep(self.interval)
+
+
+@pytest.fixture
+def trickle_server() -> Iterator[str]:
+    """Run `_TrickleEndpoint` on a port of its own and hand back its URL."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _TrickleEndpoint)
+    server.release = threading.Event()
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        # a stalled handler waits on this, and closing the server waits on the handler
+        server.release.set()
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_a_numeric_timeout_lets_a_slow_but_steady_download_finish(tmp_path: Path, trickle_server: str) -> None:
+    """A number in the client kwargs bounds silence, not the whole download (GH-2258).
+
+    The body takes about 1.2 seconds to arrive against a timeout of 0.5, but never pauses for more
+    than a twentieth of a second. As a bound on the whole request, the timeout failed it with
+    `FSTimeoutError` while bytes were still arriving -- a slow link failed every file larger than
+    the timeout's worth of its bandwidth.
+    """
+    started = time.monotonic()
+    with stamina.set_testing(True, attempts=1):
+        result = download_file(
+            url=f"{trickle_server}/steady",
+            cache_dir=tmp_path,
+            client_kwargs={"timeout": 0.5},
+            cache_disable=True,
+        )
+    elapsed = time.monotonic() - started
+
+    assert result.status == 200, result.content
+    assert result.content.getvalue() == _TrickleEndpoint.chunk * _TrickleEndpoint.chunks
+    # longer than the timeout, or this would pass under a bound on the whole request as well
+    assert elapsed > 0.5
+
+
+@pytest.mark.parametrize("path", ["/stall-before-headers", "/stall-mid-body"])
+def test_a_numeric_timeout_still_fails_a_server_that_stops_sending(
+    tmp_path: Path,
+    trickle_server: str,
+    path: str,
+) -> None:
+    """A server that goes quiet for longer than the timeout still fails the request (GH-2258).
+
+    Before it answers at all, or halfway through a body it promised: either way nothing arrives for
+    longer than the timeout, and the download gives up rather than waiting on it indefinitely.
+    """
+    started = time.monotonic()
+    with stamina.set_testing(True, attempts=1):
+        result = download_file(
+            url=f"{trickle_server}{path}",
+            cache_dir=tmp_path,
+            client_kwargs={"timeout": 0.5},
+            cache_disable=True,
+        )
+    elapsed = time.monotonic() - started
+
+    assert result.status == 408
+    assert isinstance(result.content, FSTimeoutError)
+    # given up at the timeout, well before the server would have let go of the request
+    assert elapsed < 5
+
+
+def test_download_file_retries_a_download_that_failed_after_a_long_transfer() -> None:
+    """A download that streamed for a minute before failing still gets its second attempt (GH-2258).
+
+    A numeric timeout bounds silence, so an attempt can run for longer than stamina's default time
+    budget of 45 seconds -- which would leave no room for the retry. The clock is faked rather than
+    waited out, and stamina's test mode is not used, as it drops the time budget this is about.
+    """
+    clock = [0.0]
+    readings: list[float] = []
+    payload = b"data"
+    mock_fs = MagicMock()
+
+    def monotonic() -> float:
+        readings.append(clock[0])
+        return clock[0]
+
+    def cat_file(_url: str) -> bytes:
+        clock[0] += 60
+        if mock_fs.cat_file.call_count == 1:
+            msg = "the connection dropped a minute in"
+            raise ClientPayloadError(msg)
+        return payload
+
+    mock_fs.cat_file.side_effect = cat_file
+    # a network read: a bare mock would answer the cache probe with a truthy mock
+    mock_fs._check_file.return_value = False  # noqa: SLF001
+
+    with (
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+        patch("tenacity.time", SimpleNamespace(monotonic=monotonic)),
+        patch("tenacity.nap.time", SimpleNamespace(sleep=lambda _seconds: None)),
+    ):
+        result = download_file(url="http://example.com/file.txt", cache_dir=Path(), cache_disable=True)
+
+    # the retry read the faked clock after the minute had passed, or this proves nothing: a tenacity
+    # that stopped reading `tenacity.time` would retry on the real clock with or without a budget
+    assert any(reading >= 60 for reading in readings)
+    assert mock_fs.cat_file.call_count == 2
+    assert result.status == 200
+    assert result.from_cache is False
+    assert result.content.getvalue() == payload
+
+
+def test_post_file_retries_a_post_that_failed_after_a_long_attempt() -> None:
+    """A post whose first attempt ran for a minute before failing still gets its second (GH-2258).
+
+    Connecting and each silence are bounded separately now, so an attempt can run past stamina's
+    default time budget of 45 seconds. The clock is faked as for the download above.
+    """
+    clock = [0.0]
+    readings: list[float] = []
+    payload = b'{"access_token": "t"}'
+    calls: list[int] = []
+
+    def monotonic() -> float:
+        readings.append(clock[0])
+        return clock[0]
+
+    def post(*_args: object) -> tuple[int, bytes]:
+        calls.append(1)
+        clock[0] += 60
+        if len(calls) == 1:
+            raise ServerDisconnectedError
+        return 200, payload
+
+    with (
+        patch("wetterdienst.util.network.sync", side_effect=post),
+        patch("tenacity.time", SimpleNamespace(monotonic=monotonic)),
+        patch("tenacity.nap.time", SimpleNamespace(sleep=lambda _seconds: None)),
+    ):
+        result = post_file("http://example.com/token")
+
+    # read after the minute had passed, or the retry ran on the real clock and proves nothing
+    assert any(reading >= 60 for reading in readings)
+    assert len(calls) == 2
+    assert result.status == 200
+    assert result.content.getvalue() == payload
