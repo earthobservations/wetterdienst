@@ -879,8 +879,9 @@ def test_decimals_for_rounds_as_values_does() -> None:
 
     That is four decimals plus one per order of magnitude the conversion to the target shrinks a
     value by, so a snow depth under a `mile` target keeps what it has where a fixed two decimals
-    made 5 cm a 0.0. A value left in its source unit, which `values` does not round, is rounded to
-    four.
+    made 5 cm a 0.0. A value left in its source unit, which `values` does not round, is rounded as
+    one converted into it from the target would be: four here, a mile converting into a larger
+    number of centimetres.
     """
     from wetterdienst.core.util import decimals_for  # noqa: PLC0415
     from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
