@@ -35,6 +35,18 @@ class InvalidTimeIntervalError(ValueError):
     """Raised when an invalid time interval is provided."""
 
 
+class InvalidBoundingBoxError(ValueError):
+    """Raised when a bounding box's borders are given the wrong way round."""
+
+
+class LocationOutOfRangeError(ValueError):
+    """Raised when a location lies outside the range a computation covers."""
+
+
+class IssueNotFoundError(IndexError):
+    """Raised when a forecast run is asked for by an issue time the source does not list."""
+
+
 class ProviderNotFoundError(Exception):
     """Raised when a provider is not found in the provider list."""
 
