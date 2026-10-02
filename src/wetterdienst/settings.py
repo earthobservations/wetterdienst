@@ -8,6 +8,7 @@ import json
 import logging
 import platform
 from collections import defaultdict
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -201,6 +202,34 @@ def _build_geo_station_distance(
     return d
 
 
+def _default_fsspec_client_kwargs() -> dict:
+    """Return the client kwargs every request goes out with unless the caller says otherwise."""
+    return {
+        "headers": {"User-Agent": f"wetterdienst/{__import__('wetterdienst').__version__} ({platform.system()})"},
+        "timeout": 30,
+    }
+
+
+def _merge_fsspec_client_kwargs(given: dict) -> dict:
+    """Lay the caller's client kwargs over the defaults, a key the caller gives winning.
+
+    ``headers`` is merged one level deeper, so that a header of the caller's own does not drop the
+    User-Agent. Header names are case-insensitive, so a default header is left out where the caller
+    gives the same name in any spelling; keeping both would send it twice. Headers given as anything
+    but a mapping -- aiohttp also takes a list of pairs -- are used as they are.
+    """
+    defaults = _default_fsspec_client_kwargs()
+    merged = {**defaults, **given}
+    headers = given.get("headers")
+    if isinstance(headers, Mapping):
+        named = {str(name).lower() for name in headers}
+        merged["headers"] = {
+            **{name: value for name, value in defaults["headers"].items() if name.lower() not in named},
+            **headers,
+        }
+    return merged
+
+
 class Settings(BaseSettings):
     """Settings for the wetterdienst package."""
 
@@ -213,12 +242,7 @@ class Settings(BaseSettings):
 
     cache_disable: bool = Field(default=False)
     cache_dir: Path = Field(default_factory=lambda: Path(platformdirs.user_cache_dir(appname="wetterdienst")))
-    fsspec_client_kwargs: dict = Field(
-        default_factory=lambda: {
-            "headers": {"User-Agent": f"wetterdienst/{__import__('wetterdienst').__version__} ({platform.system()})"},
-            "timeout": 30,
-        },
-    )
+    fsspec_client_kwargs: dict = Field(default_factory=_default_fsspec_client_kwargs)
     auth: Auth = Field(default_factory=Auth)
     use_certifi: bool = Field(default=False)
     # opt-in: parse DWD radar BUFR files into a polars DataFrame (RadarResult.df). Requires the
@@ -264,6 +288,19 @@ class Settings(BaseSettings):
     # this setting defines how many additional stations are used in the interpolation process independent of the gain
     # of value pairs, so if the gain is not reached anymore, there at least `num` more stations added to the list
     ts_geo_num_additional_stations: Annotated[int, Field(strict=True, ge=0)] = 3
+
+    @field_validator("fsspec_client_kwargs", mode="before")
+    @classmethod
+    def merge_fsspec_client_kwargs(cls, value: object) -> object:
+        """Merge the caller's client kwargs into the defaults rather than replace them (GH-2269).
+
+        A dict of one's own -- the ``{"trust_env": True}`` the docs give for a proxy -- used to
+        replace the defaults whole, and with them the timeout and the User-Agent: requests then fell
+        back to aiohttp's own five minutes for the whole request, and went out with aiohttp's
+        User-Agent rather than wetterdienst's. Anything but a mapping is left for the field to
+        refuse.
+        """
+        return _merge_fsspec_client_kwargs(dict(value)) if isinstance(value, Mapping) else value
 
     @field_validator("ts_unit_targets", mode="before")
     @classmethod

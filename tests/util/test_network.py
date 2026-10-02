@@ -2394,3 +2394,39 @@ def test_post_file_retries_a_post_that_failed_after_a_long_attempt() -> None:
     assert len(calls) == 2
     assert result.status == 200
     assert result.content.getvalue() == payload
+
+
+def test_http_filesystem_receives_the_defaults_beside_a_callers_own_kwargs(tmp_path: Path) -> None:
+    """The proxy example from the docs reaches the filesystem with the timeout and User-Agent (GH-2269)."""
+    client_kwargs = Settings(fsspec_client_kwargs={"trust_env": True}).fsspec_client_kwargs
+
+    fs = HTTPFileSystem(
+        use_listings_cache=False,
+        listings_expiry_time=0.0,
+        listings_cache_location=tmp_path,
+        client_kwargs=client_kwargs,
+        skip_instance_cache=True,
+    )
+
+    assert fs.client_kwargs["trust_env"] is True
+    # the 30 seconds wetterdienst sets, as a bound on silence -- not aiohttp's own five minutes for
+    # the whole request, which is what a session given no timeout at all falls back to
+    assert fs.client_kwargs["timeout"] == ClientTimeout(total=None, connect=30, sock_connect=30, sock_read=30)
+    assert fs.client_kwargs["headers"]["User-Agent"].startswith("wetterdienst/")
+
+
+def test_a_callers_own_header_goes_out_beside_the_user_agent(http_server: tuple[str, list], tmp_path: Path) -> None:
+    """A header set in the settings is sent alongside the User-Agent, not instead of it (GH-2269)."""
+    base_url, requests = http_server
+    client_kwargs = Settings(fsspec_client_kwargs={"headers": {"X-Custom": "1"}}).fsspec_client_kwargs
+
+    result = download_file(
+        url=f"{base_url}/token",
+        cache_dir=tmp_path,
+        client_kwargs=client_kwargs,
+        cache_disable=True,
+    )
+
+    assert result.status == 200
+    assert requests[0]["headers"]["X-Custom"] == "1"
+    assert requests[0]["headers"]["User-Agent"].startswith("wetterdienst/")

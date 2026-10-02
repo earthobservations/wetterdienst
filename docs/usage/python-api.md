@@ -822,7 +822,8 @@ Or similarly with the cli:
 
 FSSPEC is used for flexible file caching. It relies on the two libraries requests and aiohttp. Aiohttp is used for
 asynchronous requests and may swallow some errors related to proxies, ssl or similar. Use the defined variable
-FSSPEC_CLIENT_KWARGS to pass your very own client kwargs to fsspec e.g.
+FSSPEC_CLIENT_KWARGS to pass your very own client kwargs to fsspec, which are merged into the default ones (see
+[Settings](settings.md)) e.g.
 
 ```{code-cell}
 ---
