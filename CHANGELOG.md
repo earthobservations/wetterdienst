@@ -88,6 +88,10 @@ Types of changes:
   which is logged as a warning. About three stations in four have one (GH-2223)
 - The `mysql` extra takes pandas 3, as the other extras that bring pandas do. It asked for pandas
   below 3, so installing it downgraded an environment on pandas 3 to 2.x (GH-2250)
+- DWD DMO's coverage, from `discover`, `/api/coverage`, the CLI and MCP, gives each parameter
+  `lead_times`: the lead times whose run carries it, such as `["long"]` for `icon`'s
+  `precipitation_amount_last_3h` and `["short"]` for every `icon_eu` parameter. A caller can offer
+  only what the `lead_time` it sends will answer; the other keys are as they were (GH-2256)
 
 ### Fixed
 

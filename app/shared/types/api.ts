@@ -18,7 +18,8 @@ export type Resolution
 
 /**
  * Parameter info returned in coverage response, as the backend's `discover()` builds it: every key
- * is always sent, and `unit` is the unit the source publishes in, not the one values come back in
+ * but `lead_times` is always sent, and `unit` is the unit the source publishes in, not the one
+ * values come back in
  */
 export interface CoverageParameter {
   name: string
@@ -26,6 +27,11 @@ export interface CoverageParameter {
   unit_type: string
   unit: string
   description: string | null
+  /**
+   * DWD DMO only: the lead times whose run carries the parameter. Values refuse a parameter asked
+   * for by name that the requested run does not carry
+   */
+  lead_times?: Array<'short' | 'long'>
 }
 
 /**

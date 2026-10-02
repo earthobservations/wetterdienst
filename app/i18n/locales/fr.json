@@ -465,7 +465,7 @@
     "leadTime": "Run de prévision",
     "leadTimeShort": "Court : jusqu'à 78 h, horaire",
     "leadTimeLong": "Long : de 78 à 168 h, tri-horaire",
-    "leadTimeHint": "Le DWD publie la prévision ICON DMO en deux runs. Le court contient les paramètres horaires de précipitations, de rayonnement et de neige, le long les paramètres tri-horaires à leur place ; tous les autres sont dans les deux. Choisissez le run qui contient les paramètres sélectionnés : une sélection mêlant horaires et tri-horaires est refusée, sauf s'il s'agit du jeu de données entier, qui lit ce que le run contient.",
+    "leadTimeHint": "Le DWD publie la prévision ICON DMO en deux runs. Le court contient les paramètres horaires de précipitations, de rayonnement et de neige, le long les paramètres tri-horaires à leur place ; tous les autres sont dans les deux. Les paramètres proposés sont ceux que contient le run choisi.",
     "modeStationDesc": "Fetch observations directly from one or more weather stations.",
     "modeInterpolationDesc": "Mathematically estimates the weather value at any location, even without a station there.",
     "modeSummaryDesc": "Returns the actual measured value from the nearest station that has data at each moment in time.",
