@@ -80,35 +80,32 @@ Types of changes:
   was missing. Drop `quality` 11 to get the rows as before. Other parameters and datasets are
   unchanged (GH-2000)
 - **Breaking**: Eaufrance Hub'Eau stations list the altitude of the gauge's zero, in metres, as
-  `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
-  Read `gauge_zero` for it (GH-2020)
+  `gauge_zero`, as WSV Pegelonline does; it was listed as `elevation`. Read `gauge_zero` for it
+  (GH-2020)
+- Each station history gives the `resolution` and `dataset` it belongs to beside its `station_id`,
+  whichever `sections` are asked for. DWD observation answers up to one history per station and
+  dataset, and a request for several datasets left them to be told apart by the records inside
+  (GH-2224)
 - **Breaking**: the `postgresql` extra installs psycopg 3 instead of psycopg2, and a bare
   `postgresql://` target writes through psycopg 3 whenever it is installed, on every SQLAlchemy
   version; under 2.1 it failed with `No module named 'psycopg'`. `postgresql` and `mysql` bring
   SQLAlchemy and pandas, so neither needs `export` beside it. For `postgresql+psycopg2://`,
   install `psycopg2-binary` yourself; the Docker image has psycopg 3 only, so drop `+psycopg2`
   there (GH-2202)
-  `gauge_zero`, as WSV Pegelonline does; it was listed as `elevation`. Read `gauge_zero` for it
-  (GH-2020)
 - Eaufrance Hub'Eau stations list as `elevation` the altitude of their site, `altitude_site` from
   Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
   one below -10 m or from 4810 m up, and for every station when that referential cannot be read,
   which is logged as a warning. About three stations in four have one (GH-2223)
+- DWD DMO's coverage, from `discover`, `/api/coverage`, the CLI and MCP, gives each parameter
+  `lead_times`: the lead times whose run carries it, such as `["long"]` for `icon`'s
+  `precipitation_amount_last_3h` and `["short"]` for every `icon_eu` parameter. A caller can offer
+  only what the `lead_time` it sends will answer; the other keys are as they were (GH-2256)
 
 ### Fixed
 
 - Eaufrance Hub'Eau stations are listed when the station referential takes more than 30 seconds
   to arrive, which it often does; the list failed with `FSTimeoutError`. The referential now has
   the 120 seconds the observations requests have (GH-2221)
-  `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
-  Read `gauge_zero` for it (GH-2020)
-- Each station history gives the `resolution` and `dataset` it belongs to beside its `station_id`,
-  whichever `sections` are asked for. DWD observation answers up to one history per station and
-  dataset, and a request for several datasets left them to be told apart by the records inside
-  (GH-2224)
-
-### Fixed
-
 - `to_target` and the CLI's `--target` log the target with its password as `***`. They logged it
   verbatim at INFO, which the CLI shows by default, so a database password or the InfluxDB 2/3 API
   token in the password slot reached stderr and any log it was captured in (GH-2219)

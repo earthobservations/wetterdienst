@@ -27,6 +27,11 @@ Types of changes:
   `precipitation_amount_last_3h`, are carried only by the long run, which the explorer could not
   ask for, so they answered with no data or an error. The run chosen is kept in a shared link and
   goes back to short when the provider, network, resolution or dataset changes (GH-2227)
+- `[Explorer]` DWD DMO's `icon` offers only the parameters the chosen forecast run carries, and
+  switching runs drops the others from the selection; a selection of all of them becomes all the
+  new run carries. A selection mixing 1-hourly and 3-hourly parameters, as unticking one of the
+  default selection left, was refused under either run until those were unticked by hand. Needs a
+  backend whose `/api/coverage` gives each parameter its `lead_times` (GH-2256)
 - `[Stripes]` `[Meteogram]` Where the chart's code could not be loaded, as after a new version of
   the app was deployed under an open tab, the chart area says that reloading the page helps where
   Retry does not, and offers a Reload page button, as the explorer's chart does. Retry asked for the

@@ -568,7 +568,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
       </template>
     </UCollapsible>
 
-    <ParameterSelection v-model="parameterSelectionState.selection" />
+    <ParameterSelection v-model="parameterSelectionState.selection" :lead-time="selectedLeadTime" />
 
     <UCard v-if="offersLeadTime" data-testid="lead-time">
       <template #header>
