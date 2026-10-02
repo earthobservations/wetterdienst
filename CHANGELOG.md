@@ -148,6 +148,12 @@ Types of changes:
   `PermissionError: [Errno 13]` when two of its download threads read and replace the cache's
   metadata file at the same time; the threads of one process now take turns. Two processes
   sharing a cache directory can still meet that way (GH-1990)
+- DWD DMO dates each run as the latest date on or before now that its `DDHHMM` stamp can name.
+  Between the 1st's 00 UTC run appearing (about 03:10 UTC) and 04:01, every run was a month early:
+  `available_issues` listed past issues and `values` for the newest issue raised `IndexError`. On
+  1 January, April, June, August and November it named days the month lacks, such as 31 November,
+  so `available_issues` and `values` raised `InvalidOperationError` and the station list lost the
+  stations only a run describes (GH-2203)
 - The REST API's OpenAPI schema types a station's `elevation`, `latitude`, `longitude` and `name`
   as nullable, and declares that a station may carry the columns its provider adds, such as
   `gauge_zero`, so a client generated from it keeps them. MCP tools no longer fail output
