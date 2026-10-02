@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
 
 import polars as pl
+from aiohttp import ClientError
+from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import (
@@ -37,6 +39,7 @@ log = logging.getLogger(__name__)
 _OBSERVATIONS_ENDPOINT = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr"
 _STATIONS_FIELDS = (
     "code_station",
+    "code_site",
     "libelle_station",
     "longitude_station",
     "latitude_station",
@@ -52,6 +55,20 @@ _STATIONS_ENDPOINT = (
     "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?format=json&en_service=true"
     f"&size=10000&fields={','.join(_STATIONS_FIELDS)}"
 )
+# The station referential publishes no altitude of the ground. The sites referential does, one per
+# hydrometric site, and each station names its site in `code_site`. Sites are not filtered to those
+# in service, so that a station in service finds its site whatever the site's own flag says.
+_SITES_ENDPOINT = (
+    "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/sites?format=json"
+    "&size=10000&fields=code_site,altitude_site"
+)
+# `altitude_site` is taken as a station's elevation only where it is not exactly 0 and lies between
+# -10 m, the lowest ground in France (Etang de Lavalduc), and 4810 m, above its highest (Mont Blanc,
+# about 4806 m). Of the 4178 stations in service on 2026-10-01, 48 were on a site at 0 m -- inland
+# ones among them, whose gauge zero lies 100 to 630 m up, so 0 stands for unknown there -- 3 on a
+# site at -999 m and 4 on one at 12000 to 130000 m.
+_ELEVATION_MIN = -10.0
+_ELEVATION_MAX = 4810.0
 
 # Hubeau declares no recording interval anywhere: not in the station referential, not on the
 # observations, and the v2 API defines no field for one -- unlike Pegelonline, which publishes an
@@ -93,9 +110,10 @@ _SNIFF_PAGE_SIZE = 20000
 # each, the fewest round trips -- but well past the thirty seconds a single file is given. The
 # timeout is per call, so this raises it only for the pages that ask about the whole network.
 _SNIFF_TIMEOUT = 120
-# The referential is one page of four thousand stations and answers in a second or two, so it keeps
-# the ordinary budget.
-_STATIONS_TIMEOUT = 30
+# The station referential is one page of four thousand stations, but not a quick one: on 2026-10-01
+# it took 25 to 78 seconds to arrive, streaming at 16 to 32 KB/s, so it gets the same budget, as
+# does the sites referential beside it.
+_REFERENTIAL_TIMEOUT = 120
 # One page of observations per request, followed by its cursor. The window is chunked to about a
 # page so that most requests need only one.
 _VALUES_PAGE_SIZE = 20000
@@ -342,7 +360,8 @@ class HubeauRequest(TimeseriesRequest):
 
     # `altitude_ref_alti_station` is the altitude of the gauge's zero in metres -- the datum a stage
     # is read from, below sea level on tidal reaches (-1.809 m at Bordeaux) -- not the ground the
-    # station stands on. It goes in `gauge_zero`, as Pegelonline's does, and `elevation` stays null.
+    # station stands on. It goes in `gauge_zero`, as Pegelonline's does, and `elevation` is the
+    # altitude of the station's site, from the sites referential.
     _base_columns: ClassVar = (
         *TimeseriesRequest._base_columns,  # noqa: SLF001
         "gauge_zero",
@@ -422,6 +441,41 @@ class HubeauRequest(TimeseriesRequest):
             f"&date_fin_obs={end.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         )
 
+    def _site_elevations(self) -> pl.DataFrame:
+        """Read the altitude of every hydrometric site.
+
+        Returns:
+            Frame of ``code_site`` and ``elevation``, null where the site publishes no altitude or
+            one that cannot be the ground's -- see ``_ELEVATION_MIN``. Empty when the referential
+            cannot be read: the elevation is all it supplies, and a station list without one is
+            better than none at all.
+
+        """
+        from typing import cast  # noqa: PLC0415
+
+        settings = cast("Settings", self.settings)
+        error: Exception | None = None
+        try:
+            rows = _paged_rows(_SITES_ENDPOINT, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
+        except (FSTimeoutError, OSError, ClientError, ValueError) as e:
+            # what `download_file` hands back for a timeout, a missing file, and a refused or
+            # broken response, and a body that is not JSON; FSTimeoutError is named as it is no
+            # OSError before Python 3.11
+            rows, error = [], e
+        # no rows without an error is a connection that could not be made, which `_paged_rows`
+        # reads as an empty answer -- the referential itself always lists thousands of sites
+        if not rows:
+            reason = f": {error!r}" if error else ""
+            log.warning(f"Hubeau's sites referential could not be read, stations are listed without elevation{reason}")
+        df = pl.from_dicts(rows, schema={"code_site": pl.String, "altitude_site": pl.Float64})
+        altitude = pl.col("altitude_site")
+        return df.select(
+            "code_site",
+            pl.when(altitude.is_between(_ELEVATION_MIN, _ELEVATION_MAX, closed="left") & (altitude != 0))
+            .then(altitude)
+            .alias("elevation"),
+        )
+
     def _all(self) -> pl.LazyFrame:
         """List each station under the resolution it transmits at."""
         requested = {
@@ -432,13 +486,14 @@ class HubeauRequest(TimeseriesRequest):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
-        rows = _paged_rows(self._endpoint, settings, ttl=CacheExpiry.METAINDEX, timeout=_STATIONS_TIMEOUT)
+        rows = _paged_rows(self._endpoint, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
         if not rows:
             return pl.LazyFrame()
         df_raw = pl.from_dicts(
             rows,
             schema={
                 "code_station": pl.String,
+                "code_site": pl.String,
                 "libelle_station": pl.String,
                 "longitude_station": pl.Float64,
                 "latitude_station": pl.Float64,
@@ -473,10 +528,10 @@ class HubeauRequest(TimeseriesRequest):
         # below drops it. It returns to the list as soon as it transmits again.
         steps = self._station_steps(df_raw.get_column("station_id").to_list())
         df = df_raw.join(steps, on="station_id", how="inner")
+        df = df.join(self._site_elevations(), on="code_site", how="left")
         df = df.with_columns(
             pl.col("step").replace_strict(_STEP_TO_RESOLUTION, default=None).alias("resolution"),
             pl.lit(DATASET_NAME_DEFAULT, pl.String).alias("dataset"),
-            pl.lit(None, pl.Float64).alias("elevation"),
         )
         df = df.filter(pl.col("resolution").is_in(requested))
         df = df.select(self._base_columns)

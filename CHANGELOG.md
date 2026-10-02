@@ -72,11 +72,33 @@ Types of changes:
   was missing. Drop `quality` 11 to get the rows as before. Other parameters and datasets are
   unchanged (GH-2000)
 - **Breaking**: Eaufrance Hub'Eau stations list the altitude of the gauge's zero, in metres, as
-  `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
-  Read `gauge_zero` for it (GH-2020)
+  `gauge_zero`, as WSV Pegelonline does; it was listed as `elevation`. Read `gauge_zero` for it
+  (GH-2020)
+- Eaufrance Hub'Eau stations list as `elevation` the altitude of their site, `altitude_site` from
+  Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
+  one below -10 m or from 4810 m up, and for every station when that referential cannot be read,
+  which is logged as a warning. About three stations in four have one (GH-2223)
 
 ### Fixed
 
+- Eaufrance Hub'Eau stations are listed when the station referential takes more than 30 seconds
+  to arrive, which it often does; the list failed with `FSTimeoutError`. The referential now has
+  the 120 seconds the observations requests have (GH-2221)
+  `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
+  Read `gauge_zero` for it (GH-2020)
+- Each station history gives the `resolution` and `dataset` it belongs to beside its `station_id`,
+  whichever `sections` are asked for. DWD observation answers up to one history per station and
+  dataset, and a request for several datasets left them to be told apart by the records inside
+  (GH-2224)
+
+### Fixed
+
+- `to_target` and the CLI's `--target` log the target with its password as `***`. They logged it
+  verbatim at INFO, which the CLI shows by default, so a database password or the InfluxDB 2/3 API
+  token in the password slot reached stderr and any log it was captured in (GH-2219)
+- DWD derived can be used on a base install. Its station lists were read with pandas, so
+  `Wetterdienst("dwd", "derived")` failed with an `ImportError` unless an extra that brings pandas,
+  such as `export`, was installed. They are read with polars now, with the same result (GH-2213)
 - Precipitation stripes colour dry years brown and wet years teal; they were the other way round.
   A year range holding fewer than two years with data is refused, where one beyond the station's
   record answered with no values and an empty image, and stripes start and end at a year with data.
@@ -132,6 +154,25 @@ Types of changes:
   1 January, April, June, August and November it named days the month lacks, such as 31 November,
   so `available_issues` and `values` raised `InvalidOperationError` and the station list lost the
   stations only a run describes (GH-2203)
+- The REST API's OpenAPI schema types a station's `elevation`, `latitude`, `longitude` and `name`
+  as nullable, and declares that a station may carry the columns its provider adds, such as
+  `gauge_zero`, so a client generated from it keeps them. MCP tools no longer fail output
+  validation on a station row holding such a null, as every WSV station does; a GeoJSON point
+  with a null coordinate still fails (GH-2226)
+- GeoJSON of stations and values gives a station without an elevation the position `[lon, lat]`;
+  it was `[lon, lat, null]`, which strict GeoJSON parsers reject. One collection can now hold both
+  lengths, so read an elevation from a third number only where there is one. Each feature's
+  `properties` also carry the station columns a provider adds, such as WSV's `gauge_zero` and
+  characteristic values, DWD road's station group and road columns, and the `icao_id` of DWD
+  MOSMIX, DMO and POI (GH-2222)
+- DWD observation history no longer fails for a station whose name holds a non-ASCII letter, such
+  as 01684 Görlitz: its missing-data file is read as latin-1, as DWD writes it, where it raised
+  `UnicodeDecodeError` and `/api/history` answered 400 (GH-2214)
+- MySQL and MariaDB export targets create `DATETIME` columns holding UTC, so values before 1970
+  can be written. Their `TIMESTAMP` columns started in 1970, so the first earlier row was refused or
+  stored as zeros. A table created by an earlier version keeps its `TIMESTAMP` columns and what
+  they stored; to get `DATETIME`, write it anew with `if_exists='replace'`, which drops every row
+  it held (GH-2229)
 
 ## [0.139.0] - 2026-09-29
 
