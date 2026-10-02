@@ -805,3 +805,36 @@ def test_a_run_that_is_not_a_zip_without_a_cache_is_not_asked_for_twice(monkeypa
         reader.fetch("https://x/kml/MOSMIX_L_2026092209_01001.kmz")
 
     assert len(downloads) == 1
+
+
+@pytest.mark.parametrize(
+    ("listing", "refusal"),
+    [
+        pytest.param(["https://example.com/kml/MOSMIX_L_2026090103_01001.kmz"], True, id="forecasts-of-other-issues"),
+        pytest.param(["https://example.com/kml/README.txt"], False, id="no-forecast-at-all"),
+    ],
+)
+def test_mosmix_an_issue_the_listing_does_not_hold_is_an_issue_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+    listing: list[str],
+    *,
+    refusal: bool,
+) -> None:
+    """An issue the forecasts listed do not include is refused as such (GH-2252).
+
+    The REST API keeps that as the caller's 400. A listing holding no forecast at all is the
+    product's state rather than the request's, and stays a plain `IndexError`.
+    """
+    from wetterdienst.exceptions import IssueNotFoundError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: listing)
+    values = _stub_mosmix_stations().values
+
+    with pytest.raises(IndexError, match=r"Unable to find 2026-09-01 09:00:00 file within") as exception_info:
+        values.get_url_for_date(
+            "https://example.com/kml/",
+            dt.datetime(2026, 9, 1, 9, tzinfo=UTC),
+            one_station_only=True,
+        )
+    assert isinstance(exception_info.value, IssueNotFoundError) is refusal

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from textwrap import dedent
 from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
@@ -17,9 +18,17 @@ from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
+    InvalidBoundingBoxError,
+    InvalidEnumerationError,
+    InvalidTimeIntervalError,
+    IssueNotFoundError,
+    LocationOutOfRangeError,
+    NoParametersFoundError,
+    NoPeriodsFoundError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
     StartDateEndDateError,
+    StationNotFoundError,
 )
 
 # needed at runtime: FastAPI resolves this annotation to build the query parameter's enum
@@ -621,6 +630,42 @@ def _geo_settings(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+# what a request can provoke on its way through `get_values`, `get_interpolate` and
+# `get_summarize` besides the refusals the helpers below name: a date, period, parameter, bounding
+# box, point, unit target or issue that cannot be served as given, or a station the lookup does not
+# know.
+# An `OverflowError` is a date at the edge of what a datetime holds -- `9999-12-31T23:00Z` once a
+# provider converts it to its own zone, an issue a negative offset carries past year 9999 -- and the
+# dates on the way that come that close are the request's. Anything else -- a provider's file in a
+# layout its parser does not expect, an upstream that does not answer, a frame of an unexpected
+# shape -- is not the caller's to fix, and is a 500
+_CALLER_REFUSALS = (
+    OverflowError,
+    InvalidBoundingBoxError,
+    InvalidEnumerationError,
+    InvalidTimeIntervalError,
+    IssueNotFoundError,
+    LocationOutOfRangeError,
+    NoParametersFoundError,
+    NoPeriodsFoundError,
+    StationNotFoundError,
+)
+
+
+def _is_caller_refusal(e: Exception) -> bool:
+    """Tell whether a failure is the request's own, which the caller can rephrase.
+
+    The caller's own `sql` or `sql_values` is the only SQL run on the way, so a DuckDB error about
+    the statement -- its syntax, a column or function it names, a value it compares -- is theirs;
+    one running out of memory or failing inside DuckDB is not. DuckDB is optional, and an error of
+    its can only be raised once it has been imported.
+    """
+    duckdb = sys.modules.get("duckdb")
+    return isinstance(e, _CALLER_REFUSALS) or (
+        duckdb is not None and isinstance(e, (duckdb.ProgrammingError, duckdb.DataError))
+    )
+
+
 def _values(
     api: type[TimeseriesRequest],
     request: ValuesRequest,
@@ -649,7 +694,7 @@ def _values(
         raise
     except Exception as e:
         log.exception("Failed to get values.")
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
 
 
 def _geo_values(
@@ -686,7 +731,7 @@ def _geo_values(
         raise
     except Exception as e:
         log.exception(f"Failed to {what}")
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        raise HTTPException(status_code=404 if _is_caller_refusal(e) else 500, detail=str(e)) from e
 
 
 # response models for the different formats are

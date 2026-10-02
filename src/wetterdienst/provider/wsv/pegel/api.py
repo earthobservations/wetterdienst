@@ -446,10 +446,12 @@ class WsvPegelRequest(TimeseriesRequest):
         "hsw": "highest of shipping water level",
     }
 
-    # extend base columns of core class with those of characteristic values plus gauge zero
+    # extend base columns of core class with those of characteristic values plus gauge zero and the
+    # vertical datum it is given in, which differs between stations (NHN, NN, ...)
     _base_columns: ClassVar = (
         *TimeseriesRequest._base_columns,  # noqa: SLF001
         "gauge_zero",
+        "gauge_zero_datum",
         *characteristic_values.keys(),
     )
 
@@ -494,6 +496,7 @@ class WsvPegelRequest(TimeseriesRequest):
                             "gaugeZero": pl.Struct(
                                 {
                                     "value": pl.Float64,
+                                    "unit": pl.String,
                                 },
                             ),
                             "characteristicValues": pl.List(
@@ -573,6 +576,8 @@ class WsvPegelRequest(TimeseriesRequest):
             # must match the name in `_base_columns`, or the reindex there drops it and leaves an
             # all-null `gauge_zero` -- which is the column that says which datum a stage is on
             pl.col("ts_water").struct.field("gaugeZero").struct.field("value").alias("gauge_zero"),
+            # the datum, as published: Pegelonline names it in the unit, such as `m. ü. NHN` or `m. ü. NN`
+            pl.col("ts_water").struct.field("gaugeZero").struct.field("unit").alias("gauge_zero_datum"),
             pl.col("ts_water")
             .struct.field("characteristicValues")
             .list.eval(pl.element().filter(pl.element().struct.field("shortname") == "M_I"))

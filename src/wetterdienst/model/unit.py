@@ -7,6 +7,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from wetterdienst.exceptions import InvalidEnumerationError
+
 # The mile and the nautical mile are defined in metres exactly, and the knot as one nautical mile
 # per hour. Deriving the factors from these keeps a conversion the same whichever unit a source
 # publishes: rounded to `1.609`, `1.151` and `1.944`, kilometre to mile came out 0.0214% away from
@@ -360,7 +362,7 @@ class UnitConverter:
         """
         if unit_type not in self.units:
             msg = f"Unit type {unit_type} not supported"
-            raise ValueError(msg)
+            raise InvalidEnumerationError(msg)
         unit = next((unit for unit in self.units[unit_type] if unit.name == name), None)
         if not unit:
             # a source-only unit is named but marked, because this hint answers a caller who may have
@@ -371,7 +373,7 @@ class UnitConverter:
                 for unit in self.units[unit_type]
             )
             msg = f"Unit {name} not supported for type {unit_type}. Supported units are: {supported_units}"
-            raise ValueError(msg)
+            raise InvalidEnumerationError(msg)
         return unit
 
     def increment_factor(self, source: str, target: str) -> float:
@@ -412,7 +414,7 @@ class UnitConverter:
         for key, value in targets.items():
             if key not in self.targets:
                 msg = f"Unit type {key} not supported"
-                raise ValueError(msg)
+                raise InvalidEnumerationError(msg)
             # after `get_unit`, so that a unit of some other type is reported as not belonging to
             # this one -- with the list of units that do -- rather than as held back by policy
             resolved[key] = self.get_unit(value, key)
@@ -420,7 +422,7 @@ class UnitConverter:
             # keeps refusing what it is meant to if `get_unit` ever accepts a symbol as well
             if (key, resolved[key].name) in self.source_only_units:
                 msg = f"Unit {value} is what a source publishes in and cannot be a target for type {key}"
-                raise ValueError(msg)
+                raise InvalidEnumerationError(msg)
         self.targets.update(resolved)
 
     def _get_lambda(self, unit: str, unit_target: str) -> Callable[[Any], Any]:

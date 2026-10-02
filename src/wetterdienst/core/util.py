@@ -42,8 +42,8 @@ class _ParameterData:
     station_ids: list[str] | None = None
     additional_station_counter: int = 0
     finished: bool = False
-    #: what the parameter's answers are rounded to, see `decimals_for`; four is what a value left
-    #: in its source unit gets
+    #: what the parameter's answers are rounded to, see `decimals_for`, which never gives fewer
+    #: than four
     decimals: int = 4
 
 
@@ -124,10 +124,16 @@ def decimals_for(
     """Give the decimals an interpolated or summarized value of a parameter is rounded to.
 
     What `values` rounds the parameter's converted readings to, `UnitConverter.decimals`: four,
-    plus one per order of magnitude the conversion to the target unit shrinks a value by. Without a
-    conversion `values` leaves a reading as it came, and four keeps an interpolation's float noise
-    out. A fixed two rounded away what a large target holds of a reading -- 5 cm of snow under a
-    `mile` target is 0.0000311 -- and cut a cloud cover of 0.875 that `values` returns whole to 0.88.
+    plus one per order of magnitude the conversion to the target unit shrinks a value by. A fixed
+    two rounded away what a large target holds of a reading -- 5 cm of snow under a `mile` target is
+    0.0000311 -- and cut a cloud cover of 0.875 that `values` returns whole to 0.88.
+
+    Without a conversion `values` leaves a reading as it came, unrounded. Here it is rounded the
+    other way round: as finely as a reading converted from the target unit into the source unit
+    would be, so that a source unit whose numbers run much smaller than the target's keeps at least
+    what three decimals of the target keep. A fixed four made 0.1 mm/h of precipitation, published
+    as 0.0000278 mm/s, a 0.0; seven keep it. Where the source's numbers run less than ten times
+    smaller, four keep an interpolation's float noise out.
 
     Args:
         parameter: the parameter whose values are being rounded
@@ -138,7 +144,10 @@ def decimals_for(
         The number of decimals to round to
 
     """
-    return unit_converter.decimals(parameter.unit, _values_unit(parameter, unit_converter, convert_units=convert_units))
+    target = unit_converter.targets[parameter.unit_type].name
+    if convert_units:
+        return unit_converter.decimals(parameter.unit, target)
+    return unit_converter.decimals(target, parameter.unit)
 
 
 def open_parameter_data(

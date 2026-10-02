@@ -21,7 +21,12 @@ from zoneinfo import ZoneInfo
 import polars as pl
 from lxml.etree import iterparse
 
-from wetterdienst.exceptions import InvalidEnumerationError, ParameterNotCarriedError
+from wetterdienst.exceptions import (
+    InvalidEnumerationError,
+    InvalidTimeIntervalError,
+    IssueNotFoundError,
+    ParameterNotCarriedError,
+)
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
@@ -623,7 +628,7 @@ class DwdDmoValues(TimeseriesValues):
         df = df.filter(pl.col("timestamp").eq(date))
         if df.is_empty():
             msg = f"Unable to find {date} file within {url}"
-            raise IndexError(msg)
+            raise IssueNotFoundError(msg)
         # sorted rather than `.item()`, which raises on two rows instead of answering. Under the
         # lead-anchored rule above, the only field left varying is `n` -- fixed per lead time,
         # `078` with `1` and `168` with `3` -- so two names cannot carry one stamp today and this
@@ -794,7 +799,10 @@ class DwdDmoRequest(TimeseriesRequest):
             issue = parse_enumeration_from_template(issue, DwdForecastDate)  # ty: ignore[no-matching-overload]
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
-                issue = dt.datetime.fromisoformat(issue)
+                try:
+                    issue = dt.datetime.fromisoformat(issue)
+                except ValueError as e:
+                    raise InvalidTimeIntervalError(str(e)) from e
             # converted, not relabelled: taking the wall-clock hour and stamping UTC on it read
             # `13:00+02:00` as 13:00 UTC, so an issue given in any other zone floored to the wrong
             # release -- 11:00 UTC asked for, 12:00 UTC answered, which at 11:00 is a run not yet
