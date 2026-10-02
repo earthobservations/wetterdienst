@@ -1012,7 +1012,7 @@ def test_decimals_for_keeps_a_reading_in_a_small_source_unit_when_units_are_not_
     assert intensity.unit == "millimeter_per_second"
     decimals = decimals_for(intensity, unit_converter, convert_units=False)
     assert decimals == unit_converter.decimals("millimeter_per_hour", "millimeter_per_second") == 7
-    assert round(0.1 / 3600, decimals) == pytest.approx(0.1 / 3600, rel=0.01)
+    assert round(0.1 / 3600, decimals) == pytest.approx(0.1 / 3600, rel=1e-3)
     # a conversion to mm/h makes the reading larger, so `values` rounds it to four
     assert decimals_for(intensity, unit_converter, convert_units=True) == 4
     assert decimals_for(temperature, unit_converter, convert_units=False) == 4
@@ -1099,4 +1099,4 @@ def test_interpolate_and_summarize_keep_a_reading_in_a_small_source_unit_when_un
     get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
     df = get_df(request, latitude, longitude)
     assert df.get_column("timestamp").to_list() == list(readings)
-    assert df.get_column("value").to_list() == pytest.approx(list(readings.values()), rel=0.01)
+    assert df.get_column("value").to_list() == pytest.approx(list(readings.values()), rel=1e-3)
