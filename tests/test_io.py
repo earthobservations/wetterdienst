@@ -2677,6 +2677,12 @@ def test_timeseries_values_to_target_logs_the_target_without_its_password(caplog
             ["pw-HEAD", "pw-TAIL"],
             id="influxdb1-hash",
         ),
+        # both parsers read host `tok3n-MID`, and the redacted INFO line kept `tok3n-MID/tok3n-TAIL`
+        pytest.param(
+            "influxdb2://acme:tok3n-HEAD@tok3n-MID/tok3n-TAIL==@localhost/?database=dwd",
+            ["tok3n-HEAD", "tok3n-MID", "tok3n-TAIL"],
+            id="influxdb2-at-before-slash",
+        ),
         # `urlparse` reads `hun-HEAD` as the port, then SQLAlchemy is handed `crate://crate:hun-HEAD`
         pytest.param(
             "crate://crate:hun-HEAD/ter-TAIL@localhost:4200/dwd?table=weather",
@@ -2708,20 +2714,20 @@ def test_to_target_refuses_a_password_holding_an_unencoded_delimiter(
     pieces: list[str],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A password the sink would split is refused before anything connects, naming none of it.
+    """A password the sink would split is refused before anything is logged, naming none of it.
 
-    Read wrongly, its pieces became the host, port or database, which the INFO line naming the
-    database and the traceback of the failed connection then printed.
+    Read wrongly, its pieces became the host, port or database, which the INFO lines naming the
+    target and the database and the traceback of the failed connection then printed.
     """
     with (
         mock.patch("sqlalchemy.create_engine") as create_engine,
         caplog.at_level(logging.DEBUG, logger="wetterdienst"),
-        pytest.raises(ExportRefusedError, match="percent-encoded") as excinfo,
+        pytest.raises(ExportRefusedError, match="Percent-encode") as excinfo,
     ):
         _one_row().to_target(target)
 
     create_engine.assert_not_called()
-    assert "%2F" in str(excinfo.value)
+    assert caplog.text == ""
     assert "%40" in str(excinfo.value)
     for piece in pieces:
         assert piece not in str(excinfo.value)
@@ -2753,3 +2759,19 @@ def test_to_target_hands_sqlalchemy_a_password_holding_a_slash() -> None:
 
     assert create_engine.call_args.args[0].password == "pa/ss"  # noqa: S105
     assert to_sql.call_args.kwargs["name"] == "obs"
+
+
+@pytest.mark.parametrize(
+    ("target", "named", "not_named"),
+    [
+        pytest.param("postgresql://scott:p@ss@db/dwd", "'@' as %40", "'/' as %2F", id="sql"),
+        pytest.param("influxdb2://acme:Ab/Cd==@localhost", "'/' as %2F", "'@' as %40", id="influxdb"),
+    ],
+)
+def test_to_target_refusal_names_what_the_sink_misreads(target: str, named: str, not_named: str) -> None:
+    """The refusal asks to encode what this sink misreads, not what it reads correctly."""
+    with pytest.raises(ExportRefusedError) as excinfo:
+        _one_row().to_target(target)
+
+    assert named in str(excinfo.value)
+    assert not_named not in str(excinfo.value)

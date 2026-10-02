@@ -1051,7 +1051,7 @@ def test_cli_export_refuses_an_unencoded_password_without_printing_it(
     with caplog.at_level(logging.DEBUG, logger="wetterdienst"), pytest.raises(SystemExit):
         _export_or_exit(ExportMixin(df=pl.DataFrame({"station_id": ["01048"]})), target, "replace")
 
-    assert "percent-encoded" in caplog.text
+    assert "Percent-encode" in caplog.text
     assert "Traceback" not in caplog.text
     assert "Failed to export" not in caplog.text
     for piece in ("tok3n-HEAD", "tok3n-TAIL", "pw-HEAD", "pw-TAIL"):

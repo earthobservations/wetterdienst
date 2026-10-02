@@ -106,8 +106,9 @@ Types of changes:
   token in the password slot reached stderr and any log it was captured in (GH-2219)
 - `to_target` refuses with `ExportRefusedError` a target whose password holds a `/`, `?`, `#` or
   `@` the sink would misread, naming none of it. It went to the wrong host, port or database, and
-  pieces of the password reached the log. Percent-encode them (`%2F`, `%3F`, `%23`, `%40`); the
-  InfluxDB sink now decodes an encoded username and password, as the SQL sinks do (GH-2248)
+  pieces of the password reached the log. Percent-encode them (`%2F`, `%3F`, `%23`, `%40`), and an
+  `@` in the query of a target with a password. The InfluxDB sink now decodes the username and
+  password, as the SQL sinks do, so a literal `%` in them is written `%25` (GH-2248)
 - DWD derived can be used on a base install. Its station lists were read with pandas, so
   `Wetterdienst("dwd", "derived")` failed with an `ImportError` unless an extra that brings pandas,
   such as `export`, was installed. They are read with polars now, with the same result (GH-2213)

@@ -158,19 +158,23 @@ def test_redact_password_hides_the_password_and_keeps_the_rest(url: str, redacte
         pytest.param("postgresql://scott:p@ss:w0rd@db/dwd", {"@"}, id="at-then-colon"),
         pytest.param("postgresql://scott:p@ss@db/dwd", {"@"}, id="at"),
         pytest.param("postgresql://scott:a/b@c@db/dwd", {"/", "@"}, id="slash-and-at"),
+        # both parsers end it at the first `@` and agree on host `C`, so only the widest reading,
+        # up to the last `@`, finds what it holds
+        pytest.param("influxdb2://acme:Ab@C/d==@localhost/?database=dwd", {"/", "@"}, id="at-before-slash"),
+        # which cannot be told apart from an `@` in the query of a target with a password
+        pytest.param("postgresql://scott:tiger@db/dwd?table=weather&note=a@b", {"/", "?", "@"}, id="at-in-query"),
         # encoded, nothing is left to misread
         pytest.param("postgresql://scott:pa%2Fss%40x%3F%23@db/dwd", set(), id="percent-encoded"),
         pytest.param("crate://crate@localhost/dwd?table=weather", set(), id="no-password"),
         pytest.param("influxdb://localhost:8086/?database=dwd", set(), id="port-no-password"),
-        pytest.param("postgresql://scott:tiger@db/dwd?table=weather&note=a@b", set(), id="at-in-query"),
         pytest.param(
             "postgresql://user@srv:secret@srv.postgres.database.azure.com:5432/dwd", set(), id="at-in-username"
         ),
         pytest.param("file://C:/data@x:y.csv", set(), id="file"),
         pytest.param("duckdb://C:/data/obs@1:2.duckdb", set(), id="duckdb"),
-        # with no password, a port followed by an `@` in the query reads as a password holding
-        # a `/` and a `?`, and SQLAlchemy reads it that way too
-        pytest.param("influxdb://localhost:8086/?table=a@b", {"/", "?"}, id="port-then-at-in-query"),
+        # with no password, digits after the `:` are a port, whatever follows the host part
+        pytest.param("influxdb://localhost:8086/?table=a@b", set(), id="port-then-at-in-query"),
+        pytest.param("crate://localhost:4200/?table=a@b", set(), id="crate-port-then-at-in-query"),
     ],
 )
 def test_unencoded_password_delimiters_names_what_the_password_holds(url: str, found: set[str]) -> None:

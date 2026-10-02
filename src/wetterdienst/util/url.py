@@ -41,7 +41,7 @@ def redact_password(url: str) -> str:
 
 
 def unencoded_password_delimiters(url: str) -> frozenset[str]:
-    """Name the delimiters a target's password holds unencoded, of ``/``, ``?``, ``#`` and ``@``.
+    """Name the delimiters a target's password may hold unencoded, of ``/``, ``?``, ``#`` and ``@``.
 
     The two parsers that read a target split such a password differently. ``urlparse`` ends the
     host part at the first ``/``, ``?`` or ``#``, so a password holding one of them is cut there
@@ -49,25 +49,26 @@ def unencoded_password_delimiters(url: str) -> frozenset[str]:
     first ``@``, so a password holding one is cut there and the rest is read as the host and
     port. Either way the target is read with the wrong host, port, password, database or table.
 
-    The password is found as `redact_password` finds it: after the first ``:``, provided no ``/``
-    comes before it, up to the first ``@`` after that. A further ``@`` before the host part ends
-    means the password held one. A target with no password but a ``host:port`` followed by an
-    ``@`` in its path or query reads the same way, and SQLAlchemy misreads it the same way too.
-    Nothing here raises, and nothing of the password comes back but which delimiters it holds.
+    Where the password ends cannot be told from the string once it may hold an ``@``, so this
+    takes the widest reading: from the first ``:``, provided no ``/`` comes before it, to the
+    last ``@``. An ``@`` in the path or query of a target with a password is therefore counted
+    too. Digits alone from the ``:`` to where ``urlparse`` ends the host part are a port, not a
+    password, so ``influxdb://localhost:8086/?table=a@b`` names nothing; a password of digits
+    followed by a ``/`` reads as one too. Nothing here raises, and nothing of the password comes
+    back but which delimiters it may hold.
     """
     scheme, separator, rest = url.partition("://")
     username, colon, _ = rest.partition(":")
     if not separator or scheme.lower() in _PATH_SCHEMES or not colon or "/" in username:
         return frozenset()
     start = len(username) + 1
-    end = rest.find("@", start)
+    end = rest.rfind("@", start)
     if end == -1:
         return frozenset()
-    found = {c for c in "/?#" if c in rest[start:end]}
-    host_end = min((i for i in (rest.find(c, end) for c in "/?#") if i != -1), default=len(rest))
-    if "@" in rest[end + 1 : host_end]:
-        found.add("@")
-    return frozenset(found)
+    host_end = min((i for i in (rest.find(c, start) for c in "/?#") if i != -1), default=len(rest))
+    if rest[start:host_end].isdigit():
+        return frozenset()
+    return frozenset(c for c in "/?#@" if c in rest[start:end])
 
 
 class ConnectionString:
