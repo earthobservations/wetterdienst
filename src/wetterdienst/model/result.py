@@ -605,9 +605,11 @@ class ValuesResult(_ValuesResult):
         if with_metadata:
             data["metadata"] = self.stations.get_metadata()
         # The stations frame holds one row per resolution, dataset and station, so a feature is one
-        # dataset of one station and carries that dataset's values only. The values frame stores
-        # these columns as Enum (see TimeseriesValues._cast_metadata_to_enum); its partition keys
-        # are plain strings all the same, as the stations frame's are, and the cast is for the join.
+        # dataset of one station and carries that dataset's values only, save in a resolution the
+        # wide shape merged several datasets into, which is one feature per station (see below).
+        # The values frame stores these columns as Enum (see TimeseriesValues._cast_metadata_to_enum);
+        # its partition keys are plain strings all the same, as the stations frame's are, and the
+        # cast is for the join.
         values_by_series = {
             key: df.drop("station_id")
             for key, df in self.df.partition_by(
