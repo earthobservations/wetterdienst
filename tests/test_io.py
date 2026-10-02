@@ -2272,6 +2272,93 @@ def test_sql_sink_keeps_the_table_out_of_the_connection(
         connection.close()
 
 
+@pytest.mark.parametrize(
+    ("target", "datetime_type"),
+    [
+        pytest.param("mysql://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql"),
+        pytest.param("mysql+pymysql://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql+pymysql"),
+        pytest.param("mariadb://u:p@localhost/dwd?table=weather", "DATETIME", id="mariadb"),
+        # a dialect built on MySQL's under a name of its own, as TiDB's or SingleStore's are
+        pytest.param("wdmysqlfork://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql-derived"),
+        # the control: PostgreSQL's `timestamptz` holds any year and keeps the zone, so it is left alone
+        pytest.param(
+            "postgresql+pg8000://u:p@localhost/dwd?table=weather", "TIMESTAMP WITH TIME ZONE", id="postgresql"
+        ),
+    ],
+)
+def test_sql_sink_writes_mysql_datetimes_as_naive_utc(
+    target: str, datetime_type: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A MySQL or MariaDB table gets `DATETIME` columns holding UTC, so a year before 1970 fits.
+
+    pandas maps a zoned datetime to `TIMESTAMP(timezone=True)`, which the MySQL dialect compiles
+    to a plain `TIMESTAMP`; that type starts in 1970, so the first row of a historical DWD series
+    was refused (strict mode) or stored as zeros. No server is needed: the engine carries the
+    target's dialect over a stand-in driver, `to_sql` is stubbed, and the frame it is handed is
+    compiled into the `CREATE TABLE` that dialect would send.
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    from pandas.io.sql import SQLDatabase, SQLTable  # noqa: PLC0415
+    from sqlalchemy.dialects import registry  # noqa: PLC0415
+    from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql  # noqa: PLC0415
+    from sqlalchemy.schema import CreateTable  # noqa: PLC0415
+
+    class ForkDialect(MySQLDialect_pymysql):
+        name = "wdmysqlfork"
+
+    monkeypatch.setitem(registry.impls, "wdmysqlfork", lambda: ForkDialect)
+    # `start_date` and `end_date` stand for the station frame's other datetime columns, the latter
+    # empty as an active station's is. Midnight in Berlin in 1850 is 23:06:32 UTC the day before
+    # (local mean time), so a zone dropped without converting to UTC first would show
+    export = ExportMixin(
+        df=pl.DataFrame(
+            {
+                "station_id": ["01048"],
+                "timestamp": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("UTC"))],
+                "start_date": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("Europe/Berlin"))],
+                "end_date": pl.Series([None], dtype=pl.Datetime("us", "UTC")),
+                "value": [1.0],
+            }
+        )
+    )
+    create_engine = sqlalchemy.create_engine
+    engines = []
+    handed = []
+
+    def engine_for(url: object, **kwargs: object) -> object:
+        # the target's real dialect, with a stand-in driver: nothing connects before `to_sql`
+        engines.append(create_engine(url, module=mock.MagicMock(), **kwargs))
+        return engines[-1]
+
+    def to_sql(frame: object, **_kwargs: object) -> None:
+        handed.append(frame)
+
+    with (
+        mock.patch("sqlalchemy.create_engine", side_effect=engine_for),
+        mock.patch.object(pd.DataFrame, "to_sql", autospec=True, side_effect=to_sql),
+    ):
+        export.to_target(target)
+
+    ((engine,), (frame,)) = engines, handed
+    with SQLDatabase(create_engine("sqlite://")) as database:
+        table = SQLTable("weather", database, frame=frame, index=False).table
+        ddl = str(CreateTable(table).compile(dialect=engine.dialect))
+    assert f"timestamp {datetime_type}" in ddl
+    assert f"start_date {datetime_type}" in ddl
+    assert f"end_date {datetime_type}" in ddl
+    assert frame["end_date"].isna().tolist() == [True]
+    if datetime_type == "DATETIME":
+        assert frame["timestamp"].tolist() == [pd.Timestamp("1850-01-01 00:00:00")]
+        assert frame["start_date"].tolist() == [pd.Timestamp("1849-12-31 23:06:32")]
+    else:
+        assert frame["timestamp"].tolist() == [pd.Timestamp("1850-01-01 00:00:00", tz="UTC")]
+        # compared as an instant: pandas rounds Berlin's 1850 offset to whole minutes when it builds one
+        assert isinstance(frame["start_date"].dtype, pd.DatetimeTZDtype)
+        assert str(frame["start_date"].dtype.tz) == "Europe/Berlin"
+        assert frame["start_date"].dt.tz_convert("UTC").tolist() == [pd.Timestamp("1849-12-31 23:06:32", tz="UTC")]
+
+
 def _gauge_stations_result() -> StationsResult:
     """Build a stations result from a request declaring gauge_zero, as WSV Pegelonline's does.
 
