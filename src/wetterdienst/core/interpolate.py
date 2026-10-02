@@ -23,6 +23,7 @@ from wetterdienst.core.util import (
     can_answer_at_elevation,
     collection_is_done,
     count_stations_in_reach,
+    decimals_for,
     extract_station_values,
     lapse_rate_for,
     no_elevation_in_reach_error,
@@ -278,6 +279,7 @@ def apply_station_values_per_parameter(
             dataset.resolution.value,
             cast("dt.datetime | None", stations_ranked.stations.start_date),
             cast("dt.datetime | None", stations_ranked.stations.end_date),
+            decimals=decimals_for(parameter, unit_converter, convert_units=settings.ts_convert_units),
         )
         if param_data is None:
             continue
@@ -373,11 +375,12 @@ def calculate_interpolation(
                 "taken_station_ids": pl.List(inner=pl.String),
             },
             orient="row",
-        )
+        ).with_columns(pl.col("value").round(param_data.decimals))
         param_df = pl.concat([param_df, results], how="horizontal_extend")
         data.append(param_df)
     df = pl.concat(data)
-    df = df.with_columns(pl.col("value").round(2), pl.col("distance_mean").round(2))
+    # the value is rounded per parameter above, see `decimals_for`; the distance is kilometres
+    df = df.with_columns(pl.col("distance_mean").round(2))
     return df.sort(
         by=[
             "resolution",
