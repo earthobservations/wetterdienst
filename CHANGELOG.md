@@ -188,6 +188,10 @@ Types of changes:
   stored as zeros. A table created by an earlier version keeps its `TIMESTAMP` columns and what
   they stored; to get `DATETIME`, write it anew with `if_exists='replace'`, which drops every row
   it held (GH-2229)
+- GeoJSON of values gives a station in several datasets one feature per dataset carrying that
+  dataset's values only; each feature carried the values of every dataset, so each value appeared
+  once per dataset. A dataset the station returned no values for gets no feature. A wide row that
+  spans several datasets of one resolution, and names none, still goes to each of theirs (GH-2253)
 
 ## [0.139.0] - 2026-09-29
 

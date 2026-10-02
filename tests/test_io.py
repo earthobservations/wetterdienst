@@ -2656,3 +2656,120 @@ def test_timeseries_values_to_target_logs_the_target_without_its_password(caplog
     assert (
         "Exported data for station 01048 to influxdb2://acme:***@localhost/?database=dwd&table=weather." in caplog.text
     )
+
+
+def _two_dataset_stations_result() -> StationsResult:
+    """Build a stations result of one station in two daily datasets, one row per dataset.
+
+    As DWD observation lists it: a stations frame holds one row per resolution, dataset and
+    station, and a station in two datasets gets two rows.
+    """
+    station = {
+        "resolution": "daily",
+        "station_id": "01048",
+        "start_date": None,
+        "end_date": None,
+        "latitude": 51.1,
+        "longitude": 13.8,
+        "elevation": 228.0,
+        "name": "Dresden-Klotzsche",
+        "region": "Sachsen",
+    }
+    df = pl.DataFrame(
+        [{**station, "dataset": "climate_summary"}, {**station, "dataset": "precipitation_more"}],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "elevation": pl.Float64,
+            "name": pl.String,
+            "region": pl.String,
+        },
+        orient="row",
+    )
+    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, stations=None)
+
+
+def _values_result(stations: StationsResult, rows: list[dict]) -> ValuesResult:
+    """Build a values result of hand-written rows, its metadata columns Enum as a real one's are."""
+    df_values = pl.DataFrame(rows, schema_overrides={"timestamp": pl.Datetime(time_zone="UTC")}, orient="row")
+    df_values = TimeseriesValues._cast_metadata_to_enum(df_values)  # noqa: SLF001
+    return ValuesResult(stations=stations, values=None, df=df_values)
+
+
+def test_values_to_ogc_feature_collection_gives_each_dataset_its_own_values() -> None:
+    """A station in two datasets gets one feature per dataset, each with that dataset's values only.
+
+    Both features carried the values of both datasets, so every value appeared twice, once under
+    a feature whose dataset did not match it.
+    """
+    timestamp = dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC"))
+    value = {"station_id": "01048", "resolution": "daily", "timestamp": timestamp, "quality": 1.0}
+    result = _values_result(
+        _two_dataset_stations_result(),
+        [
+            {**value, "dataset": "climate_summary", "parameter": "temperature_air_mean_2m", "value": 1.0},
+            {**value, "dataset": "precipitation_more", "parameter": "precipitation_height", "value": 2.0},
+        ],
+    )
+    features = json.loads(result.to_geojson())["data"]["features"]
+    assert [
+        (feature["properties"]["dataset"], [(v["dataset"], v["value"]) for v in feature["values"]])
+        for feature in features
+    ] == [
+        ("climate_summary", [("climate_summary", 1.0)]),
+        ("precipitation_more", [("precipitation_more", 2.0)]),
+    ]
+    # a feature's values still leave out the station id its properties carry
+    assert all("station_id" not in v for feature in features for v in feature["values"])
+
+
+def test_values_to_ogc_feature_collection_leaves_out_a_dataset_without_values() -> None:
+    """A dataset the station returned no values for gets no feature, nor the other dataset's values."""
+    result = _values_result(
+        _two_dataset_stations_result(),
+        [
+            {
+                "station_id": "01048",
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_mean_2m",
+                "timestamp": dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "value": 1.0,
+                "quality": 1.0,
+            },
+        ],
+    )
+    features = json.loads(result.to_geojson())["data"]["features"]
+    assert [(feature["properties"]["dataset"], len(feature["values"])) for feature in features] == [
+        ("climate_summary", 1),
+    ]
+
+
+def test_values_to_ogc_feature_collection_wide_rows_spanning_datasets() -> None:
+    """A wide row spanning two datasets of one resolution, and so naming none, still reaches a feature.
+
+    Such a row holds the columns of each dataset, so it goes to the feature of each of them.
+    """
+    result = _values_result(
+        _two_dataset_stations_result(),
+        [
+            {
+                "station_id": "01048",
+                "resolution": "daily",
+                "dataset": None,
+                "timestamp": dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "climate_summary_temperature_air_mean_2m": 1.0,
+                "precipitation_more_precipitation_height": 2.0,
+            },
+        ],
+    )
+    features = json.loads(result.to_geojson())["data"]["features"]
+    assert [(feature["properties"]["dataset"], len(feature["values"])) for feature in features] == [
+        ("climate_summary", 1),
+        ("precipitation_more", 1),
+    ]
