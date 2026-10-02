@@ -148,6 +148,12 @@ Types of changes:
   `PermissionError: [Errno 13]` when two of its download threads read and replace the cache's
   metadata file at the same time; the threads of one process now take turns. Two processes
   sharing a cache directory can still meet that way (GH-1990)
+- GeoJSON of stations and values gives a station without an elevation the position `[lon, lat]`;
+  it was `[lon, lat, null]`, which strict GeoJSON parsers reject. One collection can now hold both
+  lengths, so read an elevation from a third number only where there is one. Each feature's
+  `properties` also carry the station columns a provider adds, such as WSV's `gauge_zero` and
+  characteristic values, DWD road's station group and road columns, and the `icao_id` of DWD
+  MOSMIX, DMO and POI (GH-2222)
 - DWD observation history no longer fails for a station whose name holds a non-ASCII letter, such
   as 01684 Görlitz: its missing-data file is read as latin-1, as DWD writes it, where it raised
   `UnicodeDecodeError` and `/api/history` answered 400 (GH-2214)
