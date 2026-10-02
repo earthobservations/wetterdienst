@@ -3050,3 +3050,25 @@ def test_the_refusal_types_keep_the_type_they_were_raised_as() -> None:
     assert issubclass(InvalidEnumerationError, ValueError)
     assert issubclass(InvalidTimeIntervalError, ValueError)
     assert issubclass(IssueNotFoundError, IndexError)
+
+
+def test_values_a_duckdb_failure_that_is_not_about_the_statement_is_a_500(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """DuckDB running out of memory is the server's failure, however the caller's SQL reads (GH-2252)."""
+    import duckdb  # noqa: PLC0415
+
+    msg = "Out of Memory Error: failed to allocate data of size 1.0 GiB"
+
+    def fail() -> None:
+        raise duckdb.OutOfMemoryException(msg)
+
+    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+
+    response = client.get("/api/values", params={**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == msg
+
