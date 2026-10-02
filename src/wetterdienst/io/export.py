@@ -12,7 +12,6 @@ from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
-from urllib.parse import urlunparse
 
 import polars as pl
 import polars.selectors as cs
@@ -296,17 +295,21 @@ class ExportMixin:
 
         Raises:
             ExportRefusedError: The sink will not perform this export -- a mode it does not
-                do, a target already holding data under ``if_exists='fail'``, or a format or
-                protocol nothing here writes.
+                do, a target already holding data under ``if_exists='fail'``, a format or
+                protocol nothing here writes, or a target that cannot be read, such as one whose
+                password holds an unencoded ``@``.
 
         Returns:
             None (data is emitted to the target)
 
         """
-        log.info(f"Exporting records to {redact_password(target)}\n{self.df.select(pl.len())}")
-
+        # read once, and before anything is logged: a target its sink cannot read is refused
+        # here, with a message that names no part of it
         connspec = ConnectionString(target)
         protocol = connspec.protocol
+
+        log.info(f"Exporting records to {redact_password(target)}\n{self.df.select(pl.len())}")
+
         database = connspec.database
         tablename = connspec.table
 
@@ -506,6 +509,8 @@ class ExportMixin:
 
                 INFLUXDB_ORGANIZATION=acme
                 INFLUXDB_TOKEN=t5PJry6TyepGsG7IY_n0K4VHp5uPvt9iap60qNHIXL4E6mW9dLmowGdNz0BDi6aK_bAbtD76Z7ddfho6luL2LA==
+                # percent-encode a `%` or `@` in the token, and a `%`, `@`, `:` or `/` in the
+                # organization (`%25`, `%40`, `%3A`, `%2F`)
 
                 alias fetch="wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent --station=1048,4411"
                 fetch --target="influxdb2://${INFLUXDB_ORGANIZATION}:${INFLUXDB_TOKEN}@localhost/?database=dwd&table=weather"
@@ -527,6 +532,8 @@ class ExportMixin:
 
                 INFLUXDB_ORGANIZATION=acme
                 INFLUXDB_TOKEN=t5PJry6TyepGsG7IY_n0K4VHp5uPvt9iap60qNHIXL4E6mW9dLmowGdNz0BDi6aK_bAbtD76Z7ddfho6luL2LA==
+                # percent-encode a `%` or `@` in the token, and a `%`, `@`, `:` or `/` in the
+                # organization (`%25`, `%40`, `%3A`, `%2F`)
                 INFLUXDB_HOST="eu-central-1-1.aws.cloud2.influxdata.com"
 
                 alias fetch="wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent --station=1048,4411"
@@ -585,7 +592,7 @@ class ExportMixin:
                 from influxdb_client.client.write_api import SYNCHRONOUS  # noqa: PLC0415
 
                 ssl = protocol.endswith("s")
-                url = f"http{(ssl and 's') or ''}://{connspec.url.hostname}:{connspec.url.port or 8086}"
+                url = f"http{(ssl and 's') or ''}://{connspec.host}:{connspec.port or 8086}"
                 client = InfluxDBClientV2(url=url, org=connspec.username or "", token=connspec.password or "")
                 write_api = client.write_api(write_options=SYNCHRONOUS)
             elif version == 3:
@@ -713,8 +720,17 @@ class ExportMixin:
             log.info(f"Writing to CrateDB. target={redact_password(target)}, table={tablename}")
 
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
-            cratedb_url = connspec.url._replace(path="", query="")
-            cratedb_target = urlunparse(cratedb_url)
+            # Rebuilt from the reading above, with the password encoded again, so SQLAlchemy reads
+            # it back as the same password whatever it holds
+            from sqlalchemy.engine import URL  # noqa: PLC0415
+
+            cratedb_target = URL.create(
+                "crate",
+                username=connspec.username,
+                password=connspec.password,
+                host=connspec.host,
+                port=connspec.port,
+            ).render_as_string(hide_password=False)
 
             # Convert timezone-aware datetime fields to naive ones.
             # FIXME: Omit this as soon as the CrateDB driver is capable of supporting timezone-qualified timestamps.
@@ -781,6 +797,7 @@ class ExportMixin:
 
             log.info("Writing to SQL database")
             import sqlalchemy  # noqa: PLC0415
+            from sqlalchemy.dialects.mssql.base import DATETIME2, MSDialect  # noqa: PLC0415
             from sqlalchemy.dialects.mysql.base import MySQLDialect  # noqa: PLC0415
 
             # `table` is ours, read above to name the table; SQLAlchemy hands every query argument
@@ -788,6 +805,8 @@ class ExportMixin:
             # refuse one they do not know, so a `postgresql://` or `mysql://` target could not
             # connect at all. Only `table` goes: the rest of the query (`sslmode`, `charset`, ...)
             # is the driver's
+            # SQLAlchemy's own reading, which `ConnectionString` copies; read here by SQLAlchemy
+            # itself because 2.0 leaves the database as written and 2.1 decodes it
             url = sqlalchemy.make_url(target).difference_update_query(["table"])
             if url.get_backend_name() == "postgresql":
                 # a bare `postgresql://` means psycopg2 to SQLAlchemy 2.0 and psycopg 3 to 2.1,
@@ -811,13 +830,21 @@ class ExportMixin:
                     msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
                     raise ExportRefusedError(msg)
                 columns = [pl.col(pl.Enum).cast(pl.String)]
-                if isinstance(engine.dialect, MySQLDialect):
+                # `to_sql` takes SQLAlchemy types here, which pandas' annotation leaves out
+                dtype: dict[Any, Any] | None = None
+                if isinstance(engine.dialect, (MySQLDialect, MSDialect)):
                     # pandas writes a zoned datetime as `TIMESTAMP(timezone=True)`, which MySQL,
                     # MariaDB and the dialects built on theirs compile to a plain `TIMESTAMP`:
                     # nothing before 1970, and converted from the session's time zone, so a
                     # pre-1970 row is refused or stored as zeros. A naive one becomes `DATETIME`
-                    # (years 1000 to 9999), so every datetime column goes in as naive UTC
+                    # (years 1000 to 9999), so every datetime column goes in as naive UTC.
+                    # SQL Server compiles it to `TIMESTAMP` too, which there is `rowversion`, a
+                    # row counter that takes no value at all
                     columns.append(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
+                if isinstance(engine.dialect, MSDialect):
+                    # a naive datetime would be SQL Server's `DATETIME`, which starts in 1753 and
+                    # rounds to 1/300 s; `DATETIME2` holds every year a Python datetime can
+                    dtype = {name: DATETIME2() for name in self.df.select(cs.datetime()).columns}
                 self.df.with_columns(columns).to_pandas().to_sql(
                     name=tablename,
                     con=engine,
@@ -825,6 +852,7 @@ class ExportMixin:
                     index=False,
                     method="multi",
                     chunksize=chunk_size,
+                    dtype=dtype,
                 )
             finally:
                 engine.dispose()

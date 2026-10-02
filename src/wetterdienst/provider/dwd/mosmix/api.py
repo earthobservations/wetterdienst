@@ -15,7 +15,7 @@ from urllib.parse import urljoin
 
 import polars as pl
 
-from wetterdienst.exceptions import InvalidEnumerationError
+from wetterdienst.exceptions import InvalidEnumerationError, InvalidTimeIntervalError, IssueNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -292,11 +292,16 @@ class DwdMosmixValues(TimeseriesValues):
             ).str.to_datetime("%Y%m%d%H%M"),
         )
 
+        # the caller's only where the listing held forecasts, none of them of this issue: one holding
+        # no forecast at all is the product's state, whichever issue was asked for
+        listed = not df.is_empty()
         df = df.filter(pl.col("timestamp").eq(date))
 
         if df.is_empty():
             msg = f"Unable to find {date} file within {url}"
-            raise IndexError(msg)
+            if not listed:
+                raise IndexError(msg)
+            raise IssueNotFoundError(msg)
 
         # `.item()` raises on two rows rather than answering, and two rows are possible: a second
         # lead time in one directory (`..._120.kmz` beside `..._240.kmz`) carries one run stamp on
@@ -404,7 +409,10 @@ class DwdMosmixRequest(TimeseriesRequest):
             issue = parse_enumeration_from_template(issue, DwdForecastDate)  # ty: ignore[no-matching-overload]
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
-                issue = dt.datetime.fromisoformat(issue)
+                try:
+                    issue = dt.datetime.fromisoformat(issue)
+                except ValueError as e:
+                    raise InvalidTimeIntervalError(str(e)) from e
             issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=issue.tzinfo)
         self.issue = issue
 

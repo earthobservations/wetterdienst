@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from wetterdienst.exceptions import ExportRefusedError
 from wetterdienst.util.url import ConnectionString, redact_password
 
 
@@ -144,3 +145,116 @@ def test_connectionstring_gives_back_the_file_path_it_was_given(database: str) -
 def test_redact_password_hides_the_password_and_keeps_the_rest(url: str, redacted: str) -> None:
     """The password slot reads `***`; the username, host, path and query read as they were given."""
     assert redact_password(url) == redacted
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "postgresql://scott:tiger@db.example.org:5432/dwd?table=weather&sslmode=require",
+        "postgresql+psycopg2://scott:pa/ss@db/dwd?table=obs",
+        "postgresql://scott:pa?ss@db/dwd?table=obs",
+        "postgresql://scott:p#ss@db/dwd",
+        "postgresql://scott:pa%2Fss%40x@db/dwd",
+        "postgresql://user@srv:secret@srv.postgres.database.azure.com:5432/dwd?sslmode=require",
+        "postgresql://u:p@[::1]:5432/dwd",
+        "postgresql://[::1]:5432/dwd?table=a@b",
+        "postgresql://scott:tiger@db/dwd?options=a&options=b",
+        "mysql://:secret@localhost/dwd",
+        "sqlite:///dwd.sqlite?table=weather",
+        "sqlite+pysqlcipher://:passphrase@/dwd.db?table=weather",
+        "crate://crate:hun/ter2@localhost:4200/dwd?table=weather",
+        "influxdb2://acme:Ab/Cd==@localhost/?database=dwd",
+    ],
+)
+def test_connectionstring_reads_a_target_as_sqlalchemy_does(url: str) -> None:
+    """Every sink reads a target as the SQL sinks' SQLAlchemy reads it, so they cannot disagree."""
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    cs = ConnectionString(url)
+    reference = sqlalchemy.make_url(url)
+    assert (cs.username, cs.password, cs.host, cs.port, cs.table) == (
+        reference.username,
+        reference.password,
+        reference.host,
+        reference.port,
+        reference.query.get("table", "weather"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        # `urlparse` ended the host part at the first `/`, `?` or `#` and read port `Ab`
+        pytest.param(
+            "influxdb2://acme:Ab/Cd==@localhost/?database=dwd",
+            ("influxdb2", "localhost", None, "acme", "Ab/Cd==", "dwd", "weather"),
+            id="slash",
+        ),
+        pytest.param(
+            "crate://crate:hun?ter#2@localhost:4200/dwd?table=obs",
+            ("crate", "localhost", 4200, "crate", "hun?ter#2", "dwd", "obs"),
+            id="question-mark-and-hash",
+        ),
+        pytest.param(
+            "influxdb://root:a:b@localhost:8087/obs",
+            ("influxdb", "localhost", 8087, "root", "a:b", "obs", "weather"),
+            id="colon",
+        ),
+    ],
+)
+def test_connectionstring_reads_a_password_holding_delimiters(url: str, expected: tuple) -> None:
+    """A `/`, `?`, `#` or `:` in a password stays in it, and the host, port and database are read."""
+    cs = ConnectionString(url)
+    assert (cs.protocol, cs.host, cs.port, cs.username, cs.password, cs.database, cs.table) == expected
+
+
+@pytest.mark.parametrize(
+    ("url", "pieces"),
+    [
+        pytest.param("postgresql://scott:pw-HEAD@ss:pw-TAIL@db/dwd", ["pw-HEAD", "ss:pw-TAIL"], id="at-then-colon"),
+        pytest.param("influxdb2://acme:tok-HEAD@tok-TAIL@localhost/", ["tok-HEAD", "tok-TAIL"], id="at"),
+    ],
+)
+def test_connectionstring_refuses_a_password_holding_an_unencoded_at(url: str, pieces: list[str]) -> None:
+    """An `@` that would end the password leaves an `@` in the host or port; the refusal names neither."""
+    with pytest.raises(ExportRefusedError, match="%40") as excinfo:
+        ConnectionString(url)
+    for piece in pieces:
+        assert piece not in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        pytest.param("not a url:secret", id="no-scheme"),
+        pytest.param("influxdb2://acme@localhost:se-cret/", id="port-not-a-number"),
+    ],
+)
+def test_connectionstring_refuses_a_target_it_cannot_read_without_naming_it(url: str) -> None:
+    """A target that is not a URL, or names a port that is not a number, is refused, naming neither."""
+    with pytest.raises(ExportRefusedError) as excinfo:
+        ConnectionString(url)
+    assert "secret" not in str(excinfo.value)
+    assert "se-cret" not in str(excinfo.value)
+
+
+def test_connectionstring_decodes_a_percent_encoded_username_and_password() -> None:
+    """An encoded password reaches InfluxDB decoded, as SQLAlchemy decodes one for the SQL sinks.
+
+    Without it, the advice to write a `/` in a token as `%2F` would send InfluxDB `Ab%2FCd==`.
+    """
+    cs = ConnectionString("influxdb2://ac%40me:Ab%2FCd%3D%3D@localhost/?database=dwd")
+    assert cs.username == "ac@me"
+    assert cs.password == "Ab/Cd=="  # noqa: S105
+    assert ConnectionString("influxdb://localhost/?database=dwd").password is None
+
+
+def test_connectionstring_refuses_a_port_of_non_ascii_digits() -> None:
+    """`²` is a digit to `str.isdigit` but not to `int`, which would fail naming it."""
+    with pytest.raises(ExportRefusedError, match="port is not a number"):
+        ConnectionString("influxdb://localhost:²/")
+
+
+def test_connectionstring_reads_a_file_target_as_a_path() -> None:
+    """A DuckDB target is read as `urlparse` reads it, into the fields a server target fills."""
+    cs = ConnectionString("duckdb:///dwd.duckdb?table=stations")
+    assert (cs.protocol, cs.database, cs.table, cs.password) == ("duckdb", "dwd.duckdb", "stations", None)

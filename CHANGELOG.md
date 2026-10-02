@@ -96,19 +96,44 @@ Types of changes:
   Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
   one below -10 m or from 4810 m up, and for every station when that referential cannot be read,
   which is logged as a warning. About three stations in four have one (GH-2223)
+- **Breaking**: `/api/values`, `/api/interpolate`, `/api/summarize` and their MCP tools answer a
+  failure on the server's or the data source's side with a 500 carrying its message, where values
+  answered 400 and the other two 404. Retry or report a 500 rather than rephrasing. A request
+  refused for what it asks keeps its 400 or 404. Those refusals that raised a bare `ValueError` or
+  `IndexError` raise a subclass of it: `InvalidTimeIntervalError`, `InvalidEnumerationError`, or
+  the new `InvalidBoundingBoxError`, `LocationOutOfRangeError` and `IssueNotFoundError`. Catch
+  `InvalidTimeIntervalError` for the day `9999-12-31`, which raised `OverflowError`, and
+  `LocationOutOfRangeError` for a point outside UTM, which raised `utm.error.OutOfRangeError`
+  (GH-2252)
+- The `mysql` extra takes pandas 3, as the other extras that bring pandas do. It asked for pandas
+  below 3, so installing it downgraded an environment on pandas 3 to 2.x (GH-2250)
 - DWD DMO's coverage, from `discover`, `/api/coverage`, the CLI and MCP, gives each parameter
   `lead_times`: the lead times whose run carries it, such as `["long"]` for `icon`'s
   `precipitation_amount_last_3h` and `["short"]` for every `icon_eu` parameter. A caller can offer
   only what the `lead_time` it sends will answer; the other keys are as they were (GH-2256)
+- **Breaking**: the InfluxDB sinks read a target as the SQL sinks' SQLAlchemy does: the password
+  ends at the first `@`, and the username, password and database are percent-decoded, as the
+  CrateDB database (its schema) now is too. Write an `@` in an InfluxDB org, password or token as
+  `%40`, and a literal `%` followed by two hex digits there or in an InfluxDB database or CrateDB
+  schema as `%25`. An `@` in the path or query of an InfluxDB or CrateDB target with a `host:port`
+  is read as ending a password too; write it as `%40` there (GH-2248)
 
 ### Fixed
 
+- Network: a download that keeps arriving no longer fails with `FSTimeoutError` once it runs past
+  the `timeout` in `fsspec_client_kwargs` (30 s by default), so a slow link can fetch large files.
+  A number there now bounds each wait, to connect and for the next bytes of the answer, not the
+  whole request. The settings docs give that default, where they listed `{}` (GH-2258)
 - Eaufrance Hub'Eau stations are listed when the station referential takes more than 30 seconds
   to arrive, which it often does; the list failed with `FSTimeoutError`. The referential now has
   the 120 seconds the observations requests have (GH-2221)
 - `to_target` and the CLI's `--target` log the target with its password as `***`. They logged it
   verbatim at INFO, which the CLI shows by default, so a database password or the InfluxDB 2/3 API
   token in the password slot reached stderr and any log it was captured in (GH-2219)
+- A `/`, `?` or `#` in the password of an InfluxDB or CrateDB target, or a `?` or `#` in a SQL one,
+  is read as part of it. It was read as the end of the host part, so the export went to the wrong
+  host, port, database or table, and pieces of the password reached the log. A password whose
+  unencoded `@` cannot be read is refused with `ExportRefusedError`, naming none of it (GH-2248)
 - DWD derived can be used on a base install. Its station lists were read with pandas, so
   `Wetterdienst("dwd", "derived")` failed with an `ImportError` unless an extra that brings pandas,
   such as `export`, was installed. They are read with polars now, with the same result (GH-2213)
@@ -199,6 +224,9 @@ Types of changes:
   stored as zeros. A table created by an earlier version keeps its `TIMESTAMP` columns and what
   they stored; to get `DATETIME`, write it anew with `if_exists='replace'`, which drops every row
   it held (GH-2229)
+- SQL Server export targets (`mssql://`) create `DATETIME2` columns holding UTC for datetimes.
+  They created `timestamp` columns, which SQL Server takes as `rowversion`, a row counter that
+  refuses any value written to it (GH-2249)
 - GeoJSON of values gives each feature, one per dataset of a station, that dataset's values only,
   and no feature to a dataset the station returned no values for; each feature carried the values
   of every dataset, so each value appeared once per dataset (GH-2253)
