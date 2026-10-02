@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from textwrap import dedent
 from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
@@ -17,9 +18,16 @@ from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
+    InvalidBoundingBoxError,
+    InvalidEnumerationError,
+    InvalidTimeIntervalError,
+    IssueNotFoundError,
+    NoParametersFoundError,
+    NoPeriodsFoundError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
     StartDateEndDateError,
+    StationNotFoundError,
 )
 
 # needed at runtime: FastAPI resolves this annotation to build the query parameter's enum
@@ -621,6 +629,32 @@ def _geo_settings(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+# what a request can provoke on its way through `get_values`, `get_interpolate` and
+# `get_summarize` besides the refusals the helpers below name: a date, period, parameter, bounding
+# box, unit target or issue that cannot be served as given, or a station the lookup does not know.
+# Anything else -- a provider's file in a layout its parser does not expect, an upstream that does
+# not answer, a frame of an unexpected shape -- is not the caller's to fix, and is a 500
+_CALLER_REFUSALS = (
+    InvalidBoundingBoxError,
+    InvalidEnumerationError,
+    InvalidTimeIntervalError,
+    IssueNotFoundError,
+    NoParametersFoundError,
+    NoPeriodsFoundError,
+    StationNotFoundError,
+)
+
+
+def _is_caller_refusal(e: Exception) -> bool:
+    """Tell whether a failure is the request's own, which the caller can rephrase.
+
+    A DuckDB error comes from the caller's own `sql` or `sql_values`, the only SQL run on the way.
+    DuckDB is optional, and an error of its can only be raised once it has been imported.
+    """
+    duckdb = sys.modules.get("duckdb")
+    return isinstance(e, _CALLER_REFUSALS) or (duckdb is not None and isinstance(e, duckdb.Error))
+
+
 def _values(
     api: type[TimeseriesRequest],
     request: ValuesRequest,
@@ -649,7 +683,7 @@ def _values(
         raise
     except Exception as e:
         log.exception("Failed to get values.")
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
 
 
 def _geo_values(
@@ -686,7 +720,7 @@ def _geo_values(
         raise
     except Exception as e:
         log.exception(f"Failed to {what}")
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        raise HTTPException(status_code=404 if _is_caller_refusal(e) else 500, detail=str(e)) from e
 
 
 # response models for the different formats are
