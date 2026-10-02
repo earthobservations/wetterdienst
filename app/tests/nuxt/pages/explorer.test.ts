@@ -420,3 +420,108 @@ describe('explorer Page DWD DMO lead time', () => {
     expect((await writtenQuery()).leadTime).toBeUndefined()
   })
 })
+
+describe('explorer Page DWD DMO parameters per run', () => {
+  // `/api/coverage?provider=dwd&network=dmo`, cut down to a parameter only the short run carries,
+  // one only the long run carries and two both carry, with the runs the backend names for each
+  function dmoCoverage() {
+    const parameter = (name: string, lead_times: Array<'short' | 'long'>) => ({ name, name_original: name, unit_type: 'precipitation', unit: 'millimeter', description: null, lead_times })
+    return {
+      hourly: {
+        description: null,
+        datasets: {
+          icon: {
+            description: null,
+            parameters: [
+              parameter('precipitation_amount_last_1h', ['short']),
+              parameter('precipitation_amount_last_3h', ['long']),
+              parameter('temperature_air_mean_2m', ['short', 'long']),
+              parameter('wind_speed', ['short', 'long']),
+            ],
+          },
+        },
+      },
+    } satisfies ProviderNetworkCoverageResponse
+  }
+
+  // the parameters of every /api/values request, in order, with the run they were asked of
+  const sent: { parameters: string[], leadTime: unknown }[] = []
+
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+    sent.splice(0)
+    useToast().clear()
+  })
+
+  // Mount the page at icon with `query` added, as a shared link restores it, with a station chosen
+  async function mountAt(query: string) {
+    endpoints.push(registerEndpoint('/api/coverage', (event) => {
+      if (getQuery(event).network === 'dmo')
+        return dmoCoverage()
+      return { dwd: { dmo: {} } }
+    }))
+    endpoints.push(registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '10147', name: 'Hamburg', latitude: 53.6, longitude: 10.0 }],
+    })))
+    endpoints.push(registerEndpoint('/api/values', (event) => {
+      const q = getQuery(event)
+      sent.push({ parameters: String(q.parameters).split(',').sort(), leadTime: q.lead_time })
+      return { values: [] }
+    }))
+
+    const wrapper = await mountSuspended(ExplorerWithApp, { attachTo: document.body, route: `/explorer?provider=dwd&network=dmo&resolution=hourly&dataset=icon${query}` })
+    mounted.push(wrapper)
+    const vm = wrapper.findComponent(ExplorerPage).vm as any
+    const selection = wrapper.findComponent(ParameterSelection).vm as any
+    await vi.waitFor(() => expect(selection.isInitializing).toBe(false), { timeout: 5000 })
+    vm.stationSelectionState.selection.stations = [{ station_id: '10147', name: 'Hamburg' }]
+    await vi.waitFor(() => expect(vm.canFetch).toBe(true))
+    return { wrapper, vm, selection }
+  }
+
+  const button = (wrapper: any, label: string) => wrapper.findAll('button').find((b: any) => b.text() === label)!
+
+  // click Show, and return what the values were asked for
+  async function show(wrapper: any) {
+    const before = sent.length
+    await button(wrapper, 'Show').trigger('click')
+    await vi.waitFor(() => expect(sent.length).toBe(before + 1))
+    return sent[before]!
+  }
+
+  it('offers and selects what the short run carries, and every one the long run carries once chosen', async () => {
+    const { wrapper, vm, selection } = await mountAt('')
+    expect(selection.params).toEqual(['precipitation_amount_last_1h', 'temperature_air_mean_2m', 'wind_speed'])
+    expect(await show(wrapper)).toEqual({
+      parameters: ['hourly/icon/precipitation_amount_last_1h', 'hourly/icon/temperature_air_mean_2m', 'hourly/icon/wind_speed'],
+      leadTime: 'short',
+    })
+
+    await button(wrapper, 'Long: 78 to 168 h, 3-hourly').trigger('click')
+    await vi.waitFor(() => expect(selection.params).toEqual(['precipitation_amount_last_3h', 'temperature_air_mean_2m', 'wind_speed']))
+    await vi.waitFor(() => expect(vm.canFetch).toBe(true))
+    expect(await show(wrapper)).toEqual({
+      parameters: ['hourly/icon/precipitation_amount_last_3h', 'hourly/icon/temperature_air_mean_2m', 'hourly/icon/wind_speed'],
+      leadTime: 'long',
+    })
+  })
+
+  it('drops from a partial selection the parameters the run chosen does not carry', async () => {
+    const { wrapper, vm } = await mountAt('&parameters=precipitation_amount_last_1h,temperature_air_mean_2m')
+    // the link's parameters are kept, the one only the short run carries among them
+    expect(vm.parameterSelectionState.selection.parameters).toEqual(['precipitation_amount_last_1h', 'temperature_air_mean_2m'])
+    await button(wrapper, 'Long: 78 to 168 h, 3-hourly').trigger('click')
+    await vi.waitFor(() => expect(vm.parameterSelectionState.selection.parameters).toEqual(['temperature_air_mean_2m']))
+    await vi.waitFor(() => expect(vm.canFetch).toBe(true))
+    expect(await show(wrapper)).toEqual({ parameters: ['hourly/icon/temperature_air_mean_2m'], leadTime: 'long' })
+  })
+
+  it('restores from a link only the parameters its run carries', async () => {
+    const { wrapper } = await mountAt('&parameters=precipitation_amount_last_1h,precipitation_amount_last_3h,temperature_air_mean_2m&leadTime=long')
+    expect(await show(wrapper)).toEqual({
+      parameters: ['hourly/icon/precipitation_amount_last_3h', 'hourly/icon/temperature_air_mean_2m'],
+      leadTime: 'long',
+    })
+  })
+})
