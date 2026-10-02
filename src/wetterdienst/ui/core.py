@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 from collections.abc import Mapping, Sequence  # noqa: TC003
 from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
@@ -1111,16 +1110,10 @@ def get_values(
         settings=settings,
     )
 
-    # built before the `try` below: a provider refuses a request it cannot serve as phrased here
-    # (`ParameterNotCarriedError`), and that is the caller's to report, where `sys.exit` would turn
-    # it into a REST API 500 with no message
-    values = stations_.values
-    try:
-        # TODO: Add stream-based processing here.
-        values_ = values.all()
-    except ValueError:
-        log.exception("Error while fetching values")
-        sys.exit(1)
+    # TODO: Add stream-based processing here.
+    # a `ValueError` from the values -- a provider refusing a request it cannot serve as phrased
+    # (`ParameterNotCarriedError`), or a parse failure -- propagates: reporting it is the caller's
+    values_ = stations_.values.all()
 
     if values_.df.is_empty():
         # nothing to filter, and nothing more to say about it. An empty window is the caller's
