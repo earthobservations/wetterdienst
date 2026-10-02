@@ -84,6 +84,21 @@ Types of changes:
 - Eaufrance Hub'Eau stations are listed when the station referential takes more than 30 seconds
   to arrive, which it often does; the list failed with `FSTimeoutError`. The referential now has
   the 120 seconds the observations requests have (GH-2221)
+  `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
+  Read `gauge_zero` for it (GH-2020)
+- Each station history gives the `resolution` and `dataset` it belongs to beside its `station_id`,
+  whichever `sections` are asked for. DWD observation answers up to one history per station and
+  dataset, and a request for several datasets left them to be told apart by the records inside
+  (GH-2224)
+
+### Fixed
+
+- `to_target` and the CLI's `--target` log the target with its password as `***`. They logged it
+  verbatim at INFO, which the CLI shows by default, so a database password or the InfluxDB 2/3 API
+  token in the password slot reached stderr and any log it was captured in (GH-2219)
+- DWD derived can be used on a base install. Its station lists were read with pandas, so
+  `Wetterdienst("dwd", "derived")` failed with an `ImportError` unless an extra that brings pandas,
+  such as `export`, was installed. They are read with polars now, with the same result (GH-2213)
 - Precipitation stripes colour dry years brown and wet years teal; they were the other way round.
   A year range holding fewer than two years with data is refused, where one beyond the station's
   record answered with no values and an empty image, and stripes start and end at a year with data.
@@ -133,6 +148,9 @@ Types of changes:
   `PermissionError: [Errno 13]` when two of its download threads read and replace the cache's
   metadata file at the same time; the threads of one process now take turns. Two processes
   sharing a cache directory can still meet that way (GH-1990)
+- DWD observation history no longer fails for a station whose name holds a non-ASCII letter, such
+  as 01684 Görlitz: its missing-data file is read as latin-1, as DWD writes it, where it raised
+  `UnicodeDecodeError` and `/api/history` answered 400 (GH-2214)
 
 ## [0.139.0] - 2026-09-29
 
