@@ -826,7 +826,7 @@ class ExportMixin:
                 if isinstance(engine.dialect, MSDialect):
                     # a naive datetime would be SQL Server's `DATETIME`, which starts in 1753 and
                     # rounds to 1/300 s; `DATETIME2` holds every year a Python datetime can
-                    dtype = {name: DATETIME2() for name, kind in self.df.schema.items() if kind == pl.Datetime}
+                    dtype = {name: DATETIME2() for name in self.df.select(cs.datetime()).columns}
                 self.df.with_columns(columns).to_pandas().to_sql(
                     name=tablename,
                     con=engine,
