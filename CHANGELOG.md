@@ -90,10 +90,11 @@ Types of changes:
   `lead_times`: the lead times whose run carries it, such as `["long"]` for `icon`'s
   `precipitation_amount_last_3h` and `["short"]` for every `icon_eu` parameter. A caller can offer
   only what the `lead_time` it sends will answer; the other keys are as they were (GH-2256)
-- **Breaking**: the InfluxDB sinks read a target as the SQL and CrateDB sinks' SQLAlchemy does: the
-  password ends at the first `@`, and the username, password and database are percent-decoded.
-  Write an `@` in an InfluxDB org, password or token as `%40`, and a literal `%` followed by two hex
-  digits as `%25`. An `@` in the path or query of an InfluxDB or CrateDB target with a `host:port`
+- **Breaking**: the InfluxDB sinks read a target as the SQL sinks' SQLAlchemy does: the password
+  ends at the first `@`, and the username, password and database are percent-decoded, as the
+  CrateDB database (its schema) now is too. Write an `@` in an InfluxDB org, password or token as
+  `%40`, and a literal `%` followed by two hex digits there or in an InfluxDB database or CrateDB
+  schema as `%25`. An `@` in the path or query of an InfluxDB or CrateDB target with a `host:port`
   is read as ending a password too; write it as `%40` there (GH-2248)
 
 ### Fixed
