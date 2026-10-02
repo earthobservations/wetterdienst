@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { classifyPrecip, findNearestIndex, interpSeries, wetBulbApprox } from '../../app/utils/meteogram'
+import { classifyPrecip, findNearestIndex, interpSeries, METEOGRAM_SERIES, wetBulbApprox } from '../../app/utils/meteogram'
+import { parameters } from '../../i18n/glossary/en'
 
 describe('findNearestIndex', () => {
   const dates = [
@@ -136,5 +137,17 @@ describe('classifyPrecip', () => {
     const result1 = classifyPrecip(5, 0.5)
     const result2 = classifyPrecip(5, 50)
     expect(result1).toBe(result2)
+  })
+})
+
+describe('meteogram series names', () => {
+  // The English glossary is keyed by every canonical parameter name, no more and no fewer:
+  // tests/e2e/i18n-coverage.spec.ts holds it to the backend's /api/glossary both ways. So a first
+  // choice missing from it is a name the backend does not serve, and its series would never draw.
+  it('leads every series with a canonical parameter name', () => {
+    const notCanonical = Object.entries(METEOGRAM_SERIES)
+      .filter(([, names]) => !Object.hasOwn(parameters, names[0]))
+      .map(([series, names]) => `${series}: ${names[0]}`)
+    expect(notCanonical, 'meteogram series whose first choice is not a canonical parameter').toEqual([])
   })
 })

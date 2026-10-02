@@ -19,7 +19,7 @@ import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError
 from wetterdienst.metadata.renamed import renamed_column
-from wetterdienst.util.url import ConnectionString
+from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
     import plotly.graph_objs as go
@@ -303,7 +303,7 @@ class ExportMixin:
             None (data is emitted to the target)
 
         """
-        log.info(f"Exporting records to {target}\n{self.df.select(pl.len())}")
+        log.info(f"Exporting records to {redact_password(target)}\n{self.df.select(pl.len())}")
 
         connspec = ConnectionString(target)
         protocol = connspec.protocol
@@ -710,7 +710,7 @@ class ExportMixin:
                 crash -c "select *, date_format('%Y-%m-%dT%H:%i:%s.%fZ', timestamp) as datetime from dwd.weather order by datetime limit 10;"
 
             """  # noqa:E501
-            log.info(f"Writing to CrateDB. target={target}, table={tablename}")
+            log.info(f"Writing to CrateDB. target={redact_password(target)}, table={tablename}")
 
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
             cratedb_url = connspec.url._replace(path="", query="")
@@ -781,6 +781,7 @@ class ExportMixin:
 
             log.info("Writing to SQL database")
             import sqlalchemy  # noqa: PLC0415
+            from sqlalchemy.dialects.mysql.base import MySQLDialect  # noqa: PLC0415
 
             # `table` is ours, read above to name the table; SQLAlchemy hands every query argument
             # to the driver as a connection option, and psycopg, psycopg2, mysqlclient and pymysql
@@ -797,7 +798,15 @@ class ExportMixin:
                     # a refusal is one class wherever it comes from
                     msg = f"Table '{tablename}' already exists in the database, aborting write due to if_exists='fail'."
                     raise ExportRefusedError(msg)
-                self.df.with_columns(pl.col(pl.Enum).cast(pl.String)).to_pandas().to_sql(
+                columns = [pl.col(pl.Enum).cast(pl.String)]
+                if isinstance(engine.dialect, MySQLDialect):
+                    # pandas writes a zoned datetime as `TIMESTAMP(timezone=True)`, which MySQL,
+                    # MariaDB and the dialects built on theirs compile to a plain `TIMESTAMP`:
+                    # nothing before 1970, and converted from the session's time zone, so a
+                    # pre-1970 row is refused or stored as zeros. A naive one becomes `DATETIME`
+                    # (years 1000 to 9999), so every datetime column goes in as naive UTC
+                    columns.append(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
+                self.df.with_columns(columns).to_pandas().to_sql(
                     name=tablename,
                     con=engine,
                     if_exists=if_exists if if_exists != "skip" else "fail",

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import calendar
 import contextlib
 import dataclasses
 import datetime as dt
@@ -106,61 +107,53 @@ def _run_stamp(urls: pl.Expr, lead_time: DwdDmoLeadTime | None = None) -> pl.Exp
     return urls.str.split("/").list.last().str.extract(rf"_(?:{leads})_\d+_(\d{{6}})\.kmz$", 1)
 
 
+# how far ahead of the clock a run stamp may lie. DWD lists a run about three hours after the time
+# it is stamped with (the 00 UTC `078` run of 2026-10-01 at 03:09, its `168` run at 03:29), so by
+# DWD's clock no listed stamp is in the future; one is ahead of this clock only when this clock lags
+# DWD's. The leeway keeps such a host from dating today's newest run a month back. It can be this
+# generous because a listing holds the last two days of runs, and the next reading a stamp has is
+# at least 28 days earlier
+_RUN_STAMP_LEEWAY = dt.timedelta(days=1)
+
+
+def _date_of_run_stamp(stamp: str, now: dt.datetime) -> dt.datetime:
+    """Date a ``DDHHMM`` run stamp as the latest real date it can name on or before ``now``.
+
+    "On or before" allows `_RUN_STAMP_LEEWAY` ahead of ``now``, and the walk back starts from the
+    month that lands in: a clock lagging into the last evening of a month still dates the next
+    month's 1st as that 1st. A day the month does not have is the month before's, or the one before
+    that for a 31st the month before does not have either.
+    """
+    day, hour, minute = int(stamp[:2]), int(stamp[2:4]), int(stamp[4:6])
+    if not 1 <= day <= 31:
+        # no month has it, and the walk back below would never end
+        msg = f"{stamp!r} is not a DDHHMM run stamp: there is no day {day}"
+        raise ValueError(msg)
+    latest = now + _RUN_STAMP_LEEWAY
+    year, month = latest.year, latest.month
+    while True:
+        if day <= calendar.monthrange(year, month)[1]:
+            candidate = dt.datetime(year, month, day, hour, minute, tzinfo=now.tzinfo)
+            if candidate <= latest:
+                return candidate
+        year, month = (year, month - 1) if month > 1 else (year - 1, 12)
+
+
 def add_date_from_filename(df: pl.DataFrame, current_date: dt.datetime) -> pl.DataFrame:
-    """Add date from filename."""
-    # get month and year from current date
-    year = current_date.year
-    month = current_date.month
-    # if current date is in the first 3 hours of the month, use previous month
-    hours_since_month_start = (
-        (current_date - current_date.replace(day=1, hour=1, minute=1, second=1)).total_seconds() / 60 / 60
-    )
-    if hours_since_month_start < 3:
-        month = month - 1
-        # if month is 0, set to 12 and decrease year
-        if month == 0:
-            month = 12
-            year = year - 1
-    df = df.with_columns(
-        [
-            pl.lit(year).alias("year"),
-            pl.col("date_str").str.slice(offset=0, length=2).cast(int).alias("day"),
-            pl.col("date_str").str.slice(offset=2, length=2).cast(int).alias("hour"),
-            pl.lit(0).alias("minute"),
-        ],
-    )
-    days_difference = int(df.get_column("day").cast(pl.Int8).max() or 0) - int(  # ty: ignore[invalid-argument-type]
-        df.get_column("day").cast(pl.Int8).min() or 0  # ty: ignore[invalid-argument-type]
-    )
-    if days_difference > 20:
-        df = df.with_columns(
-            pl.when(pl.col("day") > 25).then(month - 1 if month > 1 else 12).otherwise(month).alias("month"),
-        )
-    else:
-        df = df.with_columns(pl.lit(month).alias("month"))
-    months_difference = int(df.get_column("month").max() or 0) - int(df.get_column("month").min() or 0)  # ty: ignore[invalid-argument-type]
-    if months_difference > 6:
-        df = df.with_columns(pl.when(pl.col("month") > 6).then(year - 1).otherwise(year).alias("year"))
-    else:
-        df = df.with_columns(pl.lit(year).alias("year"))
-    # format data
-    df = df.with_columns(
-        pl.col("day").cast(pl.String).str.pad_start(2, "0"),
-        pl.col("month").cast(pl.String).str.pad_start(2, "0"),
-        # padded like the rest: an hour of `3` made `...01300`, where `%H` takes the `30` it can see
-        # and rejects it as an hour. `00` survived only because `%H` could take both its digits and
-        # leave `%M` the one it needed. DMO publishes at `00` and `12` so no run has ever hit this,
-        # but nothing here says the hour is one of two values
-        pl.col("hour").cast(pl.String).str.pad_start(2, "0"),
-        pl.col("minute").cast(pl.String).str.pad_start(2, "0"),
-    )
-    return df.select(
-        [
-            pl.all().exclude(["year", "month", "day", "hour"]),
-            pl.concat_str([pl.col("year"), pl.col("month"), pl.col("day"), pl.col("hour"), pl.col("minute")])
-            .str.to_datetime(format="%Y%m%d%H%M", time_zone=current_date.tzname())
-            .alias("timestamp"),
-        ],
+    """Add the date each run's ``date_str`` (``DDHHMM``) stands for as ``timestamp``.
+
+    The stamp names no month or year, so each is dated on its own as the latest real date it can
+    name on or before ``current_date`` (see `_date_of_run_stamp`), rather than by rules about the
+    listing as a whole, which double-counted the month back once the 1st's first run was listed
+    (GH-2203).
+    """
+    stamps = df.get_column("date_str").drop_nulls().unique().to_list()
+    dates = {stamp: _date_of_run_stamp(stamp, current_date) for stamp in stamps}
+    # with a `default`, an empty frame gets the datetime dtype too; without one it stays a string
+    return df.with_columns(
+        pl.col("date_str")
+        .replace_strict(dates, default=None, return_dtype=pl.Datetime("us", current_date.tzname()))
+        .alias("timestamp"),
     )
 
 
