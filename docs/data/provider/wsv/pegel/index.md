@@ -25,8 +25,8 @@ fragmentary provided per each station:
 
 Each station also lists the altitude of its stage gauge's zero, in metres, as `gauge_zero`, and the
 vertical datum that altitude is given in, as Pegelonline publishes it, as `gauge_zero_datum`: mostly
-`m. ü. NHN`, but `m. ü. NN` for some gauges and `m ü. A.` for the Austrian ones on the Danube, so
-compare two gauge zeros only where their datums agree.
+`m. ü. NHN`, but `m. ü. NN` for some gauges, `m ü. A.` for the Austrian ones on the Danube and
+`mü.M.` for Basel, so compare two gauge zeros only where their datums agree.
 
 ```{toctree}
 :hidden:

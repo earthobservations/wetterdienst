@@ -20,7 +20,9 @@ of the gauge's zero, the datum a stage is read from, is listed separately as `ga
 vertical reference system it is given in as `gauge_zero_datum`: the Sandre label of the station's
 `code_systeme_alti_site` (nomenclature 76), such as `IGN 1969` or
 `Nivellement Général de la France 1884`, or the code itself for one without a label. Stations
-differ in it, mainland ones too, so compare two gauge zeros only where their datums agree.
+differ in it, mainland ones too, so compare two gauge zeros only where their datums agree and name
+a datum: two stations labelled `Système altimétrique inconnu` (unknown) or
+`Système local - hauteur relative` (each a gauge's own local reference) share no datum.
 
 The recording interval is a property of the station rather than of the network, and unlike most
 services Hubeau publishes it nowhere: neither the station referential nor the observations carry

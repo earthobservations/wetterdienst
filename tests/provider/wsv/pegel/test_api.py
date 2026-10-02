@@ -447,8 +447,8 @@ def test_wsv_station_list_names_the_vertical_datum_of_the_gauge_zero(monkeypatch
 
     Pegelonline names the datum in the unit of the stage's gauge zero, and stations differ: on
     2026-10-01, 593 were in `m. ü. NHN`, 40 in the older `m. ü. NN`, the 8 Austrian Danube gauges in
-    `m ü. A.`, and 95 had no gauge zero. Without the datum their altitudes look comparable where
-    they are not.
+    `m ü. A.`, Basel in `mü.M.`, and 95 had no gauge zero. Without the datum their altitudes look
+    comparable where they are not.
     """
     from io import BytesIO  # noqa: PLC0415
 
