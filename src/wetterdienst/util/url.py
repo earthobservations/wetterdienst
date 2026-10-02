@@ -25,12 +25,13 @@ def redact_password(url: str) -> str:
     target printed verbatim lands in cron mail, journald or a CI log. The username stays: it says
     which account was used and is no secret. The rest comes back as given.
 
-    The SQL sinks read the target with SQLAlchemy and the others with ``urlparse``, and the two
-    disagree on an unencoded ``@``, ``/``, ``#`` or ``?``, so whatever either reads as the password
-    is hidden. Both start it after the first ``:``, provided no ``/`` comes before it. SQLAlchemy
-    ends it at the first ``@`` after that, so a password holding a ``/`` is still found and an
-    Azure-style username such as ``user@server`` is kept; ``urlparse`` ends it at the last ``@``
-    before the host part ends at a ``/``, ``?`` or ``#``, so a password holding an ``@`` is found.
+    Every sink reads the target as SQLAlchemy does (`ConnectionString`), but ``urlparse``, the
+    other common reading, disagrees with it on an unencoded ``@``, ``/``, ``#`` or ``?``, so
+    whatever either reads as the password is hidden. Both start it after the first ``:``,
+    provided no ``/`` comes before it. SQLAlchemy ends it at the first ``@`` after that, so a
+    password holding a ``/`` is still found and an Azure-style username such as ``user@server``
+    is kept; ``urlparse`` ends it at the last ``@`` before the host part ends at a ``/``, ``?``
+    or ``#``, so a password holding an ``@`` is found.
     A target with no password but a ``host:port`` followed by an ``@`` in its path or query is cut
     at that ``@``, as SQLAlchemy reads it. Nothing here raises, so a log line naming a malformed
     target still prints.
@@ -188,7 +189,10 @@ class ConnectionString:
             return None
 
     def to_sqlalchemy_url(self) -> "URL":
-        """Give back the target as the SQLAlchemy URL `make_url` reads it as, from this reading."""
+        """Give back the target as the SQLAlchemy URL `make_url` reads it as, from this reading.
+
+        The database is decoded, as SQLAlchemy 2.1 decodes it; 2.0 leaves it as written.
+        """
         from sqlalchemy.engine import URL  # noqa: PLC0415
 
         url = URL.create(

@@ -509,6 +509,8 @@ class ExportMixin:
 
                 INFLUXDB_ORGANIZATION=acme
                 INFLUXDB_TOKEN=t5PJry6TyepGsG7IY_n0K4VHp5uPvt9iap60qNHIXL4E6mW9dLmowGdNz0BDi6aK_bAbtD76Z7ddfho6luL2LA==
+                # percent-encode a `%` or `@` in the token, and a `%`, `@`, `:` or `/` in the
+                # organization (`%25`, `%40`, `%3A`, `%2F`)
 
                 alias fetch="wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent --station=1048,4411"
                 fetch --target="influxdb2://${INFLUXDB_ORGANIZATION}:${INFLUXDB_TOKEN}@localhost/?database=dwd&table=weather"
@@ -530,6 +532,8 @@ class ExportMixin:
 
                 INFLUXDB_ORGANIZATION=acme
                 INFLUXDB_TOKEN=t5PJry6TyepGsG7IY_n0K4VHp5uPvt9iap60qNHIXL4E6mW9dLmowGdNz0BDi6aK_bAbtD76Z7ddfho6luL2LA==
+                # percent-encode a `%` or `@` in the token, and a `%`, `@`, `:` or `/` in the
+                # organization (`%25`, `%40`, `%3A`, `%2F`)
                 INFLUXDB_HOST="eu-central-1-1.aws.cloud2.influxdata.com"
 
                 alias fetch="wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent --station=1048,4411"
@@ -794,7 +798,9 @@ class ExportMixin:
             # refuse one they do not know, so a `postgresql://` or `mysql://` target could not
             # connect at all. Only `table` goes: the rest of the query (`sslmode`, `charset`, ...)
             # is the driver's
-            url = connspec.to_sqlalchemy_url().difference_update_query(["table"])
+            # SQLAlchemy's own reading, which `ConnectionString` copies; read here by SQLAlchemy
+            # itself because 2.0 leaves the database as written and 2.1 decodes it
+            url = sqlalchemy.make_url(target).difference_update_query(["table"])
             if url.get_backend_name() == "postgresql":
                 # a bare `postgresql://` means psycopg2 to SQLAlchemy 2.0 and psycopg 3 to 2.1,
                 # which needs Python 3.11, so both are allowed. The `postgresql` extra installs

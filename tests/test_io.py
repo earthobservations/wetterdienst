@@ -2783,3 +2783,14 @@ def test_to_target_hands_influxdb_an_encoded_token_decoded() -> None:
         _one_row().to_target("influxdb2://acme:Ab%2FCd%40%3D%3D@localhost/?database=dwd")
 
     client.assert_called_once_with(url="http://localhost:8086", org="acme", token="Ab/Cd@==")  # noqa: S106
+
+
+def test_to_target_hands_sql_the_database_as_the_installed_sqlalchemy_reads_it() -> None:
+    """SQLAlchemy 2.0 leaves an encoded database as written and 2.1 decodes it; neither is changed."""
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pytest.importorskip("pandas")
+    target = "postgresql+psycopg2://scott:tiger@db/data%20base?table=obs"
+    with mock.patch("sqlalchemy.create_engine") as create_engine, mock.patch("pandas.DataFrame.to_sql"):
+        _one_row().to_target(target)
+
+    assert create_engine.call_args.args[0] == sqlalchemy.make_url(target).difference_update_query(["table"])
