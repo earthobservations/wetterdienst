@@ -404,3 +404,49 @@ def test_read_meta_df_breaks_rows_only_at_line_ends() -> None:
     file = File(url="https://example.org/stations.txt", content=content, status=200)
     df = _read_meta_df(DwdDerivedMetadata.monthly.heating_degreedays, file=file).collect()
     assert df.select("station_id", "name", "region").rows() == [("00001", "Bad\x85Aach", "Bayern")]
+
+
+def test_read_meta_df_four_digit_elevation() -> None:
+    """A station at 1000 m or higher keeps its elevation and its end date (GH-2234).
+
+    The rows are copied from `KL_Monatswerte_Beschreibung_Stationen.txt` as DWD publishes it, up to
+    the `Abgabe` column, leaving out the padding after it. The elevation is right-aligned to end at
+    character 37, so a fourth digit sits at character 34; the station between them shows the
+    three-digit case still reads.
+    """
+    rows = [
+        (
+            "00722 18810601 20260831           1135     51.7986   10.6183 Brocken                                  "
+            "Sachsen-Anhalt                           Frei"
+        ),
+        (
+            "04878 19060101 20260831            505     51.6647   10.8810 Oberharz am Brocken-Stiege               "
+            "Sachsen-Anhalt                           Frei"
+        ),
+        (
+            "05792 19000801 20260831           2956     47.4210   10.9848 Zugspitze                                "
+            "Bayern                                   Frei"
+        ),
+    ]
+    content = BytesIO("".join(f"{line}\r\n" for line in ["header", "rule", *rows]).encode("latin-1"))
+    file = File(url="https://example.org/KL_Monatswerte_Beschreibung_Stationen.txt", content=content, status=200)
+    df = _read_meta_df(DwdDerivedMetadata.monthly.heating_degreedays, file=file).collect()
+
+    def date(year: int, month: int, day: int) -> dt.datetime:
+        return dt.datetime(year, month, day, tzinfo=ZoneInfo("UTC"))
+
+    end_date = date(2026, 8, 31)
+    assert df.rows() == [
+        ("00722", date(1881, 6, 1), end_date, 1135.0, 51.7986, 10.6183, "Brocken", "Sachsen-Anhalt"),
+        (
+            "04878",
+            date(1906, 1, 1),
+            end_date,
+            505.0,
+            51.6647,
+            10.8810,
+            "Oberharz am Brocken-Stiege",
+            "Sachsen-Anhalt",
+        ),
+        ("05792", date(1900, 8, 1), end_date, 2956.0, 47.4210, 10.9848, "Zugspitze", "Bayern"),
+    ]

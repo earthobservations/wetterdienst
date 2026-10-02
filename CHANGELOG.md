@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- WSV Pegelonline and Eaufrance Hub'Eau stations name the vertical datum of their `gauge_zero` in
+  a new string column `gauge_zero_datum`: Pegelonline's as published (`m. ü. NHN`, `m. ü. NN`,
+  ...), Hub'Eau's as the Sandre label of `code_systeme_alti_site` (`IGN 1969`, ...), or the code
+  where it has none. Stations differ in it, so compare gauge zeros only where it agrees, and not
+  between Hub'Eau stations labelled as on an unknown or a local system (GH-2228)
+
 ### Changed
 
 - **Breaking**: DWD derived `monthly/soil` returns its monthly totals of potential
@@ -72,16 +80,18 @@ Types of changes:
   was missing. Drop `quality` 11 to get the rows as before. Other parameters and datasets are
   unchanged (GH-2000)
 - **Breaking**: Eaufrance Hub'Eau stations list the altitude of the gauge's zero, in metres, as
-  `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
-  Read `gauge_zero` for it (GH-2020)
+  `gauge_zero`, as WSV Pegelonline does; it was listed as `elevation`. Read `gauge_zero` for it
+  (GH-2020)
+- Each station history gives the `resolution` and `dataset` it belongs to beside its `station_id`,
+  whichever `sections` are asked for. DWD observation answers up to one history per station and
+  dataset, and a request for several datasets left them to be told apart by the records inside
+  (GH-2224)
 - **Breaking**: the `postgresql` extra installs psycopg 3 instead of psycopg2, and a bare
   `postgresql://` target writes through psycopg 3 whenever it is installed, on every SQLAlchemy
   version; under 2.1 it failed with `No module named 'psycopg'`. `postgresql` and `mysql` bring
   SQLAlchemy and pandas, so neither needs `export` beside it. For `postgresql+psycopg2://`,
   install `psycopg2-binary` yourself; the Docker image has psycopg 3 only, so drop `+psycopg2`
   there (GH-2202)
-  `gauge_zero`, as WSV Pegelonline does; it was listed as `elevation`. Read `gauge_zero` for it
-  (GH-2020)
 - Eaufrance Hub'Eau stations list as `elevation` the altitude of their site, `altitude_site` from
   Hub'Eau's sites referential, in metres. It is null where the site gives none, gives 0, or gives
   one below -10 m or from 4810 m up, and for every station when that referential cannot be read,
@@ -98,15 +108,6 @@ Types of changes:
 - Eaufrance Hub'Eau stations are listed when the station referential takes more than 30 seconds
   to arrive, which it often does; the list failed with `FSTimeoutError`. The referential now has
   the 120 seconds the observations requests have (GH-2221)
-  `gauge_zero`, as WSV Pegelonline does, and leave `elevation` null; it was listed as `elevation`.
-  Read `gauge_zero` for it (GH-2020)
-- Each station history gives the `resolution` and `dataset` it belongs to beside its `station_id`,
-  whichever `sections` are asked for. DWD observation answers up to one history per station and
-  dataset, and a request for several datasets left them to be told apart by the records inside
-  (GH-2224)
-
-### Fixed
-
 - `to_target` and the CLI's `--target` log the target with its password as `***`. They logged it
   verbatim at INFO, which the CLI shows by default, so a database password or the InfluxDB 2/3 API
   token in the password slot reached stderr and any log it was captured in (GH-2219)
@@ -158,6 +159,13 @@ Types of changes:
   `WD_TS_UNIT_TARGETS='{"length_short": "mile"}'` a summarized 5 cm of snow came back as `0.0`, and
   a cloud cover of 0.875 as 0.88. Values are rounded to four decimals or more, so an interpolated
   6.64 °C now reads 6.6422; `distance` and `distance_mean` keep two (GH-2225)
+- With `WD_TS_CONVERT_UNITS=false`, `interpolate` and `summarize` no longer round away a reading
+  published in mm/s: `dwd/road` publishes 0.1 mm/h of precipitation intensity as 0.0000278 mm/s,
+  which came back as `0.0`. A value is now rounded as one converted into its source unit from its
+  target unit would be, so the decimals follow `WD_TS_UNIT_TARGETS` even though nothing is
+  converted. Under the default targets mm/s keeps seven, as do durations in hours and visibility in
+  km, durations in minutes, kPa and depths in metres keep five or six, and every other unit four
+  (GH-2257)
 - PostgreSQL and MySQL export targets no longer fail on `?table=`: it names the table and is no
   longer passed to the database driver, which refused it as a connection option, so no such target
   could be written to. The rest of the query, such as `sslmode` or `charset`, still reaches the
@@ -175,8 +183,7 @@ Types of changes:
 - The REST API's OpenAPI schema types a station's `elevation`, `latitude`, `longitude` and `name`
   as nullable, and declares that a station may carry the columns its provider adds, such as
   `gauge_zero`, so a client generated from it keeps them. MCP tools no longer fail output
-  validation on a station row holding such a null, as every WSV station does; a GeoJSON point
-  with a null coordinate still fails (GH-2226)
+  validation on a station row holding such a null, as every WSV station does (GH-2226)
 - GeoJSON of stations and values gives a station without an elevation the position `[lon, lat]`;
   it was `[lon, lat, null]`, which strict GeoJSON parsers reject. One collection can now hold both
   lengths, so read an elevation from a third number only where there is one. Each feature's
@@ -197,6 +204,22 @@ Types of changes:
 - SQL Server export targets (`mssql://`) create `DATETIME2` columns holding UTC for datetimes.
   They created `timestamp` columns, which SQL Server takes as `rowversion`, a row counter that
   refuses any value written to it (GH-2249)
+- GeoJSON of values gives each feature, one per dataset of a station, that dataset's values only,
+  and no feature to a dataset the station returned no values for; each feature carried the values
+  of every dataset, so each value appeared once per dataset. The wide shape is unchanged where it
+  merges several datasets of one resolution into rows that name none: each of those datasets
+  still gets a feature, and each such feature carries all of those rows (GH-2253)
+- GeoJSON of stations and values gives a station without a latitude or longitude, such as a
+  postcode of DWD derived `monthly/climate_correction_factor`, the geometry `null`, as RFC 7946
+  has an unlocated feature; it was a `Point` of null coordinates, which strict parsers reject. The
+  REST API's schema types `geometry` as nullable, so check for `null` before reading it (GH-2241)
+- DWD derived stations at 1000 m or higher keep the first digit of their elevation and their
+  `end_date`: Brocken was listed at 135 m and Zugspitze at 956 m, both with a null `end_date`.
+  This affects the monthly degree-day and degree-hour datasets and hourly `radiation_global` and
+  `sunshine_duration` (GH-2234)
+- NOAA GHCN daily stations without a known elevation have a null `elevation`. They were listed at
+  -999.9 m, the station list's missing value, and `interpolate` and `summarize` given an elevation
+  took it for a known one (GH-2247)
 
 ## [0.139.0] - 2026-09-29
 

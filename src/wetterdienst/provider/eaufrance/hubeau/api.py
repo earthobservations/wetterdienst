@@ -44,10 +44,51 @@ _STATIONS_FIELDS = (
     "longitude_station",
     "latitude_station",
     "altitude_ref_alti_station",
+    "code_systeme_alti_site",
     "libelle_departement",
     "date_ouverture_station",
     "date_fermeture_station",
 )
+# The vertical reference system `altitude_ref_alti_station` is given in, by its `code_systeme_alti_site`
+# in Sandre nomenclature 76 ("Système altimétrique de référence"), labelled as Sandre labels it
+# (`LbElement`): https://api.sandre.eaufrance.fr/referentiels/v1/nsa/76.json, read 2026-10-02, 34
+# elements, updated by Sandre 2026-04-15. A code not listed here is given as the code itself.
+_SYSTEME_ALTI_LABELS = {
+    0: "Système altimétrique inconnu",
+    1: "Bourdeloue 1857",
+    2: "Nivellement Général de la France 1884",
+    3: "IGN 1969",
+    4: "Nivellement Général de la Corse",
+    5: "IGN 1978 (Corse)",
+    6: "IGN 1958 (Réunion)",
+    7: "IGN 1989 (Réunion)",
+    8: "IGN 1955 (Martinique)",
+    9: "IGN 1987 (Martinique)",
+    10: "IGN 1951 (Guadeloupe)",
+    11: "IGN 1988 (Guadeloupe)",
+    12: "IGN 1988 (Guadeloupe Les Saintes)",
+    13: "IGN 1988 (Guadeloupe Marie-Galante)",
+    14: "IGN 1988 (Guadeloupe Saint-Martin)",
+    15: "IGN 1988 (Guadeloupe Saint-Barthélemy)",
+    16: "IGN 1942 (Guyane)",
+    17: "Niv. Général de la Guyane 1977",
+    18: "IGN 1950 (Mayotte)",
+    19: "Equipe 1979 (Mayotte)",
+    20: "Danger 1950 (St Pierre et Miquelon)",
+    21: "NGNC 1969 (Nelle Calédonie)",
+    22: "IGN 1984 (Wallis et Futuna)",
+    23: "SHOM 1953 (Mayotte)",
+    24: "Tahiti IGN 1966 (Polynésie)",
+    25: "SHOM 1981 (Iles Loyauté)",
+    26: "SHOM 1976 (Iles Loyauté)",
+    27: "SHOM 1970 (Iles Loyauté)",
+    28: "IGN 1962 (Iles Kerguelen)",
+    29: "EPF 1952 (Terre Adélie)",
+    30: "SHOM 1977 (Ile du canal du Mozambique)",
+    31: "Système local - hauteur relative",
+    32: "IGN 1992 (Guadeloupe La Désirade)",
+    33: "IGN 2023 Mayotte",
+}
 # `size` is not a nicety: the referential answers with its first thousand stations of four thousand
 # and a cursor to the rest, so a query that names no size and follows no cursor quietly serves a
 # quarter of the network.
@@ -361,10 +402,12 @@ class HubeauRequest(TimeseriesRequest):
     # `altitude_ref_alti_station` is the altitude of the gauge's zero in metres -- the datum a stage
     # is read from, below sea level on tidal reaches (-1.809 m at Bordeaux) -- not the ground the
     # station stands on. It goes in `gauge_zero`, as Pegelonline's does, and `elevation` is the
-    # altitude of the station's site, from the sites referential.
+    # altitude of the station's site, from the sites referential. `gauge_zero_datum` names the
+    # vertical reference system `gauge_zero` is given in, which differs between stations.
     _base_columns: ClassVar = (
         *TimeseriesRequest._base_columns,  # noqa: SLF001
         "gauge_zero",
+        "gauge_zero_datum",
     )
 
     def _observation_dates(self, url: str) -> pl.DataFrame:
@@ -498,6 +541,7 @@ class HubeauRequest(TimeseriesRequest):
                 "longitude_station": pl.Float64,
                 "latitude_station": pl.Float64,
                 "altitude_ref_alti_station": pl.Float64,
+                "code_systeme_alti_site": pl.Int64,
                 "libelle_departement": pl.String,
                 "date_ouverture_station": pl.String,
                 "date_fermeture_station": pl.String,
@@ -516,6 +560,9 @@ class HubeauRequest(TimeseriesRequest):
             },
         )
         df_raw = df_raw.with_columns(
+            pl.col("code_systeme_alti_site")
+            .replace_strict(_SYSTEME_ALTI_LABELS, default=pl.col("code_systeme_alti_site").cast(pl.String))
+            .alias("gauge_zero_datum"),
             pl.col("start_date").str.to_datetime(time_zone="UTC"),
             pl.when(pl.col("end_date").is_null())
             .then(dt.datetime.now(ZoneInfo("UTC")))
