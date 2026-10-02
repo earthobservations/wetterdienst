@@ -190,6 +190,9 @@ Types of changes:
   stored as zeros. A table created by an earlier version keeps its `TIMESTAMP` columns and what
   they stored; to get `DATETIME`, write it anew with `if_exists='replace'`, which drops every row
   it held (GH-2229)
+- SQL Server export targets (`mssql://`) create `DATETIME2` columns holding UTC for datetimes.
+  They created `timestamp` columns, which SQL Server takes as `rowversion`, a row counter that
+  refuses any value written to it (GH-2249)
 
 ## [0.139.0] - 2026-09-29
 

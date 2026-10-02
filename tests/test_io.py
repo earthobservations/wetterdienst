@@ -2656,3 +2656,77 @@ def test_timeseries_values_to_target_logs_the_target_without_its_password(caplog
     assert (
         "Exported data for station 01048 to influxdb2://acme:***@localhost/?database=dwd&table=weather." in caplog.text
     )
+
+
+@pytest.mark.parametrize(
+    ("target", "datetime_type"),
+    [
+        pytest.param(
+            "mssql+pyodbc://u:p@localhost/dwd?driver=ODBC+Driver+18+for+SQL+Server&table=weather",
+            "DATETIME2",
+            id="mssql+pyodbc",
+        ),
+        pytest.param("mssql+pymssql://u:p@localhost/dwd?table=weather", "DATETIME2", id="mssql+pymssql"),
+        # the control: MySQL's naive datetimes stay its own `DATETIME`
+        pytest.param("mysql+pymysql://u:p@localhost/dwd?table=weather", "DATETIME", id="mysql+pymysql"),
+    ],
+)
+def test_sql_sink_writes_sql_server_datetimes_as_naive_utc_datetime2(target: str, datetime_type: str) -> None:
+    """A SQL Server table gets `DATETIME2` columns holding UTC, where it got a `timestamp` (GH-2249).
+
+    pandas maps a zoned datetime to `TIMESTAMP(timezone=True)`, which the SQL Server dialect
+    compiles to `TIMESTAMP`, SQL Server's name for `rowversion`: a row counter refusing any value
+    written to it, so the first row failed. A naive one would be `DATETIME`, from 1753 only.
+    No server is needed: the engine carries the target's dialect over a stand-in driver,
+    `to_sql` is stubbed, and the frame and types it is handed are compiled into the
+    `CREATE TABLE` that dialect would send.
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    from pandas.io.sql import SQLDatabase, SQLTable  # noqa: PLC0415
+    from sqlalchemy.schema import CreateTable  # noqa: PLC0415
+
+    # 1700 is before `DATETIME`'s 1753. Midnight in Berlin in 1850 is 23:06:32 UTC the day before
+    # (local mean time), so a zone dropped without converting to UTC first would show
+    export = ExportMixin(
+        df=pl.DataFrame(
+            {
+                "station_id": ["01048"],
+                "timestamp": [dt.datetime(1700, 1, 1, tzinfo=ZoneInfo("UTC"))],
+                "start_date": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("Europe/Berlin"))],
+                "end_date": pl.Series([None], dtype=pl.Datetime("us", "UTC")),
+                "value": [1.0],
+            }
+        )
+    )
+    create_engine = sqlalchemy.create_engine
+    engines = []
+    handed = []
+
+    def engine_for(url: object, **kwargs: object) -> object:
+        # the target's real dialect, with a stand-in driver: nothing connects before `to_sql`.
+        # pyodbc's dialect reads the driver's version as it is built
+        driver = mock.MagicMock(version="5.2.0", __version__="2.3.13")
+        engines.append(create_engine(url, module=driver, **kwargs))
+        return engines[-1]
+
+    def to_sql(frame: object, **kwargs: object) -> None:
+        handed.append((frame, kwargs["dtype"]))
+
+    with (
+        mock.patch("sqlalchemy.create_engine", side_effect=engine_for),
+        mock.patch.object(pd.DataFrame, "to_sql", autospec=True, side_effect=to_sql),
+    ):
+        export.to_target(target)
+
+    ((engine,), ((frame, dtype),)) = engines, handed
+    with SQLDatabase(create_engine("sqlite://")) as database:
+        table = SQLTable("weather", database, frame=frame, index=False, dtype=dtype).table
+        ddl = str(CreateTable(table).compile(dialect=engine.dialect))
+    assert f"timestamp {datetime_type}" in ddl
+    assert f"start_date {datetime_type}" in ddl
+    assert f"end_date {datetime_type}" in ddl
+    assert "TIMESTAMP" not in ddl
+    assert frame["timestamp"].tolist() == [pd.Timestamp("1700-01-01 00:00:00")]
+    assert frame["start_date"].tolist() == [pd.Timestamp("1849-12-31 23:06:32")]
+    assert frame["end_date"].isna().tolist() == [True]
