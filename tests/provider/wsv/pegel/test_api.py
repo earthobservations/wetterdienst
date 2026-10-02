@@ -440,3 +440,53 @@ def test_wsv_a_timeseries_between_measurements_returns_no_data(monkeypatch: pyte
 
     values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
     assert values.df.is_empty()
+
+
+def test_wsv_station_list_names_the_vertical_datum_of_the_gauge_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that ``gauge_zero_datum`` gives the datum ``gauge_zero`` is in, as Pegelonline publishes it.
+
+    Pegelonline names the datum in the unit of the stage's gauge zero, and stations differ: on
+    2026-10-01, 593 were in `m. ü. NHN`, 40 in the older `m. ü. NN`, the 8 Austrian Danube gauges in
+    `m ü. A.`, and 95 had no gauge zero. Without the datum their altitudes look comparable where
+    they are not.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
+
+    def _station(number: str, gauge_zero: dict | None) -> dict:
+        stage = {"shortname": "W", "equidistance": 15, "unit": "cm", "characteristicValues": []}
+        if gauge_zero is not None:
+            stage["gaugeZero"] = {**gauge_zero, "validFrom": "2019-11-01"}
+        return {
+            "number": number,
+            "shortname": number,
+            "km": 1.0,
+            "latitude": 50.0,
+            "longitude": 10.0,
+            "water": {"shortname": "TEST"},
+            "timeseries": [stage],
+        }
+
+    listing = json.dumps(
+        [
+            _station("nhn", {"unit": "m. ü. NHN", "value": 31.82}),
+            _station("nn", {"unit": "m. ü. NN", "value": 4.97}),
+            _station("austria", {"unit": "m ü. A.", "value": 235.98}),
+            _station("none", None),
+        ],
+    ).encode()
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(listing), status=200),
+    )
+
+    df = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().df
+
+    assert {row[0]: row[1:] for row in df.select("station_id", "gauge_zero", "gauge_zero_datum").rows()} == {
+        "nhn": (31.82, "m. ü. NHN"),
+        "nn": (4.97, "m. ü. NN"),
+        "austria": (235.98, "m ü. A."),
+        "none": (None, None),
+    }
