@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from multidict import CIMultiDict
 from pydantic import SecretStr, ValidationError
 
 from wetterdienst.metadata.resolution import Resolution
@@ -555,3 +556,93 @@ def test_a_masked_value_is_refused_as_a_credential(auth: dict) -> None:
     """
     with pytest.raises(ValidationError, match="mask"):
         Settings(auth=auth)
+
+
+@pytest.mark.usefixtures("_no_client_kwargs_configured")
+def test_fsspec_client_kwargs_are_merged_into_the_defaults() -> None:
+    """A dict of one's own keeps the timeout and the User-Agent it does not name (GH-2269).
+
+    `{"trust_env": True}` is the proxy example the docs give; it used to replace the defaults whole,
+    so requests fell back to aiohttp's five minutes for the whole request and went out unidentified.
+    """
+    defaults = Settings().fsspec_client_kwargs
+
+    settings = Settings(fsspec_client_kwargs={"trust_env": True})
+
+    assert settings.fsspec_client_kwargs == {**defaults, "trust_env": True}
+    assert settings.fsspec_client_kwargs["timeout"] == 30
+    assert settings.fsspec_client_kwargs["headers"]["User-Agent"].startswith("wetterdienst/")
+
+
+@pytest.mark.usefixtures("_no_client_kwargs_configured")
+def test_fsspec_client_kwargs_merge_headers_one_level_deep() -> None:
+    """A header of one's own is sent alongside the User-Agent, not instead of it (GH-2269)."""
+    user_agent = Settings().fsspec_client_kwargs["headers"]["User-Agent"]
+
+    settings = Settings(fsspec_client_kwargs={"headers": {"X-Custom": "1"}})
+
+    assert settings.fsspec_client_kwargs["headers"] == {"User-Agent": user_agent, "X-Custom": "1"}
+    assert settings.fsspec_client_kwargs["timeout"] == 30
+
+
+@pytest.mark.usefixtures("_no_client_kwargs_configured")
+@pytest.mark.parametrize("name", ["User-Agent", "user-agent", "USER-AGENT"])
+def test_fsspec_client_kwargs_take_the_callers_own_user_agent(name: str) -> None:
+    """A User-Agent of one's own replaces the default, in whatever spelling, rather than doubling it.
+
+    Header names are case-insensitive, so keeping the default beside a `user-agent` would send two.
+    """
+    settings = Settings(fsspec_client_kwargs={"headers": {name: "my-app/1.0"}})
+
+    assert settings.fsspec_client_kwargs["headers"] == {name: "my-app/1.0"}
+
+
+@pytest.mark.usefixtures("_no_client_kwargs_configured")
+@pytest.mark.parametrize("timeout", [5, 2.5, None])
+def test_fsspec_client_kwargs_take_the_callers_own_timeout(timeout: float | None) -> None:
+    """A timeout of one's own wins, `None` included, which hands the choice back to aiohttp."""
+    settings = Settings(fsspec_client_kwargs={"timeout": timeout})
+
+    assert settings.fsspec_client_kwargs["timeout"] == timeout
+    assert settings.fsspec_client_kwargs["headers"]["User-Agent"].startswith("wetterdienst/")
+
+
+@pytest.mark.usefixtures("_no_client_kwargs_configured")
+def test_fsspec_client_kwargs_from_the_environment_are_merged_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`WD_FSSPEC_CLIENT_KWARGS` is merged into the defaults the same way as an argument (GH-2269)."""
+    monkeypatch.setenv("WD_FSSPEC_CLIENT_KWARGS", '{"trust_env": true, "headers": {"X-Custom": "1"}}')
+
+    kwargs = Settings().fsspec_client_kwargs
+
+    assert kwargs["trust_env"] is True
+    assert kwargs["timeout"] == 30
+    assert kwargs["headers"]["X-Custom"] == "1"
+    assert kwargs["headers"]["User-Agent"].startswith("wetterdienst/")
+
+
+@pytest.mark.usefixtures("_no_client_kwargs_configured")
+def test_fsspec_client_kwargs_survive_a_round_trip_through_a_dump() -> None:
+    """Merging what a dump hands back changes nothing, so a rebuilt `Settings` asks the same way."""
+    settings = Settings(fsspec_client_kwargs={"trust_env": True, "headers": {"user-agent": "my-app/1.0"}})
+
+    rebuilt = Settings(**settings.model_dump())
+
+    assert rebuilt.fsspec_client_kwargs == settings.fsspec_client_kwargs
+
+
+@pytest.mark.usefixtures("_no_client_kwargs_configured")
+@pytest.mark.parametrize(
+    "headers",
+    [CIMultiDict([("Accept", "a"), ("Accept", "b")]), [("Accept", "a"), ("Accept", "b")]],
+    ids=["multidict", "pairs"],
+)
+def test_fsspec_client_kwargs_keep_headers_that_are_not_a_dict_as_given(headers: object) -> None:
+    """Headers in another form aiohttp takes are passed on untouched, a repeated name included.
+
+    Copying a `CIMultiDict` or a list of pairs into a dict to merge it would keep one value of a
+    header given twice, where aiohttp sends both.
+    """
+    settings = Settings(fsspec_client_kwargs={"headers": headers})
+
+    assert settings.fsspec_client_kwargs["headers"] is headers
+    assert settings.fsspec_client_kwargs["timeout"] == 30

@@ -111,6 +111,11 @@ Types of changes:
   `lead_times`: the lead times whose run carries it, such as `["long"]` for `icon`'s
   `precipitation_amount_last_3h` and `["short"]` for every `icon_eu` parameter. A caller can offer
   only what the `lead_time` it sends will answer; the other keys are as they were (GH-2256)
+- **Breaking**: a dict given as `fsspec_client_kwargs` or `WD_FSSPEC_CLIENT_KWARGS` is merged into
+  the defaults, `headers` one level deep, where it replaced them, so the docs' proxy example
+  `{"trust_env": True}` no longer drops the 30 s timeout and the User-Agent. A key given still wins:
+  give `"timeout": None` for aiohttp's own timeout, which a dict without one used to get, and a
+  `User-Agent` header of your own to send that instead of wetterdienst's (GH-2269)
 - **Breaking**: the InfluxDB sinks read a target as the SQL sinks' SQLAlchemy does: the password
   ends at the first `@`, and the username, password and database are percent-decoded, as the
   CrateDB database (its schema) now is too. Write an `@` in an InfluxDB org, password or token as

@@ -101,12 +101,20 @@ settings
 
 to allow requesting through a proxy.
 
-A number given as `timeout` in `fsspec_client_kwargs` (30 in the default ones, which a dict of
-your own replaces) is how many seconds a request may wait before it fails: for a connection
-(including a free one from the pool), for the first byte of the answer, or between two bytes of
-it. It does not limit the request as a whole, so a download that keeps arriving is not cut off,
-however long it takes. Eaufrance Hub'Eau ignores whatever `timeout` is given and uses 120 seconds,
-as its service can take longer than 30 seconds to answer.
+A dict given as `fsspec_client_kwargs`, as an argument or as `WD_FSSPEC_CLIENT_KWARGS`, is merged
+into the defaults rather than replacing them: the example above keeps the User-Agent header and the
+timeout of 30. A key you give wins over the default of the same name, and `headers`, given as a
+dict, is merged the same way, so a header of your own is sent alongside the User-Agent, and a
+`User-Agent` of your own (in any capitalisation) replaces it. Give `"timeout": None` (`null` in
+the environment variable) to use aiohttp's own default instead: five minutes for the whole request,
+30 seconds to connect. Assigning to `fsspec_client_kwargs` on a `Settings` object that already
+exists sets it as given, without merging.
+
+A number given as `timeout` in `fsspec_client_kwargs` (30 by default) is how many seconds a request
+may wait before it fails: for a connection (including a free one from the pool), for the first byte
+of the answer, or between two bytes of it. It does not limit the request as a whole, so a download
+that keeps arriving is not cut off, however long it takes. Eaufrance Hub'Eau ignores whatever
+`timeout` is given and uses 120 seconds, as its service can take longer than 30 seconds to answer.
 
 If you're experiencing SSL certificate verification issues, especially in corporate environments or
 when system certificates are outdated, you can enable the certifi certificate bundle:
