@@ -1,9 +1,10 @@
+import type { ProviderNetworkCoverageResponse } from '#shared/types/api'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { UApp } from '#components'
-import { useToast } from '#imports'
+import { useRouter, useToast } from '#imports'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
@@ -281,5 +282,141 @@ describe('explorer Page station details', () => {
       ['01067', '', '', '-', '-'],
       ['00001', 'Test Station', 'Berlin', '52.5000', '13.4000'],
     ])
+  })
+})
+
+describe('explorer Page DWD DMO lead time', () => {
+  // `/api/coverage?provider=dwd&network=dmo`, cut down to a 1-hourly and a 3-hourly parameter of
+  // `icon`, and `icon_eu`, which publishes only the short run
+  function dmoCoverage() {
+    const parameter = (name: string) => ({ name, name_original: name, unit_type: 'precipitation', unit: 'millimeter', description: null })
+    return {
+      hourly: {
+        description: null,
+        datasets: {
+          icon: { description: null, parameters: [parameter('precipitation_amount_last_1h'), parameter('precipitation_amount_last_3h')] },
+          icon_eu: { description: null, parameters: [parameter('precipitation_amount_last_1h')] },
+        },
+      },
+    } satisfies ProviderNetworkCoverageResponse
+  }
+
+  // the query of every /api/values request, in order
+  const sent: Record<string, unknown>[] = []
+
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+    sent.splice(0)
+    useToast().clear()
+  })
+
+  // Mount the page at `query`, as a shared link restores it, with a station chosen
+  async function mountAt(query: string) {
+    endpoints.push(registerEndpoint('/api/coverage', (event) => {
+      const q = getQuery(event)
+      if (q.network === 'dmo')
+        return dmoCoverage()
+      if (q.provider)
+        return dailyClimateSummaryCoverage()
+      return { dwd: { dmo: {}, observation: {} } }
+    }))
+    endpoints.push(registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '10147', name: 'Hamburg', latitude: 53.6, longitude: 10.0 }],
+    })))
+    endpoints.push(registerEndpoint('/api/values', (event) => {
+      sent.push(getQuery(event))
+      return { values: [] }
+    }))
+
+    const wrapper = await mountSuspended(ExplorerWithApp, { attachTo: document.body, route: `/explorer?${query}` })
+    mounted.push(wrapper)
+    const vm = wrapper.findComponent(ExplorerPage).vm as any
+    await vi.waitFor(
+      () => expect((wrapper.findComponent(ParameterSelection).vm as any).isInitializing).toBe(false),
+      { timeout: 5000 },
+    )
+    vm.stationSelectionState.selection.stations = [{ station_id: '10147', name: 'Hamburg' }]
+    await vi.waitFor(() => expect(vm.canFetch).toBe(true))
+    return { wrapper, vm }
+  }
+
+  const ICON = 'provider=dwd&network=dmo&resolution=hourly&dataset=icon&parameters=precipitation_amount_last_3h'
+  const leadTimeCard = (wrapper: any) => wrapper.find('[data-testid="lead-time"]')
+  const button = (wrapper: any, label: string) => wrapper.findAll('button').find((b: any) => b.text() === label)!
+
+  // click Show, and return the query the values were asked for with
+  async function show(wrapper: any) {
+    const before = sent.length
+    await button(wrapper, 'Show').trigger('click')
+    await vi.waitFor(() => expect(sent.length).toBe(before + 1))
+    return sent[before]!
+  }
+
+  // the URL's query once the page has written the chosen station into it, which a link it was
+  // opened at does not carry
+  async function writtenQuery() {
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.stations).toBe('10147'))
+    return useRouter().currentRoute.value.query
+  }
+
+  it('sends the long run chosen for icon, and offers Show again for it', async () => {
+    const { wrapper, vm } = await mountAt(ICON)
+    expect(leadTimeCard(wrapper).exists()).toBe(true)
+
+    expect((await show(wrapper)).lead_time).toBe('short')
+    await vi.waitFor(() => expect(vm.canFetch).toBe(false))
+
+    await button(wrapper, 'Long: 78 to 168 h, 3-hourly').trigger('click')
+    // another run is another request
+    await vi.waitFor(() => expect(vm.canFetch).toBe(true))
+    expect((await show(wrapper)).lead_time).toBe('long')
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.leadTime).toBe('long'))
+  })
+
+  it('restores the long run from a shared link, and sends it', async () => {
+    const { wrapper } = await mountAt(`${ICON}&leadTime=long`)
+    expect((await show(wrapper)).lead_time).toBe('long')
+    expect((await writtenQuery()).leadTime).toBe('long')
+  })
+
+  it('offers no run for icon_eu, which has only the short one, and sends none', async () => {
+    const { wrapper } = await mountAt('provider=dwd&network=dmo&resolution=hourly&dataset=icon_eu&leadTime=long')
+    expect(leadTimeCard(wrapper).exists()).toBe(false)
+    expect((await show(wrapper)).lead_time).toBeUndefined()
+    expect((await writtenQuery()).leadTime).toBeUndefined()
+  })
+
+  it('offers no run outside DWD DMO, and sends none', async () => {
+    const { wrapper } = await mountAt('provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m&leadTime=long')
+    expect(leadTimeCard(wrapper).exists()).toBe(false)
+    expect((await show(wrapper)).lead_time).toBeUndefined()
+    expect((await writtenQuery()).leadTime).toBeUndefined()
+  })
+
+  it.each([
+    ['network', 'observation'],
+    ['provider', 'noaa'],
+    ['resolution', 'daily'],
+    ['dataset', 'icon_eu'],
+  ])('goes back to the short run when the %s changes', async (field, other) => {
+    const { wrapper, vm } = await mountAt(`${ICON}&leadTime=long`)
+    const selection = vm.parameterSelectionState.selection
+    selection[field] = other
+    await vi.waitFor(() => expect(vm.leadTime).toBe('short'))
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.leadTime).toBeUndefined())
+
+    // back on icon, the run offered is the default one, not the one chosen before
+    selection.provider = 'dwd'
+    selection.network = 'dmo'
+    selection.resolution = 'hourly'
+    selection.dataset = 'icon'
+    await vi.waitFor(() => expect(leadTimeCard(wrapper).exists()).toBe(true))
+    expect(vm.leadTime).toBe('short')
+    expect(vm.dataViewerRef).toBeNull()
+    vm.stationSelectionState.selection.stations = [{ station_id: '10147', name: 'Hamburg' }]
+    await vi.waitFor(() => expect(vm.canFetch).toBe(true))
+    expect((await show(wrapper)).lead_time).toBe('short')
+    expect((await writtenQuery()).leadTime).toBeUndefined()
   })
 })

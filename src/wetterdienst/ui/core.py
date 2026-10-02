@@ -185,7 +185,7 @@ _SectionsField = Annotated[
     set[Literal["name", "parameter", "device", "geography", "missing_data"]] | None,
     Field(
         description="History sections to include: name, parameter, device, geography, missing_data. Each history "
-        "gives its station_id whichever are included.",
+        "gives its station_id, resolution and dataset, whichever are included.",
     ),
 ]
 _InterpolationStationDistanceField = Annotated[
@@ -1063,15 +1063,19 @@ def get_stations(
     raise AssertionError(msg)
 
 
+_HISTORY_IDENTIFIERS = frozenset({"station_id", "resolution", "dataset"})
+
+
 def select_history_sections(history: dict[str, Any], sections: AbstractSet[str] | None) -> dict[str, Any]:
     """Keep the requested sections of a dumped station history, all of them when none are requested.
 
     In the history's own field order rather than the order of `sections`, which is a set, so the
-    same request always answers the same document. `station_id` is not a section and is always kept.
+    same request always answers the same document. `station_id`, `resolution` and `dataset` say
+    which station and dataset the history belongs to, are not sections and are always kept.
     """
     if not sections:
         return history
-    return {key: value for key, value in history.items() if key == "station_id" or key in sections}
+    return {key: value for key, value in history.items() if key in _HISTORY_IDENTIFIERS or key in sections}
 
 
 def limit_stations_to_rank(stations: StationsResult) -> StationsResult:

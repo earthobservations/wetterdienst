@@ -35,8 +35,17 @@ def test_history_dwd_observation() -> None:
     assert data.keys() == {"metadata", "stations", "histories"}
     assert len(data["histories"]) == 1
     history = data["histories"][0]
-    assert history.keys() == {"station_id", "name", "parameter", "device", "geography", "missing_data"}
-    assert history["station_id"] == "02564"
+    assert history.keys() == {
+        "station_id",
+        "resolution",
+        "dataset",
+        "name",
+        "parameter",
+        "device",
+        "geography",
+        "missing_data",
+    }
+    assert (history["station_id"], history["resolution"], history["dataset"]) == ("02564", "daily", "climate_summary")
     assert len(history["name"]) == 2
     assert history["name"].keys() == {"station", "operator"}
     assert history["name"]["station"][0] == {
@@ -131,7 +140,9 @@ def test_history_sections(sections: str) -> None:
     )
     assert result.exit_code == 0
     data = json.loads(result.stdout)
-    assert [list(history) for history in data["histories"]] == [["station_id", "name", "geography"]]
+    assert [list(history) for history in data["histories"]] == [
+        ["station_id", "resolution", "dataset", "name", "geography"]
+    ]
 
 
 def test_history_sections_unknown() -> None:

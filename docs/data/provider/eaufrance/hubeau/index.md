@@ -10,8 +10,13 @@ where metropolitan ones begin with the letter of their hydrographic basin.
 
 Two parameters are available — water level (`stage`) and discharge (`flow`) — served from the
 `hydrometrie/observations_tr` ("temps réel") endpoint as JSON, with station metadata coming
-from the `hydrometrie/referentiel/stations` endpoint. The API is key-less; no authentication
+from the `hydrometrie/referentiel/stations` endpoint and each station's elevation, the altitude of
+its hydrometric site, from `hydrometrie/referentiel/sites`. The API is key-less; no authentication
 is required.
+
+A site publishes no altitude for about a quarter of the stations, and a few publish 0 or a value
+no ground in France lies at (-999 m, or 12 km and more); their `elevation` is null. The altitude
+of the gauge's zero, the datum a stage is read from, is listed separately as `gauge_zero`.
 
 The recording interval is a property of the station rather than of the network, and unlike most
 services Hubeau publishes it nowhere: neither the station referential nor the observations carry
