@@ -404,3 +404,32 @@ def test_read_meta_df_breaks_rows_only_at_line_ends() -> None:
     file = File(url="https://example.org/stations.txt", content=content, status=200)
     df = _read_meta_df(DwdDerivedMetadata.monthly.heating_degreedays, file=file).collect()
     assert df.select("station_id", "name", "region").rows() == [("00001", "Bad\x85Aach", "Bayern")]
+
+
+def test_read_meta_df_four_digit_elevation() -> None:
+    """A station at 1000 m or higher keeps its elevation and its end date (GH-2234).
+
+    The rows are copied from `KL_Monatswerte_Beschreibung_Stationen.txt` as DWD publishes it. The
+    elevation is right-aligned to end at character 37, so a fourth digit sits at character 34; the
+    station between them shows the three-digit case still reads.
+    """
+    rows = [
+        (
+            "00722 18810601 20260831           1135     51.7986   10.6183 Brocken                                  "
+            "Sachsen-Anhalt"
+        ),
+        (
+            "04878 19060101 20260831            505     51.6647   10.8810 Oberharz am Brocken-Stiege               "
+            "Sachsen-Anhalt"
+        ),
+        "05792 19000801 20260831           2956     47.4210   10.9848 Zugspitze                                Bayern",
+    ]
+    content = BytesIO("".join(f"{line}\r\n" for line in ["header", "rule", *rows]).encode("latin-1"))
+    file = File(url="https://example.org/KL_Monatswerte_Beschreibung_Stationen.txt", content=content, status=200)
+    df = _read_meta_df(DwdDerivedMetadata.monthly.heating_degreedays, file=file).collect()
+    end_date = dt.datetime(2026, 8, 31, tzinfo=ZoneInfo("UTC"))
+    assert df.select("station_id", "end_date", "elevation", "latitude", "name").rows() == [
+        ("00722", end_date, 1135.0, 51.7986, "Brocken"),
+        ("04878", end_date, 505.0, 51.6647, "Oberharz am Brocken-Stiege"),
+        ("05792", end_date, 2956.0, 47.4210, "Zugspitze"),
+    ]
