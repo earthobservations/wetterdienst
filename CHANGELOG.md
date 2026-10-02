@@ -91,8 +91,7 @@ Types of changes:
 
 - Network: a download that keeps arriving no longer fails with `FSTimeoutError` once it runs past
   the `timeout` in `fsspec_client_kwargs` (30 s by default), so a slow link can fetch large files.
-  A number there now bounds how long a server may stay silent, not the whole request; to bound
-  the whole request, pass an `aiohttp.ClientTimeout(total=...)` instead (GH-2258)
+  A number there now bounds how long a server may stay silent, not the whole request (GH-2258)
 - Eaufrance Hub'Eau stations are listed when the station referential takes more than 30 seconds
   to arrive, which it often does; the list failed with `FSTimeoutError`. The referential now has
   the 120 seconds the observations requests have (GH-2221)

@@ -2325,8 +2325,13 @@ def test_download_file_retries_a_download_that_failed_after_a_long_transfer() ->
     waited out, and stamina's test mode is not used, as it drops the time budget this is about.
     """
     clock = [0.0]
+    readings: list[float] = []
     payload = b"data"
     mock_fs = MagicMock()
+
+    def monotonic() -> float:
+        readings.append(clock[0])
+        return clock[0]
 
     def cat_file(_url: str) -> bytes:
         clock[0] += 60
@@ -2339,11 +2344,14 @@ def test_download_file_retries_a_download_that_failed_after_a_long_transfer() ->
 
     with (
         patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
-        patch("tenacity.time", SimpleNamespace(monotonic=lambda: clock[0])),
+        patch("tenacity.time", SimpleNamespace(monotonic=monotonic)),
         patch("tenacity.nap.time", SimpleNamespace(sleep=lambda _seconds: None)),
     ):
         result = download_file(url="http://example.com/file.txt", cache_dir=Path(), cache_disable=True)
 
+    # the retry read the faked clock after the minute had passed, or this proves nothing: a tenacity
+    # that stopped reading `tenacity.time` would retry on the real clock with or without a budget
+    assert any(reading >= 60 for reading in readings)
     assert mock_fs.cat_file.call_count == 2
     assert result.status == 200
     assert result.content.getvalue() == payload

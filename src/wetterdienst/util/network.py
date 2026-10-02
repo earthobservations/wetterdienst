@@ -357,7 +357,7 @@ class HTTPFileSystem(_HTTPFileSystem):
         # next bytes, the first ones included. It is not a bound on the whole request, which is
         # what ``total`` would be -- that failed a download still streaming steadily once it ran
         # past the number, so a slow link failed every file larger than that many seconds of its
-        # bandwidth (GH-2258). A caller who wants a bound on the whole passes a ClientTimeout.
+        # bandwidth (GH-2258). A ClientTimeout passed in is used as it is.
         # ``connect`` as well as ``sock_connect``, because only ``connect`` covers the name lookup,
         # which ``total`` used to bound; it also counts a wait for a free pooled connection, as
         # ``total`` did.
