@@ -39,8 +39,11 @@ from wetterdienst.util.network import download_file, list_remote_directory_fsspe
 from wetterdienst.util.polars_util import read_fwf_from_df
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from typing import BinaryIO
 
+    from wetterdienst.metadata.resolution import Resolution
+    from wetterdienst.model.metadata import ResolutionModel
     from wetterdienst.settings import Settings
 
 try:
@@ -87,6 +90,14 @@ _CARRIED_ONLY_BY = {
     "rads3": DwdDmoLeadTime.LONG,
     "rr3": DwdDmoLeadTime.LONG,
     "rrs3c": DwdDmoLeadTime.LONG,
+}
+
+# the lead times each product publishes a run for: `icon_eu` publishes the 078 run alone, so none of
+# its parameters is carried by a long run. `discover` reports a parameter's lead times from this and
+# `_CARRIED_ONLY_BY` (GH-2256)
+_LEAD_TIMES_PUBLISHED = {
+    "icon": (DwdDmoLeadTime.SHORT, DwdDmoLeadTime.LONG),
+    "icon_eu": (DwdDmoLeadTime.SHORT,),
 }
 
 
@@ -675,6 +686,31 @@ class DwdDmoRequest(TimeseriesRequest):
         # of this decided anything. Fixing that comparison is what made this live
         adjusted_date = datetime_.replace(minute=0, second=0, microsecond=0)
         return adjusted_date.replace(hour=adjusted_date.hour // 12 * 12)
+
+    @classmethod
+    def discover(
+        cls,
+        resolutions: str | Resolution | ResolutionModel | Sequence[str | Resolution | ResolutionModel] | None = None,
+        datasets: str | DatasetModel | Sequence[str | DatasetModel] | None = None,
+    ) -> dict:
+        """Discover metadata as `TimeseriesRequest.discover` does, with each parameter's lead times.
+
+        `lead_times` lists the lead times whose run carries the parameter, `short` before `long`,
+        so a caller can offer only what the `lead_time` it sends will answer: values refuse a
+        parameter asked for by name that the run does not carry (GH-1976). An added key, the others
+        are as they were (GH-2256).
+        """
+        data = super().discover(resolutions=resolutions, datasets=datasets)
+        for resolution in data.values():
+            for dataset_name, dataset in resolution["datasets"].items():
+                for parameter in dataset["parameters"]:
+                    only = _CARRIED_ONLY_BY.get(parameter["name_original"])
+                    parameter["lead_times"] = [
+                        lead_time.name.lower()
+                        for lead_time in _LEAD_TIMES_PUBLISHED[dataset_name]
+                        if only in (None, lead_time)
+                    ]
+        return data
 
     @classmethod
     def available_issues(

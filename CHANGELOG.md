@@ -95,6 +95,10 @@ Types of changes:
   `InvalidTimeIntervalError` for the day `9999-12-31`, which raised `OverflowError`, and
   `LocationOutOfRangeError` for a point outside UTM, which raised `utm.error.OutOfRangeError`
   (GH-2252)
+- DWD DMO's coverage, from `discover`, `/api/coverage`, the CLI and MCP, gives each parameter
+  `lead_times`: the lead times whose run carries it, such as `["long"]` for `icon`'s
+  `precipitation_amount_last_3h` and `["short"]` for every `icon_eu` parameter. A caller can offer
+  only what the `lead_time` it sends will answer; the other keys are as they were (GH-2256)
 
 ### Fixed
 
