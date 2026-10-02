@@ -122,6 +122,12 @@ def _parse_date_with_precision(date_string: str) -> tuple[dt.datetime, str]:
     except ValueError:
         pass
     else:
+        try:
+            # an offset can carry the instant past either end of what a datetime holds in UTC,
+            # `9999-12-31T23:00-05:00`, which every later comparison would then overflow on
+            date_parsed.astimezone(dt.timezone.utc)
+        except OverflowError as e:
+            raise InvalidTimeIntervalError(str(e)) from e
         return _as_utc(date_parsed), _INSTANT
     for fmt, precision in (("%Y-%m", _MONTH), ("%Y", _YEAR)):
         try:

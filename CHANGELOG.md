@@ -89,10 +89,11 @@ Types of changes:
 - **Breaking**: `/api/values`, `/api/interpolate`, `/api/summarize` and their MCP tools answer a
   failure on the server's or the data source's side with a 500 carrying its message, where values
   answered 400 and the other two 404, as if the request were at fault. Retry or report a 500
-  rather than rephrasing. A request refused for what it asks keeps its 400 or 404, and raises a
-  subclass of the `ValueError` or `IndexError` it raised: `InvalidTimeIntervalError`,
-  `InvalidEnumerationError`, or the new `InvalidBoundingBoxError`, `LocationOutOfRangeError` and
-  `IssueNotFoundError` (GH-2252)
+  rather than rephrasing. A request refused for what it asks keeps its 400 or 404 and raises a
+  `ValueError` or `IndexError` subclass: `InvalidTimeIntervalError`, `InvalidEnumerationError`, or
+  the new `InvalidBoundingBoxError`, `LocationOutOfRangeError` and `IssueNotFoundError`. A date
+  past year 9999 raised `OverflowError`, and a point beyond UTM utm's `OutOfRangeError`: catch
+  `InvalidTimeIntervalError` and `LocationOutOfRangeError` for them (GH-2252)
 
 ### Fixed
 

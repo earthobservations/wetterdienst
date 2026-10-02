@@ -2877,6 +2877,13 @@ _OBSERVATION = {"provider": "dwd", "network": "observation", "parameters": "dail
             "latitude out of range (must be between 80 deg S and 84 deg N)",
             id="interpolate-point-beyond-utm",
         ),
+        pytest.param(
+            "/api/values",
+            {**_OBSERVATION, "station": "01048", "date": "9999-12-31T23:00-05:00"},
+            400,
+            "date value out of range",
+            id="values-instant-past-the-last-day-in-utc",
+        ),
     ],
 )
 def test_a_refusal_of_the_request_keeps_its_4xx(
@@ -3036,7 +3043,11 @@ def test_values_an_issue_the_source_does_not_list_keeps_its_400(
 
 
 def test_the_refusal_types_keep_the_type_they_were_raised_as() -> None:
-    """A library caller catching what these were raised as before still catches them (GH-2252)."""
+    """A library caller catching `ValueError` or `IndexError` still catches them (GH-2252).
+
+    Two were raised as something narrower: a date past year 9999 as an `OverflowError`, which is not
+    a `ValueError`, and a point beyond UTM as utm's `OutOfRangeError`, which is one.
+    """
     from wetterdienst.exceptions import (  # noqa: PLC0415
         InvalidBoundingBoxError,
         InvalidEnumerationError,
