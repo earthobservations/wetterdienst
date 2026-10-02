@@ -14,6 +14,8 @@ const props = withDefaults(defineProps<{
   restrictProvider?: string
   /** When set, restricts the network select to this single value. */
   restrictNetwork?: string
+  /** DWD DMO's run, where one is chosen: only the parameters it carries are offered */
+  leadTime?: 'short' | 'long'
 }>(), {
   showParameters: true,
 })
@@ -127,7 +129,10 @@ const parameterDescriptions = computed<Record<string, string>>(() => {
   const entries = resolutionData?.datasets[dataset.value]?.parameters ?? []
   return Object.fromEntries(entries.map((p: CoverageParameter) => [p.name, p.description ?? '']))
 })
-const params = computed<string[]>(() => {
+// The dataset's parameters a run carries. DWD DMO's coverage names the runs that carry each one, and
+// the values refuse a parameter asked for by name that the requested run does not carry (GH-2256);
+// a parameter that names none is carried by any
+function parametersCarriedBy(leadTime: 'short' | 'long' | undefined): string[] {
   if (!providerNetworkCoverage.value || !resolution.value || !dataset.value)
     return []
   const resolutionData = providerNetworkCoverage.value[resolution.value as Resolution]
@@ -137,9 +142,11 @@ const params = computed<string[]>(() => {
   if (!datasetParams)
     return []
   return datasetParams
+    .filter((p: CoverageParameter) => !leadTime || !p.lead_times || p.lead_times.includes(leadTime))
     .map((p: CoverageParameter) => p.name)
     .sort()
-})
+}
+const params = computed<string[]>(() => parametersCarriedBy(props.leadTime))
 // the source's own words for the selected resolution and dataset, which `/api/coverage` carries
 // since the backend nested its answer; null where the source has none (most resolutions, some
 // datasets), and then the hint just disappears
@@ -301,6 +308,19 @@ watch(dataset, async () => {
     return
   await nextTick()
   parameters.value = [...params.value]
+})
+
+// Another run carries other parameters: the ones it does not carry leave the selection, and a
+// selection of every parameter the last run carried, as choosing a dataset makes, becomes every one
+// this run carries
+watch(() => props.leadTime, (_, previous) => {
+  if (isInitializing.value)
+    return
+  const carriedBefore = parametersCarriedBy(previous)
+  if (carriedBefore.length > 0 && carriedBefore.every(p => parameters.value.includes(p)))
+    parameters.value = [...params.value]
+  else
+    parameters.value = parameters.value.filter(p => params.value.includes(p))
 })
 
 function selectAllParameters() {
