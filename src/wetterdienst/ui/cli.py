@@ -1305,16 +1305,20 @@ def values(
 
     api = get_api(request.provider, request.network)
 
-    settings = Settings(
-        ts_humanize=request.humanize,
-        ts_shape=request.shape,
-        ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets or {},
-        ts_skip_empty=request.skip_empty,
-        ts_skip_criteria=request.skip_criteria,
-        ts_skip_threshold=request.skip_threshold,
-        ts_drop_nulls=request.drop_nulls,
-    )
+    try:
+        settings = Settings(
+            ts_humanize=request.humanize,
+            ts_shape=request.shape,
+            ts_convert_units=request.convert_units,
+            ts_unit_targets=request.unit_targets or {},
+            ts_skip_empty=request.skip_empty,
+            ts_skip_criteria=request.skip_criteria,
+            ts_skip_threshold=request.skip_threshold,
+            ts_drop_nulls=request.drop_nulls,
+        )
+    except ValidationError as e:
+        # a unit target given for a quantity the unit converter does not know
+        raise click.BadParameter(str(e)) from e
 
     values_ = _collect_or_exit(get_values, api=api, request=request, settings=settings, what="data acquisition")
 

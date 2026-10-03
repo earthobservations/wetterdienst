@@ -602,3 +602,12 @@ def test_cli_refuses_selection(args: list[str], message: str) -> None:
     assert message in result.output
     # one line per problem, without pydantic's echo of every option the command took
     assert "input_value" not in result.output
+
+
+def test_cli_values_refuses_unknown_unit_targets_quantity() -> None:
+    """Test a unit target for a quantity the converter does not know is a usage error, not a traceback."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"foo": "bar"}'])
+    assert result.exit_code == 2, result.output
+    assert "Error: Invalid value: " in result.output
+    assert "Invalid unit targets: one of {'foo'} not in" in result.output
