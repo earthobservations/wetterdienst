@@ -85,8 +85,8 @@ hourly/air_temperature, hourly/precipitation.
 ## Reading results
 - `values` returns JSON with a `values` array of {station_id, resolution, dataset, parameter, \
 timestamp, value, quality}, grouped by station, then by resolution, dataset and parameter, in \
-timestamp order within each group. The MOST RECENT value for a parameter is the LAST item of its \
-group, not the last item of the array.
+timestamp order within each group. A parameter's LATEST timestamp is the LAST item of its group, \
+not the last item of the array.
 - Responses are compact by default (just the `values`). Keep them small (and answer in fewer calls) \
 by querying a single "resolution/dataset/parameter" and -- if you only need one day -- a \
 `date` (e.g. date="2026-07-25"; a station's most recent day is its `end_date` from `stations`). A \

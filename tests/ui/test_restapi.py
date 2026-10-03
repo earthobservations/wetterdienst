@@ -3761,21 +3761,30 @@ def test_values_wide_items_are_the_ones_the_description_states(stubbed_values: C
     """A wide item is one timestamp with a key per parameter, named by its dataset here (GH-2295)."""
     wide = stubbed_values(shape="wide")["values"]
 
-    assert sorted(_station_runs(wide)) == ["00001", "00002"]
-    for station_id in ["00001", "00002"]:
-        assert [item["timestamp"][:10] for item in wide if item["station_id"] == station_id] == _DAYS
-    assert all("parameter" not in item for item in wide)
-    # the request spans two datasets, so every key carries its dataset's name
-    assert {
+    # one item per timestamp of a station
+    assert sorted((item["station_id"], item["timestamp"][:10]) for item in wide) == [
+        (station_id, day) for station_id in ["00001", "00002"] for day in _DAYS
+    ]
+    # the request names two datasets, so every parameter key carries its dataset's name, and no
+    # item has a `parameter` key
+    parameters = [
+        "climate_summary_precipitation_amount",
         "climate_summary_temperature_air_mean_2m",
-        "climate_summary_temperature_air_mean_2m_quality",
         "precipitation_more_snow_depth",
-        "precipitation_more_snow_depth_quality",
-    } <= wide[0].keys()
+    ]
+    for item in wide:
+        assert item.keys() == {
+            "station_id",
+            "resolution",
+            "dataset",
+            "timestamp",
+            *parameters,
+            *(f"{parameter}_quality" for parameter in parameters),
+        }
 
 
 def test_values_geojson_items_are_the_ones_the_description_states(stubbed_values: Callable[..., dict]) -> None:
-    """A GeoJSON feature holds one station's long items, in their order, without `station_id` (GH-2295)."""
+    """A GeoJSON feature holds one station's items of one dataset, in long order, without `station_id` (GH-2295)."""
     long = stubbed_values()["values"]
     features = stubbed_values(format="geojson")["data"]["features"]
 

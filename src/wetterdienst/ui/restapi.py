@@ -563,14 +563,13 @@ def values(
     an id from `stations` (e.g. station="01975"). `periods` is optional and provider-specific --
     "recent" for dwd/observation, while a provider that publishes under a single period rejects any
     other one. In the default JSON (shape="long") `values` has one item per reading, grouped by
-    station, then by resolution, dataset and parameter, in timestamp order within each group: the
-    most recent reading of a parameter is the last item of its group, not of the array. With
-    shape="wide" an item is one timestamp of a station and resolution, with a key per parameter for
-    its value (named "<dataset>_<parameter>" when the request spans several datasets) and the same
-    key with a `_quality` suffix, and no `parameter` key, in timestamp order within each station and
-    resolution. With format="geojson" each feature in `data.features` is one station, holding only
-    that station's items under `values`, in the same order and without `station_id`; a station with
-    several datasets can have several features. Do not re-request in other formats.
+    station, then by resolution, dataset and parameter, in timestamp order within each group: a
+    parameter's latest timestamp is the last item of its group, not of the array. With shape="wide"
+    an item is one timestamp of a station and resolution, with a key per parameter (prefixed
+    "<dataset>_" when datasets of more than one name are requested) and its `_quality` key, and no
+    `parameter` key. With format="geojson" the items sit under each feature's `values` in the same
+    order, without `station_id`; a feature is one resolution and dataset of one station (one
+    resolution in the wide shape), so a station can have several. Do not re-request in other formats.
     """
     set_logging_level(debug=request.debug)
 
