@@ -134,6 +134,11 @@ Types of changes:
 
 ### Fixed
 
+- The `/api/values` description, which is the MCP `values` tool's, and the MCP instructions said
+  the `values` array is sorted by timestamp. It is grouped by station, then by resolution, dataset
+  and parameter, in timestamp order within each group, so a parameter's latest timestamp is the
+  last of its group. The description now also says what a wide item and a GeoJSON response hold
+  (GH-2295)
 - Values: a station asked for several datasets is no longer skipped when one dataset has no
   `start_date` in the station list and another starts after `end_date`. With NOAA GHCN `hourly`
   and `daily` together, such a station returned no hourly values inside the window (GH-2292)
