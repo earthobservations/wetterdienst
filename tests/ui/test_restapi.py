@@ -3135,3 +3135,18 @@ def test_ogc_feature_properties_schema_allows_a_null_dataset() -> None:
 
     dataset = app.openapi()["components"]["schemas"]["_OgcFeatureProperties"]["properties"]["dataset"]
     assert {branch.get("type") for branch in dataset.get("anyOf", [dataset])} == {"string", "null"}
+
+
+def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient) -> None:
+    """A unit target for a quantity the converter does not know is the caller's 400 (GH-2272).
+
+    `/api/values` built its settings outside any handler, so the validator's refusal reached the
+    caller as a bare 500 "Internal Server Error". Refused before anything is downloaded.
+    """
+    response = client.get(
+        "/api/values",
+        params={**_OBSERVATION, "station": "01048", "unit_targets": json.dumps({"foo": "bar"})},
+    )
+
+    assert response.status_code == 400
+    assert "Invalid unit targets: one of {'foo'} not in" in response.json()["detail"]

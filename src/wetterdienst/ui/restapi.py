@@ -573,16 +573,20 @@ def values(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
-    settings = Settings(
-        ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets or {},
-        ts_shape=request.shape,
-        ts_humanize=request.humanize,
-        ts_skip_empty=request.skip_empty,
-        ts_skip_criteria=request.skip_criteria,
-        ts_skip_threshold=request.skip_threshold,
-        ts_drop_nulls=request.drop_nulls,
-    )
+    try:
+        settings = Settings(
+            ts_convert_units=request.convert_units,
+            ts_unit_targets=request.unit_targets or {},
+            ts_shape=request.shape,
+            ts_humanize=request.humanize,
+            ts_skip_empty=request.skip_empty,
+            ts_skip_criteria=request.skip_criteria,
+            ts_skip_threshold=request.skip_threshold,
+            ts_drop_nulls=request.drop_nulls,
+        )
+    except ValidationError as e:
+        # a unit target given for a quantity the converter has none for
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     values_ = _values(api=api, request=request, settings=settings)
 

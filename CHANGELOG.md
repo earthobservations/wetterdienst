@@ -125,6 +125,8 @@ Types of changes:
 
 ### Fixed
 
+- `/api/values` and its MCP tool answer `unit_targets` naming a quantity the converter does not
+  have, such as `{"foo": "bar"}`, with a 400 saying so, where they answered a bare 500 (GH-2272)
 - Network: a download that keeps arriving no longer fails with `FSTimeoutError` once it runs past
   the `timeout` in `fsspec_client_kwargs` (30 s by default), so a slow link can fetch large files.
   A number there now bounds each wait, to connect and for the next bytes of the answer, not the
