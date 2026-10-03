@@ -1318,12 +1318,18 @@ def values(
         )
     except ValidationError as e:
         # a unit target given for a quantity the unit converter does not know. Only that: a value
-        # a WD_* environment variable set is not the command line's to fix
+        # a WD_* environment variable set is not the command line's to fix. WD_TS_UNIT_TARGETS is
+        # merged into --unit_targets, so its entries are told with the option's when it is given
         problems = e.errors(include_url=False)
-        if any(problem["loc"][:1] != ("ts_unit_targets",) for problem in problems):
+        if not request.unit_targets or any(problem["loc"][:1] != ("ts_unit_targets",) for problem in problems):
             raise
-        message = "\n".join(problem["msg"].removeprefix("Value error, ") for problem in problems)
-        raise click.BadParameter(message, param_hint="'--unit_targets'") from e
+        ctx = click.get_current_context()
+        params = {param.name: param for param in ctx.command.params if param.name == "unit_targets"}
+        lines = [
+            _describe_problem({**problem, "loc": ("unit_targets", *problem["loc"][1:])}, params, ctx)
+            for problem in problems
+        ]
+        raise click.UsageError("\n".join(lines), ctx=ctx) from e
 
     values_ = _collect_or_exit(get_values, api=api, request=request, settings=settings, what="data acquisition")
 

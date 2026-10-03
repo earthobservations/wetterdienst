@@ -624,3 +624,12 @@ def test_cli_values_does_not_blame_the_command_line_for_the_environment(monkeypa
     )
     assert isinstance(result.exception, ValidationError)
     assert "--unit_targets" not in result.output
+
+
+def test_cli_values_does_not_blame_an_absent_unit_targets_for_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a WD_TS_UNIT_TARGETS that Settings refuses is not told as a bad --unit_targets nobody gave."""
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"foo": "bar"}')
+    runner = CliRunner()
+    result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048"])
+    assert isinstance(result.exception, ValidationError)
+    assert "--unit_targets" not in result.output
