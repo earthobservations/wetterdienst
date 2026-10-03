@@ -287,10 +287,11 @@ Types of changes:
   whose export fails says the image could not be saved. The chart area stayed empty, and a failed
   image saved nothing, without a word (GH-2186)
 - `[Explorer]` A Fetch of values, interpolated or summarized data that fails is asked for once,
-  and its error is told at once. The app asked a second time where the answer was a 5xx, as a 502
-  where the backend could not be reached, which held back the error until the second answer came.
-  With the backend answering a failure on its or the source's side with a 500 (GH-2252), that
-  second request also doubled the downloads behind it (GH-2278)
+  and its error is told at once. The app asked a second time where the answer was a 408, 409, 425,
+  429, 500, 502, 503 or 504, as the 502 where the backend could not be reached, or where none came,
+  as on a dropped connection, which held back the error until the second answer came. With the
+  backend answering a failure on its or the source's side with a 500 (GH-2252), that second request
+  also doubled the downloads behind it (GH-2278)
 
 ## [0.17.0] - 2026-09-29
 

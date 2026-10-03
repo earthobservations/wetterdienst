@@ -270,9 +270,9 @@ const { data: valuesData, pending: valuesPending, error: valuesError, status: va
     immediate: false,
     // fetched by Fetch alone, not whenever the request it reads changes
     watch: false,
-    // once, as the GeoJSON download is: the REST API answers a failure on its or the source's side
-    // with a 500, which ofetch would ask again for, doubling the work behind it and holding back the
-    // error until the second answer
+    // once, as the GeoJSON download is, whatever the failure: ofetch would ask again on a 500, which
+    // the REST API answers a failure on its or the source's side with, doubling the work behind it,
+    // and on a 502, 503, 504 or no answer at all, each holding back the error until the second answer
     retry: 0,
     default: () => ({ values: [] }),
   },
