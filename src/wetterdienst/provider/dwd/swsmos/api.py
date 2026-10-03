@@ -369,6 +369,10 @@ class DwdSwsmosRequest(TimeseriesRequest):
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
                 issue = dt.datetime.fromisoformat(issue)
+            # in UTC before it is floored, as `dwd/dmo` and `dwd/mosmix` do: DWD stamps its runs in
+            # UTC. A naive issue is UTC already; one with an offset kept its wall-clock hour and was
+            # relabelled UTC, so 13:00+02:00 read the 13 UTC run, not the 11 UTC one (GH-2288)
+            issue = issue.astimezone(_UTC) if issue.tzinfo else issue.replace(tzinfo=_UTC)
             issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=_UTC)
         self.issue = issue
 

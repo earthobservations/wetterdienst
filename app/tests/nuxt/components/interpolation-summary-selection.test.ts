@@ -1,6 +1,7 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { setResponseStatus } from 'h3'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
 
@@ -140,5 +141,29 @@ describe('the interpolation\'s station picker with postcode stations', () => {
 
     expect(vm.stationItems.map((i: { value: string }) => i.value)).toEqual(['02290'])
     wrapper.unmount()
+  })
+})
+
+describe('the interpolation\'s station list that could not be fetched', () => {
+  it('asks /api/stations once for a request answered with a 500', async () => {
+    // counted at the endpoint, which a request reaches however it is made
+    let asked = 0
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      asked++
+      setResponseStatus(event, 500)
+      return { detail: 'Upstream failed' }
+    }))
+    // a dataset of its own, so the list is not the one the tests above leave mounted
+    const wrapper = await mountSuspended(InterpolationSummarySelection, {
+      props: { parameterSelection: { ...parameterSelection, dataset: 'kl' }, modelValue: { source: 'station' } },
+    })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    // a request asked again is under way until its second answer
+    await vi.waitFor(() => {
+      expect(asked).toBeGreaterThan(0)
+      expect(vm.stationsPending).toBe(false)
+    })
+    expect(asked).toBe(1)
   })
 })

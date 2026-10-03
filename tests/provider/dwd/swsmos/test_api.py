@@ -614,3 +614,28 @@ def test_swsmos_unreadable_run_is_not_asked_for_again_where_there_is_no_cache(
     assert asked == [("swsmos_20260731080000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS)]
     # and the unreadable body is what the caller is left with, rather than a second fetch of it
     assert df.is_empty()
+
+
+@pytest.mark.parametrize(
+    "issue",
+    [
+        pytest.param("2026-10-01T11:00", id="naive-string"),
+        pytest.param(dt.datetime(2026, 10, 1, 11, 40), id="naive-datetime"),  # noqa: DTZ001
+        pytest.param("2026-10-01T13:00+02:00", id="whole-hour-offset-string"),
+        pytest.param(dt.datetime(2026, 10, 1, 13, 20, tzinfo=ZoneInfo("Europe/Berlin")), id="zone-datetime"),
+        pytest.param("2026-10-01T16:30+05:30", id="half-hour-offset"),
+        pytest.param("2026-10-01T06:00-05:00", id="negative-offset"),
+        pytest.param(dt.datetime(2026, 10, 1, 11, tzinfo=UTC), id="utc"),
+    ],
+)
+def test_swsmos_issue_is_converted_to_utc_before_it_is_floored(issue: str | dt.datetime) -> None:
+    """A naive issue means UTC and an aware one is converted before it is floored (GH-2288).
+
+    `13:00+02:00` used to keep its wall-clock hour and be relabelled UTC, so the 13 UTC run was read
+    for an issue that names the 11 UTC one.
+    """
+    request = DwdSwsmosRequest(parameters=[("hourly", "data")], issue=issue)
+
+    assert request.issue == dt.datetime(2026, 10, 1, 11, tzinfo=UTC)
+    assert isinstance(request.issue, dt.datetime)
+    assert request.issue.utcoffset() == dt.timedelta(0)
