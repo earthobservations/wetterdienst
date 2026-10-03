@@ -3478,5 +3478,7 @@ def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
 
     response = client.get("/api/values", params={**_OBSERVATION, "station": "01048"})
 
+    # Starlette's own answer to an exception nothing handled, so the settings are what failed: a
+    # request that got past them would fail on the network and answer with a detail of its own
     assert response.status_code == 500
-    assert "not-a-bool" not in response.text
+    assert response.text == "Internal Server Error"
