@@ -75,7 +75,7 @@ def get_interpolated_df(
 
     """
     try:
-        utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
+        utm_x, utm_y, zone_number, zone_letter = utm.from_latlon(latitude, longitude)
     except OutOfRangeError as e:
         # UTM covers 80 deg S to 84 deg N, so a point beyond is the caller's to move
         raise LocationOutOfRangeError(str(e)) from e
@@ -87,6 +87,7 @@ def get_interpolated_df(
         utm_x,
         utm_y,
         elevation,
+        zone=(zone_number, zone_letter),
     )
     df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance)
     # after the frame is built, not before: a parameter the exclusions left with three stations
@@ -110,6 +111,8 @@ def request_stations(
     utm_x: float,
     utm_y: float,
     elevation: float | None = None,
+    *,
+    zone: tuple[int, str],
 ) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForElevation], set[tuple[str, str, str]]]:
     """Request the stations for the interpolation.
 
@@ -120,6 +123,9 @@ def request_stations(
         utm_x: longitude in UTM of the point to interpolate
         utm_y: latitude in UTM of the point to interpolate
         elevation: elevation of the point in metres, to bring each station's readings to
+        zone: number and letter of the UTM zone `utm_x` and `utm_y` are in, which every station is
+            placed in as well: each zone has a frame of its own, and a station a few kilometres
+            across a zone boundary would otherwise land hundreds of kilometres from the point
 
     Returns:
         the stations dict, the parameter dict, how many stations each parameter lost for
@@ -129,10 +135,6 @@ def request_stations(
     param_dict = {}
     stations_dict = {}
     dropped_for_elevation: dict[tuple[str, str, str], DroppedForElevation] = {}
-    # the zone `utm_x` and `utm_y` are in, which every station is placed in as well: each zone has
-    # a frame of its own, and a station a few kilometres across a zone boundary would otherwise
-    # land hundreds of kilometres from the point, on the wrong side of it
-    _, _, zone_number, zone_letter = utm.from_latlon(latitude, longitude)
     settings = cast("Settings", request.settings)
     max_interp_distance = max(
         settings.ts_geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
@@ -192,13 +194,14 @@ def request_stations(
             utm_x_station, utm_y_station = utm.from_latlon(
                 station["latitude"],
                 station["longitude"],
-                force_zone_number=zone_number,
-                force_zone_letter=zone_letter,
+                force_zone_number=zone[0],
+                force_zone_letter=zone[1],
             )[:2]
-        except OutOfRangeError:
+        except OutOfRangeError as e:
             # UTM ends at 80 deg S and 84 deg N, so a station beyond, in reach of a point inside, has
-            # no place in the frame; left out before its readings are taken, as it cannot be in a hull
-            log.info(f"station {station['station_id']} lies beyond what UTM covers and is left out")
+            # no place in the frame, and nor has one with a longitude outside -180 to 180; left out
+            # before its readings are taken, as it cannot be in a hull
+            log.info(f"station {station['station_id']} cannot be placed in UTM and is left out: {e}")
             continue
         contributed = apply_station_values_per_parameter(
             result.df,
