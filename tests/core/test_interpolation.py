@@ -1190,3 +1190,84 @@ def test_interpolation_places_stations_across_a_utm_zone_boundary_in_the_point_s
     assert row["value"] == pytest.approx(reading(latitude, longitude), abs=0.01)
     assert row["distance_mean"] == 8.5
     assert sorted(row["taken_station_ids"]) == list(corners)
+
+
+def test_interpolation_leaves_out_a_station_beyond_what_utm_covers(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A station south of 80 deg S, in reach of a point north of it, is left out of the interpolation.
+
+    UTM ends at 80 deg S, so projecting such a station raised `OutOfRangeError` and failed the whole
+    interpolation for a point that UTM does cover. The nearest station lies beyond, the other four
+    surround the point, and the readings are all the same, so the answer is theirs. The stations and
+    their readings are stubbed, so nothing leaves the machine.
+    """
+    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    latitude, longitude = -79.98, 165.0
+    coordinates = {
+        "00000": (-80.01, 165.0),
+        "00001": (-80.0, 164.8),
+        "00002": (-80.0, 165.2),
+        "00003": (-79.9, 165.2),
+        "00004": (-79.9, 164.8),
+    }
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "station_id": station_id,
+                "latitude": lat,
+                "longitude": lon,
+                "elevation": 100.0,
+                "distance": 3.0 + index,
+            }
+            for index, (station_id, (lat, lon)) in enumerate(coordinates.items())
+        ],
+    )
+    timestamp = dt.datetime(2021, 2, 1, tzinfo=ZoneInfo("UTC"))
+
+    def _filter_by_distance(
+        self: DwdObservationRequest,
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,  # noqa: ARG001
+    ) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+
+    def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
+        for station_id in coordinates:
+            yield SimpleNamespace(
+                df=pl.DataFrame(
+                    [
+                        {
+                            "station_id": station_id,
+                            "resolution": "daily",
+                            "dataset": "climate_summary",
+                            "parameter": "temperature_air_mean_2m",
+                            "timestamp": timestamp,
+                            "value": -20.0,
+                            "quality": 10.0,
+                        },
+                    ],
+                ),
+            )
+
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _filter_by_distance)
+    monkeypatch.setattr(DwdObservationValues, "query", _query)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start_date=timestamp,
+        end_date=timestamp,
+    )
+    with caplog.at_level(logging.INFO, logger="wetterdienst.core.interpolate"):
+        df = get_interpolated_df(request, latitude, longitude)
+    assert "station 00000 lies beyond what UTM covers and is left out" in caplog.text
+    assert df.height == 1
+    row = df.row(0, named=True)
+    assert row["value"] == -20.0
+    assert sorted(row["taken_station_ids"]) == ["00001", "00002", "00003", "00004"]
+    assert row["distance_mean"] == 5.5

@@ -188,6 +188,18 @@ def request_stations(
             break
         if result.df.drop_nulls("value").is_empty():
             continue
+        try:
+            utm_x_station, utm_y_station = utm.from_latlon(
+                station["latitude"],
+                station["longitude"],
+                force_zone_number=zone_number,
+                force_zone_letter=zone_letter,
+            )[:2]
+        except OutOfRangeError:
+            # UTM ends at 80 deg S and 84 deg N, so a station beyond, in reach of a point inside, has
+            # no place in the frame; left out before its readings are taken, as it cannot be in a hull
+            log.info(f"station {station['station_id']} lies beyond what UTM covers and is left out")
+            continue
         contributed = apply_station_values_per_parameter(
             result.df,
             stations_ranked,
@@ -203,12 +215,6 @@ def request_stations(
         # be interpolated from -- which is what a station with no elevation is, once an elevation is
         # asked for
         if contributed:
-            utm_x_station, utm_y_station = utm.from_latlon(
-                station["latitude"],
-                station["longitude"],
-                force_zone_number=zone_number,
-                force_zone_letter=zone_letter,
-            )[:2]
             stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
     return stations_dict, param_dict, dropped_for_elevation, unanswerable
 
