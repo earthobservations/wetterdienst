@@ -3267,3 +3267,15 @@ def test_mcp_values_tool_passes_output_validation_in_each_shape_and_format(
     data = asyncio.run(_call())
     expected = json.loads(result.to_json() if fmt == "json" else result.to_geojson())
     assert data["result"] == expected
+
+
+@pytest.mark.parametrize("schema_name", ["_ValuesWideItemDict", "_ValuesWideOgcItemDict"])
+def test_values_wide_row_schemas_admit_the_parameter_columns(schema_name: str) -> None:
+    """The wide row schemas say a row carries columns beyond the declared ones (GH-2282).
+
+    A wide row has a value and a quality column per parameter asked for, which differ per request,
+    so a client generated from the schema must not read the declared keys as a closed list.
+    """
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    assert app.openapi()["components"]["schemas"][schema_name].get("additionalProperties") is True
