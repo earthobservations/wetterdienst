@@ -1100,3 +1100,86 @@ def test_interpolate_and_summarize_keep_a_reading_in_a_small_source_unit_when_un
     df = get_df(request, latitude, longitude)
     assert df.get_column("timestamp").to_list() == list(readings)
     assert df.get_column("value").to_list() == pytest.approx(list(readings.values()), rel=1e-3)
+
+
+@pytest.mark.parametrize("longitude", [11.95, 12.05], ids=["zone_32", "zone_33"])
+def test_interpolation_places_stations_across_a_utm_zone_boundary_in_the_point_s_frame(
+    monkeypatch: pytest.MonkeyPatch,
+    longitude: float,
+) -> None:
+    """Stations either side of a UTM zone boundary are placed in the frame of the point.
+
+    Zones 32 and 33 meet at 12 deg E. Each station was projected into its own zone, so the two
+    stations at 12.1 deg E sat some 415 km west of the two at 11.9 deg E, the point fell outside
+    every group of four, and the interpolation came back empty, on whichever side of the boundary
+    the point lies. The readings rise linearly, by 20 per degree east and 10 per degree north from
+    10 at 50 deg N 12 deg E, which a linear interpolation over a few kilometres reproduces at the
+    point up to the curvature of the projection. The stations and their readings are stubbed, so
+    nothing leaves the machine.
+    """
+    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    latitude = 50.01
+
+    def reading(lat: float, lon: float) -> float:
+        return 10 + 20 * (lon - 12) + 10 * (lat - 50)
+
+    corners = {"00001": (49.95, 11.9), "00002": (49.95, 12.1), "00003": (50.05, 12.1), "00004": (50.05, 11.9)}
+    distances = {"00001": 7.0, "00002": 8.0, "00003": 9.0, "00004": 10.0}
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "station_id": station_id,
+                "latitude": lat,
+                "longitude": lon,
+                "elevation": 100.0,
+                "distance": distances[station_id],
+            }
+            for station_id, (lat, lon) in corners.items()
+        ],
+    )
+    timestamp = dt.datetime(2021, 2, 1, tzinfo=ZoneInfo("UTC"))
+
+    def _filter_by_distance(
+        self: DwdObservationRequest,
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,  # noqa: ARG001
+    ) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+
+    def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
+        for station_id, (lat, lon) in corners.items():
+            yield SimpleNamespace(
+                df=pl.DataFrame(
+                    [
+                        {
+                            "station_id": station_id,
+                            "resolution": "daily",
+                            "dataset": "climate_summary",
+                            "parameter": "temperature_air_mean_2m",
+                            "timestamp": timestamp,
+                            "value": reading(lat, lon),
+                            "quality": 10.0,
+                        },
+                    ],
+                ),
+            )
+
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _filter_by_distance)
+    monkeypatch.setattr(DwdObservationValues, "query", _query)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start_date=timestamp,
+        end_date=timestamp,
+    )
+    df = get_interpolated_df(request, latitude, longitude)
+    assert df.height == 1
+    row = df.row(0, named=True)
+    # 9.1 at 11.95 deg E and 11.1 at 12.05 deg E
+    assert row["value"] == pytest.approx(reading(latitude, longitude), abs=0.01)
+    assert row["distance_mean"] == 8.5
+    assert sorted(row["taken_station_ids"]) == list(corners)

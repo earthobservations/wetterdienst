@@ -125,6 +125,10 @@ Types of changes:
 
 ### Fixed
 
+- Interpolation places stations across a UTM zone boundary (every 6 deg of longitude, in Germany
+  at 12 deg E) in the zone of the point. Each was placed in its own zone, hundreds of kilometres
+  off, so a point near a boundary got no value, or one weighted as if those stations stood
+  elsewhere (GH-2277)
 - Network: a download that keeps arriving no longer fails with `FSTimeoutError` once it runs past
   the `timeout` in `fsspec_client_kwargs` (30 s by default), so a slow link can fetch large files.
   A number there now bounds each wait, to connect and for the next bytes of the answer, not the

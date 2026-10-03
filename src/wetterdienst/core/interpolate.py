@@ -129,6 +129,10 @@ def request_stations(
     param_dict = {}
     stations_dict = {}
     dropped_for_elevation: dict[tuple[str, str, str], DroppedForElevation] = {}
+    # the zone `utm_x` and `utm_y` are in, which every station is placed in as well: each zone has
+    # a frame of its own, and a station a few kilometres across a zone boundary would otherwise
+    # land hundreds of kilometres from the point, on the wrong side of it
+    _, _, zone_number, zone_letter = utm.from_latlon(latitude, longitude)
     settings = cast("Settings", request.settings)
     max_interp_distance = max(
         settings.ts_geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
@@ -199,7 +203,12 @@ def request_stations(
         # be interpolated from -- which is what a station with no elevation is, once an elevation is
         # asked for
         if contributed:
-            utm_x_station, utm_y_station = utm.from_latlon(station["latitude"], station["longitude"])[:2]
+            utm_x_station, utm_y_station = utm.from_latlon(
+                station["latitude"],
+                station["longitude"],
+                force_zone_number=zone_number,
+                force_zone_letter=zone_letter,
+            )[:2]
             stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
     return stations_dict, param_dict, dropped_for_elevation, unanswerable
 
