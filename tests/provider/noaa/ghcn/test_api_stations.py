@@ -119,6 +119,7 @@ def test_noaa_ghcn_daily_stations_missing_elevation(
 GHCNH_STATION_LIST = (
     "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
     "ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD   ANTIGUA (AUX.,,,78861,,AG\n"
+    "AGM00060350,37.083,6.45,-999.0,,BOGUS ALGERIAN,,,60350,,DZ\n"
     "AOM00066116,-5.8667,13.4333,-999.9,,NOQUI,,,66116,,AO\n"
 )
 GHCND_STATIONS = "ACW00011604  17.1167  -61.7833   10.1    ST JOHNS COOLIDGE FLD                       \n"
@@ -141,11 +142,16 @@ def test_noaa_ghcn_hourly_stations_missing_elevation(
 ) -> None:
     """A station that `ghcnh-station-list.csv` lists at -999.9, its missing value, has a null elevation (GH-2260).
 
-    The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it.
+    The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it. -999.0 is kept, as NOAA's
+    GHCNh documentation names only -999.9 as missing.
     """
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file)
     df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df
-    assert df.select("station_id", "elevation").rows() == [("ACM00078861", 10.0), ("AOM00066116", None)]
+    assert df.select("station_id", "elevation").rows() == [
+        ("ACM00078861", 10.0),
+        ("AGM00060350", -999.0),
+        ("AOM00066116", None),
+    ]
 
 
 def test_noaa_ghcn_stations_hourly_and_daily(monkeypatch: pytest.MonkeyPatch, default_settings: Settings) -> None:
@@ -158,6 +164,7 @@ def test_noaa_ghcn_stations_hourly_and_daily(monkeypatch: pytest.MonkeyPatch, de
     utc = ZoneInfo("UTC")
     assert df.select("resolution", "station_id", "start_date", "end_date", "elevation").rows() == [
         ("hourly", "ACM00078861", None, None, 10.0),
+        ("hourly", "AGM00060350", None, None, -999.0),
         ("hourly", "AOM00066116", None, None, None),
         ("daily", "ACW00011604", dt.datetime(1949, 1, 1, tzinfo=utc), dt.datetime(1949, 12, 31, tzinfo=utc), 10.1),
     ]
