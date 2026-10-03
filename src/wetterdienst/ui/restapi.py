@@ -1053,11 +1053,11 @@ def alerts(
 
     try:
         result = request.query()
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
+        # a date before DWD's rolling window is the caller's; a feed that does not list, download or
+        # read, and an alert in it the parser does not expect, are not
         log.exception("Failed to get weather alerts")
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
 
     content = result.to_format(fmt, indent=pretty)
     media_type = "text/csv" if fmt == "csv" else "application/json"

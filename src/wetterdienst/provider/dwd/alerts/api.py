@@ -23,6 +23,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
+from wetterdienst.exceptions import InvalidTimeIntervalError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.alerts.metadata import (
     DWD_ALERTS_BASE_URL,
@@ -283,8 +284,10 @@ class DwdWeatherAlertRequest:
 
         For a dateless request this is the ``LATEST`` alias (production time unknown -> ``None``).
         For a dated request the newest snapshot produced at or before ``date`` is selected from the
-        directory listing; the filename timestamps are UTC. Raises ``ValueError`` if ``date`` falls
-        before DWD's rolling window (no snapshot at or before it is available).
+        directory listing; the filename timestamps are UTC. Raises ``InvalidTimeIntervalError`` (a
+        ``ValueError``) if ``date`` falls before DWD's rolling window (no snapshot at or before it is
+        available), and ``FileNotFoundError`` if the listing holds no snapshot at all, which is no
+        date's doing.
         """
         if self.date is None:
             return self.url, None
@@ -297,15 +300,18 @@ class DwdWeatherAlertRequest:
                 timestamp = dt.datetime.strptime(match.group(1), "%Y%m%d%H%M%S").replace(tzinfo=ZoneInfo("UTC"))
                 snapshots.append((timestamp, entry["name"]))
 
+        if not snapshots:
+            msg = f"no weather-alerts snapshot listed at {self._directory_url}"
+            raise FileNotFoundError(msg)
+
         candidates = [(timestamp, name) for timestamp, name in snapshots if timestamp <= self.date]
         if not candidates:
-            earliest = min((timestamp for timestamp, _ in snapshots), default=None)
-            hint = f" earliest available is {earliest.isoformat()}." if earliest else ""
+            earliest = min(timestamp for timestamp, _ in snapshots)
             msg = (
                 f"no weather-alerts snapshot available at or before {self.date.isoformat()} "
-                f"(DWD only keeps a rolling ~48-hour window).{hint}"
+                f"(DWD only keeps a rolling ~48-hour window). earliest available is {earliest.isoformat()}."
             )
-            raise ValueError(msg)
+            raise InvalidTimeIntervalError(msg)
 
         timestamp, name = max(candidates)
         url = name if name.startswith("http") else f"{self._directory_url}{name.rsplit('/', 1)[-1]}"

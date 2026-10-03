@@ -2,9 +2,11 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the REST API."""
 
+import io
 import json
 import logging
 import pathlib
+import zipfile
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, get_args
@@ -3745,3 +3747,100 @@ def test_geo_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient, 
 
     assert response.status_code == 400
     assert "Invalid unit targets: one of {'foo'} not in" in response.json()["detail"]
+
+
+_ALERTS_LISTING = [
+    {
+        "name": (
+            "https://opendata.dwd.de/weather/alerts/cap/COMMUNEUNION_DWD_STAT/"
+            f"Z_CAP_C_EDZW_{timestamp}_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_EN.zip"
+        ),
+        "type": "file",
+    }
+    for timestamp in ("20260726100000", "20260726110000")
+]
+
+
+def _alerts_snapshot(content: object) -> Callable[..., object]:
+    """Stand in for the snapshot download, answering with `content`: a body, or the failure."""
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    return lambda *_args, **_kwargs: File(url="http://x", content=content, status=200)
+
+
+def _alerts_zip(cap: bytes) -> io.BytesIO:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("alert.xml", cap)
+    buffer.seek(0)
+    return buffer
+
+
+def test_alerts_a_date_before_the_window_is_the_callers(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A date before DWD's rolling window is the caller's 400 (GH-2294)."""
+    monkeypatch.setattr(
+        "wetterdienst.provider.dwd.alerts.api.list_remote_directory_fsspec",
+        lambda *_args, **_kwargs: _ALERTS_LISTING,
+    )
+
+    response = client.get("/api/alerts", params={"date": "2026-07-01T00:00:00"})
+
+    assert response.status_code == 400
+    assert "rolling ~48-hour window" in response.json()["detail"]
+
+
+def test_alerts_a_date_that_does_not_parse_is_the_callers(client: TestClient) -> None:
+    """A date that does not parse is the caller's 400, refused before anything is listed (GH-2294)."""
+    response = client.get("/api/alerts", params={"date": "yesterday"})
+
+    assert response.status_code == 400
+    assert "yesterday" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("listing", "download", "detail"),
+    [
+        pytest.param(
+            None,
+            _alerts_snapshot(FileNotFoundError("404")),
+            "could not download weather alerts snapshot",
+            id="download",
+        ),
+        pytest.param(
+            None,
+            _alerts_snapshot(io.BytesIO(b"<html>error</html>")),
+            "not a valid zip archive",
+            id="not-a-zip",
+        ),
+        pytest.param(
+            None,
+            # a `ValueError`, as the request's date refusal is, but from DWD's own timestamp
+            _alerts_snapshot(_alerts_zip(b"<alert><sent>not-a-time</sent></alert>")),
+            "Invalid isoformat string: 'not-a-time'",
+            id="cap-timestamp",
+        ),
+        pytest.param([], None, "no weather-alerts snapshot listed at", id="empty-listing"),
+    ],
+)
+def test_alerts_a_feed_that_cannot_be_read_is_a_500(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    listing: list[dict[str, str]] | None,
+    download: Callable[..., object] | None,
+    detail: str,
+) -> None:
+    """A CAP feed that does not list, download or read is the server's 500, not the caller's 400 (GH-2294)."""
+    params = {}
+    if listing is not None:
+        monkeypatch.setattr(
+            "wetterdienst.provider.dwd.alerts.api.list_remote_directory_fsspec",
+            lambda *_args, **_kwargs: listing,
+        )
+        params["date"] = "2026-07-26T10:30:00"
+    if download is not None:
+        monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.download_file", download)
+
+    response = client.get("/api/alerts", params=params)
+
+    assert response.status_code == 500
+    assert detail in response.json()["detail"]
