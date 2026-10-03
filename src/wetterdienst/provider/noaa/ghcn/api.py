@@ -208,7 +208,9 @@ class NoaaGhcnRequest(TimeseriesRequest):
         data = [d for d in data if d.collect_schema().names()]
         if not data:
             return pl.LazyFrame()
-        df = pl.concat(data)
+        # only the daily frame has start_date and end_date, from its inventory, and wmo_id, which the
+        # hourly reader does not select; the hourly stations get nulls
+        df = pl.concat(data, how="diagonal")
         return df.lazy()
 
     def _create_metaindex_for_ghcn_hourly(self) -> pl.LazyFrame:
@@ -257,6 +259,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
             pl.lit("data", dtype=pl.String).alias("dataset"),
             cs.string().str.strip_chars().replace("", None),
         )
+        # the documentation marks a missing elevation as -999.9
+        df = df.with_columns(pl.col("elevation").replace("-999.9", None))
         return df.lazy()
 
     def _create_metaindex_for_ghcn_daily(self) -> pl.LazyFrame:

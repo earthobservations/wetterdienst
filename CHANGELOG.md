@@ -267,6 +267,12 @@ Types of changes:
 - NOAA GHCN daily stations without a known elevation have a null `elevation`. They were listed at
   -999.9 m, the station list's missing value, and `interpolate` and `summarize` given an elevation
   took it for a known one (GH-2247)
+- NOAA GHCN hourly stations without a known elevation have a null `elevation` too. They were
+  listed at -999.9 m, the station list's missing value. Stations listed at -999.0 m keep that
+  value (GH-2260)
+- NOAA GHCN stations asked for both `hourly` and `daily` in one request are listed; the request
+  failed with a polars schema error. The hourly stations have a null `start_date` and `end_date`,
+  as their station list gives none (GH-2267)
 - DWD MOSMIX takes an `issue` given without an offset as UTC, as DWD DMO does, and converts one
   with an offset to UTC before flooring it to a run. A naive issue was read in the server's local
   time, and an offset one floored in its own hours, so a published run could go unfound. The
