@@ -114,3 +114,29 @@ def test_noaa_ghcn_daily_stations_missing_elevation(
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
     df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
     assert df.select("station_id", "elevation").rows() == [("ACW00011604", 10.1), ("ASN00001011", None)]
+
+
+GHCNH_STATION_LIST = (
+    "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+    "ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD   ANTIGUA (AUX.,,,78861,,AG\n"
+    "AOM00066116,-5.8667,13.4333,-999.9,,NOQUI,,,66116,,AO\n"
+)
+
+
+def _fake_ghcn_download_file(url: str, **_kwargs: object) -> File:
+    """Serve the GHCN station lists from the fixtures in this module, by file name."""
+    contents = {"ghcnh-station-list.csv": GHCNH_STATION_LIST}
+    content = contents[url.rsplit("/", 1)[-1]]
+    return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+
+
+def test_noaa_ghcn_hourly_stations_missing_elevation(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """A station that `ghcnh-station-list.csv` lists at -999.9, its missing value, has a null elevation (GH-2260).
+
+    The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it.
+    """
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file)
+    df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df
+    assert df.select("station_id", "elevation").rows() == [("ACM00078861", 10.0), ("AOM00066116", None)]

@@ -251,6 +251,9 @@ Types of changes:
 - NOAA GHCN daily stations without a known elevation have a null `elevation`. They were listed at
   -999.9 m, the station list's missing value, and `interpolate` and `summarize` given an elevation
   took it for a known one (GH-2247)
+- NOAA GHCN hourly stations without a known elevation have a null `elevation` too. They were
+  listed at -999.9 m, the station list's missing value. Stations listed at -999.0 m keep that
+  value: NOAA's GHCNh documentation names only -999.9 as missing (GH-2260)
 
 ## [0.139.0] - 2026-09-29
 

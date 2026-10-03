@@ -257,6 +257,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
             pl.lit("data", dtype=pl.String).alias("dataset"),
             cs.string().str.strip_chars().replace("", None),
         )
+        # the documentation marks a missing elevation as -999.9
+        df = df.with_columns(pl.col("elevation").replace("-999.9", None))
         return df.lazy()
 
     def _create_metaindex_for_ghcn_daily(self) -> pl.LazyFrame:
