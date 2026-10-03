@@ -205,12 +205,6 @@ def request_stations(
                 f"{UTM_LATITUDE_MIN} to {UTM_LATITUDE_MAX} UTM covers, and is left out",
             )
             continue
-        utm_x_station, utm_y_station = utm.from_latlon(
-            station["latitude"],
-            station["longitude"],
-            force_zone_number=zone[0],
-            force_zone_letter=zone[1],
-        )[:2]
         contributed = apply_station_values_per_parameter(
             result.df,
             stations_ranked,
@@ -226,6 +220,12 @@ def request_stations(
         # be interpolated from -- which is what a station with no elevation is, once an elevation is
         # asked for
         if contributed:
+            utm_x_station, utm_y_station = utm.from_latlon(
+                station["latitude"],
+                station["longitude"],
+                force_zone_number=zone[0],
+                force_zone_letter=zone[1],
+            )[:2]
             stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
     return stations_dict, param_dict, dropped_for_elevation, unanswerable
 
