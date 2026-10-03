@@ -242,8 +242,9 @@ Types of changes:
   prefix; the REST API's schema types `dataset` as nullable (GH-2274)
 - The MCP `values` tool answers with GeoJSON and in the wide shape; it failed its own output
   validation. The REST API's schema for `/api/values` gives a GeoJSON feature's values no
-  `station_id`, which the feature's properties carry, and a wide row `station_id`, `resolution`, a
-  nullable `dataset` and `timestamp` plus a value and a quality column per parameter (GH-2282)
+  `station_id`, which the feature's properties carry, and a wide row `resolution`, a nullable
+  `dataset`, `timestamp` and, outside GeoJSON, `station_id`, plus a value and a quality column per
+  parameter, typed as nullable numbers (GH-2282)
 - GeoJSON of stations and values gives a station without a latitude or longitude, such as a
   postcode of DWD derived `monthly/climate_correction_factor`, the geometry `null`, as RFC 7946
   has an unlocated feature; it was a `Point` of null coordinates, which strict parsers reject. The

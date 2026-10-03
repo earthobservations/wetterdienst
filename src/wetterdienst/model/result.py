@@ -462,11 +462,12 @@ class _ValuesOgcItemDict(TypedDict):
     quality: float | None
 
 
-# A wide row holds one value and one quality column per parameter, named after it, so the extra keys
-# differ per request and are not declared one by one. Its dataset is null in a resolution the wide
-# shape merged several requested datasets into (see TimeseriesValues._widen_df).
-@with_config(ConfigDict(extra="allow"))
-class _ValuesWideItemDict(TypedDict):
+# A wide row holds one value and one quality column per parameter, named after it, so those keys
+# differ per request and are typed as extra items rather than declared one by one; being numbers,
+# they also keep a long row, whose `parameter` is a string, from passing for a wide one. Its
+# dataset is null in a resolution the wide shape merged several requested datasets into (see
+# TimeseriesValues._widen_df).
+class _ValuesWideItemDict(TypedDict, extra_items=float | None):
     """Type definition for a wide row of values."""
 
     station_id: str
@@ -475,8 +476,7 @@ class _ValuesWideItemDict(TypedDict):
     timestamp: str
 
 
-@with_config(ConfigDict(extra="allow"))
-class _ValuesWideOgcItemDict(TypedDict):
+class _ValuesWideOgcItemDict(TypedDict, extra_items=float | None):
     """Type definition for a wide row of a GeoJSON feature: the feature's properties carry its station."""
 
     resolution: str
