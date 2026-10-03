@@ -285,6 +285,8 @@ Types of changes:
   request's `issue` is now a UTC datetime; compare it with aware datetimes (GH-2275)
 - The InfluxDB 2 sink reaches an IPv6 host, such as `influxdb2://acme:tok@[::1]:8086/`. It dropped
   the brackets and sent `http://::1:8086`, which names no valid host (GH-2279)
+- The InfluxDB 1 sink reaches an IPv6 host, such as `influxdb://root:pw@[::1]:8086/`. It dropped
+  the brackets, so its client's base URL was `http://::1:8086`, which names no valid host (GH-2287)
 
 ## [0.139.0] - 2026-09-29
 

@@ -3201,3 +3201,50 @@ def test_to_target_leaves_influxdb3_a_target_with_no_host_to_refuse() -> None:
         _one_row().to_target("influxdb3://acme:tok@/?database=dwd")
 
     assert client.call_args.kwargs["host"] is None
+
+
+@pytest.mark.parametrize(
+    ("target", "host"),
+    [
+        # the bare `::1` made the client's base URL `http://::1:8086`, which has no valid host
+        pytest.param("influxdb://root:pw@[::1]:8086/?database=dwd", "[::1]", id="ipv6"),
+        pytest.param("influxdbs://root:pw@[2001:db8::1]/?database=dwd", "[2001:db8::1]", id="ipv6-ssl"),
+        pytest.param("influxdb://root:pw@localhost:8086/?database=dwd", "localhost", id="name"),
+        pytest.param("influxdb://root:pw@127.0.0.1:8086/?database=dwd", "127.0.0.1", id="ipv4"),
+    ],
+)
+def test_to_target_hands_influxdb1_an_ipv6_host_in_brackets(target: str, host: str) -> None:
+    """InfluxDB 1 is handed an IPv6 host in the brackets `ConnectionString` reads it out of."""
+    pytest.importorskip("influxdb")
+    with mock.patch("influxdb.InfluxDBClient") as client:
+        _one_row().to_target(target)
+
+    assert client.call_args.kwargs["host"] == host
+
+
+def test_to_target_gives_the_influxdb1_client_a_valid_base_url_for_an_ipv6_host() -> None:
+    """The real InfluxDB 1 client, handed what the sink hands it, builds a URL `requests` can send to."""
+    influxdb = pytest.importorskip("influxdb")
+    requests = pytest.importorskip("requests")
+    clients = []
+
+    class _Offline(influxdb.InfluxDBClient):
+        """The real client, recorded, with the two calls the sink makes kept off the network."""
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            super().__init__(*args, **kwargs)
+            clients.append(self)
+
+        def create_database(self, dbname: str) -> None:
+            pass
+
+        def write_points(self, *args: object, **kwargs: object) -> None:
+            pass
+
+    with mock.patch("influxdb.InfluxDBClient", _Offline):
+        _one_row().to_target("influxdb://root:pw@[::1]:8086/?database=dwd")
+
+    (client,) = clients
+    assert client._baseurl == "http://[::1]:8086"  # noqa: SLF001
+    # `requests` refused the unbracketed `http://::1:8086` as an InvalidURL before sending anything
+    assert requests.Request("GET", f"{client._baseurl}/ping").prepare().url == "http://[::1]:8086/ping"  # noqa: SLF001

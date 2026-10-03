@@ -574,7 +574,9 @@ class ExportMixin:
             log.info(f"Writing to InfluxDB version {version}. database={database}, table={tablename}")
 
             # the InfluxDB 2 and 3 clients take the server as one URL: https for the `s` variants,
-            # the target's port, and an IPv6 host in the brackets `ConnectionString` reads it out of
+            # the target's port, and an IPv6 host in the brackets `ConnectionString` reads it out of.
+            # The InfluxDB 1 client formats its host into its base URL as given, so it gets them too;
+            # it reads the host nowhere else but for UDP, which this sink does not use
             scheme = "https" if protocol.endswith("s") else "http"
             netloc = f"[{connspec.host}]" if ":" in (connspec.host or "") else connspec.host
 
@@ -583,7 +585,7 @@ class ExportMixin:
                 from influxdb import InfluxDBClient  # noqa: PLC0415
 
                 client = InfluxDBClient(
-                    host=connspec.host,
+                    host=netloc,
                     port=connspec.port or 8086,
                     username=connspec.username,
                     password=connspec.password,
