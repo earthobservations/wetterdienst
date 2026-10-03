@@ -4,6 +4,7 @@
 
 import json
 import logging
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import get_args
 
@@ -3293,14 +3294,14 @@ def _fail(*_args: object, **_kwargs: object) -> None:
 class _HistoryFails:
     """A stations result whose history fails at the step named, as a source that cannot be read would."""
 
-    def __init__(self, step: str) -> None:
-        self.step = step
+    def __init__(self, step: str, fail: Callable[[], None] = _fail) -> None:
+        self.step, self.fail = step, fail
 
     @property
     def history(self) -> SimpleNamespace:
         if self.step == "history":
-            _fail()
-        return SimpleNamespace(query=_fail)
+            self.fail()
+        return SimpleNamespace(query=self.fail)
 
 
 @pytest.mark.parametrize(
@@ -3374,19 +3375,6 @@ def _fail_as_a_refusal(*_args: object, **_kwargs: object) -> None:
     raise InvalidEnumerationError(_UNEXPECTED)
 
 
-class _HistoryFailsAsARefusal:
-    """A stations result whose history fails with a refusal's type, as a source's own data could."""
-
-    def __init__(self, step: str) -> None:
-        self.step = step
-
-    @property
-    def history(self) -> SimpleNamespace:
-        if self.step == "history":
-            _fail_as_a_refusal()
-        return SimpleNamespace(query=_fail_as_a_refusal)
-
-
 @pytest.mark.parametrize(
     ("endpoint", "entry_point", "stub", "params"),
     [
@@ -3400,14 +3388,14 @@ class _HistoryFailsAsARefusal:
         pytest.param(
             "/api/history",
             "get_stations",
-            lambda **_kwargs: _HistoryFailsAsARefusal("history"),
+            lambda **_kwargs: _HistoryFails("history", _fail_as_a_refusal),
             {**_OBSERVATION, "station": "01048"},
             id="history-provider",
         ),
         pytest.param(
             "/api/history",
             "get_stations",
-            lambda **_kwargs: _HistoryFailsAsARefusal("query"),
+            lambda **_kwargs: _HistoryFails("query", _fail_as_a_refusal),
             {**_OBSERVATION, "station": "01048"},
             id="history-query",
         ),
@@ -3467,3 +3455,20 @@ def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClien
 
     assert response.status_code == 400
     assert "Invalid unit targets: one of {'foo'} not in" in response.json()["detail"]
+
+
+def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A malformed `WD_*` variable is the server's 500, without its value, not the caller's 400 (GH-2272)."""
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_CACHE_DISABLE", "not-a-bool")
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.get("/api/values", params={**_OBSERVATION, "station": "01048"})
+
+    assert response.status_code == 500
+    assert "not-a-bool" not in response.text

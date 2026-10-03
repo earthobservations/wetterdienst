@@ -586,7 +586,10 @@ def values(
             ts_drop_nulls=request.drop_nulls,
         )
     except ValidationError as e:
-        # a unit target given for a quantity the converter has none for
+        # a unit target given for a quantity the converter has none for. Only that: a value the
+        # server's environment set is not the caller's to fix, nor theirs to read back
+        if any(error["loc"][:1] != ("ts_unit_targets",) for error in e.errors()):
+            raise
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     values_ = _values(api=api, request=request, settings=settings)
