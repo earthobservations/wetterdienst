@@ -3819,6 +3819,13 @@ def test_alerts_a_date_that_does_not_parse_is_the_callers(client: TestClient) ->
             "Invalid isoformat string: 'not-a-time'",
             id="cap-timestamp",
         ),
+        pytest.param(
+            None,
+            # an `OverflowError`, as the request's own date can raise, but from DWD's timestamp
+            _alerts_snapshot(_alerts_zip(b"<alert><sent>0001-01-01T00:00:00+01:00</sent></alert>")),
+            "date value out of range",
+            id="cap-timestamp-overflow",
+        ),
         pytest.param([], None, "no weather-alerts snapshot listed at", id="empty-listing"),
     ],
 )
@@ -3844,3 +3851,44 @@ def test_alerts_a_feed_that_cannot_be_read_is_a_500(
 
     assert response.status_code == 500
     assert detail in response.json()["detail"]
+
+
+def test_alerts_a_date_an_offset_carries_out_of_range_is_the_callers(client: TestClient) -> None:
+    """A date its offset carries past what a datetime holds is the caller's 400, not a bare 500 (GH-2294)."""
+    response = client.get("/api/alerts", params={"date": "0001-01-01T00:00:00+01:00"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "date value out of range"
+
+
+@pytest.mark.parametrize(
+    "setting",
+    [
+        pytest.param('WD_TS_UNIT_TARGETS={"foo": "bar"}', id="unit-targets"),
+        pytest.param("WD_TS_GEO_STATION_DISTANCE__nonsense=5", id="station-distance"),
+    ],
+)
+@pytest.mark.parametrize("endpoint", ["/api/interpolate", "/api/summarize"])
+def test_geo_a_dict_setting_the_server_got_wrong_is_not_the_callers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    endpoint: str,
+    setting: str,
+) -> None:
+    """A malformed dict-valued `WD_*` setting is the server's bare 500, though the request gives that field (GH-2297).
+
+    pydantic-settings merges the dict the environment sets into the one the request gives, so the
+    error is located at a field the request supplied.
+    """
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    (tmp_path / ".env").write_text(f"{setting}\n")
+    monkeypatch.chdir(tmp_path)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.get(endpoint, params={**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"

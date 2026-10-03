@@ -8,7 +8,7 @@ import json
 import logging
 import sys
 from textwrap import dedent
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
@@ -626,24 +626,25 @@ def _geo_settings(
     heterogeneous: float | None,
 ) -> Settings:
     """Build the settings shared by the interpolation and the summary endpoint."""
-    given: dict[str, Any] = {
-        "ts_humanize": request.humanize,
-        "ts_convert_units": request.convert_units,
-        "ts_unit_targets": request.unit_targets or {},
-        "ts_geo_station_distance": station_distance or {},
-        "ts_geo_use_nearby_station_distance": request.use_nearby_station_distance,
-        "ts_geo_min_gain_of_value_pairs": request.min_gain_of_value_pairs,
-        "ts_geo_num_additional_stations": request.num_additional_stations,
-        **station_distance_radii(homogeneous, heterogeneous),
-    }
+    radii = station_distance_radii(homogeneous, heterogeneous)
+    # the server's own settings first, and outside the handler: one malformed there is the bare 500
+    # FastAPI answers, which does not read its value back. Where an error is located would not
+    # tell, as pydantic-settings merges a dict the environment sets into the one the request gives
+    Settings()
     try:
-        return Settings(**given)
+        return Settings(
+            ts_humanize=request.humanize,
+            ts_convert_units=request.convert_units,
+            ts_unit_targets=request.unit_targets or {},
+            ts_geo_station_distance=cast("Any", station_distance or {}),
+            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
+            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
+            ts_geo_num_additional_stations=request.num_additional_stations,
+            **radii,
+        )
     except ValidationError as e:
-        # a distance given for a name that is not a canonical parameter, a negative distance or
-        # radius, or a unit target for a quantity the converter has none for. Only those: a value the
-        # server's environment set is not the caller's to fix, nor theirs to read back
-        if any(not error["loc"] or error["loc"][0] not in given for error in e.errors()):
-            raise
+        # with the server's valid on their own, the request's: a distance given for a name that is
+        # not a canonical parameter, or a negative one, or a unit target for an unknown quantity
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
@@ -1048,16 +1049,20 @@ def alerts(
     settings = Settings()
     try:
         request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=settings)
-    except ValueError as e:
+    except (ValueError, OverflowError) as e:
+        # a date that does not parse, or one an offset carries out of what a datetime holds
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     try:
         result = request.query()
+    except InvalidTimeIntervalError as e:
+        # a date before DWD's rolling window, the one refusal of the request's own `query` raises
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        # a date before DWD's rolling window is the caller's; a feed that does not list, download or
-        # read, and an alert in it the parser does not expect, are not
+        # a feed that does not list, download or read, and an alert in it the parser does not
+        # expect: the date was converted already, so not even an `OverflowError` is the caller's
         log.exception("Failed to get weather alerts")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     content = result.to_format(fmt, indent=pretty)
     media_type = "text/csv" if fmt == "csv" else "application/json"

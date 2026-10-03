@@ -111,9 +111,10 @@ Types of changes:
   report a 500 rather than rephrasing. A request refused for what it asks keeps its 400 (GH-2276)
 - **Breaking**: `/api/alerts` and its MCP tool answer a failure to list, download or read DWD's CAP
   feed with a 500 carrying its message, where they answered 400. Retry or report a 500 rather than
-  rephrasing; a `date` that does not parse or lies before DWD's rolling window keeps its 400.
-  `DwdWeatherAlertRequest.query()` raises the latter as `InvalidTimeIntervalError`, still a
-  `ValueError`, and a listing without any snapshot as `FileNotFoundError`, not `ValueError` (GH-2294)
+  rephrasing; a `date` that does not parse or lies before DWD's rolling window keeps its 400, and
+  one an offset carries past a datetime's range is a 400 where it was a 500.
+  `DwdWeatherAlertRequest.query()` raises a date before the window as `InvalidTimeIntervalError`,
+  still a `ValueError`, and a listing without any snapshot as `FileNotFoundError` (GH-2294)
 - The `mysql` extra takes pandas 3, as the other extras that bring pandas do. It asked for pandas
   below 3, so installing it downgraded an environment on pandas 3 to 2.x (GH-2250)
 - DWD DMO's coverage, from `discover`, `/api/coverage`, the CLI and MCP, gives each parameter
