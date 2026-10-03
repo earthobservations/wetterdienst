@@ -1,3 +1,4 @@
+import type { H3Event } from 'h3'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, setResponseStatus } from 'h3'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -711,5 +712,65 @@ describe('stripes Page chart whose Plotly chunk a redeploy replaced', { timeout:
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
     await vi.waitFor(() => expect(note()).toBe('The chart could not be drawn'))
     expect(button('Reload page')).toBeUndefined()
+  })
+})
+
+describe('stripes Page requests answered with a 500', () => {
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  // disposers of the endpoints these tests register, so none answers a later test
+  const endpoints: Array<() => void> = []
+  afterEach(() => {
+    endpoints.splice(0).forEach(dispose => dispose())
+    vi.restoreAllMocks()
+    wrapper?.unmount()
+    wrapper = undefined
+    useToast().clear()
+    document.body.innerHTML = ''
+  })
+
+  // counted at the endpoint, which a request reaches however it is made
+  function failing() {
+    const asked = { count: 0 }
+    return {
+      asked,
+      handler: (event: H3Event) => {
+        asked.count++
+        setResponseStatus(event, 500)
+        return { detail: 'Upstream failed' }
+      },
+    }
+  }
+
+  it('asks /api/stripes/stations once', async () => {
+    const { asked, handler } = failing()
+    endpoints.push(registerEndpoint('/api/stripes/stations', handler))
+    // precipitation, as the pages the first tests leave mounted hold the temperature stations' fetch
+    wrapper = await mountSuspended(StripesPage, { route: '/stripes?kind=precipitation' })
+    const vm = wrapper.vm as any
+    // a request asked again is under way until its second answer
+    await vi.waitFor(() => {
+      expect(asked.count).toBeGreaterThan(0)
+      expect(vm.stationsPending).toBe(false)
+    })
+    expect(asked.count).toBe(1)
+  })
+
+  it('asks /api/stripes/values once, and tells its error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    endpoints.push(registerEndpoint('/api/stripes/stations', () => ({ stations: [station] })))
+    const { asked, handler } = failing()
+    endpoints.push(registerEndpoint('/api/stripes/values', handler))
+    wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
+    }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    const vm = wrapper.findComponent(StripesPage).vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Upstream failed'))
+    expect(asked.count).toBe(1)
   })
 })
