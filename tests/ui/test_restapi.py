@@ -4,6 +4,7 @@
 
 import json
 import logging
+import pathlib
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import get_args
@@ -3459,13 +3460,20 @@ def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClien
 
 def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
 ) -> None:
-    """A malformed `WD_*` variable is the server's 500, without its value, not the caller's 400 (GH-2272)."""
+    """A malformed `WD_*` setting is the server's 500, without its value, not the caller's 400 (GH-2272).
+
+    A malformed process variable stops the server from starting, as importing it builds `Settings`
+    once. The `.env` file is read again for every `Settings` built, so one written while the server
+    runs reaches the settings `/api/values` builds per request.
+    """
     from fastapi.testclient import TestClient  # noqa: PLC0415
 
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
 
-    monkeypatch.setenv("WD_CACHE_DISABLE", "not-a-bool")
+    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=not-a-bool\n")
+    monkeypatch.chdir(tmp_path)
     client = TestClient(app, raise_server_exceptions=False)
 
     response = client.get("/api/values", params={**_OBSERVATION, "station": "01048"})
