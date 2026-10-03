@@ -689,3 +689,40 @@ def test_convert_units_keeps_a_reading_a_much_larger_target_holds_little_of() ->
     result = values._convert_units(df, request.parameters[0].dataset)  # noqa: SLF001
 
     assert result.get_column("value").to_list() == [0.000031069, 0.000932057]
+
+
+def test_a_station_is_kept_when_one_dataset_leaves_its_start_date_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An unpublished ``start_date`` for one dataset is not overruled by another dataset's bound.
+
+    A station asked for two datasets has a row per dataset in the index. With one row lacking a
+    ``start_date`` and the other starting after the window, ``min()`` skipped the null, so the
+    later bound decided for the whole station and the dataset that does cover the window was
+    dropped with it (GH-2292).
+    """
+    _stub_dwd_daily(
+        station_ids=["00001"],
+        data_year_by_station={"00001": 1930},
+        monkeypatch=monkeypatch,
+        datasets=["climate_summary", "precipitation_more"],
+    )
+    stub_all = DwdObservationRequest._all  # noqa: SLF001
+    monkeypatch.setattr(
+        DwdObservationRequest,
+        "_all",
+        lambda self: stub_all(self).with_columns(
+            start_date=pl.when(pl.col("dataset") == "climate_summary")
+            .then(pl.lit(None, dtype=pl.Datetime(time_zone="UTC")))
+            .otherwise(pl.lit(dt.datetime(1990, 1, 1, tzinfo=ZoneInfo("UTC")))),
+        ),
+    )
+    request = DwdObservationRequest(
+        parameters=["daily/kl/temperature_air_mean_2m", "daily/more_precip/precipitation_amount"],
+        start_date="1930-01-01",
+        end_date="1930-12-31",
+    )
+
+    df = request.filter_by_station_id("00001").values.all().df
+
+    # the stub hands out 1930 readings for either dataset; the one asked about is the dataset whose
+    # start is unknown, which was dropped with the station
+    assert df.filter(pl.col("dataset").cast(pl.String) == "climate_summary").height == 3
