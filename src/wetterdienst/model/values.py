@@ -247,8 +247,8 @@ class TimeseriesValues(ABC):
         start_dates = df_station_meta.get_column("start_date")
         if start_dates.null_count():
             return False
-        start_date = cast("dt.datetime | None", start_dates.min())
-        return start_date is not None and start_date > self.sr.end_date
+        # null-free and never empty, as `group_by` yields no empty group, so `min()` has a value
+        return cast("dt.datetime", start_dates.min()) > self.sr.end_date
 
     def _filter_by_window(self, df: pl.DataFrame) -> pl.DataFrame:
         """Cut a station's frame down to the window the request asked for, if it named one.

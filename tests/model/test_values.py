@@ -726,3 +726,30 @@ def test_a_station_is_kept_when_one_dataset_leaves_its_start_date_out(monkeypatc
     # the stub hands out 1930 readings for either dataset; the one asked about is the dataset whose
     # start is unknown, which was dropped with the station
     assert df.filter(pl.col("dataset").cast(pl.String) == "climate_summary").height == 3
+
+
+def test_a_station_whose_datasets_all_start_after_the_window_is_not_downloaded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A station asked for several datasets is still ruled out when every one of them says so.
+
+    The counterpart of keeping a station whose dataset leaves its start out: with each row
+    publishing a start after the window, the index still answers for the station.
+    """
+    _stub_dwd_daily(
+        station_ids=["00001"],
+        data_year_by_station={"00001": 1930},
+        monkeypatch=monkeypatch,
+        datasets=["climate_summary", "precipitation_more"],
+        collected=(collected := []),
+        index_start=dt.datetime(1990, 1, 1, tzinfo=ZoneInfo("UTC")),
+    )
+    request = DwdObservationRequest(
+        parameters=["daily/kl/temperature_air_mean_2m", "daily/more_precip/precipitation_amount"],
+        start_date="1930-01-01",
+        end_date="1930-12-31",
+    )
+
+    request.filter_by_station_id("00001").values.all()
+
+    assert collected == []

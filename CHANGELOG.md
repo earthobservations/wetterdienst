@@ -135,9 +135,8 @@ Types of changes:
 ### Fixed
 
 - Values: a station asked for several datasets is no longer skipped when one dataset has no
-  `start_date` in the station list and another starts after `end_date`. The published start
-  decided for all of them, so with NOAA GHCN `hourly` and `daily` together, hourly values inside
-  the window came back empty (GH-2292)
+  `start_date` in the station list and another starts after `end_date`. With NOAA GHCN `hourly`
+  and `daily` together, such a station returned no hourly values inside the window (GH-2292)
 - `/api/values` and its MCP tool answer `unit_targets` naming a quantity the converter does not
   have, such as `{"foo": "bar"}`, with a 400 saying so, where they answered a bare 500 (GH-2272)
 - Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most
