@@ -236,12 +236,19 @@ class TimeseriesValues(ABC):
         while an ``end_date`` lags on a station that is still reporting -- the index is written
         before the day it describes is over -- so ruling a station out for having stopped too
         early would drop live stations from a request for recent data. A bound the provider did
-        not publish, as the forecast networks do not, states nothing either way.
+        not publish, as the forecast networks do not, states nothing either way. That holds for
+        each row: a station asked for several datasets has a row per dataset, and one that leaves
+        its ``start_date`` out says nothing about that dataset's data, so the station is kept even
+        if another dataset begins after the window. ``min()`` skips nulls, so asking it alone let
+        the published bound speak for the unpublished one.
         """
         if not self.sr.end_date or "start_date" not in df_station_meta.columns:
             return False
-        start_date = cast("dt.datetime | None", df_station_meta.get_column("start_date").min())
-        return start_date is not None and start_date > self.sr.end_date
+        start_dates = df_station_meta.get_column("start_date")
+        if start_dates.null_count():
+            return False
+        # null-free and never empty, as `group_by` yields no empty group, so `min()` has a value
+        return cast("dt.datetime", start_dates.min()) > self.sr.end_date
 
     def _filter_by_window(self, df: pl.DataFrame) -> pl.DataFrame:
         """Cut a station's frame down to the window the request asked for, if it named one.
