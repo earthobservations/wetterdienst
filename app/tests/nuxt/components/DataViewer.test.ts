@@ -2149,3 +2149,24 @@ describe('dataViewer trendline of many points', () => {
     expect(trend!.y[1]).toBeCloseTo(count - 1, 0)
   }, 30_000)
 })
+
+describe('dataViewer failed fetch', () => {
+  // each mode's endpoint, all of which the REST API answers with a 500 where it or the source failed
+  it.each([
+    ['/api/values', byStation('01048')],
+    ['/api/interpolate', atPoint('interpolation')],
+    ['/api/summarize', atPoint('summary')],
+  ] as const)('asks %s once for a request answered with a 500, and tells its error', async (endpoint, selection) => {
+    // counted at the endpoint, which a request reaches however it is made
+    let asked = 0
+    registerEndpoint(endpoint, (event) => {
+      asked++
+      setResponseStatus(event, 500)
+      return { detail: 'Upstream failed' }
+    })
+    const { viewer } = await mountDataViewer(ref(selection))
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Upstream failed'))
+    expect(asked).toBe(1)
+  })
+})

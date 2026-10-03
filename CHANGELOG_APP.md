@@ -286,6 +286,10 @@ Types of changes:
   say so in the chart area, with a Retry button that tries to draw them again, and a stripes image
   whose export fails says the image could not be saved. The chart area stayed empty, and a failed
   image saved nothing, without a word (GH-2186)
+- `[Explorer]` A Fetch of values, interpolated or summarized data that fails on the backend's or
+  the source's side is asked for once. Since the REST API answers such a failure with a 500, the
+  app asked a second time, doubling the downloads behind it and holding back the error until the
+  second answer came (GH-2278)
 
 ## [0.17.0] - 2026-09-29
 
