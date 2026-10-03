@@ -139,8 +139,13 @@ Types of changes:
   and parameter, in timestamp order within each group, so a parameter's latest timestamp is the
   last of its group. The description now also says what a wide item and a GeoJSON response hold
   (GH-2295)
+- Values: a station asked for several datasets is no longer skipped when one dataset has no
+  `start_date` in the station list and another starts after `end_date`. With NOAA GHCN `hourly`
+  and `daily` together, such a station returned no hourly values inside the window (GH-2292)
 - `/api/values` and its MCP tool answer `unit_targets` naming a quantity the converter does not
   have, such as `{"foo": "bar"}`, with a 400 saying so, where they answered a bare 500 (GH-2272)
+- `wetterdienst values` refuses such `--unit_targets` with `Invalid value for '--unit_targets'`
+  and exit status 2, where it died with a traceback (GH-2296)
 - Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most
   places every 6 deg of longitude) or the equator in the zone of the point. Each was placed in its
   own zone, hundreds of kilometres off, or 10000 km off across the equator, so a point near either
@@ -288,8 +293,13 @@ Types of changes:
   with an offset to UTC before flooring it to a run. A naive issue was read in the server's local
   time, and an offset one floored in its own hours, so a published run could go unfound. The
   request's `issue` is now a UTC datetime; compare it with aware datetimes (GH-2275)
+- DWD SWSMOS converts an `issue` given with an offset to UTC before flooring it to a run, as DWD
+  MOSMIX and DMO do. It kept the issue's wall-clock hour and relabelled it UTC, so
+  `2026-10-01T13:00+02:00` read the 13 UTC run rather than the 11 UTC one it names (GH-2288)
 - The InfluxDB 2 sink reaches an IPv6 host, such as `influxdb2://acme:tok@[::1]:8086/`. It dropped
   the brackets and sent `http://::1:8086`, which names no valid host (GH-2279)
+- The InfluxDB 1 sink reaches an IPv6 host, such as `influxdb://root:pw@[::1]:8086/`. It dropped
+  the brackets, so its client's base URL was `http://::1:8086`, which names no valid host (GH-2287)
 
 ## [0.139.0] - 2026-09-29
 
