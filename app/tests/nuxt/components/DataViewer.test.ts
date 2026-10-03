@@ -2169,4 +2169,17 @@ describe('dataViewer failed fetch', () => {
     await vi.waitFor(() => expect(document.body.textContent).toContain('Upstream failed'))
     expect(asked).toBe(1)
   })
+
+  it('asks once where the proxy could not reach the backend, and tells its error', async () => {
+    let asked = 0
+    registerEndpoint('/api/values', (event) => {
+      asked++
+      setResponseStatus(event, 502)
+      return { detail: 'connect ECONNREFUSED' }
+    })
+    const { viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(document.body.textContent).toContain('ECONNREFUSED'))
+    expect(asked).toBe(1)
+  })
 })
