@@ -122,6 +122,11 @@ Types of changes:
   `%40`, and a literal `%` followed by two hex digits there or in an InfluxDB database or CrateDB
   schema as `%25`. An `@` in the path or query of an InfluxDB or CrateDB target with a `host:port`
   is read as ending a password too; write it as `%40` there (GH-2248)
+- **Breaking**: the InfluxDB 3 sink connects with the scheme and port its target names:
+  `influxdb3://` is http and `influxdb3s://` https, on the target's port or, with none, 8181 (an
+  InfluxDB 3 Core's) for http and 443 for https. It took only the host and went to https on 443
+  whatever the target said, so a local InfluxDB 3 Core could not be reached. Write an https
+  server, such as InfluxDB Cloud, as `influxdb3s://` (GH-2279)
 
 ### Fixed
 
@@ -246,6 +251,11 @@ Types of changes:
   the earliest start to the latest end of those datasets. Each merged dataset got a feature holding
   all of the rows, so each value appeared once per dataset. Read a value's dataset from its column
   prefix; the REST API's schema types `dataset` as nullable (GH-2274)
+- The MCP `values` tool answers with GeoJSON and in the wide shape; it failed its own output
+  validation. The REST API's schema for `/api/values` gives a GeoJSON feature's values no
+  `station_id`, which the feature's properties carry, and a wide row `resolution`, a nullable
+  `dataset`, `timestamp` and, outside GeoJSON, `station_id`, plus a value and a quality column per
+  parameter, typed as nullable numbers where pydantic is 2.12 or later (GH-2282)
 - GeoJSON of stations and values gives a station without a latitude or longitude, such as a
   postcode of DWD derived `monthly/climate_correction_factor`, the geometry `null`, as RFC 7946
   has an unlocated feature; it was a `Point` of null coordinates, which strict parsers reject. The
@@ -257,6 +267,8 @@ Types of changes:
 - NOAA GHCN daily stations without a known elevation have a null `elevation`. They were listed at
   -999.9 m, the station list's missing value, and `interpolate` and `summarize` given an elevation
   took it for a known one (GH-2247)
+- The InfluxDB 2 sink reaches an IPv6 host, such as `influxdb2://acme:tok@[::1]:8086/`. It dropped
+  the brackets and sent `http://::1:8086`, which names no valid host (GH-2279)
 
 ## [0.139.0] - 2026-09-29
 
