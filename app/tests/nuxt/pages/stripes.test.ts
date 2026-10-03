@@ -719,7 +719,10 @@ describe('stripes Page requests answered with a 500', () => {
   const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  // disposers of the endpoints these tests register, so none answers a later test
+  const endpoints: Array<() => void> = []
   afterEach(() => {
+    endpoints.splice(0).forEach(dispose => dispose())
     vi.restoreAllMocks()
     wrapper?.unmount()
     wrapper = undefined
@@ -742,7 +745,7 @@ describe('stripes Page requests answered with a 500', () => {
 
   it('asks /api/stripes/stations once', async () => {
     const { asked, handler } = failing()
-    registerEndpoint('/api/stripes/stations', handler)
+    endpoints.push(registerEndpoint('/api/stripes/stations', handler))
     // precipitation, as the pages the first tests leave mounted hold the temperature stations' fetch
     wrapper = await mountSuspended(StripesPage, { route: '/stripes?kind=precipitation' })
     const vm = wrapper.vm as any
@@ -756,9 +759,9 @@ describe('stripes Page requests answered with a 500', () => {
 
   it('asks /api/stripes/values once, and tells its error', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    endpoints.push(registerEndpoint('/api/stripes/stations', () => ({ stations: [station] })))
     const { asked, handler } = failing()
-    registerEndpoint('/api/stripes/values', handler)
+    endpoints.push(registerEndpoint('/api/stripes/values', handler))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
     }), { attachTo: document.body, route: '/stripes?kind=precipitation' })

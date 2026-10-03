@@ -182,15 +182,18 @@ describe('the meteogram page\'s station map whose code could not be loaded', () 
 
 describe('the meteogram page\'s requests answered with a 500', () => {
   let wrapper: VueWrapper | undefined
+  // disposers of the endpoints these tests register, so none answers a later test
+  const endpoints: Array<() => void> = []
 
   beforeEach(() => {
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ values: [] }), { status: 200 }))
-    registerEndpoint('/api/stations', () => ({ stations: [] }))
+    endpoints.push(registerEndpoint('/api/stations', () => ({ stations: [] })))
   })
 
   afterEach(() => {
     wrapper?.unmount()
     wrapper = undefined
+    endpoints.splice(0).forEach(dispose => dispose())
   })
 
   // counted at the endpoint, which a request reaches however it is made
@@ -209,7 +212,7 @@ describe('the meteogram page\'s requests answered with a 500', () => {
 
   it('asks /api/issues once', async () => {
     const { asked, handler } = failing()
-    registerEndpoint('/api/issues', handler)
+    endpoints.push(registerEndpoint('/api/issues', handler))
     wrapper = await mountSuspended(MeteogramPage)
     const vm = wrapper.vm as any
     // emptied once the request has failed, which a request asked again does after its second answer
@@ -225,7 +228,7 @@ describe('the meteogram page\'s requests answered with a 500', () => {
     // the station search's own list, asked for the same stations, answered before the map's fails
     await vi.waitFor(() => expect((wrapper!.findComponent(MeteogramStationSearch).vm as any).pending).toBe(false))
     const { asked, handler } = failing()
-    registerEndpoint('/api/stations', handler)
+    endpoints.push(registerEndpoint('/api/stations', handler))
     await wrapper.findAll('button').find(b => b.text().includes('Choose a station on the map'))!.trigger('click')
     // a request asked again is under way until its second answer
     await vi.waitFor(() => {
@@ -238,7 +241,7 @@ describe('the meteogram page\'s requests answered with a 500', () => {
   it('asks /api/stations once for the station a shared link names', async () => {
     // the station search's list is asked for all stations, the link's station by its id
     const { asked, handler } = failing(query => query.station === '01001')
-    registerEndpoint('/api/stations', handler)
+    endpoints.push(registerEndpoint('/api/stations', handler))
     wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
     const vm = wrapper.vm as any
     // a request asked again is under way until its second answer

@@ -342,11 +342,11 @@ describe('stationSelection station list that could not be fetched', () => {
   it('asks /api/stations once for a request answered with a 500, and tells its error', async () => {
     // counted at the endpoint, which a request reaches however it is made
     let asked = 0
-    registerEndpoint('/api/stations', (event) => {
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
       asked++
       setResponseStatus(event, 500)
       return { detail: 'Upstream failed' }
-    })
+    }))
     // a dataset of its own, so the list is not one the tests above leave mounted
     const wrapper = await mountSuspended(StationSelection, {
       props: { parameterSelection: { ...parameterSelection, dataset: 'kl' }, multiple: true },
