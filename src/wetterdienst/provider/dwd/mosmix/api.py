@@ -276,7 +276,11 @@ class DwdMosmixValues(TimeseriesValues):
             msg = f"Unable to find LATEST file within {url}"
             raise IndexError(msg)
 
-        date = date.astimezone(dt.timezone.utc).replace(tzinfo=None)
+        if date.tzinfo is not None:
+            # converted only when it carries a zone, as in `dwd/dmo`: a naive date is UTC already,
+            # which the run stamps compared below are, and `astimezone` would read it as the
+            # host's local time (GH-2275)
+            date = date.astimezone(dt.timezone.utc).replace(tzinfo=None)
 
         df = pl.DataFrame({"url": urls}, orient="col")
 

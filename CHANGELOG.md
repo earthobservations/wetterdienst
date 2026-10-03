@@ -253,7 +253,8 @@ Types of changes:
   took it for a known one (GH-2247)
 - DWD MOSMIX takes an `issue` given without an offset as UTC, as DWD DMO does, and converts one
   with an offset to UTC before flooring it to a run. A naive issue was read in the server's local
-  time, and an offset one floored in its own hours, so a published run could go unfound (GH-2275)
+  time, and an offset one floored in its own hours, so a published run could go unfound. The
+  request's `issue` is now a UTC datetime; compare it with aware datetimes (GH-2275)
 
 ## [0.139.0] - 2026-09-29
 
