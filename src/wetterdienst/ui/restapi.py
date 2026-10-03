@@ -8,7 +8,7 @@ import json
 import logging
 import sys
 from textwrap import dedent
-from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
@@ -478,12 +478,15 @@ def stations(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
+    # outside the handler below: nothing of the caller's reaches these settings, so a malformed
+    # server setting is the bare 500 FastAPI answers, which does not read its value back
+    settings = Settings()
     try:
         stations_ = get_stations(
             api=api,
             request=request,
             date=None,
-            settings=Settings(),
+            settings=settings,
         )
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
@@ -533,8 +536,10 @@ def issues(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
+    # outside the handler below, as for `/api/stations`
+    settings = Settings()
     try:
-        issue_list = get_issues(api=api, request=request, settings=Settings())
+        issue_list = get_issues(api=api, request=request, settings=settings)
     except NotImplementedError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -621,20 +626,24 @@ def _geo_settings(
     heterogeneous: float | None,
 ) -> Settings:
     """Build the settings shared by the interpolation and the summary endpoint."""
-    radii = station_distance_radii(homogeneous, heterogeneous)
+    given: dict[str, Any] = {
+        "ts_humanize": request.humanize,
+        "ts_convert_units": request.convert_units,
+        "ts_unit_targets": request.unit_targets or {},
+        "ts_geo_station_distance": station_distance or {},
+        "ts_geo_use_nearby_station_distance": request.use_nearby_station_distance,
+        "ts_geo_min_gain_of_value_pairs": request.min_gain_of_value_pairs,
+        "ts_geo_num_additional_stations": request.num_additional_stations,
+        **station_distance_radii(homogeneous, heterogeneous),
+    }
     try:
-        return Settings(
-            ts_humanize=request.humanize,
-            ts_convert_units=request.convert_units,
-            ts_unit_targets=request.unit_targets or {},
-            ts_geo_station_distance=cast("Any", station_distance or {}),
-            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-            ts_geo_num_additional_stations=request.num_additional_stations,
-            **radii,
-        )
+        return Settings(**given)
     except ValidationError as e:
-        # a distance given for a name that is not a canonical parameter, or a negative one
+        # a distance given for a name that is not a canonical parameter, a negative distance or
+        # radius, or a unit target for a quantity the converter has none for. Only those: a value the
+        # server's environment set is not the caller's to fix, nor theirs to read back
+        if any(not error["loc"] or error["loc"][0] not in given for error in e.errors()):
+            raise
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
@@ -964,12 +973,14 @@ def history(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
+    # outside the handler below, as for `/api/stations`
+    settings = Settings()
     try:
         stations_ = get_stations(
             api=api,
             request=request,
             date=None,
-            settings=Settings(),
+            settings=settings,
         )
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
@@ -1033,8 +1044,10 @@ def alerts(
 
     set_logging_level(debug=debug)
 
+    # outside the handlers below, as for `/api/stations`: a `ValidationError` is a `ValueError`
+    settings = Settings()
     try:
-        request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=Settings())
+        request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=settings)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 

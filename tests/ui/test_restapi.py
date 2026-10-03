@@ -3684,3 +3684,64 @@ def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     # request that got past them would fail on the network and answer with a detail of its own
     assert response.status_code == 500
     assert response.text == "Internal Server Error"
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "params"),
+    [
+        pytest.param("/api/alerts", {}, id="alerts"),
+        pytest.param("/api/stations", {**_OBSERVATION, "station": "01048"}, id="stations"),
+        pytest.param("/api/history", {**_OBSERVATION, "station": "01048"}, id="history"),
+        pytest.param("/api/issues", {"provider": "dwd", "network": "mosmix", "station": "10147"}, id="issues"),
+        pytest.param("/api/interpolate", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}, id="interpolate"),
+        pytest.param("/api/summarize", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}, id="summarize"),
+        pytest.param(
+            "/api/interpolate",
+            {
+                **_OBSERVATION,
+                "station": "01048",
+                "date": "2020-06-30",
+                "interpolation_station_distance": '{"temperature_air_mean": 10}',
+            },
+            id="interpolate-beside-a-refusal",
+        ),
+    ],
+)
+def test_a_setting_the_server_environment_got_wrong_is_not_the_callers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    endpoint: str,
+    params: dict[str, str],
+) -> None:
+    """A malformed `WD_*` setting is the server's 500, without its value, not the caller's 400 (GH-2297).
+
+    Read from `.env` for every `Settings` built, as for `/api/values`. The geo endpoints answered it
+    as a 400, and alerts too, its `ValidationError` being a `ValueError`; the station, history and
+    issue lookups as a 500 carrying the value. A refusal of the caller's beside it does not make it
+    theirs.
+    """
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=not-a-bool\n")
+    monkeypatch.chdir(tmp_path)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.get(endpoint, params=params)
+
+    # Starlette's own answer to an exception nothing handled, so the settings are what failed
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"
+
+
+@pytest.mark.parametrize("endpoint", ["/api/interpolate", "/api/summarize"])
+def test_geo_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient, endpoint: str) -> None:
+    """A unit target for a quantity the converter does not know stays the caller's 400 (GH-2297)."""
+    response = client.get(
+        endpoint,
+        params={**_OBSERVATION, "station": "01048", "date": "2020-06-30", "unit_targets": json.dumps({"foo": "bar"})},
+    )
+
+    assert response.status_code == 400
+    assert "Invalid unit targets: one of {'foo'} not in" in response.json()["detail"]

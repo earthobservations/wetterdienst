@@ -136,6 +136,10 @@ Types of changes:
 
 - `/api/values` and its MCP tool answer `unit_targets` naming a quantity the converter does not
   have, such as `{"foo": "bar"}`, with a 400 saying so, where they answered a bare 500 (GH-2272)
+- `/api/interpolate`, `/api/summarize`, `/api/alerts` and their MCP tools answer a malformed `WD_*`
+  setting in the server's `.env` with a bare 500, where they answered 400 with the setting's value
+  in `detail`; `/api/stations`, `/api/history` and `/api/issues` no longer give the value in their
+  500. A request refused for what it gives keeps its 400 (GH-2297)
 - Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most
   places every 6 deg of longitude) or the equator in the zone of the point. Each was placed in its
   own zone, hundreds of kilometres off, or 10000 km off across the equator, so a point near either
