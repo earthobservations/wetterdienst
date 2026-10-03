@@ -3183,7 +3183,7 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
         orient="row",
     )
     stations = StationsResult(df=df_stations, df_all=df_stations, stations_filter=StationsFilter.ALL, stations=None)
-    row = {"station_id": "01048", "resolution": "daily", "timestamp": dt.datetime(2026, 1, 1, tzinfo=dt.UTC)}
+    row = {"station_id": "01048", "resolution": "daily", "timestamp": dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)}
     df_values = pl.DataFrame(
         [
             {
