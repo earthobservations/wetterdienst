@@ -125,8 +125,8 @@ Types of changes:
 
 ### Fixed
 
-- Interpolation places stations across a UTM zone boundary (every 6 deg of longitude, in Germany
-  at 6 and 12 deg E) or the equator in the zone of the point. Each was placed in its own zone,
+- Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most
+  places every 6 deg of longitude) or the equator in the zone of the point. Each was placed in its own zone,
   hundreds of kilometres off, or 10000 km off across the equator, so a point near either got no
   value, or one weighted as if those stations stood elsewhere. A station beyond 80 deg S or
   84 deg N, where UTM ends, is now left out; it failed the whole interpolation (GH-2277)
