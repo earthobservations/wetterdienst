@@ -134,6 +134,9 @@ Types of changes:
 
 ### Fixed
 
+- Values: a station asked for several datasets is no longer skipped when one dataset has no
+  `start_date` in the station list and another starts after `end_date`. With NOAA GHCN `hourly`
+  and `daily` together, such a station returned no hourly values inside the window (GH-2292)
 - `/api/values` and its MCP tool answer `unit_targets` naming a quantity the converter does not
   have, such as `{"foo": "bar"}`, with a 400 saying so, where they answered a bare 500 (GH-2272)
 - `wetterdienst values` refuses such `--unit_targets` with `Invalid value for '--unit_targets'`
@@ -285,6 +288,9 @@ Types of changes:
   with an offset to UTC before flooring it to a run. A naive issue was read in the server's local
   time, and an offset one floored in its own hours, so a published run could go unfound. The
   request's `issue` is now a UTC datetime; compare it with aware datetimes (GH-2275)
+- DWD SWSMOS converts an `issue` given with an offset to UTC before flooring it to a run, as DWD
+  MOSMIX and DMO do. It kept the issue's wall-clock hour and relabelled it UTC, so
+  `2026-10-01T13:00+02:00` read the 13 UTC run rather than the 11 UTC one it names (GH-2288)
 - The InfluxDB 2 sink reaches an IPv6 host, such as `influxdb2://acme:tok@[::1]:8086/`. It dropped
   the brackets and sent `http://::1:8086`, which names no valid host (GH-2279)
 

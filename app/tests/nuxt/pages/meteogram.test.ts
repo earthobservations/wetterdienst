@@ -1,6 +1,9 @@
 import type { VueWrapper } from '@vue/test-utils'
+import type { H3Event } from 'h3'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 import MeteogramPage from '~/pages/meteogram.vue'
 
 describe('meteogram Page', () => {
@@ -174,5 +177,78 @@ describe('the meteogram page\'s station map whose code could not be loaded', () 
     await wrapper.findAll('button').find(b => b.text() === 'Reload page')!.trigger('click')
     // forced: unforced, Nuxt drops a second click within ten seconds of a first that did not help
     expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
+  })
+})
+
+describe('the meteogram page\'s requests answered with a 500', () => {
+  let wrapper: VueWrapper | undefined
+  // disposers of the endpoints these tests register, so none answers a later test
+  const endpoints: Array<() => void> = []
+
+  beforeEach(() => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ values: [] }), { status: 200 }))
+    endpoints.push(registerEndpoint('/api/stations', () => ({ stations: [] })))
+  })
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    endpoints.splice(0).forEach(dispose => dispose())
+  })
+
+  // counted at the endpoint, which a request reaches however it is made
+  function failing(counts: (query: Record<string, unknown>) => boolean = () => true) {
+    const asked = { count: 0 }
+    return {
+      asked,
+      handler: (event: H3Event) => {
+        if (counts(getQuery(event)))
+          asked.count++
+        setResponseStatus(event, 500)
+        return { detail: 'Upstream failed' }
+      },
+    }
+  }
+
+  it('asks /api/issues once', async () => {
+    const { asked, handler } = failing()
+    endpoints.push(registerEndpoint('/api/issues', handler))
+    wrapper = await mountSuspended(MeteogramPage)
+    const vm = wrapper.vm as any
+    // emptied once the request has failed, which a request asked again does after its second answer
+    vm.availableIssues = ['2026-10-03T06:00:00']
+    vm.selectedStation = { station_id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67 }
+    await vi.waitFor(() => expect(vm.availableIssues).toEqual([]))
+    expect(asked.count).toBe(1)
+  })
+
+  it('asks /api/stations once for the map\'s stations', async () => {
+    wrapper = await mountSuspended(MeteogramPage, { attachTo: document.body, global: { stubs: { ClientOnly: true } } })
+    const vm = wrapper.vm as any
+    // the station search's own list, asked for the same stations, answered before the map's fails
+    await vi.waitFor(() => expect((wrapper!.findComponent(MeteogramStationSearch).vm as any).pending).toBe(false))
+    const { asked, handler } = failing()
+    endpoints.push(registerEndpoint('/api/stations', handler))
+    await wrapper.findAll('button').find(b => b.text().includes('Choose a station on the map'))!.trigger('click')
+    // a request asked again is under way until its second answer
+    await vi.waitFor(() => {
+      expect(asked.count).toBeGreaterThan(0)
+      expect(vm.mapLoading).toBe(false)
+    })
+    expect(asked.count).toBe(1)
+  })
+
+  it('asks /api/stations once for the station a shared link names', async () => {
+    // the station search's list is asked for all stations, the link's station by its id
+    const { asked, handler } = failing(query => query.station === '01001')
+    endpoints.push(registerEndpoint('/api/stations', handler))
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
+    const vm = wrapper.vm as any
+    // a request asked again is under way until its second answer
+    await vi.waitFor(() => {
+      expect(asked.count).toBeGreaterThan(0)
+      expect(vm.isRestoringFromUrl).toBe(false)
+    })
+    expect(asked.count).toBe(1)
   })
 })
