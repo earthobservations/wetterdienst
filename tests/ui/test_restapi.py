@@ -3241,7 +3241,8 @@ def _stub_stripes(monkeypatch: pytest.MonkeyPatch, stations: list[dict], values:
 
     frame = pl.DataFrame(
         {
-            "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.UTC) for year in values],
+            # `dt.timezone.utc` rather than `dt.UTC`, which Python 3.10 does not have
+            "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.timezone.utc) for year in values],
             "value": list(values.values()),
         },
         schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
