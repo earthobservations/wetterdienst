@@ -1353,7 +1353,7 @@ def test_get_stations_request_mosmix_issue_is_forwarded() -> None:
     issue = stations_request.issue
     assert issue is not DwdForecastDate.LATEST
     assert isinstance(issue, dt.datetime)
-    assert issue == dt.datetime(2026, 6, 27, 9, 0, 0)  # noqa: DTZ001
+    assert issue == dt.datetime(2026, 6, 27, 9, 0, 0, tzinfo=dt.timezone.utc)
 
 
 def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
