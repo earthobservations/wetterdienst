@@ -290,6 +290,11 @@ Types of changes:
   and its error is told at once. The app asked a second time after many failed answers, such as a
   502 where the backend could not be reached, after a connection lost before any answer, and after
   the 500 the backend now gives where it or the source failed (GH-2278)
+- `[Explorer/History/Stripes/Meteogram/Widget]` Stations, a station history, stripes or forecast
+  runs that fail to load are asked for once, so the failure shows without a second wait. The app
+  asked a second time after a 502 where the backend could not be reached, after a connection lost
+  before any answer, and after the 500 the backend now gives where it or the source failed
+  (GH-2298)
 
 ## [0.17.0] - 2026-09-29
 

@@ -1,4 +1,5 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { setResponseStatus } from 'h3'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import WidgetPage from '~/pages/widget.vue'
 
@@ -95,5 +96,22 @@ describe('widget Page', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.html()).toContain('/meteogram?station=00001')
+  })
+})
+
+describe('widget Page station lookup answered with a 500', () => {
+  it('asks /api/stations once, and tells its error', async () => {
+    // counted at the endpoint, which a request reaches however it is made
+    let asked = 0
+    registerEndpoint('/api/stations', (event) => {
+      asked++
+      setResponseStatus(event, 500)
+      return { detail: 'Upstream failed' }
+    })
+    globalThis.fetch = vi.fn()
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Station not found'))
+    expect(asked).toBe(1)
+    wrapper.unmount()
   })
 })
