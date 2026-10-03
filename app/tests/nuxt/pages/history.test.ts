@@ -185,8 +185,7 @@ describe('history Page', () => {
   })
 
   it('offers Show again for the same selection after the fetch failed', async () => {
-    // failing until the test lets it answer: a GET that fails is retried once on its own;
-    // then held until the test lets it go
+    // failing until the test lets it answer, then held until the test lets it go
     let failing = true
     let release!: () => void
     const held = new Promise<void>(resolve => (release = resolve))
@@ -584,5 +583,35 @@ describe('history Page station card id', () => {
     })
 
     expect(header).toBe('Station ID: 01048 Dresden-Klotzsche')
+  })
+})
+
+describe('history Page request answered with a 500', () => {
+  beforeEach(() => {
+    registerEndpoint('/api/coverage', (event) => {
+      const q = getQuery(event)
+      if (q.provider)
+        return dailyClimateSummaryCoverage()
+      return { dwd: { observation: {} } }
+    })
+  })
+
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(dispose => dispose())
+  })
+
+  it('asks /api/history once, and tells its error', async () => {
+    // counted at the endpoint, which a request reaches however it is made
+    let asked = 0
+    const { wrapper, showButton } = await mountWithSelection((event) => {
+      asked++
+      setResponseStatus(event, 500)
+      return { detail: 'Upstream failed' }
+    })
+
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Error: Upstream failed'), { timeout: 5000 })
+    expect(asked).toBe(1)
   })
 })

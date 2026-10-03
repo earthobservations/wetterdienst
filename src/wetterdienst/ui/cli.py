@@ -1305,16 +1305,31 @@ def values(
 
     api = get_api(request.provider, request.network)
 
-    settings = Settings(
-        ts_humanize=request.humanize,
-        ts_shape=request.shape,
-        ts_convert_units=request.convert_units,
-        ts_unit_targets=request.unit_targets or {},
-        ts_skip_empty=request.skip_empty,
-        ts_skip_criteria=request.skip_criteria,
-        ts_skip_threshold=request.skip_threshold,
-        ts_drop_nulls=request.drop_nulls,
-    )
+    try:
+        settings = Settings(
+            ts_humanize=request.humanize,
+            ts_shape=request.shape,
+            ts_convert_units=request.convert_units,
+            ts_unit_targets=request.unit_targets or {},
+            ts_skip_empty=request.skip_empty,
+            ts_skip_criteria=request.skip_criteria,
+            ts_skip_threshold=request.skip_threshold,
+            ts_drop_nulls=request.drop_nulls,
+        )
+    except ValidationError as e:
+        # a unit target given for a quantity the unit converter does not know. Only that: a value
+        # a WD_* environment variable set is not the command line's to fix. WD_TS_UNIT_TARGETS is
+        # merged into --unit_targets, so its entries are told with the option's when it is given
+        problems = e.errors(include_url=False)
+        if not request.unit_targets or any(problem["loc"][:1] != ("ts_unit_targets",) for problem in problems):
+            raise
+        ctx = click.get_current_context()
+        params = {param.name: param for param in ctx.command.params if param.name == "unit_targets"}
+        lines = [
+            _describe_problem({**problem, "loc": ("unit_targets", *problem["loc"][1:])}, params, ctx)
+            for problem in problems
+        ]
+        raise click.UsageError("\n".join(lines), ctx=ctx) from e
 
     values_ = _collect_or_exit(get_values, api=api, request=request, settings=settings, what="data acquisition")
 
