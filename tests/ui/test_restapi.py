@@ -3693,16 +3693,24 @@ _DAYS = ["1990-01-01", "1990-01-02", "1990-01-03"]
 def stubbed_values(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> Callable[..., dict]:
     """Answer `/api/values` offline for two stations and three parameters of two daily datasets.
 
-    The stub hands each dataset back timestamp first and parameter second, so the order a response
-    comes in is the one `TimeseriesValues.query` sorts it into, not the order the source wrote.
+    Each dataset comes back newest timestamp first, and its parameters interleaved within a
+    timestamp, so the order a response comes in is the one `TimeseriesValues.query` sorts it into,
+    not the order the source wrote.
     """
     from tests.model.test_values import _stub_dwd_daily  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
 
     _stub_dwd_daily(
         station_ids=["00002", "00001"],
         data_year_by_station={"00002": 1990, "00001": 1990},
         monkeypatch=monkeypatch,
         datasets=["climate_summary", "precipitation_more"],
+    )
+    collect = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+    monkeypatch.setattr(
+        DwdObservationValues,
+        "_collect_station_parameter_or_dataset",
+        lambda self, station_id, parameter_or_dataset: collect(self, station_id, parameter_or_dataset).reverse(),
     )
 
     def get(**params: str) -> dict:
