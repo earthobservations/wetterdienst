@@ -254,6 +254,9 @@ Types of changes:
 - NOAA GHCN hourly stations without a known elevation have a null `elevation` too. They were
   listed at -999.9 m, the station list's missing value. Stations listed at -999.0 m keep that
   value: NOAA's GHCNh documentation names only -999.9 as missing (GH-2260)
+- NOAA GHCN stations asked for both `hourly` and `daily` in one request are listed; the request
+  failed with a polars schema error. The hourly stations have a null `start_date` and `end_date`,
+  as their station list gives none (GH-2267)
 
 ## [0.139.0] - 2026-09-29
 

@@ -208,7 +208,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
         data = [d for d in data if d.collect_schema().names()]
         if not data:
             return pl.LazyFrame()
-        df = pl.concat(data)
+        # only the daily list has start_date, end_date and wmo_id; the hourly stations get nulls
+        df = pl.concat(data, how="diagonal")
         return df.lazy()
 
     def _create_metaindex_for_ghcn_hourly(self) -> pl.LazyFrame:

@@ -121,11 +121,17 @@ GHCNH_STATION_LIST = (
     "ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD   ANTIGUA (AUX.,,,78861,,AG\n"
     "AOM00066116,-5.8667,13.4333,-999.9,,NOQUI,,,66116,,AO\n"
 )
+GHCND_STATIONS = "ACW00011604  17.1167  -61.7833   10.1    ST JOHNS COOLIDGE FLD                       \n"
+GHCND_INVENTORY = "ACW00011604  17.1167  -61.7833 TMAX 1949 1949\n"
 
 
 def _fake_ghcn_download_file(url: str, **_kwargs: object) -> File:
     """Serve the GHCN station lists from the fixtures in this module, by file name."""
-    contents = {"ghcnh-station-list.csv": GHCNH_STATION_LIST}
+    contents = {
+        "ghcnh-station-list.csv": GHCNH_STATION_LIST,
+        "ghcnd-stations.txt": GHCND_STATIONS,
+        "ghcnd-inventory.txt": GHCND_INVENTORY,
+    }
     content = contents[url.rsplit("/", 1)[-1]]
     return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
 
@@ -140,3 +146,18 @@ def test_noaa_ghcn_hourly_stations_missing_elevation(
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file)
     df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df
     assert df.select("station_id", "elevation").rows() == [("ACM00078861", 10.0), ("AOM00066116", None)]
+
+
+def test_noaa_ghcn_stations_hourly_and_daily(monkeypatch: pytest.MonkeyPatch, default_settings: Settings) -> None:
+    """A request for both resolutions lists the stations of each, the hourly ones without dates (GH-2267).
+
+    Only the daily list has an inventory, so only the daily stations have a start and end date.
+    """
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file)
+    df = NoaaGhcnRequest(parameters=[("hourly", "data"), ("daily", "data")], settings=default_settings).all().df
+    utc = ZoneInfo("UTC")
+    assert df.select("resolution", "station_id", "start_date", "end_date", "elevation").rows() == [
+        ("hourly", "ACM00078861", None, None, 10.0),
+        ("hourly", "AOM00066116", None, None, None),
+        ("daily", "ACW00011604", dt.datetime(1949, 1, 1, tzinfo=utc), dt.datetime(1949, 12, 31, tzinfo=utc), 10.1),
+    ]
