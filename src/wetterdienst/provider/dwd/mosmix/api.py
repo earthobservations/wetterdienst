@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, ClassVar
 from urllib.parse import urljoin
+from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -413,7 +414,13 @@ class DwdMosmixRequest(TimeseriesRequest):
                     issue = dt.datetime.fromisoformat(issue)
                 except ValueError as e:
                     raise InvalidTimeIntervalError(str(e)) from e
-            issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=issue.tzinfo)
+            # in UTC before it is floored, as `dwd/dmo` does: DWD stamps its runs in UTC. A naive
+            # issue kept naive was read as the server's local time by `get_url_for_date`'s
+            # `astimezone`, and one with an offset was floored in its own wall-clock hours -- to
+            # 08:30 UTC for 14:30+05:30, and for MOSMIX-L to 07:00 UTC for 11:00+02:00 -- each a run
+            # DWD never published (GH-2275)
+            issue = issue.astimezone(ZoneInfo("UTC")) if issue.tzinfo else issue.replace(tzinfo=ZoneInfo("UTC"))
+            issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=ZoneInfo("UTC"))
         self.issue = issue
 
     def _all(self) -> pl.LazyFrame:
