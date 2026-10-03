@@ -4,6 +4,8 @@
 
 import json
 import logging
+import pathlib
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, get_args
 
@@ -3336,3 +3338,349 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
     schema = {"$ref": f"#/components/schemas/{schema_name}", "components": app.openapi()["components"]}
     with pytest.raises(jsonschema.ValidationError, match="'temperature_air_mean_2m' is not valid"):
         jsonschema.validate(item, schema)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "params", "detail"),
+    [
+        pytest.param(
+            "/api/stations",
+            {**_OBSERVATION, "parameters": "daily/abc", "all": "true"},
+            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            id="stations-unknown-parameter",
+        ),
+        pytest.param(
+            "/api/stations",
+            {**_OBSERVATION, "periods": "foo", "all": "true"},
+            "foo could not be parsed from Period.",
+            id="stations-unknown-period",
+        ),
+        pytest.param(
+            "/api/stations",
+            {**_OBSERVATION, "periods": "now", "all": "true"},
+            "None of the periods now is published for the datasets requested from DwdObservationRequest. "
+            "Available periods: historical, recent",
+            id="stations-unpublished-period",
+        ),
+        pytest.param(
+            "/api/stations",
+            {**_OBSERVATION, "left": 10, "bottom": 50, "right": 5, "top": 52},
+            "bbox left border should be smaller then right",
+            id="stations-bbox-the-wrong-way-round",
+        ),
+        pytest.param(
+            "/api/stations",
+            {"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "station": "10382", "issue": "foo"},
+            "Invalid isoformat string: 'foo'",
+            id="stations-mosmix-unparseable-issue",
+        ),
+        pytest.param(
+            "/api/stations",
+            {
+                "provider": "dwd",
+                "network": "dmo",
+                "parameters": "hourly/icon",
+                "station": "10382",
+                "issue": "0001-01-01T00:00+01:00",
+            },
+            "date value out of range",
+            id="stations-dmo-issue-before-the-first-day-in-utc",
+        ),
+        pytest.param(
+            "/api/history",
+            {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
+            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            id="history-unknown-parameter",
+        ),
+        pytest.param(
+            "/api/history",
+            {"provider": "eccc", "network": "observation", "parameters": "hourly/data", "all": "true"},
+            "Start and end date required for single period datasets",
+            id="history-dataset-listed-only-for-a-date",
+        ),
+        pytest.param(
+            "/api/issues",
+            {"provider": "dwd", "network": "mosmix", "station": "10382", "lead_time": "long"},
+            "lead_time applies to DWD DMO only (got DwdMosmixRequest)",
+            id="issues-mosmix-with-a-lead-time",
+        ),
+    ],
+)
+def test_a_refusal_of_the_lookup_keeps_its_400(
+    client: TestClient,
+    endpoint: str,
+    params: dict[str, object],
+    detail: str,
+) -> None:
+    """A request the station lookup or the issue listing refuses is still the caller's 400 (GH-2276).
+
+    Each is refused before anything is downloaded, so these are real requests rather than stubs.
+    """
+    response = client.get(endpoint, params=params)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+
+
+def test_stations_a_sql_refusal_keeps_its_400(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A `sql` naming a column the stations do not have is still the caller's 400 (GH-2276)."""
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_stations", _raise_sql_refusal)
+
+    response = client.get("/api/stations", params={**_OBSERVATION, "sql": "foo = 1"})
+
+    assert response.status_code == 400
+    assert 'Referenced column "foo" not found' in response.json()["detail"]
+
+
+def _stub_stripes(monkeypatch: pytest.MonkeyPatch, stations: list[dict], values: dict[int, float | None]) -> None:
+    """Have the temperature stripes read `stations` and these yearly `values` instead of DWD's."""
+    import datetime as dt  # noqa: PLC0415
+
+    import polars as pl  # noqa: PLC0415
+
+    from wetterdienst.ui import core  # noqa: PLC0415
+
+    frame = pl.DataFrame(
+        {
+            # `dt.timezone.utc` rather than `dt.UTC`, which Python 3.10 does not have
+            "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.timezone.utc) for year in values],
+            "value": list(values.values()),
+        },
+        schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
+    )
+    result = SimpleNamespace(
+        to_dict=lambda: {"stations": stations},
+        values=SimpleNamespace(all=lambda: SimpleNamespace(df=frame)),
+    )
+    request = SimpleNamespace(filter_by_station_id=lambda _station: result)
+    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period: request)
+
+
+@pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
+@pytest.mark.parametrize(
+    ("stations", "values", "detail"),
+    [
+        pytest.param([], {}, "No station with a station_id similar to '99999' found", id="unknown-station"),
+        pytest.param(
+            [{"station_id": "99999", "name": "Somewhere"}],
+            {2000: 1.0},
+            "At least two years with data are required to create climate stripes; station 99999 has data "
+            "from 2000 to 2000",
+            id="one-year-with-data",
+        ),
+    ],
+)
+def test_stripes_a_refusal_keeps_its_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    stations: list[dict],
+    values: dict[int, float | None],
+    detail: str,
+) -> None:
+    """A station the stripes do not know, or one with too little data, is still the caller's 400 (GH-2276)."""
+    _stub_stripes(monkeypatch, stations, values)
+
+    response = client.get(endpoint, params={"kind": "temperature", "station": "99999"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+
+
+_UNEXPECTED = "can only call '.item()' if the dataframe has a single element"
+
+
+def _fail(*_args: object, **_kwargs: object) -> None:
+    raise ValueError(_UNEXPECTED)
+
+
+class _HistoryFails:
+    """A stations result whose history fails at the step named, as a source that cannot be read would."""
+
+    def __init__(self, step: str, fail: Callable[[], None] = _fail) -> None:
+        self.step, self.fail = step, fail
+
+    @property
+    def history(self) -> SimpleNamespace:
+        if self.step == "history":
+            self.fail()
+        return SimpleNamespace(query=self.fail)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point", "stub", "params"),
+    [
+        pytest.param("/api/stations", "get_stations", _fail, {**_OBSERVATION, "all": "true"}, id="stations"),
+        pytest.param("/api/history", "get_stations", _fail, {**_OBSERVATION, "station": "01048"}, id="history-lookup"),
+        pytest.param(
+            "/api/history",
+            "get_stations",
+            lambda **_kwargs: _HistoryFails("history"),
+            {**_OBSERVATION, "station": "01048"},
+            id="history-provider",
+        ),
+        pytest.param(
+            "/api/history",
+            "get_stations",
+            lambda **_kwargs: _HistoryFails("query"),
+            {**_OBSERVATION, "station": "01048"},
+            id="history-query",
+        ),
+        pytest.param(
+            "/api/issues",
+            "get_issues",
+            _fail,
+            {"provider": "dwd", "network": "mosmix", "station": "10382"},
+            id="issues",
+        ),
+        pytest.param(
+            "/api/stripes/stations", "_get_stripes_stations", _fail, {"kind": "temperature"}, id="stripes-stations"
+        ),
+        pytest.param(
+            "/api/stripes/values",
+            "_get_stripes_data",
+            _fail,
+            {"kind": "temperature", "station": "01048"},
+            id="stripes-values",
+        ),
+        pytest.param(
+            "/api/stripes/image",
+            "_plot_stripes",
+            _fail,
+            {"kind": "temperature", "station": "01048"},
+            id="stripes-image",
+        ),
+    ],
+)
+def test_a_failure_of_the_lookup_that_is_not_a_refusal_is_a_500(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    entry_point: str,
+    stub: object,
+    params: dict[str, object],
+) -> None:
+    """A failure on the server's side is a 500 with its message, as from `/api/values` (GH-2276).
+
+    These answered it with a 400, which told the caller to rephrase a request that was fine.
+    """
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", stub)
+
+    response = client.get(endpoint, params=params)
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == _UNEXPECTED
+
+
+def _fail_as_a_refusal(*_args: object, **_kwargs: object) -> None:
+    from wetterdienst.exceptions import InvalidEnumerationError  # noqa: PLC0415
+
+    raise InvalidEnumerationError(_UNEXPECTED)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point", "stub", "params"),
+    [
+        pytest.param(
+            "/api/stripes/stations",
+            "_get_stripes_stations",
+            _fail_as_a_refusal,
+            {"kind": "temperature"},
+            id="stripes-stations",
+        ),
+        pytest.param(
+            "/api/history",
+            "get_stations",
+            lambda **_kwargs: _HistoryFails("history", _fail_as_a_refusal),
+            {**_OBSERVATION, "station": "01048"},
+            id="history-provider",
+        ),
+        pytest.param(
+            "/api/history",
+            "get_stations",
+            lambda **_kwargs: _HistoryFails("query", _fail_as_a_refusal),
+            {**_OBSERVATION, "station": "01048"},
+            id="history-query",
+        ),
+    ],
+)
+def test_a_failure_where_the_caller_has_no_input_is_a_500_whatever_its_type(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    entry_point: str,
+    stub: object,
+    params: dict[str, object],
+) -> None:
+    """A refusal's type raised where nothing of the caller's reaches is the source's, and a 500 (GH-2276).
+
+    The station list of the stripes takes no input the signature has not checked, and a history is
+    read once its stations are known, so an `InvalidEnumerationError` there comes from the data.
+    """
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", stub)
+
+    response = client.get(endpoint, params=params)
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == _UNEXPECTED
+
+
+def test_stripes_an_index_error_building_the_station_is_not_an_unknown_station(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An `IndexError` from building the stations is a 500, not "No station ... found" (GH-2276)."""
+    from wetterdienst.ui import core  # noqa: PLC0415
+
+    def to_dict() -> None:
+        msg = "list index out of range"
+        raise IndexError(msg)
+
+    request = SimpleNamespace(filter_by_station_id=lambda _station: SimpleNamespace(to_dict=to_dict))
+    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period: request)
+
+    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "list index out of range"
+
+
+def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient) -> None:
+    """A unit target for a quantity the converter does not know is the caller's 400 (GH-2272).
+
+    `/api/values` built its settings outside any handler, so the validator's refusal reached the
+    caller as a bare 500 "Internal Server Error". Refused before anything is downloaded.
+    """
+    response = client.get(
+        "/api/values",
+        params={**_OBSERVATION, "station": "01048", "unit_targets": json.dumps({"foo": "bar"})},
+    )
+
+    assert response.status_code == 400
+    assert "Invalid unit targets: one of {'foo'} not in" in response.json()["detail"]
+
+
+def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+) -> None:
+    """A malformed `WD_*` setting is the server's 500, without its value, not the caller's 400 (GH-2272).
+
+    A malformed process variable stops the server from starting, as importing it builds `Settings`
+    once. The `.env` file is read again for every `Settings` built, so one written while the server
+    runs reaches the settings `/api/values` builds per request.
+    """
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=not-a-bool\n")
+    monkeypatch.chdir(tmp_path)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.get("/api/values", params={**_OBSERVATION, "station": "01048"})
+
+    # Starlette's own answer to an exception nothing handled, so the settings are what failed: a
+    # request that got past them would fail on the network and answer with a detail of its own
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"

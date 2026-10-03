@@ -105,6 +105,10 @@ Types of changes:
   `InvalidTimeIntervalError` for the day `9999-12-31`, which raised `OverflowError`, and
   `LocationOutOfRangeError` for a point outside UTM, which raised `utm.error.OutOfRangeError`
   (GH-2252)
+- **Breaking**: `/api/stations`, `/api/history`, `/api/issues`, the `/api/stripes` endpoints and
+  their MCP tools answer a failure on the server's or the data source's side to read what was asked
+  for with a 500 carrying its message, where they answered 400, as `/api/values` does. Retry or
+  report a 500 rather than rephrasing. A request refused for what it asks keeps its 400 (GH-2276)
 - The `mysql` extra takes pandas 3, as the other extras that bring pandas do. It asked for pandas
   below 3, so installing it downgraded an environment on pandas 3 to 2.x (GH-2250)
 - DWD DMO's coverage, from `discover`, `/api/coverage`, the CLI and MCP, gives each parameter
@@ -130,6 +134,8 @@ Types of changes:
 
 ### Fixed
 
+- `/api/values` and its MCP tool answer `unit_targets` naming a quantity the converter does not
+  have, such as `{"foo": "bar"}`, with a 400 saying so, where they answered a bare 500 (GH-2272)
 - Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most
   places every 6 deg of longitude) or the equator in the zone of the point. Each was placed in its
   own zone, hundreds of kilometres off, or 10000 km off across the equator, so a point near either

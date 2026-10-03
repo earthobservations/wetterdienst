@@ -17,7 +17,14 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 # is one; model/result.py imports it from here for the same reason
 from typing_extensions import LiteralString, TypedDict
 
-from wetterdienst.exceptions import InvalidTimeIntervalError, NoParametersFoundError, StartDateEndDateError
+from wetterdienst.exceptions import (
+    InvalidEnumerationError,
+    InvalidTimeIntervalError,
+    NoParametersFoundError,
+    NotEnoughDataError,
+    StartDateEndDateError,
+    StationNotFoundError,
+)
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
@@ -944,7 +951,7 @@ def get_issues(
         # the fault this whole path is being fixed for
         if given := sorted(name for name, value in dmo_only.items() if value is not None):
             msg = f"{', '.join(given)} applies to DWD DMO only (got {api.__name__})"
-            raise ValueError(msg)
+            raise InvalidEnumerationError(msg)
         issues = DwdMosmixRequest.available_issues(request.station, settings)
     elif issubclass(api, DwdDmoRequest):
         issues = DwdDmoRequest.available_issues(
@@ -1334,12 +1341,14 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         msg = f"{type(stripes).__name__} gives neither a station nor a name"
         raise AssertionError(msg)
 
-    try:
-        station = stations.to_dict()["stations"][0]
-    except IndexError as e:
+    # asked of the list rather than caught from indexing it, so an `IndexError` from building the
+    # list is not taken for an unknown station
+    found = stations.to_dict()["stations"]
+    if not found:
         parameter = "station_id" if stripes.station else "name"
         msg = f"No station with a {parameter} similar to '{stripes.station or stripes.name}' found"
-        raise ValueError(msg) from e
+        raise StationNotFoundError(msg)
+    station = found[0]
 
     df = stations.values.all().df.sort("timestamp")
     df = df.set_sorted("timestamp")
@@ -1360,7 +1369,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
             f"At least two years with data are required to create climate stripes; station "
             f"{station['station_id']} has data {record}"
         )
-        raise ValueError(msg)
+        raise NotEnoughDataError(msg)
     # from the first year with data to the last: a start or end year falling in a gap of the record
     # would otherwise label the stripes with a year none of them shows
     df = df.filter(pl.col("timestamp").is_between(years_with_data.min(), years_with_data.max()))

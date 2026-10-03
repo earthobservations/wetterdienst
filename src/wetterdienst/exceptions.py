@@ -47,6 +47,10 @@ class IssueNotFoundError(IndexError):
     """Raised when a forecast run is asked for by an issue time the source does not list."""
 
 
+class NotEnoughDataError(ValueError):
+    """Raised when what a request selects holds too little data to answer it."""
+
+
 class ProviderNotFoundError(Exception):
     """Raised when a provider is not found in the provider list."""
 
