@@ -122,6 +122,12 @@ Types of changes:
   `%40`, and a literal `%` followed by two hex digits there or in an InfluxDB database or CrateDB
   schema as `%25`. An `@` in the path or query of an InfluxDB or CrateDB target with a `host:port`
   is read as ending a password too; write it as `%40` there (GH-2248)
+- **Breaking**: the InfluxDB 3 sink connects with the scheme and port its target names:
+  `influxdb3://` is http and `influxdb3s://` https, on the target's port or, with none, the
+  client's default 443. It took only the host and went to https on 443 whatever the target said, so
+  a local InfluxDB 3 Core on `http://localhost:8181` could not be reached. Write an https server,
+  such as InfluxDB Cloud, as `influxdb3s://`. The InfluxDB 2 sink keeps an IPv6 host's brackets,
+  which it dropped, so it could not reach one (GH-2279)
 
 ### Fixed
 
