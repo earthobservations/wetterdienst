@@ -208,7 +208,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
         data = [d for d in data if d.collect_schema().names()]
         if not data:
             return pl.LazyFrame()
-        # only the daily list has start_date, end_date and wmo_id; the hourly stations get nulls
+        # only the daily frame has start_date and end_date, from its inventory, and wmo_id, which the
+        # hourly reader does not select; the hourly stations get nulls
         df = pl.concat(data, how="diagonal")
         return df.lazy()
 
