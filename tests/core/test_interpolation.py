@@ -1102,31 +1102,38 @@ def test_interpolate_and_summarize_keep_a_reading_in_a_small_source_unit_when_un
     assert df.get_column("value").to_list() == pytest.approx(list(readings.values()), rel=1e-3)
 
 
-@pytest.mark.parametrize("longitude", [11.95, 12.05], ids=["zone_32", "zone_33"])
+@pytest.mark.parametrize(
+    ("centre_latitude", "d_longitude"),
+    [(50.0, -0.05), (50.0, 0.05), (0.0, -0.05)],
+    ids=["zone_32", "zone_33", "zone_32_across_the_equator"],
+)
 def test_interpolation_places_stations_across_a_utm_zone_boundary_in_the_point_s_frame(
     monkeypatch: pytest.MonkeyPatch,
-    longitude: float,
+    centre_latitude: float,
+    d_longitude: float,
 ) -> None:
     """Stations either side of a UTM zone boundary are placed in the frame of the point.
 
-    Zones 32 and 33 meet at 12 deg E. Each station was projected into its own zone, so the two
-    stations at 12.1 deg E sat some 415 km west of the two at 11.9 deg E, the point fell outside
-    every group of four, and the interpolation came back empty, on whichever side of the boundary
-    the point lies. The readings rise linearly, by 20 per degree east and 10 per degree north from
-    10 at 50 deg N 12 deg E, which a linear interpolation over a few kilometres reproduces at the
-    point up to the curvature of the projection. The stations and their readings are stubbed, so
-    nothing leaves the machine.
+    Zones 32 and 33 meet at 12 deg E. Each station was projected into its own zone, so at 50 deg N
+    the two stations at 12.1 deg E sat some 415 km west of the two at 11.9 deg E, the point fell
+    outside every group of four, and the interpolation came back empty, on whichever side of the
+    boundary the point lies. At the equator the two stations south of it were also 10000 km north
+    of the others, by the false northing of the southern hemisphere. The readings rise linearly,
+    by 20 per degree east and 10 per degree north from 10 at the centre, 12 deg E, which a linear
+    interpolation over a few kilometres reproduces at the point up to the curvature of the
+    projection. The stations and their readings are stubbed, so nothing leaves the machine.
     """
     from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
     from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
 
-    latitude = 50.01
+    latitude, longitude = centre_latitude + 0.01, 12 + d_longitude
 
     def reading(lat: float, lon: float) -> float:
-        return 10 + 20 * (lon - 12) + 10 * (lat - 50)
+        return 10 + 20 * (lon - 12) + 10 * (lat - centre_latitude)
 
-    corners = {"00001": (49.95, 11.9), "00002": (49.95, 12.1), "00003": (50.05, 12.1), "00004": (50.05, 11.9)}
+    offsets = {"00001": (-0.05, -0.1), "00002": (-0.05, 0.1), "00003": (0.05, 0.1), "00004": (0.05, -0.1)}
+    corners = {station_id: (centre_latitude + d_lat, 12 + d_lon) for station_id, (d_lat, d_lon) in offsets.items()}
     distances = {"00001": 7.0, "00002": 8.0, "00003": 9.0, "00004": 10.0}
     stations = pl.DataFrame(
         [
