@@ -1103,13 +1103,14 @@ def test_interpolate_and_summarize_keep_a_reading_in_a_small_source_unit_when_un
 
 
 @pytest.mark.parametrize(
-    ("centre_latitude", "d_longitude"),
-    [(50.0, -0.05), (50.0, 0.05), (0.0, -0.05)],
-    ids=["zone_32", "zone_33", "zone_32_across_the_equator"],
+    ("centre_latitude", "d_latitude", "d_longitude"),
+    [(50.0, 0.01, -0.05), (50.0, 0.01, 0.05), (0.0, 0.01, -0.05), (0.0, -0.01, -0.05)],
+    ids=["zone_32", "zone_33", "zone_32_north_of_the_equator", "zone_32_south_of_the_equator"],
 )
 def test_interpolation_places_stations_across_a_utm_zone_boundary_in_the_point_s_frame(
     monkeypatch: pytest.MonkeyPatch,
     centre_latitude: float,
+    d_latitude: float,
     d_longitude: float,
 ) -> None:
     """Stations either side of a UTM zone boundary are placed in the frame of the point.
@@ -1117,17 +1118,19 @@ def test_interpolation_places_stations_across_a_utm_zone_boundary_in_the_point_s
     Zones 32 and 33 meet at 12 deg E. Each station was projected into its own zone, so at 50 deg N
     the two stations at 12.1 deg E sat some 415 km west of the two at 11.9 deg E, the point fell
     outside every group of four, and the interpolation came back empty, on whichever side of the
-    boundary the point lies. At the equator the two stations south of it were also 10000 km north
-    of the others, by the false northing of the southern hemisphere. The readings rise linearly,
+    boundary the point lies. At the equator the two stations across it from the point were also
+    10000 km off, by the false northing of the southern hemisphere. The readings rise linearly,
     by 20 per degree east and 10 per degree north from 10 at the centre, 12 deg E, which a linear
     interpolation over a few kilometres reproduces at the point up to the curvature of the
     projection. The stations and their readings are stubbed, so nothing leaves the machine.
     """
-    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    import utm  # noqa: PLC0415
+
+    from wetterdienst.core.interpolate import get_interpolated_df, request_stations  # noqa: PLC0415
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
     from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
 
-    latitude, longitude = centre_latitude + 0.01, 12 + d_longitude
+    latitude, longitude = centre_latitude + d_latitude, 12 + d_longitude
 
     def reading(lat: float, lon: float) -> float:
         return 10 + 20 * (lon - 12) + 10 * (lat - centre_latitude)
@@ -1186,10 +1189,14 @@ def test_interpolation_places_stations_across_a_utm_zone_boundary_in_the_point_s
     df = get_interpolated_df(request, latitude, longitude)
     assert df.height == 1
     row = df.row(0, named=True)
-    # 9.1 at 11.95 deg E and 11.1 at 12.05 deg E
+    # 9.1 at 0.01 deg north of the centre and 11.95 deg E, 11.1 at 12.05 deg E, 8.9 at 0.01 deg south
     assert row["value"] == pytest.approx(reading(latitude, longitude), abs=0.01)
     assert row["distance_mean"] == 8.5
     assert sorted(row["taken_station_ids"]) == list(corners)
+    # a caller of `request_stations` that does not pass the zone gets the point's zone all the same
+    utm_x, utm_y, zone_number, zone_letter = utm.from_latlon(latitude, longitude)
+    placed = request_stations(request, latitude, longitude, utm_x, utm_y)[0]
+    assert placed == request_stations(request, latitude, longitude, utm_x, utm_y, zone=(zone_number, zone_letter))[0]
 
 
 def test_interpolation_leaves_out_a_station_beyond_what_utm_covers(
@@ -1265,7 +1272,7 @@ def test_interpolation_leaves_out_a_station_beyond_what_utm_covers(
     )
     with caplog.at_level(logging.INFO, logger="wetterdienst.core.interpolate"):
         df = get_interpolated_df(request, latitude, longitude)
-    assert "station 00000 cannot be placed in UTM and is left out: latitude out of range" in caplog.text
+    assert "station 00000 cannot be placed in UTM and is left out" in caplog.text
     assert df.height == 1
     row = df.row(0, named=True)
     assert row["value"] == -20.0

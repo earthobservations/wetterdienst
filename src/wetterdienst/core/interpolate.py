@@ -112,7 +112,7 @@ def request_stations(
     utm_y: float,
     elevation: float | None = None,
     *,
-    zone: tuple[int, str],
+    zone: tuple[int, str] | None = None,
 ) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForElevation], set[tuple[str, str, str]]]:
     """Request the stations for the interpolation.
 
@@ -125,7 +125,8 @@ def request_stations(
         elevation: elevation of the point in metres, to bring each station's readings to
         zone: number and letter of the UTM zone `utm_x` and `utm_y` are in, which every station is
             placed in as well: each zone has a frame of its own, and a station a few kilometres
-            across a zone boundary would otherwise land hundreds of kilometres from the point
+            across a zone boundary would otherwise land hundreds of kilometres from the point.
+            Taken from `latitude` and `longitude` where not given
 
     Returns:
         the stations dict, the parameter dict, how many stations each parameter lost for
@@ -135,6 +136,8 @@ def request_stations(
     param_dict = {}
     stations_dict = {}
     dropped_for_elevation: dict[tuple[str, str, str], DroppedForElevation] = {}
+    if zone is None:
+        zone = cast("tuple[int, str]", utm.from_latlon(latitude, longitude)[2:])
     settings = cast("Settings", request.settings)
     max_interp_distance = max(
         settings.ts_geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
