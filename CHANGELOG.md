@@ -244,7 +244,7 @@ Types of changes:
   validation. The REST API's schema for `/api/values` gives a GeoJSON feature's values no
   `station_id`, which the feature's properties carry, and a wide row `resolution`, a nullable
   `dataset`, `timestamp` and, outside GeoJSON, `station_id`, plus a value and a quality column per
-  parameter, typed as nullable numbers (GH-2282)
+  parameter, typed as nullable numbers where pydantic is 2.12 or later (GH-2282)
 - GeoJSON of stations and values gives a station without a latitude or longitude, such as a
   postcode of DWD derived `monthly/climate_correction_factor`, the geometry `null`, as RFC 7946
   has an unlocated feature; it was a `Point` of null coordinates, which strict parsers reject. The

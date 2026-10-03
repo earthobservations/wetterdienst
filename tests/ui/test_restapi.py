@@ -3265,7 +3265,16 @@ def test_mcp_values_tool_passes_output_validation_in_each_shape_and_format(
         async with Client(mcp) as client:
             response = await client.call_tool(
                 "values",
-                {**_OBSERVATION, "station": "01048", "format": fmt, "shape": shape},
+                {
+                    "provider": "dwd",
+                    "network": "observation",
+                    # the two datasets the stubbed result holds
+                    "parameters": "daily/climate_summary/temperature_air_mean_2m,"
+                    "daily/precipitation_more/precipitation_amount",
+                    "station": "01048",
+                    "format": fmt,
+                    "shape": shape,
+                },
             )
             return response.structured_content
 
@@ -3274,6 +3283,24 @@ def test_mcp_values_tool_passes_output_validation_in_each_shape_and_format(
     assert data["result"] == expected
 
 
+def _pydantic_writes_extra_items() -> bool:
+    """Tell whether pydantic writes a TypedDict's `extra_items` into its schema, which it does from 2.12.
+
+    An older one leaves the wide row's columns undeclared, which JSON Schema admits all the same.
+    """
+    import pydantic  # noqa: PLC0415
+
+    major, minor = (int(part) for part in pydantic.VERSION.split(".")[:2])
+    return (major, minor) >= (2, 12)
+
+
+_NEEDS_EXTRA_ITEMS = pytest.mark.skipif(
+    not _pydantic_writes_extra_items(),
+    reason="pydantic writes a TypedDict's extra_items into its schema from 2.12 on",
+)
+
+
+@_NEEDS_EXTRA_ITEMS
 @pytest.mark.parametrize("schema_name", ["_ValuesWideItemDict", "_ValuesWideOgcItemDict"])
 def test_values_wide_row_schemas_type_the_parameter_columns(schema_name: str) -> None:
     """The wide row schemas type the columns beyond the declared ones as nullable numbers (GH-2282).
@@ -3287,6 +3314,7 @@ def test_values_wide_row_schemas_type_the_parameter_columns(schema_name: str) ->
     assert {branch.get("type") for branch in extra.get("anyOf", [extra])} == {"number", "null"}
 
 
+@_NEEDS_EXTRA_ITEMS
 @pytest.mark.parametrize(
     ("fmt", "schema_name"),
     [("json", "_ValuesWideItemDict"), ("geojson", "_ValuesWideOgcItemDict")],
