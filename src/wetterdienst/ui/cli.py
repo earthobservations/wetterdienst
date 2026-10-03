@@ -1317,8 +1317,13 @@ def values(
             ts_drop_nulls=request.drop_nulls,
         )
     except ValidationError as e:
-        # a unit target given for a quantity the unit converter does not know
-        raise click.BadParameter(str(e)) from e
+        # a unit target given for a quantity the unit converter does not know. Only that: a value
+        # a WD_* environment variable set is not the command line's to fix
+        problems = e.errors(include_url=False)
+        if any(problem["loc"][:1] != ("ts_unit_targets",) for problem in problems):
+            raise
+        message = "\n".join(problem["msg"].removeprefix("Value error, ") for problem in problems)
+        raise click.BadParameter(message, param_hint="'--unit_targets'") from e
 
     values_ = _collect_or_exit(get_values, api=api, request=request, settings=settings, what="data acquisition")
 
