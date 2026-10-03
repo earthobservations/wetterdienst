@@ -1272,7 +1272,7 @@ def test_interpolation_leaves_out_a_station_beyond_what_utm_covers(
     )
     with caplog.at_level(logging.INFO, logger="wetterdienst.core.interpolate"):
         df = get_interpolated_df(request, latitude, longitude)
-    assert "station 00000 lies at latitude -80.01, beyond the -80 to 84 UTM covers, and is left out" in caplog.text
+    assert "station 00000 lies beyond the 80 deg S to 84 deg N UTM covers and is left out" in caplog.text
     assert df.height == 1
     row = df.row(0, named=True)
     assert row["value"] == -20.0

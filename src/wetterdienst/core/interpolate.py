@@ -200,10 +200,7 @@ def request_stations(
             # UTM ends at 80 deg S and 84 deg N, so a station beyond, in reach of a point inside, has
             # no place in the frame; left out before its readings are applied, as it cannot be in a
             # hull. A longitude outside -180 to 180 is bad metadata, not this, and still raises
-            log.info(
-                f"station {station['station_id']} lies at latitude {station['latitude']}, beyond the "
-                f"{UTM_LATITUDE_MIN} to {UTM_LATITUDE_MAX} UTM covers, and is left out",
-            )
+            log.info(f"station {station['station_id']} lies beyond the 80 deg S to 84 deg N UTM covers and is left out")
             continue
         contributed = apply_station_values_per_parameter(
             result.df,
