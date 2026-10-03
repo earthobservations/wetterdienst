@@ -267,6 +267,10 @@ Types of changes:
 - NOAA GHCN daily stations without a known elevation have a null `elevation`. They were listed at
   -999.9 m, the station list's missing value, and `interpolate` and `summarize` given an elevation
   took it for a known one (GH-2247)
+- DWD MOSMIX takes an `issue` given without an offset as UTC, as DWD DMO does, and converts one
+  with an offset to UTC before flooring it to a run. A naive issue was read in the server's local
+  time, and an offset one floored in its own hours, so a published run could go unfound. The
+  request's `issue` is now a UTC datetime; compare it with aware datetimes (GH-2275)
 - The InfluxDB 2 sink reaches an IPv6 host, such as `influxdb2://acme:tok@[::1]:8086/`. It dropped
   the brackets and sent `http://::1:8086`, which names no valid host (GH-2279)
 

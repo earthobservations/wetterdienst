@@ -4,6 +4,8 @@
 
 import datetime as dt
 import logging
+import time
+from collections.abc import Iterator
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
@@ -373,9 +375,9 @@ def test_mosmix_listing_entry_that_is_not_a_forecast_is_not_read_as_one(monkeypa
         )
 
 
-def _stub_mosmix_stations() -> StationsResult:
+def _stub_mosmix_stations(issue: str | dt.datetime = "latest") -> StationsResult:
     """Stand a MOSMIX station up rather than look one up, so the test needs no network."""
-    request = DwdMosmixRequest(parameters=[("hourly", "large")])
+    request = DwdMosmixRequest(parameters=[("hourly", "large")], issue=issue)
     df_stations = pl.DataFrame(
         [
             {
@@ -838,3 +840,94 @@ def test_mosmix_an_issue_the_listing_does_not_hold_is_an_issue_not_found(
             one_station_only=True,
         )
     assert isinstance(exception_info.value, IssueNotFoundError) is refusal
+
+
+@pytest.mark.parametrize(
+    "issue",
+    [
+        pytest.param("2026-10-01T09:00", id="naive-string"),
+        pytest.param(dt.datetime(2026, 10, 1, 9, 40), id="naive-datetime"),  # noqa: DTZ001
+        pytest.param("2026-10-01T11:00+02:00", id="whole-hour-offset"),
+        pytest.param("2026-10-01T14:30+05:30", id="half-hour-offset"),
+        pytest.param(dt.datetime(2026, 10, 1, 9, tzinfo=UTC), id="utc"),
+    ],
+)
+def test_mosmix_issue_is_held_in_utc(issue: str | dt.datetime) -> None:
+    """A naive issue means UTC and an aware one is converted before it is floored (GH-2275).
+
+    Compared tz-aware, so a naive `issue` fails here whatever zone the machine runs in.
+    """
+    request = DwdMosmixRequest(parameters=[("hourly", "large")], issue=issue)
+
+    assert request.issue == dt.datetime(2026, 10, 1, 9, tzinfo=UTC)
+    assert isinstance(request.issue, dt.datetime)
+    assert request.issue.utcoffset() == dt.timedelta(0)
+
+
+@pytest.fixture
+def local_time_is_berlin() -> Iterator[None]:
+    """Run the test with the process's local zone set to one that is not UTC."""
+    if not hasattr(time, "tzset"):
+        pytest.skip("time.tzset is POSIX only")
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("TZ", "Europe/Berlin")
+        time.tzset()
+        try:
+            # 09:00 local is 07:00 UTC in summer time; without the zone's data on the host, `tzset`
+            # falls back to UTC silently, and the test would prove nothing
+            if dt.datetime(2026, 10, 1, 9).astimezone(UTC).hour != 7:
+                pytest.skip("the host has no zone data for Europe/Berlin")
+            yield
+        finally:
+            mp.undo()
+            time.tzset()
+
+
+@pytest.mark.usefixtures("local_time_is_berlin")
+@pytest.mark.parametrize("issue", ["2026-10-01T09:00", "2026-10-01T11:00+02:00"])
+def test_mosmix_reads_the_run_asked_for_on_a_host_outside_utc(monkeypatch: pytest.MonkeyPatch, issue: str) -> None:
+    """The 09 UTC run is read for a naive 09:00 on a host in Berlin, as it is on one in UTC (GH-2275).
+
+    `get_url_for_date` used to read the naive issue as local time and look for a 07 UTC run, which
+    MOSMIX-L does not publish, and MOSMIX-L floored `11:00+02:00` to its 09:00+02:00 -- 07 UTC again.
+    """
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda url, *_args, **_kwargs: [
+            f"{url}MOSMIX_L_2026100103_01001.kmz",
+            f"{url}MOSMIX_L_2026100109_01001.kmz",
+            f"{url}MOSMIX_L_2026100115_01001.kmz",
+        ],
+    )
+    read: list[str] = []
+    monkeypatch.setattr(api.KMLReader, "read", lambda _self, url: read.append(url))
+    monkeypatch.setattr(api.KMLReader, "get_station_forecast", lambda _self, _station_id: pl.DataFrame())
+
+    values = _stub_mosmix_stations(issue=issue).values
+    values._collect_station_parameter_or_dataset("01001", api.DwdMosmixMetadata.hourly.large)  # noqa: SLF001
+
+    assert [url.rsplit("/", 1)[-1] for url in read] == ["MOSMIX_L_2026100109_01001.kmz"]
+
+
+@pytest.mark.usefixtures("local_time_is_berlin")
+def test_mosmix_a_naive_date_handed_to_the_url_lookup_is_utc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`get_url_for_date` reads a naive date as UTC, as `dwd/dmo`'s does, not as local time (GH-2275)."""
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda url, *_args, **_kwargs: [f"{url}MOSMIX_L_2026100107_01001.kmz", f"{url}MOSMIX_L_2026100109_01001.kmz"],
+    )
+    values = _stub_mosmix_stations().values
+
+    resolved = values.get_url_for_date(
+        "https://example.com/kml/",
+        dt.datetime(2026, 10, 1, 9),  # noqa: DTZ001
+        one_station_only=True,
+    )
+
+    assert resolved == "https://example.com/kml/MOSMIX_L_2026100109_01001.kmz"
