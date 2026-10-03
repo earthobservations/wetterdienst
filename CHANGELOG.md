@@ -122,9 +122,20 @@ Types of changes:
   `%40`, and a literal `%` followed by two hex digits there or in an InfluxDB database or CrateDB
   schema as `%25`. An `@` in the path or query of an InfluxDB or CrateDB target with a `host:port`
   is read as ending a password too; write it as `%40` there (GH-2248)
+- **Breaking**: the InfluxDB 3 sink connects with the scheme and port its target names:
+  `influxdb3://` is http and `influxdb3s://` https, on the target's port or, with none, 8181 (an
+  InfluxDB 3 Core's) for http and 443 for https. It took only the host and went to https on 443
+  whatever the target said, so a local InfluxDB 3 Core could not be reached. Write an https
+  server, such as InfluxDB Cloud, as `influxdb3s://` (GH-2279)
 
 ### Fixed
 
+- Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most
+  places every 6 deg of longitude) or the equator in the zone of the point. Each was placed in its
+  own zone, hundreds of kilometres off, or 10000 km off across the equator, so a point near either
+  got no value, or one weighted as if those stations stood elsewhere. A station beyond 80 deg S or
+  84 deg N, where UTM ends, is now left out; it failed the whole interpolation. The
+  `interpolation` extra needs utm 0.8 or later, the first to keep the point's hemisphere (GH-2277)
 - Network: a download that keeps arriving no longer fails with `FSTimeoutError` once it runs past
   the `timeout` in `fsspec_client_kwargs` (30 s by default), so a slow link can fetch large files.
   A number there now bounds each wait, to connect and for the next bytes of the answer, not the
@@ -240,6 +251,11 @@ Types of changes:
   the earliest start to the latest end of those datasets. Each merged dataset got a feature holding
   all of the rows, so each value appeared once per dataset. Read a value's dataset from its column
   prefix; the REST API's schema types `dataset` as nullable (GH-2274)
+- The MCP `values` tool answers with GeoJSON and in the wide shape; it failed its own output
+  validation. The REST API's schema for `/api/values` gives a GeoJSON feature's values no
+  `station_id`, which the feature's properties carry, and a wide row `resolution`, a nullable
+  `dataset`, `timestamp` and, outside GeoJSON, `station_id`, plus a value and a quality column per
+  parameter, typed as nullable numbers where pydantic is 2.12 or later (GH-2282)
 - GeoJSON of stations and values gives a station without a latitude or longitude, such as a
   postcode of DWD derived `monthly/climate_correction_factor`, the geometry `null`, as RFC 7946
   has an unlocated feature; it was a `Point` of null coordinates, which strict parsers reject. The
@@ -257,6 +273,12 @@ Types of changes:
 - NOAA GHCN stations asked for both `hourly` and `daily` in one request are listed; the request
   failed with a polars schema error. The hourly stations have a null `start_date` and `end_date`,
   as their station list gives none (GH-2267)
+- DWD MOSMIX takes an `issue` given without an offset as UTC, as DWD DMO does, and converts one
+  with an offset to UTC before flooring it to a run. A naive issue was read in the server's local
+  time, and an offset one floored in its own hours, so a published run could go unfound. The
+  request's `issue` is now a UTC datetime; compare it with aware datetimes (GH-2275)
+- The InfluxDB 2 sink reaches an IPv6 host, such as `influxdb2://acme:tok@[::1]:8086/`. It dropped
+  the brackets and sent `http://::1:8086`, which names no valid host (GH-2279)
 
 ## [0.139.0] - 2026-09-29
 

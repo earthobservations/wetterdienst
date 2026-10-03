@@ -451,12 +451,46 @@ class _ValuesItemDict(TypedDict):
     quality: float | None
 
 
+class _ValuesOgcItemDict(TypedDict):
+    """Type definition for a value of a GeoJSON feature: the feature's properties carry its station."""
+
+    resolution: str
+    dataset: str
+    parameter: str
+    timestamp: str
+    value: float | None
+    quality: float | None
+
+
+# A wide row holds one value and one quality column per parameter, named after it, so those keys
+# differ per request and are typed as extra items rather than declared one by one; being numbers,
+# they also keep a long row, whose `parameter` is a string, from passing for a wide one. Its
+# dataset is null in a resolution the wide shape merged several requested datasets into (see
+# TimeseriesValues._widen_df).
+class _ValuesWideItemDict(TypedDict, extra_items=float | None):
+    """Type definition for a wide row of values."""
+
+    station_id: str
+    resolution: str
+    dataset: str | None
+    timestamp: str
+
+
+class _ValuesWideOgcItemDict(TypedDict, extra_items=float | None):
+    """Type definition for a wide row of a GeoJSON feature: the feature's properties carry its station."""
+
+    resolution: str
+    dataset: str | None
+    timestamp: str
+
+
 class _ValuesDict(TypedDict):
     """Type definition for dictionary of values."""
 
     metadata: NotRequired[_Metadata]
     stations: NotRequired[list[_Station]]
-    values: list[_ValuesItemDict]
+    # one item per value in the long shape, one row per timestamp in the wide one
+    values: list[_ValuesItemDict] | list[_ValuesWideItemDict]
 
 
 @dataclass
@@ -569,7 +603,7 @@ class _ValuesOgcFeature(TypedDict):
     properties: _OgcFeatureProperties
     # null for a station without a position: RFC 7946 3.2 writes an unlocated feature that way
     geometry: _OgcFeatureGeometry | None
-    values: list[_ValuesItemDict]
+    values: list[_ValuesOgcItemDict] | list[_ValuesWideOgcItemDict]
 
 
 class _ValuesOgcFeatureCollectionData(TypedDict):

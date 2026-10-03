@@ -537,7 +537,7 @@ class ExportMixin:
                 INFLUXDB_HOST="eu-central-1-1.aws.cloud2.influxdata.com"
 
                 alias fetch="wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent --station=1048,4411"
-                fetch --target="influxdb3://${INFLUXDB_ORGANIZATION}:${INFLUXDB_TOKEN}@${INFLUXDB_HOST}/?database=dwd&table=weather"
+                fetch --target="influxdb3s://${INFLUXDB_ORGANIZATION}:${INFLUXDB_TOKEN}@${INFLUXDB_HOST}/?database=dwd&table=weather"
 
             Example queries::
 
@@ -573,6 +573,11 @@ class ExportMixin:
 
             log.info(f"Writing to InfluxDB version {version}. database={database}, table={tablename}")
 
+            # the InfluxDB 2 and 3 clients take the server as one URL: https for the `s` variants,
+            # the target's port, and an IPv6 host in the brackets `ConnectionString` reads it out of
+            scheme = "https" if protocol.endswith("s") else "http"
+            netloc = f"[{connspec.host}]" if ":" in (connspec.host or "") else connspec.host
+
             # Set up the connection.
             if version == 1:
                 from influxdb import InfluxDBClient  # noqa: PLC0415
@@ -591,8 +596,7 @@ class ExportMixin:
                 from influxdb_client import Point as PointV2  # noqa: PLC0415
                 from influxdb_client.client.write_api import SYNCHRONOUS  # noqa: PLC0415
 
-                ssl = protocol.endswith("s")
-                url = f"http{(ssl and 's') or ''}://{connspec.host}:{connspec.port or 8086}"
+                url = f"{scheme}://{netloc}:{connspec.port or 8086}"
                 client = InfluxDBClientV2(url=url, org=connspec.username or "", token=connspec.password or "")
                 write_api = client.write_api(write_options=SYNCHRONOUS)
             elif version == 3:
@@ -610,8 +614,12 @@ class ExportMixin:
 
                 write_options = WriteOptions(write_type=WriteType.synchronous)
                 wco = write_client_options(WriteOptions=write_options)
+                # with no port, 443 for https, as the client defaults to whatever the scheme, and
+                # for http the 8181 an InfluxDB 3 Core listens on. No host is left to the client,
+                # which refuses it by name
+                port = connspec.port or (443 if scheme == "https" else 8181)
                 client_v3 = InfluxDBClientV3(
-                    host=connspec.host,
+                    host=connspec.host and f"{scheme}://{netloc}:{port}",
                     org=connspec.username,
                     token=connspec.password,
                     write_client_options=wco,

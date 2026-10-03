@@ -5,7 +5,7 @@
 import json
 import logging
 from types import SimpleNamespace
-from typing import get_args
+from typing import TYPE_CHECKING, get_args
 
 import pytest
 from dirty_equals import IsApprox, IsNumber, IsStr
@@ -16,6 +16,9 @@ from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
+
+if TYPE_CHECKING:
+    from wetterdienst.model.result import ValuesResult
 
 # the media type each image format is registered as, spelled out rather than read from the REST API's
 # own table, which the tests would then only repeat (GH-2063)
@@ -1348,7 +1351,7 @@ def test_get_stations_request_mosmix_issue_is_forwarded() -> None:
     issue = stations_request.issue
     assert issue is not DwdForecastDate.LATEST
     assert isinstance(issue, dt.datetime)
-    assert issue == dt.datetime(2026, 6, 27, 9, 0, 0)  # noqa: DTZ001
+    assert issue == dt.datetime(2026, 6, 27, 9, 0, 0, tzinfo=dt.timezone.utc)
 
 
 def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
@@ -3135,3 +3138,201 @@ def test_ogc_feature_properties_schema_allows_a_null_dataset() -> None:
 
     dataset = app.openapi()["components"]["schemas"]["_OgcFeatureProperties"]["properties"]["dataset"]
     assert {branch.get("type") for branch in dataset.get("anyOf", [dataset])} == {"string", "null"}
+
+
+def _values_result_of_shape(shape: str) -> "ValuesResult":
+    """Build a values result of one station in two daily datasets, in the long or the wide shape.
+
+    The wide row is the one `TimeseriesValues._widen_df` writes for two datasets of one resolution:
+    one value and one quality column per parameter, prefixed with its dataset, and no dataset of
+    its own.
+    """
+    import datetime as dt  # noqa: PLC0415
+
+    import polars as pl  # noqa: PLC0415
+
+    from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult  # noqa: PLC0415
+    from wetterdienst.model.values import TimeseriesValues  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    station = {
+        "resolution": "daily",
+        "station_id": "01048",
+        "start_date": None,
+        "end_date": None,
+        "latitude": 51.1,
+        "longitude": 13.8,
+        "elevation": 228.0,
+        "name": "Dresden-Klotzsche",
+        "region": "Sachsen",
+    }
+    df_stations = pl.DataFrame(
+        [{**station, "dataset": "climate_summary"}, {**station, "dataset": "precipitation_more"}],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "start_date": pl.Datetime(time_zone="UTC"),
+            "end_date": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "elevation": pl.Float64,
+            "name": pl.String,
+            "region": pl.String,
+        },
+        orient="row",
+    )
+    stations = StationsResult(df=df_stations, df_all=df_stations, stations_filter=StationsFilter.ALL, stations=None)
+    row = {"station_id": "01048", "resolution": "daily", "timestamp": dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)}
+    df_values = pl.DataFrame(
+        [
+            {
+                **row,
+                "dataset": "climate_summary",
+                "parameter": "temperature_air_mean_2m",
+                "value": 1.0,
+                "quality": 10.0,
+            },
+            {
+                **row,
+                "dataset": "precipitation_more",
+                "parameter": "precipitation_amount",
+                "value": 2.0,
+                "quality": None,
+            },
+        ],
+        schema_overrides={"timestamp": pl.Datetime(time_zone="UTC")},
+        orient="row",
+    )
+    if shape == "wide":
+        # widened by the method the values pipeline widens with, so the row is the one it writes
+        request = DwdObservationRequest(
+            parameters=[
+                ("daily", "climate_summary", "temperature_air_mean_2m"),
+                ("daily", "precipitation_more", "precipitation_amount"),
+            ],
+        )
+        values = SimpleNamespace(sr=SimpleNamespace(parameters=request.parameters, settings=request.settings))
+        df_values = TimeseriesValues._widen_df(values, df_values)  # noqa: SLF001
+    df_values = TimeseriesValues._cast_metadata_to_enum(df_values)  # noqa: SLF001
+    return ValuesResult(stations=stations, values=None, df=df_values)
+
+
+@pytest.mark.parametrize("shape", ["long", "wide"])
+@pytest.mark.parametrize(("fmt", "schema_name"), [("json", "_ValuesDict"), ("geojson", "_ValuesOgcFeatureCollection")])
+def test_values_output_validates_against_the_served_schema(shape: str, fmt: str, schema_name: str) -> None:
+    """Each values output validates against the schema /openapi.json serves for it (GH-2282).
+
+    Every item was typed as a long JSON item, which a GeoJSON feature's values -- whose station
+    the feature's properties carry -- and a wide row -- one column per parameter, and no dataset
+    in a resolution several datasets were merged into -- do not match, so MCP output validation
+    rejected them.
+    """
+    jsonschema = pytest.importorskip("jsonschema")
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    result = _values_result_of_shape(shape)
+    payload = json.loads(result.to_json() if fmt == "json" else result.to_geojson())
+    components = app.openapi()["components"]
+    jsonschema.validate(payload, {"$ref": f"#/components/schemas/{schema_name}", "components": components})
+
+
+@pytest.mark.parametrize("shape", ["long", "wide"])
+@pytest.mark.parametrize("fmt", ["json", "geojson"])
+def test_mcp_values_tool_passes_output_validation_in_each_shape_and_format(
+    monkeypatch: pytest.MonkeyPatch,
+    shape: str,
+    fmt: str,
+) -> None:
+    """The values MCP tool's results pass its output validation in the wide shape and as GeoJSON (GH-2282).
+
+    Stubbed at `get_stations` so that what is validated is the tool's response to a values result
+    of the shape asked for, without the network.
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    result = _values_result_of_shape(shape)
+    stations = SimpleNamespace(values=SimpleNamespace(all=lambda: result))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> object:
+        async with Client(mcp) as client:
+            response = await client.call_tool(
+                "values",
+                {
+                    "provider": "dwd",
+                    "network": "observation",
+                    # the two datasets the stubbed result holds
+                    "parameters": "daily/climate_summary/temperature_air_mean_2m,"
+                    "daily/precipitation_more/precipitation_amount",
+                    "station": "01048",
+                    "format": fmt,
+                    "shape": shape,
+                },
+            )
+            return response.structured_content
+
+    data = asyncio.run(_call())
+    expected = json.loads(result.to_json() if fmt == "json" else result.to_geojson())
+    assert data["result"] == expected
+
+
+def _pydantic_writes_extra_items() -> bool:
+    """Tell whether pydantic writes a TypedDict's `extra_items` into its schema, which it does from 2.12.
+
+    An older one leaves the wide row's columns undeclared, which JSON Schema admits all the same.
+    """
+    import pydantic  # noqa: PLC0415
+
+    major, minor = (int(part) for part in pydantic.VERSION.split(".")[:2])
+    return (major, minor) >= (2, 12)
+
+
+_NEEDS_EXTRA_ITEMS = pytest.mark.skipif(
+    not _pydantic_writes_extra_items(),
+    reason="pydantic writes a TypedDict's extra_items into its schema from 2.12 on",
+)
+
+
+@_NEEDS_EXTRA_ITEMS
+@pytest.mark.parametrize("schema_name", ["_ValuesWideItemDict", "_ValuesWideOgcItemDict"])
+def test_values_wide_row_schemas_type_the_parameter_columns(schema_name: str) -> None:
+    """The wide row schemas type the columns beyond the declared ones as nullable numbers (GH-2282).
+
+    A wide row has a value and a quality column per parameter asked for, which differ per request,
+    so a client generated from the schema must not read the declared keys as a closed list.
+    """
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    extra = app.openapi()["components"]["schemas"][schema_name]["additionalProperties"]
+    assert {branch.get("type") for branch in extra.get("anyOf", [extra])} == {"number", "null"}
+
+
+@_NEEDS_EXTRA_ITEMS
+@pytest.mark.parametrize(
+    ("fmt", "schema_name"),
+    [("json", "_ValuesWideItemDict"), ("geojson", "_ValuesWideOgcItemDict")],
+)
+def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str) -> None:
+    """A long row fails the wide row schema, so the served union still checks a long row (GH-2282).
+
+    Were the wide row's columns untyped, every long row would match it too, and a long row missing
+    its `value` or `quality` would pass the union through the wide branch.
+    """
+    jsonschema = pytest.importorskip("jsonschema")
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    result = _values_result_of_shape("long")
+    if fmt == "json":
+        item = result.to_dict()["values"][0]
+    else:
+        item = result.to_ogc_feature_collection()["data"]["features"][0]["values"][0]
+    schema = {"$ref": f"#/components/schemas/{schema_name}", "components": app.openapi()["components"]}
+    with pytest.raises(jsonschema.ValidationError, match="'temperature_air_mean_2m' is not valid"):
+        jsonschema.validate(item, schema)
