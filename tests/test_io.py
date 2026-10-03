@@ -3222,7 +3222,14 @@ def test_to_target_hands_influxdb1_an_ipv6_host_in_brackets(target: str, host: s
     assert client.call_args.kwargs["host"] == host
 
 
-def test_to_target_gives_the_influxdb1_client_a_valid_base_url_for_an_ipv6_host() -> None:
+@pytest.mark.parametrize(
+    ("target", "baseurl"),
+    [
+        pytest.param("influxdb://root:pw@[::1]:8086/?database=dwd", "http://[::1]:8086", id="ipv6"),
+        pytest.param("influxdbs://root:pw@[2001:db8::1]/?database=dwd", "https://[2001:db8::1]:8086", id="ipv6-ssl"),
+    ],
+)
+def test_to_target_gives_the_influxdb1_client_a_valid_base_url_for_an_ipv6_host(target: str, baseurl: str) -> None:
     """The real InfluxDB 1 client, handed what the sink hands it, builds a URL `requests` can send to."""
     influxdb = pytest.importorskip("influxdb")
     requests = pytest.importorskip("requests")
@@ -3242,9 +3249,9 @@ def test_to_target_gives_the_influxdb1_client_a_valid_base_url_for_an_ipv6_host(
             pass
 
     with mock.patch("influxdb.InfluxDBClient", _Offline):
-        _one_row().to_target("influxdb://root:pw@[::1]:8086/?database=dwd")
+        _one_row().to_target(target)
 
     (client,) = clients
-    assert client._baseurl == "http://[::1]:8086"  # noqa: SLF001
+    assert client._baseurl == baseurl  # noqa: SLF001
     # `requests` refused the unbracketed `http://::1:8086` as an InvalidURL before sending anything
-    assert requests.Request("GET", f"{client._baseurl}/ping").prepare().url == "http://[::1]:8086/ping"  # noqa: SLF001
+    assert requests.Request("GET", f"{baseurl}/ping").prepare().url == f"{baseurl}/ping"
