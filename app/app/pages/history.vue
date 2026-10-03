@@ -154,6 +154,9 @@ const { data, pending, status, refresh, clear: clearHistories, error } = useFetc
   immediate: false,
   // fetched by Show alone, not whenever the selection changes
   watch: false,
+  // asked once, whatever the failure: ofetch asks a failed GET again, and the REST API answers a failure
+  // on its or the source's side with a 500, where asking again doubles the work behind it
+  retry: 0,
   query: computed(() => sent.value?.query ?? {}),
   // the answer carries the stations it was fetched for: the overview lists them, not the live selection,
   // which may have moved on since. Only the last Show's fetch answers, one Show superseded is cancelled.
