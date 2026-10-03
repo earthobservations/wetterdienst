@@ -123,11 +123,10 @@ Types of changes:
   schema as `%25`. An `@` in the path or query of an InfluxDB or CrateDB target with a `host:port`
   is read as ending a password too; write it as `%40` there (GH-2248)
 - **Breaking**: the InfluxDB 3 sink connects with the scheme and port its target names:
-  `influxdb3://` is http and `influxdb3s://` https, on the target's port or, with none, the
-  client's default 443. It took only the host and went to https on 443 whatever the target said, so
-  a local InfluxDB 3 Core on `http://localhost:8181` could not be reached. Write an https server,
-  such as InfluxDB Cloud, as `influxdb3s://`. The InfluxDB 2 sink keeps an IPv6 host's brackets,
-  which it dropped, so it could not reach one (GH-2279)
+  `influxdb3://` is http and `influxdb3s://` https, on the target's port or, with none, 8181 (an
+  InfluxDB 3 Core's) for http and 443 for https. It took only the host and went to https on 443
+  whatever the target said, so a local InfluxDB 3 Core could not be reached. Write an https
+  server, such as InfluxDB Cloud, as `influxdb3s://` (GH-2279)
 
 ### Fixed
 
@@ -257,6 +256,8 @@ Types of changes:
 - NOAA GHCN daily stations without a known elevation have a null `elevation`. They were listed at
   -999.9 m, the station list's missing value, and `interpolate` and `summarize` given an elevation
   took it for a known one (GH-2247)
+- The InfluxDB 2 sink reaches an IPv6 host, such as `influxdb2://acme:tok@[::1]:8086/`. It dropped
+  the brackets and sent `http://::1:8086`, which names no valid host (GH-2279)
 
 ## [0.139.0] - 2026-09-29
 

@@ -614,10 +614,12 @@ class ExportMixin:
 
                 write_options = WriteOptions(write_type=WriteType.synchronous)
                 wco = write_client_options(WriteOptions=write_options)
-                # with no port, the client's own default: 443, whichever the scheme
-                port = f":{connspec.port}" if connspec.port else ""
+                # with no port, 443 for https, as the client defaults to whatever the scheme, and
+                # for http the 8181 an InfluxDB 3 Core listens on. No host is left to the client,
+                # which refuses it by name
+                port = connspec.port or (443 if scheme == "https" else 8181)
                 client_v3 = InfluxDBClientV3(
-                    host=f"{scheme}://{netloc}{port}",
+                    host=connspec.host and f"{scheme}://{netloc}:{port}",
                     org=connspec.username,
                     token=connspec.password,
                     write_client_options=wco,

@@ -1835,7 +1835,7 @@ def test_export_influxdb3_wide(settings_convert_units_false_wide_shape: Settings
     ):
         values.to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather")
         mock_client.assert_called_once_with(
-            host="http://localhost",
+            host="http://localhost:8181",
             org="orga",
             token="token",  # noqa: S106
             write_client_options=mock.ANY,
@@ -1899,7 +1899,7 @@ def test_export_influxdb3_tidy(settings_convert_units_false: Settings) -> None:
     ):
         values.to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather")
         mock_client.assert_called_once_with(
-            host="http://localhost",
+            host="http://localhost:8181",
             org="orga",
             database="dwd",
             token="token",  # noqa: S106
@@ -2735,7 +2735,7 @@ def test_to_target_writes_influxdb3_with_a_token_holding_delimiters() -> None:
 
     kwargs = client.call_args.kwargs
     assert (kwargs["host"], kwargs["org"], kwargs["token"], kwargs["database"]) == (
-        "http://eu.example.org",
+        "http://eu.example.org:8181",
         "acme",
         _DELIMITED,
         "obs",
@@ -3154,10 +3154,17 @@ def test_values_to_ogc_feature_collection_merged_datasets_span_their_dates() -> 
 @pytest.mark.parametrize(
     ("target", "host"),
     [
-        # a local InfluxDB 3 Core listens on 8181 over http; the bare host went to https on 443
-        pytest.param("influxdb3://acme:tok@localhost:8181/?database=dwd", "http://localhost:8181", id="port"),
-        pytest.param("influxdb3s://acme:tok@eu.example.org/?database=dwd", "https://eu.example.org", id="ssl"),
-        pytest.param("influxdb3://acme:tok@[::1]:8181/?database=dwd", "http://[::1]:8181", id="ipv6"),
+        # the bare host went to https on 443 whatever the target named
+        pytest.param("influxdb3://acme:tok@localhost:9181/?database=dwd", "http://localhost:9181", id="port"),
+        pytest.param(
+            "influxdb3s://acme:tok@eu.example.org:8443/?database=dwd", "https://eu.example.org:8443", id="ssl"
+        ),
+        pytest.param("influxdb3://acme:tok@[::1]:9181/?database=dwd", "http://[::1]:9181", id="ipv6"),
+        # with no port: the 8181 an InfluxDB 3 Core listens on over http, 443 over https
+        pytest.param("influxdb3://acme:tok@localhost/?database=dwd", "http://localhost:8181", id="http-default"),
+        pytest.param(
+            "influxdb3s://acme:tok@eu.example.org/?database=dwd", "https://eu.example.org:443", id="ssl-default"
+        ),
     ],
 )
 def test_to_target_hands_influxdb3_the_scheme_host_and_port_the_target_names(target: str, host: str) -> None:
@@ -3185,3 +3192,12 @@ def test_to_target_hands_influxdb2_the_scheme_host_and_port_the_target_names(tar
         _one_row().to_target(target)
 
     assert client.call_args.kwargs["url"] == url
+
+
+def test_to_target_leaves_influxdb3_a_target_with_no_host_to_refuse() -> None:
+    """No host is handed on as none, which the client refuses by name, not as a URL to `None`."""
+    pytest.importorskip("influxdb_client_3")
+    with mock.patch("influxdb_client_3.InfluxDBClient3") as client:
+        _one_row().to_target("influxdb3://acme:tok@/?database=dwd")
+
+    assert client.call_args.kwargs["host"] is None
