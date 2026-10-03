@@ -3733,10 +3733,10 @@ def _station_runs(items: list[dict]) -> list[str]:
 def test_values_long_order_is_the_one_the_description_states(stubbed_values: Callable[..., dict]) -> None:
     """Long items come grouped by station, then dataset and parameter, in timestamp order (GH-2295).
 
-    The endpoint's docstring, which is also the MCP `values` tool description, tells a model the
-    most recent reading of a parameter is the last item of its group. It used to say the array was
-    sorted by timestamp, which a response with two parameters is not. Which station comes first is
-    not stated, and not asserted either.
+    The endpoint's docstring, which is also the MCP `values` tool description, tells a model a
+    parameter's latest timestamp is the last item of its group. It used to say the array was sorted
+    by timestamp, which a response with two parameters is not. Which station comes first is not
+    stated, and not asserted either; the stub is daily only, so the resolution level goes unvaried.
     """
     values = stubbed_values()["values"]
 

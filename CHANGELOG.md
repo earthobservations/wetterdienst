@@ -137,7 +137,8 @@ Types of changes:
 - The `/api/values` description, which is the MCP `values` tool's, and the MCP instructions said
   the `values` array is sorted by timestamp. It is grouped by station, then by resolution, dataset
   and parameter, in timestamp order within each group, so a parameter's latest timestamp is the
-  last of its group. The description now also says what a wide item and a GeoJSON response hold (GH-2295)
+  last of its group. The description now also says what a wide item and a GeoJSON response hold
+  (GH-2295)
 - `/api/values` and its MCP tool answer `unit_targets` naming a quantity the converter does not
   have, such as `{"foo": "bar"}`, with a 400 saying so, where they answered a bare 500 (GH-2272)
 - Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most
