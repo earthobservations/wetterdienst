@@ -108,7 +108,10 @@ Types of changes:
 - **Breaking**: `/api/stations`, `/api/history`, `/api/issues`, the `/api/stripes` endpoints and
   their MCP tools answer a failure on the server's or the data source's side to read what was asked
   for with a 500 carrying its message, where they answered 400, as `/api/values` does. Retry or
-  report a 500 rather than rephrasing. A request refused for what it asks keeps its 400 (GH-2276)
+  report a 500 rather than rephrasing. A request refused for what it asks keeps its 400. Climate
+  stripes for a station they do not know raise `StationNotFoundError`, where they raised
+  `ValueError`, and for fewer than two years with data the new `NotEnoughDataError`, a `ValueError`
+  (GH-2276)
 - The `mysql` extra takes pandas 3, as the other extras that bring pandas do. It asked for pandas
   below 3, so installing it downgraded an environment on pandas 3 to 2.x (GH-2250)
 - DWD DMO's coverage, from `discover`, `/api/coverage`, the CLI and MCP, gives each parameter
