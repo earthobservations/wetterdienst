@@ -38,7 +38,7 @@ async function loadStation(id: string) {
         station: id,
       },
       // asked once, whatever the failure: ofetch asks a failed GET again, and the REST API answers a failure
-      // on its or the source's side with a 500, where asking again doubles the work and holds back the error
+      // on its or the source's side with a 500, where asking again doubles the work behind it
       retry: 0,
     })
     station.value = (res.stations ?? [])[0] ?? null

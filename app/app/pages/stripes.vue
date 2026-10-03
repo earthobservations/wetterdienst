@@ -61,7 +61,7 @@ const { data: stationsData, pending: stationsPending } = useFetch<StripesStation
   {
     query: { kind },
     // asked once, whatever the failure: ofetch asks a failed GET again, and the REST API answers a failure
-    // on its or the source's side with a 500, where asking again doubles the work and holds back the error
+    // on its or the source's side with a 500, where asking again doubles the work behind it
     retry: 0,
   },
 )
@@ -170,7 +170,7 @@ async function fetchAndPlotStripes() {
     const response = await $fetch<StripesValuesResponse>('/api/stripes/values', {
       query: params,
       // asked once, whatever the failure: ofetch asks a failed GET again, and the REST API answers a failure
-      // on its or the source's side with a 500, where asking again doubles the work and holds back the error
+      // on its or the source's side with a 500, where asking again doubles the work behind it
       retry: 0,
     })
     // a newer fetch, a Reset or another station chosen came while this one was under way: it shows
