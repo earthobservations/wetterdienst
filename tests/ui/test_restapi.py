@@ -3781,6 +3781,8 @@ def test_values_wide_items_are_the_ones_the_description_states(stubbed_values: C
             *parameters,
             *(f"{parameter}_quality" for parameter in parameters),
         }
+        # both datasets are daily, so they share the row and no one dataset names it
+        assert item["dataset"] is None
 
 
 def test_values_geojson_items_are_the_ones_the_description_states(stubbed_values: Callable[..., dict]) -> None:
