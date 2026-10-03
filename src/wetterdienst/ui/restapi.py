@@ -566,10 +566,11 @@ def values(
     station, then by resolution, dataset and parameter, in timestamp order within each group: the
     most recent reading of a parameter is the last item of its group, not of the array. With
     shape="wide" an item is one timestamp of a station and resolution, with a key per parameter for
-    its value and the same key with a `_quality` suffix for its quality, and no `parameter` key, in
-    timestamp order within each station and resolution. With format="geojson" the items are in each
-    feature's `values` under `data.features`, in the same order and without `station_id`, which the
-    feature carries. Do not re-request in other formats.
+    its value (named "<dataset>_<parameter>" when the request spans several datasets) and the same
+    key with a `_quality` suffix, and no `parameter` key, in timestamp order within each station and
+    resolution. With format="geojson" each feature in `data.features` is one station, holding only
+    that station's items under `values`, in the same order and without `station_id`; a station with
+    several datasets can have several features. Do not re-request in other formats.
     """
     set_logging_level(debug=request.debug)
 
