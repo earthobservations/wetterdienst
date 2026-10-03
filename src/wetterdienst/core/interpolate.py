@@ -52,6 +52,9 @@ log = logging.getLogger(__name__)
 
 # what `apply_interpolation` wants before it can answer: four stations that surround the point
 STATIONS_NEEDED = 4
+# the latitudes UTM covers, as `utm.from_latlon` checks them
+UTM_LATITUDE_MIN = -80
+UTM_LATITUDE_MAX = 84
 
 # Occurrence thresholding is applied to the quantities the canonical parameter table marks
 # `zero_inflated`: linear interpolation between a station that recorded rain and one that recorded
@@ -193,19 +196,21 @@ def request_stations(
             break
         if result.df.drop_nulls("value").is_empty():
             continue
-        try:
-            utm_x_station, utm_y_station = utm.from_latlon(
-                station["latitude"],
-                station["longitude"],
-                force_zone_number=zone[0],
-                force_zone_letter=zone[1],
-            )[:2]
-        except OutOfRangeError as e:
+        if not UTM_LATITUDE_MIN <= station["latitude"] <= UTM_LATITUDE_MAX:
             # UTM ends at 80 deg S and 84 deg N, so a station beyond, in reach of a point inside, has
-            # no place in the frame, and nor has one with a longitude outside -180 to 180; left out
-            # before its readings are taken, as it cannot be in a hull
-            log.info(f"station {station['station_id']} cannot be placed in UTM and is left out: {e}")
+            # no place in the frame; left out before its readings are applied, as it cannot be in a
+            # hull. A longitude outside -180 to 180 is bad metadata, not this, and still raises
+            log.info(
+                f"station {station['station_id']} lies at latitude {station['latitude']}, beyond the "
+                f"{UTM_LATITUDE_MIN} to {UTM_LATITUDE_MAX} UTM covers, and is left out",
+            )
             continue
+        utm_x_station, utm_y_station = utm.from_latlon(
+            station["latitude"],
+            station["longitude"],
+            force_zone_number=zone[0],
+            force_zone_letter=zone[1],
+        )[:2]
         contributed = apply_station_values_per_parameter(
             result.df,
             stations_ranked,
