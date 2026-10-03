@@ -139,6 +139,8 @@ Types of changes:
   and `daily` together, such a station returned no hourly values inside the window (GH-2292)
 - `/api/values` and its MCP tool answer `unit_targets` naming a quantity the converter does not
   have, such as `{"foo": "bar"}`, with a 400 saying so, where they answered a bare 500 (GH-2272)
+- `wetterdienst values` refuses such `--unit_targets` with `Invalid value for '--unit_targets'`
+  and exit status 2, where it died with a traceback (GH-2296)
 - Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most
   places every 6 deg of longitude) or the equator in the zone of the point. Each was placed in its
   own zone, hundreds of kilometres off, or 10000 km off across the equator, so a point near either

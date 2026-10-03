@@ -11,6 +11,7 @@ from textwrap import dedent
 import click
 import pytest
 from click.testing import CliRunner
+from pydantic import ValidationError
 
 from wetterdienst import Wetterdienst
 from wetterdienst.model.metadata import parse_parameters
@@ -602,3 +603,33 @@ def test_cli_refuses_selection(args: list[str], message: str) -> None:
     assert message in result.output
     # one line per problem, without pydantic's echo of every option the command took
     assert "input_value" not in result.output
+
+
+def test_cli_values_refuses_unknown_unit_targets_quantity() -> None:
+    """Test a unit target for a quantity the converter does not know is a usage error, not a traceback."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"foo": "bar"}'])
+    assert result.exit_code == 2, result.output
+    assert "Error: Invalid value for '--unit_targets': Invalid unit targets: one of {'foo'} not in" in result.output
+    # one line, without pydantic's echo of the input
+    assert "input_value" not in result.output
+
+
+def test_cli_values_does_not_blame_the_command_line_for_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a WD_* environment variable Settings refuses is not told as a bad --unit_targets."""
+    monkeypatch.setenv("WD_CACHE_DISABLE", "notabool")
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"temperature": "degree_fahrenheit"}']
+    )
+    assert isinstance(result.exception, ValidationError)
+    assert "--unit_targets" not in result.output
+
+
+def test_cli_values_does_not_blame_an_absent_unit_targets_for_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a WD_TS_UNIT_TARGETS that Settings refuses is not told as a bad --unit_targets nobody gave."""
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"foo": "bar"}')
+    runner = CliRunner()
+    result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048"])
+    assert isinstance(result.exception, ValidationError)
+    assert "--unit_targets" not in result.output
