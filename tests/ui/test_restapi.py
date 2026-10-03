@@ -3368,11 +3368,90 @@ def test_a_failure_of_the_lookup_that_is_not_a_refusal_is_a_500(
     assert response.json()["detail"] == _UNEXPECTED
 
 
-def test_the_stripes_refusal_type_keeps_the_type_it_was_raised_as() -> None:
-    """A caller catching `ValueError` for stripes over too few years still catches it (GH-2276)."""
-    from wetterdienst.exceptions import NotEnoughDataError  # noqa: PLC0415
+def _fail_as_a_refusal(*_args: object, **_kwargs: object) -> None:
+    from wetterdienst.exceptions import InvalidEnumerationError  # noqa: PLC0415
 
-    assert issubclass(NotEnoughDataError, ValueError)
+    raise InvalidEnumerationError(_UNEXPECTED)
+
+
+class _HistoryFailsAsARefusal:
+    """A stations result whose history fails with a refusal's type, as a source's own data could."""
+
+    def __init__(self, step: str) -> None:
+        self.step = step
+
+    @property
+    def history(self) -> SimpleNamespace:
+        if self.step == "history":
+            _fail_as_a_refusal()
+        return SimpleNamespace(query=_fail_as_a_refusal)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point", "stub", "params"),
+    [
+        pytest.param(
+            "/api/stripes/stations",
+            "_get_stripes_stations",
+            _fail_as_a_refusal,
+            {"kind": "temperature"},
+            id="stripes-stations",
+        ),
+        pytest.param(
+            "/api/history",
+            "get_stations",
+            lambda **_kwargs: _HistoryFailsAsARefusal("history"),
+            {**_OBSERVATION, "station": "01048"},
+            id="history-provider",
+        ),
+        pytest.param(
+            "/api/history",
+            "get_stations",
+            lambda **_kwargs: _HistoryFailsAsARefusal("query"),
+            {**_OBSERVATION, "station": "01048"},
+            id="history-query",
+        ),
+    ],
+)
+def test_a_failure_where_the_caller_has_no_input_is_a_500_whatever_its_type(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    entry_point: str,
+    stub: object,
+    params: dict[str, object],
+) -> None:
+    """A refusal's type raised where nothing of the caller's reaches is the source's, and a 500 (GH-2276).
+
+    The station list of the stripes takes no input the signature has not checked, and a history is
+    read once its stations are known, so an `InvalidEnumerationError` there comes from the data.
+    """
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", stub)
+
+    response = client.get(endpoint, params=params)
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == _UNEXPECTED
+
+
+def test_stripes_an_index_error_building_the_station_is_not_an_unknown_station(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An `IndexError` from building the stations is a 500, not "No station ... found" (GH-2276)."""
+    from wetterdienst.ui import core  # noqa: PLC0415
+
+    def to_dict() -> None:
+        msg = "list index out of range"
+        raise IndexError(msg)
+
+    request = SimpleNamespace(filter_by_station_id=lambda _station: SimpleNamespace(to_dict=to_dict))
+    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period: request)
+
+    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "list index out of range"
 
 
 def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient) -> None:

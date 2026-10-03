@@ -1341,12 +1341,14 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         msg = f"{type(stripes).__name__} gives neither a station nor a name"
         raise AssertionError(msg)
 
-    try:
-        station = stations.to_dict()["stations"][0]
-    except IndexError as e:
+    # asked of the list rather than caught from indexing it, so an `IndexError` from building the
+    # list is not taken for an unknown station
+    found = stations.to_dict()["stations"]
+    if not found:
         parameter = "station_id" if stripes.station else "name"
         msg = f"No station with a {parameter} similar to '{stripes.station or stripes.name}' found"
-        raise StationNotFoundError(msg) from e
+        raise StationNotFoundError(msg)
+    station = found[0]
 
     df = stations.values.all().df.sort("timestamp")
     df = df.set_sorted("timestamp")

@@ -638,10 +638,10 @@ def _geo_settings(
 # what a request can provoke on its way through `get_values`, `get_interpolate` and
 # `get_summarize` besides the refusals the helpers below name: a date, period, parameter, bounding
 # box, point, unit target or issue that cannot be served as given, or a station the lookup does not
-# know. The station lookup of `/api/stations` and `/api/history`, the issue listing and the climate
-# stripes provoke a subset of these, and two more: a dataset `/api/history` cannot list without the
-# date it has no field for (a refusal the helpers below name before this), and stripes over years
-# holding too little data.
+# know. The station lookup of `/api/stations` and `/api/history`, the issue listing and the values of
+# the climate stripes provoke a subset of these, and two more: a dataset `/api/history` cannot list
+# without the date it has no field for (a refusal the helpers below name before this), and stripes
+# over years holding too little data.
 # An `OverflowError` is a date at the edge of what a datetime holds -- `9999-12-31T23:00Z` once a
 # provider converts it to its own zone, an issue a negative offset carries past year 9999 -- and the
 # dates on the way that come that close are the request's. Anything else -- a provider's file in a
@@ -875,8 +875,10 @@ def stripes_stations(
     try:
         stations = _get_stripes_stations(kind=kind, active=active)
     except Exception as e:
+        # nothing of the caller's reaches the lookup but a kind and a flag its signature has checked,
+        # so a failure here is the server's or the data source's, whatever its type
         log.exception("Failed to get stripes stations")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
     content = stations.to_format(fmt=fmt, with_metadata=True, indent=pretty)
     media_type = "text/csv" if fmt == "csv" else "application/json"
     return Response(content=content, media_type=media_type)
@@ -980,8 +982,10 @@ def history(
         log.exception("History not implemented for provider/network")
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
+        # past the station lookup the request has nothing left to refuse: what fails from here on
+        # is the server's or the data source's, whatever its type
         log.exception("Failed to acquire history provider")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     data: dict[str, Any] = {}
     if request.with_metadata:
@@ -995,7 +999,7 @@ def history(
             data["histories"].append(select_history_sections(history, request.sections))
     except Exception as e:
         log.exception("Failed to collect station history")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
     return Response(
         content=json.dumps(
             data,
