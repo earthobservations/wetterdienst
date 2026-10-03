@@ -8804,7 +8804,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.15.0,<5" },
     { name = "tzdata", specifier = ">=2024.2" },
     { name = "tzfpy", specifier = ">=0.15.2,<3" },
-    { name = "utm", marker = "extra == 'interpolation'", specifier = ">=0.7,<1" },
+    { name = "utm", marker = "extra == 'interpolation'", specifier = ">=0.8,<1" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'restapi'", specifier = ">=0.30,<1" },
     { name = "wetterdienst", extras = ["restapi"], marker = "extra == 'mcp'" },
     { name = "wradlib", marker = "extra == 'radarplus'", specifier = ">=2.0.1,<3" },

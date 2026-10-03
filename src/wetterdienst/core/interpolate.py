@@ -52,6 +52,9 @@ log = logging.getLogger(__name__)
 
 # what `apply_interpolation` wants before it can answer: four stations that surround the point
 STATIONS_NEEDED = 4
+# the latitudes UTM covers, as `utm.from_latlon` checks them
+UTM_LATITUDE_MIN = -80
+UTM_LATITUDE_MAX = 84
 
 # Occurrence thresholding is applied to the quantities the canonical parameter table marks
 # `zero_inflated`: linear interpolation between a station that recorded rain and one that recorded
@@ -75,7 +78,7 @@ def get_interpolated_df(
 
     """
     try:
-        utm_x, utm_y, _, _ = utm.from_latlon(latitude, longitude)
+        utm_x, utm_y, zone_number, zone_letter = utm.from_latlon(latitude, longitude)
     except OutOfRangeError as e:
         # UTM covers 80 deg S to 84 deg N, so a point beyond is the caller's to move
         raise LocationOutOfRangeError(str(e)) from e
@@ -87,6 +90,7 @@ def get_interpolated_df(
         utm_x,
         utm_y,
         elevation,
+        zone=(zone_number, zone_letter),
     )
     df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance)
     # after the frame is built, not before: a parameter the exclusions left with three stations
@@ -110,6 +114,8 @@ def request_stations(
     utm_x: float,
     utm_y: float,
     elevation: float | None = None,
+    *,
+    zone: tuple[int, str] | None = None,
 ) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForElevation], set[tuple[str, str, str]]]:
     """Request the stations for the interpolation.
 
@@ -120,6 +126,10 @@ def request_stations(
         utm_x: longitude in UTM of the point to interpolate
         utm_y: latitude in UTM of the point to interpolate
         elevation: elevation of the point in metres, to bring each station's readings to
+        zone: number and letter of the UTM zone `utm_x` and `utm_y` are in, which every station is
+            placed in as well: each zone has a frame of its own, and a station a few kilometres
+            across a zone boundary would otherwise land hundreds of kilometres from the point.
+            Taken from `latitude` and `longitude` where not given
 
     Returns:
         the stations dict, the parameter dict, how many stations each parameter lost for
@@ -129,6 +139,8 @@ def request_stations(
     param_dict = {}
     stations_dict = {}
     dropped_for_elevation: dict[tuple[str, str, str], DroppedForElevation] = {}
+    if zone is None:
+        zone = cast("tuple[int, str]", utm.from_latlon(latitude, longitude)[2:])
     settings = cast("Settings", request.settings)
     max_interp_distance = max(
         settings.ts_geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
@@ -184,6 +196,12 @@ def request_stations(
             break
         if result.df.drop_nulls("value").is_empty():
             continue
+        if not UTM_LATITUDE_MIN <= station["latitude"] <= UTM_LATITUDE_MAX:
+            # UTM ends at 80 deg S and 84 deg N, so a station beyond, in reach of a point inside, has
+            # no place in the frame; left out before its readings are applied, as it cannot be in a
+            # hull. A longitude outside -180 to 180 is bad metadata, not this, and still raises
+            log.info(f"station {station['station_id']} lies beyond the 80 deg S to 84 deg N UTM covers and is left out")
+            continue
         contributed = apply_station_values_per_parameter(
             result.df,
             stations_ranked,
@@ -199,7 +217,12 @@ def request_stations(
         # be interpolated from -- which is what a station with no elevation is, once an elevation is
         # asked for
         if contributed:
-            utm_x_station, utm_y_station = utm.from_latlon(station["latitude"], station["longitude"])[:2]
+            utm_x_station, utm_y_station = utm.from_latlon(
+                station["latitude"],
+                station["longitude"],
+                force_zone_number=zone[0],
+                force_zone_letter=zone[1],
+            )[:2]
             stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
     return stations_dict, param_dict, dropped_for_elevation, unanswerable
 

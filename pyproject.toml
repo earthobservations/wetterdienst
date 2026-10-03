@@ -188,7 +188,9 @@ interpolation = [
     # 2.0.6 is the first release that works with numpy 2, which everything else here resolves to.
     # Before it, building a geometry from coordinates raises out of `create_collection`
     "shapely>=2.0.6,<3",
-    "utm>=0.7,<1",
+    # 0.8 is the first release whose `from_latlon` takes the hemisphere from a forced zone letter.
+    # Before it, a station south of the equator gets the false northing whatever the letter says
+    "utm>=0.8,<1",
 ]
 # `mysql` and `postgresql` carry what the SQL sink imports, so either works without `export`
 mysql = [
