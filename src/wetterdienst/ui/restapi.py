@@ -562,8 +562,14 @@ def values(
     "daily/climate_summary/temperature_air_mean_2m") to keep the response small, and `station` with
     an id from `stations` (e.g. station="01975"). `periods` is optional and provider-specific --
     "recent" for dwd/observation, while a provider that publishes under a single period rejects any
-    other one. The response `values` array is sorted by timestamp; the most recent reading for a
-    parameter is the last item with that parameter. Do not re-request in other formats.
+    other one. In the default JSON (shape="long") `values` has one item per reading, grouped by
+    station, then by resolution, dataset and parameter, in timestamp order within each group: the
+    most recent reading of a parameter is the last item of its group, not of the array. With
+    shape="wide" an item is one timestamp of a station and resolution, with a key per parameter for
+    its value and the same key with a `_quality` suffix for its quality, and no `parameter` key, in
+    timestamp order within each station and resolution. With format="geojson" the items are in each
+    feature's `values` under `data.features`, in the same order and without `station_id`, which the
+    feature carries. Do not re-request in other formats.
     """
     set_logging_level(debug=request.debug)
 

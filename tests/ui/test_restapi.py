@@ -3684,3 +3684,69 @@ def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     # request that got past them would fail on the network and answer with a detail of its own
     assert response.status_code == 500
     assert response.text == "Internal Server Error"
+
+
+def _stubbed_values(client: TestClient, monkeypatch: pytest.MonkeyPatch, **params: str) -> dict:
+    """Answer `/api/values` for two stations and two parameters of one dataset, offline.
+
+    The stub hands each dataset back timestamp first and parameter second, so the order a response
+    comes in is the one `TimeseriesValues.query` sorts it into, not the order the source wrote.
+    """
+    from tests.model.test_values import _stub_dwd_daily  # noqa: PLC0415
+
+    _stub_dwd_daily(
+        station_ids=["00002", "00001"],
+        data_year_by_station={"00002": 1990, "00001": 1990},
+        monkeypatch=monkeypatch,
+    )
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m,daily/kl/precipitation_amount",
+            "station": "00002,00001",
+            **params,
+        },
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_values_long_order_is_the_one_the_description_states(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Long items come grouped by station and parameter, each group in timestamp order (GH-2295).
+
+    The endpoint's docstring, which is also the MCP `values` tool description, tells a model the
+    most recent reading of a parameter is the last item of its group. It used to say the array was
+    sorted by timestamp, which a response with two parameters is not.
+    """
+    values = _stubbed_values(client, monkeypatch)["values"]
+
+    assert [(item["station_id"], item["parameter"], item["timestamp"][:10]) for item in values] == [
+        (station_id, parameter, day)
+        for station_id in ["00002", "00001"]
+        for parameter in ["precipitation_amount", "temperature_air_mean_2m"]
+        for day in ["1990-01-01", "1990-01-02", "1990-01-03"]
+    ]
+
+
+def test_values_wide_and_geojson_items_are_the_ones_the_description_states(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A wide item is one timestamp with a key per parameter; GeoJSON nests items per feature (GH-2295)."""
+    long = _stubbed_values(client, monkeypatch)["values"]
+    wide = _stubbed_values(client, monkeypatch, shape="wide")["values"]
+    features = _stubbed_values(client, monkeypatch, format="geojson")["data"]["features"]
+
+    assert [(item["station_id"], item["timestamp"][:10]) for item in wide] == [
+        (station_id, day) for station_id in ["00002", "00001"] for day in ["1990-01-01", "1990-01-02", "1990-01-03"]
+    ]
+    assert all("parameter" not in item for item in wide)
+    assert {"temperature_air_mean_2m", "temperature_air_mean_2m_quality"} <= wide[0].keys()
+    # the same items in the same order, the station moved from each item onto its feature
+    assert [feature["properties"]["id"] for feature in features] == ["00002", "00001"]
+    assert [item for feature in features for item in feature["values"]] == [
+        {key: value for key, value in item.items() if key != "station_id"} for item in long
+    ]
