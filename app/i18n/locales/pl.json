@@ -446,7 +446,7 @@
     "threshold": "Próg",
     "interpolationOptions": "Opcje interpolacji",
     "nearbyDistance": "Odległość pobliskich stacji",
-    "nearbyDistanceHint": "Maksymalna odległość uwzględniania pobliskich stacji. Jeśli stacja znajduje się w tej odległości, zostanie użyta jej rzeczywista wartość zamiast interpolacji/podsumowania.",
+    "nearbyDistanceHint": "Maksymalna odległość uwzględniania pobliskich stacji. Jeśli stacja znajduje się w tej odległości, zostanie użyta jej rzeczywista wartość zamiast interpolacji.",
     "advancedSettings": "Ustawienia zaawansowane",
     "stationDistanceByParam": "Odległość stacji według parametru",
     "stationDistanceHint": "Maksymalna odległość (km) do stacji. Parametry jednorodne, takie jak temperatura, zmieniają się powoli w obrębie regionu i używają swojej wartości przy każdej rozdzielczości. Niejednorodne, takie jak opady, dekorelują szybciej, a ich wartość dotyczy rozdzielczości godzinowej: jest skalowana rozdzielczością, ×0,75 przy rozdzielczościach minutowych i ×2 od dobowej wzwyż. Pojedyncze parametry można nadpisać poniżej.",

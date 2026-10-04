@@ -244,6 +244,11 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=".env",
+        # read only the settings from `.env`, as from the environment. A `.env` is often shared with
+        # other programs, and by default each of its other keys is handed on too, which the settings
+        # refuse as no field of theirs: one line of someone else's made every `Settings()` fail and
+        # echoed its value (GH-2349). The constructor still refuses a keyword that is no setting
+        dotenv_filtering="only_existing",
         env_ignore_empty=True,
         env_prefix="WD_",
         env_nested_delimiter="__",
@@ -344,15 +349,19 @@ class Settings(BaseSettings):
 
     @field_validator("ts_geo_station_distance", mode="before")
     @classmethod
-    def validate_ts_geo_station_distance_keys(cls, values: dict[str, float] | None) -> dict[str, float]:
+    def validate_ts_geo_station_distance_keys(cls, values: object) -> object:
         """Check the overridden parameter names, which used to be taken on trust.
 
         A name that is not a canonical parameter can never be looked up, so the override silently
         did nothing and the parameter the user meant kept its default radius -- a typo was
-        indistinguishable from having set nothing at all.
+        indistinguishable from having set nothing at all. An empty value means no overrides; any
+        other that is not a mapping is left for the field to refuse, which names it, where looking
+        for keys in it failed with a bare `TypeError` that named nothing (GH-2353).
         """
         if not values:
             return {}
+        if not isinstance(values, Mapping):
+            return values
         if "default" in values:
             msg = (
                 "the 'default' key of ts_geo_station_distance is gone, as it replaced the fallback radius and "
@@ -389,13 +398,16 @@ class Settings(BaseSettings):
 
     @field_validator("ts_geo_station_distance_resolution_factors", mode="before")
     @classmethod
-    def validate_ts_geo_station_distance_resolution_factors_keys(
-        cls,
-        values: dict[str, float] | None,
-    ) -> dict[str, float]:
-        """Check the resolutions, which are a closed vocabulary like the unit types are."""
+    def validate_ts_geo_station_distance_resolution_factors_keys(cls, values: object) -> object:
+        """Check the resolutions, which are a closed vocabulary like the unit types are.
+
+        An empty value means no factors of one's own, and any other that is not a mapping is left
+        for the field to refuse, as for `ts_geo_station_distance`.
+        """
         if not values:
             return {}
+        if not isinstance(values, Mapping):
+            return values
         resolutions = {resolution.value for resolution in Resolution}
         unknown = sorted(set(values) - resolutions)
         if unknown:
@@ -507,7 +519,8 @@ def _describe_settings_error(error: ValidationError | SettingsError) -> list[str
     """Tell what is wrong with the settings, a line for each problem, by the `WD_*` variable that sets it.
 
     For an error of settings built from the environment and `.env` alone, as `check_settings`
-    builds them: a key no setting has can then only have come from `.env`.
+    builds them. Neither hands on a key that is no setting (GH-2349), so every problem is a
+    setting's.
 
     pydantic's own account names the field rather than the variable an operator set, and repeats
     the value given -- which for `WD_AUTH__*` is a credential, and for `WD_FSSPEC_CLIENT_KWARGS`
@@ -524,12 +537,6 @@ def _describe_settings_error(error: ValidationError | SettingsError) -> list[str
         return [str(error)]
     lines = []
     for problem in error.errors(include_url=False):
-        if problem["type"] == "extra_forbidden":
-            # a key of `.env` that names no setting, located by the whole key, prefix and all, but
-            # lower-cased, so it is named in upper case as variables are; the environment's own
-            # such variables are ignored
-            lines.append(f"{str(problem['loc'][0]).upper()} in .env is not a wetterdienst setting")
-            continue
         variable = "WD_" + "__".join(str(part) for part in problem["loc"]).upper() if problem["loc"] else "WD_*"
         lines.append(f"{variable} is invalid: {problem['msg'].removeprefix('Value error, ')}")
     return lines

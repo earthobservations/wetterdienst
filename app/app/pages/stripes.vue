@@ -112,6 +112,9 @@ const lastFetchedData = ref<StripesValuesResponse | null>(null)
 let plotsStarted = 0
 const plotFailed = ref(false)
 const plotFailures = ref(0)
+// a Retry that works hands its focus on to the stripes it drew
+const plotNotice = useTemplateRef<HTMLElement>('plotNotice')
+useFocusAfterRetry(() => hasPlot.value && plotFailed.value, plotNotice, plotContainer)
 // The values' fetches, numbered as they start, so that only the newest, not stopped by a Reset, shows
 // what it fetched. Failed: why the newest could not fetch the values, told in the chart area
 let fetchesStarted = 0
@@ -848,6 +851,7 @@ onMounted(() => {
         </div>
         <div
           v-if="hasPlot && plotFailed"
+          ref="plotNotice"
           class="flex flex-wrap items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
         >
           <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
@@ -865,7 +869,7 @@ onMounted(() => {
           <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
         </div>
         <div
-          ref="plotContainer" :class="{ hidden: !hasPlot }"
+          ref="plotContainer" tabindex="-1" :class="{ hidden: !hasPlot }"
           class="w-full overflow-hidden" style="min-height: 400px;"
         />
         <div v-if="hasPlot && !plotFailed" class="mt-4">
