@@ -523,6 +523,7 @@
     "selectStationForCoords": "Selecteer een station voor de coördinaten",
     "selectStation": "Selecteer een station",
     "loadingStations": "Stations laden …",
+    "loadError": "Stations laden mislukt.",
     "coords": "Interpolatiecoördinaten: {coords}"
   },
   "dateRange": {
