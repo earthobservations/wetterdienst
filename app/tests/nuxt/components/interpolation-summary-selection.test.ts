@@ -334,8 +334,10 @@ describe('the interpolation\'s station picker with no station to offer', () => {
     // and the select is described by it, so it is heard on reaching the select
     const help = wrapper.find('[data-slot="help"]')
     expect(help.text()).toBe(notice)
-    const describedBy = wrapper.find('[aria-describedby]').attributes('aria-describedby')!.split(' ')
-    expect(describedBy).toContain(help.attributes('id'))
+    // the select is the control its field's label names
+    const label = wrapper.findAll('label').find(l => l.text().includes('Select station for coordinates'))!
+    const select = wrapper.find(`[id="${label.attributes('for')}"]`)
+    expect(select.attributes('aria-describedby')!.split(' ')).toContain(help.attributes('id'))
   })
 
   it('says so when the list is empty', async () => {
