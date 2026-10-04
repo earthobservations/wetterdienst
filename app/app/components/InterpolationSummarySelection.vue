@@ -89,12 +89,6 @@ watch(stationsWanted, (wanted) => {
     clearStations()
 }, { immediate: true })
 
-// a second click while Retry's request is out would cancel it and ask for the whole list again
-function retryStations() {
-  if (!stationsPending.value)
-    refreshStations()
-}
-
 function setSource(source: InterpolationSource) {
   // clicking the source already in use is not a change, and treating it as one dropped the elevation
   // of a station that stayed selected -- the form unchanged on screen, the next answer
@@ -180,12 +174,14 @@ const displayCoords = computed(() => {
         <!-- a failed list leaves the select empty, and nothing asks for it again until the selection
              wants another list. useFetch keeps the error until the next answer: the notice is
              mounted anew once each answer has failed, so a Retry that fails too is announced again;
-             the button stays while Retry's request is out, and keeps its focus -->
+             the button stays while Retry's request is out, and keeps its focus. Pressed again
+             meanwhile, it waits for that request, where a plain refresh cancels it and asks for
+             the whole list anew -->
         <div v-if="stationsError" class="mt-2 flex flex-wrap items-center gap-3">
           <p v-if="!stationsPending" role="alert" class="text-sm text-error">
             {{ t('interpolation.loadError') }}
           </p>
-          <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="retryStations()" />
+          <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="refreshStations({ dedupe: 'defer' })" />
         </div>
       </UFormField>
     </div>

@@ -305,8 +305,7 @@ Types of changes:
   change of dataset, and not again for a parameter ticked or unticked while another stays ticked,
   where it asked more than once and the backend built the whole list for each (GH-2314)
 - `[Explorer]` Where the station list of the interpolation and summary's station picker could not
-  be loaded, the picker says so and offers Retry, where it stayed empty without a word until
-  another provider, network, resolution or dataset was chosen (GH-2332)
+  be loaded, the picker says so and offers Retry, where it stayed empty without a word (GH-2332)
 
 ## [0.17.0] - 2026-09-29
 
