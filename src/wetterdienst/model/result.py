@@ -651,7 +651,7 @@ class ValuesResult(_ValuesResult):
             ).items()
         }
         # cut down to the stations that returned values before walking the rows: a ranked request
-        # keeps the whole network in the stations frame (see TimeseriesRequest.filter_by_rank)
+        # keeps every station with a position in the stations frame (see TimeseriesRequest.filter_by_rank)
         df_stations = self.stations.df.join(
             self.df.select(pl.col("resolution", "station_id").cast(pl.String)).unique(),
             on=["resolution", "station_id"],

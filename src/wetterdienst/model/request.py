@@ -22,6 +22,7 @@ from rapidfuzz import utils as fuzz_utils
 from wetterdienst.exceptions import (
     InvalidBoundingBoxError,
     InvalidTimeIntervalError,
+    LocationOutOfRangeError,
     NoParametersFoundError,
     NoPeriodsFoundError,
     StartDateEndDateError,
@@ -546,12 +547,13 @@ class TimeseriesRequest:
         """Filter stations by rank.
 
         Rank is defined by distance to the requested point. The resulting
-        ``StationsResult.df`` holds **all** stations sorted by distance, not just
-        ``rank`` rows: because we cannot know upfront which stations actually carry
-        data for the request, the ``rank`` limit is applied lazily while collecting
-        values. Value collection walks the distance-sorted stations and stops once
-        ``rank`` stations that returned anything have been consumed. The stations
-        that ended up contributing values are then exposed via
+        ``StationsResult.df`` holds **all** stations with a position sorted by
+        distance, not just ``rank`` rows; a station without a latitude or longitude
+        has no distance and is left out. Because we cannot know upfront which
+        stations actually carry data for the request, the ``rank`` limit is applied
+        lazily while collecting values. Value collection walks the distance-sorted
+        stations and stops once ``rank`` stations that returned anything have been
+        consumed. The stations that ended up contributing values are then exposed via
         ``ValuesResult.df_stations``.
 
         In other words, use ``stations.values.all().df_stations`` (not
@@ -584,9 +586,14 @@ class TimeseriesRequest:
             q_lat=q_lat,
             q_lon=q_lon,
         )
-        # add distances and sort by distance
+        # add distances and sort by distance. A station without a position has none, and a null
+        # sorts first, ahead of the nearest station: it is left out, as `filter_by_distance` and
+        # `filter_by_bbox` leave it out (GH-2380)
         df = df.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias("distance"))
-        df = df.sort(by=["distance", "station_id"])
+        located = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"])
+        if located.is_empty() and not df.is_empty():
+            log.info("None of the stations has a position to be ranked by")
+        df = located
         return StationsResult(
             stations=self,
             df=df,
@@ -779,6 +786,8 @@ class TimeseriesRequest:
                 nothing that can answer at this station's altitude. There is no elevation to omit
                 here, so the reading as it came is asked for by coordinates: pass the station's
                 own to `interpolate`.
+            LocationOutOfRangeError: Where the station has no position, such as a NOAA GHCN hourly
+                station listed at 0.0, 0.0 or named BOGUS.
 
         """
         latitude, longitude, station_elevation = self._get_position_by_station_id(station_id)
@@ -872,6 +881,8 @@ class TimeseriesRequest:
                 nothing that can answer at this station's altitude. There is no elevation to omit
                 here, so the reading as it came is asked for by coordinates: pass the station's
                 own to `summarize`.
+            LocationOutOfRangeError: Where the station has no position, as `interpolate_by_station_id`
+                says.
 
         """
         latitude, longitude, station_elevation = self._get_position_by_station_id(station_id)
@@ -939,18 +950,29 @@ class TimeseriesRequest:
 
         A station requested at several resolutions has a row in each one's station list, and the
         lists can disagree: NOAA GHCN's hourly list gives no elevation for hundreds of the stations
-        its daily list does. The coordinates are the first row's, and the elevation the first one
-        known across those rows, so whether it is known does not depend on which resolution the
-        parameters named first.
+        its daily list does. The coordinates are the first row's that has both, and the elevation
+        the first one known across those rows, so whether either is known does not depend on which
+        resolution the parameters named first.
+
+        Raises:
+            StationNotFoundError: Where the station is not listed.
+            LocationOutOfRangeError: Where no row of the station gives both a latitude and a longitude.
+
         """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
         stations = self.all().df.filter(pl.col("station_id").eq(station_id))
         if stations.is_empty():
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg)
+        located = pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null()
         lat, lon, elevation = stations.select(
-            pl.col("latitude").first(),
-            pl.col("longitude").first(),
+            pl.col("latitude").filter(located).first(),
+            pl.col("longitude").filter(located).first(),
             pl.col("elevation").drop_nulls().first(),
         ).row(0)
+        if lat is None or lon is None:
+            # a postcode of DWD derived's climate_correction_factor, or a NOAA GHCN hourly station
+            # listed at 0.0, 0.0 or named BOGUS (GH-2380): there is no point to estimate at
+            msg = f"station {station_id} has no position to interpolate or summarize at"
+            raise LocationOutOfRangeError(msg)
         return lat, lon, elevation
