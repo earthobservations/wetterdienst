@@ -511,9 +511,9 @@ def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
 
     The stripes requests take their settings from the environment. A wide frame has no `value`
     column, so `WD_TS_SHAPE=wide` raised `ColumnNotFoundError`, and `WD_TS_SKIP_EMPTY=true` dropped
-    a station with gaps in its record, which left no years to draw. The station and its readings
-    are stubbed below `query()`, so the shaping and skipping it applies still run and nothing
-    leaves the machine.
+    a station with gaps in its record, which left no years to draw. The station list and the
+    station's one download are stubbed, so the dropping of nulls, the skipping and the shaping all
+    still run and nothing leaves the machine.
     """
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
@@ -542,12 +542,12 @@ def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
     def _all(self: DwdObservationRequest) -> StationsResult:
         return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
 
-    def _collect_station_data(
+    def _collect_station_parameter_or_dataset(
         self: DwdObservationValues,  # noqa: ARG001
         station_id: str,
-        available_datasets: list,  # noqa: ARG001
+        parameter_or_dataset: object,  # noqa: ARG001
     ) -> pl.DataFrame:
-        # named by the source, as `query()` has them before it humanizes and widens the frame
+        # as the source has them: named by its codes, the missing years as nulls
         return pl.DataFrame(
             [
                 {
@@ -567,7 +567,9 @@ def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
     for name, setting in environment.items():
         monkeypatch.setenv(name, setting)
     monkeypatch.setattr(DwdObservationRequest, "all", _all)
-    monkeypatch.setattr(DwdObservationValues, "_collect_station_data", _collect_station_data)
+    monkeypatch.setattr(
+        DwdObservationValues, "_collect_station_parameter_or_dataset", _collect_station_parameter_or_dataset
+    )
     df = _get_stripes_data(StripesValuesRequest(kind=kind, station="01048")).df
     assert df.get_column("timestamp").dt.year().to_list() == years
     assert df.get_column("value").to_list() == values
