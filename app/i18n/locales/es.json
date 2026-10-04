@@ -523,6 +523,7 @@
     "selectStationForCoords": "Seleccionar estación para las coordenadas",
     "selectStation": "Seleccionar una estación",
     "loadingStations": "Cargando estaciones …",
+    "loadError": "No se pudieron cargar las estaciones.",
     "coords": "Coordenadas de interpolación: {coords}"
   },
   "dateRange": {
