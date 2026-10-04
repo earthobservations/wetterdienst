@@ -209,18 +209,28 @@ if (route.query.dropNulls != null)
   settingsFromLink.dropNulls = route.query.dropNulls.toString() !== 'false'
 const dataSettings = ref<DataSettings>({ ...structuredClone(toRaw(startingSettings.value)), ...settingsFromLink })
 
+// the settings the user has changed, ever: one changed and changed back is still theirs
+const changedSettings = new Set<keyof DataSettings>()
+const stopTrackingChanges = watch(() => ({ ...dataSettings.value }), (now, before) => {
+  for (const key of Object.keys(now) as (keyof DataSettings)[]) {
+    if (now[key] !== before[key])
+      changedSettings.add(key)
+  }
+}, { flush: 'sync' })
+
 // The server's defaults (GH-2359), once it reports them: each takes the place of a setting the link
 // does not name and the user has not changed while the answer was on its way. A server without
 // the endpoint, or one that fails, leaves wetterdienst's. The request still names every setting, so
 // a copied link or API URL asks for the same on any server
 useServerSettings().then((server) => {
+  stopTrackingChanges()
   if (!server)
     return
   unitTargetDefaults.value = defaultUnitTargets(server)
   const reported = serverDataSettings(server)
   const settings: Record<keyof DataSettings, unknown> = dataSettings.value
   for (const key of Object.keys(reported) as (keyof DataSettings)[]) {
-    if (!(key in settingsFromLink) && settings[key] === startingSettings.value[key])
+    if (!(key in settingsFromLink) && !changedSettings.has(key))
       settings[key] = reported[key]
   }
   Object.assign(startingSettings.value, reported)
@@ -306,7 +316,8 @@ watch(
     query: {
       ...toQuery(parameterSelectionState.value, stationSelectionState.value),
       ...dataSettingsToQuery(dataSettings.value),
-      // the default run is left out, as the data settings' defaults are
+      // the default run is left out: unlike the data settings, it is no server setting, so a link
+      // without it reads back the same run on any server
       ...(selectedLeadTime.value === 'long' ? { leadTime: 'long' } : {}),
     },
   }).catch(() => {}),

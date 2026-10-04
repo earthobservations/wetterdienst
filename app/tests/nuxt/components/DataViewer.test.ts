@@ -2360,6 +2360,28 @@ describe('dataViewer settings the explorer starts from the server\'s', () => {
     expect(query[`${prefix}_station_distance_heterogeneous`]).toBe('20')
   })
 
+  it('leaves out a radius the server holds as infinite, so that the server\'s applies', async () => {
+    const queries: Record<string, unknown>[] = []
+    registerEndpoint('/api/interpolate', (event) => {
+      queries.push(getQuery(event))
+      return { values: [] }
+    })
+    const wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(UApp, null, {
+        default: () => h(DataViewer, {
+          parameterSelection,
+          stationSelection: atPoint('interpolation'),
+          settings: { ...settings, stationDistanceHomogeneous: Number.POSITIVE_INFINITY },
+        }),
+      }),
+    }), { attachTo: document.body })
+    mounted.push(wrapper)
+    await fetchData(wrapper.findComponent(DataViewer))
+    await vi.waitFor(() => expect(queries).toHaveLength(1))
+    expect(queries[0]).not.toHaveProperty('interpolation_station_distance_homogeneous')
+    expect(queries[0]!.interpolation_station_distance_heterogeneous).toBe('20')
+  })
+
   it('pins a type left at "Default" to the unit given for it, and a chosen one to the choice', async () => {
     const query = await asked('/api/values', byStation('01048'), { speed: 'beaufort' }, {
       temperature: 'degree_fahrenheit',

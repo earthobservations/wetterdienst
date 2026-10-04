@@ -806,4 +806,59 @@ describe('explorer Page settings from the server (GH-2359)', () => {
     await reopened.vm.$nextTick()
     expect((reopened.vm as any).dataSettings).toMatchObject({ humanize: true, shape: 'wide', skipEmpty: true, dropNulls: false })
   })
+
+  it('keeps a setting the user changed and changed back while the answer was on its way', async () => {
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    endpoints.push(registerEndpoint('/api/settings', async () => {
+      settingsAsked += 1
+      await held
+      return serverSettings()
+    }))
+    const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(settingsAsked).toBe(1))
+
+    vm.dataSettings.humanize = false
+    vm.dataSettings.humanize = true
+    release()
+    await useServerSettings()
+    await wrapper.vm.$nextTick()
+
+    expect(vm.dataSettings.humanize).toBe(true)
+    // one the user left alone is the server's
+    expect(vm.dataSettings.shape).toBe('wide')
+  })
+
+  it('keeps an infinite radius the server reports, which the request then leaves to it', async () => {
+    endpoints.push(registerEndpoint('/api/settings', () => {
+      const settings = serverSettings()
+      settings.interpolate.interpolation_station_distance_homogeneous = 'Infinity'
+      return settings
+    }))
+    const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.dataSettings.stationDistanceHomogeneous).toBe(Number.POSITIVE_INFINITY))
+    expect(vm.dataSettings.stationDistanceHeterogeneous).toBe(30)
+  })
+
+  it('asks again after a failure, which is not asked twice for a 500', async () => {
+    endpoints.push(registerEndpoint('/api/settings', () => {
+      settingsAsked += 1
+      if (settingsAsked === 1)
+        throw createError({ statusCode: 500 })
+      return serverSettings()
+    }))
+
+    await expect(useServerSettings()).resolves.toBeNull()
+    expect(settingsAsked).toBe(1)
+    // a backend that was still starting answers the next one
+    await expect(useServerSettings()).resolves.toEqual(serverSettings())
+    expect(settingsAsked).toBe(2)
+  })
 })
