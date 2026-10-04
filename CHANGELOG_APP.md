@@ -290,15 +290,20 @@ Types of changes:
   say so in the chart area, with a Retry button that tries to draw them again, and a stripes image
   whose export fails says the image could not be saved. The chart area stayed empty, and a failed
   image saved nothing, without a word (GH-2186)
-- `[Explorer]` A Fetch of values, interpolated or summarized data that fails is asked for once,
-  and its error is told at once. The app asked a second time after many failed answers, such as a
-  502 where the backend could not be reached, after a connection lost before any answer, and after
-  the 500 the backend now gives where it or the source failed (GH-2278)
+- `[Explorer]` A Fetch of values, interpolated or summarized data that fails with the 500 the
+  backend now gives where it or the source failed is asked for once, and its error is told at once,
+  where the app asked a second time. So is one the browser's connection drops before any answer.
+  A 502, as the app's server gives where the backend cannot be reached, a 503 or 504 from a proxy,
+  or a 408, 409, 425 or 429 is still asked for once more (GH-2278, GH-2315)
 - `[Explorer/History/Stripes/Meteogram/Widget]` A request for stations, a station history,
-  stripes or forecast runs that fails is asked for once. The app asked a second time after a 502
-  where the backend could not be reached, after a connection lost before any answer, and after the
-  500 the backend now gives where it or the source failed, which doubled the work behind it
-  (GH-2298)
+  stripes or forecast runs that fails with the 500 the backend now gives where it or the source
+  failed is asked for once, where the app asked a second time and doubled the work behind it. So is
+  one the browser's connection drops before any answer. A 502, 503 or 504, or a 408, 409, 425 or
+  429 is still asked for once more, which fills a station list such a passing failure hit
+  (GH-2298, GH-2315)
+- `[Explorer]` The interpolation and summary's station picker asks for the station list once on a
+  change of dataset, and not again for a parameter ticked or unticked while another stays ticked,
+  where it asked more than once and the backend built the whole list for each (GH-2314)
 
 ## [0.17.0] - 2026-09-29
 

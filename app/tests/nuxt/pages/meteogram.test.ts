@@ -252,3 +252,72 @@ describe('the meteogram page\'s requests answered with a 500', () => {
     expect(asked.count).toBe(1)
   })
 })
+
+describe('the meteogram page\'s requests answered with a 503 once', () => {
+  const janMayen = { station_id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67 }
+  let wrapper: VueWrapper | undefined
+  // disposers of the endpoints these tests register, so none answers a later test
+  const endpoints: Array<() => void> = []
+
+  beforeEach(() => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ values: [] }), { status: 200 }))
+    endpoints.push(registerEndpoint('/api/stations', () => ({ stations: [] })))
+  })
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    endpoints.splice(0).forEach(dispose => dispose())
+  })
+
+  // a 503 the first time only, as a proxy gives while the backend restarts; the requests `counts`
+  // leaves out get no stations
+  function flaky(answer: unknown, counts: (query: Record<string, unknown>) => boolean = () => true) {
+    const asked = { count: 0 }
+    return {
+      asked,
+      handler: (event: H3Event) => {
+        if (!counts(getQuery(event)))
+          return { stations: [] }
+        asked.count++
+        if (asked.count === 1) {
+          setResponseStatus(event, 503)
+          return { detail: 'Service Unavailable' }
+        }
+        return answer
+      },
+    }
+  }
+
+  it('asks /api/issues once more, and offers the runs that answer brings', async () => {
+    const { asked, handler } = flaky({ issues: ['2026-10-03T06:00:00'] })
+    endpoints.push(registerEndpoint('/api/issues', handler))
+    wrapper = await mountSuspended(MeteogramPage)
+    const vm = wrapper.vm as any
+    vm.selectedStation = janMayen
+    await vi.waitFor(() => expect(vm.availableIssues).toEqual(['2026-10-03T06:00:00']))
+    expect(asked.count).toBe(2)
+  })
+
+  it('asks /api/stations once more for the map\'s stations, and shows what that answer brings', async () => {
+    wrapper = await mountSuspended(MeteogramPage, { attachTo: document.body, global: { stubs: { ClientOnly: true } } })
+    const vm = wrapper.vm as any
+    // the station search's own list, asked for the same stations, answered before the map's is asked
+    await vi.waitFor(() => expect((wrapper!.findComponent(MeteogramStationSearch).vm as any).pending).toBe(false))
+    const { asked, handler } = flaky({ stations: [janMayen] })
+    endpoints.push(registerEndpoint('/api/stations', handler))
+    await wrapper.findAll('button').find(b => b.text().includes('Choose a station on the map'))!.trigger('click')
+    await vi.waitFor(() => expect(vm.mapStations).toHaveLength(1))
+    expect(asked.count).toBe(2)
+  })
+
+  it('asks /api/stations once more for the station a shared link names, and selects it', async () => {
+    // the station search's list is asked for all stations, the link's station by its id
+    const { asked, handler } = flaky({ stations: [janMayen] }, query => query.station === '01001')
+    endpoints.push(registerEndpoint('/api/stations', handler))
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    expect(asked.count).toBe(2)
+  })
+})
