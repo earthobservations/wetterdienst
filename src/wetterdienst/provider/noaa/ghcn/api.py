@@ -215,19 +215,20 @@ class NoaaGhcnRequest(TimeseriesRequest):
         # only the daily frame has start_date and end_date, from its inventory, and wmo_id, which the
         # hourly reader does not select; the hourly stations get nulls
         df = pl.concat(data, how="diagonal")
-        return self._take_daily_elevation(df)
+        # a request for one resolution has no pairs to settle
+        return self._take_daily_elevation(df) if len(data) > 1 else df
 
     @staticmethod
     def _take_daily_elevation(df: pl.LazyFrame) -> pl.LazyFrame:
         """Give a station's hourly row the daily list's elevation, where both lists mean one place.
 
-        So every reader of a station in both lists gets one elevation, whichever row it takes
-        (GH-2336). Only where the two lists put the station within 5 km of each other: for some ids
-        they name different stations (MXM00076840 is ARRIAGA on the Chiapas coast in the hourly
-        list and its data, TEMOSACHI 2000 km away and 1900 m higher in the daily one), and there
-        each row keeps its own list's height. Nor does a daily 0.0 replace a height the hourly list
-        gives (GH-2362), and a daily list giving none leaves the hourly one. A request for one
-        resolution has no pairs to settle.
+        Then every reader of the station gets one elevation, whichever row it takes (GH-2336). Only
+        where the two lists put the station within 5 km of each other: for some ids they name
+        different stations (MXM00076840 is ARRIAGA on the Chiapas coast in the hourly list and its
+        data, TEMOSACHI 2000 km away and 1900 m higher in the daily one), and there each row keeps
+        its own list's height. Nor does a daily 0.0 replace a height the hourly list gives
+        (GH-2362); both rows then keep their own as well. A daily list giving none leaves the
+        hourly one.
         """
         is_daily = pl.col("resolution").eq("daily")
 
@@ -246,7 +247,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             pl.when(
                 ~is_daily
                 & distance_km.le(MAX_DISTANCE_KM_SAME_STATION)
-                & elevation_daily.is_not_null()
+                # with no daily elevation the row keeps its own: this is null, or the hourly one was too
                 & (elevation_daily.cast(pl.Float64).ne(0.0) | pl.col("elevation").is_null())
             )
             .then(elevation_daily)
