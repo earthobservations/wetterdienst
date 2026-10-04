@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Widget]` A failed station lookup is told by the backend's status and reason, as a failed
+  forecast is, where it read "Station not found" for any failure, such as the MOSMIX station list
+  failing to download. "Station not found" is kept for a station id the backend does not know,
+  which left the widget blank before (GH-2311)
 - `[History]` A station's card names its id whatever sections are fetched, where it read
   "Station ID:" with nothing after it when the sections fetched held no records, as the missing
   data of a station without gaps. The id is the one the backend now sends with each history,
