@@ -1051,13 +1051,13 @@ def stations(
     "--dataset",
     type=click.Choice(["icon", "icon_eu"]),
     default=None,
-    help="DWD DMO product; DMO only, refused for MOSMIX and SWSMOS. Default for DMO: as for values",
+    help="DWD DMO product; DMO only, refused for MOSMIX and SWSMOS. Default: icon",
 )
 @click.option(
     "--lead_time",
     type=click.Choice(["short", "long"]),
     default=None,
-    help="DWD DMO forecast lead time; DMO only, refused for MOSMIX and SWSMOS. Default for DMO: as for values",
+    help="DWD DMO forecast lead time; DMO only, refused for MOSMIX and SWSMOS. Default: short",
 )
 @debug_opt
 def issues_cmd(
