@@ -8787,7 +8787,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.7.3,<3" },
     { name = "pydantic-core", specifier = ">=2.18.4,<3" },
     { name = "pydantic-extra-types", specifier = ">=2.10.1,<3" },
-    { name = "pydantic-settings", specifier = ">=2.7.0,<3" },
+    { name = "pydantic-settings", specifier = ">=2.14,<3" },
     { name = "pypdf", marker = "extra == 'pdf'", specifier = ">=3.12.1,<7" },
     { name = "python-dateutil", specifier = ">=2.8.2,<3" },
     { name = "rapidfuzz", specifier = ">=3.1,<4" },

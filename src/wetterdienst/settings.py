@@ -11,7 +11,7 @@ import re
 from collections import defaultdict
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import Annotated, Literal
 
 import platformdirs
 from pydantic import (
@@ -24,23 +24,13 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from pydantic_settings import (
-    BaseSettings,
-    DotEnvSettingsSource,
-    EnvSettingsSource,
-    PydanticBaseSettingsSource,
-    SettingsConfigDict,
-    SettingsError,
-)
+from pydantic_settings import BaseSettings, SettingsConfigDict, SettingsError
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.unit import UnitConverter
-
-if TYPE_CHECKING:
-    from pydantic.fields import FieldInfo
 
 log = logging.getLogger(__name__)
 
@@ -249,40 +239,16 @@ def _merge_fsspec_client_kwargs(given: dict) -> dict:
     return merged
 
 
-class _SettingsFromDotEnv(PydanticBaseSettingsSource):
-    """Read the settings from `.env` as they are read from the environment, and nothing else.
-
-    A `.env` is often shared with other programs -- docker compose, a project's own tooling -- and
-    `DotEnvSettingsSource` hands on every other key of it as well, so with the settings refusing what
-    is not a field, one line of someone else's made every `Settings()` fail, and echoed its value,
-    which may well be a password (GH-2349). The environment never did this.
-
-    `DotEnvSettingsSource` reads the file's settings as `EnvSettingsSource` reads the environment's,
-    and adds the other keys after; this hands on the first part alone. Filtering what it hands on
-    by field name instead would let an unprefixed key that names a setting through on the older
-    pydantic-settings, which hand one on under its bare name. The constructor keeps refusing a
-    keyword that is no setting, which `extra="ignore"` would have let pass in silence. A misspelt
-    `WD_` key is ignored like any other, as it is in the environment.
-    """
-
-    def __init__(self, source: DotEnvSettingsSource) -> None:
-        super().__init__(source.settings_cls)
-        self._source = source
-
-    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
-        """Look a field up in `.env` as the wrapped source does; the base class asks for this, `__call__` does not."""
-        return self._source.get_field_value(field, field_name)
-
-    def __call__(self) -> dict[str, Any]:
-        """Return the settings `.env` sets, without its other keys."""
-        return EnvSettingsSource.__call__(self._source)
-
-
 class Settings(BaseSettings):
     """Settings for the wetterdienst package."""
 
     model_config = SettingsConfigDict(
         env_file=".env",
+        # read only the settings from `.env`, as from the environment. A `.env` is often shared with
+        # other programs, and by default each of its other keys is handed on too, which the settings
+        # refuse as no field of theirs: one line of someone else's made every `Settings()` fail and
+        # echoed its value (GH-2349). The constructor still refuses a keyword that is no setting
+        dotenv_filtering="only_existing",
         env_ignore_empty=True,
         env_prefix="WD_",
         env_nested_delimiter="__",
@@ -336,20 +302,6 @@ class Settings(BaseSettings):
     # this setting defines how many additional stations are used in the interpolation process independent of the gain
     # of value pairs, so if the gain is not reached anymore, there at least `num` more stations added to the list
     ts_geo_num_additional_stations: Annotated[int, Field(ge=0)] = 3
-
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: type[BaseSettings],  # noqa: ARG003
-        init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[PydanticBaseSettingsSource, ...]:
-        """Read the settings from where pydantic-settings does, taking only settings from `.env`."""
-        if isinstance(dotenv_settings, DotEnvSettingsSource):
-            dotenv_settings = _SettingsFromDotEnv(dotenv_settings)
-        return init_settings, env_settings, dotenv_settings, file_secret_settings
 
     @field_validator("fsspec_client_kwargs", mode="before")
     @classmethod

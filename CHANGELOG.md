@@ -30,6 +30,8 @@ Types of changes:
 
 ### Changed
 
+- `pydantic-settings` now has a floor of `>=2.14.0` (was `>=2.7.0`): `Settings` reads `.env` with
+  its `dotenv_filtering` option, which 2.14.0 added. The lockfile already carried 2.15.0 (GH-2349)
 - **Breaking**: DWD derived `monthly/soil` returns its monthly totals of potential
   evapotranspiration as the new `evapotranspiration_potential_grass_fao` and
   `evapotranspiration_potential_grass_haude`, where they came as the daily `..._last_24h` names.
@@ -165,9 +167,9 @@ Types of changes:
   fail with its value in the error, and the CLI commands and the REST API that read the settings
   refused to run. A misspelt `WD_*` key, such as `WD_CACHE_DIABLE`, is ignored too, as in the
   environment. A keyword to `Settings(...)` that is no setting is still refused (GH-2349)
-- With pydantic-settings older than 2.11, `Settings` no longer takes a `.env` key without the
-  `WD_` prefix for the setting it names: another program's `CACHE_DIR` or `TS_SHAPE` set
-  wetterdienst's cache directory or result shape (GH-2373)
+- `Settings` no longer takes a `.env` key without the `WD_` prefix for the setting it names, as it
+  did with pydantic-settings older than 2.11, which the `>=2.7.0` floor allowed: another program's
+  `CACHE_DIR` or `TS_SHAPE` set wetterdienst's cache directory or result shape (GH-2373)
 - `Settings` refuses a non-empty `ts_geo_station_distance` or
   `ts_geo_station_distance_resolution_factors` that is not a mapping, such as
   `WD_TS_GEO_STATION_DISTANCE=5`, with a `ValidationError` naming the setting, where it raised a
