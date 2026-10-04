@@ -4220,16 +4220,18 @@ def test_restapi_refuses_to_start_when_the_settings_fail_otherwise(
     """A settings build failing other than by a validation error is refused too (GH-2335).
 
     A validator's `TypeError` (GH-2353) escaped the check, and uvicorn, by default in lifespan mode
-    `auto`, took it for a lifespan the app does not support, and served.
+    `auto`, took it for a lifespan the app does not support, and served. It is told by its type,
+    as its message is not pydantic's and may carry what the validator was given.
     """
 
     def fail() -> list[str]:
-        msg = "argument of type 'int' is not iterable"
+        msg = "secret-ish"
         raise TypeError(msg)
 
     monkeypatch.setattr(restapi, "check_settings", fail)
 
     assert not _start_lifespan(caplog)
 
-    assert "the settings could not be built: TypeError: argument of type 'int' is not iterable" in caplog.text
+    assert "the settings could not be built: TypeError" in caplog.text
+    assert "secret-ish" not in caplog.text
     assert "Application startup failed. Exiting." in caplog.text

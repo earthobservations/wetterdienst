@@ -498,8 +498,11 @@ class Settings(BaseSettings):
         return f"""Settings({json.dumps(self.model_dump(mode="json"), indent=4)})"""
 
 
-def describe_settings_error(error: ValidationError | SettingsError) -> list[str]:
+def _describe_settings_error(error: ValidationError | SettingsError) -> list[str]:
     """Tell what is wrong with the settings, a line for each problem, by the `WD_*` variable that sets it.
+
+    For an error of settings built from the environment and `.env` alone, as `check_settings`
+    builds them: a key no setting has can then only have come from `.env`.
 
     pydantic's own account names the field rather than the variable an operator set, and repeats
     the value given -- which for `WD_AUTH__*` is a credential, and for `WD_FSSPEC_CLIENT_KWARGS`
@@ -535,5 +538,5 @@ def check_settings() -> list[str]:
     try:
         Settings()
     except (ValidationError, SettingsError) as e:
-        return describe_settings_error(e)
+        return _describe_settings_error(e)
     return []

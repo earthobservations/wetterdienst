@@ -341,10 +341,10 @@ Types of changes:
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
 - A malformed `WD_*` setting is told by the variable that sets it and what is wrong with it, a
-  line each and without its value, where it ended in pydantic's traceback. The REST API refuses to
-  start with it, also under `uvicorn` directly unless its lifespan is turned off, and `wetterdienst
-  restapi` exits with uvicorn's status 3; the other CLI commands that read the settings, `alerts`
-  aside, exit with status 1 (GH-2335)
+  line each and without pydantic's echo of the value, where it ended in pydantic's traceback. The
+  REST API refuses to start with it, also under `uvicorn` directly unless its lifespan is turned
+  off, and `wetterdienst restapi` exits with uvicorn's status 3; the other CLI commands that read
+  the settings, `alerts` aside, exit with status 1 (GH-2335)
 
 ## [0.139.0] - 2026-09-29
 
