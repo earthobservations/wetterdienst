@@ -307,7 +307,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         # -999.0, on rows such as BOGUS ALGERIAN, about 570 m below the lowest dry land (GH-2352)
         df = df.with_columns(pl.col("elevation").replace(["-999.9", "-999.0", "9999.0", "8191.0"], None))
         # 0.0, 0.0 is no position either: BOGUS ARGENTINEAN and NAME AND LOC UNKN are listed there,
-        # and their data rows repeat it. A station named BOGUS, such as BOGUS AUSTRIAN or the eleven
+        # and their data rows repeat it. A station named BOGUS, such as BOGUS AUSTRIAN or the ten
         # BOGUS CHINESE, is a placeholder whose identity, so whose position, was not established. Both
         # stay in the list and can be fetched by id, but without a position no distance search,
         # interpolation or summary picks them (GH-2380). Only this list: every name in it starting
