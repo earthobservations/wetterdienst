@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import platform
+import re
 from collections import defaultdict
 from collections.abc import Mapping
 from pathlib import Path
@@ -18,11 +19,12 @@ from pydantic import (
     Field,
     PrivateAttr,
     SecretStr,
+    ValidationError,
     field_serializer,
     field_validator,
     model_validator,
 )
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict, SettingsError
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
@@ -40,6 +42,11 @@ _MASK = "*" * 10
 
 #: what a credential may arrive as: the text of one, or one that has already been validated once
 _Secretish = str | SecretStr
+
+#: the share of readings a station must cover not to be skipped: a threshold above 1 skips every
+#: station, one of 0 or below none, so neither is one. The REST request model takes it too, so the
+#: two cannot drift apart (GH-2334)
+SkipThreshold = Annotated[float, Field(gt=0, le=1)]
 
 
 def _as_given(value: object) -> _Secretish:
@@ -258,7 +265,7 @@ class Settings(BaseSettings):
     # returning. The coverage is measured against how many readings the requested window can
     # hold, so the option stands on its own and needs no particular shape of frame under it
     ts_skip_empty: bool = False
-    ts_skip_threshold: float = 0.95
+    ts_skip_threshold: SkipThreshold = 0.95
     ts_skip_criteria: Literal["min", "mean", "max"] = "min"
     ts_drop_nulls: bool = True
     # how far a station may be from the target point to still be interpolated or summarized from.
@@ -494,3 +501,47 @@ class Settings(BaseSettings):
     def __str__(self) -> str:
         """Return the settings as a string."""
         return f"""Settings({json.dumps(self.model_dump(mode="json"), indent=4)})"""
+
+
+def _describe_settings_error(error: ValidationError | SettingsError) -> list[str]:
+    """Tell what is wrong with the settings, a line for each problem, by the `WD_*` variable that sets it.
+
+    For an error of settings built from the environment and `.env` alone, as `check_settings`
+    builds them: a key no setting has can then only have come from `.env`.
+
+    pydantic's own account names the field rather than the variable an operator set, and repeats
+    the value given -- which for `WD_AUTH__*` is a credential, and for `WD_FSSPEC_CLIENT_KWARGS`
+    may hold request headers. Here each problem is the variable and pydantic's message, without
+    the input it echoes (GH-2335). A validator's own message may still name what it refuses -- a
+    unit or a parameter name -- which none of those on the credentials or the headers does.
+    """
+    if isinstance(error, SettingsError):
+        # a dict, a pair or a nested setting is read as JSON, and pydantic-settings says which field
+        # it could not parse, but not where in the value
+        match = re.search(r'error parsing value for field "(\w+)"', str(error))
+        if match:
+            return [f"WD_{match.group(1).upper()} is invalid: not valid JSON"]
+        return [str(error)]
+    lines = []
+    for problem in error.errors(include_url=False):
+        if problem["type"] == "extra_forbidden":
+            # a key of `.env` that names no setting, located by the whole key, prefix and all, but
+            # lower-cased, so it is named in upper case as variables are; the environment's own
+            # such variables are ignored
+            lines.append(f"{str(problem['loc'][0]).upper()} in .env is not a wetterdienst setting")
+            continue
+        variable = "WD_" + "__".join(str(part) for part in problem["loc"]).upper() if problem["loc"] else "WD_*"
+        lines.append(f"{variable} is invalid: {problem['msg'].removeprefix('Value error, ')}")
+    return lines
+
+
+def check_settings() -> list[str]:
+    """Build the settings from the environment and `.env` alone, and tell what is wrong with them.
+
+    An empty list means they are valid.
+    """
+    try:
+        Settings()
+    except (ValidationError, SettingsError) as e:
+        return _describe_settings_error(e)
+    return []

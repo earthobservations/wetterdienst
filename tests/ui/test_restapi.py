@@ -4129,6 +4129,146 @@ def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     assert response.text == "Internal Server Error"
 
 
+def _start_lifespan(caplog: pytest.LogCaptureFixture) -> bool:
+    """Start the app's lifespan as uvicorn does, shut it down again, and say whether it started."""
+    import asyncio  # noqa: PLC0415
+
+    from uvicorn.config import Config  # noqa: PLC0415
+    from uvicorn.lifespan.on import LifespanOn  # noqa: PLC0415
+
+    # uvicorn's default lifespan mode, which `wetterdienst restapi` runs with; no log config, so
+    # that uvicorn's records reach caplog
+    config = Config(restapi.app, lifespan="auto", log_config=None)
+    config.load()
+    lifespan = LifespanOn(config)
+
+    async def run() -> bool:
+        await lifespan.startup()
+        started = not lifespan.should_exit
+        if started:
+            await lifespan.shutdown()
+        return started
+
+    with caplog.at_level(logging.INFO, logger="uvicorn.error"):
+        return asyncio.run(run())
+
+
+@pytest.fixture
+def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings."""
+    import os  # noqa: PLC0415
+
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_refuses_to_start_with_a_malformed_setting(
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A malformed `WD_*` setting stops the server before it serves, told by its variable (GH-2335).
+
+    It used to stop the import with pydantic's traceback, as a side effect of building `Info`, and a
+    `.env` that broke after that gave a bare 500 per request. The log now has the variable and what
+    is wrong with it, without the value and without a traceback.
+    """
+    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=secret-ish\n")
+
+    assert not _start_lifespan(caplog)
+
+    assert "WD_CACHE_DISABLE is invalid: Input should be a valid boolean" in caplog.text
+    assert "Application startup failed. Exiting." in caplog.text
+    assert "secret-ish" not in caplog.text
+    assert "Traceback" not in caplog.text
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_starts_with_valid_settings(caplog: pytest.LogCaptureFixture) -> None:
+    """Valid settings pass the startup check, on to the app's own lifespan (GH-2335)."""
+    assert _start_lifespan(caplog)
+    assert "Application startup complete." in caplog.text
+
+
+def test_restapi_imports_with_a_malformed_setting(tmp_path: pathlib.Path) -> None:
+    """The REST API's module imports with a malformed `WD_*` setting, for its startup to refuse (GH-2335).
+
+    Its `Info` read the settings on import, so the import failed with pydantic's traceback first.
+    """
+    import os  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import wetterdienst.ui.restapi"],
+        cwd=tmp_path,
+        env={**os.environ, "WD_CACHE_DISABLE": "secret-ish"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_refuses_to_start_when_the_settings_fail_otherwise(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A settings build failing other than by a validation error is refused too (GH-2335).
+
+    A validator's `TypeError` (GH-2353) escaped the check, and uvicorn, by default in lifespan mode
+    `auto`, took it for a lifespan the app does not support, and served. It is told by its type,
+    as its message is not pydantic's and may carry what the validator was given.
+    """
+
+    def fail() -> list[str]:
+        msg = "secret-ish"
+        raise TypeError(msg)
+
+    monkeypatch.setattr(restapi, "check_settings", fail)
+
+    assert not _start_lifespan(caplog)
+
+    assert "the settings could not be built: TypeError" in caplog.text
+    assert "secret-ish" not in caplog.text
+    assert "Application startup failed. Exiting." in caplog.text
+
+
+@pytest.mark.parametrize("threshold", [0, 5])
+def test_values_refuses_a_skip_threshold_outside_zero_to_one(client: TestClient, threshold: float) -> None:
+    """A skip_threshold outside (0, 1] is a 422, as the CLI option and the setting refuse it (GH-2334).
+
+    0 used to be taken, and skipped nothing.
+    """
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl",
+            "periods": "recent",
+            "station": "01048",
+            "skip_empty": "true",
+            "skip_threshold": threshold,
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["query", "skip_threshold"]
+
+
+def test_values_skip_threshold_bounds_are_in_the_schema_the_mcp_tools_take() -> None:
+    """The MCP tools are generated from the OpenAPI schema, so the bounds reach them there (GH-2334)."""
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    parameters = app.openapi()["paths"]["/api/values"]["get"]["parameters"]
+    (schema,) = (parameter["schema"] for parameter in parameters if parameter["name"] == "skip_threshold")
+    assert schema["exclusiveMinimum"] == 0
+    assert schema["maximum"] == 1
+
+
 def test_issues_dwd_swsmos(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test /api/issues lists the dwd/swsmos runs rather than refusing the network (GH-2319)."""
     from wetterdienst.provider.dwd.swsmos import api  # noqa: PLC0415
