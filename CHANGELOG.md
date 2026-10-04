@@ -335,8 +335,7 @@ Types of changes:
   -999.9 m, the station list's missing value, and `interpolate` and `summarize` given an elevation
   took it for a known one (GH-2247)
 - NOAA GHCN hourly stations without a known elevation have a null `elevation` too. They were
-  listed at -999.9 m, the station list's missing value. Stations listed at -999.0 m keep that
-  value (GH-2260)
+  listed at -999.9 m, the station list's missing value (GH-2260)
 - NOAA GHCN stations asked for both `hourly` and `daily` in one request are listed; the request
   failed with a polars schema error. The hourly stations have a null `start_date` and `end_date`,
   as their station list gives none (GH-2267)
@@ -387,6 +386,9 @@ Types of changes:
 - NOAA GHCN daily stations of the Brazilian network (`BR0...`) listed at 0.0 m, 912 placeholders
   such as ALFENAS at about 880 m, have a null `elevation`. `interpolate` and `summarize` given an
   elevation took them for stations at sea level. A 0.0 m outside that network stays (GH-2362)
+- NOAA GHCN hourly stations listed at -999.0 m, 93 placeholders such as BOGUS ALGERIAN, have a
+  null `elevation`. `interpolate` and `summarize` given an elevation took them for known ones
+  (GH-2352)
 
 ## [0.139.0] - 2026-09-29
 
