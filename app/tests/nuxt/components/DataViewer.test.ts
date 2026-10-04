@@ -2202,3 +2202,53 @@ describe('dataViewer failed fetch', () => {
     expect((viewer.vm as any).valuesStatus).toBe('error')
   })
 })
+
+describe('dataViewer unit targets', () => {
+  // each unit type the explorer lists, in the unit its "Default (...)" choice names
+  const defaults = {
+    temperature: 'degree_celsius',
+    speed: 'meter_per_second',
+    pressure: 'hectopascal',
+    precipitation: 'millimeter',
+    precipitation_intensity: 'millimeter_per_hour',
+    length_short: 'centimeter',
+    length_medium: 'meter',
+    length_long: 'kilometer',
+  }
+
+  // the unit targets the viewer's one request names, given the explorer's choices
+  async function unitTargetsAsked(endpoint: string, selection: StationSelectionState, unitTargets: Record<string, string>) {
+    const asked: Record<string, unknown>[] = []
+    registerEndpoint(endpoint, (event) => {
+      asked.push(getQuery(event))
+      return { values: [] }
+    })
+    const wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(UApp, null, {
+        default: () => h(DataViewer, { parameterSelection, stationSelection: selection, settings: { ...settings, unitTargets } }),
+      }),
+    }), { attachTo: document.body })
+    mounted.push(wrapper)
+    await fetchData(wrapper.findComponent(DataViewer))
+    await vi.waitFor(() => expect(asked).toHaveLength(1))
+    return JSON.parse(String(asked[0]!.unit_targets))
+  }
+
+  // each mode's endpoint, all of which take unit targets and merge the server's WD_TS_UNIT_TARGETS into them
+  it.each([
+    ['/api/values', byStation('01048')],
+    ['/api/interpolate', atPoint('interpolation')],
+    ['/api/summarize', atPoint('summary')],
+  ] as const)('asks %s for every listed type in its default unit where none is chosen', async (endpoint, selection) => {
+    expect(await unitTargetsAsked(endpoint, selection, {})).toEqual(defaults)
+  })
+
+  it.each([
+    ['/api/values', byStation('01048')],
+    ['/api/interpolate', atPoint('interpolation')],
+    ['/api/summarize', atPoint('summary')],
+  ] as const)('asks %s for the units chosen, and every other listed type in its default', async (endpoint, selection) => {
+    expect(await unitTargetsAsked(endpoint, selection, { temperature: 'degree_fahrenheit', length_long: 'mile' }))
+      .toEqual({ ...defaults, temperature: 'degree_fahrenheit', length_long: 'mile' })
+  })
+})

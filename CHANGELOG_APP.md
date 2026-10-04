@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` Each unit type the Unit Targets setting lists is asked for in the unit its choice
+  names, "Default (°C)" in °C. On a backend whose `WD_TS_UNIT_TARGETS` sets another unit, such as
+  `{"temperature": "degree_fahrenheit"}`, a type left at "Default" came in that unit instead. A
+  backend without `WD_TS_UNIT_TARGETS` answers as before (GH-2358)
 - `[Meteogram]` `[Widget]` The forecast is asked for in °C, m/s, mm, hPa and degrees, the units
   the charts label it in. On a backend whose `WD_TS_UNIT_TARGETS` sets another unit, such as
   `{"temperature": "degree_fahrenheit"}`, the charts drew those values under the labels of the
