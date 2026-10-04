@@ -1278,3 +1278,95 @@ def test_interpolation_leaves_out_a_station_beyond_what_utm_covers(
     assert row["value"] == -20.0
     assert sorted(row["taken_station_ids"]) == ["00001", "00002", "00003", "00004"]
     assert row["distance_mean"] == 5.5
+
+
+@pytest.mark.parametrize("hourly_first", [True, False], ids=["hourly_first", "daily_first"])
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
+def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station_knows(
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    *,
+    hourly_first: bool,
+) -> None:
+    """A station ranked once per requested resolution answers with an elevation any of its rows knows.
+
+    Two resolutions' station lists can disagree about a station: NOAA GHCN's hourly list gives no
+    elevation for hundreds of the stations its daily list does. Both the walk and the count taken
+    before it kept the first of a station's rows, so with the hourly row first every station here
+    stood without an elevation and the request at one was refused -- and answered with the daily row
+    first. Each station stands at the elevation asked about, so the readings come back as they are.
+    The stations and their readings are stubbed, so nothing leaves the machine.
+    """
+    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    latitude, longitude = 50.0, 8.9
+    offsets = {"00001": (-0.03, -0.03), "00002": (-0.03, 0.03), "00003": (0.03, 0.03), "00004": (0.03, -0.03)}
+    datasets = [("hourly", "temperature_air", None), ("daily", "climate_summary", 100.0)]
+    if not hourly_first:
+        datasets.reverse()
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": resolution,
+                "dataset": dataset,
+                "station_id": station_id,
+                "latitude": latitude + d_lat,
+                "longitude": longitude + d_lon,
+                "elevation": elevation,
+                "distance": 4.0 + index / 10,
+            }
+            for index, (station_id, (d_lat, d_lon)) in enumerate(offsets.items())
+            for resolution, dataset, elevation in datasets
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "elevation": pl.Float64,
+            "distance": pl.Float64,
+        },
+        orient="row",
+    )
+    timestamp = dt.datetime(2021, 2, 1, tzinfo=ZoneInfo("UTC"))
+
+    def _filter_by_distance(
+        self: DwdObservationRequest,
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,  # noqa: ARG001
+    ) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+
+    def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
+        for station_id in offsets:
+            yield SimpleNamespace(
+                df=pl.DataFrame(
+                    [
+                        {
+                            "station_id": station_id,
+                            "resolution": resolution,
+                            "dataset": dataset,
+                            "parameter": "temperature_air_mean_2m",
+                            "timestamp": timestamp,
+                            "value": 5.0,
+                            "quality": 10.0,
+                        }
+                        for resolution, dataset, _ in datasets
+                    ],
+                ),
+            )
+
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _filter_by_distance)
+    monkeypatch.setattr(DwdObservationValues, "query", _query)
+    request = DwdObservationRequest(
+        parameters=[(resolution, dataset, "temperature_air_mean_2m") for resolution, dataset, _ in datasets],
+        start_date=timestamp,
+        end_date=timestamp,
+    )
+    get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
+    df = get_df(request, latitude, longitude, 100.0)
+    assert dict(df.select("resolution", "value").iter_rows()) == {"hourly": 5.0, "daily": 5.0}

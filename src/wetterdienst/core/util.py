@@ -202,6 +202,19 @@ class StationsInReach(NamedTuple):
     furthest_with_elevation: float | None
 
 
+def one_row_per_station(df_stations_ranked: pl.DataFrame) -> pl.DataFrame:
+    """Keep one row per station, the nearest, with the first elevation any of its rows knows.
+
+    The ranking carries a row per station *and* dataset, each with what its own station list
+    reported, and the lists can disagree: NOAA GHCN's hourly list gives no elevation for hundreds
+    of the stations its daily list does. Read off the nearest row alone, whether a station's
+    elevation is known would depend on which resolution the parameters named first.
+    """
+    return df_stations_ranked.with_columns(
+        pl.col("elevation").fill_null(pl.col("elevation").drop_nulls().first().over("station_id")),
+    ).unique(subset=["station_id"], keep="first", maintain_order=True)
+
+
 def count_stations_in_reach(
     df_stations_ranked: pl.DataFrame,
     parameters: Iterable[object],
@@ -229,7 +242,7 @@ def count_stations_in_reach(
     # per station, the nearest, over every dataset in the ranking. Two dataset indexes can disagree
     # about a station's elevation, and reading a different row here than the walk does would refuse a
     # request the walk would have answered
-    as_the_walk_reads_it = df_stations_ranked.unique(subset=["station_id"], keep="first", maintain_order=True)
+    as_the_walk_reads_it = one_row_per_station(df_stations_ranked)
     for parameter in parameters:
         if not isinstance(parameter, ParameterModel) or parameter.name not in interpolatable:
             continue
