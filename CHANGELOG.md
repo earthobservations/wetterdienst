@@ -36,6 +36,8 @@ Types of changes:
 
 ### Changed
 
+- `pydantic-settings` now has a floor of `>=2.14.0` (was `>=2.7.0`): `Settings` reads `.env` with
+  its `dotenv_filtering` option, which 2.14.0 added. Upgrade it where it is pinned lower (GH-2349)
 - **Breaking**: DWD derived `monthly/soil` returns its monthly totals of potential
   evapotranspiration as the new `evapotranspiration_potential_grass_fao` and
   `evapotranspiration_potential_grass_haude`, where they came as the daily `..._last_24h` names.
@@ -164,8 +166,34 @@ Types of changes:
   row keeps its own list's elevation. A request for one resolution is not affected by this
   (GH-2336, GH-2362)
 
+### Deprecated
+
+- `summarize`'s `use_nearby_station_distance` (the CLI's `--use_nearby_station_distance`,
+  `/api/summarize` and the MCP `summarize` tool) is deprecated and will be removed in a future
+  release. It never had an effect on a summary; leave it out. The CLI warns when it is given, the
+  REST API logs it, and the schema marks it deprecated. The setting
+  `ts_geo_use_nearby_station_distance` stays, for interpolation (GH-2333)
+
 ### Fixed
 
+- `Settings` ignores a key of `.env` that is no setting, such as another program's
+  `POSTGRES_PASSWORD`, as it ignores one in the environment. Such a key made every `Settings()`
+  fail with its value in the error, and the CLI commands and the REST API that read the settings
+  refused to run. A `WD_*` key that names no setting, such as the misspelt `WD_CACHE_DIABLE`, is
+  ignored too, as in the environment. A keyword to `Settings(...)` that is no setting is still
+  refused (GH-2349)
+- `Settings` no longer takes a `.env` key without the `WD_` prefix for the setting it names, as it
+  did with pydantic-settings older than 2.11, which the `>=2.7.0` floor allowed: another program's
+  `CACHE_DIR` or `TS_SHAPE` set wetterdienst's cache directory or result shape (GH-2373)
+- `Settings` refuses a non-empty `ts_geo_station_distance` or
+  `ts_geo_station_distance_resolution_factors` that is not a mapping, such as
+  `WD_TS_GEO_STATION_DISTANCE=5`, with a `ValidationError` naming the setting, where it raised a
+  bare `TypeError` that named nothing (GH-2353)
+- Climate stripes values and images (CLI `stripes values`, `/api/stripes/values`,
+  `/api/stripes/image`, MCP `stripes_values` and `stripes_image`) no longer fail under
+  `WD_TS_SHAPE=wide`, which raised `ColumnNotFoundError`, or under `WD_TS_SKIP_EMPTY=true`, which
+  raised a `ComputeError` for a station with gaps in its record. They read the values long and
+  unskipped whatever those two say (GH-2348)
 - `wetterdienst issues --dataset/--lead_time`, and the `/api/issues` and MCP `issues` descriptions
   of `dataset` and `lead_time`, said other networks ignore them. They are DWD DMO only, and MOSMIX
   and SWSMOS refuse them, so leave them out there (GH-2347)

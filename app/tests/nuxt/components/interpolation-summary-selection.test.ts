@@ -397,3 +397,84 @@ describe('the interpolation\'s station picker with no station to offer', () => {
     expect(alert().exists()).toBe(false)
   })
 })
+
+describe('the interpolation\'s station picker after a Retry', () => {
+  // the focus Retry held fell to the page's body once a Retry that worked took the notice away
+  const retry = () => [...document.body.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Retry')
+
+  /**
+   * The picker on a dataset of its own, its first list failed, and a Retry pressed, its answer held
+   * on a gate: the stations, or a failure again.
+   */
+  async function retried(dataset: string, again: 'stations' | 'failure') {
+    let asked = 0
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    onTestFinished(() => release())
+    onTestFinished(registerEndpoint('/api/stations', async (event) => {
+      asked++
+      if (asked > 1)
+        await gate
+      if (asked === 1 || again === 'failure') {
+        setResponseStatus(event, 500)
+        return { detail: 'Upstream failed' }
+      }
+      return { stations: [feldberg] }
+    }))
+    const wrapper = await mountSuspended(InterpolationSummarySelection, {
+      props: { parameterSelection: { ...parameterSelection, dataset }, modelValue: { source: 'station' } },
+      attachTo: document.body,
+    })
+    onTestFinished(() => wrapper.unmount())
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+    const button = retry()!
+    button.focus()
+    button.click()
+    await vi.waitFor(() => expect(asked).toBe(2))
+    return { wrapper, vm: wrapper.vm as any, button, release }
+  }
+
+  /** The select, the control its field's label names. */
+  function select(wrapper: Awaited<ReturnType<typeof retried>>['wrapper']) {
+    // looked up in this picker: one another test left mounted has the same ids
+    const label = wrapper.findAll('label').find(l => l.text().includes('Select station for coordinates'))!
+    return wrapper.element.querySelector(`[id="${label.attributes('for')}"]`)
+  }
+
+  it('hands the focus on to the select once the list has come', async () => {
+    const { wrapper, vm, release } = await retried('kl', 'stations')
+
+    release()
+    await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
+    expect(retry()).toBeUndefined()
+    await vi.waitFor(() => expect(select(wrapper)).not.toBeNull())
+    await vi.waitFor(() => expect(document.activeElement).toBe(select(wrapper)))
+  })
+
+  it('leaves the focus where it was moved to meanwhile', async () => {
+    const { wrapper, vm, release } = await retried('more_precip', 'stations')
+    const elevation = wrapper.find('input[placeholder="e.g. 34"]').element as HTMLInputElement
+    elevation.focus()
+
+    release()
+    await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
+    await vi.waitFor(() => expect(select(wrapper)).not.toBeNull())
+    await flushPromises()
+    expect(document.activeElement).toBe(elevation)
+  })
+
+  it('keeps the focus on Retry where the list fails again', async () => {
+    const { vm, button, release } = await retried('weather_phenomena', 'failure')
+
+    release()
+    await vi.waitFor(() => {
+      expect(vm.stationsPending).toBe(false)
+      expect(document.body.querySelector('[role="alert"]')).not.toBeNull()
+    })
+    await flushPromises()
+    expect(retry()).toBe(button)
+    expect(document.activeElement).toBe(button)
+  })
+})

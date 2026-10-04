@@ -16,8 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Explorer]` The nearby station distance is offered, and sent, for an interpolation only. It had
+  no effect on a summary, and the backend deprecates it there (GH-2333)
+
 ### Fixed
 
+- `[Explorer]` `[Meteogram]` `[Widget]` `[Stripes]` A Retry that works moves the keyboard focus to
+  what it brought back: the station select of the interpolation/summary picker, or the chart.
+  The focus fell to the top of the page, sending a keyboard or screen reader user to find their
+  place again. Focus moved elsewhere meanwhile stays where it is (GH-2357)
 - `[Explorer]` Each unit type the Unit Targets setting lists is asked for in the unit its choice
   names, "Default (°C)" in °C. On a backend whose `WD_TS_UNIT_TARGETS` sets another unit, such as
   `{"temperature": "degree_fahrenheit"}`, a type left at "Default" came in that unit instead. A

@@ -49,6 +49,7 @@ from wetterdienst.model.result import (
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.settings import SkipThreshold, check_settings
 from wetterdienst.ui.core import (
+    SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     GlossaryEntry,
     HistoryRequest,
     InterpolationRequest,
@@ -107,10 +108,11 @@ class _RefuseInvalidSettings:
             try:
                 problems = check_settings()
             except Exception as e:  # noqa: BLE001
-                # a validator failing other than by refusing the value (GH-2353) is refused all the
-                # same: raised here, uvicorn's default `--lifespan auto` would take it for a
-                # lifespan the app does not support, and serve. Told by its type alone, as its
-                # message is not pydantic's and may carry what it was given
+                # a validator failing other than by refusing the value, as the station distances'
+                # did with a `TypeError` until GH-2353, is refused all the same: raised here,
+                # uvicorn's default `--lifespan auto` would take it for a lifespan the app does not
+                # support, and serve. Told by its type alone, as its message is not pydantic's and
+                # may carry what it was given
                 problems = [f"the settings could not be built: {type(e).__name__}"]
             if problems:
                 await receive()
@@ -238,7 +240,6 @@ _STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION = (
 class _GeoSettings(_AppliedSettings):
     """The settings `/api/interpolate` and `/api/summarize` share."""
 
-    use_nearby_station_distance: _Unbounded | None = Field(validation_alias="ts_geo_use_nearby_station_distance")
     min_gain_of_value_pairs: _Unbounded = Field(validation_alias="ts_geo_min_gain_of_value_pairs")
     num_additional_stations: int = Field(validation_alias="ts_geo_num_additional_stations")
     # set by the server alone, as are the skipping of sparse stations and the dropping of nulls
@@ -253,6 +254,9 @@ class _GeoSettings(_AppliedSettings):
 class InterpolationSettings(_GeoSettings):
     """The settings of `/api/interpolate`."""
 
+    # not read for a summary, which has nothing for it to decide: its field is only accepted there,
+    # and deprecated (GH-2333), so a summary neither passes nor reports it
+    use_nearby_station_distance: _Unbounded | None = Field(validation_alias="ts_geo_use_nearby_station_distance")
     interpolation_station_distance: dict[str, _Unbounded] = Field(
         validation_alias="ts_geo_station_distance",
         description=_STATION_DISTANCE_DESCRIPTION,
@@ -1116,6 +1120,9 @@ def summarize(
     `date`.
     """
     set_logging_level(debug=request.debug)
+    # dumped rather than read: reading a deprecated field warns of itself, a DeprecationWarning nobody sees
+    if request.model_dump(include={"use_nearby_station_distance"})["use_nearby_station_distance"] is not None:
+        log.warning(f"use_nearby_station_distance is deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}")
 
     try:
         api = Wetterdienst(request.provider, request.network)

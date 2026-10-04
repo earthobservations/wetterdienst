@@ -29,7 +29,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.settings import SkipThreshold
+from wetterdienst.settings import Settings, SkipThreshold
 from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.ui import read_list
 
@@ -46,7 +46,6 @@ if TYPE_CHECKING:
         SummarizedValuesResult,
         ValuesResult,
     )
-    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -274,6 +273,24 @@ _UseNearbyStationDistanceField = Annotated[
         ge=0,
         description="Use a nearby station's values directly when it is within this distance (km) of the target. "
         "Default: the server's WD_TS_GEO_USE_NEARBY_STATION_DISTANCE if set, else 1.",
+    ),
+]
+# what the CLI, the REST API and the MCP tool tell a caller who gives `use_nearby_station_distance`
+# to a summary (GH-2333)
+SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED = (
+    "It has no effect on a summary, which takes the nearest station with data anyway, and will be "
+    "removed in a future release. Leave it out."
+)
+# accepted still, so that a request giving it is not refused, and read by nothing. The schema marks
+# it deprecated; the CLI warns the caller who gives it, the REST API only logs it.
+# Defaults to `None`, not 1.0: FastAPI hands a query model every default as if given, so only `None`
+# says it was not
+_SummaryUseNearbyStationDistanceField = Annotated[
+    float | None,
+    Field(
+        ge=0,
+        deprecated=SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
+        description=f"Deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}",
     ),
 ]
 _MinGainOfValuePairsField = Annotated[
@@ -868,7 +885,7 @@ class SummaryRequest(BaseModel):
             return v
         return json.loads(v)
 
-    use_nearby_station_distance: _UseNearbyStationDistanceField = 1.0
+    use_nearby_station_distance: _SummaryUseNearbyStationDistanceField = None
     min_gain_of_value_pairs: _MinGainOfValuePairsField = 0.10
     num_additional_stations: _NumAdditionalStationsField = 3
     format: _FormatField = "json"
@@ -1345,19 +1362,32 @@ class StripesConfig(TypedDict):
     precipitation: StripesConfigItem
 
 
+def _get_stripes_settings() -> Settings:
+    """Give the settings the stripes read a station's values with.
+
+    `_get_stripes_data` takes the `value` column of a long frame and draws the gaps in a station's
+    record itself. The rest comes from the environment as for any request, but `WD_TS_SHAPE=wide`
+    left no `value` column (`ColumnNotFoundError`), and `WD_TS_SKIP_EMPTY=true` dropped a station
+    with gaps, leaving no years to draw (GH-2348). Those two are fixed here.
+    """
+    return Settings(ts_shape="long", ts_skip_empty=False)
+
+
 def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
-    """Need this for displaying stations in the interactive app."""
+    """Give the request the temperature stripes list their stations and read their values with."""
     return DwdObservationRequest(
         parameters=[("annual", "climate_summary", "temperature_air_mean_2m")],
         periods=periods,
+        settings=_get_stripes_settings(),
     )
 
 
 def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
-    """Need this for displaying stations in the interactive app."""
+    """Give the request the precipitation stripes list their stations and read their values with."""
     return DwdObservationRequest(
         parameters=[("annual", "precipitation_more", "precipitation_amount")],
         periods=periods,
+        settings=_get_stripes_settings(),
     )
 
 
