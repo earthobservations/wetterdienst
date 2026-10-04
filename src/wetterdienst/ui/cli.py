@@ -1858,12 +1858,15 @@ def alerts(
         msg = "--target only supports a local path or a file:// URI for alerts."
         raise click.BadParameter(msg)
 
-    # Invalid input (granularity/language/format, or a date outside the rolling window) is a
-    # BadParameter; a runtime download/parse failure is a clean ClickException, not a traceback.
+    # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
+    # variable is a `ValueError`, and not the command line's to fix
+    settings = Settings()
+    # granularity, language and format are click choices, so only the date reaches this refusal: one
+    # that does not parse, or one an offset carries out of what a datetime holds
     try:
-        request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=Settings())
-    except ValueError as e:
-        raise click.BadParameter(str(e)) from e
+        request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=settings)
+    except (ValueError, OverflowError) as e:
+        raise click.BadParameter(str(e), param_hint="--date") from e
 
     try:
         result = request.query()
@@ -1879,7 +1882,12 @@ def alerts(
 
     if target:
         path = target.removeprefix("file://")
-        Path(path).write_text(output, encoding="utf-8")
+        try:
+            Path(path).write_text(output, encoding="utf-8")
+        except OSError as e:
+            # a directory that does not exist or cannot be written, or a path naming a directory
+            msg = f"Could not write --target: {e}"
+            raise click.ClickException(msg) from e
         return
 
     print(output)  # noqa: T201

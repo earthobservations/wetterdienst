@@ -349,7 +349,11 @@ Types of changes:
   line each and without pydantic's echo of the value, where it ended in pydantic's traceback. The
   REST API refuses to start with it, also under `uvicorn` directly unless its lifespan is turned
   off, and `wetterdienst restapi` exits with uvicorn's status 3; the other CLI commands that read
-  the settings, `alerts` aside, exit with status 1 (GH-2335)
+  the settings exit with status 1 (GH-2335)
+- `wetterdienst alerts` refuses a `--date` that does not parse, or that an offset carries out of a
+  datetime's range, as `Invalid value for --date` with exit status 2; the latter was a traceback.
+  It raises a malformed `WD_*` variable as it is rather than as an invalid option, as `values`
+  does, and a `--target` it cannot write is an error with exit status 1, not a traceback (GH-2322)
 - NOAA GHCN hourly stations listed at 9999.0 m or 8191.0 m, 154 placeholders such as the North
   Sea lightship ELBE NO. 1, have a null `elevation`. `interpolate` and `summarize` given an
   elevation took them for known ones (GH-2336)
