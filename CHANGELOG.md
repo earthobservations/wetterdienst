@@ -310,6 +310,13 @@ Types of changes:
   the brackets and sent `http://::1:8086`, which names no valid host (GH-2279)
 - The InfluxDB 1 sink reaches an IPv6 host, such as `influxdb://root:pw@[::1]:8086/`. It dropped
   the brackets, so its client's base URL was `http://::1:8086`, which names no valid host (GH-2287)
+- The CLI's `values`, `interpolate` and `summarize` leave a setting whose option is not given on
+  the command line to its `WD_TS_*` variable, such as `WD_TS_SHAPE=wide`. They passed every
+  option's default, which outranks the environment, so those variables had no effect (GH-2307)
+- The CLI's `interpolate` and `summarize` refuse a bad station distance or unit target in one line
+  naming its option, as `values` does, where they printed pydantic's whole message. All three raise
+  a malformed `WD_*` variable as it is rather than as a usage error, also one merged into the dict
+  an option gives, such as `WD_TS_UNIT_TARGETS` beside `--unit_targets` (GH-2308)
 
 ## [0.139.0] - 2026-09-29
 

@@ -13,6 +13,7 @@ from pprint import pformat
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, get_args
 
 import click
+from click.core import ParameterSource
 from pydantic import BaseModel, ValidationError
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
@@ -46,7 +47,6 @@ from wetterdienst.ui.core import (
     limit_stations_to_rank,
     select_history_sections,
     set_logging_level,
-    station_distance_radii,
 )
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.extras import missing_dependency_message
@@ -187,7 +187,10 @@ convert_units_opt = click.option(
     "--convert_units",
     type=click.BOOL,
     default=True,
-    help="Convert values to the unit targets: the defaults, overridden per quantity by --unit_targets. Default: true",
+    help=(
+        "Convert values to the unit targets: the defaults, overridden per quantity by --unit_targets. "
+        "Default: WD_TS_CONVERT_UNITS if set, else true"
+    ),
 )
 unit_targets_opt = click.option(
     "--unit_targets",
@@ -198,7 +201,7 @@ humanize_opt = click.option(
     "--humanize",
     type=click.BOOL,
     default=True,
-    help="Use canonical parameter names instead of the provider's own codes. Default: true",
+    help="Use canonical parameter names instead of the provider's own codes. Default: WD_TS_HUMANIZE if set, else true",
 )
 
 format_opt = click.option(
@@ -269,7 +272,10 @@ use_nearby_station_distance_opt = click.option(
     "--use_nearby_station_distance",
     type=click.FLOAT,
     default=1,
-    help="Use a station's own values when it is within this many km of the point. Default: 1",
+    help=(
+        "Use a station's own values when it is within this many km of the point. "
+        "Default: WD_TS_GEO_USE_NEARBY_STATION_DISTANCE if set, else 1"
+    ),
 )
 # a flag here, where stations/values/history take a value: changing either breaks invocations
 pretty_flag_opt = click.option("--pretty", is_flag=True, help="Pretty-print JSON with 4-space indentation.")
@@ -290,12 +296,13 @@ def station_distance_opts(kind: str) -> Callable[[_CommandT], _CommandT]:
             f"--{kind}_station_distance_homogeneous",
             type=click.FLOAT,
             help="Maximum station distance in km for a parameter that varies slowly, such as air temperature. "
-            "Default: 40",
+            "Default: WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40",
         ),
         click.option(
             f"--{kind}_station_distance_heterogeneous",
             type=click.FLOAT,
-            help="The same for one that decorrelates faster, such as precipitation, at hourly resolution. Default: 20",
+            help="The same for one that decorrelates faster, such as precipitation, at hourly resolution. "
+            "Default: WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20",
         ),
     ]
 
@@ -331,6 +338,42 @@ def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _Reques
     except ValidationError as e:
         ctx = click.get_current_context()
         raise click.UsageError(_describe_validation_error(e, ctx), ctx=ctx) from e
+
+
+def _build_settings(options: dict[str, tuple[str, Any]]) -> Settings:
+    """Build a command's settings from the environment and the options given on the command line.
+
+    `options` maps each option's parameter to the setting it sets and the value it sets it to. An
+    option is passed only when given on the command line: an init argument outranks the
+    environment, so passing its default would hide the `WD_TS_*` variable set for that setting.
+
+    The environment's settings are built on their own first, and an error there is raised as it is:
+    a malformed `WD_*` variable is not the command line's to fix. Where an error is located would
+    not tell, as pydantic-settings merges a dict the environment sets into the one an option gives.
+    With those valid, an error once the options are added is theirs, told by the option as click
+    tells an invalid value.
+    """
+    ctx = click.get_current_context()
+    Settings()
+    # each setting given by the option that sets it
+    given = {
+        setting: (param, value)
+        for param, (setting, value) in options.items()
+        if ctx.get_parameter_source(param) is not ParameterSource.DEFAULT
+    }
+    try:
+        return Settings(**{setting: value for setting, (_, value) in given.items()})
+    except ValidationError as e:
+        problems = e.errors(include_url=False)
+        if any(not problem["loc"] or problem["loc"][0] not in given for problem in problems):
+            raise
+        names = {param for param, _ in given.values()}
+        params = {param.name: param for param in ctx.command.params if param.name in names}
+        lines = [
+            _describe_problem({**problem, "loc": (given[str(problem["loc"][0])][0], *problem["loc"][1:])}, params, ctx)
+            for problem in problems
+        ]
+        raise click.UsageError("\n".join(lines), ctx=ctx) from e
 
 
 def _describe_validation_error(error: ValidationError, ctx: click.Context) -> str:
@@ -1180,7 +1223,10 @@ def history(
     "--shape",
     type=click.Choice(["long", "wide"]),
     default="long",
-    help="Output shape: 'long' (one row per value) or 'wide' (one column per parameter). Default: long",
+    help=(
+        "Output shape: 'long' (one row per value) or 'wide' (one column per parameter). "
+        "Default: WD_TS_SHAPE if set, else long"
+    ),
 )
 @convert_units_opt
 @unit_targets_opt
@@ -1189,25 +1235,28 @@ def history(
     "--skip_empty",
     type=click.BOOL,
     default=False,
-    help="Skip stations whose coverage falls below --skip_threshold. Default: false",
+    help="Skip stations whose coverage falls below --skip_threshold. Default: WD_TS_SKIP_EMPTY if set, else false",
 )
 @click.option(
     "--skip_criteria",
     type=click.Choice(["min", "mean", "max"]),
     default="min",
-    help="Aggregation over the requested parameters' coverage: min, mean or max. Default: min",
+    help=(
+        "Aggregation over the requested parameters' coverage: min, mean or max. "
+        "Default: WD_TS_SKIP_CRITERIA if set, else min"
+    ),
 )
 @click.option(
     "--skip_threshold",
     type=click.FloatRange(min=0, min_open=True, max=1),
     default=0.95,
-    help="Coverage fraction below which --skip_empty skips a station. Default: 0.95",
+    help="Coverage fraction below which --skip_empty skips a station. Default: WD_TS_SKIP_THRESHOLD if set, else 0.95",
 )
 @click.option(
     "--drop_nulls",
     type=click.BOOL,
     default=True,
-    help="Drop rows with null values from the output. Default: true",
+    help="Drop rows with null values from the output. Default: WD_TS_DROP_NULLS if set, else true",
 )
 @format_opt
 @target_opt
@@ -1305,31 +1354,19 @@ def values(
 
     api = get_api(request.provider, request.network)
 
-    try:
-        settings = Settings(
-            ts_humanize=request.humanize,
-            ts_shape=request.shape,
-            ts_convert_units=request.convert_units,
-            ts_unit_targets=request.unit_targets or {},
-            ts_skip_empty=request.skip_empty,
-            ts_skip_criteria=request.skip_criteria,
-            ts_skip_threshold=request.skip_threshold,
-            ts_drop_nulls=request.drop_nulls,
-        )
-    except ValidationError as e:
-        # a unit target given for a quantity the unit converter does not know. Only that: a value
-        # a WD_* environment variable set is not the command line's to fix. WD_TS_UNIT_TARGETS is
-        # merged into --unit_targets, so its entries are told with the option's when it is given
-        problems = e.errors(include_url=False)
-        if not request.unit_targets or any(problem["loc"][:1] != ("ts_unit_targets",) for problem in problems):
-            raise
-        ctx = click.get_current_context()
-        params = {param.name: param for param in ctx.command.params if param.name == "unit_targets"}
-        lines = [
-            _describe_problem({**problem, "loc": ("unit_targets", *problem["loc"][1:])}, params, ctx)
-            for problem in problems
-        ]
-        raise click.UsageError("\n".join(lines), ctx=ctx) from e
+    # a unit target given for a quantity the unit converter does not know is a usage error
+    settings = _build_settings(
+        {
+            "humanize": ("ts_humanize", request.humanize),
+            "shape": ("ts_shape", request.shape),
+            "convert_units": ("ts_convert_units", request.convert_units),
+            "unit_targets": ("ts_unit_targets", request.unit_targets or {}),
+            "skip_empty": ("ts_skip_empty", request.skip_empty),
+            "skip_criteria": ("ts_skip_criteria", request.skip_criteria),
+            "skip_threshold": ("ts_skip_threshold", request.skip_threshold),
+            "drop_nulls": ("ts_drop_nulls", request.drop_nulls),
+        }
+    )
 
     values_ = _collect_or_exit(get_values, api=api, request=request, settings=settings, what="data acquisition")
 
@@ -1456,23 +1493,25 @@ def interpolate(
 
     api = get_api(request.provider, request.network)
 
-    try:
-        settings = Settings(
-            ts_humanize=request.humanize,
-            ts_convert_units=request.convert_units,
-            ts_unit_targets=request.unit_targets or {},
-            ts_geo_station_distance=request.interpolation_station_distance or {},
-            **station_distance_radii(
+    # a distance given for a name that is not a canonical parameter, or a negative one, or a unit
+    # target for a quantity the unit converter does not know is a usage error
+    settings = _build_settings(
+        {
+            "humanize": ("ts_humanize", request.humanize),
+            "convert_units": ("ts_convert_units", request.convert_units),
+            "unit_targets": ("ts_unit_targets", request.unit_targets or {}),
+            "interpolation_station_distance": ("ts_geo_station_distance", request.interpolation_station_distance or {}),
+            "interpolation_station_distance_homogeneous": (
+                "ts_geo_station_distance_homogeneous",
                 request.interpolation_station_distance_homogeneous,
+            ),
+            "interpolation_station_distance_heterogeneous": (
+                "ts_geo_station_distance_heterogeneous",
                 request.interpolation_station_distance_heterogeneous,
             ),
-            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-            ts_geo_num_additional_stations=request.num_additional_stations,
-        )
-    except ValidationError as e:
-        # a distance given for a name that is not a canonical parameter, or a negative one
-        raise click.BadParameter(str(e)) from e
+            "use_nearby_station_distance": ("ts_geo_use_nearby_station_distance", request.use_nearby_station_distance),
+        }
+    )
 
     values_ = _collect_or_exit(get_interpolate, api=api, request=request, settings=settings, what="interpolation")
 
@@ -1597,23 +1636,25 @@ def summarize(
 
     api = get_api(request.provider, request.network)
 
-    try:
-        settings = Settings(
-            ts_humanize=request.humanize,
-            ts_convert_units=request.convert_units,
-            ts_unit_targets=request.unit_targets or {},
-            ts_geo_station_distance=request.summary_station_distance or {},
-            **station_distance_radii(
+    # a distance given for a name that is not a canonical parameter, or a negative one, or a unit
+    # target for a quantity the unit converter does not know is a usage error
+    settings = _build_settings(
+        {
+            "humanize": ("ts_humanize", request.humanize),
+            "convert_units": ("ts_convert_units", request.convert_units),
+            "unit_targets": ("ts_unit_targets", request.unit_targets or {}),
+            "summary_station_distance": ("ts_geo_station_distance", request.summary_station_distance or {}),
+            "summary_station_distance_homogeneous": (
+                "ts_geo_station_distance_homogeneous",
                 request.summary_station_distance_homogeneous,
+            ),
+            "summary_station_distance_heterogeneous": (
+                "ts_geo_station_distance_heterogeneous",
                 request.summary_station_distance_heterogeneous,
             ),
-            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-            ts_geo_num_additional_stations=request.num_additional_stations,
-        )
-    except ValidationError as e:
-        # a distance given for a name that is not a canonical parameter, or a negative one
-        raise click.BadParameter(str(e)) from e
+            "use_nearby_station_distance": ("ts_geo_use_nearby_station_distance", request.use_nearby_station_distance),
+        }
+    )
 
     values_ = _collect_or_exit(get_summarize, api=api, request=request, settings=settings, what="summarize")
 
