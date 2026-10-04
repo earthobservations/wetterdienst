@@ -258,7 +258,9 @@ class Settings(BaseSettings):
     # returning. The coverage is measured against how many readings the requested window can
     # hold, so the option stands on its own and needs no particular shape of frame under it
     ts_skip_empty: bool = False
-    ts_skip_threshold: float = 0.95
+    # the share of readings a station must cover not to be skipped: a threshold above 1 skips every
+    # station, one of 0 or below none, so neither is one (GH-2334)
+    ts_skip_threshold: Annotated[float, Field(gt=0, le=1)] = 0.95
     ts_skip_criteria: Literal["min", "mean", "max"] = "min"
     ts_drop_nulls: bool = True
     # how far a station may be from the target point to still be interpolated or summarized from.

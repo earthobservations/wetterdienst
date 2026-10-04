@@ -340,6 +340,11 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- `Settings` refuses a `ts_skip_threshold` outside (0, 1], as `--skip_threshold` does. One above
+  1, as `WD_TS_SKIP_THRESHOLD=5`, skipped every station under `ts_skip_empty`, and `values` said
+  "No data available" with no hint at the setting; such a variable now fails every `Settings()`,
+  so correct or remove it. `/api/values` answers a `skip_threshold` of 0, which skipped nothing,
+  with a 422, and the MCP `values` tool refuses it (GH-2334)
 
 ## [0.139.0] - 2026-09-29
 

@@ -915,3 +915,19 @@ def test_cli_refuses_unknown_unit_targets_unit(monkeypatch: pytest.MonkeyPatch, 
     result = runner.invoke(cli, [*args, '--unit_targets={"temperature": "furlong"}'])
     assert result.exit_code == 2, result.output
     assert "Invalid unit targets: Unit furlong not supported for type temperature." in result.output
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_values_refuses_a_skip_threshold_from_the_environment_outside_zero_to_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test a WD_TS_SKIP_THRESHOLD above 1 is refused by its setting, not run into "No data" (GH-2334).
+
+    `values` reads it when --skip_threshold is not given; one above 1 used to skip every station.
+    """
+    monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "5")
+    runner = CliRunner()
+    result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048", "--skip_empty=true"])
+    assert isinstance(result.exception, ValidationError)
+    assert result.exception.errors()[0]["loc"] == ("ts_skip_threshold",)
+    assert "--skip_threshold" not in result.output

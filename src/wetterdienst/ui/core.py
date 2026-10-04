@@ -180,7 +180,7 @@ _UnitTargetsField = Annotated[
 _SkipEmptyField = Annotated[bool, Field(description="Skip stations whose coverage falls below `skip_threshold`.")]
 _SkipThresholdField = Annotated[
     float,
-    Field(ge=0, le=1, description="Coverage fraction below which a station is skipped (requires `skip_empty`)."),
+    Field(gt=0, le=1, description="Coverage fraction below which a station is skipped (requires `skip_empty`)."),
 ]
 _SkipCriteriaField = Annotated[
     Literal["min", "mean", "max"],
