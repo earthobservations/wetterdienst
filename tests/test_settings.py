@@ -787,16 +787,10 @@ def test_check_settings_reads_dotenv(tmp_path: Path) -> None:
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_check_settings_names_a_dotenv_key_that_is_no_setting_by_its_whole_key(tmp_path: Path) -> None:
-    """A `.env` key the settings refuse as no setting of theirs is named by the whole key (GH-2335).
-
-    Its location already carries the prefix, which was put in front of it a second time.
-    """
+def test_check_settings_finds_nothing_wrong_with_a_dotenv_key_that_is_no_setting(tmp_path: Path) -> None:
+    """A `.env` key that is no setting is ignored, as in the environment, so it is nothing to report (GH-2349)."""
     (tmp_path / ".env").write_text("WD_CACHE_DIABLE=secret-ish\nOTHER_SECRET=secret-ish\n")
-    assert check_settings() == [
-        "WD_CACHE_DIABLE in .env is not a wetterdienst setting",
-        "OTHER_SECRET in .env is not a wetterdienst setting",
-    ]
+    assert check_settings() == []
 
 
 @pytest.mark.parametrize("threshold", [0, -0.5, 1.01, 5])
@@ -826,3 +820,57 @@ def test_settings_skip_threshold_takes_one(monkeypatch: pytest.MonkeyPatch) -> N
     """The upper bound is in the range: 1 asks for every reading (GH-2334)."""
     monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "1")
     assert Settings().ts_skip_threshold == 1
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("field", ["ts_geo_station_distance", "ts_geo_station_distance_resolution_factors"])
+@pytest.mark.parametrize("value", [5, "abc", [1.0]])
+def test_settings_geo_station_distance_mappings_refuse_anything_but_a_mapping(field: str, value: object) -> None:
+    """A non-empty value that is not a mapping is refused by pydantic, named by its field (GH-2353).
+
+    The key checks used to look for keys in it, and failed with a bare `TypeError` naming nothing.
+    """
+    with pytest.raises(ValidationError, match=rf"{field}\n  Input should be a valid dictionary"):
+        Settings(**{field: value})
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("field", ["ts_geo_station_distance", "ts_geo_station_distance_resolution_factors"])
+@pytest.mark.parametrize("value", ["5", '"abc"', "[1.0]"])
+def test_settings_geo_station_distance_mappings_refuse_anything_but_a_mapping_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: str,
+) -> None:
+    """A `WD_*` variable holding JSON that is no object is refused the same way (GH-2353)."""
+    monkeypatch.setenv(f"WD_{field.upper()}", value)
+    with pytest.raises(ValidationError, match=rf"{field}\n  Input should be a valid dictionary"):
+        Settings()
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_dotenv_ignores_a_key_that_is_no_setting(tmp_path: Path) -> None:
+    """A `.env` shared with another program does not stop the settings from loading (GH-2349).
+
+    Its key used to be refused, and its value echoed, by every `Settings()`. A key without the
+    prefix is not taken for a setting even where it names one, and the settings in the same file
+    are still read.
+    """
+    (tmp_path / ".env").write_text("POSTGRES_PASSWORD=secret-ish\nTS_SHAPE=wide\nWD_CACHE_DISABLE=true\n")
+    settings = Settings()
+    assert settings.cache_disable
+    assert settings.ts_shape == "long"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_dotenv_ignores_a_misspelt_wd_key(tmp_path: Path) -> None:
+    """A misspelt `WD_*` key in `.env` is ignored, as the same variable in the environment is (GH-2349)."""
+    (tmp_path / ".env").write_text("WD_CACHE_DIABLE=true\n")
+    assert not Settings().cache_disable
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_keyword_that_is_no_setting_is_still_refused() -> None:
+    """Only `.env` is let off: a misspelt keyword to the constructor is still refused (GH-2349)."""
+    with pytest.raises(ValidationError, match="cache_disabel\n  Extra inputs are not permitted"):
+        Settings(cache_disabel=True)

@@ -4469,9 +4469,10 @@ def test_restapi_refuses_to_start_when_the_settings_fail_otherwise(
 ) -> None:
     """A settings build failing other than by a validation error is refused too (GH-2335).
 
-    A validator's `TypeError` (GH-2353) escaped the check, and uvicorn, by default in lifespan mode
-    `auto`, took it for a lifespan the app does not support, and served. It is told by its type,
-    as its message is not pydantic's and may carry what the validator was given.
+    A validator's `TypeError`, such as the station distances' raised until GH-2353, escaped the
+    check, and uvicorn, by default in lifespan mode `auto`, took it for a lifespan the app does not
+    support, and served. It is told by its type, as its message is not pydantic's and may carry
+    what the validator was given.
     """
 
     def fail() -> list[str]:
