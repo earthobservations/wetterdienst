@@ -774,3 +774,61 @@ describe('stripes Page requests answered with a 500', () => {
     expect(asked.count).toBe(1)
   })
 })
+
+describe('stripes Page requests answered with a 503 once', () => {
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  // disposers of the endpoints these tests register, so none answers a later test
+  const endpoints: Array<() => void> = []
+  afterEach(() => {
+    endpoints.splice(0).forEach(dispose => dispose())
+    wrapper?.unmount()
+    wrapper = undefined
+    useToast().clear()
+    document.body.innerHTML = ''
+  })
+
+  // a 503 the first time only, as a proxy gives while the backend restarts
+  function flaky(answer: unknown) {
+    const asked = { count: 0 }
+    return {
+      asked,
+      handler: (event: H3Event) => {
+        asked.count++
+        if (asked.count === 1) {
+          setResponseStatus(event, 503)
+          return { detail: 'Service Unavailable' }
+        }
+        return answer
+      },
+    }
+  }
+
+  it('asks /api/stripes/stations once more, and lists what that answer brings', async () => {
+    const { asked, handler } = flaky({ stations: [station] })
+    endpoints.push(registerEndpoint('/api/stripes/stations', handler))
+    // precipitation, as the pages the first tests leave mounted hold the temperature stations' fetch
+    wrapper = await mountSuspended(StripesPage, { route: '/stripes?kind=precipitation' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    expect(asked.count).toBe(2)
+  })
+
+  it('asks /api/stripes/values once more, and plots what that answer brings', async () => {
+    endpoints.push(registerEndpoint('/api/stripes/stations', () => ({ stations: [station] })))
+    const { asked, handler } = flaky({ metadata: { station }, years: [{ year: 2000, value: 9.5 }] })
+    endpoints.push(registerEndpoint('/api/stripes/values', handler))
+    wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
+    }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    const vm = wrapper.findComponent(StripesPage).vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(vm.hasPlot).toBe(true))
+    expect(asked.count).toBe(2)
+    expect(document.body.textContent).not.toContain('Service Unavailable')
+  })
+})

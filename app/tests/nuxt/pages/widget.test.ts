@@ -116,3 +116,25 @@ describe('widget Page station lookup answered with a 500', () => {
     expect(asked).toBe(1)
   })
 })
+
+describe('widget Page station lookup answered with a 503 once', () => {
+  it('asks /api/stations once more, and shows the station that answer brings', async () => {
+    // a 503 the first time only, as a proxy gives while the backend restarts
+    let asked = 0
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      asked++
+      if (asked === 1) {
+        setResponseStatus(event, 503)
+        return { detail: 'Service Unavailable' }
+      }
+      return { stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }] }
+    }))
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ values: [] }), { status: 200 }))
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.station?.station_id).toBe('00001'))
+    expect(asked).toBe(2)
+    expect(vm.error).toBeNull()
+  })
+})
