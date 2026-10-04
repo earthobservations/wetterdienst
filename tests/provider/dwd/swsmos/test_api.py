@@ -503,12 +503,6 @@ def test_swsmos_unreadable_run_is_asked_for_again_where_nothing_stands_behind_it
         body = good if kwargs["ttl"] is CacheExpiry.NO_CACHE else b"\x42\x5a\x68truncated"
         return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
 
-    # the listing names the pinned run, so it is fetched
-    monkeypatch.setattr(
-        api,
-        "list_remote_files_fsspec",
-        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731080000_opendata.csv.bz2"],  # noqa: SLF001
-    )
     monkeypatch.setattr(api, "download_file", download)
     stations = _stub_stations()
     stations.stations.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
@@ -608,12 +602,6 @@ def test_swsmos_unreadable_run_is_not_asked_for_again_where_there_is_no_cache(
         body = good if kwargs["ttl"] is CacheExpiry.NO_CACHE else b"\x42\x5a\x68truncated"
         return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
 
-    # the listing names the pinned run, so it is fetched
-    monkeypatch.setattr(
-        api,
-        "list_remote_files_fsspec",
-        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731080000_opendata.csv.bz2"],  # noqa: SLF001
-    )
     monkeypatch.setattr(api, "download_file", download)
     stations = _stub_stations(settings=Settings(cache_disable=True))
     stations.stations.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
@@ -841,6 +829,11 @@ def test_swsmos_issue_not_found_is_raised_for_every_station(monkeypatch: pytest.
         "list_remote_files_fsspec",
         lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
     )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
+    )
     stations = _stub_stations(("A006", "B999"))
     stations.stations.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
     # one values object, as one walk over the stations has: `.values` builds a new one per access
@@ -850,3 +843,86 @@ def test_swsmos_issue_not_found_is_raised_for_every_station(monkeypatch: pytest.
     for station_id in ("A006", "B999"):
         with pytest.raises(IssueNotFoundError):
             values._collect_station_parameter_or_dataset(station_id, dataset)  # noqa: SLF001
+
+
+def test_swsmos_issue_whose_run_is_served_asks_no_listing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A pinned run that is fetched, or read from the cache, is answered without listing the directory (GH-2324).
+
+    So a listing that fails, or one that has since dropped the run, cannot refuse a run that is there to be read.
+    """
+
+    def listing(*_args: object, **_kwargs: object) -> list[str]:
+        msg = "a served run should not be listed for"
+        raise AssertionError(msg)
+
+    content = _run_file(("A006", "202607310800", "17.9"))
+    monkeypatch.setattr(api, "list_remote_files_fsspec", listing)
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(content), status=200),
+    )
+    stations = _stub_stations()
+    stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
+
+    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.get_column("value").to_list() == [17.9]
+
+
+def test_swsmos_issue_whose_fetch_fails_otherwise_is_not_refused(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Only a 404 says the server lacks the run; a server error is warned about, listed or not (GH-2324)."""
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=OSError("500 Internal Server Error"), status=500),
+    )
+    stations = _stub_stations()
+    stations.stations.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
+
+    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.is_empty()
+    assert "Failed to fetch SWSMOS run" in caplog.text
+
+
+def test_swsmos_latest_run_pruned_since_the_listing_is_not_refused(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """``LATEST`` names no run of its own, so a listed run pruned before its fetch is not the caller's (GH-2324)."""
+    caplog.set_level(logging.WARNING)
+    listings = [
+        [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
+        # by the time the run is fetched, DWD has replaced it
+        [f"{api._BASE_URL}/swsmos_20260731080000_opendata.csv.bz2"],  # noqa: SLF001
+    ]
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: listings.pop(0))
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
+    )
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.is_empty()
+    assert "Failed to fetch SWSMOS run" in caplog.text
