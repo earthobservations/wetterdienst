@@ -822,22 +822,19 @@ def test_settings_skip_threshold_takes_one(monkeypatch: pytest.MonkeyPatch) -> N
     assert Settings().ts_skip_threshold == 1
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize("field", ["ts_geo_station_distance", "ts_geo_station_distance_resolution_factors"])
 @pytest.mark.parametrize("value", [5, "abc", [1.0]])
-def test_settings_geo_station_distance_mappings_refuse_anything_but_a_mapping(
-    monkeypatch: pytest.MonkeyPatch,
-    field: str,
-    value: object,
-) -> None:
+def test_settings_geo_station_distance_mappings_refuse_anything_but_a_mapping(field: str, value: object) -> None:
     """Anything but a mapping is refused as pydantic refuses it, named by its field (GH-2353).
 
     The key checks used to look for keys in it, and failed with a bare `TypeError` naming nothing.
     """
-    monkeypatch.delenv(f"WD_{field.upper()}", raising=False)
     with pytest.raises(ValidationError, match=rf"{field}\n  Input should be a valid dictionary"):
         Settings(**{field: value})
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize("field", ["ts_geo_station_distance", "ts_geo_station_distance_resolution_factors"])
 @pytest.mark.parametrize("value", ["5", '"abc"', "[1.0]"])
 def test_settings_geo_station_distance_mappings_refuse_anything_but_a_mapping_from_env(
@@ -851,31 +848,28 @@ def test_settings_geo_station_distance_mappings_refuse_anything_but_a_mapping_fr
         Settings()
 
 
-def test_settings_dotenv_ignores_a_key_that_is_no_setting(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_dotenv_ignores_a_key_that_is_no_setting(tmp_path: Path) -> None:
     """A `.env` shared with another program does not stop the settings from loading (GH-2349).
 
     Its key used to be refused, and its value echoed, by every `Settings()`. A key without the
     prefix is not taken for a setting even where it names one, and the settings in the same file
     are still read.
     """
-    monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
-    monkeypatch.delenv("WD_TS_SHAPE", raising=False)
-    # a directory of the test's own, so that a `.env` where the tests are run from is not read
-    monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text("POSTGRES_PASSWORD=secret-ish\nTS_SHAPE=wide\nWD_CACHE_DISABLE=true\n")
     settings = Settings()
     assert settings.cache_disable
     assert settings.ts_shape == "long"
 
 
-def test_settings_dotenv_ignores_a_misspelt_wd_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_dotenv_ignores_a_misspelt_wd_key(tmp_path: Path) -> None:
     """A misspelt `WD_*` key in `.env` is ignored, as the same variable in the environment is (GH-2349)."""
-    monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
-    monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text("WD_CACHE_DIABLE=true\n")
     assert not Settings().cache_disable
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
 def test_settings_keyword_that_is_no_setting_is_still_refused() -> None:
     """Only `.env` is let off: a misspelt keyword to the constructor is still refused (GH-2349)."""
     with pytest.raises(ValidationError, match="cache_disabel\n  Extra inputs are not permitted"):
