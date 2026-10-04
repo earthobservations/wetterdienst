@@ -68,6 +68,11 @@ const stationItems = computed(() =>
 // and not when it failed, which the Retry notice says.
 const noStationToOffer = computed(() => stationsStatus.value === 'success' && !stationItems.value.length)
 
+// a Retry that works hands its focus on to the select, the list it brought being what it was for
+const stationSelect = useTemplateRef<{ triggerRef?: HTMLElement }>('stationSelect')
+const retryNotice = useTemplateRef<HTMLElement>('retryNotice')
+useFocusAfterRetry(() => !!stationsError.value, retryNotice, () => stationSelect.value?.triggerRef)
+
 const selectedStationItem = computed({
   get: () => selectedStation.value
     ? {
@@ -167,6 +172,7 @@ const displayCoords = computed(() => {
       <UFormField :label="t('interpolation.selectStationForCoords')" :help="noStationToOffer ? t('interpolation.noStationsWithPosition') : undefined">
         <USelectMenu
           v-if="!stationsPending"
+          ref="stationSelect"
           v-model="selectedStationItem"
           :items="stationItems"
           :placeholder="t('common.stationSearch')"
@@ -184,7 +190,7 @@ const displayCoords = computed(() => {
              the button stays while Retry's request is out, and keeps its focus. Pressed again
              meanwhile, it waits for that request, where a plain refresh cancels it and asks for
              the whole list anew -->
-        <div v-if="stationsError" class="mt-2 flex flex-wrap items-center gap-3">
+        <div v-if="stationsError" ref="retryNotice" class="mt-2 flex flex-wrap items-center gap-3">
           <p v-if="!stationsPending" role="alert" class="text-sm text-error">
             {{ t('interpolation.loadError') }}
           </p>

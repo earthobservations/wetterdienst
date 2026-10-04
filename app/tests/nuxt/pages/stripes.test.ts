@@ -832,3 +832,83 @@ describe('stripes Page requests answered with a 503 once', () => {
     expect(document.body.textContent).not.toContain('Service Unavailable')
   })
 })
+
+describe('stripes Page chart after a Retry', { timeout: 15_000 }, () => {
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+  // the focus Retry held fell to the page's body once a Retry that worked took the note away
+  const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    vi.restoreAllMocks()
+    wrapper?.unmount()
+    wrapper = undefined
+    useToast().clear()
+    document.body.innerHTML = ''
+  })
+
+  // the stripes shown, their drawing failed, and Retry focused and pressed, its drawing held on a
+  // gate that lets it draw or fail again
+  async function retried() {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    plotly.newPlot.mockClear()
+    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/stripes/values', () => ({
+      metadata: { station },
+      values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }],
+    }))
+    wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
+    }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    const vm = wrapper.findComponent(StripesPage).vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+    let settle!: (failure?: Error) => void
+    plotly.newPlot.mockImplementationOnce(() => new Promise<void>((resolve, reject) => {
+      settle = failure => failure ? reject(failure) : resolve()
+    }))
+    const button = retry()!
+    button.focus()
+    button.click()
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
+    // the mock takes no arguments in its type, so its call is read as Plotly's (element)
+    const [chart] = plotly.newPlot.mock.calls[1] as unknown as [HTMLElement]
+    return { vm, button, chart, settle }
+  }
+
+  it('hands the focus on to the stripes once they are drawn', async () => {
+    const { chart, settle } = await retried()
+
+    settle()
+    await vi.waitFor(() => expect(retry()).toBeUndefined())
+    await vi.waitFor(() => expect(document.activeElement).toBe(chart))
+    // a browser focuses a div only with a tabindex, which the test's document does not ask for
+    expect(chart.getAttribute('tabindex')).toBe('-1')
+  })
+
+  it('leaves the focus where it was moved to meanwhile', async () => {
+    const { vm, settle } = await retried()
+    const elsewhere = document.body.appendChild(document.createElement('button'))
+    elsewhere.focus()
+
+    settle()
+    await vi.waitFor(() => expect(vm.plotFailed).toBe(false))
+    await nextTick()
+    expect(retry()).toBeUndefined()
+    expect(document.activeElement).toBe(elsewhere)
+  })
+
+  it('keeps the focus on Retry where the stripes fail again', async () => {
+    const { vm, button, settle } = await retried()
+
+    settle(new Error('drawing failed again'))
+    await vi.waitFor(() => expect(vm.plotFailures).toBe(2))
+    await nextTick()
+    expect(retry()).toBe(button)
+    expect(document.activeElement).toBe(button)
+  })
+})

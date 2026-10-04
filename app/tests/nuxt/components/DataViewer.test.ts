@@ -2270,3 +2270,52 @@ describe('dataViewer unit targets', () => {
       .toEqual({ ...defaults, temperature: 'degree_fahrenheit', length_long: 'mile' })
   })
 })
+
+describe('dataViewer chart after a Retry', () => {
+  // the focus Retry held fell to the page's body once a Retry that worked took the note away
+  const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
+  const draws = (faceted: boolean) => faceted ? plotly.react : plotly.newPlot
+
+  // the chart shown, its drawing failed, and Retry focused and pressed, its drawing held on a gate
+  async function retried(faceted: boolean) {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, faceted)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const draw = draws(faceted)
+    draw.mockRejectedValueOnce(new Error('drawing failed'))
+    await toggleTrendline(wrapper)
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+    const held = holdNextDraw(draw)
+    const calls = draw.mock.calls.length
+    const button = retry()!
+    button.focus()
+    button.click()
+    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 1))
+    // the chart the Retry draws: the single one, or the first facet
+    return { wrapper, held, chart: draw.mock.calls[calls]![0] as HTMLElement }
+  }
+
+  it.each([false, true])('hands the focus on to the chart once it is drawn, faceted: %s', async (faceted) => {
+    const { held, chart } = await retried(faceted)
+
+    held.open()
+    await vi.waitFor(() => expect(retry()).toBeUndefined())
+    await vi.waitFor(() => expect(document.activeElement).toBe(chart))
+    // a browser focuses a div only with a tabindex, which the test's document does not ask for
+    expect(chart.getAttribute('tabindex')).toBe('-1')
+  })
+
+  it('leaves the focus where it was moved to meanwhile', async () => {
+    const { wrapper, held } = await retried(false)
+    const trendline = wrapper.findAll('label').find(label => label.text() === 'Trendline')!
+    const elsewhere = wrapper.find(`#${trendline.attributes('for')}`).element as HTMLElement
+    elsewhere.focus()
+
+    held.open()
+    await vi.waitFor(() => expect(retry()).toBeUndefined())
+    await flushPromises()
+    expect(document.activeElement).toBe(elsewhere)
+  })
+})

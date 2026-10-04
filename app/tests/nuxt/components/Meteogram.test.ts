@@ -190,3 +190,70 @@ describe('meteogram low clouds', { timeout: 15_000 }, () => {
     expect(traces.map(trace => trace.name)).toContain('Low Clouds %')
   })
 })
+
+describe('meteogram chart after a Retry', { timeout: 15_000 }, () => {
+  // the focus Retry held fell to the page's body once a Retry that worked took the note away
+  const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    vi.restoreAllMocks()
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  // the chart's drawing failed, and Retry focused and pressed, its drawing held on a gate that
+  // lets it draw or fail again
+  async function retried() {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    plotly.newPlot.mockClear()
+    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values })
+    await vi.waitFor(() => expect(retry()).toBeDefined(), { timeout: 5000 })
+    let settle!: (failure?: Error) => void
+    plotly.newPlot.mockImplementationOnce(() => new Promise<void>((resolve, reject) => {
+      settle = failure => failure ? reject(failure) : resolve()
+    }))
+    const button = retry()!
+    button.focus()
+    button.click()
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
+    // the mock takes no arguments in its type, so its call is read as Plotly's (element)
+    const [chart] = plotly.newPlot.mock.calls[1] as unknown as [HTMLElement]
+    return { button, chart, settle }
+  }
+
+  it('hands the focus on to the chart once it is drawn', async () => {
+    const { chart, settle } = await retried()
+
+    settle()
+    await vi.waitFor(() => expect(retry()).toBeUndefined())
+    await vi.waitFor(() => expect(document.activeElement).toBe(chart))
+    // a browser focuses a div only with a tabindex, which the test's document does not ask for
+    expect(chart.getAttribute('tabindex')).toBe('-1')
+  })
+
+  it('leaves the focus where it was moved to meanwhile', async () => {
+    const { settle } = await retried()
+    const elsewhere = document.body.appendChild(document.createElement('button'))
+    elsewhere.focus()
+
+    settle()
+    await vi.waitFor(() => expect(retry()).toBeUndefined())
+    await vi.waitFor(() => expect((wrapper!.vm as any).renderFailed).toBe(false))
+    await wrapper!.vm.$nextTick()
+    expect(document.activeElement).toBe(elsewhere)
+  })
+
+  it('keeps the focus on Retry where the chart fails again', async () => {
+    const { button, settle } = await retried()
+
+    settle(new Error('drawing failed again'))
+    await vi.waitFor(() => expect((wrapper!.vm as any).renderFailures).toBe(2))
+    await wrapper!.vm.$nextTick()
+    expect(retry()).toBe(button)
+    expect(document.activeElement).toBe(button)
+  })
+})
