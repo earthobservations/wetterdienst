@@ -2170,7 +2170,25 @@ describe('dataViewer failed fetch', () => {
     expect(asked).toBe(1)
   })
 
-  it('asks once where the proxy could not reach the backend, and tells its error', async () => {
+  it('asks once more where the proxy could not reach the backend, and shows what that answer brings', async () => {
+    // a 502 the first time only, as a proxy gives while the backend restarts
+    let asked = 0
+    registerEndpoint('/api/values', (event) => {
+      asked++
+      if (asked === 1) {
+        setResponseStatus(event, 502)
+        return { detail: 'connect ECONNREFUSED' }
+      }
+      return { values: [row] }
+    })
+    const { viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await vi.waitFor(() => expect((viewer.vm as any).valuesData.values).toHaveLength(1))
+    expect(asked).toBe(2)
+    expect(document.body.textContent).not.toContain('ECONNREFUSED')
+  })
+
+  it('tells the error of a 502 its one retry gets again', async () => {
     let asked = 0
     registerEndpoint('/api/values', (event) => {
       asked++
@@ -2180,6 +2198,7 @@ describe('dataViewer failed fetch', () => {
     const { viewer } = await mountDataViewer()
     await fetchData(viewer)
     await vi.waitFor(() => expect(document.body.textContent).toContain('ECONNREFUSED'))
-    expect(asked).toBe(1)
+    expect(asked).toBe(2)
+    expect((viewer.vm as any).valuesStatus).toBe('error')
   })
 })

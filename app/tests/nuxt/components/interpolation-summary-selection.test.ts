@@ -1,6 +1,6 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
-import { setResponseStatus } from 'h3'
+import { getQuery, setResponseStatus } from 'h3'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
@@ -165,5 +165,76 @@ describe('the interpolation\'s station list that could not be fetched', () => {
       expect(vm.stationsPending).toBe(false)
     })
     expect(asked).toBe(1)
+  })
+})
+
+describe('the interpolation\'s station list answered with a 503 once', () => {
+  it('asks /api/stations once more, and lists what that answer brings', async () => {
+    // a 503 the first time only, as a proxy gives while the backend restarts
+    let asked = 0
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      asked++
+      if (asked === 1) {
+        setResponseStatus(event, 503)
+        return { detail: 'Service Unavailable' }
+      }
+      return { stations: [feldberg] }
+    }))
+    // a dataset of its own, so the list is not one the tests above leave mounted
+    const wrapper = await mountSuspended(InterpolationSummarySelection, {
+      props: { parameterSelection: { ...parameterSelection, dataset: 'more_precip' }, modelValue: { source: 'station' } },
+    })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
+    expect(asked).toBe(2)
+  })
+})
+
+describe('the interpolation\'s station list on a change of dataset', () => {
+  it('asks /api/stations once for the new dataset', async () => {
+    // useFetch refetched on its own as the query changed, and the watcher on the selection refreshed
+    // as well: the endpoint saw the new dataset twice
+    const asked: unknown[] = []
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      asked.push(getQuery(event).parameters)
+      return { stations: [feldberg] }
+    }))
+    // datasets of their own, so neither list is one the tests above leave mounted
+    const selected = ref({ ...parameterSelection, dataset: 'water_equiv' })
+    const wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(InterpolationSummarySelection as never, { parameterSelection: selected.value, modelValue: { source: 'station' } }),
+    }))
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.findComponent(InterpolationSummarySelection).vm as any
+    await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
+
+    // as ParameterSelection updates it: the new dataset with the old parameters, then its own
+    // parameters a tick later
+    selected.value = { ...selected.value, dataset: 'weather_phenomena' }
+    await nextTick()
+    selected.value = { ...selected.value, parameters: ['weather_phenomenon_fog'] }
+    await vi.waitFor(() => {
+      expect(asked).toContain('daily/weather_phenomena')
+      expect(vm.stationsPending).toBe(false)
+    })
+    await flushPromises()
+    expect(asked).toEqual(['daily/water_equiv', 'daily/weather_phenomena'])
+  })
+
+  it('lets go of the last dataset\'s list once no dataset is chosen', async () => {
+    // a change of resolution leaves no dataset and no parameters, and useFetch carried the last list
+    // over to the query it no longer fetched: its stations stayed on offer
+    onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [feldberg] })))
+    const selected = ref<Record<string, unknown>>({ ...parameterSelection, dataset: 'wind_extreme' })
+    const wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(InterpolationSummarySelection as never, { parameterSelection: selected.value, modelValue: { source: 'station' } }),
+    }))
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.findComponent(InterpolationSummarySelection).vm as any
+    await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
+
+    selected.value = { ...selected.value, resolution: 'hourly', dataset: undefined, parameters: [] }
+    await vi.waitFor(() => expect(vm.allStations).toEqual([]))
   })
 })

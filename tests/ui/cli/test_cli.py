@@ -4,8 +4,10 @@
 
 import itertools
 import json
+import os
 import re
 from collections.abc import Iterator
+from pathlib import Path
 from textwrap import dedent
 
 import click
@@ -13,7 +15,7 @@ import pytest
 from click.testing import CliRunner
 from pydantic import ValidationError
 
-from wetterdienst import Wetterdienst
+from wetterdienst import Settings, Wetterdienst
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.ui.cli import cli, wetterdienst_help
 
@@ -610,7 +612,10 @@ def test_cli_values_refuses_unknown_unit_targets_quantity() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"foo": "bar"}'])
     assert result.exit_code == 2, result.output
-    assert "Error: Invalid value for '--unit_targets': Invalid unit targets: one of {'foo'} not in" in result.output
+    assert (
+        "Error: Invalid value for '--unit_targets': Invalid unit targets: quantities not supported: foo."
+        in result.output
+    )
     # one line, without pydantic's echo of the input
     assert "input_value" not in result.output
 
@@ -633,3 +638,280 @@ def test_cli_values_does_not_blame_an_absent_unit_targets_for_the_environment(mo
     result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048"])
     assert isinstance(result.exception, ValidationError)
     assert "--unit_targets" not in result.output
+
+
+_POINT_ARGS = [
+    "--provider=dwd",
+    "--network=observation",
+    "--parameters=daily/kl/temperature_air_mean_2m",
+    "--station=00071",
+    "--date=1986-10-31",
+]
+
+
+@pytest.fixture
+def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings.
+
+    The cache directory the test session gives each worker is kept.
+    """
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+
+
+class _SettingsTaken(Exception):  # noqa: N818
+    """Raised in place of fetching, carrying the settings a command built."""
+
+
+def _settings_of(monkeypatch: pytest.MonkeyPatch, args: list[str], env: dict[str, str]) -> Settings:
+    """Run a command up to its fetch, and return the settings it would fetch with."""
+
+    def take(_get: object, *, settings: Settings, **_kwargs: object) -> None:
+        raise _SettingsTaken(settings)
+
+    monkeypatch.setattr("wetterdienst.ui.cli._collect_or_exit", take)
+    result = CliRunner().invoke(cli, args, env=env)
+    assert isinstance(result.exception, _SettingsTaken), result.output
+    return result.exception.args[0]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_values_leaves_a_setting_no_option_was_given_for_to_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test the WD_TS_* variables set what `values` was given no option for, and an option given outranks one."""
+    env = {
+        "WD_TS_SHAPE": "wide",
+        "WD_TS_HUMANIZE": "false",
+        "WD_TS_CONVERT_UNITS": "false",
+        "WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}',
+        "WD_TS_SKIP_EMPTY": "true",
+        "WD_TS_SKIP_CRITERIA": "max",
+        "WD_TS_SKIP_THRESHOLD": "0.5",
+        "WD_TS_DROP_NULLS": "false",
+    }
+    settings = _settings_of(monkeypatch, ["values", *_DWD_KL, "--station=01048"], env)
+    assert settings.ts_shape == "wide"
+    assert settings.ts_humanize is False
+    assert settings.ts_convert_units is False
+    assert settings.ts_unit_targets == {"temperature": "degree_fahrenheit"}
+    assert settings.ts_skip_empty is True
+    assert settings.ts_skip_criteria == "max"
+    assert settings.ts_skip_threshold == 0.5
+    assert settings.ts_drop_nulls is False
+    # an option given at its default value is given all the same
+    settings = _settings_of(
+        monkeypatch,
+        [
+            "values",
+            *_DWD_KL,
+            "--station=01048",
+            "--shape=long",
+            "--humanize=true",
+            "--convert_units=true",
+            "--skip_empty=false",
+            "--skip_criteria=min",
+            "--skip_threshold=0.95",
+            "--drop_nulls=true",
+        ],
+        env,
+    )
+    assert settings.ts_shape == "long"
+    assert settings.ts_humanize is True
+    assert settings.ts_convert_units is True
+    assert settings.ts_skip_empty is False
+    assert settings.ts_skip_criteria == "min"
+    assert settings.ts_skip_threshold == 0.95
+    assert settings.ts_drop_nulls is True
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(("command", "kind"), [("interpolate", "interpolation"), ("summarize", "summary")])
+def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+    kind: str,
+) -> None:
+    """Test the WD_TS_* variables set what `interpolate` and `summarize` were given no option for."""
+    env = {
+        "WD_TS_HUMANIZE": "false",
+        "WD_TS_CONVERT_UNITS": "false",
+        "WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS": "60",
+        "WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS": "15",
+        "WD_TS_GEO_USE_NEARBY_STATION_DISTANCE": "0",
+        "WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS": "0.5",
+        "WD_TS_GEO_NUM_ADDITIONAL_STATIONS": "5",
+    }
+    settings = _settings_of(monkeypatch, [command, *_POINT_ARGS], env)
+    assert settings.ts_humanize is False
+    assert settings.ts_convert_units is False
+    assert settings.ts_geo_station_distance_homogeneous == 60
+    assert settings.ts_geo_station_distance_heterogeneous == 15
+    assert settings.ts_geo_use_nearby_station_distance == 0
+    assert settings.ts_geo_min_gain_of_value_pairs == 0.5
+    assert settings.ts_geo_num_additional_stations == 5
+    settings = _settings_of(
+        monkeypatch,
+        [
+            command,
+            *_POINT_ARGS,
+            "--humanize=true",
+            "--convert_units=true",
+            f"--{kind}_station_distance_homogeneous=40",
+            f"--{kind}_station_distance_heterogeneous=20",
+            "--use_nearby_station_distance=0.5",
+        ],
+        env,
+    )
+    assert settings.ts_humanize is True
+    assert settings.ts_convert_units is True
+    assert settings.ts_geo_station_distance_homogeneous == 40
+    assert settings.ts_geo_station_distance_heterogeneous == 20
+    assert settings.ts_geo_use_nearby_station_distance == 0.5
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (
+            ["interpolate", *_POINT_ARGS, '--interpolation_station_distance={"temperature_air_mean": 10}'],
+            (
+                "Error: Invalid value for '--interpolation_station_distance': Invalid parameters in "
+                "ts_geo_station_distance: ['temperature_air_mean'] not in the canonical parameters "
+                "(got {'temperature_air_mean': 10.0}).\n"
+            ),
+        ),
+        (
+            ["summarize", *_POINT_ARGS, '--summary_station_distance={"temperature_air_mean_2m": -1}'],
+            (
+                "Error: Invalid value for '--summary_station_distance': temperature_air_mean_2m: "
+                "Input should be greater than or equal to 0 (got -1).\n"
+            ),
+        ),
+        (
+            ["summarize", *_POINT_ARGS, '--unit_targets={"foo": "bar"}'],
+            "Error: Invalid value for '--unit_targets': Invalid unit targets: ",
+        ),
+    ],
+)
+def test_cli_estimate_refuses_a_setting_by_its_option(args: list[str], message: str) -> None:
+    """Test a setting an option of `interpolate` or `summarize` gives is refused by that option, in a line."""
+    result = CliRunner().invoke(cli, args)
+    assert result.exit_code == 2, result.output
+    assert message in result.output
+    assert "input_value" not in result.output
+    assert "Value error, " not in result.output
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("env", "option"),
+    [
+        ({"WD_CACHE_DISABLE": "notabool"}, '--unit_targets={"temperature": "degree_fahrenheit"}'),
+        # merged into the dict the option gives, so where pydantic locates the error does not tell
+        ({"WD_TS_GEO_STATION_DISTANCE": '{"foo": 5}'}, '--KIND_station_distance={"precipitation_amount": 5}'),
+        ({"WD_TS_UNIT_TARGETS": '{"foo": "bar"}'}, '--unit_targets={"temperature": "degree_fahrenheit"}'),
+    ],
+)
+@pytest.mark.parametrize(("command", "kind"), [("interpolate", "interpolation"), ("summarize", "summary")])
+def test_cli_estimate_does_not_blame_the_command_line_for_the_environment(
+    env: dict[str, str],
+    option: str,
+    command: str,
+    kind: str,
+) -> None:
+    """Test a WD_* variable Settings refuses is not told as a usage error of `interpolate` or `summarize`."""
+    result = CliRunner().invoke(cli, [command, *_POINT_ARGS, option.replace("KIND", kind)], env=env)
+    assert isinstance(result.exception, ValidationError)
+    assert "Usage:" not in result.output
+    # told on its own, not as what went wrong while handling the options' error
+    assert result.exception.__suppress_context__
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_values_does_not_blame_a_given_unit_targets_for_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a WD_TS_UNIT_TARGETS that Settings refuses is not told as a bad --unit_targets given beside it."""
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"foo": "bar"}')
+    result = CliRunner().invoke(
+        cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"temperature": "degree_fahrenheit"}']
+    )
+    assert isinstance(result.exception, ValidationError)
+    assert "--unit_targets" not in result.output
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "args",
+    [["values", *_DWD_KL, "--station=01048"], ["interpolate", *_POINT_ARGS], ["summarize", *_POINT_ARGS]],
+)
+def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
+    """Test a command left its options out passes Settings nothing, which the environment then sets.
+
+    Among them are the settings no option sets at all, such as `ts_geo_num_additional_stations`.
+    """
+    calls: list[dict] = []
+
+    def record(**kwargs: object) -> Settings:
+        calls.append(kwargs)
+        return Settings(**kwargs)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.Settings", record)
+    _settings_of(monkeypatch, args, {})
+    assert calls
+    assert all(not kwargs for kwargs in calls)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_values_option_outranks_a_malformed_variable_for_its_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an option given on the command line replaces a WD_TS_* variable Settings would refuse."""
+    settings = _settings_of(
+        monkeypatch, ["values", *_DWD_KL, "--station=01048", "--shape=long"], {"WD_TS_SHAPE": "bogus"}
+    )
+    assert settings.ts_shape == "long"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_estimate_refuses_an_option_with_the_value_it_gave(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a refused dict is shown as the option gave it, not merged with the environment's."""
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE", '{"precipitation_amount": 5}')
+    result = CliRunner().invoke(cli, ["summarize", *_POINT_ARGS, '--summary_station_distance={"foo": 1}'])
+    assert result.exit_code == 2, result.output
+    assert (
+        "Error: Invalid value for '--summary_station_distance': Invalid parameters in ts_geo_station_distance: "
+        "['foo'] not in the canonical parameters (got {'foo': 1.0}).\n"
+    ) in result.output
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_values_refuses_an_option_beside_a_malformed_variable_another_option_replaces() -> None:
+    """Test a malformed WD_TS_* variable an option replaces does not stand in for another option's error."""
+    result = CliRunner().invoke(
+        cli,
+        ["values", *_DWD_KL, "--station=01048", "--shape=long", '--unit_targets={"foo": "bar"}'],
+        env={"WD_TS_SHAPE": "bogus"},
+    )
+    assert result.exit_code == 2, result.output
+    assert "Error: Invalid value for '--unit_targets': Invalid unit targets: " in result.output
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(["values", *_DWD_KL, "--station=01048"], id="values"),
+        pytest.param(["interpolate", *_DWD_KL, "--station=01048", "--date=2020-06-30"], id="interpolate"),
+        pytest.param(["summarize", *_DWD_KL, "--station=01048", "--date=2020-06-30"], id="summarize"),
+    ],
+)
+def test_cli_refuses_unknown_unit_targets_unit(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
+    """Test a unit the converter has none of is a usage error before anything is fetched (GH-2306).
+
+    It was refused only once the stations had been fetched, with a traceback and exit status 1.
+    """
+    monkeypatch.delenv("WD_TS_UNIT_TARGETS", raising=False)
+    runner = CliRunner()
+    result = runner.invoke(cli, [*args, '--unit_targets={"temperature": "furlong"}'])
+    assert result.exit_code == 2, result.output
+    assert "Invalid unit targets: Unit furlong not supported for type temperature." in result.output

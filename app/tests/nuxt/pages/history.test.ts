@@ -615,3 +615,37 @@ describe('history Page request answered with a 500', () => {
     expect(asked).toBe(1)
   })
 })
+
+describe('history Page request answered with a 503 once', () => {
+  beforeEach(() => {
+    registerEndpoint('/api/coverage', (event) => {
+      const q = getQuery(event)
+      if (q.provider)
+        return dailyClimateSummaryCoverage()
+      return { dwd: { observation: {} } }
+    })
+  })
+
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(dispose => dispose())
+  })
+
+  it('asks /api/history once more, and shows what that answer brings', async () => {
+    // a 503 the first time only, as a proxy gives while the backend restarts
+    let asked = 0
+    const { wrapper, showButton } = await mountWithSelection((event) => {
+      asked++
+      if (asked === 1) {
+        setResponseStatus(event, 503)
+        return { detail: 'Service Unavailable' }
+      }
+      return HISTORY
+    })
+
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
+    expect(asked).toBe(2)
+    expect(wrapper.text()).not.toContain('Error:')
+  })
+})

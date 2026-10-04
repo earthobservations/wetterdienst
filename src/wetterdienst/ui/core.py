@@ -93,7 +93,7 @@ _LeadTimeField = Annotated[
 ]
 _IssueField = Annotated[
     str | None,
-    Field(description="Model-run issue time for DWD MOSMIX/DMO (ISO 8601); defaults to the latest run."),
+    Field(description="Model-run issue time for DWD MOSMIX/DMO/SWSMOS (ISO 8601); defaults to the latest run."),
 ]
 _AllField = Annotated[bool | None, Field(description="Return all stations, ignoring the station/name/geo filters.")]
 _StationIdsField = Annotated[
@@ -244,8 +244,8 @@ _NumAdditionalStationsField = Annotated[
 def station_distance_radii(homogeneous: float | None, heterogeneous: float | None) -> dict[str, Any]:
     """Collect the radii that were given, as keyword arguments for `Settings`.
 
-    A radius that was not given is left out rather than passed as the library default, so that a
-    CLI user or a server configured through `WD_TS_GEO_STATION_DISTANCE_*` keeps its own.
+    A radius the request did not give is left out rather than passed as the library default, so that
+    a server configured through `WD_TS_GEO_STATION_DISTANCE_*` keeps its own.
     """
     radii: dict[str, Any] = {}
     if homogeneous is not None:
@@ -408,7 +408,7 @@ class StationsRequest(BaseModel):
                 periods.append(item)
         return periods
 
-    # Mosmix/DMO
+    # DWD forecasts: issue for MOSMIX/DMO/SWSMOS, lead_time for DMO
     lead_time: _LeadTimeField = None
     issue: _IssueField = None
 
@@ -570,7 +570,7 @@ class ValuesRequest(BaseModel):
                 periods.append(item)
         return periods
 
-    # Mosmix/DMO
+    # DWD forecasts: issue for MOSMIX/DMO/SWSMOS, lead_time for DMO
     lead_time: _LeadTimeField = None
     issue: _IssueField = None
 
@@ -685,7 +685,7 @@ class InterpolationRequest(BaseModel):
 
     date: _DateField
 
-    # Mosmix/DMO
+    # DWD forecasts: issue for MOSMIX/DMO/SWSMOS, lead_time for DMO
     lead_time: _LeadTimeField = None
     issue: _IssueField = None
 
@@ -791,7 +791,7 @@ class SummaryRequest(BaseModel):
 
     date: _DateField
 
-    # Mosmix/DMO
+    # DWD forecasts: issue for MOSMIX/DMO/SWSMOS, lead_time for DMO
     lead_time: _LeadTimeField = None
     issue: _IssueField = None
 
@@ -975,6 +975,7 @@ def _get_stations_request(
     """Create a request object for stations."""
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
 
     # TODO: move this into Request core
     start_date, end_date = None, None
@@ -1011,7 +1012,10 @@ def _get_stations_request(
         "periods": getattr(request, "periods", None),
     }
 
-    if issubclass(api, (DwdMosmixRequest, DwdDmoRequest)) and (issue := getattr(request, "issue", None)) is not None:
+    if (
+        issubclass(api, (DwdMosmixRequest, DwdDmoRequest, DwdSwsmosRequest))
+        and (issue := getattr(request, "issue", None)) is not None
+    ):
         kwargs["issue"] = issue
     if issubclass(api, DwdDmoRequest) and (lead_time := getattr(request, "lead_time", None)) is not None:
         kwargs["lead_time"] = lead_time
