@@ -10,8 +10,9 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
   parameter syntax and how to read results (so agents don't re-request the same data in different
   formats),
 - clean tool names (``values`` instead of ``values_api_values_get``), and
-- exclusion of the non-data endpoints (index, robots, health, version, auth) so the tool list stays
-  focused.
+- exclusion of the non-data endpoints (index, robots, health, version, auth, settings) so the tool
+  list stays focused. The settings a data tool used come back in its own answer with
+  ``with_metadata``.
 
 The endpoint docstrings become the tool descriptions and the request-model field descriptions
 become the parameter descriptions, so those live with the endpoints in ``restapi.py`` / ``core.py``.
@@ -105,7 +106,14 @@ format (csv/wide/pretty) or with unrelated flags; that just wastes calls.
 """
 
 # Non-data endpoints that only add noise to an agent's tool list.
-_EXCLUDE_PATTERNS = (r"^/$", r"^/robots\.txt$", r"^/health$", r"^/api/version$", r"^/api/auth$")
+_EXCLUDE_PATTERNS = (
+    r"^/$",
+    r"^/robots\.txt$",
+    r"^/health$",
+    r"^/api/version$",
+    r"^/api/auth$",
+    r"^/api/settings$",
+)
 
 # Clean, agent-friendly names for the auto-generated tools (auto name -> friendly name).
 _TOOL_NAMES = {

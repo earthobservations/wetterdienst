@@ -3219,7 +3219,10 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
 
 
 @pytest.mark.parametrize("shape", ["long", "wide"])
-@pytest.mark.parametrize(("fmt", "schema_name"), [("json", "_ValuesDict"), ("geojson", "_ValuesOgcFeatureCollection")])
+@pytest.mark.parametrize(
+    ("fmt", "schema_name"),
+    [("json", "_ValuesWithSettingsDict"), ("geojson", "_ValuesWithSettingsOgcFeatureCollection")],
+)
 def test_values_output_validates_against_the_served_schema(shape: str, fmt: str, schema_name: str) -> None:
     """Each values output validates against the schema /openapi.json serves for it (GH-2282).
 
@@ -4521,3 +4524,306 @@ def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, mon
 
     assert response.status_code == 400
     assert "swsmos_20200101000000_opendata.csv.bz2" in response.json()["detail"]
+
+
+# the settings each endpoint reports, spelled out rather than read from the models, so that a field
+# added to one of them -- or a `Settings` dump in their place -- shows here (GH-2359)
+_REPORTED_VALUES_SETTINGS = {
+    "humanize",
+    "convert_units",
+    "unit_targets",
+    "shape",
+    "skip_empty",
+    "skip_threshold",
+    "skip_criteria",
+    "drop_nulls",
+}
+_REPORTED_GEO_SETTINGS = {
+    "humanize",
+    "convert_units",
+    "unit_targets",
+    "use_nearby_station_distance",
+    "min_gain_of_value_pairs",
+    "num_additional_stations",
+    "station_distance_resolution_factors",
+}
+_REPORTED_SETTINGS = {
+    "values": _REPORTED_VALUES_SETTINGS,
+    "interpolate": _REPORTED_GEO_SETTINGS
+    | {
+        "interpolation_station_distance",
+        "interpolation_station_distance_homogeneous",
+        "interpolation_station_distance_heterogeneous",
+    },
+    "summarize": _REPORTED_GEO_SETTINGS
+    | {"summary_station_distance", "summary_station_distance_homogeneous", "summary_station_distance_heterogeneous"},
+}
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_reports_wetterdienst_defaults(client: TestClient) -> None:
+    """`/api/settings` reports each endpoint's settings, wetterdienst's defaults where no WD_TS_* is set (GH-2359).
+
+    `unit_targets` names the unit of every quantity, and the resolution factors the factor of every
+    resolution, rather than the departures the settings hold.
+    """
+    from wetterdienst.metadata.resolution import Resolution  # noqa: PLC0415
+    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+
+    response = client.get("/api/settings")
+
+    assert response.status_code == 200
+    reported = response.json()
+    assert {endpoint: set(settings) for endpoint, settings in reported.items()} == _REPORTED_SETTINGS
+    unit_targets = {quantity: unit.name for quantity, unit in UnitConverter().targets.items()}
+    assert reported["values"] == {
+        "humanize": True,
+        "convert_units": True,
+        "unit_targets": unit_targets,
+        "shape": "long",
+        "skip_empty": False,
+        "skip_threshold": 0.95,
+        "skip_criteria": "min",
+        "drop_nulls": True,
+    }
+    assert unit_targets["temperature"] == "degree_celsius"
+    for endpoint, kind in (("interpolate", "interpolation"), ("summarize", "summary")):
+        settings = reported[endpoint]
+        assert settings["unit_targets"] == unit_targets
+        assert settings[f"{kind}_station_distance"] == {}
+        assert settings[f"{kind}_station_distance_homogeneous"] == 40.0
+        assert settings[f"{kind}_station_distance_heterogeneous"] == 20.0
+        assert settings["station_distance_resolution_factors"].keys() == {resolution.value for resolution in Resolution}
+        assert settings["station_distance_resolution_factors"]["10_minutes"] == 0.75
+        assert settings["station_distance_resolution_factors"]["daily"] == 2.0
+        assert settings["use_nearby_station_distance"] == 1.0
+        assert settings["min_gain_of_value_pairs"] == 0.1
+        assert settings["num_additional_stations"] == 3
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_reports_the_servers_wd_ts_variables(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`/api/settings` reports the WD_TS_* variables the server sets, a dict's merged into the defaults (GH-2359)."""
+    monkeypatch.setenv("WD_TS_SHAPE", "wide")
+    monkeypatch.setenv("WD_TS_HUMANIZE", "false")
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS", "60")
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE__precipitation_amount", "25")
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_RESOLUTION_FACTORS", '{"daily": 3}')
+
+    reported = client.get("/api/settings").json()
+
+    assert reported["values"]["shape"] == "wide"
+    # which the wide shape turns off
+    assert reported["values"]["drop_nulls"] is False
+    for endpoint, kind in (("values", None), ("interpolate", "interpolation"), ("summarize", "summary")):
+        settings = reported[endpoint]
+        assert settings["humanize"] is False
+        assert settings["unit_targets"]["temperature"] == "degree_fahrenheit"
+        # the quantities the variable leaves out keep their unit
+        assert settings["unit_targets"]["pressure"] == "hectopascal"
+        if kind is None:
+            continue
+        assert settings[f"{kind}_station_distance"] == {"precipitation_amount": 25.0}
+        assert settings[f"{kind}_station_distance_homogeneous"] == 60.0
+        assert settings[f"{kind}_station_distance_heterogeneous"] == 20.0
+        assert settings["station_distance_resolution_factors"]["daily"] == 3.0
+        assert settings["station_distance_resolution_factors"]["hourly"] == 1.0
+
+
+def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str) -> list[Settings]:
+    """Answer `endpoint` with a result of one row, and return the settings it is fetched with, once it is."""
+    import datetime as dt  # noqa: PLC0415
+
+    import polars as pl  # noqa: PLC0415
+
+    from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    values = _values_result_of_shape("long")
+    # the request the metadata is read off
+    values.stations.stations = DwdObservationRequest(parameters=[("daily", "climate_summary")])
+    row = {
+        "station_id": "a87d0e9bb6fb2b4b",
+        "resolution": "daily",
+        "dataset": "climate_summary",
+        "parameter": "temperature_air_mean_2m",
+        "timestamp": dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc),
+        "value": 1.0,
+    }
+    if endpoint == "/api/values":
+        result = values
+    elif endpoint == "/api/interpolate":
+        df = pl.DataFrame([{**row, "distance_mean": 5.0, "taken_station_ids": ["01048"]}])
+        result = InterpolatedValuesResult(stations=values.stations, df=df, latlon=(51.1, 13.8))
+    else:
+        df = pl.DataFrame([{**row, "distance": 5.0, "taken_station_id": "01048"}])
+        result = SummarizedValuesResult(stations=values.stations, df=df, latlon=(51.1, 13.8))
+    taken: list[Settings] = []
+
+    def fetch(*, settings: Settings, **_kwargs: object) -> object:
+        taken.append(settings)
+        return result
+
+    monkeypatch.setattr(restapi, _FETCH_OF_ENDPOINT[endpoint], fetch)
+    return taken
+
+
+_SETTINGS_OF_ENDPOINT = {"/api/values": "values", "/api/interpolate": "interpolate", "/api/summarize": "summarize"}
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("fmt", ["json", "geojson"])
+@pytest.mark.parametrize("endpoint", ["/api/values", "/api/interpolate", "/api/summarize"])
+def test_data_endpoints_report_the_settings_they_used(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    fmt: str,
+) -> None:
+    """With `with_metadata`, the JSON formats report the settings the result was fetched with (GH-2359).
+
+    Those are the server's WD_TS_* variables with what the request gives laid over them, so they
+    are `/api/settings`' for the endpoint, but for what the request gives. They go next to the
+    metadata, and the payload is the one the served schema describes.
+    """
+    jsonschema = pytest.importorskip("jsonschema")
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
+    monkeypatch.setenv("WD_TS_CONVERT_UNITS", "false")
+    defaults = client.get("/api/settings").json()[_SETTINGS_OF_ENDPOINT[endpoint]]
+    taken = _stub_result(monkeypatch, endpoint)
+    params = {**_OBSERVATION, "station": "01048", "format": fmt, "with_metadata": "true", "humanize": "false"}
+    if endpoint != "/api/values":
+        params["date"] = "2026-01-01"
+
+    response = client.get(endpoint, params=params)
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert list(payload)[:2] == ["metadata", "settings"]
+    assert payload["settings"] == {**defaults, "humanize": False}
+    assert payload["settings"]["convert_units"] is False
+    assert payload["settings"]["unit_targets"]["temperature"] == "degree_fahrenheit"
+    (settings,) = taken
+    assert settings.ts_humanize is False
+    schema_name = {
+        ("/api/values", "json"): "_ValuesWithSettingsDict",
+        ("/api/values", "geojson"): "_ValuesWithSettingsOgcFeatureCollection",
+        ("/api/interpolate", "json"): "_InterpolatedValuesWithSettingsDict",
+        ("/api/interpolate", "geojson"): "_InterpolatedValuesWithSettingsOgcFeatureCollection",
+        ("/api/summarize", "json"): "_SummarizedValuesWithSettingsDict",
+        ("/api/summarize", "geojson"): "_SummarizedValuesWithSettingsOgcFeatureCollection",
+    }[endpoint, fmt]
+    components = restapi.app.openapi()["components"]
+    jsonschema.validate(payload, {"$ref": f"#/components/schemas/{schema_name}", "components": components})
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("endpoint", ["/api/values", "/api/interpolate", "/api/summarize"])
+def test_data_endpoints_report_no_settings_without_metadata(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+) -> None:
+    """The settings applied are reported with `with_metadata` alone, as the metadata is (GH-2359)."""
+    _stub_result(monkeypatch, endpoint)
+    params = {**_OBSERVATION, "station": "01048"}
+    if endpoint != "/api/values":
+        params["date"] = "2026-01-01"
+
+    payload = client.get(endpoint, params=params).json()
+
+    assert "settings" not in payload
+    assert "metadata" not in payload
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("endpoint", ["/api/settings", "/api/values", "/api/interpolate", "/api/summarize"])
+def test_no_credential_or_cache_setting_is_reported(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    endpoint: str,
+) -> None:
+    """Neither `/api/settings` nor a data endpoint's metadata reaches a credential, the cache or the client (GH-2359).
+
+    The settings are reported field by field, so a setting no request sets is left out whatever the
+    server sets it to.
+    """
+    monkeypatch.setenv("WD_AUTH__AEMET", "aemet-secret")
+    monkeypatch.setenv("WD_AUTH__CEDA", "ceda-user:ceda-secret")
+    monkeypatch.setenv("WD_CACHE_DIR", str(tmp_path / "cache-secret"))
+    monkeypatch.setenv("WD_CACHE_DISABLE", "true")
+    monkeypatch.setenv("WD_FSSPEC_CLIENT_KWARGS", '{"headers": {"X-Api-Key": "header-secret"}}')
+    monkeypatch.setenv("WD_TS_SKIP_EMPTY", "true")
+    params: dict[str, str] = {}
+    if endpoint != "/api/settings":
+        _stub_result(monkeypatch, endpoint)
+        params = {**_OBSERVATION, "station": "01048", "with_metadata": "true"}
+        if endpoint != "/api/values":
+            params["date"] = "2026-01-01"
+
+    response = client.get(endpoint, params=params)
+
+    assert response.status_code == 200, response.text
+    for secret in ("aemet-secret", "ceda-user", "ceda-secret", "cache-secret", "header-secret", "X-Api-Key"):
+        assert secret not in response.text
+    payload = response.json()
+    reported = payload if endpoint == "/api/settings" else {_SETTINGS_OF_ENDPOINT[endpoint]: payload["settings"]}
+    for name, settings in reported.items():
+        assert set(settings) == _REPORTED_SETTINGS[name]
+    if "values" in reported:
+        # a WD_TS_* variable set alongside them is reported all the same
+        assert reported["values"]["skip_empty"] is True
+
+
+def test_settings_is_no_mcp_tool() -> None:
+    """`/api/settings` is left out of the MCP tools, as the other non-data endpoints are (GH-2359)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _names() -> set[str]:
+        async with Client(mcp) as client:
+            return {tool.name for tool in await client.list_tools()}
+
+    names = asyncio.run(_names())
+    assert "values" in names
+    assert not any("settings" in name for name in names)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_mcp_values_tool_reports_the_settings_it_used(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The values MCP tool answers with the settings it used, and passes its output validation (GH-2359)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
+    _stub_result(monkeypatch, "/api/values")
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> object:
+        async with Client(mcp) as client:
+            response = await client.call_tool(
+                "values",
+                {
+                    "provider": "dwd",
+                    "network": "observation",
+                    "parameters": "daily/climate_summary/temperature_air_mean_2m",
+                    "station": "01048",
+                    "with_metadata": True,
+                },
+            )
+            return response.structured_content
+
+    data = asyncio.run(_call())
+    assert data["result"]["settings"]["unit_targets"]["temperature"] == "degree_fahrenheit"
