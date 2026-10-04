@@ -1132,6 +1132,12 @@ function shownRenders() {
 // the chart shown holds no drawing, its newest render having failed
 const chartNotDrawn = computed(() => chartShown() && shownRenders().failed)
 
+// a Retry that works hands its focus on to the chart it drew, the first of the facets
+const chartNotice = useTemplateRef<HTMLElement>('chartNotice')
+useFocusAfterRetry(chartNotDrawn, chartNotice, () => facetByParameter.value
+  ? facetChartRefs.value.get(facetedChartData.value[0]?.parameter ?? '')
+  : chartRef.value)
+
 // Render chart helper functions
 async function drawMainChart(newest: () => boolean) {
   if (viewMode.value !== 'graph' || facetByParameter.value)
@@ -1397,6 +1403,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
           <div v-else class="py-4">
             <div
               v-if="chartNotDrawn"
+              ref="chartNotice"
               class="flex flex-wrap items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
             >
               <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
@@ -1442,13 +1449,13 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
                   {{ facet.parameter }}
                 </h4>
                 <div
-                  :ref="el => setFacetChartRef(facet.parameter, el as HTMLDivElement)" class="w-full"
+                  :ref="el => setFacetChartRef(facet.parameter, el as HTMLDivElement)" tabindex="-1" class="w-full"
                   style="height: 300px;"
                 />
               </div>
             </div>
             <!-- Single combined chart -->
-            <div v-else ref="chartRef" class="w-full overflow-visible" style="height: 400px;" />
+            <div v-else ref="chartRef" tabindex="-1" class="w-full overflow-visible" style="height: 400px;" />
           </div>
         </template>
         <template v-if="viewMode === 'table'" #footer>
