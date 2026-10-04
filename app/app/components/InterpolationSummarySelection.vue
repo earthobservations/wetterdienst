@@ -39,7 +39,7 @@ const stationsQuery = computed(() => ({
   parameters: `${props.parameterSelection.resolution}/${props.parameterSelection.dataset}`,
   all: 'true',
 }))
-const { data: stationsData, pending: stationsPending, refresh: refreshStations, clear: clearStations } = useFetch<StationsResponse>(
+const { data: stationsData, pending: stationsPending, error: stationsError, refresh: refreshStations, clear: clearStations } = useFetch<StationsResponse>(
   '/api/stations',
   {
     query: stationsQuery,
@@ -170,6 +170,13 @@ const displayCoords = computed(() => {
         />
         <div v-else class="text-sm text-gray-500">
           {{ t('interpolation.loadingStations') }}
+        </div>
+        <!-- a failed list leaves the select empty, and only a new dataset would ask for it again -->
+        <div v-if="stationsError && !stationsPending" class="mt-2 flex flex-wrap items-center gap-3">
+          <p class="text-sm text-error">
+            {{ t('interpolation.loadError') }}
+          </p>
+          <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="refreshStations()" />
         </div>
       </UFormField>
     </div>

@@ -238,3 +238,34 @@ describe('the interpolation\'s station list on a change of dataset', () => {
     await vi.waitFor(() => expect(vm.allStations).toEqual([]))
   })
 })
+
+describe('the interpolation\'s station picker whose list could not be fetched', () => {
+  it('says the stations could not be loaded, and asks for them again on Retry', async () => {
+    // the select was left empty with nothing said, and only a change of dataset asked again
+    let failing = true
+    let asked = 0
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      asked++
+      if (failing) {
+        setResponseStatus(event, 500)
+        return { detail: 'Upstream failed' }
+      }
+      return { stations: [feldberg] }
+    }))
+    // a dataset of its own, so the list is not one the tests above leave mounted
+    const wrapper = await mountSuspended(InterpolationSummarySelection, {
+      props: { parameterSelection: { ...parameterSelection, dataset: 'solar' }, modelValue: { source: 'station' } },
+    })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to load stations.'))
+    expect(asked).toBe(1)
+
+    failing = false
+    await wrapper.findAll('button').find(b => b.text() === 'Retry')!.trigger('click')
+    await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
+    expect(asked).toBe(2)
+    expect(wrapper.text()).not.toContain('Failed to load stations.')
+    expect(wrapper.findAll('button').some(b => b.text() === 'Retry')).toBe(false)
+  })
+})

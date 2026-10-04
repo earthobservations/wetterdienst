@@ -304,6 +304,9 @@ Types of changes:
 - `[Explorer]` The interpolation and summary's station picker asks for the station list once on a
   change of dataset, and not again for a parameter ticked or unticked while another stays ticked,
   where it asked more than once and the backend built the whole list for each (GH-2314)
+- `[Explorer]` Where the station list of the interpolation and summary's station picker could not
+  be loaded, the picker says so and offers Retry, where it stayed empty without a word until the
+  dataset changed (GH-2332)
 
 ## [0.17.0] - 2026-09-29
 
