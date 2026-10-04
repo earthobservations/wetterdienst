@@ -162,7 +162,7 @@ export const METEOGRAM_SERIES = {
  * request names is sure of its unit. The cloud cover's `decimal` is the default, which the charts
  * scale to percent.
  */
-export const METEOGRAM_VALUES_SETTINGS: Record<string, string> = {
+export const METEOGRAM_VALUES_SETTINGS = {
   shape: 'long',
   humanize: 'true',
   convert_units: 'true',
@@ -175,4 +175,4 @@ export const METEOGRAM_VALUES_SETTINGS: Record<string, string> = {
     temperature: 'degree_celsius',
   }),
   skip_empty: 'false',
-}
+} as const satisfies Record<string, string>
