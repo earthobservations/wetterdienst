@@ -160,6 +160,9 @@ Types of changes:
 
 ### Fixed
 
+- `wetterdienst issues --dataset/--lead_time`, and the `/api/issues` and MCP `issues` descriptions
+  of `dataset` and `lead_time`, said other networks ignore them. They are DWD DMO only, and MOSMIX
+  and SWSMOS refuse them, so leave them out there (GH-2347)
 - Interpolate and summarize answer under `ts_humanize=False` and `ts_shape="wide"`, however they
   are set: `Settings`, `WD_*`, the CLI's or REST API's `humanize`. The first returned no data and
   the second raised `ColumnNotFoundError`. The result is long either way, its parameters named by
@@ -368,6 +371,13 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- The REST API's and MCP's `values`, `interpolate` and `summarize` leave a setting the request does
+  not give to the server's `WD_TS_*` variable, such as `WD_TS_SHAPE=wide`, as the CLI does, where
+  those variables had no effect. A client that parses one layout whatever the server sets sends
+  `shape`, `humanize` and `convert_units` with its request (GH-2325)
+- The REST API refuses a bad `unit_targets` or station distance in one line naming its field and
+  quoting what the request gave, where the 400 was pydantic's whole message quoting the dict merged
+  from it and the server's `WD_TS_UNIT_TARGETS` or `WD_TS_GEO_STATION_DISTANCE` entries (GH-2329)
 - A malformed `WD_*` setting is told by the variable that sets it and what is wrong with it, a
   line each and without pydantic's echo of the value, where it ended in pydantic's traceback. The
   REST API refuses to start with it, also under `uvicorn` directly unless its lifespan is turned
@@ -383,6 +393,9 @@ Types of changes:
 - NOAA GHCN hourly stations listed at 9999.0 m or 8191.0 m, 154 placeholders such as the North
   Sea lightship ELBE NO. 1, have a null `elevation`. `interpolate` and `summarize` given an
   elevation took them for known ones (GH-2336)
+- `wetterdienst history` and `wetterdienst stripes values` end a `--target` they cannot write,
+  such as one in a directory that does not exist, as `Error: Could not write --target: ...` with
+  exit status 1, as `alerts` does; it was a traceback after the whole fetch (GH-2346)
 - NOAA GHCN daily stations of the Brazilian network (`BR0...`) listed at 0.0 m, 912 placeholders
   such as ALFENAS at about 880 m, have a null `elevation`. `interpolate` and `summarize` given an
   elevation took them for stations at sea level. A 0.0 m outside that network stays (GH-2362)
