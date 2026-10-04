@@ -772,11 +772,12 @@ class ValuesResult(_ValuesResult):
         whenever the request spans more than one dataset, and that name is how the dataset is told
         on a row of a resolution the wide shape merged several datasets into, which names none.
 
-        A null is left out, as a long frame leaves it out by default (`ts_drop_nulls`): the wide
-        shape writes one wherever a column has no reading at a row another column has one at, and
-        a column of one resolution is null throughout the rows of another, as the widening joins on
-        the resolution. Kept, those would draw a series under a resolution it does not belong to.
-        The quality columns are not drawn.
+        A null is left out, as the long shape leaves it out by default: the wide shape writes one
+        wherever a column has no reading at a row another column has one at, and a column of one
+        resolution is null throughout the rows of another, as the widening joins on the resolution.
+        Kept, those would draw a series under a resolution it does not belong to. The quality
+        columns are not drawn. The series are put in the order the long shape sorts them in, which
+        is the order their facets are laid out in.
         """
         datasets_by_resolution: dict[str, set[str]] = {}
         for parameter in self.stations.parameters:
@@ -816,7 +817,10 @@ class ValuesResult(_ValuesResult):
                         pl.col(column).cast(pl.Float64).alias("value"),
                     )
                 )
-        return pl.concat(series) if series else pl.DataFrame()
+        if not series:
+            return pl.DataFrame()
+        # stable, so that the stations keep their order within a series, as they do in a long frame
+        return pl.concat(series).sort("resolution", "dataset", "parameter", maintain_order=True)
 
     def _to_image(  # ty: ignore[invalid-method-override]
         self,

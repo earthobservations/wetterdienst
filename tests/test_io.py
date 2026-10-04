@@ -3257,8 +3257,11 @@ def test_to_target_gives_the_influxdb1_client_a_valid_base_url_for_an_ipv6_host(
     assert requests.Request("GET", f"{baseurl}/ping").prepare().url == f"{baseurl}/ping"
 
 
-def _plot_of(result: ValuesResult) -> list[tuple]:
-    """Read what a values plot draws: each facet's label, and each trace's points under it."""
+def _plot_of(result: ValuesResult) -> tuple[list, list[tuple]]:
+    """Read what a values plot draws: its facets' labels, and each trace's points with its facet's.
+
+    Both in the order the figure holds them, which is the order they are laid out in.
+    """
     figure = result.to_plot()
 
     def label(axis: str) -> str:
@@ -3267,7 +3270,10 @@ def _plot_of(result: ValuesResult) -> list[tuple]:
         (text,) = (a.text for a in figure.layout.annotations if math.isclose(a.y, (bottom + top) / 2))
         return text
 
-    return sorted((label(trace.yaxis), trace.name, tuple(trace.x), tuple(trace.y)) for trace in figure.data)
+    return (
+        [annotation.text for annotation in figure.layout.annotations],
+        [(label(trace.yaxis), trace.name, tuple(trace.x), tuple(trace.y)) for trace in figure.data],
+    )
 
 
 @pytest.mark.parametrize(
@@ -3276,11 +3282,12 @@ def _plot_of(result: ValuesResult) -> list[tuple]:
         pytest.param(
             {},
             [
-                "daily/kl/temperature_air_mean_2m",
-                "daily/more_precip/precipitation_amount",
                 "hourly/temperature_air/temperature_air_mean_2m",
+                "daily/more_precip/precipitation_amount",
+                "daily/kl/precipitation_amount",
+                "daily/kl/temperature_air_mean_2m",
             ],
-            ["temperature_air_mean_2m", "precipitation_amount", "temperature_air_mean_2m"],
+            ["temperature_air_mean_2m", "precipitation_amount", "precipitation_amount", "temperature_air_mean_2m"],
             id="two-datasets-merged-in-one-resolution",
         ),
         pytest.param(
@@ -3343,14 +3350,17 @@ def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
                 (station_id, timestamp) for station_id in ("01048", "04411") for timestamp in timestamps
             )
         )
-    # one reading missing, which the wide shape writes as a null beside its row's other readings
+    # one reading of the last parameter missing, which the wide shape writes as a null where another
+    # parameter of its resolution has a reading at that timestamp
     rows.pop()
-    df_long = pl.DataFrame(rows, schema=TimeseriesValues._long_fields)  # noqa: SLF001
-    # widened one station at a time, as a request does
+    df_collected = pl.DataFrame(rows, schema=TimeseriesValues._long_fields)  # noqa: SLF001
+    # shaped and sorted one station at a time and then put together, as a request does
+    stations_collected = [df for _, df in df_collected.group_by("station_id", maintain_order=True)]
+    df_long = pl.concat(df.sort("resolution", "dataset", "parameter", "timestamp") for df in stations_collected)
     df_wide = pl.concat(
-        values._widen_df(df_station)  # noqa: SLF001
-        for _, df_station in df_long.group_by("station_id", maintain_order=True)
-    ).sort("station_id", "resolution", "dataset", "timestamp")
+        values._widen_df(df).sort("resolution", "dataset", "timestamp")  # noqa: SLF001
+        for df in stations_collected
+    )
     long = ValuesResult(stations=stations, values=values, df=values._cast_metadata_to_enum(df_long))  # noqa: SLF001
     wide = ValuesResult(stations=stations, values=values, df=values._cast_metadata_to_enum(df_wide))  # noqa: SLF001
     assert "parameter" not in df_wide.columns
