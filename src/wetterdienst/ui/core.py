@@ -29,6 +29,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.settings import SkipThreshold
 from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.ui import read_list
 
@@ -179,8 +180,8 @@ _UnitTargetsField = Annotated[
 ]
 _SkipEmptyField = Annotated[bool, Field(description="Skip stations whose coverage falls below `skip_threshold`.")]
 _SkipThresholdField = Annotated[
-    float,
-    Field(gt=0, le=1, description="Coverage fraction below which a station is skipped (requires `skip_empty`)."),
+    SkipThreshold,
+    Field(description="Coverage fraction below which a station is skipped (requires `skip_empty`)."),
 ]
 _SkipCriteriaField = Annotated[
     Literal["min", "mean", "max"],
