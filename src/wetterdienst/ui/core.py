@@ -864,7 +864,7 @@ class IssuesRequest(BaseModel):
     dataset: Annotated[
         Literal["icon", "icon_eu"] | None,
         Field(
-            description="DWD DMO product to list issues for ('icon' or 'icon_eu'); "
+            description="DWD DMO product to list issues for ('icon' or 'icon_eu'), default 'icon'; "
             "DMO only, refused for MOSMIX and SWSMOS.",
         ),
     ] = None
@@ -873,7 +873,7 @@ class IssuesRequest(BaseModel):
     lead_time: Annotated[
         Literal["short", "long"] | None,
         Field(
-            description="DWD DMO forecast lead time to list issues for ('short' or 'long'); "
+            description="DWD DMO forecast lead time to list issues for ('short' or 'long'), default 'short'; "
             "DMO only, refused for MOSMIX and SWSMOS.",
         ),
     ] = None
