@@ -23,6 +23,10 @@ Types of changes:
   ...), Hub'Eau's as the Sandre label of `code_systeme_alti_site` (`IGN 1969`, ...), or the code
   where it has none. Stations differ in it, so compare gauge zeros only where it agrees, and not
   between Hub'Eau stations labelled as on an unknown or a local system (GH-2228)
+- `wetterdienst issues`, `/api/issues` and the MCP `issues` tool list the DWD SWSMOS runs, and
+  `DwdSwsmosRequest.available_issues(settings)` returns them as UTC datetimes. They refused
+  dwd/swsmos as unsupported. One run holds every road station, so the list is the same for any
+  station (GH-2319)
 
 ### Changed
 
@@ -344,10 +348,6 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
-- `wetterdienst issues`, `/api/issues` and the MCP `issues` tool list the DWD SWSMOS runs, and
-  `DwdSwsmosRequest.available_issues(settings)` returns them as UTC datetimes. They refused
-  dwd/swsmos as unsupported. One run holds every road station, so the list is the same for any
-  station (GH-2319)
 
 ## [0.139.0] - 2026-09-29
 
