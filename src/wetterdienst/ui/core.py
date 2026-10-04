@@ -29,6 +29,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.settings import SkipThreshold
 from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.ui import read_list
 
@@ -198,10 +199,8 @@ _SkipEmptyField = Annotated[
     ),
 ]
 _SkipThresholdField = Annotated[
-    float,
+    SkipThreshold,
     Field(
-        ge=0,
-        le=1,
         description="Coverage fraction below which a station is skipped (requires `skip_empty`). "
         "Default: the server's WD_TS_SKIP_THRESHOLD if set, else 0.95.",
     ),
@@ -967,7 +966,8 @@ def get_issues(
 ) -> list[str]:
     """Return available issue datetimes as UTC ISO strings for provider/network/station.
 
-    Supported: DWD MOSMIX (MOSMIX_L single-station) and DWD DMO (ICON single-station).
+    Supported: DWD MOSMIX (MOSMIX_L single-station), DWD DMO (ICON single-station) and DWD SWSMOS.
+    One SWSMOS run file holds every road station, so its runs are the same whatever the station.
 
     The DMO product and lead time are passed through rather than left to chance: a run exists for a
     product, and this listed one product's directory whatever the caller went on to ask for, so it
@@ -976,14 +976,16 @@ def get_issues(
     """
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
 
     dmo_only = {"dataset": request.dataset, "lead_time": request.lead_time}
-    if issubclass(api, DwdMosmixRequest):
+    given = sorted(name for name, value in dmo_only.items() if value is not None)
+    if given and issubclass(api, (DwdMosmixRequest, DwdSwsmosRequest)):
         # named rather than ignored: silently answering a different question than the one asked is
         # the fault this whole path is being fixed for
-        if given := sorted(name for name, value in dmo_only.items() if value is not None):
-            msg = f"{', '.join(given)} applies to DWD DMO only (got {api.__name__})"
-            raise InvalidEnumerationError(msg)
+        msg = f"{', '.join(given)} applies to DWD DMO only (got {api.__name__})"
+        raise InvalidEnumerationError(msg)
+    if issubclass(api, DwdMosmixRequest):
         issues = DwdMosmixRequest.available_issues(request.station, settings)
     elif issubclass(api, DwdDmoRequest):
         issues = DwdDmoRequest.available_issues(
@@ -991,8 +993,10 @@ def get_issues(
             settings,
             **{name: value for name, value in dmo_only.items() if value is not None},
         )
+    elif issubclass(api, DwdSwsmosRequest):
+        issues = DwdSwsmosRequest.available_issues(settings)
     else:
-        msg = f"Issue listing is only supported for DWD MOSMIX and DMO (got {api.__name__})"
+        msg = f"Issue listing is only supported for DWD MOSMIX, DMO and SWSMOS (got {api.__name__})"
         raise NotImplementedError(msg)
 
     return [issue.isoformat() for issue in issues]

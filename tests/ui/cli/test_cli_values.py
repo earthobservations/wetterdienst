@@ -1056,3 +1056,22 @@ def test_cli_export_refuses_an_unencoded_password_without_printing_it(
     assert "Failed to export" not in caplog.text
     for piece in ("tok3n-HEAD", "tok3n-TAIL", "pw-HEAD", "pw-TAIL"):
         assert piece not in caplog.text
+
+
+@pytest.mark.remote
+def test_cli_values_image_wide() -> None:
+    """A wide result is drawn as a long one is, rather than failing on its `parameter` column (GH-2330)."""
+    result = invoke_wetterdienst_values_static_wide(
+        provider="dwd",
+        network="observation",
+        setting=[
+            "--parameters=daily/kl/temperature_air_mean_2m,daily/more_precip/precipitation_amount",
+            "--date=2020-01-01/2020-01-05",
+        ],
+        station="01048",
+        fmt="html",
+    )
+    assert result.exit_code == 0, result.output
+    assert is_html_document(result.output)
+    assert "temperature_air_mean_2m (°C)" in result.output
+    assert "precipitation_amount (mm)" in result.output

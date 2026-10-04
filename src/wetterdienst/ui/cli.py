@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar, get_args
 import click
 from click.core import ParameterSource
 from pydantic import BaseModel, ValidationError
+from pydantic_settings import SettingsError
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import (
@@ -27,6 +28,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
@@ -121,8 +123,7 @@ lead_time_opt = click.option(
 issue_opt = click.option(
     "--issue",
     type=click.STRING,
-    help="DWD MOSMIX/DMO/SWSMOS model run (ISO 8601); list MOSMIX/DMO runs with: wetterdienst issues. "
-    "Default: the latest",
+    help="DWD MOSMIX/DMO/SWSMOS model run (ISO 8601); list them with: wetterdienst issues. Default: the latest",
 )
 date_opt = click.option("--date", type=click.STRING, help=_DATE_HELP)
 start_date_opt = click.option(
@@ -726,8 +727,33 @@ def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: 
         sys.exit(1)
 
 
+class _Cli(click.Group):
+    """The command group, telling a malformed `WD_*` setting by its variable (GH-2335).
+
+    A command builds its settings where it needs them, and each used to end in pydantic's traceback
+    when the environment's were malformed, naming the field rather than the variable and repeating
+    the value. Whatever command it comes from, such an error is told here instead, a line each, with
+    exit status 1: the environment is not the command line's to fix. An error the settings from
+    the environment alone do not reproduce is the options', and is left as it is.
+    """
+
+    def invoke(self, ctx: click.Context) -> Any:  # noqa: ANN401
+        try:
+            return super().invoke(ctx)
+        except (ValidationError, SettingsError) as e:
+            # another model's error is not the settings', even beside a malformed variable an
+            # option overrode
+            if isinstance(e, ValidationError) and e.title != Settings.__name__:
+                raise
+            problems = check_settings()
+            if not problems:
+                raise
+            raise click.ClickException("\n".join(problems)) from None
+
+
 @click.group(
     "wetterdienst",
+    cls=_Cli,
     help=wetterdienst_help,
     context_settings={"max_content_width": 120},
 )
@@ -1071,7 +1097,7 @@ def issues_cmd(
 ) -> None:
     """List available issue (model-run) datetimes for a station.
 
-    Currently supported: --provider dwd --network mosmix|dmo
+    Currently supported: --provider dwd --network mosmix|dmo|swsmos
 
     A DMO run exists for a product, so --dataset and --lead_time decide which runs are listed. They
     default to what a `values` request defaults to, which is what makes the answer one that request
@@ -1090,8 +1116,10 @@ def issues_cmd(
         },
     )
 
+    # built outside the catch-all below, so that a malformed `WD_*` setting is told by its variable
+    settings = Settings()
     try:
-        issue_list = get_issues(api=api, request=request, settings=Settings())
+        issue_list = get_issues(api=api, request=request, settings=settings)
     except NotImplementedError:
         log.exception("Issues not available for the given request.")
         sys.exit(1)
@@ -1169,8 +1197,10 @@ def history(
 
     api = get_api(provider=provider, network=network)
 
+    # built outside the catch-all below, so that a malformed `WD_*` setting is told by its variable
+    settings = Settings()
     try:
-        stations_ = get_stations(api=api, request=request, date=None, settings=Settings())
+        stations_ = get_stations(api=api, request=request, date=None, settings=settings)
     except Exception:
         log.exception("Failed to get stations for history.")
         sys.exit(1)
@@ -1827,12 +1857,15 @@ def alerts(
         msg = "--target only supports a local path or a file:// URI for alerts."
         raise click.BadParameter(msg)
 
-    # Invalid input (granularity/language/format, or a date outside the rolling window) is a
-    # BadParameter; a runtime download/parse failure is a clean ClickException, not a traceback.
+    # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
+    # variable is a `ValueError`, and not the command line's to fix
+    settings = Settings()
+    # granularity, language and format are click choices, so only the date reaches this refusal: one
+    # that does not parse, or one an offset carries out of what a datetime holds
     try:
-        request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=Settings())
-    except ValueError as e:
-        raise click.BadParameter(str(e)) from e
+        request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=settings)
+    except (ValueError, OverflowError) as e:
+        raise click.BadParameter(str(e), param_hint="--date") from e
 
     try:
         result = request.query()
@@ -1848,7 +1881,12 @@ def alerts(
 
     if target:
         path = target.removeprefix("file://")
-        Path(path).write_text(output, encoding="utf-8")
+        try:
+            Path(path).write_text(output, encoding="utf-8")
+        except OSError as e:
+            # a directory that does not exist or cannot be written, or a path naming a directory
+            msg = f"Could not write --target: {e}"
+            raise click.ClickException(msg) from e
         return
 
     print(output)  # noqa: T201
@@ -1959,6 +1997,9 @@ def stripes_values(
 
     set_logging_level(debug=debug)
 
+    # the provider request builds its settings from the environment inside the catch-all below:
+    # checked here first, a malformed `WD_*` setting is told by its variable
+    Settings()
     try:
         fig = _plot_stripes(request)
     except Exception as e:
