@@ -330,6 +330,12 @@ describe('the interpolation\'s station picker with no station to offer', () => {
     await vi.waitFor(() => expect(vm.allStations).toHaveLength(2))
     expect(vm.stationItems).toEqual([])
     await vi.waitFor(() => expect(wrapper.text()).toContain(notice))
+
+    // and the select is described by it, so it is heard on reaching the select
+    const help = wrapper.find('[data-slot="help"]')
+    expect(help.text()).toBe(notice)
+    const describedBy = wrapper.find('[aria-describedby]').attributes('aria-describedby')!.split(' ')
+    expect(describedBy).toContain(help.attributes('id'))
   })
 
   it('says so when the list is empty', async () => {
