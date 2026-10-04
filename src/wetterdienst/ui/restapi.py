@@ -195,7 +195,8 @@ class _AppliedSettings(BaseModel):
     convert_units: bool = Field(validation_alias="ts_convert_units")
     unit_targets: dict[str, str] = Field(
         validation_alias="ts_unit_targets",
-        description="The unit values of each quantity are converted to, for every quantity.",
+        description="The unit values of each quantity are converted to, for every quantity, where `convert_units` "
+        "is on; off, they come in the unit the source publishes.",
     )
     skip_empty: bool = Field(validation_alias="ts_skip_empty")
     skip_threshold: float = Field(validation_alias="ts_skip_threshold")
@@ -431,6 +432,7 @@ def index() -> HTMLResponse:
                 <ul>
                     <li><a href="api/coverage" target="_blank" rel="noopener">coverage</a></li>
                     <li><a href="api/glossary" target="_blank" rel="noopener">glossary</a></li>
+                    <li><a href="api/settings" target="_blank" rel="noopener">settings</a></li>
                     <li><a href="api/stations" target="_blank" rel="noopener">stations</a></li>
                     <li><a href="api/values" target="_blank" rel="noopener">values</a></li>
                     <li><a href="api/interpolate" target="_blank" rel="noopener">interpolation</a></li>
@@ -908,7 +910,7 @@ def _geo_settings(
 ) -> Settings:
     """Build the settings shared by the interpolation and the summary endpoint.
 
-    `kind` names the request's station distance fields.
+    `kind` picks the endpoint's settings, which name its request's station distance fields.
     """
     # a distance given for a name that is not a canonical parameter, or a unit target for an
     # unknown quantity or unit, is the request's 400

@@ -4860,9 +4860,12 @@ def test_each_reported_setting_is_a_field_of_the_request_but_the_servers_own(
     """
     from wetterdienst.ui import core  # noqa: PLC0415
 
-    reported = set(getattr(restapi, model_name).model_fields)
+    model = getattr(restapi, model_name)
+    reported = set(model.model_fields)
     requested = set(getattr(core, request_model).model_fields)
     assert reported - requested == server_only
+    # each read off the setting its alias names
+    assert {field.validation_alias for field in model.model_fields.values()} <= Settings.model_fields.keys()
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
