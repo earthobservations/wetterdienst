@@ -156,6 +156,10 @@ Types of changes:
   500. A request refused for what it gives keeps its 400 (GH-2297)
 - `wetterdienst values` refuses such `--unit_targets` with `Invalid value for '--unit_targets'`
   and exit status 2, where it died with a traceback (GH-2296)
+- `/api/values` answers a malformed `WD_TS_UNIT_TARGETS` in the server's `.env` with a bare 500,
+  where it answered 400 with the setting's value in `detail`; `/api/stripes/stations`, `/values`
+  and `/image` no longer give a malformed setting's value in their 500. The MCP tools answer the
+  same (GH-2312)
 - Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most
   places every 6 deg of longitude) or the equator in the zone of the point. Each was placed in its
   own zone, hundreds of kilometres off, or 10000 km off across the equator, so a point near either

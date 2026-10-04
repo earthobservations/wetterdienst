@@ -4016,3 +4016,74 @@ def test_values_geojson_items_are_the_ones_the_description_states(stubbed_values
             for item in long
             if item["station_id"] == station_id and item["dataset"] == dataset
         ]
+
+
+@pytest.mark.parametrize(
+    "unit_targets",
+    [
+        pytest.param(None, id="none-given"),
+        pytest.param({"temperature": "degree_fahrenheit"}, id="a-valid-one-given"),
+        pytest.param({"bar": "baz"}, id="beside-a-refusal"),
+    ],
+)
+def test_values_a_unit_target_the_server_environment_got_wrong_is_not_the_callers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    unit_targets: dict[str, str] | None,
+) -> None:
+    """A malformed `WD_TS_UNIT_TARGETS` is the server's 500, without its value, not the caller's 400 (GH-2312).
+
+    pydantic-settings merges the dict the environment sets into the one the request gives, so it
+    failed at `ts_unit_targets`, where a refusal of the caller's fails, and came back as their 400
+    reading the server's value back.
+    """
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    (tmp_path / ".env").write_text('WD_TS_UNIT_TARGETS={"foo": "bar"}\n')
+    monkeypatch.chdir(tmp_path)
+    client = TestClient(app, raise_server_exceptions=False)
+    params = {**_OBSERVATION, "station": "01048"}
+    if unit_targets is not None:
+        params["unit_targets"] = json.dumps(unit_targets)
+
+    response = client.get("/api/values", params=params)
+
+    # Starlette's own answer to an exception nothing handled, so the settings are what failed
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "params"),
+    [
+        pytest.param("/api/stripes/stations", {"kind": "temperature"}, id="stripes-stations"),
+        pytest.param("/api/stripes/values", {"kind": "temperature", "station": "01048"}, id="stripes-values"),
+        pytest.param("/api/stripes/image", {"kind": "temperature", "station": "01048"}, id="stripes-image"),
+    ],
+)
+def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    endpoint: str,
+    params: dict[str, str],
+) -> None:
+    """A malformed `WD_*` setting is the server's bare 500, without its value (GH-2312).
+
+    The stripes build their provider request, and with it its settings, inside a catch-all, which
+    answered the `ValidationError` with a 500 carrying the configured value.
+    """
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=not-a-bool\n")
+    monkeypatch.chdir(tmp_path)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.get(endpoint, params=params)
+
+    # Starlette's own answer to an exception nothing handled, so the settings are what failed
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"
