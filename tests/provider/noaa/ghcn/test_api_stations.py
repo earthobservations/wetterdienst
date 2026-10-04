@@ -283,3 +283,30 @@ def test_noaa_ghcn_stations_one_resolution_keeps_its_own_elevation(
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file_disagreeing)
     df = NoaaGhcnRequest(parameters=[(resolution, "data")], settings=default_settings).all().df
     assert df.select("station_id", "elevation").rows() == expected
+
+
+def test_noaa_ghcn_daily_stations_brazilian_zero_elevation(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """A Brazilian (BR0) station the daily list puts at 0.0 has a null elevation; a 0.0 elsewhere stays (GH-2362).
+
+    The rows are copied from `ghcnd-stations.txt` and `ghcnd-inventory.txt` as NOAA publishes them
+    (2026-10-04). ALFENAS lies at about 880 m in Minas Gerais; DE KOOG is on the Dutch island of Texel.
+    """
+    contents = {
+        "ghcnd-stations.txt": (
+            "BR002145042 -21.4500  -45.9400    0.0    ALFENAS                                     \n"
+            "NLE00101883  53.1000    4.7667    0.0    DE KOOG                                     \n"
+        ),
+        "ghcnd-inventory.txt": (
+            "BR002145042 -21.4500  -45.9400 PRCP 1983 1999\nNLE00101883  53.1000    4.7667 PRCP 1950 2026\n"
+        ),
+    }
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        content = contents[url.rsplit("/", 1)[-1]]
+        return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    assert df.select("station_id", "elevation").rows() == [("BR002145042", None), ("NLE00101883", 0.0)]

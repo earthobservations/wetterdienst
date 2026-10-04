@@ -330,8 +330,16 @@ class NoaaGhcnRequest(TimeseriesRequest):
             "name",
             "wmo_id",
         ]
-        # the readme marks a missing elevation as -999.9
-        df = df.with_columns(pl.col("elevation").replace("-999.9", None))
+        # the readme marks a missing elevation as -999.9. The Brazilian network (BR0...) also lists 912
+        # stations at 0.0, inland ones on the plateau among them, such as ALFENAS at about 880 m: a
+        # placeholder there, while a 0.0 elsewhere, on a coast or in the Netherlands, is a height,
+        # see GH-2362
+        df = df.with_columns(
+            pl.when(pl.col("station_id").str.starts_with("BR0") & pl.col("elevation").eq("0.0"))
+            .then(None)
+            .otherwise(pl.col("elevation").replace("-999.9", None))
+            .alias("elevation"),
+        )
 
         inventory_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
         inventory_file = download_file(
