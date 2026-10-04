@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, WithJsonSchema
 from typing_extensions import NotRequired
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
@@ -47,7 +47,7 @@ from wetterdienst.model.result import (
     _ValuesOgcFeatureCollection,
 )
 from wetterdienst.model.unit import UnitConverter
-from wetterdienst.settings import check_settings
+from wetterdienst.settings import SkipThreshold, check_settings
 from wetterdienst.ui.core import (
     GlossaryEntry,
     HistoryRequest,
@@ -180,6 +180,13 @@ _MEDIA_TYPES = {
 }
 
 
+#: a radius, factor or gain, which the settings take as infinite too, written then as "Infinity"
+_Unbounded = Annotated[
+    float,
+    WithJsonSchema({"anyOf": [{"type": "number"}, {"type": "string", "enum": ["Infinity"]}]}, mode="serialization"),
+]
+
+
 # The settings a request to `/api/values`, `/api/interpolate` and `/api/summarize` is answered with,
 # by the request field that sets each, and with the setting it sets as its validation alias. The REST
 # API's one list of them: an endpoint takes these from its request (GH-2325), reports the ones it
@@ -189,8 +196,9 @@ _MEDIA_TYPES = {
 class _AppliedSettings(BaseModel):
     """The settings every one of the three endpoints is answered with."""
 
-    # by name too, so that a report, which is written by name, reads back
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    # by name too, so that a report, which is written by name, reads back. A radius, factor or gain
+    # the settings take as infinite is written as the string "Infinity", which JSON has no number for
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, ser_json_inf_nan="strings")
 
     humanize: bool = Field(validation_alias="ts_humanize")
     convert_units: bool = Field(validation_alias="ts_convert_units")
@@ -200,7 +208,7 @@ class _AppliedSettings(BaseModel):
         "is on; off, they come in the unit the source publishes.",
     )
     skip_empty: bool = Field(validation_alias="ts_skip_empty")
-    skip_threshold: float = Field(validation_alias="ts_skip_threshold")
+    skip_threshold: SkipThreshold = Field(validation_alias="ts_skip_threshold")
     skip_criteria: Literal["min", "mean", "max"] = Field(validation_alias="ts_skip_criteria")
     drop_nulls: bool = Field(
         validation_alias="ts_drop_nulls",
@@ -228,12 +236,12 @@ _STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION = (
 class _GeoSettings(_AppliedSettings):
     """The settings `/api/interpolate` and `/api/summarize` share."""
 
-    use_nearby_station_distance: float | None = Field(validation_alias="ts_geo_use_nearby_station_distance")
-    min_gain_of_value_pairs: float = Field(validation_alias="ts_geo_min_gain_of_value_pairs")
+    use_nearby_station_distance: _Unbounded | None = Field(validation_alias="ts_geo_use_nearby_station_distance")
+    min_gain_of_value_pairs: _Unbounded = Field(validation_alias="ts_geo_min_gain_of_value_pairs")
     num_additional_stations: int = Field(validation_alias="ts_geo_num_additional_stations")
     # set by the server alone, as are the skipping of sparse stations and the dropping of nulls
     # here: neither request has a field for them, and the stations' values are read with them
-    station_distance_resolution_factors: dict[str, float] = Field(
+    station_distance_resolution_factors: dict[str, _Unbounded] = Field(
         validation_alias="ts_geo_station_distance_resolution_factors",
         description="The factor the heterogeneous radius is multiplied by, for every resolution. Set by the "
         "server alone.",
@@ -243,12 +251,14 @@ class _GeoSettings(_AppliedSettings):
 class InterpolationSettings(_GeoSettings):
     """The settings of `/api/interpolate`."""
 
-    interpolation_station_distance: dict[str, float] = Field(
+    interpolation_station_distance: dict[str, _Unbounded] = Field(
         validation_alias="ts_geo_station_distance",
         description=_STATION_DISTANCE_DESCRIPTION,
     )
-    interpolation_station_distance_homogeneous: float = Field(validation_alias="ts_geo_station_distance_homogeneous")
-    interpolation_station_distance_heterogeneous: float = Field(
+    interpolation_station_distance_homogeneous: _Unbounded = Field(
+        validation_alias="ts_geo_station_distance_homogeneous"
+    )
+    interpolation_station_distance_heterogeneous: _Unbounded = Field(
         validation_alias="ts_geo_station_distance_heterogeneous",
         description=_STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION,
     )
@@ -257,12 +267,12 @@ class InterpolationSettings(_GeoSettings):
 class SummarySettings(_GeoSettings):
     """The settings of `/api/summarize`."""
 
-    summary_station_distance: dict[str, float] = Field(
+    summary_station_distance: dict[str, _Unbounded] = Field(
         validation_alias="ts_geo_station_distance",
         description=_STATION_DISTANCE_DESCRIPTION,
     )
-    summary_station_distance_homogeneous: float = Field(validation_alias="ts_geo_station_distance_homogeneous")
-    summary_station_distance_heterogeneous: float = Field(
+    summary_station_distance_homogeneous: _Unbounded = Field(validation_alias="ts_geo_station_distance_homogeneous")
+    summary_station_distance_heterogeneous: _Unbounded = Field(
         validation_alias="ts_geo_station_distance_heterogeneous",
         description=_STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION,
     )
@@ -509,7 +519,7 @@ def version() -> JSONResponse:
 
 
 @app.get("/api/settings", response_model=ServerSettings)
-def server_settings() -> JSONResponse:
+def server_settings() -> Response:
     """Get the settings `/api/values`, `/api/interpolate` and `/api/summarize` take where a request leaves them out.
 
     Each is the server's `WD_TS_*` variable where it sets one, else wetterdienst's default, keyed
@@ -527,7 +537,7 @@ def server_settings() -> JSONResponse:
         interpolate=_applied_settings(InterpolationSettings, settings),
         summarize=_applied_settings(SummarySettings, settings),
     )
-    return JSONResponse(content=content.model_dump(mode="json"))
+    return Response(content=content.model_dump_json(), media_type="application/json")
 
 
 # OAuth discovery endpoints. The `/mcp` server is open (no auth), so MCP clients such as Claude
@@ -896,7 +906,7 @@ def _render(
         data: dict[str, Any] = dict(result.to_dict(with_metadata=True, with_stations=request.with_stations))
     else:
         data = dict(result.to_ogc_feature_collection(with_metadata=True))
-    report = _applied_settings(applied, settings).model_dump(mode="json")
+    report = json.loads(_applied_settings(applied, settings).model_dump_json())
     data = {"metadata": data.pop("metadata"), "settings": report, **data}
     return json.dumps(data, indent=4 if request.pretty else None, ensure_ascii=request.format == "json")
 

@@ -4975,3 +4975,52 @@ def test_settings_report_reads_back_into_its_model(client: TestClient) -> None:
     reported = client.get("/api/settings").json()
 
     assert restapi.ServerSettings.model_validate(reported).model_dump(mode="json") == reported
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("endpoint", ["/api/settings", "/api/interpolate", "/api/summarize"])
+def test_an_infinite_radius_is_reported_as_valid_json(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+) -> None:
+    """A radius the settings take as infinite is reported as "Infinity", in JSON the served schema admits (GH-2359).
+
+    JSON has no number for it: `/api/settings` failed to write it, and a data endpoint wrote the
+    bare `Infinity` no JSON parser takes.
+    """
+    jsonschema = pytest.importorskip("jsonschema")
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS", "inf")
+    params: dict[str, str] = {}
+    schema_name = "ServerSettings"
+    if endpoint != "/api/settings":
+        _stub_result(monkeypatch, endpoint)
+        params = {**_OBSERVATION, "station": "01048", "date": "2026-01-01", "with_metadata": "true"}
+        schema_name = (
+            "_InterpolatedValuesWithSettingsDict"
+            if endpoint == "/api/interpolate"
+            else "_SummarizedValuesWithSettingsDict"
+        )
+
+    response = client.get(endpoint, params=params)
+
+    assert response.status_code == 200, response.text
+    # parsed as JSON proper, which refuses the bare constants
+    payload = json.loads(response.text, parse_constant=lambda constant: pytest.fail(f"bare {constant}"))
+    reported = payload["interpolate"] if endpoint == "/api/settings" else payload["settings"]
+    kind = "summary" if endpoint == "/api/summarize" else "interpolation"
+    assert reported[f"{kind}_station_distance_homogeneous"] == "Infinity"
+    components = restapi.app.openapi()["components"]
+    jsonschema.validate(payload, {"$ref": f"#/components/schemas/{schema_name}", "components": components})
+
+
+@pytest.mark.parametrize(("field", "setting"), [("shape", "ts_shape"), ("skip_criteria", "ts_skip_criteria")])
+def test_reported_choices_are_the_settings_choices(field: str, setting: str) -> None:
+    """A setting reported as one of a set of choices offers the choices `Settings` takes (GH-2359).
+
+    One `Settings` takes and the report does not would fail every report built with it.
+    """
+    from typing import get_args  # noqa: PLC0415
+
+    reported = set(get_args(restapi.ValuesSettings.model_fields[field].annotation))
+    assert reported == set(get_args(Settings.model_fields[setting].annotation))
