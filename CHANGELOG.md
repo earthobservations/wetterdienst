@@ -140,6 +140,10 @@ Types of changes:
 
 ### Fixed
 
+- Interpolate and summarize answer under `ts_humanize=False` and `ts_shape="wide"`, however they
+  are set: `Settings`, `WD_*`, the CLI's or REST API's `humanize`. The first returned no data and
+  the second raised `ColumnNotFoundError`. The result is long either way, its parameters named by
+  the source's codes under `ts_humanize=False` (GH-2331)
 - The `/api/values` description, which is the MCP `values` tool's, and the MCP instructions said
   the `values` array is sorted by timestamp. It is grouped by station, then by resolution, dataset
   and parameter, in timestamp order within each group, so a parameter's latest timestamp is the
