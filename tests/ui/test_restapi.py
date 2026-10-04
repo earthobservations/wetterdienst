@@ -4928,3 +4928,20 @@ def test_settings_reports_the_drop_nulls_a_long_request_gets_under_a_wide_server
     assert settings.ts_drop_nulls is applied
     assert applied is (drop_nulls is None)
     assert reported is applied
+
+
+def test_with_metadata_names_the_settings_block_where_it_comes() -> None:
+    """`with_metadata` says it adds the settings block on the endpoints that add one, and not elsewhere (GH-2359).
+
+    Its description is the OpenAPI and MCP parameter description, which an agent reads.
+    """
+    paths = restapi.app.openapi()["paths"]
+
+    def description(path: str) -> str:
+        (parameter,) = (p for p in paths[path]["get"]["parameters"] if p["name"] == "with_metadata")
+        return parameter["description"]
+
+    for path in ("/api/values", "/api/interpolate", "/api/summarize"):
+        assert "`settings` block" in description(path)
+    for path in ("/api/stations", "/api/history"):
+        assert "settings" not in description(path)

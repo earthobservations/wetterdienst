@@ -145,11 +145,13 @@ _SqlValuesField = Annotated[
     str | None,
     Field(description='SQL WHERE clause applied to the values, e.g. "temperature_air_max_2m < 2.0".'),
 ]
-_WithMetadataField = Annotated[
+_WithMetadataField = Annotated[bool, Field(description="Include the provider-metadata block in the output.")]
+# of the values, interpolate and summarize requests, whose JSON formats report their settings with it
+_WithMetadataSettingsField = Annotated[
     bool,
     Field(
-        description="Include the provider-metadata block in the output, and for values, interpolate and summarize "
-        "as JSON or GeoJSON a `settings` block with the settings the result was got with."
+        description="Include the provider-metadata block in the output, and with it, in JSON or GeoJSON, a "
+        "`settings` block with the settings the result was got with."
     ),
 ]
 _WithStationsField = Annotated[bool, Field(description="Include the queried stations' metadata block in the output.")]
@@ -638,7 +640,7 @@ class ValuesRequest(BaseModel):
     # sql
     sql: _SqlField = None
 
-    with_metadata: _WithMetadataField = False
+    with_metadata: _WithMetadataSettingsField = False
     with_stations: _WithStationsField = False
 
     format: _FormatField = "json"
@@ -767,7 +769,7 @@ class InterpolationRequest(BaseModel):
     num_additional_stations: _NumAdditionalStationsField = 3
     format: _FormatField = "json"
 
-    with_metadata: _WithMetadataField = False
+    with_metadata: _WithMetadataSettingsField = False
     with_stations: _WithStationsField = False
 
     pretty: _PrettyField = False
@@ -871,7 +873,7 @@ class SummaryRequest(BaseModel):
     num_additional_stations: _NumAdditionalStationsField = 3
     format: _FormatField = "json"
 
-    with_metadata: _WithMetadataField = False
+    with_metadata: _WithMetadataSettingsField = False
     with_stations: _WithStationsField = False
 
     pretty: _PrettyField = False
