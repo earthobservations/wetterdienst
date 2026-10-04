@@ -1197,8 +1197,12 @@ def history(
     output = json.dumps(data, indent=4 if pretty else None, default=lambda dt: dt.isoformat())
 
     if target:
-        # write to file
-        Path(target).write_text(output)
+        try:
+            Path(target).write_text(output)
+        except OSError as e:
+            # a directory that does not exist or cannot be written, or a path naming a directory
+            msg = f"Could not write --target: {e}"
+            raise click.ClickException(msg) from e
         return
 
     print(output)  # noqa: T201
