@@ -612,7 +612,10 @@ def test_cli_values_refuses_unknown_unit_targets_quantity() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"foo": "bar"}'])
     assert result.exit_code == 2, result.output
-    assert "Error: Invalid value for '--unit_targets': Invalid unit targets: one of {'foo'} not in" in result.output
+    assert (
+        "Error: Invalid value for '--unit_targets': Invalid unit targets: quantities not supported: foo."
+        in result.output
+    )
     # one line, without pydantic's echo of the input
     assert "input_value" not in result.output
 
@@ -892,3 +895,23 @@ def test_cli_values_refuses_an_option_beside_a_malformed_variable_another_option
     )
     assert result.exit_code == 2, result.output
     assert "Error: Invalid value for '--unit_targets': Invalid unit targets: " in result.output
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(["values", *_DWD_KL, "--station=01048"], id="values"),
+        pytest.param(["interpolate", *_DWD_KL, "--station=01048", "--date=2020-06-30"], id="interpolate"),
+        pytest.param(["summarize", *_DWD_KL, "--station=01048", "--date=2020-06-30"], id="summarize"),
+    ],
+)
+def test_cli_refuses_unknown_unit_targets_unit(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
+    """Test a unit the converter has none of is a usage error before anything is fetched (GH-2306).
+
+    It was refused only once the stations had been fetched, with a traceback and exit status 1.
+    """
+    monkeypatch.delenv("WD_TS_UNIT_TARGETS", raising=False)
+    runner = CliRunner()
+    result = runner.invoke(cli, [*args, '--unit_targets={"temperature": "furlong"}'])
+    assert result.exit_code == 2, result.output
+    assert "Invalid unit targets: Unit furlong not supported for type temperature." in result.output

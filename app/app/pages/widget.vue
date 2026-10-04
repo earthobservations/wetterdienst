@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Station } from '#shared/types/api'
 import Meteogram from '~/components/Meteogram.vue'
-import { describeApiError } from '~/utils/api-error'
+import { describeApiError, describeFetchError } from '~/utils/api-error'
 
 const MOSMIX = {
   provider: 'dwd',
@@ -28,6 +28,17 @@ const values = ref<any[]>([])
 const pending = ref(false)
 const error = ref<string | null>(null)
 
+/**
+ * Describe a failed answer of the backend: its reason when its body gives one, its status text when not;
+ * any other body, such as a proxy's error page, is left out.
+ */
+function describeBackendError(status: number, statusText: string, body: unknown): string {
+  const detail = describeApiError(body)
+  return detail
+    ? `Backend error ${status}: ${detail}`
+    : [`Backend error ${status}`, statusText].filter(Boolean).join(' ')
+}
+
 async function loadStation(id: string) {
   try {
     const res = await $fetch<{ stations: Station[] }>('/api/stations', {
@@ -37,14 +48,20 @@ async function loadStation(id: string) {
         parameters: `${MOSMIX.resolution}/${MOSMIX.dataset}`,
         station: id,
       },
-      // asked once, whatever the failure: ofetch asks a failed GET again, and the REST API answers a failure
-      // on its or the source's side with a 500, where asking again doubles the work behind it
-      retry: 0,
+      ...RETRY_TRANSIENT,
     })
     station.value = (res.stations ?? [])[0] ?? null
+    // the backend answers a station id it does not know with no station, not with a failure
+    if (!station.value)
+      error.value = t('widget.stationNotFound')
   }
-  catch {
-    error.value = t('widget.stationNotFound')
+  catch (e: any) {
+    // a failed lookup says nothing of whether the station exists: told by the backend's answer, or by
+    // the error itself where none came
+    const response: Response | undefined = e?.response
+    error.value = response
+      ? describeBackendError(response.status, response.statusText, e.data)
+      : describeFetchError(e)
   }
 }
 
@@ -61,12 +78,7 @@ async function fetchValues(s: Station) {
   try {
     const res = await fetch(`/api/values?${params}`)
     if (!res.ok) {
-      // the backend's reason when its body gives one, its status text when not; any other body, such as a
-      // proxy's error page, is left out
-      const detail = describeApiError(await res.json().catch(() => null))
-      error.value = detail
-        ? `Backend error ${res.status}: ${detail}`
-        : [`Backend error ${res.status}`, res.statusText].filter(Boolean).join(' ')
+      error.value = describeBackendError(res.status, res.statusText, await res.json().catch(() => null))
       return
     }
     const json = await res.json()

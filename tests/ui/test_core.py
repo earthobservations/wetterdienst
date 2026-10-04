@@ -412,3 +412,45 @@ def test_select_history_sections_keeps_station_and_dataset() -> None:
         ("dataset", "climate_summary"),
         ("missing_data", {"summary": [], "periods": []}),
     ]
+
+
+@pytest.mark.parametrize("model", [StationsRequest, ValuesRequest])
+def test_swsmos_issue_is_forwarded(model: type[StationsRequest | ValuesRequest]) -> None:
+    """Test the issue asked of dwd/swsmos reaches its request rather than reading the latest run (GH-2299)."""
+    from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    request = model.model_validate(
+        {
+            "provider": "dwd",
+            "network": "swsmos",
+            "parameters": "hourly/data",
+            "station": "A006",
+            "issue": "2026-10-01T11:00",
+        },
+    )
+    stations_request = core._get_stations_request(  # noqa: SLF001
+        api=DwdSwsmosRequest,
+        request=request,
+        date=None,
+        settings=Settings(),
+    )
+    assert stations_request.issue == dt.datetime(2026, 10, 1, 11, tzinfo=dt.timezone.utc)
+
+
+def test_swsmos_without_issue_reads_the_latest_run() -> None:
+    """Test a dwd/swsmos request without an issue still targets the latest run (GH-2299)."""
+    from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.swsmos.api import DwdForecastDate  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    request = ValuesRequest.model_validate(
+        {"provider": "dwd", "network": "swsmos", "parameters": "hourly/data", "station": "A006"},
+    )
+    stations_request = core._get_stations_request(  # noqa: SLF001
+        api=DwdSwsmosRequest,
+        request=request,
+        date=None,
+        settings=Settings(),
+    )
+    assert stations_request.issue is DwdForecastDate.LATEST
