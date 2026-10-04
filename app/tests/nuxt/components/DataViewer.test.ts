@@ -2285,6 +2285,8 @@ describe('dataViewer chart after a Retry', () => {
     held.open()
     await vi.waitFor(() => expect(retry()).toBeUndefined())
     await vi.waitFor(() => expect(document.activeElement).toBe(chart))
+    // a browser focuses a div only with a tabindex, which the test's document does not ask for
+    expect(chart.getAttribute('tabindex')).toBe('-1')
   })
 
   it('leaves the focus where it was moved to meanwhile', async () => {
