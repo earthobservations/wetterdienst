@@ -2,7 +2,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import type { H3Event } from 'h3'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseStatus } from 'h3'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 import MeteogramPage from '~/pages/meteogram.vue'
 
@@ -319,5 +319,35 @@ describe('the meteogram page\'s requests answered with a 503 once', () => {
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
     expect(asked.count).toBe(2)
+  })
+})
+
+describe('meteogram Page values request', () => {
+  it('asks for the layout and units the meteogram reads, whatever the server\'s WD_TS_* say', async () => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [] })))
+    onTestFinished(registerEndpoint('/api/issues', () => ({ issues: [] })))
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ values: [] }), { status: 200 }))
+    const wrapper = await mountSuspended(MeteogramPage)
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    vm.selectedStation = { station_id: '01001', name: 'Jan Mayen', latitude: 70.9, longitude: -8.7 }
+    await vi.waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/values?')))
+
+    const asked = vi.mocked(globalThis.fetch).mock.calls.map(([input]) => String(input)).find(input => input.includes('/api/values?'))!
+    const query = new URL(asked, 'http://localhost').searchParams
+    expect(query.get('station')).toBe('01001')
+    expect(query.get('shape')).toBe('long')
+    expect(query.get('humanize')).toBe('true')
+    expect(query.get('convert_units')).toBe('true')
+    expect(query.get('skip_empty')).toBe('false')
+    // each quantity the charts give a unit for, as the server's own targets are merged into the request's
+    expect(JSON.parse(query.get('unit_targets')!)).toEqual({
+      angle: 'degree',
+      fraction: 'decimal',
+      precipitation: 'millimeter',
+      pressure: 'hectopascal',
+      speed: 'meter_per_second',
+      temperature: 'degree_celsius',
+    })
   })
 })
