@@ -99,6 +99,7 @@ REQUEST_EXAMPLES = {
     "dwd_observation_daily_climate_stripes_image": "api/stripes/image?kind=temperature&station=1048",
     "dwd_mosmix_issues": "api/issues?provider=dwd&network=mosmix&station=10147",
     "dwd_dmo_issues": "api/issues?provider=dwd&network=dmo&station=10147",
+    "dwd_swsmos_issues": "api/issues?provider=dwd&network=swsmos&station=A006",
     "dwd_weather_alerts": "api/alerts?granularity=community&format=geojson",
 }
 
