@@ -289,7 +289,7 @@ Types of changes:
 - `[Explorer]` A Fetch of values, interpolated or summarized data that fails with the 500 the
   backend now gives where it or the source failed is asked for once, and its error is told at once,
   where the app asked a second time. So is one the browser's connection drops before any answer.
-  A 502 or 503, as a proxy or the app's server gives where the backend cannot be reached, a 504,
+  A 502, as the app's server gives where the backend cannot be reached, a 503 or 504 from a proxy,
   or a 408, 409, 425 or 429 is still asked for once more (GH-2278, GH-2315)
 - `[Explorer/History/Stripes/Meteogram/Widget]` A request for stations, a station history,
   stripes or forecast runs that fails with the 500 the backend now gives where it or the source
