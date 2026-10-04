@@ -639,3 +639,11 @@ def test_swsmos_issue_is_converted_to_utc_before_it_is_floored(issue: str | dt.d
     assert request.issue == dt.datetime(2026, 10, 1, 11, tzinfo=UTC)
     assert isinstance(request.issue, dt.datetime)
     assert request.issue.utcoffset() == dt.timedelta(0)
+
+
+def test_swsmos_unparseable_issue_is_an_invalid_time_interval() -> None:
+    """An issue that is no ISO date is refused as MOSMIX and DMO refuse it, not as a bare ValueError (GH-2299)."""
+    from wetterdienst.exceptions import InvalidTimeIntervalError  # noqa: PLC0415
+
+    with pytest.raises(InvalidTimeIntervalError, match="Invalid isoformat string: 'foo'"):
+        DwdSwsmosRequest(parameters=[("hourly", "data")], issue="foo")

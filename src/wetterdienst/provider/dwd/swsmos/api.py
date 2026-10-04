@@ -26,7 +26,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst.exceptions import InvalidEnumerationError
+from wetterdienst.exceptions import InvalidEnumerationError, InvalidTimeIntervalError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
@@ -368,7 +368,10 @@ class DwdSwsmosRequest(TimeseriesRequest):
             issue = parse_enumeration_from_template(issue, DwdForecastDate)  # ty: ignore[no-matching-overload]
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
-                issue = dt.datetime.fromisoformat(issue)
+                try:
+                    issue = dt.datetime.fromisoformat(issue)
+                except ValueError as e:
+                    raise InvalidTimeIntervalError(str(e)) from e
             # in UTC before it is floored, as `dwd/dmo` and `dwd/mosmix` do: DWD stamps its runs in
             # UTC. A naive issue is UTC already; one with an offset kept its wall-clock hour and was
             # relabelled UTC, so 13:00+02:00 read the 13 UTC run, not the 11 UTC one (GH-2288)
