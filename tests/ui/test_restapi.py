@@ -4611,9 +4611,8 @@ def test_settings_reports_the_servers_wd_ts_variables(client: TestClient, monkey
     reported = client.get("/api/settings").json()
 
     assert reported["values"]["shape"] == "wide"
-    # which the wide shape turns off, but not for a request asking for the long shape
-    assert reported["values"]["drop_nulls"] is True
-    # whose shape is long whatever the server's, but whose nulls are kept in the server's wide one
+    # which the server's wide shape turns off, for every endpoint
+    assert reported["values"]["drop_nulls"] is False
     assert reported["interpolate"]["drop_nulls"] is False
     assert reported["summarize"]["drop_nulls"] is False
     for endpoint, kind in (("values", None), ("interpolate", "interpolation"), ("summarize", "summary")):
@@ -4904,30 +4903,53 @@ def test_data_endpoints_write_the_rest_as_without_the_settings(
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("drop_nulls", [None, "false"])
-def test_settings_reports_the_drop_nulls_a_long_request_gets_under_a_wide_server(
+def test_settings_and_a_values_request_leaving_the_shape_out_agree_under_a_wide_server(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
-    drop_nulls: str | None,
 ) -> None:
-    """`/api/settings` reports the `drop_nulls` a request in the long shape gets where the server's shape is wide (GH-2359).
+    """`/api/settings` reports the settings in effect, which a request leaving them out is answered with (GH-2359).
 
-    The wide shape turns it off, so the server's own settings hold it off, while a request asking
-    for the long shape and leaving `drop_nulls` out gets the server's `WD_TS_DROP_NULLS`, else true.
-    """  # noqa: E501
+    The server's wide shape turns `drop_nulls` off, so both say it is off, whatever the
+    library's default.
+    """
     monkeypatch.setenv("WD_TS_SHAPE", "wide")
-    if drop_nulls is not None:
-        monkeypatch.setenv("WD_TS_DROP_NULLS", drop_nulls)
-    reported = client.get("/api/settings").json()["values"]["drop_nulls"]
+    reported = client.get("/api/settings").json()["values"]
 
     taken = _stub_result(monkeypatch, "/api/values")
-    params = {**_OBSERVATION, "station": "01048", "shape": "long", "with_metadata": "true"}
-    applied = client.get("/api/values", params=params).json()["settings"]["drop_nulls"]
+    params = {**_OBSERVATION, "station": "01048", "with_metadata": "true"}
+    applied = client.get("/api/values", params=params).json()["settings"]
 
     (settings,) = taken
-    assert settings.ts_drop_nulls is applied
-    assert applied is (drop_nulls is None)
-    assert reported is applied
+    assert settings.ts_drop_nulls is False
+    assert applied["drop_nulls"] is False
+    assert reported["drop_nulls"] is False
+    assert reported == applied
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("endpoint", ["/api/interpolate", "/api/summarize"])
+def test_geo_settings_report_the_drop_nulls_the_estimate_reads_with(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+) -> None:
+    """The estimating endpoints report the `drop_nulls` their stations' values are read with (GH-2359).
+
+    They read the values in the long shape whatever the server's (`_for_estimating`), on a copy of
+    the settings that keeps the `drop_nulls` the server's wide shape turned off.
+    """
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_TS_SHAPE", "wide")
+    taken = _stub_result(monkeypatch, endpoint)
+    params = {**_OBSERVATION, "station": "01048", "date": "2026-01-01", "with_metadata": "true"}
+    reported = client.get(endpoint, params=params).json()["settings"]["drop_nulls"]
+
+    (settings,) = taken
+    request = DwdObservationRequest(parameters=[("daily", "climate_summary")], settings=settings)
+    read_with = request._for_estimating().settings  # noqa: SLF001
+    assert read_with.ts_shape == "long"
+    assert read_with.ts_drop_nulls is reported
 
 
 def test_with_metadata_names_the_settings_block_where_it_comes() -> None:

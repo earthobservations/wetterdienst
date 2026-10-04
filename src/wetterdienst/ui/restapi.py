@@ -516,17 +516,14 @@ def server_settings() -> JSONResponse:
     by endpoint and named as the endpoint's query parameters are; the ones an endpoint has no query
     parameter for are the server's alone. `unit_targets` names the unit of every quantity, and
     `station_distance_resolution_factors` the factor of every resolution. A request's `unit_targets`
-    or station distance dict is merged into these, an entry it gives winning. The wide shape turns
-    `drop_nulls` off, so the one reported for `values` is the one a request in the long shape gets.
+    or station distance dict is merged into these, an entry it gives winning. Each is the one in
+    effect, as a request leaving out every setting gets it: the server's wide shape turns
+    `drop_nulls` off.
     """
     # a malformed server setting is the bare 500 FastAPI answers, which does not read its value back
     settings = Settings()
-    # the server's wide shape turned it off, which a request asking for the long shape does not
-    values = _applied_settings(ValuesSettings, settings).model_copy(
-        update={"drop_nulls": Settings(ts_shape="long").ts_drop_nulls},
-    )
     content = ServerSettings(
-        values=values,
+        values=_applied_settings(ValuesSettings, settings),
         interpolate=_applied_settings(InterpolationSettings, settings),
         summarize=_applied_settings(SummarySettings, settings),
     )
