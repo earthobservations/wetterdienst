@@ -121,8 +121,7 @@ lead_time_opt = click.option(
 issue_opt = click.option(
     "--issue",
     type=click.STRING,
-    help="DWD MOSMIX/DMO/SWSMOS model run (ISO 8601); list MOSMIX/DMO runs with: wetterdienst issues. "
-    "Default: the latest",
+    help="DWD MOSMIX/DMO/SWSMOS model run (ISO 8601); list them with: wetterdienst issues. Default: the latest",
 )
 date_opt = click.option("--date", type=click.STRING, help=_DATE_HELP)
 start_date_opt = click.option(
@@ -1071,7 +1070,7 @@ def issues_cmd(
 ) -> None:
     """List available issue (model-run) datetimes for a station.
 
-    Currently supported: --provider dwd --network mosmix|dmo
+    Currently supported: --provider dwd --network mosmix|dmo|swsmos
 
     A DMO run exists for a product, so --dataset and --lead_time decide which runs are listed. They
     default to what a `values` request defaults to, which is what makes the answer one that request
