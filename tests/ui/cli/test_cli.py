@@ -949,3 +949,30 @@ def test_cli_tells_a_malformed_setting_by_its_variable(monkeypatch: pytest.Monke
     assert "Error: WD_CACHE_DISABLE is invalid: Input should be a valid boolean" in result.output
     assert "secret-ish" not in result.output
     assert not isinstance(result.exception, ValidationError)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_leaves_another_models_error_beside_a_malformed_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an error of a model other than the settings is not told as the environment's (GH-2335).
+
+    An option can override a malformed variable, and the command then runs on; an error it meets
+    later is its own, and was replaced by the variable's line.
+    """
+    from pydantic import BaseModel  # noqa: PLC0415
+
+    from wetterdienst.ui.cli import _Cli  # noqa: PLC0415
+
+    class Other(BaseModel):
+        number: int
+
+    group = _Cli()
+
+    @group.command()
+    def boom() -> None:
+        Other.model_validate({"number": "x"})
+
+    monkeypatch.setenv("WD_CACHE_DISABLE", "secret-ish")
+    result = CliRunner().invoke(group, ["boom"])
+    assert isinstance(result.exception, ValidationError)
+    assert result.exception.title == "Other"
+    assert "WD_CACHE_DISABLE" not in result.output

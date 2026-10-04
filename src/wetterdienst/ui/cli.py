@@ -741,7 +741,11 @@ class _Cli(click.Group):
     def invoke(self, ctx: click.Context) -> Any:  # noqa: ANN401
         try:
             return super().invoke(ctx)
-        except (ValidationError, SettingsError):
+        except (ValidationError, SettingsError) as e:
+            # another model's error is not the settings', even beside a malformed variable an
+            # option overrode
+            if isinstance(e, ValidationError) and e.title != Settings.__name__:
+                raise
             problems = check_settings()
             if not problems:
                 raise

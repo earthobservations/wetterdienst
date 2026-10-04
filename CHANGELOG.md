@@ -342,8 +342,8 @@ Types of changes:
   fail (GH-2326)
 - A malformed `WD_*` setting is told by the variable that sets it and what is wrong with it, a
   line each and without its value, where it ended in pydantic's traceback. The REST API refuses to
-  start with it however it is started, `uvicorn` included; the CLI's commands exit with status 1
-  (GH-2335)
+  start with it, also under `uvicorn` directly unless its lifespan is turned off; the CLI's commands
+  but `alerts` exit with status 1 (GH-2335)
 
 ## [0.139.0] - 2026-09-29
 
