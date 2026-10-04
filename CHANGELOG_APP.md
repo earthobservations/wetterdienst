@@ -298,8 +298,8 @@ Types of changes:
   429 is still asked for once more, which fills a station list such a passing failure hit
   (GH-2298, GH-2315)
 - `[Explorer]` The interpolation and summary's station picker asks for the station list once on a
-  change of dataset, and not again for a parameter ticked, where it asked more than once and the
-  backend built the whole list for each (GH-2314)
+  change of dataset, and not again for a parameter ticked or unticked while another stays ticked,
+  where it asked more than once and the backend built the whole list for each (GH-2314)
 
 ## [0.17.0] - 2026-09-29
 
