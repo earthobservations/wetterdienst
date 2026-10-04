@@ -31,7 +31,7 @@ Types of changes:
 ### Changed
 
 - `pydantic-settings` now has a floor of `>=2.14.0` (was `>=2.7.0`): `Settings` reads `.env` with
-  its `dotenv_filtering` option, which 2.14.0 added. The lockfile already carried 2.15.0 (GH-2349)
+  its `dotenv_filtering` option, which 2.14.0 added. Upgrade it where it is pinned lower (GH-2349)
 - **Breaking**: DWD derived `monthly/soil` returns its monthly totals of potential
   evapotranspiration as the new `evapotranspiration_potential_grass_fao` and
   `evapotranspiration_potential_grass_haude`, where they came as the daily `..._last_24h` names.
