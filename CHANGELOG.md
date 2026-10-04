@@ -310,6 +310,10 @@ Types of changes:
   the brackets and sent `http://::1:8086`, which names no valid host (GH-2279)
 - The InfluxDB 1 sink reaches an IPv6 host, such as `influxdb://root:pw@[::1]:8086/`. It dropped
   the brackets, so its client's base URL was `http://::1:8086`, which names no valid host (GH-2287)
+- DWD SWSMOS reads the run an `issue` names when asked through the CLI (`--issue`), the REST API or
+  MCP. The issue was dropped on the way, so the latest run was read whatever was asked. An `issue`
+  that is no ISO date raises `InvalidTimeIntervalError`, a `ValueError`, as MOSMIX and DMO do, so
+  the REST API answers it with a 400 (GH-2299)
 
 ## [0.139.0] - 2026-09-29
 

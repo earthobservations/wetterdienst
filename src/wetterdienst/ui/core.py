@@ -975,6 +975,7 @@ def _get_stations_request(
     """Create a request object for stations."""
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
 
     # TODO: move this into Request core
     start_date, end_date = None, None
@@ -1011,7 +1012,10 @@ def _get_stations_request(
         "periods": getattr(request, "periods", None),
     }
 
-    if issubclass(api, (DwdMosmixRequest, DwdDmoRequest)) and (issue := getattr(request, "issue", None)) is not None:
+    if (
+        issubclass(api, (DwdMosmixRequest, DwdDmoRequest, DwdSwsmosRequest))
+        and (issue := getattr(request, "issue", None)) is not None
+    ):
         kwargs["issue"] = issue
     if issubclass(api, DwdDmoRequest) and (lead_time := getattr(request, "lead_time", None)) is not None:
         kwargs["lead_time"] = lead_time
