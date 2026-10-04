@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.#
 """Tests for settings."""
 
+import copy
 import logging
 import os
 import re
@@ -904,7 +905,7 @@ def test_settings_assignment_is_validated(field: str, value: object, message: st
     was.
     """
     settings = Settings()
-    before = getattr(settings, field)
+    before = copy.copy(getattr(settings, field))
     with pytest.raises(ValidationError, match=rf"{field}\n  [^\n]*{re.escape(message)}"):
         setattr(settings, field, value)
     assert getattr(settings, field) == before

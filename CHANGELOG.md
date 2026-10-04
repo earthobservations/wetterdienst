@@ -433,8 +433,9 @@ Types of changes:
 - A `Settings` field assigned after construction is validated as one given to the constructor:
   `settings.ts_skip_threshold = 5` or `settings.ts_shape = "foo"` raises a `ValidationError` naming
   the field, where it was taken and failed later or skipped every station. Assigning
-  `ts_shape = "wide"` turns `ts_drop_nulls` off at once, and a radius assigned reaches
-  `ts_geo_station_distance` at once (GH-2342)
+  `ts_shape = "wide"` turns `ts_drop_nulls` off at once, a radius assigned reaches
+  `ts_geo_station_distance` at once, and a dict assigned to `fsspec_client_kwargs` is merged into
+  the defaults as one given is, where it replaced them (GH-2342)
 
 ## [0.139.0] - 2026-09-29
 

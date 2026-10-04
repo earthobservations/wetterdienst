@@ -112,8 +112,8 @@ timeout of 30. A key you give wins over the default of the same name, and `heade
 dict, is merged the same way, so a header of your own is sent alongside the User-Agent, and a
 `User-Agent` of your own (in any capitalisation) replaces it. Give `"timeout": None` (`null` in
 the environment variable) to use aiohttp's own default instead: five minutes for the whole request,
-30 seconds to connect. Assigning to `fsspec_client_kwargs` on a `Settings` object that already
-exists sets it as given, without merging.
+30 seconds to connect. A dict assigned to `fsspec_client_kwargs` on a `Settings` object that
+already exists is merged the same way.
 
 A number given as `timeout` in `fsspec_client_kwargs` (30 by default) is how many seconds a request
 may wait before it fails: for a connection (including a free one from the pool), for the first byte
