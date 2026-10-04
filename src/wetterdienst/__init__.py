@@ -3,6 +3,7 @@
 """Package for accessing weather data from various APIs."""
 
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from textwrap import dedent
 
 from wetterdienst import boot
@@ -38,7 +39,16 @@ class Info:
         ]
         self.repository = "https://github.com/earthobservations/wetterdienst"
         self.documentation = "https://wetterdienst.readthedocs.io"
-        self.cache_dir = Settings().cache_dir
+
+    @property
+    def cache_dir(self) -> Path:
+        """Return the cache directory the settings name.
+
+        Read when asked for rather than when built: the REST API builds an `Info` on import, which a
+        malformed `WD_*` setting then stopped with a traceback, before the server could refuse it
+        by its variable (GH-2335).
+        """
+        return Settings().cache_dir
 
     def __str__(self) -> str:
         """Return string representation of Info object."""

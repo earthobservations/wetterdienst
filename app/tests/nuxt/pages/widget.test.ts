@@ -226,3 +226,32 @@ describe('widget Page station lookup', () => {
     expect(wrapper.text()).not.toContain('Station not found')
   })
 })
+
+describe('widget Page values request', () => {
+  it('asks for the layout and units the meteogram reads, whatever the server\'s WD_TS_* say', async () => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '01001', name: 'Jan Mayen', latitude: 70.9, longitude: -8.7 }],
+    })))
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ values: [] }), { status: 200 }))
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    await vi.waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/values?')))
+
+    const asked = vi.mocked(globalThis.fetch).mock.calls.map(([input]) => String(input)).find(input => input.includes('/api/values?'))!
+    const query = new URL(asked, 'http://localhost').searchParams
+    expect(query.get('station')).toBe('01001')
+    expect(query.get('shape')).toBe('long')
+    expect(query.get('humanize')).toBe('true')
+    expect(query.get('convert_units')).toBe('true')
+    expect(query.get('skip_empty')).toBe('false')
+    // each quantity the charts give a unit for, as the server's own targets are merged into the request's
+    expect(JSON.parse(query.get('unit_targets')!)).toEqual({
+      angle: 'degree',
+      fraction: 'decimal',
+      precipitation: 'millimeter',
+      pressure: 'hectopascal',
+      speed: 'meter_per_second',
+      temperature: 'degree_celsius',
+    })
+  })
+})

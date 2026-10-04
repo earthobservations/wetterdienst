@@ -151,6 +151,12 @@ Types of changes:
   hold, as MOSMIX and DMO do, so the REST API answers it as the caller's error. It returned no rows,
   as if the run held nothing for the station. Catch `IssueNotFoundError`, or pick the issue from
   `DwdSwsmosRequest.available_issues` (GH-2324)
+- A NOAA GHCN station asked for at both `hourly` and `daily` has the daily list's `elevation` on
+  its hourly row as well, where the two lists put it within 5 km of each other, unless the daily
+  list gives 0.0 against an hourly height. Interpolate and summarize, by station id or by point,
+  then use one elevation for such a station whatever the order of the parameters. Otherwise each
+  row keeps its own list's elevation. A request for one resolution is not affected by this
+  (GH-2336, GH-2362)
 
 ### Fixed
 
@@ -366,6 +372,18 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- The REST API's and MCP's `values`, `interpolate` and `summarize` leave a setting the request does
+  not give to the server's `WD_TS_*` variable, such as `WD_TS_SHAPE=wide`, as the CLI does, where
+  those variables had no effect. A client that parses one layout whatever the server sets sends
+  `shape`, `humanize` and `convert_units` with its request (GH-2325)
+- The REST API refuses a bad `unit_targets` or station distance in one line naming its field and
+  quoting what the request gave, where the 400 was pydantic's whole message quoting the dict merged
+  from it and the server's `WD_TS_UNIT_TARGETS` or `WD_TS_GEO_STATION_DISTANCE` entries (GH-2329)
+- A malformed `WD_*` setting is told by the variable that sets it and what is wrong with it, a
+  line each and without pydantic's echo of the value, where it ended in pydantic's traceback. The
+  REST API refuses to start with it, also under `uvicorn` directly unless its lifespan is turned
+  off, and `wetterdienst restapi` exits with uvicorn's status 3; the other CLI commands that read
+  the settings exit with status 1 (GH-2335)
 - Values in the wide shape can be drawn: `ValuesResult.to_plot`, and with it the image formats
   (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`) of the CLI's `values` and `/api/values`, draw a wide
   result as they draw the long one. They raised `ColumnNotFoundError` on `parameter` (GH-2330)
@@ -376,6 +394,12 @@ Types of changes:
 - NOAA GHCN hourly stations listed at 9999.0 m or 8191.0 m, 154 placeholders such as the North
   Sea lightship ELBE NO. 1, have a null `elevation`. `interpolate` and `summarize` given an
   elevation took them for known ones (GH-2336)
+- `wetterdienst history` and `wetterdienst stripes values` end a `--target` they cannot write,
+  such as one in a directory that does not exist, as `Error: Could not write --target: ...` with
+  exit status 1, as `alerts` does; it was a traceback after the whole fetch (GH-2346)
+- NOAA GHCN daily stations of the Brazilian network (`BR0...`) listed at 0.0 m, 912 placeholders
+  such as ALFENAS at about 880 m, have a null `elevation`. `interpolate` and `summarize` given an
+  elevation took them for stations at sea level. A 0.0 m outside that network stays (GH-2362)
 
 ## [0.139.0] - 2026-09-29
 
