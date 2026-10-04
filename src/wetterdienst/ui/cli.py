@@ -684,8 +684,8 @@ def _collect_or_exit(
     Four of them can be acted on rather than debugged: an optional reader that is not installed,
     a request this provider cannot serve as phrased, a point an estimate cannot be made at (beyond
     the latitudes UTM covers, or a station without a position), and a window that holds no
-    readings. Each is
-    a sentence the caller needs and a traceback buries, so each is printed and nothing else.
+    readings. Each is a sentence the caller needs and a traceback buries, so each is printed and
+    nothing else.
     """
     try:
         values_ = get(api=api, request=request, settings=settings)

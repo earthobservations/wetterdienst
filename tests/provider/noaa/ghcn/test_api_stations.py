@@ -3,6 +3,7 @@
 """Tests for NOAA GHCN stations."""
 
 import datetime as dt
+import logging
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
@@ -539,3 +540,60 @@ def test_noaa_ghcn_stations_position_by_id_from_the_row_that_has_one(
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
     request = NoaaGhcnRequest(parameters=parameters, settings=default_settings)
     assert request._get_position_by_station_id("AUM00011158") == (47.117, 13.733, 1100.0)  # noqa: SLF001
+
+
+def test_noaa_ghcn_daily_values_time_zone_from_the_row_that_has_a_position(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """A station's daily values find their time zone though its hourly row, named first, has no position (GH-2380).
+
+    The daily reader puts a day's midnight in the station's own time zone, which it looks up by
+    position. As above, the daily row is made up; the daily reading is -5.0 degC.
+    """
+    contents = {
+        "ghcnh-station-list.csv": GHCNH_WITHOUT_POSITION,
+        "ghcnd-stations.txt": "AUM00011158  47.1170   13.7330 1100.0    BOGUS AUSTRIAN                         11158\n",
+        "ghcnd-inventory.txt": "AUM00011158  47.1170   13.7330 TMAX 1938 1943\n",
+        "AUM00011158.csv": (
+            '"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","TMAX","TMAX_ATTRIBUTES"\n'
+            '"AUM00011158","1938-01-02","47.117","13.733","1100.0","BOGUS AUSTRIAN","  -50",",,E"\n'
+        ),
+        "GHCNh_AUM00011158_por.psv": _ghcnh_hourly_data("AUM00011158"),
+    }
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        content = contents[url.rsplit("/", 1)[-1]]
+        return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    request = NoaaGhcnRequest(
+        parameters=[
+            NoaaGhcnMetadata.hourly.data.temperature_air_mean_2m,
+            NoaaGhcnMetadata.daily.data.temperature_air_max_2m,
+        ],
+        settings=default_settings,
+    )
+    df = request.filter_by_station_id("AUM00011158").values.all().df
+    # midnight in Vienna, an hour ahead of UTC in January 1938
+    assert sorted(df.select(pl.col("resolution").cast(pl.String), "timestamp", "value").rows()) == [
+        ("daily", dt.datetime(1938, 1, 1, 23, tzinfo=ZoneInfo("UTC")), -5.0),
+        ("hourly", dt.datetime(1938, 1, 2, 6, tzinfo=ZoneInfo("UTC")), -11.1),
+    ]
+
+
+def test_noaa_ghcn_rank_without_any_position_says_so(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A rank search over stations of which none has a position finds none, and says so (GH-2380)."""
+    station_list = "\n".join(GHCNH_WITHOUT_POSITION.splitlines()[:4]) + "\n"
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        return File(url=url, content=BytesIO(station_list.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    request = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings)
+    assert request.all().df.get_column("station_id").to_list() == sorted(GHCNH_WITHOUT_POSITION_IDS)
+    with caplog.at_level(logging.INFO):
+        ranked = request.filter_by_rank(latlon=(47.117, 13.733), rank=1)
+    assert ranked.df.is_empty()
+    assert "No weather stations with a position were found to rank" in caplog.text

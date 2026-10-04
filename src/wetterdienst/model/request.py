@@ -551,9 +551,9 @@ class TimeseriesRequest:
         distance, not just ``rank`` rows; a station without a latitude or longitude
         has no distance and is left out. Because we cannot know upfront which
         stations actually carry data for the request, the ``rank`` limit is applied
-        lazily while collecting values. Value collection walks the distance-sorted stations and stops once
-        ``rank`` stations that returned anything have been consumed. The stations
-        that ended up contributing values are then exposed via
+        lazily while collecting values. Value collection walks the distance-sorted
+        stations and stops once ``rank`` stations that returned anything have been
+        consumed. The stations that ended up contributing values are then exposed via
         ``ValuesResult.df_stations``.
 
         In other words, use ``stations.values.all().df_stations`` (not
@@ -591,6 +591,8 @@ class TimeseriesRequest:
         # `filter_by_bbox` leave it out (GH-2380)
         df = df.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias("distance"))
         df = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"])
+        if df.is_empty():
+            log.info("No weather stations with a position were found to rank")
         return StationsResult(
             stations=self,
             df=df,
