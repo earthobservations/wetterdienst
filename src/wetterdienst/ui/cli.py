@@ -23,6 +23,7 @@ from wetterdienst.exceptions import (
     BufrReaderMissingError,
     ExportRefusedError,
     InvalidTimeIntervalError,
+    LocationOutOfRangeError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
 )
@@ -680,18 +681,25 @@ def _collect_or_exit(
 ) -> Any:  # noqa: ANN401
     """Run one of the values getters, reporting the failures a caller can do something about.
 
-    Three of them can be acted on rather than debugged: an optional reader that is not installed,
-    a request this provider cannot serve as phrased, and a window that holds no readings. Each is
+    Four of them can be acted on rather than debugged: an optional reader that is not installed,
+    a request this provider cannot serve as phrased, a point an estimate cannot be made at (beyond
+    the latitudes UTM covers, or a station without a position), and a window that holds no
+    readings. Each is
     a sentence the caller needs and a traceback buries, so each is printed and nothing else.
     """
     try:
         values_ = get(api=api, request=request, settings=settings)
-    except (BufrReaderMissingError, NoStationsWithElevationError, ParameterNotCarriedError) as e:
+    except (
+        BufrReaderMissingError,
+        LocationOutOfRangeError,
+        NoStationsWithElevationError,
+        ParameterNotCarriedError,
+    ) as e:
         # the message names what to install, or what to ask instead: the whole of what is to be
         # done about it. All are narrow on purpose -- a bare `ImportError` would swallow a cycle
         # or a typo inside a provider module, which is a defect and wants its traceback, not an
-        # instruction. NoStationsWithElevationError and ParameterNotCarriedError subclass
-        # ValueError, so they are caught here or not at all
+        # instruction. LocationOutOfRangeError, NoStationsWithElevationError and
+        # ParameterNotCarriedError subclass ValueError, so they are caught here or not at all
         log.error(str(e))  # noqa: TRY400
         sys.exit(1)
     except ValueError:
