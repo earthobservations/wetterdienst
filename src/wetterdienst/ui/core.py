@@ -863,7 +863,7 @@ class IssuesRequest(BaseModel):
     station: _StationIdField
     dataset: Annotated[
         Literal["icon", "icon_eu"] | None,
-        Field(description="DWD DMO product to list issues for ('icon' or 'icon_eu'); refused for other networks."),
+        Field(description="DWD DMO product to list issues for ('icon' or 'icon_eu'); refused for MOSMIX and SWSMOS."),
     ] = None
     # not the shared `_LeadTimeField`: the data requests ignore a lead time outside DMO, but `get_issues`
     # refuses one
@@ -871,7 +871,7 @@ class IssuesRequest(BaseModel):
         Literal["short", "long"] | None,
         Field(
             description="DWD DMO forecast lead time to list issues for ('short' or 'long'); "
-            "refused for other networks.",
+            "refused for MOSMIX and SWSMOS.",
         ),
     ] = None
     debug: _DebugField = False

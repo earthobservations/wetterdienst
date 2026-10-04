@@ -4219,7 +4219,7 @@ def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, mon
 
 
 def test_issues_dmo_options_are_described_as_refused_and_are_refused(client: TestClient) -> None:
-    """The issues tool says a DMO-only option is refused for other networks, and it is (GH-2347).
+    """The issues tool says a DMO-only option is refused for MOSMIX and SWSMOS, and it is (GH-2347).
 
     It said "ignored", copied from the data endpoints' lead time, which other networks do ignore, so
     a caller or a model that trusted it passed the option to MOSMIX and was refused.
@@ -4238,15 +4238,15 @@ def test_issues_dmo_options_are_described_as_refused_and_are_refused(client: Tes
     schemas = asyncio.run(_schemas())
     options = {"dataset": "icon", "lead_time": "long"}
     for name in options:
-        assert schemas["issues"][name]["description"].endswith("; refused for other networks.")
+        assert schemas["issues"][name]["description"].endswith("; refused for MOSMIX and SWSMOS.")
     # the data endpoints keep the shared description: there a lead time outside DMO is ignored
     assert schemas["values"]["lead_time"]["description"].endswith("; ignored for other networks.")
 
-    # every network but DMO: the two that list issues refuse the option, the rest refuse the listing
-    for network, station in (("mosmix", "10147"), ("swsmos", "A006"), ("observation", "00011")):
+    for network, station in (("mosmix", "10147"), ("swsmos", "A006")):
         for name, value in options.items():
             response = client.get(
                 "/api/issues",
                 params={"provider": "dwd", "network": network, "station": station, name: value},
             )
             assert response.status_code == 400, (network, name)
+            assert response.json()["detail"].startswith(f"{name} applies to DWD DMO only"), (network, name)

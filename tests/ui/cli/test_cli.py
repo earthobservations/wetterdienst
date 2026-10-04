@@ -956,18 +956,22 @@ def test_issues_dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])
-@pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006"), ("observation", "00011")])
+@pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
 def test_issues_help_says_the_dmo_options_are_refused_and_they_are(
-    option: str, value: str, network: str, station: str
+    option: str, value: str, network: str, station: str, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Test `issues` describes --dataset and --lead_time as refused for other networks, as they are (GH-2347).
+    """Test `issues` describes --dataset and --lead_time as refused for MOSMIX and SWSMOS, as they are (GH-2347).
 
     The help said "ignored by other networks", which `values` says of its own --lead_time and is true
     there, but `issues` refuses either option for MOSMIX and SWSMOS.
     """
+    import logging  # noqa: PLC0415
+
     help_text = next(param.help for param in cli.commands["issues"].params if param.name == option)
-    assert "refused for other networks" in help_text
-    result = CliRunner().invoke(
-        cli, ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", f"--{option}={value}"]
-    )
+    assert "refused for MOSMIX and SWSMOS" in help_text
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli, ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", f"--{option}={value}"]
+        )
     assert result.exit_code == 1, result.output
+    assert f"{option} applies to DWD DMO only" in caplog.text
