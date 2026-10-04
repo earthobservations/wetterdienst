@@ -446,7 +446,7 @@
     "threshold": "Seuil",
     "interpolationOptions": "Options d'interpolation",
     "nearbyDistance": "Distance des stations proches",
-    "nearbyDistanceHint": "Distance maximale pour considérer les stations proches. Si une station se trouve dans cette distance, sa valeur réelle sera utilisée au lieu de l'interpolation/la synthèse.",
+    "nearbyDistanceHint": "Distance maximale pour considérer les stations proches. Si une station se trouve dans cette distance, sa valeur réelle sera utilisée au lieu de l'interpolation.",
     "advancedSettings": "Paramètres avancés",
     "stationDistanceByParam": "Distance des stations par paramètre",
     "stationDistanceHint": "Distance maximale (km) jusqu'à une station. Les paramètres homogènes comme la température varient lentement sur une région et utilisent leur valeur à toute résolution. Les hétérogènes comme les précipitations se décorrèlent plus vite et leur valeur s'applique à la résolution horaire : elle est mise à l'échelle selon la résolution, ×0,75 aux résolutions à la minute et ×2 à partir du journalier. Des paramètres individuels peuvent être redéfinis ci-dessous.",

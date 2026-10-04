@@ -446,7 +446,7 @@
     "threshold": "Schwellwert",
     "interpolationOptions": "Interpolations-Optionen",
     "nearbyDistance": "Entfernung naher Stationen",
-    "nearbyDistanceHint": "Maximale Entfernung, um nahe Stationen zu berücksichtigen. Liegt eine Station innerhalb dieser Entfernung, wird ihr tatsächlicher Wert verwendet statt zu interpolieren/zusammenzufassen.",
+    "nearbyDistanceHint": "Maximale Entfernung, um nahe Stationen zu berücksichtigen. Liegt eine Station innerhalb dieser Entfernung, wird ihr tatsächlicher Wert verwendet statt zu interpolieren.",
     "advancedSettings": "Erweiterte Einstellungen",
     "stationDistanceByParam": "Stationsentfernung je Parameter",
     "stationDistanceHint": "Maximale Entfernung (km) zu einer Station. Homogene Parameter wie Temperatur ändern sich langsam über eine Region und nutzen ihren Wert bei jeder Auflösung. Heterogene wie Niederschlag dekorrelieren schneller, ihr Wert gilt für stündliche Auflösung: er wird mit der Auflösung skaliert, ×0,75 bei den Minutenauflösungen und ×2 ab täglich. Einzelne Parameter lassen sich unten überschreiben.",
