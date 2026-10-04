@@ -21,6 +21,10 @@ The arguments are overruled in the above order meaning:
 - environment variable overrules .env file
 - .env file overrules default argument
 
+As from the environment, only the `WD_` variables that name a setting are read from `.env`. Its
+other keys, such as another program's, or a misspelt `WD_` key, are ignored. A keyword to
+`Settings(...)` that names no setting is refused.
+
 The following settings are available:
 
 **General**
