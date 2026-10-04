@@ -21,12 +21,13 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
+from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst.exceptions import InvalidEnumerationError, InvalidTimeIntervalError
+from wetterdienst.exceptions import InvalidEnumerationError, InvalidTimeIntervalError, IssueNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
@@ -68,7 +69,18 @@ class DwdForecastDate(Enum):
 # what a run file is called, and nothing else. A bare ``swsmos_`` prefix also matches a checksum
 # sidecar or a second product published beside the runs, and one of those sorts after the run it
 # belongs to -- so the newest name would be a file that is not a run, handed straight to bz2
-_RUN_FILE = re.compile(r"^swsmos_\d{14}_opendata\.csv\.bz2$")
+_RUN_FILE = re.compile(r"^swsmos_(\d{14})_opendata\.csv\.bz2$")
+
+
+def _list_runs(settings: Settings) -> tuple[dict[str, str], list[str]]:
+    """List the run directory: every name it holds with its URL, and the run files among them, oldest first.
+
+    Never cached, so the newest run and the runs on offer are current. Fixed-width digits, so
+    lexical order is chronological order.
+    """
+    files = list_remote_files_fsspec(f"{_BASE_URL}/", settings, CacheExpiry.NO_CACHE)
+    names = {f.rsplit("/", 1)[-1]: f for f in files}
+    return names, sorted(n for n in names if _RUN_FILE.match(n))
 
 
 def _run_url(issue: dt.datetime) -> str:
@@ -164,10 +176,7 @@ class DwdSwsmosValues(TimeseriesValues):
         issue = cast("DwdSwsmosRequest", self.sr.stations).issue
         if issue is not DwdForecastDate.LATEST:
             return [(_run_url(cast("dt.datetime", issue)), CacheExpiry.TWELVE_HOURS)]
-        files = list_remote_files_fsspec(f"{_BASE_URL}/", settings, CacheExpiry.NO_CACHE)
-        names = {f.rsplit("/", 1)[-1]: f for f in files}
-        # fixed-width digits, so lexical order is chronological order
-        runs = sorted(n for n in names if _RUN_FILE.match(n))
+        names, runs = _list_runs(settings)
         if runs:
             return [(names[n], CacheExpiry.TWELVE_HOURS) for n in reversed(runs[-2:])]
         if _LATEST_FILE in names:
@@ -182,7 +191,22 @@ class DwdSwsmosValues(TimeseriesValues):
         return []
 
     def _run_content(self, url: str, ttl: CacheExpiry, settings: Settings) -> bytes | None:
-        """Fetch one run, or say it could not be fetched."""
+        """Fetch one run, or say it could not be fetched.
+
+        A run named by its `issue` that the server answers with a 404, and that the listing does not
+        name where it names others, raises `IssueNotFoundError`, as `dwd/mosmix` and `dwd/dmo` do
+        for a run their listing does not name. It was answered with an empty frame per station,
+        which a caller could not tell from a run holding nothing for that station (GH-2324).
+
+        The listing is asked only after the 404, so a run fetched or cached costs no listing and is
+        served whatever the listing says by now. It decides because a 404 alone does not: a run the
+        listing names is the server's to serve, and refusing it would have `available_issues` offer
+        a run this then called the caller's mistake; a listing naming no run is a directory moved or
+        the host offline, which says nothing about the issue. Both are warned about as any other
+        failed fetch. `LATEST` names no run of its own and asks only for runs the listing has just
+        named, so a 404 there is a run gone since, never the caller's. A listing that fails after
+        the 404 raises, as it does for `LATEST`.
+        """
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
@@ -192,6 +216,12 @@ class DwdSwsmosValues(TimeseriesValues):
             use_certifi=settings.use_certifi,
         )
         if isinstance(file.content, Exception):
+            issue = cast("DwdSwsmosRequest", self.sr.stations).issue
+            if file.status == HTTPStatus.NOT_FOUND and issue is not DwdForecastDate.LATEST:
+                names, runs = _list_runs(settings)
+                if runs and url.rsplit("/", 1)[-1] not in names:
+                    msg = f"Unable to find SWSMOS run {url}"
+                    raise IssueNotFoundError(msg) from file.content
             if not file.is_no_internet_error:
                 log.warning(f"Failed to fetch SWSMOS run {url}: {file.content}")
             return None
@@ -236,10 +266,12 @@ class DwdSwsmosValues(TimeseriesValues):
         while here one file is the whole request, so asking again per station cannot answer a
         different question. `download_file` has already asked twice by then -- `_worth_retrying_download`
         governs what a blip is -- and 1,836 stations asking 3,672 times is a herd against a server
-        that has just failed, not a recovery. The warning naming the run says what happened.
+        that has just failed, not a recovery. The warning naming the run says what happened. The
+        exception is a pinned `issue` the server does not hold, which `_run_content` raises as
+        `IssueNotFoundError`; nothing is cached then, so every station is refused alike.
         """
         if self._run_frame_cache is None:
-            self._run_frame_cache = pl.DataFrame()
+            frame = pl.DataFrame()
             for url, ttl in self._run_candidates(settings):
                 content = self._run_content(url, ttl, settings)
                 df = _read_run(content, url) if content is not None else None
@@ -288,8 +320,9 @@ class DwdSwsmosValues(TimeseriesValues):
                     content = self._run_content(url, CacheExpiry.NO_CACHE, settings)
                     df = _read_run(content, url, asked_again=True) if content is not None else None
                 if df is not None:
-                    self._run_frame_cache = df
+                    frame = df
                     break
+            self._run_frame_cache = frame
         return self._run_frame_cache
 
     def query(self) -> Iterator[ValuesResult]:
@@ -378,6 +411,26 @@ class DwdSwsmosRequest(TimeseriesRequest):
             issue = issue.astimezone(_UTC) if issue.tzinfo else issue.replace(tzinfo=_UTC)
             issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=_UTC)
         self.issue = issue
+
+    @classmethod
+    def available_issues(cls, settings: Settings) -> list[dt.datetime]:
+        """Return the runs DWD holds, as tz-aware UTC datetimes in ascending order.
+
+        One run file holds every road station, so the list is the same for every station. Only the
+        timestamped run files are listed; the ``swsmos_LATEST`` alias names one of them again.
+        """
+        _, runs = _list_runs(settings)
+        if not runs:
+            # answered with no issues, and said to be. Not blamed on renamed files: offline, the
+            # listing comes back empty too
+            log.warning(
+                f"No SWSMOS run listed within {_BASE_URL}/; a listing that failed looks the same as one that is empty",
+            )
+            return []
+        return [
+            dt.datetime.strptime(cast("re.Match", _RUN_FILE.match(name)).group(1), "%Y%m%d%H%M%S").replace(tzinfo=_UTC)
+            for name in runs
+        ]
 
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
