@@ -33,7 +33,12 @@ Visit [wetterdienst.eobs.org](https://www.wetterdienst.eobs.org) to use the web 
 
 By default the `stations`, `values`, `interpolate`, `summarize` and `history` endpoints return only
 the requested data. Add `with_metadata=true` to include the provider-metadata block, and (for the
-value endpoints) `with_stations=true` to include the queried stations' metadata.
+value endpoints) `with_stations=true` to include the queried stations' metadata. With
+`with_metadata=true`, the JSON and GeoJSON of `values`, `interpolate` and `summarize` also carry a
+`settings` block next to `metadata`: the settings the result was got with, named as the endpoint's
+query parameters are. `interpolate` and `summarize` also report the settings the server sets alone
+for them, which no query parameter of theirs changes: `skip_empty`, `skip_threshold`,
+`skip_criteria`, `drop_nulls` and `station_distance_resolution_factors`.
 
 The following examples use [httpie](https://github.com/httpie/cli) to demonstrate the usage of the REST API.
 
@@ -59,6 +64,16 @@ http localhost:7890/api/glossary parameter==radiation
 
 # List every parameter of one quantity.
 http localhost:7890/api/glossary unit_type==temperature
+```
+
+### Settings
+
+A setting a request to `values`, `interpolate` or `summarize` leaves out takes the server's
+`WD_TS_*` variable, where it sets one, else wetterdienst's default. The settings endpoint reports
+what each of them takes, keyed by endpoint, with `unit_targets` naming the unit of every quantity.
+
+```bash
+http localhost:7890/api/settings
 ```
 
 ### Stations

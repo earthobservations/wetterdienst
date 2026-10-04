@@ -8,11 +8,12 @@ import json
 import logging
 import sys
 from textwrap import dedent
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, WithJsonSchema
+from typing_extensions import NotRequired
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (
@@ -31,6 +32,7 @@ from wetterdienst.exceptions import (
     StartDateEndDateError,
     StationNotFoundError,
 )
+from wetterdienst.metadata.resolution import Resolution
 
 # needed at runtime: FastAPI resolves this annotation to build the query parameter's enum
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001
@@ -44,7 +46,8 @@ from wetterdienst.model.result import (
     _ValuesDict,
     _ValuesOgcFeatureCollection,
 )
-from wetterdienst.settings import check_settings
+from wetterdienst.model.unit import UnitConverter
+from wetterdienst.settings import SkipThreshold, check_settings
 from wetterdienst.ui.core import (
     SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     GlossaryEntry,
@@ -73,9 +76,8 @@ from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection, Mapping
+    from collections.abc import Callable, Collection
 
-    from pydantic import BaseModel
     from starlette.types import ASGIApp, Receive, Scope, Send
 
     from wetterdienst.model.request import TimeseriesRequest
@@ -180,6 +182,179 @@ _MEDIA_TYPES = {
 }
 
 
+#: a radius, factor or gain, which the settings take as infinite or NaN too, written then as a string
+_Unbounded = Annotated[
+    float,
+    WithJsonSchema(
+        {"anyOf": [{"type": "number"}, {"type": "string", "enum": ["Infinity", "NaN"]}]}, mode="serialization"
+    ),
+]
+
+
+# The settings a request to `/api/values`, `/api/interpolate` and `/api/summarize` is answered with,
+# by the request field that sets each, and with the setting it sets as its validation alias. The REST
+# API's one list of them: an endpoint takes these from its request (GH-2325), reports the ones it
+# used with its metadata, and `/api/settings` reports the server's defaults for them (GH-2359).
+# Listed one by one rather than read from `Settings`, so that neither report reaches a credential or
+# the cache.
+class _AppliedSettings(BaseModel):
+    """The settings every one of the three endpoints is answered with."""
+
+    # by name too, so that a report, which is written by name, reads back. A radius, factor or gain
+    # the settings take as infinite is written as the string "Infinity", which JSON has no number for
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, ser_json_inf_nan="strings")
+
+    humanize: bool = Field(validation_alias="ts_humanize")
+    convert_units: bool = Field(validation_alias="ts_convert_units")
+    unit_targets: dict[str, str] = Field(
+        validation_alias="ts_unit_targets",
+        description="The unit values of each quantity are converted to, for every quantity, where `convert_units` "
+        "is on; off, they come in the unit the source publishes.",
+    )
+    skip_empty: bool = Field(validation_alias="ts_skip_empty")
+    skip_threshold: SkipThreshold = Field(validation_alias="ts_skip_threshold")
+    skip_criteria: Literal["min", "mean", "max"] = Field(validation_alias="ts_skip_criteria")
+    drop_nulls: bool = Field(
+        validation_alias="ts_drop_nulls",
+        description="Whether rows without a value are dropped. The wide shape, the server's or the request's, "
+        "turns it off.",
+    )
+
+
+class ValuesSettings(_AppliedSettings):
+    """The settings of `/api/values`."""
+
+    shape: Literal["long", "wide"] = Field(validation_alias="ts_shape")
+
+
+_STATION_DISTANCE_DESCRIPTION = (
+    "The radius (km) set for a parameter by name, which applies at every resolution. A parameter it "
+    "leaves out takes the homogeneous or the heterogeneous radius."
+)
+_STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION = (
+    "The radius (km) of a parameter that decorrelates fast, at hourly resolution: at another "
+    "resolution it is multiplied by that resolution's factor."
+)
+
+
+class _GeoSettings(_AppliedSettings):
+    """The settings `/api/interpolate` and `/api/summarize` share."""
+
+    min_gain_of_value_pairs: _Unbounded = Field(validation_alias="ts_geo_min_gain_of_value_pairs")
+    num_additional_stations: int = Field(validation_alias="ts_geo_num_additional_stations")
+    # set by the server alone, as are the skipping of sparse stations and the dropping of nulls
+    # here: neither request has a field for them, and the stations' values are read with them
+    station_distance_resolution_factors: dict[str, _Unbounded] = Field(
+        validation_alias="ts_geo_station_distance_resolution_factors",
+        description="The factor the heterogeneous radius is multiplied by, for every resolution. Set by the "
+        "server alone.",
+    )
+
+
+class InterpolationSettings(_GeoSettings):
+    """The settings of `/api/interpolate`."""
+
+    # not read for a summary, which has nothing for it to decide: its field is only accepted there,
+    # and deprecated (GH-2333), so a summary neither passes nor reports it
+    use_nearby_station_distance: _Unbounded | None = Field(validation_alias="ts_geo_use_nearby_station_distance")
+    interpolation_station_distance: dict[str, _Unbounded] = Field(
+        validation_alias="ts_geo_station_distance",
+        description=_STATION_DISTANCE_DESCRIPTION,
+    )
+    interpolation_station_distance_homogeneous: _Unbounded = Field(
+        validation_alias="ts_geo_station_distance_homogeneous"
+    )
+    interpolation_station_distance_heterogeneous: _Unbounded = Field(
+        validation_alias="ts_geo_station_distance_heterogeneous",
+        description=_STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION,
+    )
+
+
+class SummarySettings(_GeoSettings):
+    """The settings of `/api/summarize`."""
+
+    summary_station_distance: dict[str, _Unbounded] = Field(
+        validation_alias="ts_geo_station_distance",
+        description=_STATION_DISTANCE_DESCRIPTION,
+    )
+    summary_station_distance_homogeneous: _Unbounded = Field(validation_alias="ts_geo_station_distance_homogeneous")
+    summary_station_distance_heterogeneous: _Unbounded = Field(
+        validation_alias="ts_geo_station_distance_heterogeneous",
+        description=_STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION,
+    )
+
+
+_M = TypeVar("_M", bound=_AppliedSettings)
+
+
+class ServerSettings(BaseModel):
+    """What each endpoint takes for a setting a request leaves out."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    values: ValuesSettings
+    interpolate: InterpolationSettings
+    summarize: SummarySettings
+
+
+def _applied_settings(model: type[_M], settings: Settings) -> _M:
+    """Report `settings` by the fields of `model`.
+
+    The unit targets and the resolution factors hold only the entries that depart from
+    wetterdienst's, and are reported whole: the unit of every quantity and the factor of every
+    resolution. The per-parameter radii are reported as given, as `Settings` dumps them, since a
+    parameter they leave out takes one of the two radii reported next to them.
+    """
+
+    def unit_targets() -> dict[str, str]:
+        converter = UnitConverter()
+        converter.update_targets(settings.ts_unit_targets)
+        return {quantity: unit.name for quantity, unit in converter.targets.items()}
+
+    reported: dict[str, Callable[[], object]] = {
+        "ts_unit_targets": unit_targets,
+        "ts_geo_station_distance": lambda: settings.model_dump(include={"ts_geo_station_distance"})[
+            "ts_geo_station_distance"
+        ],
+        "ts_geo_station_distance_resolution_factors": lambda: {
+            resolution.value: settings.ts_geo_station_distance_resolution_factor(resolution.value)
+            for resolution in Resolution
+        },
+    }
+    return model.model_validate(
+        {
+            setting: reported[setting]() if setting in reported else getattr(settings, setting)
+            for setting in (str(field.validation_alias) for field in model.model_fields.values())
+        },
+    )
+
+
+# what the JSON formats of the three endpoints answer with: their results' own, and, with
+# `with_metadata`, the settings they were got with (GH-2359)
+class _ValuesWithSettingsDict(_ValuesDict):
+    settings: NotRequired[ValuesSettings]
+
+
+class _ValuesWithSettingsOgcFeatureCollection(_ValuesOgcFeatureCollection):
+    settings: NotRequired[ValuesSettings]
+
+
+class _InterpolatedValuesWithSettingsDict(_InterpolatedValuesDict):
+    settings: NotRequired[InterpolationSettings]
+
+
+class _InterpolatedValuesWithSettingsOgcFeatureCollection(_InterpolatedValuesOgcFeatureCollection):
+    settings: NotRequired[InterpolationSettings]
+
+
+class _SummarizedValuesWithSettingsDict(_SummarizedValuesDict):
+    settings: NotRequired[SummarySettings]
+
+
+class _SummarizedValuesWithSettingsOgcFeatureCollection(_SummarizedValuesOgcFeatureCollection):
+    settings: NotRequired[SummarySettings]
+
+
 @app.get("/")
 def index() -> HTMLResponse:
     """Provide index page."""
@@ -274,6 +449,7 @@ def index() -> HTMLResponse:
                 <ul>
                     <li><a href="api/coverage" target="_blank" rel="noopener">coverage</a></li>
                     <li><a href="api/glossary" target="_blank" rel="noopener">glossary</a></li>
+                    <li><a href="api/settings" target="_blank" rel="noopener">settings</a></li>
                     <li><a href="api/stations" target="_blank" rel="noopener">stations</a></li>
                     <li><a href="api/values" target="_blank" rel="noopener">values</a></li>
                     <li><a href="api/interpolate" target="_blank" rel="noopener">interpolation</a></li>
@@ -346,6 +522,28 @@ def version() -> JSONResponse:
     transport means opening a session rather than asking a question.
     """
     return JSONResponse(content={"version": __version__, "mcp_enabled": mcp_enabled})
+
+
+@app.get("/api/settings", response_model=ServerSettings)
+def server_settings() -> Response:
+    """Get the settings `/api/values`, `/api/interpolate` and `/api/summarize` take where a request leaves them out.
+
+    Each is the server's `WD_TS_*` variable where it sets one, else wetterdienst's default, keyed
+    by endpoint and named as the endpoint's query parameters are; the ones an endpoint has no query
+    parameter for are the server's alone. `unit_targets` names the unit of every quantity, and
+    `station_distance_resolution_factors` the factor of every resolution. A request's `unit_targets`
+    or station distance dict is merged into these, an entry it gives winning. Each is the one in
+    effect, as a request leaving out every setting gets it: the server's wide shape turns
+    `drop_nulls` off.
+    """
+    # a malformed server setting is the bare 500 FastAPI answers, which does not read its value back
+    settings = Settings()
+    content = ServerSettings(
+        values=_applied_settings(ValuesSettings, settings),
+        interpolate=_applied_settings(InterpolationSettings, settings),
+        summarize=_applied_settings(SummarySettings, settings),
+    )
+    return Response(content=content.model_dump_json(), media_type="application/json")
 
 
 # OAuth discovery endpoints. The `/mcp` server is open (no auth), so MCP clients such as Claude
@@ -592,12 +790,12 @@ def issues(
 
 
 # response models for the different formats are
-# - _ValuesDict for json
-# - _ValuesOgcFeatureCollection for geojson
+# - _ValuesWithSettingsDict for json
+# - _ValuesWithSettingsOgcFeatureCollection for geojson
 # - str for csv
 @app.get(
     "/api/values",
-    response_model=_ValuesDict | _ValuesOgcFeatureCollection | str,
+    response_model=_ValuesWithSettingsDict | _ValuesWithSettingsOgcFeatureCollection | str,
 )
 def values(
     request: Annotated[ValuesRequest, Query()],
@@ -631,20 +829,7 @@ def values(
         raise HTTPException(status_code=404, detail=msg) from e
 
     # a unit target given for a quantity or unit the converter has none for is the request's 400
-    settings = _request_settings(
-        request,
-        http_request.query_params.keys(),
-        {
-            "humanize": "ts_humanize",
-            "shape": "ts_shape",
-            "convert_units": "ts_convert_units",
-            "unit_targets": "ts_unit_targets",
-            "skip_empty": "ts_skip_empty",
-            "skip_criteria": "ts_skip_criteria",
-            "skip_threshold": "ts_skip_threshold",
-            "drop_nulls": "ts_drop_nulls",
-        },
-    )
+    settings = _request_settings(request, http_request.query_params.keys(), ValuesSettings)
 
     values_ = _values(api=api, request=request, settings=settings)
 
@@ -661,20 +846,20 @@ def values(
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
 
-    content = values_.to_format(**kwargs)
+    content = _render(values_, request, kwargs, ValuesSettings, settings)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
     return Response(content=content, media_type=media_type)
 
 
-def _request_settings(request: BaseModel, given: Collection[str], fields: Mapping[str, str]) -> Settings:
+def _request_settings(request: BaseModel, given: Collection[str], applied: type[_AppliedSettings]) -> Settings:
     """Build an endpoint's settings from the server's and the fields the request gave.
 
-    `fields` maps each request field to the setting it sets, and `given` names the query parameters
-    the request came with. A field is passed only when given: FastAPI fills one the query leaves out
-    with its default, and an init argument outranks the environment, so passing that default would
-    hide the `WD_TS_*` variable the server sets for the setting.
+    `applied` lists the endpoint's settings by the request field that sets each, and `given` names
+    the query parameters the request came with. A field is passed only when given: FastAPI fills
+    one the query leaves out with its default, and an init argument outranks the environment, so
+    passing that default would hide the `WD_TS_*` variable the server sets for the setting.
 
     The server's own settings are built first, and outside the handler: one malformed there is the
     bare 500 FastAPI answers, which does not read its value back. Where an error is located would
@@ -686,9 +871,10 @@ def _request_settings(request: BaseModel, given: Collection[str], fields: Mappin
     Settings()
     # each setting given by the field that sets it
     passed = {
-        setting: (field, value)
-        for field, setting in fields.items()
-        if field in given and (value := getattr(request, field)) is not None
+        str(setting.validation_alias): (field, value)
+        for field, setting in applied.model_fields.items()
+        # not a setting the request has no field for, which the server sets alone
+        if field in type(request).model_fields and field in given and (value := getattr(request, field)) is not None
     }
     try:
         return Settings(**{setting: value for setting, (_, value) in passed.items()})
@@ -708,6 +894,29 @@ def _request_settings(request: BaseModel, given: Collection[str], fields: Mappin
         raise HTTPException(status_code=400, detail="\n".join(lines)) from e
 
 
+def _render(
+    result: ValuesResult | InterpolatedValuesResult | SummarizedValuesResult,
+    request: ValuesRequest | InterpolationRequest | SummaryRequest,
+    kwargs: dict[str, Any],
+    applied: type[_AppliedSettings],
+    settings: Settings,
+) -> str | bytes:
+    """Render a result in the format `kwargs` names, the JSON formats with the settings `applied`.
+
+    The settings go next to the metadata, with `with_metadata` alone, and the rest is written as
+    `to_json` and `to_geojson` write it.
+    """
+    if not request.with_metadata or request.format not in ("json", "geojson"):
+        return result.to_format(**kwargs)
+    if request.format == "json":
+        data: dict[str, Any] = dict(result.to_dict(with_metadata=True, with_stations=request.with_stations))
+    else:
+        data = dict(result.to_ogc_feature_collection(with_metadata=True))
+    report = json.loads(_applied_settings(applied, settings).model_dump_json())
+    data = {"metadata": data.pop("metadata"), "settings": report, **data}
+    return json.dumps(data, indent=4 if request.pretty else None, ensure_ascii=request.format == "json")
+
+
 def _geo_settings(
     request: InterpolationRequest | SummaryRequest,
     given: Collection[str],
@@ -715,29 +924,11 @@ def _geo_settings(
 ) -> Settings:
     """Build the settings shared by the interpolation and the summary endpoint.
 
-    `kind` names the request's station distance fields.
+    `kind` picks the endpoint's settings, which name its request's station distance fields.
     """
     # a distance given for a name that is not a canonical parameter, or a unit target for an
     # unknown quantity or unit, is the request's 400
-    return _request_settings(
-        request,
-        given,
-        {
-            "humanize": "ts_humanize",
-            "convert_units": "ts_convert_units",
-            "unit_targets": "ts_unit_targets",
-            f"{kind}_station_distance": "ts_geo_station_distance",
-            f"{kind}_station_distance_homogeneous": "ts_geo_station_distance_homogeneous",
-            f"{kind}_station_distance_heterogeneous": "ts_geo_station_distance_heterogeneous",
-            # not read for a summary, which has nothing for it to decide: the field is only accepted
-            # there, and deprecated (GH-2333)
-            **(
-                {"use_nearby_station_distance": "ts_geo_use_nearby_station_distance"} if kind == "interpolation" else {}
-            ),
-            "min_gain_of_value_pairs": "ts_geo_min_gain_of_value_pairs",
-            "num_additional_stations": "ts_geo_num_additional_stations",
-        },
-    )
+    return _request_settings(request, given, InterpolationSettings if kind == "interpolation" else SummarySettings)
 
 
 # what a request can provoke on its way through `get_values`, `get_interpolate` and
@@ -850,12 +1041,12 @@ def _geo_values(
 
 
 # response models for the different formats are
-# - _InterpolatedValuesDict for json
-# - _InterpolatedValuesOgcFeatureCollection for geojson
+# - _InterpolatedValuesWithSettingsDict for json
+# - _InterpolatedValuesWithSettingsOgcFeatureCollection for geojson
 # - str for csv
 @app.get(
     "/api/interpolate",
-    response_model=_InterpolatedValuesDict | _InterpolatedValuesOgcFeatureCollection | str,
+    response_model=_InterpolatedValuesWithSettingsDict | _InterpolatedValuesWithSettingsOgcFeatureCollection | str,
 )
 def interpolate(
     request: Annotated[InterpolationRequest, Query()],
@@ -898,7 +1089,7 @@ def interpolate(
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
 
-    content = values_.to_format(**kwargs)
+    content = _render(values_, request, kwargs, InterpolationSettings, settings)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
@@ -906,10 +1097,13 @@ def interpolate(
 
 
 # response models for the different formats are
-# - _SummarizedValuesDict for json
-# - _SummarizedValuesOgcFeatureCollection for geojson
+# - _SummarizedValuesWithSettingsDict for json
+# - _SummarizedValuesWithSettingsOgcFeatureCollection for geojson
 # - str for csv
-@app.get("/api/summarize", response_model=_SummarizedValuesDict | _SummarizedValuesOgcFeatureCollection | str)
+@app.get(
+    "/api/summarize",
+    response_model=_SummarizedValuesWithSettingsDict | _SummarizedValuesWithSettingsOgcFeatureCollection | str,
+)
 def summarize(
     request: Annotated[SummaryRequest, Query()],
     http_request: Request,
@@ -954,7 +1148,7 @@ def summarize(
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
 
-    content = values_.to_format(**kwargs)
+    content = _render(values_, request, kwargs, SummarySettings, settings)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
