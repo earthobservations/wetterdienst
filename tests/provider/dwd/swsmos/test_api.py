@@ -695,6 +695,11 @@ def test_swsmos_issue_the_server_does_not_hold_is_not_found(monkeypatch: pytest.
 
     monkeypatch.setattr(
         api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
         "download_file",
         lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
     )
@@ -706,6 +711,30 @@ def test_swsmos_issue_the_server_does_not_hold_is_not_found(monkeypatch: pytest.
             "A006",
             DwdSwsmosRequest.metadata["hourly"]["data"],
         )
+
+
+def test_swsmos_issue_not_found_where_the_listing_names_no_run_is_not_the_callers(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A 404 with no run listed is the directory moved, not the issue missing, as MOSMIX tells them apart (GH-2324)."""
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
+    )
+    stations = _stub_stations()
+    stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
+
+    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.is_empty()
+    assert "Failed to fetch SWSMOS run" in caplog.text
 
 
 def test_swsmos_issue_whose_run_fails_otherwise_is_still_an_empty_answer(

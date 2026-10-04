@@ -4158,6 +4158,11 @@ def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, mon
     )
     monkeypatch.setattr(
         api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20261004060000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
         "download_file",
         lambda **kwargs: (
             File(url=kwargs["url"], content=io.BytesIO(catalogue), status=200)

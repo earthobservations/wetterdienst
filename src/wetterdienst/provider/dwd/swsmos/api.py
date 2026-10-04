@@ -196,9 +196,11 @@ class DwdSwsmosValues(TimeseriesValues):
         A run named by its `issue` that the server does not hold -- expired, or not published yet --
         raises `IssueNotFoundError`, as `dwd/mosmix` and `dwd/dmo` do for a run they do not list. It
         was answered with an empty frame per station, which a caller could not tell from a run
-        holding nothing for that station (GH-2324). `LATEST` asks only for runs the listing has just
-        named, so a 404 there is a run gone between the listing and the fetch, and keeps the
-        fallback to the run before it.
+        holding nothing for that station (GH-2324). Only where the listing names other runs, as
+        `dwd/mosmix` checks: a listing naming none is a directory moved or renamed, which is no
+        fault of the caller's issue, and is warned about as any other failed fetch is. `LATEST`
+        asks only for runs the listing has just named, so a 404 there is a run gone between the
+        listing and the fetch, and keeps the fallback to the run before it.
         """
         file = download_file(
             url=url,
@@ -210,7 +212,7 @@ class DwdSwsmosValues(TimeseriesValues):
         )
         if isinstance(file.content, Exception):
             issue = cast("DwdSwsmosRequest", self.sr.stations).issue
-            if file.status == HTTPStatus.NOT_FOUND and issue is not DwdForecastDate.LATEST:
+            if file.status == HTTPStatus.NOT_FOUND and issue is not DwdForecastDate.LATEST and _list_runs(settings)[1]:
                 msg = f"Unable to find SWSMOS run {url}"
                 raise IssueNotFoundError(msg) from file.content
             if not file.is_no_internet_error:
@@ -411,9 +413,11 @@ class DwdSwsmosRequest(TimeseriesRequest):
         """
         _, runs = _list_runs(settings)
         if not runs:
-            # a listing that names no run is answered with no issues, and said to be: see
-            # `DwdSwsmosValues._run_candidates`, which warns of the same listing
-            log.warning(f"No SWSMOS run listed within {_BASE_URL}/; the file names may have changed")
+            # answered with no issues, and said to be. Not blamed on renamed files: offline, the
+            # listing comes back empty too
+            log.warning(
+                f"No SWSMOS run listed within {_BASE_URL}/; a listing that failed looks the same as one that is empty",
+            )
             return []
         return [
             dt.datetime.strptime(cast("re.Match", _RUN_FILE.match(name)).group(1), "%Y%m%d%H%M%S").replace(tzinfo=_UTC)
