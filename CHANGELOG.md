@@ -161,8 +161,9 @@ Types of changes:
   had been fetched, so the CLI died with a traceback; `values`, `interpolate` and `summarize` now
   exit with status 2, and `/api/interpolate` and `/api/summarize` answer 400 where they answered
   404. Such a unit in `WD_TS_UNIT_TARGETS` now fails every `Settings()`, as an unknown quantity
-  there does, so the REST server does not start; it broke only values requests. Correct or remove
-  it. An unknown quantity's refusal names only the unknown ones (GH-2306)
+  there does, where it broke only values requests: set when the REST server starts, it stops it at
+  import; set in `.env` later, requests answer 500 (`/api/values` 400). Correct or remove it. An
+  unknown quantity's refusal names only the unknown ones (GH-2306)
 - Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most
   places every 6 deg of longitude) or the equator in the zone of the point. Each was placed in its
   own zone, hundreds of kilometres off, or 10000 km off across the equator, so a point near either
