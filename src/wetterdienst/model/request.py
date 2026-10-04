@@ -16,7 +16,6 @@ from zoneinfo import ZoneInfo
 import polars as pl
 from measurement.measures import Distance
 from measurement.utils import guess
-from polars.exceptions import NoDataError
 from rapidfuzz import fuzz, process
 from rapidfuzz import utils as fuzz_utils
 
@@ -937,17 +936,21 @@ class TimeseriesRequest:
         The elevation comes along because naming a point by a station names its altitude too, which
         is otherwise the one thing an interpolation cannot know about its target. It is null for
         the providers that do not report one.
+
+        A station requested at several resolutions has a row in each one's station list, and the
+        lists can disagree: NOAA GHCN's hourly list gives no elevation for hundreds of the stations
+        its daily list does. The coordinates are the first row's, and the elevation the first one
+        known across those rows, so whether it is known does not depend on which resolution the
+        parameters named first.
         """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
-        stations = self.all().df
-        try:
-            lat, lon, elevation = (
-                stations.filter(pl.col("station_id").eq(station_id))
-                .select(pl.col("latitude"), pl.col("longitude"), pl.col("elevation"))
-                .transpose()
-                .to_series()
-            )
-        except NoDataError as e:
+        stations = self.all().df.filter(pl.col("station_id").eq(station_id))
+        if stations.is_empty():
             msg = f"no station found for {station_id}"
-            raise StationNotFoundError(msg) from e
+            raise StationNotFoundError(msg)
+        lat, lon, elevation = stations.select(
+            pl.col("latitude").first(),
+            pl.col("longitude").first(),
+            pl.col("elevation").drop_nulls().first(),
+        ).row(0)
         return lat, lon, elevation
