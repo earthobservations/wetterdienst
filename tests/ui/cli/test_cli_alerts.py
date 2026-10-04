@@ -3,9 +3,11 @@
 """Tests for the CLI alerts command."""
 
 import json
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+from pydantic import ValidationError
 
 from wetterdienst.ui.cli import cli
 
@@ -121,3 +123,49 @@ def test_cli_alerts_unreadable_feed_is_not_a_usage_error(monkeypatch: pytest.Mon
     assert "Usage:" not in result.output
     assert "Invalid value" not in result.output
     assert "Error: Invalid isoformat string: 'not-a-timestamp'" in result.output
+
+
+@pytest.mark.parametrize(
+    ("date", "message"),
+    [
+        # an offset carries it out of what a datetime holds: an `OverflowError`, not a `ValueError`
+        ("0001-01-01T00:00:00+01:00", "date value out of range"),
+        ("notadate", "Invalid isoformat string: 'notadate'"),
+    ],
+)
+def test_cli_alerts_bad_date_is_a_date_usage_error(date: str, message: str) -> None:
+    """Test a date that does not parse, or that leaves a datetime's range, is reported as an invalid --date."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["alerts", f"--date={date}"])
+    assert result.exit_code == 2
+    assert "Usage:" in result.output
+    assert f"Invalid value for --date: {message}" in result.output
+
+
+def test_cli_alerts_does_not_blame_the_command_line_for_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a WD_* environment variable Settings refuses is not told as an invalid option of the command."""
+    monkeypatch.setenv("WD_CACHE_DISABLE", "notabool")
+    runner = CliRunner()
+    result = runner.invoke(cli, ["alerts", "--date=2000-01-01T00:00:00"])
+    assert isinstance(result.exception, ValidationError)
+    assert "Usage:" not in result.output
+    assert "--date" not in result.output
+
+
+def test_cli_alerts_unwritable_target_is_a_readable_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Test a --target that cannot be written is a runtime error naming the option, not a traceback."""
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    class _Result:
+        def to_format(self, _fmt: str, *, indent: bool) -> str:  # noqa: ARG002
+            return "{}"
+
+    monkeypatch.setattr(DwdWeatherAlertRequest, "query", lambda _self: _Result())
+    target = tmp_path / "missing" / "alerts.json"
+    runner = CliRunner()
+    result = runner.invoke(cli, ["alerts", f"--target=file://{target}"])
+    assert result.exit_code == 1
+    assert "Usage:" not in result.output
+    assert "Error: Could not write --target: " in result.output
+    assert "No such file or directory" in result.output
+    assert not target.exists()

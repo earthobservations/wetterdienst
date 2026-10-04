@@ -306,6 +306,8 @@ Types of changes:
   where it asked more than once and the backend built the whole list for each (GH-2314)
 - `[Explorer]` The skip threshold goes down to 0.05, where it went down to 0, which the backend
   now refuses (GH-2334)
+- `[Explorer]` Where the station list of the interpolation and summary's station picker could not
+  be loaded, the picker says so and offers Retry, where it stayed empty without a word (GH-2332)
 
 ## [0.17.0] - 2026-09-29
 
