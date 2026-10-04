@@ -1345,11 +1345,12 @@ def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_settings
                     "station_id": station_id,
                     "resolution": "daily",
                     "dataset": "climate_summary",
-                    "parameter": "tmk",
+                    "parameter": parameter,
                     "timestamp": timestamp,
-                    "value": 10.0,
+                    "value": value,
                     "quality": 10.0,
                 }
+                for parameter, value in (("tmk", 10.0), ("txk", 12.0))
                 for timestamp in timestamps
             ],
         )
@@ -1358,16 +1359,26 @@ def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_settings
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _filter_by_distance)
     monkeypatch.setattr(DwdObservationValues, "_collect_station_data", _collect_station_data)
     request = DwdObservationRequest(
-        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        parameters=[
+            ("daily", "climate_summary", "temperature_air_mean_2m"),
+            ("daily", "climate_summary", "temperature_air_max_2m"),
+        ],
         start_date=timestamps[0],
         end_date=timestamps[-1],
         settings=Settings(**settings),
     )
     df = getattr(request, method)(latlon=(latitude, longitude)).df
     humanize = settings.get("ts_humanize", True)
-    assert df.get_column("parameter").to_list() == ["temperature_air_mean_2m" if humanize else "tmk"] * 3
-    assert df.get_column("timestamp").to_list() == timestamps
-    assert df.get_column("value").to_list() == [10.0] * 3
+    # sorted by the names the frame carries, as `values` sorts them: `txk` follows `tmk`, while
+    # `temperature_air_max_2m` comes before `temperature_air_mean_2m`
+    expected = (
+        [("temperature_air_max_2m", 12.0), ("temperature_air_mean_2m", 10.0)]
+        if humanize
+        else [("tmk", 10.0), ("txk", 12.0)]
+    )
+    assert df.get_column("parameter").to_list() == [name for name, _ in expected for _ in timestamps]
+    assert df.get_column("timestamp").to_list() == timestamps * 2
+    assert df.get_column("value").to_list() == [value for _, value in expected for _ in timestamps]
     # read on a copy: the caller's request keeps the settings it was given
     assert request.settings.ts_humanize is humanize
     assert request.settings.ts_shape == settings.get("ts_shape", "long")

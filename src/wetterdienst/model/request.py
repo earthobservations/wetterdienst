@@ -918,7 +918,9 @@ class TimeseriesRequest:
                 .then(pl.lit(parameter.name_original))
                 .otherwise(name)
             )
-        return df.with_columns(name.alias("parameter"))
+        # sorted again, as the cores sorted by the canonical names: `tmk` is `values`' first under
+        # `ts_humanize=False` and came last here, behind `txk` (`temperature_air_max_2m`)
+        return df.with_columns(name.alias("parameter")).sort(["resolution", "dataset", "parameter", "timestamp"])
 
     def _get_latlon_by_station_id(self, station_id: str) -> tuple[float, float]:
         """Get latlon for a station_id.
