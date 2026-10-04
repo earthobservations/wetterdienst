@@ -1307,7 +1307,7 @@ def _get_stripes_settings() -> Settings:
 
 
 def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
-    """Need this for displaying stations in the interactive app."""
+    """Give the request the temperature stripes list their stations and read their values with."""
     return DwdObservationRequest(
         parameters=[("annual", "climate_summary", "temperature_air_mean_2m")],
         periods=periods,
@@ -1316,7 +1316,7 @@ def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL) -> Dwd
 
 
 def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
-    """Need this for displaying stations in the interactive app."""
+    """Give the request the precipitation stripes list their stations and read their values with."""
     return DwdObservationRequest(
         parameters=[("annual", "precipitation_more", "precipitation_amount")],
         periods=periods,
