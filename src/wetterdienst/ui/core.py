@@ -237,7 +237,8 @@ SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED = (
     "It has no effect on a summary, which takes the nearest station with data anyway, and will be "
     "removed in a future release. Leave it out."
 )
-# accepted still, so that a caller who gives it is told rather than refused, and read by nothing.
+# accepted still, so that a request giving it is not refused, and read by nothing. The schema marks
+# it deprecated; the CLI warns the caller who gives it, the REST API only logs it.
 # No default: FastAPI hands a query model every default as if given, so only `None` says it was not
 _SummaryUseNearbyStationDistanceField = Annotated[
     float | None,

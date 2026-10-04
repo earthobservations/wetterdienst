@@ -4133,6 +4133,7 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
+    tmp_path: pathlib.Path,
 ) -> None:
     """`/api/summarize` accepts `use_nearby_station_distance`, says it is deprecated, and reads nothing from it.
 
@@ -4158,11 +4159,15 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
 
     monkeypatch.setattr("wetterdienst.ui.restapi.get_summarize", take)
     monkeypatch.setattr("wetterdienst.ui.restapi.get_interpolate", take)
+    # the server's own setting, which a summary keeps; set here, as is the directory a `.env` is read
+    # from, so that neither the shell nor the working directory of whoever runs the tests decides it
+    monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "3")
+    monkeypatch.chdir(tmp_path)
     params = {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}
     with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
         client.get("/api/summarize", params={**params, "use_nearby_station_distance": 0.5})
     assert "use_nearby_station_distance is deprecated. It has no effect on a summary" in caplog.text
-    assert taken[-1].ts_geo_use_nearby_station_distance == 1.0
+    assert taken[-1].ts_geo_use_nearby_station_distance == 3.0
     caplog.clear()
     with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
         client.get("/api/summarize", params=params)

@@ -142,9 +142,9 @@ Types of changes:
 
 - `summarize`'s `use_nearby_station_distance` (the CLI's `--use_nearby_station_distance`,
   `/api/summarize` and the MCP `summarize` tool) is deprecated and will be removed in a future
-  release. It never had an effect on a summary, which takes the nearest station with data anyway, so
-  leave it out. The CLI warns when it is given, the REST API logs it, and the schema marks it
-  deprecated. `Settings.ts_geo_use_nearby_station_distance` stays, for interpolation (GH-2333)
+  release. It never had an effect on a summary; leave it out. The CLI warns when it is given, the
+  REST API logs it, and the schema marks it deprecated. The setting
+  `ts_geo_use_nearby_station_distance` stays, for interpolation (GH-2333)
 
 ### Fixed
 

@@ -18,9 +18,8 @@ Types of changes:
 
 ### Changed
 
-- `[Explorer]` The nearby station distance is offered, and sent, for an interpolation only. A
-  summary takes the nearest station with data anyway, so the backend never read it there, and it
-  now deprecates it for summaries (GH-2333)
+- `[Explorer]` The nearby station distance is offered, and sent, for an interpolation only. It had
+  no effect on a summary, and the backend deprecates it there (GH-2333)
 
 ### Fixed
 
