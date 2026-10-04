@@ -342,9 +342,9 @@ Types of changes:
   fail (GH-2326)
 - `Settings` refuses a `ts_skip_threshold` outside (0, 1], as `--skip_threshold` does. One above
   1, as `WD_TS_SKIP_THRESHOLD=5`, skipped every station under `ts_skip_empty`, and `values` said
-  "No data available" with no hint at the setting; such a variable now fails every `Settings()`,
-  so correct or remove it. `/api/values` answers a `skip_threshold` of 0, which skipped nothing,
-  with a 422, and the MCP `values` tool refuses it (GH-2334)
+  "No data available" with no hint at the setting. Such a variable, or one of 0, now fails every
+  `Settings()`; correct or remove it. `/api/values` answers a `skip_threshold` of 0 with a 422,
+  and the MCP `values` tool refuses it; to skip no station, leave `skip_empty` off (GH-2334)
 
 ## [0.139.0] - 2026-09-29
 

@@ -924,10 +924,11 @@ def test_cli_values_refuses_a_skip_threshold_from_the_environment_outside_zero_t
     """Test a WD_TS_SKIP_THRESHOLD above 1 is refused by its setting, not run into "No data" (GH-2334).
 
     `values` reads it when --skip_threshold is not given; one above 1 used to skip every station.
+    The setting's own error is raised as it is: a usage error blaming the option nobody gave would
+    be a `SystemExit` with status 2 instead.
     """
     monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "5")
     runner = CliRunner()
     result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048", "--skip_empty=true"])
     assert isinstance(result.exception, ValidationError)
     assert result.exception.errors()[0]["loc"] == ("ts_skip_threshold",)
-    assert "--skip_threshold" not in result.output
