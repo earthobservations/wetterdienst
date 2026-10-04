@@ -281,15 +281,15 @@ class Settings(BaseSettings):
     _ts_geo_station_distance_overrides: dict[str, float] | None = PrivateAttr(default=None)
     # this setting is used to define how far away a station can be so that no interpolation is done
     # but instead the station is used directly
-    ts_geo_use_nearby_station_distance: Annotated[float, Field(strict=True, ge=0)] | None = 1.0
+    ts_geo_use_nearby_station_distance: Annotated[float, Field(ge=0)] | None = 1.0
     # this rather complicated setting is used in the process of figuring out how many additional stations will be used
     # the gain defines how many additional timestamps can be interpolated by adding the specific station and thus
     # getting more timestamps with the required minimum of four values
     # so basically this setting considers the extra effort against the gain of additional interpolated timestamps
-    ts_geo_min_gain_of_value_pairs: Annotated[float, Field(strict=True, ge=0)] = 0.10
+    ts_geo_min_gain_of_value_pairs: Annotated[float, Field(ge=0)] = 0.10
     # this setting defines how many additional stations are used in the interpolation process independent of the gain
     # of value pairs, so if the gain is not reached anymore, there at least `num` more stations added to the list
-    ts_geo_num_additional_stations: Annotated[int, Field(strict=True, ge=0)] = 3
+    ts_geo_num_additional_stations: Annotated[int, Field(ge=0)] = 3
 
     @field_validator("fsspec_client_kwargs", mode="before")
     @classmethod

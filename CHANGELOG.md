@@ -329,6 +329,17 @@ Types of changes:
 - `wetterdienst alerts` reports a DWD feed it cannot read as an error with exit status 1, as it does
   a failed download, where it reported an invalid option with exit status 2. A `--date` before
   DWD's rolling window is still a usage error, now named as `Invalid value for --date` (GH-2313)
+- The CLI's `values`, `interpolate` and `summarize` leave a setting whose option is not given on
+  the command line to its `WD_TS_*` variable, such as `WD_TS_SHAPE=wide`. They passed every
+  option's default, which outranks the environment, so those variables had no effect (GH-2307)
+- The CLI's `interpolate` and `summarize` refuse a bad station distance or unit target in one line
+  naming its option, as `values` does, where they printed pydantic's whole message. All three raise
+  a malformed `WD_*` variable as it is rather than as a usage error, also one merged into the dict
+  an option gives, such as `WD_TS_UNIT_TARGETS` beside `--unit_targets` (GH-2308)
+- `WD_TS_GEO_USE_NEARBY_STATION_DISTANCE`, `WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS` and
+  `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
+  refused the string an environment variable gives, so setting any of them made every `Settings`
+  fail (GH-2326)
 
 ## [0.139.0] - 2026-09-29
 

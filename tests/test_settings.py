@@ -648,6 +648,20 @@ def test_fsspec_client_kwargs_keep_headers_that_are_not_a_dict_as_given(headers:
     assert settings.fsspec_client_kwargs["timeout"] == 30
 
 
+def test_settings_geo_station_choice_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the settings that choose the stations to interpolate from are settable from the environment.
+
+    The environment gives a string, which a strict number field refused.
+    """
+    monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "0.5")
+    monkeypatch.setenv("WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS", "0.2")
+    monkeypatch.setenv("WD_TS_GEO_NUM_ADDITIONAL_STATIONS", "5")
+    settings = Settings()
+    assert settings.ts_geo_use_nearby_station_distance == 0.5
+    assert settings.ts_geo_min_gain_of_value_pairs == 0.2
+    assert settings.ts_geo_num_additional_stations == 5
+
+
 @pytest.mark.parametrize(
     ("unit_targets", "message"),
     [
