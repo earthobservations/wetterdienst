@@ -4152,8 +4152,19 @@ def _start_lifespan(caplog: pytest.LogCaptureFixture) -> bool:
         return asyncio.run(run())
 
 
+@pytest.fixture
+def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings."""
+    import os  # noqa: PLC0415
+
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
 def test_restapi_refuses_to_start_with_a_malformed_setting(
-    monkeypatch: pytest.MonkeyPatch,
     tmp_path: pathlib.Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -4164,8 +4175,6 @@ def test_restapi_refuses_to_start_with_a_malformed_setting(
     is wrong with it, without the value and without a traceback.
     """
     (tmp_path / ".env").write_text("WD_CACHE_DISABLE=secret-ish\n")
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
 
     assert not _start_lifespan(caplog)
 
@@ -4175,15 +4184,9 @@ def test_restapi_refuses_to_start_with_a_malformed_setting(
     assert "Traceback" not in caplog.text
 
 
-def test_restapi_starts_with_valid_settings(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: pathlib.Path,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_starts_with_valid_settings(caplog: pytest.LogCaptureFixture) -> None:
     """Valid settings pass the startup check, on to the app's own lifespan (GH-2335)."""
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
-
     assert _start_lifespan(caplog)
     assert "Application startup complete." in caplog.text
 

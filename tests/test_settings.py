@@ -717,6 +717,16 @@ def test_settings_unit_targets_build_no_converter_when_empty(monkeypatch: pytest
     converter.assert_not_called()
 
 
+@pytest.fixture
+def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings."""
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize(
     ("env", "lines"),
     [
@@ -757,23 +767,33 @@ def test_settings_unit_targets_build_no_converter_when_empty(monkeypatch: pytest
 )
 def test_check_settings_names_the_variable_without_its_value(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
     env: dict[str, str],
     lines: list[str],
 ) -> None:
     """A malformed `WD_*` setting is told by its variable, a line each, and never by its value (GH-2335)."""
-    monkeypatch.chdir(tmp_path)
     for name, value in env.items():
         monkeypatch.setenv(name, value)
     assert check_settings() == lines
 
 
-def test_check_settings_reads_dotenv(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_check_settings_reads_dotenv(tmp_path: Path) -> None:
     """The check reads `.env` as the settings do, and finds nothing wrong with valid ones (GH-2335)."""
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
     assert check_settings() == []
     (tmp_path / ".env").write_text("WD_CACHE_DISABLE=secret-ish\n")
     assert check_settings() == [
         "WD_CACHE_DISABLE is invalid: Input should be a valid boolean, unable to interpret input"
+    ]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_check_settings_names_a_dotenv_key_that_is_no_setting_as_written(tmp_path: Path) -> None:
+    """A `.env` key the settings refuse as no setting of theirs is named as written there (GH-2335).
+
+    Its location already carries the prefix, which was put in front of it a second time.
+    """
+    (tmp_path / ".env").write_text("WD_CACHE_DIABLE=secret-ish\nOTHER_SECRET=secret-ish\n")
+    assert check_settings() == [
+        "WD_CACHE_DIABLE in .env is not a wetterdienst setting",
+        "OTHER_SECRET in .env is not a wetterdienst setting",
     ]

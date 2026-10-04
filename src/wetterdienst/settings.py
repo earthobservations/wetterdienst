@@ -503,7 +503,9 @@ def describe_settings_error(error: ValidationError | SettingsError) -> list[str]
 
     pydantic's own account names the field rather than the variable an operator set, and repeats
     the value given -- which for `WD_AUTH__*` is a credential, and for `WD_FSSPEC_CLIENT_KWARGS`
-    may hold request headers. Only the variable and what is wrong with it are told here (GH-2335).
+    may hold request headers. Here each problem is the variable and pydantic's message, without
+    the input it echoes (GH-2335). A validator's own message may still name what it refuses -- a
+    unit or a parameter name -- which none of those on the credentials or the headers does.
     """
     if isinstance(error, SettingsError):
         # a dict, a pair or a nested setting is read as JSON, and pydantic-settings says which field
@@ -514,6 +516,11 @@ def describe_settings_error(error: ValidationError | SettingsError) -> list[str]
         return [str(error)]
     lines = []
     for problem in error.errors(include_url=False):
+        if problem["type"] == "extra_forbidden":
+            # a key of `.env` that names no setting, located by the key as written there, prefix
+            # and all; the environment's own such variables are ignored
+            lines.append(f"{str(problem['loc'][0]).upper()} in .env is not a wetterdienst setting")
+            continue
         variable = "WD_" + "__".join(str(part) for part in problem["loc"]).upper() if problem["loc"] else "WD_*"
         lines.append(f"{variable} is invalid: {problem['msg'].removeprefix('Value error, ')}")
     return lines
