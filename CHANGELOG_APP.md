@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Meteogram]` `[Widget]` The forecast is asked for in °C, m/s, mm, hPa and degrees, the units
+  the charts label it in. On a backend whose `WD_TS_UNIT_TARGETS` sets another unit, such as
+  `{"temperature": "degree_fahrenheit"}`, the charts drew those values under the labels of the
+  defaults. The request also names the long, humanized layout the charts read (GH-2350)
 - `[Widget]` A failed station lookup is told by the backend's status and reason, as a failed
   forecast is, where it read "Station not found" for any failure, such as the MOSMIX station list
   failing to download. "Station not found" is kept for a station id the backend does not know,

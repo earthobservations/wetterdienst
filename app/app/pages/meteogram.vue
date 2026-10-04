@@ -4,6 +4,7 @@ import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 import { describeApiError } from '~/utils/api-error'
+import { METEOGRAM_VALUES_SETTINGS } from '~/utils/meteogram'
 
 const { MapStations, notLoaded: mapNotLoaded } = useMapStations()
 
@@ -118,6 +119,7 @@ async function fetchMeteogram(station: Station) {
     network: MOSMIX.network,
     parameters: MOSMIX.parameters.map(p => `${MOSMIX.resolution}/${MOSMIX.dataset}/${p}`).join(','),
     station: station.station_id,
+    ...METEOGRAM_VALUES_SETTINGS,
   }
   if (selectedIssue.value)
     rawParams.issue = selectedIssue.value
