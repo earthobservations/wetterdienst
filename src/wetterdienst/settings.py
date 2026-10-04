@@ -267,7 +267,7 @@ class _SettingsFromDotEnv(PydanticBaseSettingsSource):
         self._source = source
 
     def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
-        """Look a field up in `.env`, as the wrapped source does."""
+        """Look a field up in `.env` as the wrapped source does; the base class asks for this, `__call__` does not."""
         return self._source.get_field_value(field, field_name)
 
     def __call__(self) -> dict[str, Any]:
