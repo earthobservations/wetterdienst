@@ -186,7 +186,8 @@ _ConvertUnitsField = Annotated[
 _UnitTargetsField = Annotated[
     dict[str, str] | None,
     Field(
-        description="Custom unit targets as a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}."
+        description="Custom unit targets as a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}. "
+        "A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if set."
     ),
 ]
 _SkipEmptyField = Annotated[
@@ -230,14 +231,16 @@ _InterpolationStationDistanceField = Annotated[
     dict[str, Annotated[float, Field(ge=0.0)]] | None,
     Field(
         description="Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter "
-        "name, overriding the default radius of that parameter.",
+        "name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's "
+        "WD_TS_GEO_STATION_DISTANCE entry, if set.",
     ),
 ]
 _SummaryStationDistanceField = Annotated[
     dict[str, Annotated[float, Field(ge=0.0)]] | None,
     Field(
         description="Per-parameter maximum summary-station distance in km, keyed by canonical parameter "
-        "name, overriding the default radius of that parameter.",
+        "name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's "
+        "WD_TS_GEO_STATION_DISTANCE entry, if set.",
     ),
 ]
 _StationDistanceHomogeneousField = Annotated[
