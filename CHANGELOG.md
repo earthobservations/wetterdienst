@@ -156,9 +156,9 @@ Types of changes:
 
 - `Settings` ignores a key of `.env` that is no setting, such as another program's
   `POSTGRES_PASSWORD`, as it ignores one in the environment. Such a key made every `Settings()`
-  fail, and with it the CLI commands and REST endpoints that read them, and the error echoed its
-  value. A misspelt `WD_*` key, such as `WD_CACHE_DIABLE`, is ignored too, as in the environment.
-  A keyword to `Settings(...)` that is no setting is still refused (GH-2349)
+  fail with its value in the error, and the CLI commands and the REST API that read the settings
+  refused to run. A misspelt `WD_*` key, such as `WD_CACHE_DIABLE`, is ignored too, as in the
+  environment. A keyword to `Settings(...)` that is no setting is still refused (GH-2349)
 - With pydantic-settings older than 2.11, `Settings` no longer takes a `.env` key without the
   `WD_` prefix for the setting it names: another program's `CACHE_DIR` or `TS_SHAPE` set
   wetterdienst's cache directory or result shape (GH-2373)
@@ -375,6 +375,11 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- A malformed `WD_*` setting is told by the variable that sets it and what is wrong with it, a
+  line each and without pydantic's echo of the value, where it ended in pydantic's traceback. The
+  REST API refuses to start with it, also under `uvicorn` directly unless its lifespan is turned
+  off, and `wetterdienst restapi` exits with uvicorn's status 3; the other CLI commands that read
+  the settings exit with status 1 (GH-2335)
 - Values in the wide shape can be drawn: `ValuesResult.to_plot`, and with it the image formats
   (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`) of the CLI's `values` and `/api/values`, draw a wide
   result as they draw the long one. They raised `ColumnNotFoundError` on `parameter` (GH-2330)
