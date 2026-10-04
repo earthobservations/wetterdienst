@@ -463,3 +463,47 @@ def test_periods_on_a_provider_that_does_not_read_them_warns(default_settings: S
     # the three that do read them stay quiet
     DwdObservationRequest(parameters=["daily/kl"], periods="recent", settings=default_settings)
     assert "does not read its data per period" not in caplog.text
+
+
+@pytest.mark.parametrize("hourly_first", [True, False])
+def test_position_by_station_id_takes_an_elevation_any_resolution_knows(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    hourly_first: bool,
+) -> None:
+    """A station listed once per requested resolution answers with an elevation any of its rows knows.
+
+    NOAA GHCN's hourly list gives no elevation for Discovery Island, CAN01012475, where its daily list
+    gives 18.9 m, and the station list follows the order the parameters were named in. Reading the
+    first row alone left `interpolate_by_station_id` without the station's elevation whenever hourly
+    was named first. The station lists are stubbed, so nothing leaves the machine.
+    """
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from wetterdienst.exceptions import StationNotFoundError  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
+
+    rows = {
+        "hourly": {"latitude": 48.425, "longitude": -123.226, "elevation": None},
+        "daily": {"latitude": 48.4246, "longitude": -123.2257, "elevation": 18.9},
+    }
+    order = ["hourly", "daily"] if hourly_first else ["daily", "hourly"]
+    stations = pl.DataFrame(
+        [{"resolution": resolution, "station_id": "CAN01012475", **rows[resolution]} for resolution in order],
+        schema={
+            "resolution": pl.String,
+            "station_id": pl.String,
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "elevation": pl.Float64,
+        },
+        orient="row",
+    )
+    request = NoaaGhcnRequest(parameters=[(resolution, "data", "temperature_air_mean_2m") for resolution in order])
+    monkeypatch.setattr(NoaaGhcnRequest, "all", lambda _self: SimpleNamespace(df=stations))
+    latitude, longitude, elevation = request._get_position_by_station_id("CAN01012475")  # noqa: SLF001
+    assert elevation == 18.9
+    # the coordinates are the first row's, as they were: both lists give them
+    assert (latitude, longitude) == (rows[order[0]]["latitude"], rows[order[0]]["longitude"])
+    with pytest.raises(StationNotFoundError, match="no station found for CAN00000000"):
+        request._get_position_by_station_id("CAN00000000")  # noqa: SLF001

@@ -523,6 +523,7 @@
     "selectStationForCoords": "Wybierz stację dla współrzędnych",
     "selectStation": "Wybierz stację",
     "loadingStations": "Ładowanie stacji …",
+    "loadError": "Nie udało się załadować stacji.",
     "coords": "Współrzędne interpolacji: {coords}"
   },
   "dateRange": {

@@ -706,6 +706,8 @@ class ValuesResult(_ValuesResult):
             raise ImportError(msg) from e
 
         df = self.df
+        if "parameter" not in df.columns:
+            df = self._lengthen(df)
         if df.is_empty():
             return go.Figure()
         # create unit mapping for title
@@ -762,6 +764,69 @@ class ValuesResult(_ValuesResult):
             margin={"l": 10, "r": 10 + (n_resolutions + n_datasets) * 10, "t": 10, "b": 10},
         )
         return fig
+
+    def _lengthen(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Turn a wide values frame back into the long one `to_plot` draws.
+
+        Undoes what `TimeseriesValues._widen_df` did. A column is named after its dataset as well
+        whenever the request spans more than one dataset, and that name is how the dataset is told
+        on a row of a resolution the wide shape merged several datasets into, which names none.
+
+        A null is left out, as the long shape leaves it out by default: the wide shape writes one
+        wherever a column has no reading at a row another column has one at, and a column of one
+        resolution is null throughout the rows of another, as the widening joins on the resolution.
+        Kept, those would draw a series under a resolution it does not belong to. The quality
+        columns are not drawn.
+
+        The rows are put in the order a long result holds them in, which is the order the plot
+        lays its facets out and colours its stations in: station by station, as they were
+        collected, and sorted within each station by resolution, dataset and parameter.
+        """
+        datasets_by_resolution: dict[str, set[str]] = {}
+        for parameter in self.stations.parameters:
+            datasets_by_resolution.setdefault(parameter.dataset.resolution.name, set()).add(parameter.dataset.name)
+        prefixed = len(set().union(*datasets_by_resolution.values())) > 1
+        keys = ("station_id", "resolution", "dataset", "timestamp")
+        columns = [
+            column
+            for column in df.columns
+            if column not in keys
+            and not (column.endswith("_quality") and column.removesuffix("_quality") in df.columns)
+        ]
+        series = []
+        for (resolution,), df_resolution in df.group_by("resolution", maintain_order=True):
+            for column in columns:
+                dataset = pl.col("dataset").cast(pl.String)
+                parameter = column
+                if prefixed:
+                    matches = [
+                        name
+                        for name in datasets_by_resolution.get(str(resolution), ())
+                        if column.startswith(f"{name}_")
+                    ]
+                    if not matches:
+                        continue
+                    # the longest, should one dataset's name begin with another's
+                    name = max(matches, key=len)
+                    dataset = pl.lit(name)
+                    parameter = column.removeprefix(f"{name}_")
+                series.append(
+                    df_resolution.filter(pl.col(column).is_not_null()).select(
+                        pl.col("station_id").cast(pl.String),
+                        pl.col("resolution").cast(pl.String),
+                        dataset.alias("dataset"),
+                        pl.lit(parameter).alias("parameter"),
+                        pl.col("timestamp"),
+                        pl.col(column).cast(pl.Float64).alias("value"),
+                    )
+                )
+        if not series:
+            return pl.DataFrame()
+        # the stations in the order they come in, and stable, so that a series keeps its timestamps' order
+        stations = pl.Enum(df.get_column("station_id").cast(pl.String).unique(maintain_order=True))
+        return pl.concat(series).sort(
+            pl.col("station_id").cast(stations), "resolution", "dataset", "parameter", maintain_order=True
+        )
 
     def _to_image(  # ty: ignore[invalid-method-override]
         self,
