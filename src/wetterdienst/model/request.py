@@ -943,13 +943,13 @@ class TimeseriesRequest:
 
         A station requested at several resolutions has a row in each one's station list, and the
         lists can disagree: NOAA GHCN's hourly list gives no elevation for hundreds of the stations
-        its daily list does. The coordinates are the first row's, and the elevation the first one
-        known across those rows, so whether it is known does not depend on which resolution the
-        parameters named first.
+        its daily list does. The coordinates are the first row's that has both, and the elevation
+        the first one known across those rows, so whether either is known does not depend on which
+        resolution the parameters named first.
 
         Raises:
             StationNotFoundError: Where the station is not listed.
-            LocationOutOfRangeError: Where the station is listed without a latitude or longitude.
+            LocationOutOfRangeError: Where no row of the station gives both a latitude and a longitude.
 
         """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
@@ -957,9 +957,10 @@ class TimeseriesRequest:
         if stations.is_empty():
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg)
+        located = pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null()
         lat, lon, elevation = stations.select(
-            pl.col("latitude").first(),
-            pl.col("longitude").first(),
+            pl.col("latitude").filter(located).first(),
+            pl.col("longitude").filter(located).first(),
             pl.col("elevation").drop_nulls().first(),
         ).row(0)
         if lat is None or lon is None:
