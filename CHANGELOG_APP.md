@@ -20,10 +20,10 @@ Types of changes:
 
 - `[Explorer]` The settings start from the backend's, as its `GET /api/settings` reports them: its
   `WD_TS_*` variables over wetterdienst's defaults, and each "Default (...)" unit choice names the
-  backend's unit. A request names every setting, now the two search radii too, and the page's link
-  its five settings at any value, so they ask for the same on any backend; an older link that
+  backend's unit. A request names every setting, now the two search radii too, so it asks for the
+  same on any backend. The page's link names its five settings at any value; an older link that
   leaves one out takes the backend's. A backend without the endpoint, or one that fails, leaves
-  wetterdienst's defaults (GH-2359)
+  wetterdienst's defaults, which are then sent (GH-2359)
 
 ### Changed
 
