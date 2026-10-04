@@ -517,8 +517,9 @@ def describe_settings_error(error: ValidationError | SettingsError) -> list[str]
     lines = []
     for problem in error.errors(include_url=False):
         if problem["type"] == "extra_forbidden":
-            # a key of `.env` that names no setting, located by the key as written there, prefix
-            # and all; the environment's own such variables are ignored
+            # a key of `.env` that names no setting, located by the whole key, prefix and all, but
+            # lower-cased, so it is named in upper case as variables are; the environment's own
+            # such variables are ignored
             lines.append(f"{str(problem['loc'][0]).upper()} in .env is not a wetterdienst setting")
             continue
         variable = "WD_" + "__".join(str(part) for part in problem["loc"]).upper() if problem["loc"] else "WD_*"

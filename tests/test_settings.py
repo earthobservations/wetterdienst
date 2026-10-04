@@ -787,8 +787,8 @@ def test_check_settings_reads_dotenv(tmp_path: Path) -> None:
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_check_settings_names_a_dotenv_key_that_is_no_setting_as_written(tmp_path: Path) -> None:
-    """A `.env` key the settings refuse as no setting of theirs is named as written there (GH-2335).
+def test_check_settings_names_a_dotenv_key_that_is_no_setting_by_its_whole_key(tmp_path: Path) -> None:
+    """A `.env` key the settings refuse as no setting of theirs is named by the whole key (GH-2335).
 
     Its location already carries the prefix, which was put in front of it a second time.
     """
