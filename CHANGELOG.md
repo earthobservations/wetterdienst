@@ -138,10 +138,9 @@ Types of changes:
   whatever the target said, so a local InfluxDB 3 Core could not be reached. Write an https
   server, such as InfluxDB Cloud, as `influxdb3s://` (GH-2279)
 - A NOAA GHCN station asked for at both `hourly` and `daily` has the daily list's `elevation` on
-  its hourly row as well, or the hourly list's where the daily list gives none. The two lists gave
-  different elevations for 1120 of the 7905 stations in both, so `interpolate_by_station_id`,
-  `summarize_by_station_id` and the stations interpolate and summarize take now read one elevation
-  whatever the order of the parameters. A request for one resolution is unchanged (GH-2336)
+  its hourly row as well, or the hourly list's where the daily list gives none. Interpolate and
+  summarize, by station id or by point, then use the same elevation for the station whatever the
+  order of the parameters. A request for one resolution is unchanged (GH-2336)
 
 ### Fixed
 
