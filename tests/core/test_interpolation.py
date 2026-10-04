@@ -1292,9 +1292,9 @@ def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station
 
     Two resolutions' station lists can disagree about a station: NOAA GHCN's hourly list gives no
     elevation for hundreds of the stations its daily list does. Both the walk and the count taken
-    before it kept the first of a station's rows, so with the hourly row first every station here
+    before it kept the nearest of a station's rows, so with the hourly row nearer every station here
     stood without an elevation and the request at one was refused -- and answered with the daily row
-    first. Each station stands at the elevation asked about, so the readings come back as they are.
+    nearer. Each station stands at the elevation asked about, so the readings come back as they are.
     The stations and their readings are stubbed, so nothing leaves the machine.
     """
     from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
@@ -1316,10 +1316,12 @@ def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station
                 "latitude": latitude + d_lat,
                 "longitude": longitude + d_lon,
                 "elevation": elevation,
-                "distance": 4.0 + index / 10,
+                # the first-ranked row is the nearer one, as where the two lists round a position
+                # differently
+                "distance": 4.0 + index / 10 + rank / 100,
             }
             for index, (station_id, (d_lat, d_lon)) in enumerate(offsets.items())
-            for resolution, dataset, elevation in datasets
+            for rank, (resolution, dataset, elevation) in enumerate(datasets)
         ],
         schema={
             "resolution": pl.String,

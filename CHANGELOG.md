@@ -148,10 +148,11 @@ Types of changes:
 - Values: a station asked for several datasets is no longer skipped when one dataset has no
   `start_date` in the station list and another starts after `end_date`. With NOAA GHCN `hourly`
   and `daily` together, such a station returned no hourly values inside the window (GH-2292)
-- Interpolation and summary take a station's elevation from any requested resolution's station list
-  that gives one, where they read the first row's. With NOAA GHCN `hourly` named before `daily`, the
+- Interpolation and summary take a station's elevation from another requested resolution's row
+  where the first row they read gives none. With NOAA GHCN `hourly` named before `daily`, the
   `..._by_station_id` methods answered without the elevation of 859 stations the hourly list gives
-  none for (6 the other way round), and an answer at an elevation left such stations out (GH-2300)
+  none for (6 the other way round), and an answer at an elevation could leave such stations out
+  (GH-2300)
 - `/api/values` and its MCP tool answer `unit_targets` naming a quantity the converter does not
   have, such as `{"foo": "bar"}`, with a 400 saying so, where they answered a bare 500 (GH-2272)
 - `/api/interpolate`, `/api/summarize`, `/api/alerts` and their MCP tools answer a malformed `WD_*`
