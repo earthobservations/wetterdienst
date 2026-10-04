@@ -154,7 +154,8 @@ Types of changes:
 
 ### Fixed
 
-- Climate stripes (CLI `stripes`, `/api/stripes/*`, the MCP stripes tools) no longer fail under
+- Climate stripes values and images (CLI `stripes values`, `/api/stripes/values`,
+  `/api/stripes/image`, MCP `stripes_values` and `stripes_image`) no longer fail under
   `WD_TS_SHAPE=wide`, which raised `ColumnNotFoundError`, or under `WD_TS_SKIP_EMPTY=true`, which
   raised a `ComputeError` for a station with gaps in its record. They read the values long and
   unskipped whatever those two say (GH-2348)
