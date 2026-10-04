@@ -749,34 +749,6 @@ def test_swsmos_issue_not_found_where_the_listing_names_no_run_is_not_the_caller
     assert "Failed to fetch SWSMOS run" in caplog.text
 
 
-def test_swsmos_issue_whose_run_fails_otherwise_is_still_an_empty_answer(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Only a 404 says the run is not there; a server error is the server's, and answered as before (GH-2324)."""
-    caplog.set_level(logging.WARNING)
-    monkeypatch.setattr(
-        api,
-        "list_remote_files_fsspec",
-        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
-    )
-    monkeypatch.setattr(
-        api,
-        "download_file",
-        lambda **kwargs: File(url=kwargs["url"], content=OSError("500 Internal Server Error"), status=500),
-    )
-    stations = _stub_stations()
-    stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
-
-    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
-        "A006",
-        DwdSwsmosRequest.metadata["hourly"]["data"],
-    )
-
-    assert df.is_empty()
-    assert "Failed to fetch SWSMOS run" in caplog.text
-
-
 def test_swsmos_latest_run_gone_since_the_listing_falls_back_to_the_one_before_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -819,13 +791,23 @@ def test_swsmos_available_issues_remote() -> None:
     assert all((issue.minute, issue.second) == (0, 0) for issue in issues)
 
 
+@pytest.mark.parametrize(
+    ("status", "error"),
+    [
+        pytest.param(404, FileNotFoundError("404 Not Found"), id="not-found"),
+        pytest.param(500, OSError("500 Internal Server Error"), id="server-error"),
+    ],
+)
 def test_swsmos_issue_the_listing_names_is_not_refused_when_its_fetch_fails(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
+    status: int,
+    error: Exception,
 ) -> None:
-    """A run the listing names is the server's to serve, so a 404 for it is warned about, not refused (GH-2324).
+    """A run the listing names is the server's to serve, so a failed fetch is warned about, not refused (GH-2324).
 
-    Refusing it would have `wetterdienst issues` offer a run that `values` then calls the caller's mistake.
+    The listing alone decides whether a run exists; refusing a listed run would have `wetterdienst issues` offer a run
+    that `values` then calls the caller's mistake.
     """
     caplog.set_level(logging.WARNING)
     monkeypatch.setattr(
@@ -836,7 +818,7 @@ def test_swsmos_issue_the_listing_names_is_not_refused_when_its_fetch_fails(
     monkeypatch.setattr(
         api,
         "download_file",
-        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
+        lambda **kwargs: File(url=kwargs["url"], content=error, status=status),
     )
     stations = _stub_stations()
     stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
