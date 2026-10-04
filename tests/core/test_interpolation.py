@@ -1278,3 +1278,201 @@ def test_interpolation_leaves_out_a_station_beyond_what_utm_covers(
     assert row["value"] == -20.0
     assert sorted(row["taken_station_ids"]) == ["00001", "00002", "00003", "00004"]
     assert row["distance_mean"] == 5.5
+
+
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"ts_humanize": False},
+        {"ts_shape": "wide"},
+        {"ts_humanize": False, "ts_shape": "wide"},
+    ],
+)
+def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_settings_ask_for(
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    settings: dict,
+) -> None:
+    """`ts_humanize=False` and `ts_shape="wide"` still give an estimate, named as the caller asked.
+
+    Both picked a parameter's rows by its canonical name and read a `value` column, so with
+    `ts_humanize=False` -- the rows named `tmk` -- nothing matched and the result came back empty,
+    and a wide frame, which has no `value` column, raised `ColumnNotFoundError` (GH-2331). The
+    stations and their readings are stubbed below `query()`, so the naming and shaping it applies
+    still run and nothing leaves the machine.
+    """
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    latitude, longitude = 50.0, 8.9
+    offsets = {"00001": (-0.03, -0.03), "00002": (-0.03, 0.03), "00003": (0.03, 0.03), "00004": (0.03, -0.03)}
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "station_id": station_id,
+                "latitude": latitude + d_lat,
+                "longitude": longitude + d_lon,
+                "elevation": 100.0,
+                "distance": 4.0 + index / 10,
+            }
+            for index, (station_id, (d_lat, d_lon)) in enumerate(offsets.items())
+        ],
+    )
+    timestamps = [dt.datetime(2021, 2, day, tzinfo=ZoneInfo("UTC")) for day in (1, 2, 3)]
+
+    def _all(self: DwdObservationRequest) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+
+    def _filter_by_distance(
+        self: DwdObservationRequest,
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,  # noqa: ARG001
+    ) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+
+    def _collect_station_data(
+        self: DwdObservationValues,  # noqa: ARG001
+        station_id: str,
+        available_datasets: list,  # noqa: ARG001
+    ) -> pl.DataFrame:
+        # named by the source, as `query()` has them before it humanizes and widens the frame
+        return pl.DataFrame(
+            [
+                {
+                    "station_id": station_id,
+                    "resolution": "daily",
+                    "dataset": "climate_summary",
+                    "parameter": parameter,
+                    "timestamp": timestamp,
+                    "value": value,
+                    "quality": 10.0,
+                }
+                for parameter, value in (("tmk", 10.0), ("txk", 12.0))
+                for timestamp in timestamps
+            ],
+        )
+
+    monkeypatch.setattr(DwdObservationRequest, "all", _all)
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _filter_by_distance)
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_data", _collect_station_data)
+    request = DwdObservationRequest(
+        parameters=[
+            ("daily", "climate_summary", "temperature_air_mean_2m"),
+            ("daily", "climate_summary", "temperature_air_max_2m"),
+        ],
+        start_date=timestamps[0],
+        end_date=timestamps[-1],
+        settings=Settings(**settings),
+    )
+    df = getattr(request, method)(latlon=(latitude, longitude)).df
+    humanize = settings.get("ts_humanize", True)
+    # sorted by the names the frame carries, as `values` sorts them: `txk` follows `tmk`, while
+    # `temperature_air_max_2m` comes before `temperature_air_mean_2m`
+    expected = (
+        [("temperature_air_max_2m", 12.0), ("temperature_air_mean_2m", 10.0)]
+        if humanize
+        else [("tmk", 10.0), ("txk", 12.0)]
+    )
+    assert df.get_column("parameter").to_list() == [name for name, _ in expected for _ in timestamps]
+    assert df.get_column("timestamp").to_list() == timestamps * 2
+    assert df.get_column("value").to_list() == [value for _, value in expected for _ in timestamps]
+    # read on a copy: the caller's request keeps the settings it was given
+    assert request.settings.ts_humanize is humanize
+    assert request.settings.ts_shape == settings.get("ts_shape", "long")
+
+
+@pytest.mark.parametrize("hourly_first", [True, False], ids=["hourly_first", "daily_first"])
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
+def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station_knows(
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    *,
+    hourly_first: bool,
+) -> None:
+    """A station ranked once per requested resolution answers with an elevation any of its rows knows.
+
+    Two resolutions' station lists can disagree about a station: NOAA GHCN's hourly list gives no
+    elevation for hundreds of the stations its daily list does. Both the walk and the count taken
+    before it kept the nearest of a station's rows, so with the hourly row nearer every station here
+    stood without an elevation and the request at one was refused -- and answered with the daily row
+    nearer. Each station stands at the elevation asked about, so the readings come back as they are.
+    The stations and their readings are stubbed, so nothing leaves the machine.
+    """
+    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    latitude, longitude = 50.0, 8.9
+    offsets = {"00001": (-0.03, -0.03), "00002": (-0.03, 0.03), "00003": (0.03, 0.03), "00004": (0.03, -0.03)}
+    datasets = [("hourly", "temperature_air", None), ("daily", "climate_summary", 100.0)]
+    if not hourly_first:
+        datasets.reverse()
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": resolution,
+                "dataset": dataset,
+                "station_id": station_id,
+                "latitude": latitude + d_lat,
+                "longitude": longitude + d_lon,
+                "elevation": elevation,
+                # the first-ranked row is the nearer one, as where the two lists round a position
+                # differently
+                "distance": 4.0 + index / 10 + rank / 100,
+            }
+            for index, (station_id, (d_lat, d_lon)) in enumerate(offsets.items())
+            for rank, (resolution, dataset, elevation) in enumerate(datasets)
+        ],
+        schema={
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "station_id": pl.String,
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "elevation": pl.Float64,
+            "distance": pl.Float64,
+        },
+        orient="row",
+    )
+    timestamp = dt.datetime(2021, 2, 1, tzinfo=ZoneInfo("UTC"))
+
+    def _filter_by_distance(
+        self: DwdObservationRequest,
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,  # noqa: ARG001
+    ) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+
+    def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
+        for station_id in offsets:
+            yield SimpleNamespace(
+                df=pl.DataFrame(
+                    [
+                        {
+                            "station_id": station_id,
+                            "resolution": resolution,
+                            "dataset": dataset,
+                            "parameter": "temperature_air_mean_2m",
+                            "timestamp": timestamp,
+                            "value": 5.0,
+                            "quality": 10.0,
+                        }
+                        for resolution, dataset, _ in datasets
+                    ],
+                ),
+            )
+
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _filter_by_distance)
+    monkeypatch.setattr(DwdObservationValues, "query", _query)
+    request = DwdObservationRequest(
+        parameters=[(resolution, dataset, "temperature_air_mean_2m") for resolution, dataset, _ in datasets],
+        start_date=timestamp,
+        end_date=timestamp,
+    )
+    get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
+    df = get_df(request, latitude, longitude, 100.0)
+    assert dict(df.select("resolution", "value").iter_rows()) == {"hourly": 5.0, "daily": 5.0}

@@ -140,6 +140,10 @@ Types of changes:
 
 ### Fixed
 
+- Interpolate and summarize answer under `ts_humanize=False` and `ts_shape="wide"`, however they
+  are set: `Settings`, `WD_*`, the CLI's or REST API's `humanize`. The first returned no data and
+  the second raised `ColumnNotFoundError`. The result is long either way, its parameters named by
+  the source's codes under `ts_humanize=False` (GH-2331)
 - The `/api/values` description, which is the MCP `values` tool's, and the MCP instructions said
   the `values` array is sorted by timestamp. It is grouped by station, then by resolution, dataset
   and parameter, in timestamp order within each group, so a parameter's latest timestamp is the
@@ -148,6 +152,11 @@ Types of changes:
 - Values: a station asked for several datasets is no longer skipped when one dataset has no
   `start_date` in the station list and another starts after `end_date`. With NOAA GHCN `hourly`
   and `daily` together, such a station returned no hourly values inside the window (GH-2292)
+- Interpolation and summary take a station's elevation from another requested resolution's row
+  where the first row they read gives none. With NOAA GHCN `hourly` named before `daily`, the
+  `..._by_station_id` methods answered without the elevation of 859 stations the hourly list gives
+  none for (6 the other way round), and an answer at an elevation could leave such stations out
+  (GH-2300)
 - `/api/values` and its MCP tool answer `unit_targets` naming a quantity the converter does not
   have, such as `{"foo": "bar"}`, with a 400 saying so, where they answered a bare 500 (GH-2272)
 - `/api/interpolate`, `/api/summarize`, `/api/alerts` and their MCP tools answer a malformed `WD_*`
@@ -343,6 +352,13 @@ Types of changes:
 - Values in the wide shape can be drawn: `ValuesResult.to_plot`, and with it the image formats
   (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`) of the CLI's `values` and `/api/values`, draw a wide
   result as they draw the long one. They raised `ColumnNotFoundError` on `parameter` (GH-2330)
+- `wetterdienst alerts` refuses a `--date` that does not parse, or that an offset carries out of a
+  datetime's range, as `Invalid value for --date` with exit status 2; the latter was a traceback.
+  It raises a malformed `WD_*` variable as it is rather than as an invalid option, as `values`
+  does, and a `--target` it cannot write is an error with exit status 1, not a traceback (GH-2322)
+- NOAA GHCN hourly stations listed at 9999.0 m or 8191.0 m, 154 placeholders such as the North
+  Sea lightship ELBE NO. 1, have a null `elevation`. `interpolate` and `summarize` given an
+  elevation took them for known ones (GH-2336)
 
 ## [0.139.0] - 2026-09-29
 

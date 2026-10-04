@@ -4,18 +4,18 @@
 
 from __future__ import annotations
 
+import copy
 import datetime as dt
 import logging
 from abc import abstractmethod
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
 from measurement.measures import Distance
 from measurement.utils import guess
-from polars.exceptions import NoDataError
 from rapidfuzz import fuzz, process
 from rapidfuzz import utils as fuzz_utils
 
@@ -727,7 +727,7 @@ class TimeseriesRequest:
 
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
-        df_interpolated = get_interpolated_df(self, lat, lon, elevation)
+        df_interpolated = self._as_asked(get_interpolated_df(self._for_estimating(), lat, lon, elevation))
         # the elevation belongs in the name: two elevations at one point are two different
         # answers, and sharing an id would merge them wherever the id is what identifies a series
         point = (
@@ -825,7 +825,7 @@ class TimeseriesRequest:
 
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
-        summarized_values = get_summarized_df(self, lat, lon, elevation)
+        summarized_values = self._as_asked(get_summarized_df(self._for_estimating(), lat, lon, elevation))
         # the elevation belongs in the name: two elevations at one point are two different
         # answers, and sharing an id would merge them wherever the id is what identifies a series
         point = (
@@ -880,6 +880,47 @@ class TimeseriesRequest:
             elevation=elevation if elevation is not None else station_elevation,
         )
 
+    def _for_estimating(self) -> TimeseriesRequest:
+        """Give the request `interpolate` and `summarize` read the stations' values through.
+
+        Both read a long frame named by canonical parameter: they pick a parameter's rows by its
+        canonical name and take the `value` column. A caller's `ts_humanize=False` left them
+        matching no row at all, and `ts_shape="wide"` has no `value` column (GH-2331). So the
+        values are read as long and humanized whatever the caller's settings say, on a copy, so
+        that the caller's own request keeps them. `_as_asked` names the result the caller's way.
+        """
+        settings = cast("Settings", self.settings)
+        if settings.ts_shape == "long" and settings.ts_humanize:
+            return self
+        request = copy.copy(self)
+        request.settings = settings.model_copy(update={"ts_shape": "long", "ts_humanize": True})
+        return request
+
+    def _as_asked(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Name an interpolated or summarized frame's parameters as the caller's `ts_humanize` does.
+
+        The frame comes back long whatever `ts_shape` says: one estimate per row, with the distance
+        and the stations it was drawn from beside it, has no wide form.
+        """
+        if cast("Settings", self.settings).ts_humanize:
+            return df
+        name = pl.col("parameter")
+        for parameter in self.parameters:
+            if not isinstance(parameter, ParameterModel):
+                continue
+            name = (
+                pl.when(
+                    pl.col("resolution").eq(parameter.dataset.resolution.name),
+                    pl.col("dataset").eq(parameter.dataset.name),
+                    pl.col("parameter").eq(parameter.name),
+                )
+                .then(pl.lit(parameter.name_original))
+                .otherwise(name)
+            )
+        # sorted again, as the cores sorted by the canonical names: `tmk` is `values`' first under
+        # `ts_humanize=False` and came last here, behind `txk` (`temperature_air_max_2m`)
+        return df.with_columns(name.alias("parameter")).sort(["resolution", "dataset", "parameter", "timestamp"])
+
     def _get_latlon_by_station_id(self, station_id: str) -> tuple[float, float]:
         """Get latlon for a station_id.
 
@@ -895,17 +936,21 @@ class TimeseriesRequest:
         The elevation comes along because naming a point by a station names its altitude too, which
         is otherwise the one thing an interpolation cannot know about its target. It is null for
         the providers that do not report one.
+
+        A station requested at several resolutions has a row in each one's station list, and the
+        lists can disagree: NOAA GHCN's hourly list gives no elevation for hundreds of the stations
+        its daily list does. The coordinates are the first row's, and the elevation the first one
+        known across those rows, so whether it is known does not depend on which resolution the
+        parameters named first.
         """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
-        stations = self.all().df
-        try:
-            lat, lon, elevation = (
-                stations.filter(pl.col("station_id").eq(station_id))
-                .select(pl.col("latitude"), pl.col("longitude"), pl.col("elevation"))
-                .transpose()
-                .to_series()
-            )
-        except NoDataError as e:
+        stations = self.all().df.filter(pl.col("station_id").eq(station_id))
+        if stations.is_empty():
             msg = f"no station found for {station_id}"
-            raise StationNotFoundError(msg) from e
+            raise StationNotFoundError(msg)
+        lat, lon, elevation = stations.select(
+            pl.col("latitude").first(),
+            pl.col("longitude").first(),
+            pl.col("elevation").drop_nulls().first(),
+        ).row(0)
         return lat, lon, elevation
