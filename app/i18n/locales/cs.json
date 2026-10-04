@@ -523,6 +523,8 @@
     "selectStationForCoords": "Vyberte stanici pro souřadnice",
     "selectStation": "Vyberte stanici",
     "loadingStations": "Načítání stanic …",
+    "loadError": "Načtení stanic se nezdařilo.",
+    "noStationsWithPosition": "Pro vybrané parametry nebyla nalezena žádná stanice s polohou.",
     "coords": "Souřadnice interpolace: {coords}"
   },
   "dateRange": {

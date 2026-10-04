@@ -23,6 +23,10 @@ Types of changes:
   ...), Hub'Eau's as the Sandre label of `code_systeme_alti_site` (`IGN 1969`, ...), or the code
   where it has none. Stations differ in it, so compare gauge zeros only where it agrees, and not
   between Hub'Eau stations labelled as on an unknown or a local system (GH-2228)
+- `wetterdienst issues`, `/api/issues` and the MCP `issues` tool list the DWD SWSMOS runs, and
+  `DwdSwsmosRequest.available_issues(settings)` returns them as UTC datetimes. They refused
+  dwd/swsmos as unsupported. One run holds every road station, so the list is the same for any
+  station (GH-2319)
 
 ### Changed
 
@@ -137,6 +141,22 @@ Types of changes:
   InfluxDB 3 Core's) for http and 443 for https. It took only the host and went to https on 443
   whatever the target said, so a local InfluxDB 3 Core could not be reached. Write an https
   server, such as InfluxDB Cloud, as `influxdb3s://` (GH-2279)
+- **Breaking**: `Settings` refuses a `ts_skip_threshold` outside (0, 1], as `--skip_threshold`
+  does. One above 1, as `WD_TS_SKIP_THRESHOLD=5`, skipped every station under `ts_skip_empty`, and
+  `values` said "No data available" with no hint at the setting. Such a variable, or one of 0, now
+  fails every `Settings()`; correct or remove it. `/api/values` answers a `skip_threshold` of 0
+  with a 422, and the MCP `values` tool refuses it; to skip no station, leave `skip_empty` off
+  (GH-2334)
+- **Breaking**: DWD SWSMOS raises `IssueNotFoundError` for an `issue` naming a run DWD does not
+  hold, as MOSMIX and DMO do, so the REST API answers it as the caller's error. It returned no rows,
+  as if the run held nothing for the station. Catch `IssueNotFoundError`, or pick the issue from
+  `DwdSwsmosRequest.available_issues` (GH-2324)
+- A NOAA GHCN station asked for at both `hourly` and `daily` has the daily list's `elevation` on
+  its hourly row as well, where the two lists put it within 5 km of each other, unless the daily
+  list gives 0.0 against an hourly height. Interpolate and summarize, by station id or by point,
+  then use one elevation for such a station whatever the order of the parameters. Otherwise each
+  row keeps its own list's elevation. A request for one resolution is not affected by this
+  (GH-2336, GH-2362)
 
 ### Deprecated
 
@@ -148,6 +168,10 @@ Types of changes:
 
 ### Fixed
 
+- Interpolate and summarize answer under `ts_humanize=False` and `ts_shape="wide"`, however they
+  are set: `Settings`, `WD_*`, the CLI's or REST API's `humanize`. The first returned no data and
+  the second raised `ColumnNotFoundError`. The result is long either way, its parameters named by
+  the source's codes under `ts_humanize=False` (GH-2331)
 - The `/api/values` description, which is the MCP `values` tool's, and the MCP instructions said
   the `values` array is sorted by timestamp. It is grouped by station, then by resolution, dataset
   and parameter, in timestamp order within each group, so a parameter's latest timestamp is the
@@ -353,9 +377,31 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- The REST API's and MCP's `values`, `interpolate` and `summarize` leave a setting the request does
+  not give to the server's `WD_TS_*` variable, such as `WD_TS_SHAPE=wide`, as the CLI does, where
+  those variables had no effect. A client that parses one layout whatever the server sets sends
+  `shape`, `humanize` and `convert_units` with its request (GH-2325)
+- The REST API refuses a bad `unit_targets` or station distance in one line naming its field and
+  quoting what the request gave, where the 400 was pydantic's whole message quoting the dict merged
+  from it and the server's `WD_TS_UNIT_TARGETS` or `WD_TS_GEO_STATION_DISTANCE` entries (GH-2329)
+- A malformed `WD_*` setting is told by the variable that sets it and what is wrong with it, a
+  line each and without pydantic's echo of the value, where it ended in pydantic's traceback. The
+  REST API refuses to start with it, also under `uvicorn` directly unless its lifespan is turned
+  off, and `wetterdienst restapi` exits with uvicorn's status 3; the other CLI commands that read
+  the settings exit with status 1 (GH-2335)
+- Values in the wide shape can be drawn: `ValuesResult.to_plot`, and with it the image formats
+  (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`) of the CLI's `values` and `/api/values`, draw a wide
+  result as they draw the long one. They raised `ColumnNotFoundError` on `parameter` (GH-2330)
+- `wetterdienst alerts` refuses a `--date` that does not parse, or that an offset carries out of a
+  datetime's range, as `Invalid value for --date` with exit status 2; the latter was a traceback.
+  It raises a malformed `WD_*` variable as it is rather than as an invalid option, as `values`
+  does, and a `--target` it cannot write is an error with exit status 1, not a traceback (GH-2322)
 - NOAA GHCN hourly stations listed at 9999.0 m or 8191.0 m, 154 placeholders such as the North
   Sea lightship ELBE NO. 1, have a null `elevation`. `interpolate` and `summarize` given an
   elevation took them for known ones (GH-2336)
+- NOAA GHCN daily stations of the Brazilian network (`BR0...`) listed at 0.0 m, 912 placeholders
+  such as ALFENAS at about 880 m, have a null `elevation`. `interpolate` and `summarize` given an
+  elevation took them for stations at sea level. A 0.0 m outside that network stays (GH-2362)
 
 ## [0.139.0] - 2026-09-29
 

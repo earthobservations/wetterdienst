@@ -647,3 +647,282 @@ def test_swsmos_unparseable_issue_is_an_invalid_time_interval() -> None:
 
     with pytest.raises(InvalidTimeIntervalError, match="Invalid isoformat string: 'foo'"):
         DwdSwsmosRequest(parameters=[("hourly", "data")], issue="foo")
+
+
+# ---------------------------------------------------------------------------
+# Listing the runs, and a run asked for that DWD does not hold -- GH-2319, GH-2324
+# ---------------------------------------------------------------------------
+
+
+def test_swsmos_available_issues_lists_the_timestamped_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The runs are listed as UTC datetimes, oldest first, without the alias or a non-run file (GH-2319)."""
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [
+            f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2",  # noqa: SLF001
+            f"{api._BASE_URL}/{_LATEST_FILE}",  # noqa: SLF001
+            f"{api._BASE_URL}/swsKatalog.csv.bz2",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20260731060000_opendata.csv.bz2.sha256",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20260731060000_opendata.csv.bz2",  # noqa: SLF001
+        ],
+    )
+
+    assert DwdSwsmosRequest.available_issues(Settings()) == [
+        dt.datetime(2026, 7, 31, 6, tzinfo=UTC),
+        dt.datetime(2026, 7, 31, 7, tzinfo=UTC),
+    ]
+
+
+def test_swsmos_available_issues_of_a_listing_naming_no_run_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A listing naming no run is answered with no issues, and a warning (GH-2319)."""
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+
+    assert DwdSwsmosRequest.available_issues(Settings()) == []
+    assert "No SWSMOS run listed within" in caplog.text
+
+
+def test_swsmos_issue_the_server_does_not_hold_is_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An issue naming a run DWD does not hold raises, as MOSMIX and DMO do, rather than answering nothing (GH-2324).
+
+    An empty frame per station could not be told from a run holding nothing for that station.
+    """
+    from wetterdienst.exceptions import IssueNotFoundError  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
+    )
+    stations = _stub_stations()
+    stations.stations.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
+
+    with pytest.raises(IssueNotFoundError, match=r"swsmos_20200101000000_opendata\.csv\.bz2"):
+        stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+            "A006",
+            DwdSwsmosRequest.metadata["hourly"]["data"],
+        )
+
+
+def test_swsmos_issue_not_found_where_the_listing_names_no_run_is_not_the_callers(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A 404 with no run listed is the directory moved, not the issue missing, as MOSMIX tells them apart (GH-2324)."""
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
+    )
+    stations = _stub_stations()
+    stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
+
+    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.is_empty()
+    assert "Failed to fetch SWSMOS run" in caplog.text
+
+
+def test_swsmos_latest_run_gone_since_the_listing_falls_back_to_the_one_before_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """For ``LATEST`` a 404 is a run gone between listing and fetch, and the run before it answers (GH-2324)."""
+    good = _run_file(("A006", "202607310700", "17.9"))
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [
+            f"{api._BASE_URL}/swsmos_20260731060000_opendata.csv.bz2",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2",  # noqa: SLF001
+        ],
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: (
+            File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404)
+            if "2026073107" in kwargs["url"]
+            else File(url=kwargs["url"], content=BytesIO(good), status=200)
+        ),
+    )
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.get_column("value").to_list() == [17.9]
+
+
+@pytest.mark.remote
+def test_swsmos_available_issues_remote() -> None:
+    """DWD lists SWSMOS runs, each of which an ``issue`` can name (GH-2319)."""
+    issues = DwdSwsmosRequest.available_issues(Settings())
+
+    assert issues
+    assert issues == sorted(set(issues))
+    assert all(issue.tzinfo is not None and issue.utcoffset() == dt.timedelta(0) for issue in issues)
+    assert all((issue.minute, issue.second) == (0, 0) for issue in issues)
+
+
+@pytest.mark.parametrize(
+    ("status", "error"),
+    [
+        pytest.param(404, FileNotFoundError("404 Not Found"), id="not-found"),
+        pytest.param(500, OSError("500 Internal Server Error"), id="server-error"),
+    ],
+)
+def test_swsmos_issue_the_listing_names_is_not_refused_when_its_fetch_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    status: int,
+    error: Exception,
+) -> None:
+    """A run the listing names is the server's to serve, so a failed fetch is warned about, not refused (GH-2324).
+
+    The listing alone decides whether a run exists; refusing a listed run would have `wetterdienst issues` offer a run
+    that `values` then calls the caller's mistake.
+    """
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=error, status=status),
+    )
+    stations = _stub_stations()
+    stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
+
+    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.is_empty()
+    assert "Failed to fetch SWSMOS run" in caplog.text
+
+
+def test_swsmos_issue_not_found_is_raised_for_every_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A refused issue leaves no empty run cached behind it, so the next station is refused too (GH-2324)."""
+    from wetterdienst.exceptions import IssueNotFoundError  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
+    )
+    stations = _stub_stations(("A006", "B999"))
+    stations.stations.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    # one values object, as one walk over the stations has: `.values` builds a new one per access
+    values = stations.values
+    dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
+
+    for station_id in ("A006", "B999"):
+        with pytest.raises(IssueNotFoundError):
+            values._collect_station_parameter_or_dataset(station_id, dataset)  # noqa: SLF001
+
+
+def test_swsmos_issue_whose_run_is_served_asks_no_listing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A pinned run that is fetched, or read from the cache, is answered without listing the directory (GH-2324).
+
+    So a listing that fails, or one that has since dropped the run, cannot refuse a run that is there to be read.
+    """
+
+    def listing(*_args: object, **_kwargs: object) -> list[str]:
+        msg = "a served run should not be listed for"
+        raise AssertionError(msg)
+
+    content = _run_file(("A006", "202607310800", "17.9"))
+    monkeypatch.setattr(api, "list_remote_files_fsspec", listing)
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(content), status=200),
+    )
+    stations = _stub_stations()
+    stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
+
+    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.get_column("value").to_list() == [17.9]
+
+
+def test_swsmos_issue_whose_fetch_fails_otherwise_is_not_refused(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Only a 404 says the server lacks the run; a server error is warned about, listed or not (GH-2324)."""
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=OSError("500 Internal Server Error"), status=500),
+    )
+    stations = _stub_stations()
+    stations.stations.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
+
+    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.is_empty()
+    assert "Failed to fetch SWSMOS run" in caplog.text
+
+
+def test_swsmos_latest_run_pruned_since_the_listing_is_not_refused(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """``LATEST`` names no run of its own, so a listed run pruned before its fetch is not the caller's (GH-2324)."""
+    caplog.set_level(logging.WARNING)
+    listings = [
+        [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
+        # by the time the run is fetched, DWD has replaced it
+        [f"{api._BASE_URL}/swsmos_20260731080000_opendata.csv.bz2"],  # noqa: SLF001
+    ]
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: listings.pop(0))
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
+    )
+
+    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.is_empty()
+    assert "Failed to fetch SWSMOS run" in caplog.text

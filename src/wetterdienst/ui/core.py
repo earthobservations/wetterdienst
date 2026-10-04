@@ -29,6 +29,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.settings import SkipThreshold
 from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.ui import read_list
 
@@ -164,29 +165,60 @@ _DateField = Annotated[str, Field(description=_DATE_DESCRIPTION)]
 _DateOptField = Annotated[str | None, Field(description=_DATE_DESCRIPTION)]
 _ShapeField = Annotated[
     Literal["long", "wide"],
-    Field(description="Output shape: 'long' (one row per value) or 'wide' (one column per parameter)."),
+    Field(
+        description="Output shape: 'long' (one row per value) or 'wide' (one column per parameter). "
+        "Default: the server's WD_TS_SHAPE if set, else long."
+    ),
 ]
-_HumanizeField = Annotated[bool, Field(description="Use human-readable parameter names instead of raw dataset codes.")]
+_HumanizeField = Annotated[
+    bool,
+    Field(
+        description="Use human-readable parameter names instead of raw dataset codes. "
+        "Default: the server's WD_TS_HUMANIZE if set, else true."
+    ),
+]
 _ConvertUnitsField = Annotated[
     bool,
-    Field(description="Convert values to the unit targets: the defaults, overridden per quantity by unit_targets."),
+    Field(
+        description="Convert values to the unit targets: the defaults, overridden per quantity by unit_targets. "
+        "Default: the server's WD_TS_CONVERT_UNITS if set, else true."
+    ),
 ]
 _UnitTargetsField = Annotated[
     dict[str, str] | None,
     Field(
-        description="Custom unit targets as a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}."
+        description="Custom unit targets as a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}. "
+        "A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if set."
     ),
 ]
-_SkipEmptyField = Annotated[bool, Field(description="Skip stations whose coverage falls below `skip_threshold`.")]
+_SkipEmptyField = Annotated[
+    bool,
+    Field(
+        description="Skip stations whose coverage falls below `skip_threshold`. "
+        "Default: the server's WD_TS_SKIP_EMPTY if set, else false."
+    ),
+]
 _SkipThresholdField = Annotated[
-    float,
-    Field(ge=0, le=1, description="Coverage fraction below which a station is skipped (requires `skip_empty`)."),
+    SkipThreshold,
+    Field(
+        description="Coverage fraction below which a station is skipped (requires `skip_empty`). "
+        "Default: the server's WD_TS_SKIP_THRESHOLD if set, else 0.95.",
+    ),
 ]
 _SkipCriteriaField = Annotated[
     Literal["min", "mean", "max"],
-    Field(description="Aggregation over the requested parameters' coverage: min, mean or max."),
+    Field(
+        description="Aggregation over the requested parameters' coverage: min, mean or max. "
+        "Default: the server's WD_TS_SKIP_CRITERIA if set, else min."
+    ),
 ]
-_DropNullsField = Annotated[bool, Field(description="Drop rows with null values from the output.")]
+_DropNullsField = Annotated[
+    bool,
+    Field(
+        description="Drop rows with null values from the output. "
+        "Default: the server's WD_TS_DROP_NULLS if set, else true."
+    ),
+]
 _SectionsField = Annotated[
     set[Literal["name", "parameter", "device", "geography", "missing_data"]] | None,
     Field(
@@ -198,14 +230,16 @@ _InterpolationStationDistanceField = Annotated[
     dict[str, Annotated[float, Field(ge=0.0)]] | None,
     Field(
         description="Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter "
-        "name, overriding the default radius of that parameter.",
+        "name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's "
+        "WD_TS_GEO_STATION_DISTANCE entry, if set.",
     ),
 ]
 _SummaryStationDistanceField = Annotated[
     dict[str, Annotated[float, Field(ge=0.0)]] | None,
     Field(
         description="Per-parameter maximum summary-station distance in km, keyed by canonical parameter "
-        "name, overriding the default radius of that parameter.",
+        "name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's "
+        "WD_TS_GEO_STATION_DISTANCE entry, if set.",
     ),
 ]
 _StationDistanceHomogeneousField = Annotated[
@@ -213,7 +247,7 @@ _StationDistanceHomogeneousField = Annotated[
     Field(
         ge=0,
         description="Maximum distance (km) to a station for a parameter that varies slowly across a region, "
-        "such as air temperature. Defaults to the configured radius of 40 km.",
+        "such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40.",
     ),
 ]
 _StationDistanceHeterogeneousField = Annotated[
@@ -222,13 +256,16 @@ _StationDistanceHeterogeneousField = Annotated[
         ge=0,
         description="The same for a parameter that decorrelates faster, such as precipitation, at hourly "
         "resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute "
-        "resolutions, times 2 from daily upwards. Defaults to the configured radius of 20 km.",
+        "resolutions, times 2 from daily upwards. "
+        "Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20.",
     ),
 ]
 _UseNearbyStationDistanceField = Annotated[
     float,
     Field(
-        ge=0, description="Use a nearby station's values directly when it is within this distance (km) of the target."
+        ge=0,
+        description="Use a nearby station's values directly when it is within this distance (km) of the target. "
+        "Default: the server's WD_TS_GEO_USE_NEARBY_STATION_DISTANCE if set, else 1.",
     ),
 ]
 # what the CLI, the REST API and the MCP tool tell a caller who gives `use_nearby_station_distance`
@@ -251,26 +288,20 @@ _SummaryUseNearbyStationDistanceField = Annotated[
 ]
 _MinGainOfValuePairsField = Annotated[
     float,
-    Field(ge=0, description="Minimum relative gain in value pairs required to add another interpolation station."),
+    Field(
+        ge=0,
+        description="Minimum relative gain in value pairs required to add another interpolation station. "
+        "Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1.",
+    ),
 ]
 _NumAdditionalStationsField = Annotated[
     int,
-    Field(ge=0, description="Number of additional nearby stations to consider for interpolation."),
+    Field(
+        ge=0,
+        description="Number of additional nearby stations to consider for interpolation. "
+        "Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
+    ),
 ]
-
-
-def station_distance_radii(homogeneous: float | None, heterogeneous: float | None) -> dict[str, Any]:
-    """Collect the radii that were given, as keyword arguments for `Settings`.
-
-    A radius the request did not give is left out rather than passed as the library default, so that
-    a server configured through `WD_TS_GEO_STATION_DISTANCE_*` keeps its own.
-    """
-    radii: dict[str, Any] = {}
-    if homogeneous is not None:
-        radii["ts_geo_station_distance_homogeneous"] = homogeneous
-    if heterogeneous is not None:
-        radii["ts_geo_station_distance_heterogeneous"] = heterogeneous
-    return radii
 
 
 def _read_station_ids(value: str | list | None) -> list[str] | None:
@@ -953,7 +984,8 @@ def get_issues(
 ) -> list[str]:
     """Return available issue datetimes as UTC ISO strings for provider/network/station.
 
-    Supported: DWD MOSMIX (MOSMIX_L single-station) and DWD DMO (ICON single-station).
+    Supported: DWD MOSMIX (MOSMIX_L single-station), DWD DMO (ICON single-station) and DWD SWSMOS.
+    One SWSMOS run file holds every road station, so its runs are the same whatever the station.
 
     The DMO product and lead time are passed through rather than left to chance: a run exists for a
     product, and this listed one product's directory whatever the caller went on to ask for, so it
@@ -962,14 +994,16 @@ def get_issues(
     """
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
 
     dmo_only = {"dataset": request.dataset, "lead_time": request.lead_time}
-    if issubclass(api, DwdMosmixRequest):
+    given = sorted(name for name, value in dmo_only.items() if value is not None)
+    if given and issubclass(api, (DwdMosmixRequest, DwdSwsmosRequest)):
         # named rather than ignored: silently answering a different question than the one asked is
         # the fault this whole path is being fixed for
-        if given := sorted(name for name, value in dmo_only.items() if value is not None):
-            msg = f"{', '.join(given)} applies to DWD DMO only (got {api.__name__})"
-            raise InvalidEnumerationError(msg)
+        msg = f"{', '.join(given)} applies to DWD DMO only (got {api.__name__})"
+        raise InvalidEnumerationError(msg)
+    if issubclass(api, DwdMosmixRequest):
         issues = DwdMosmixRequest.available_issues(request.station, settings)
     elif issubclass(api, DwdDmoRequest):
         issues = DwdDmoRequest.available_issues(
@@ -977,8 +1011,10 @@ def get_issues(
             settings,
             **{name: value for name, value in dmo_only.items() if value is not None},
         )
+    elif issubclass(api, DwdSwsmosRequest):
+        issues = DwdSwsmosRequest.available_issues(settings)
     else:
-        msg = f"Issue listing is only supported for DWD MOSMIX and DMO (got {api.__name__})"
+        msg = f"Issue listing is only supported for DWD MOSMIX, DMO and SWSMOS (got {api.__name__})"
         raise NotImplementedError(msg)
 
     return [issue.isoformat() for issue in issues]

@@ -13,7 +13,7 @@ from multidict import CIMultiDict
 from pydantic import SecretStr, ValidationError
 
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.settings import _STATION_DISTANCE_RESOLUTION_FACTORS, Settings, reveal
+from wetterdienst.settings import _STATION_DISTANCE_RESOLUTION_FACTORS, Settings, check_settings, reveal
 
 WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
 WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
@@ -715,3 +715,114 @@ def test_settings_unit_targets_build_no_converter_when_empty(monkeypatch: pytest
     with mock.patch("wetterdienst.settings.UnitConverter") as converter:
         Settings()
     converter.assert_not_called()
+
+
+@pytest.fixture
+def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings."""
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("env", "lines"),
+    [
+        pytest.param(
+            {"WD_CACHE_DISABLE": "secret-ish"},
+            ["WD_CACHE_DISABLE is invalid: Input should be a valid boolean, unable to interpret input"],
+            id="top-level",
+        ),
+        pytest.param(
+            {"WD_AUTH__CEDA": "secret-ish"},
+            ["WD_AUTH__CEDA is invalid: ceda must be given as 'username:password'"],
+            id="nested",
+        ),
+        pytest.param(
+            {"WD_TS_GEO_STATION_DISTANCE": '{"precipitation_amount": "secret-ish"}'},
+            [
+                (
+                    "WD_TS_GEO_STATION_DISTANCE__PRECIPITATION_AMOUNT is invalid: "
+                    "Input should be a valid number, unable to parse string as a number"
+                )
+            ],
+            id="within-a-dict",
+        ),
+        pytest.param(
+            {"WD_CACHE_DISABLE": "secret-ish", "WD_TS_SHAPE": "secret-ish"},
+            [
+                "WD_CACHE_DISABLE is invalid: Input should be a valid boolean, unable to interpret input",
+                "WD_TS_SHAPE is invalid: Input should be 'wide' or 'long'",
+            ],
+            id="several",
+        ),
+        pytest.param(
+            {"WD_TS_UNIT_TARGETS": "secret-ish"},
+            ["WD_TS_UNIT_TARGETS is invalid: not valid JSON"],
+            id="not-json",
+        ),
+    ],
+)
+def test_check_settings_names_the_variable_without_its_value(
+    monkeypatch: pytest.MonkeyPatch,
+    env: dict[str, str],
+    lines: list[str],
+) -> None:
+    """A malformed `WD_*` setting is told by its variable, a line each, and never by its value (GH-2335)."""
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    assert check_settings() == lines
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_check_settings_reads_dotenv(tmp_path: Path) -> None:
+    """The check reads `.env` as the settings do, and finds nothing wrong with valid ones (GH-2335)."""
+    assert check_settings() == []
+    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=secret-ish\n")
+    assert check_settings() == [
+        "WD_CACHE_DISABLE is invalid: Input should be a valid boolean, unable to interpret input"
+    ]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_check_settings_names_a_dotenv_key_that_is_no_setting_by_its_whole_key(tmp_path: Path) -> None:
+    """A `.env` key the settings refuse as no setting of theirs is named by the whole key (GH-2335).
+
+    Its location already carries the prefix, which was put in front of it a second time.
+    """
+    (tmp_path / ".env").write_text("WD_CACHE_DIABLE=secret-ish\nOTHER_SECRET=secret-ish\n")
+    assert check_settings() == [
+        "WD_CACHE_DIABLE in .env is not a wetterdienst setting",
+        "OTHER_SECRET in .env is not a wetterdienst setting",
+    ]
+
+
+@pytest.mark.parametrize("threshold", [0, -0.5, 1.01, 5])
+def test_settings_skip_threshold_refuses_a_value_outside_zero_to_one(
+    monkeypatch: pytest.MonkeyPatch,
+    threshold: float,
+) -> None:
+    """A skip threshold outside (0, 1] is refused, as the CLI option refuses it (GH-2334).
+
+    It used to be taken, and one above 1 skipped every station with no hint at the setting.
+    """
+    monkeypatch.delenv("WD_TS_SKIP_THRESHOLD", raising=False)
+    with pytest.raises(ValidationError, match="ts_skip_threshold"):
+        Settings(ts_skip_threshold=threshold)
+
+
+def test_settings_skip_threshold_refuses_an_environment_value_outside_zero_to_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`WD_TS_SKIP_THRESHOLD` is held to (0, 1] as the argument is (GH-2334)."""
+    monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "5")
+    with pytest.raises(ValidationError, match="ts_skip_threshold"):
+        Settings()
+
+
+def test_settings_skip_threshold_takes_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The upper bound is in the range: 1 asks for every reading (GH-2334)."""
+    monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "1")
+    assert Settings().ts_skip_threshold == 1

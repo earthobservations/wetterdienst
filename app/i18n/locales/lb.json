@@ -523,6 +523,8 @@
     "selectStationForCoords": "Wielt eng Statioun fir d'Koordinaten",
     "selectStation": "Wielt eng Statioun",
     "loadingStations": "Statioune ginn gelueden …",
+    "loadError": "Konnt d'Statioune net lueden.",
+    "noStationsWithPosition": "Keng Statioun mat Positioun fonnt fir déi ausgewielte Parameteren.",
     "coords": "Interpolatiounskoordinaten: {coords}"
   },
   "dateRange": {

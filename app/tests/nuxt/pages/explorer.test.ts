@@ -1,3 +1,4 @@
+import type { H3Event } from 'h3'
 import type { ProviderNetworkCoverageResponse } from '#shared/types/api'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery } from 'h3'
@@ -26,7 +27,7 @@ const mounted: { unmount: () => void }[] = []
 const endpoints: (() => void)[] = []
 
 // Mount the page with a station and a parameter selected, ready to fetch; `values` answers /api/values
-async function mountWithSelection(values: () => unknown) {
+async function mountWithSelection(values: (event: H3Event) => unknown) {
   endpoints.push(registerEndpoint('/api/coverage', (event) => {
     const q = getQuery(event)
     if (q.provider)
@@ -543,5 +544,37 @@ describe('explorer nearby station distance', () => {
     await wrapper.findAll('button').find(b => b.text() === 'Settings')!.trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('Interpolation Options'))
     expect(wrapper.text().includes('Nearby station distance')).toBe(offered)
+  })
+})
+
+describe('explorer Page skip threshold', () => {
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+    useToast().clear()
+  })
+
+  it('does not go down to 0, which the backend refuses', async () => {
+    // GH-2334: /api/values answers a skip_threshold of 0 with a 422, as the CLI and the setting
+    // refuse it; the lowest the input takes is the first step above 0
+    const sent: unknown[] = []
+    const { wrapper, vm } = await mountWithSelection((event) => {
+      sent.push(getQuery(event).skip_threshold)
+      return { values: [VALUE_ROW] }
+    })
+    vm.dataSettings.skipEmpty = true
+    await wrapper.findAll('button').find(b => b.text() === 'Settings')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Threshold'))
+
+    // the threshold's is the only number input the settings show in station mode
+    expect(wrapper.findAll('input[inputmode="decimal"]')).toHaveLength(1)
+    const input = wrapper.find('input[inputmode="decimal"]')
+    await input.setValue('0')
+    await input.trigger('blur')
+    await wrapper.vm.$nextTick()
+    expect(vm.dataSettings.skipThreshold).toBe(0.05)
+
+    await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(sent).toEqual(['0.05']))
   })
 })

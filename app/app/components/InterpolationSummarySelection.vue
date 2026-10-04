@@ -39,7 +39,7 @@ const stationsQuery = computed(() => ({
   parameters: `${props.parameterSelection.resolution}/${props.parameterSelection.dataset}`,
   all: 'true',
 }))
-const { data: stationsData, pending: stationsPending, refresh: refreshStations, clear: clearStations } = useFetch<StationsResponse>(
+const { data: stationsData, pending: stationsPending, error: stationsError, status: stationsStatus, refresh: refreshStations, clear: clearStations } = useFetch<StationsResponse>(
   '/api/stations',
   {
     query: stationsQuery,
@@ -62,6 +62,11 @@ const stationItems = computed(() =>
     value: station.station_id,
   })),
 )
+
+// A list that answered with no station left to offer -- none at all, or none with a position --
+// would leave the select empty with nothing said. Only once it has answered: not while it is out,
+// and not when it failed, which the Retry notice says.
+const noStationToOffer = computed(() => stationsStatus.value === 'success' && !stationItems.value.length)
 
 const selectedStationItem = computed({
   get: () => selectedStation.value
@@ -157,7 +162,9 @@ const displayCoords = computed(() => {
     </div>
 
     <div v-else>
-      <UFormField :label="t('interpolation.selectStationForCoords')">
+      <!-- the field's help, which describes the select as well, says why a list that answered has
+           nothing in it -->
+      <UFormField :label="t('interpolation.selectStationForCoords')" :help="noStationToOffer ? t('interpolation.noStationsWithPosition') : undefined">
         <USelectMenu
           v-if="!stationsPending"
           v-model="selectedStationItem"
@@ -170,6 +177,18 @@ const displayCoords = computed(() => {
         />
         <div v-else class="text-sm text-gray-500">
           {{ t('interpolation.loadingStations') }}
+        </div>
+        <!-- a failed list leaves the select empty, and nothing asks for it again until the selection
+             wants another list. useFetch keeps the error until the next answer: the notice is
+             mounted anew once each answer has failed, so a Retry that fails too is announced again;
+             the button stays while Retry's request is out, and keeps its focus. Pressed again
+             meanwhile, it waits for that request, where a plain refresh cancels it and asks for
+             the whole list anew -->
+        <div v-if="stationsError" class="mt-2 flex flex-wrap items-center gap-3">
+          <p v-if="!stationsPending" role="alert" class="text-sm text-error">
+            {{ t('interpolation.loadError') }}
+          </p>
+          <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="refreshStations({ dedupe: 'defer' })" />
         </div>
       </UFormField>
     </div>

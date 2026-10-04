@@ -238,3 +238,162 @@ describe('the interpolation\'s station list on a change of dataset', () => {
     await vi.waitFor(() => expect(vm.allStations).toEqual([]))
   })
 })
+
+describe('the interpolation\'s station picker whose list could not be fetched', () => {
+  it('says the stations could not be loaded, and asks for them again on Retry', async () => {
+    // the select was left empty with nothing said, and nothing asked again until the selection
+    // wanted another list. Two failures, then the stations, held on a gate so the picker can be
+    // seen while Retry's request is out
+    let asked = 0
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    onTestFinished(() => release())
+    onTestFinished(registerEndpoint('/api/stations', async (event) => {
+      asked++
+      if (asked <= 2) {
+        setResponseStatus(event, 500)
+        return { detail: 'Upstream failed' }
+      }
+      await gate
+      return { stations: [feldberg] }
+    }))
+    // a dataset of its own, so the list is not one the tests above leave mounted
+    const wrapper = await mountSuspended(InterpolationSummarySelection, {
+      props: { parameterSelection: { ...parameterSelection, dataset: 'solar' }, modelValue: { source: 'station' } },
+      attachTo: document.body,
+    })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    const alert = () => wrapper.find('[role="alert"]')
+    const retry = () => wrapper.findAll('button').find(b => b.text() === 'Retry')
+
+    await vi.waitFor(() => expect(alert().exists() && alert().text()).toBe('Failed to load stations.'))
+    expect(asked).toBe(1)
+    const firstAlert = alert().element
+
+    // a Retry that fails too is announced again, by a notice mounted anew
+    ;(retry()!.element as HTMLElement).focus()
+    await retry()!.trigger('click')
+    await vi.waitFor(() => {
+      expect(asked).toBe(2)
+      expect(vm.stationsPending).toBe(false)
+      expect(alert().exists()).toBe(true)
+    })
+    expect(alert().element).not.toBe(firstAlert)
+
+    // useFetch keeps the error until the next answer: while that is out, the picker says it is
+    // loading, not that loading failed, and the Retry pressed keeps its focus
+    const button = retry()!.element as HTMLElement
+    button.focus()
+    await retry()!.trigger('click')
+    await vi.waitFor(() => {
+      expect(asked).toBe(3)
+      expect(wrapper.text()).toContain('Loading stations')
+      expect(alert().exists()).toBe(false)
+    })
+    expect(retry()?.element).toBe(button)
+    expect(document.activeElement).toBe(button)
+    // pressed again meanwhile, it leaves the request out alone rather than asking anew
+    await retry()!.trigger('click')
+
+    release()
+    await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
+    expect(asked).toBe(3)
+    expect(alert().exists()).toBe(false)
+    expect(retry()).toBeUndefined()
+  })
+})
+
+describe('the interpolation\'s station picker with no station to offer', () => {
+  const notice = 'No station with a position found for the selected parameters.'
+  // dwd/derived climate_correction_factor's stations are postcodes, sent with a null position
+  const postcode = { station_id: '01067', name: null, region: null, latitude: null, longitude: null, elevation: null }
+
+  /** Mount the picker on a dataset of its own, so its list is not one another test left mounted. */
+  async function picker(dataset: string) {
+    const wrapper = await mountSuspended(InterpolationSummarySelection, {
+      props: { parameterSelection: { ...parameterSelection, dataset }, modelValue: { source: 'station' } },
+    })
+    onTestFinished(() => wrapper.unmount())
+    return { wrapper, vm: wrapper.vm as any }
+  }
+
+  it('says so when no station of the list has a position', async () => {
+    // the select opened empty with nothing said why
+    onTestFinished(registerEndpoint('/api/stations', () => ({
+      stations: [postcode, { ...postcode, station_id: '01069' }],
+    })))
+    const { wrapper, vm } = await picker('climate_correction_factor')
+
+    await vi.waitFor(() => expect(vm.allStations).toHaveLength(2))
+    expect(vm.stationItems).toEqual([])
+    await vi.waitFor(() => expect(wrapper.text()).toContain(notice))
+
+    // and the select is described by it, so it is heard on reaching the select
+    const help = wrapper.find('[data-slot="help"]')
+    expect(help.text()).toBe(notice)
+    // the select is the control its field's label names
+    const label = wrapper.findAll('label').find(l => l.text().includes('Select station for coordinates'))!
+    const select = wrapper.find(`[id="${label.attributes('for')}"]`)
+    expect(select.attributes('aria-describedby')!.split(' ')).toContain(help.attributes('id'))
+  })
+
+  it('says so when the list is empty', async () => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [] })))
+    const { wrapper } = await picker('urban_temperature_air')
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain(notice))
+  })
+
+  it('says nothing of it when a station is on offer', async () => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [postcode, feldberg] })))
+    const { wrapper, vm } = await picker('urban_pressure')
+
+    await vi.waitFor(() => expect(vm.stationItems).toHaveLength(1))
+    expect(wrapper.text()).not.toContain(notice)
+  })
+
+  it('says nothing of it while the list is out', async () => {
+    // held on a gate, so the picker can be seen before the list answers
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    onTestFinished(() => release())
+    onTestFinished(registerEndpoint('/api/stations', async () => {
+      await gate
+      return { stations: [] }
+    }))
+    const { wrapper } = await picker('urban_wind')
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Loading stations'))
+    expect(wrapper.text()).not.toContain(notice)
+
+    release()
+    await vi.waitFor(() => expect(wrapper.text()).toContain(notice))
+  })
+
+  it('says the list failed rather than that it is empty, until a Retry answers', async () => {
+    // a failed list is empty too, and the Retry notice says what is wrong with it
+    let asked = 0
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      asked++
+      if (asked === 1) {
+        setResponseStatus(event, 500)
+        return { detail: 'Upstream failed' }
+      }
+      return { stations: [] }
+    }))
+    const { wrapper } = await picker('urban_precipitation')
+    const alert = () => wrapper.find('[role="alert"]')
+
+    await vi.waitFor(() => expect(alert().exists() && alert().text()).toBe('Failed to load stations.'))
+    expect(wrapper.text()).not.toContain(notice)
+
+    await wrapper.findAll('button').find(b => b.text() === 'Retry')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain(notice))
+    expect(alert().exists()).toBe(false)
+  })
+})

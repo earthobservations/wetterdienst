@@ -10,6 +10,7 @@ import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
 import { describeFetchError } from '~/utils/api-error'
 import { formatDate } from '~/utils/format'
 import { timestampDate } from '~/utils/timestamp'
+import { pinnedUnitTargets } from '~/utils/unit-targets'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
 
 const props = defineProps<{
@@ -152,14 +153,9 @@ const apiQuery = computed(() => {
   if (props.leadTime)
     base.lead_time = props.leadTime
 
-  // Add unit targets if provided (filter out empty values)
-  const unitTargets = Object.entries(props.settings.unitTargets)
-    .filter(([_, value]) => value != null && true && String(value).trim() !== '')
-    .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
-
-  if (Object.keys(unitTargets).length > 0) {
-    base.unit_targets = JSON.stringify(unitTargets)
-  }
+  // every unit type the explorer lists, the user's choice or its listed default, so a type left at
+  // "Default (...)" does not come in the server's `WD_TS_UNIT_TARGETS` unit instead
+  base.unit_targets = JSON.stringify(pinnedUnitTargets(props.settings.unitTargets))
 
   // Add date range if provided
   if (ss.dateRange?.startDate) {

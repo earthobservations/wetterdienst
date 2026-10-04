@@ -1280,6 +1280,110 @@ def test_interpolation_leaves_out_a_station_beyond_what_utm_covers(
     assert row["distance_mean"] == 5.5
 
 
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"ts_humanize": False},
+        {"ts_shape": "wide"},
+        {"ts_humanize": False, "ts_shape": "wide"},
+    ],
+)
+def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_settings_ask_for(
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    settings: dict,
+) -> None:
+    """`ts_humanize=False` and `ts_shape="wide"` still give an estimate, named as the caller asked.
+
+    Both picked a parameter's rows by its canonical name and read a `value` column, so with
+    `ts_humanize=False` -- the rows named `tmk` -- nothing matched and the result came back empty,
+    and a wide frame, which has no `value` column, raised `ColumnNotFoundError` (GH-2331). The
+    stations and their readings are stubbed below `query()`, so the naming and shaping it applies
+    still run and nothing leaves the machine.
+    """
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    latitude, longitude = 50.0, 8.9
+    offsets = {"00001": (-0.03, -0.03), "00002": (-0.03, 0.03), "00003": (0.03, 0.03), "00004": (0.03, -0.03)}
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "daily",
+                "dataset": "climate_summary",
+                "station_id": station_id,
+                "latitude": latitude + d_lat,
+                "longitude": longitude + d_lon,
+                "elevation": 100.0,
+                "distance": 4.0 + index / 10,
+            }
+            for index, (station_id, (d_lat, d_lon)) in enumerate(offsets.items())
+        ],
+    )
+    timestamps = [dt.datetime(2021, 2, day, tzinfo=ZoneInfo("UTC")) for day in (1, 2, 3)]
+
+    def _all(self: DwdObservationRequest) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+
+    def _filter_by_distance(
+        self: DwdObservationRequest,
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,  # noqa: ARG001
+    ) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+
+    def _collect_station_data(
+        self: DwdObservationValues,  # noqa: ARG001
+        station_id: str,
+        available_datasets: list,  # noqa: ARG001
+    ) -> pl.DataFrame:
+        # named by the source, as `query()` has them before it humanizes and widens the frame
+        return pl.DataFrame(
+            [
+                {
+                    "station_id": station_id,
+                    "resolution": "daily",
+                    "dataset": "climate_summary",
+                    "parameter": parameter,
+                    "timestamp": timestamp,
+                    "value": value,
+                    "quality": 10.0,
+                }
+                for parameter, value in (("tmk", 10.0), ("txk", 12.0))
+                for timestamp in timestamps
+            ],
+        )
+
+    monkeypatch.setattr(DwdObservationRequest, "all", _all)
+    monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _filter_by_distance)
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_data", _collect_station_data)
+    request = DwdObservationRequest(
+        parameters=[
+            ("daily", "climate_summary", "temperature_air_mean_2m"),
+            ("daily", "climate_summary", "temperature_air_max_2m"),
+        ],
+        start_date=timestamps[0],
+        end_date=timestamps[-1],
+        settings=Settings(**settings),
+    )
+    df = getattr(request, method)(latlon=(latitude, longitude)).df
+    humanize = settings.get("ts_humanize", True)
+    # sorted by the names the frame carries, as `values` sorts them: `txk` follows `tmk`, while
+    # `temperature_air_max_2m` comes before `temperature_air_mean_2m`
+    expected = (
+        [("temperature_air_max_2m", 12.0), ("temperature_air_mean_2m", 10.0)]
+        if humanize
+        else [("tmk", 10.0), ("txk", 12.0)]
+    )
+    assert df.get_column("parameter").to_list() == [name for name, _ in expected for _ in timestamps]
+    assert df.get_column("timestamp").to_list() == timestamps * 2
+    assert df.get_column("value").to_list() == [value for _, value in expected for _ in timestamps]
+    # read on a copy: the caller's request keeps the settings it was given
+    assert request.settings.ts_humanize is humanize
+    assert request.settings.ts_shape == settings.get("ts_shape", "long")
+
+
 @pytest.mark.parametrize("hourly_first", [True, False], ids=["hourly_first", "daily_first"])
 @pytest.mark.parametrize("method", ["interpolate", "summarize"])
 def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station_knows(
