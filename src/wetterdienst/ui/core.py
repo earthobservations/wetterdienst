@@ -93,7 +93,7 @@ _LeadTimeField = Annotated[
 ]
 _IssueField = Annotated[
     str | None,
-    Field(description="Model-run issue time for DWD MOSMIX/DMO (ISO 8601); defaults to the latest run."),
+    Field(description="Model-run issue time for DWD MOSMIX/DMO/SWSMOS (ISO 8601); defaults to the latest run."),
 ]
 _AllField = Annotated[bool | None, Field(description="Return all stations, ignoring the station/name/geo filters.")]
 _StationIdsField = Annotated[
