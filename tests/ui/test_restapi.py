@@ -4018,6 +4018,20 @@ def test_values_geojson_items_are_the_ones_the_description_states(stubbed_values
         ]
 
 
+@pytest.mark.parametrize("endpoint", ["/api/stations", "/api/values"])
+def test_swsmos_issue_reaches_the_request(client: TestClient, endpoint: str) -> None:
+    """The issue asked of dwd/swsmos is read, so one that is no date is the caller's 400 (GH-2299).
+
+    It was dropped on the way to the request, which then read the latest run whatever was asked.
+    """
+    response = client.get(
+        endpoint,
+        params={"provider": "dwd", "network": "swsmos", "parameters": "hourly/data", "station": "A006", "issue": "foo"},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid isoformat string: 'foo'"
+
+
 @pytest.mark.parametrize(
     ("endpoint", "params"),
     [
