@@ -141,17 +141,17 @@ def _fake_ghcn_download_file(url: str, **_kwargs: object) -> File:
 def test_noaa_ghcn_hourly_stations_missing_elevation(
     monkeypatch: pytest.MonkeyPatch, default_settings: Settings
 ) -> None:
-    """A station that `ghcnh-station-list.csv` lists at -999.9, its missing value, has a null elevation (GH-2260).
+    """A station that `ghcnh-station-list.csv` lists at -999.9 or -999.0 has a null elevation (GH-2260, GH-2352).
 
-    The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it. -999.0 is kept, as NOAA's
-    GHCNh documentation names only -999.9 as missing; the undocumented 9999.0 and 8191.0 are nulled
-    since GH-2336, and whether -999.0 should be too is GH-2352.
+    The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it. NOAA's GHCNh
+    documentation names only -999.9 as missing, but -999.0, on BOGUS ALGERIAN and 92 other rows, is
+    a placeholder too.
     """
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file)
     df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df
     assert df.select("station_id", "elevation").rows() == [
         ("ACM00078861", 10.0),
-        ("AGM00060350", -999.0),
+        ("AGM00060350", None),
         ("AOM00066116", None),
     ]
 
@@ -166,7 +166,7 @@ def test_noaa_ghcn_stations_hourly_and_daily(monkeypatch: pytest.MonkeyPatch, de
     utc = ZoneInfo("UTC")
     assert df.select("resolution", "station_id", "start_date", "end_date", "elevation").rows() == [
         ("hourly", "ACM00078861", None, None, 10.0),
-        ("hourly", "AGM00060350", None, None, -999.0),
+        ("hourly", "AGM00060350", None, None, None),
         ("hourly", "AOM00066116", None, None, None),
         ("daily", "ACW00011604", dt.datetime(1949, 1, 1, tzinfo=utc), dt.datetime(1949, 12, 31, tzinfo=utc), 10.1),
     ]
