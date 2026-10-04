@@ -318,6 +318,9 @@ class Settings(BaseSettings):
         A unit the converter has no such name for, or holds back as one a source publishes in, used
         to pass here and be refused only once a values request had fetched its stations (GH-2306).
         """
+        if not values:
+            # the default, which every `Settings()` is built with, so no converter is built for it
+            return values
         unknown = sorted(values.keys() - _UNIT_CONVERTER_TARGETS)
         if unknown:
             msg = (

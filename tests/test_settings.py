@@ -693,3 +693,11 @@ def test_settings_unit_targets_name_only_the_unknown_quantities(monkeypatch: pyt
     assert "Invalid unit targets: quantities not supported: abc, foo. Supported quantities are: angle, " in message
     assert "temperature" in message  # in the sorted list of supported ones
     assert "'temperature'" not in message
+
+
+def test_settings_unit_targets_build_no_converter_when_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The empty default, which every `Settings()` has, is not resolved by a converter (GH-2306)."""
+    monkeypatch.delenv("WD_TS_UNIT_TARGETS", raising=False)
+    with mock.patch("wetterdienst.settings.UnitConverter") as converter:
+        Settings()
+    converter.assert_not_called()
