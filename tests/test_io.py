@@ -3255,3 +3255,117 @@ def test_to_target_gives_the_influxdb1_client_a_valid_base_url_for_an_ipv6_host(
     assert client._baseurl == baseurl  # noqa: SLF001
     # `requests` refused the unbracketed `http://::1:8086` as an InvalidURL before sending anything
     assert requests.Request("GET", f"{baseurl}/ping").prepare().url == f"{baseurl}/ping"
+
+
+def _plot_of(result: ValuesResult) -> list[tuple]:
+    """Read what a values plot draws: each facet's label, and each trace's points under it."""
+    figure = result.to_plot()
+
+    def label(axis: str) -> str:
+        # a facet's label sits at the middle of its y axis, in paper coordinates
+        bottom, top = figure.layout[axis.replace("y", "yaxis")].domain
+        (text,) = (a.text for a in figure.layout.annotations if math.isclose(a.y, (bottom + top) / 2))
+        return text
+
+    return sorted((label(trace.yaxis), trace.name, tuple(trace.x), tuple(trace.y)) for trace in figure.data)
+
+
+@pytest.mark.parametrize(
+    ("settings_kwargs", "parameters", "names"),
+    [
+        pytest.param(
+            {},
+            [
+                "daily/kl/temperature_air_mean_2m",
+                "daily/more_precip/precipitation_amount",
+                "hourly/temperature_air/temperature_air_mean_2m",
+            ],
+            ["temperature_air_mean_2m", "precipitation_amount", "temperature_air_mean_2m"],
+            id="two-datasets-merged-in-one-resolution",
+        ),
+        pytest.param(
+            {"ts_humanize": False},
+            ["daily/kl/temperature_air_mean_2m", "hourly/temperature_air/temperature_air_mean_2m"],
+            ["tmk", "tt_tu"],
+            id="original-names-two-resolutions",
+        ),
+        pytest.param(
+            {},
+            ["daily/kl/temperature_air_mean_2m", "daily/kl/precipitation_amount"],
+            ["temperature_air_mean_2m", "precipitation_amount"],
+            id="one-dataset",
+        ),
+        pytest.param(
+            {"ts_humanize": False},
+            ["hourly/wind/wind_speed", "hourly/wind_extreme/wind_gust_max"],
+            ["f", "fx_911"],
+            id="one-dataset-name-beginning-another",
+        ),
+    ],
+)
+def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
+    settings_kwargs: dict,
+    parameters: list[str],
+    names: list[str],
+) -> None:
+    """A wide result plots as the long one does, rather than failing on the `parameter` column.
+
+    The plot read the parameter name off a `parameter` column, which the wide shape has none of,
+    so every image format of a wide result raised `ColumnNotFoundError` (GH-2330).
+    """
+    pytest.importorskip("plotly")
+    request = DwdObservationRequest(parameters=parameters, settings=Settings(**settings_kwargs))
+    stations = StationsResult(
+        stations=request,
+        df=pl.DataFrame(),
+        df_all=pl.DataFrame(),
+        stations_filter=StationsFilter.ALL,
+    )
+    values = stations.values
+    rows = []
+    for parameter, name in zip(request.parameters, names, strict=True):
+        timestamps = (
+            [dt.datetime(2020, 1, 1, hour, tzinfo=ZoneInfo("UTC")) for hour in (0, 1)]
+            if parameter.dataset.resolution.name == "hourly"
+            else [dt.datetime(2020, 1, day, tzinfo=ZoneInfo("UTC")) for day in (1, 2)]
+        )
+        rows.extend(
+            {
+                "station_id": station_id,
+                "resolution": parameter.dataset.resolution.name,
+                "dataset": parameter.dataset.name,
+                "parameter": name,
+                "timestamp": timestamp,
+                "value": float(len(rows) + index),
+                "quality": 10.0,
+            }
+            for index, (station_id, timestamp) in enumerate(
+                (station_id, timestamp) for station_id in ("01048", "04411") for timestamp in timestamps
+            )
+        )
+    # one reading missing, which the wide shape writes as a null beside its row's other readings
+    rows.pop()
+    df_long = pl.DataFrame(rows, schema=TimeseriesValues._long_fields)  # noqa: SLF001
+    # widened one station at a time, as a request does
+    df_wide = pl.concat(
+        values._widen_df(df_station)  # noqa: SLF001
+        for _, df_station in df_long.group_by("station_id", maintain_order=True)
+    ).sort("station_id", "resolution", "dataset", "timestamp")
+    long = ValuesResult(stations=stations, values=values, df=values._cast_metadata_to_enum(df_long))  # noqa: SLF001
+    wide = ValuesResult(stations=stations, values=values, df=values._cast_metadata_to_enum(df_wide))  # noqa: SLF001
+    assert "parameter" not in df_wide.columns
+    assert _plot_of(wide) == _plot_of(long)
+
+
+def test_values_plot_of_an_empty_wide_frame_is_an_empty_figure() -> None:
+    """A wide result with no rows plots as an empty long one does, as a figure with nothing drawn."""
+    pytest.importorskip("plotly")
+    request = DwdObservationRequest(parameters=["daily/kl/temperature_air_mean_2m"])
+    stations = StationsResult(
+        stations=request,
+        df=pl.DataFrame(),
+        df_all=pl.DataFrame(),
+        stations_filter=StationsFilter.ALL,
+    )
+    df = stations.values._widen_df(pl.DataFrame(schema=TimeseriesValues._long_fields))  # noqa: SLF001
+    assert ValuesResult(stations=stations, values=stations.values, df=df).to_plot().data == ()

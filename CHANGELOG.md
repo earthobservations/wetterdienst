@@ -340,6 +340,9 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- Values in the wide shape can be drawn: `ValuesResult.to_plot`, and with it the image formats
+  (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`) of the CLI's `values` and `/api/values`, draw a wide
+  result as they draw the long one. They raised `ColumnNotFoundError` on `parameter` (GH-2330)
 
 ## [0.139.0] - 2026-09-29
 
