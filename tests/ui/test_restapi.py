@@ -4224,6 +4224,17 @@ def test_issues_dmo_options_are_described_as_refused_and_are_refused(client: Tes
     It said "ignored", copied from the data endpoints' lead time, which other networks do ignore, so
     a caller or a model that trusted it passed the option to MOSMIX and was refused.
     """
+    options = {"dataset": "icon", "lead_time": "long"}
+    for network, station in (("mosmix", "10147"), ("swsmos", "A006")):
+        for name, value in options.items():
+            response = client.get(
+                "/api/issues",
+                params={"provider": "dwd", "network": network, "station": station, name: value},
+            )
+            assert response.status_code == 400, (network, name)
+            assert response.json()["detail"].startswith(f"{name} applies to DWD DMO only"), (network, name)
+
+    # the MCP tools are built from the same descriptions; only this half needs the extra
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415
 
@@ -4236,17 +4247,7 @@ def test_issues_dmo_options_are_described_as_refused_and_are_refused(client: Tes
             return {tool.name: tool.input_schema["properties"] for tool in await mcp_client.list_tools()}
 
     schemas = asyncio.run(_schemas())
-    options = {"dataset": "icon", "lead_time": "long"}
     for name in options:
-        assert schemas["issues"][name]["description"].endswith("; refused for MOSMIX and SWSMOS.")
+        assert schemas["issues"][name]["description"].endswith("; DMO only, refused for MOSMIX and SWSMOS.")
     # the data endpoints keep the shared description: there a lead time outside DMO is ignored
     assert schemas["values"]["lead_time"]["description"].endswith("; ignored for other networks.")
-
-    for network, station in (("mosmix", "10147"), ("swsmos", "A006")):
-        for name, value in options.items():
-            response = client.get(
-                "/api/issues",
-                params={"provider": "dwd", "network": network, "station": station, name: value},
-            )
-            assert response.status_code == 400, (network, name)
-            assert response.json()["detail"].startswith(f"{name} applies to DWD DMO only"), (network, name)

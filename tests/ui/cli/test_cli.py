@@ -968,7 +968,7 @@ def test_issues_help_says_the_dmo_options_are_refused_and_they_are(
     import logging  # noqa: PLC0415
 
     help_text = next(param.help for param in cli.commands["issues"].params if param.name == option)
-    assert "refused for MOSMIX and SWSMOS" in help_text
+    assert "; DMO only, refused for MOSMIX and SWSMOS." in help_text
     with caplog.at_level(logging.ERROR):
         result = CliRunner().invoke(
             cli, ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", f"--{option}={value}"]
