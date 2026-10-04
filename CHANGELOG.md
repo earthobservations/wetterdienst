@@ -369,6 +369,13 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- The REST API's and MCP's `values`, `interpolate` and `summarize` leave a setting the request does
+  not give to the server's `WD_TS_*` variable, such as `WD_TS_SHAPE=wide`, as the CLI does, where
+  those variables had no effect. A client that parses one layout whatever the server sets sends
+  `shape`, `humanize` and `convert_units` with its request (GH-2325)
+- The REST API refuses a bad `unit_targets` or station distance in one line naming its field and
+  quoting what the request gave, where the 400 was pydantic's whole message quoting the dict merged
+  from it and the server's `WD_TS_UNIT_TARGETS` or `WD_TS_GEO_STATION_DISTANCE` entries (GH-2329)
 - A malformed `WD_*` setting is told by the variable that sets it and what is wrong with it, a
   line each and without pydantic's echo of the value, where it ended in pydantic's traceback. The
   REST API refuses to start with it, also under `uvicorn` directly unless its lifespan is turned

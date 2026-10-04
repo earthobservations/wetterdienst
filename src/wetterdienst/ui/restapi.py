@@ -8,9 +8,9 @@ import json
 import logging
 import sys
 from textwrap import dedent
-from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import ValidationError
 
@@ -67,14 +67,14 @@ from wetterdienst.ui.core import (
     limit_stations_to_rank,
     select_history_sections,
     set_logging_level,
-    station_distance_radii,
 )
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Collection, Mapping
 
+    from pydantic import BaseModel
     from starlette.types import ASGIApp, Receive, Scope, Send
 
     from wetterdienst.model.request import TimeseriesRequest
@@ -599,6 +599,7 @@ def issues(
 )
 def values(
     request: Annotated[ValuesRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Get measured values for station(s) (step 2 of the station -> values workflow).
 
@@ -607,7 +608,8 @@ def values(
     "daily/climate_summary/temperature_air_mean_2m") to keep the response small, and `station` with
     an id from `stations` (e.g. station="01975"). `periods` is optional and provider-specific --
     "recent" for dwd/observation, while a provider that publishes under a single period rejects any
-    other one. In the default JSON (shape="long") the `values` items are grouped by station, then by
+    other one. In the JSON of shape="long", the default unless the server's WD_TS_SHAPE says
+    otherwise, the `values` items are grouped by station, then by
     resolution, dataset and parameter, in timestamp order within each group: a parameter's latest
     timestamp is the last item of its group, not of the array. With shape="wide" an item is one
     timestamp of a station and resolution, with a key per parameter (prefixed with the full dataset
@@ -626,24 +628,21 @@ def values(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
-    # the server's own settings first, and outside the handler, as in `_geo_settings`: one malformed
-    # there is the bare 500 FastAPI answers, which does not read its value back
-    Settings()
-    try:
-        settings = Settings(
-            ts_convert_units=request.convert_units,
-            ts_unit_targets=request.unit_targets or {},
-            ts_shape=request.shape,
-            ts_humanize=request.humanize,
-            ts_skip_empty=request.skip_empty,
-            ts_skip_criteria=request.skip_criteria,
-            ts_skip_threshold=request.skip_threshold,
-            ts_drop_nulls=request.drop_nulls,
-        )
-    except ValidationError as e:
-        # with the server's valid on their own, the request's: a unit target given for a quantity or
-        # unit the converter has none for
-        raise HTTPException(status_code=400, detail=str(e)) from e
+    # a unit target given for a quantity or unit the converter has none for is the request's 400
+    settings = _request_settings(
+        request,
+        http_request.query_params.keys(),
+        {
+            "humanize": "ts_humanize",
+            "shape": "ts_shape",
+            "convert_units": "ts_convert_units",
+            "unit_targets": "ts_unit_targets",
+            "skip_empty": "ts_skip_empty",
+            "skip_criteria": "ts_skip_criteria",
+            "skip_threshold": "ts_skip_threshold",
+            "drop_nulls": "ts_drop_nulls",
+        },
+    )
 
     values_ = _values(api=api, request=request, settings=settings)
 
@@ -667,33 +666,72 @@ def values(
     return Response(content=content, media_type=media_type)
 
 
+def _request_settings(request: BaseModel, given: Collection[str], fields: Mapping[str, str]) -> Settings:
+    """Build an endpoint's settings from the server's and the fields the request gave.
+
+    `fields` maps each request field to the setting it sets, and `given` names the query parameters
+    the request came with. A field is passed only when given: FastAPI fills one the query leaves out
+    with its default, and an init argument outranks the environment, so passing that default would
+    hide the `WD_TS_*` variable the server sets for the setting.
+
+    The server's own settings are built first, and outside the handler: one malformed there is the
+    bare 500 FastAPI answers, which does not read its value back. Where an error is located would
+    not tell, as pydantic-settings merges a dict the environment sets into the one the request
+    gives. With the server's valid on their own, an error once the request's fields are added is
+    the request's, and is told by its field with the value the request gave, not the dict merged
+    from it and the server's.
+    """
+    Settings()
+    # each setting given by the field that sets it
+    passed = {
+        setting: (field, value)
+        for field, setting in fields.items()
+        if field in given and (value := getattr(request, field)) is not None
+    }
+    try:
+        return Settings(**{setting: value for setting, (_, value) in passed.items()})
+    except ValidationError as e:
+        problems = e.errors(include_url=False)
+        if any(not problem["loc"] or problem["loc"][0] not in passed for problem in problems):
+            raise
+        lines = []
+        for problem in problems:
+            field, value = passed[str(problem["loc"][0])]
+            # an entry within a dict is the request's, the server's being valid on their own
+            input_ = value if len(problem["loc"]) == 1 else problem["input"]
+            within = "".join(f"{part}: " for part in problem["loc"][1:])
+            # a field validator's ValueError comes with pydantic's prefix, which tells the caller nothing
+            message = problem["msg"].removeprefix("Value error, ")
+            lines.append(f"Invalid value for '{field}': {within}{message} (got {json.dumps(input_, default=str)})")
+        raise HTTPException(status_code=400, detail="\n".join(lines)) from e
+
+
 def _geo_settings(
     request: InterpolationRequest | SummaryRequest,
-    station_distance: dict[str, float] | None,
-    homogeneous: float | None,
-    heterogeneous: float | None,
+    given: Collection[str],
+    kind: Literal["interpolation", "summary"],
 ) -> Settings:
-    """Build the settings shared by the interpolation and the summary endpoint."""
-    radii = station_distance_radii(homogeneous, heterogeneous)
-    # the server's own settings first, and outside the handler: one malformed there is the bare 500
-    # FastAPI answers, which does not read its value back. Where an error is located would not
-    # tell, as pydantic-settings merges a dict the environment sets into the one the request gives
-    Settings()
-    try:
-        return Settings(
-            ts_humanize=request.humanize,
-            ts_convert_units=request.convert_units,
-            ts_unit_targets=request.unit_targets or {},
-            ts_geo_station_distance=cast("Any", station_distance or {}),
-            ts_geo_use_nearby_station_distance=request.use_nearby_station_distance,
-            ts_geo_min_gain_of_value_pairs=request.min_gain_of_value_pairs,
-            ts_geo_num_additional_stations=request.num_additional_stations,
-            **radii,
-        )
-    except ValidationError as e:
-        # with the server's valid on their own, the request's: a distance given for a name that is
-        # not a canonical parameter, or a negative one, or a unit target for an unknown quantity or unit
-        raise HTTPException(status_code=400, detail=str(e)) from e
+    """Build the settings shared by the interpolation and the summary endpoint.
+
+    `kind` names the request's station distance fields.
+    """
+    # a distance given for a name that is not a canonical parameter, or a unit target for an
+    # unknown quantity or unit, is the request's 400
+    return _request_settings(
+        request,
+        given,
+        {
+            "humanize": "ts_humanize",
+            "convert_units": "ts_convert_units",
+            "unit_targets": "ts_unit_targets",
+            f"{kind}_station_distance": "ts_geo_station_distance",
+            f"{kind}_station_distance_homogeneous": "ts_geo_station_distance_homogeneous",
+            f"{kind}_station_distance_heterogeneous": "ts_geo_station_distance_heterogeneous",
+            "use_nearby_station_distance": "ts_geo_use_nearby_station_distance",
+            "min_gain_of_value_pairs": "ts_geo_min_gain_of_value_pairs",
+            "num_additional_stations": "ts_geo_num_additional_stations",
+        },
+    )
 
 
 # what a request can provoke on its way through `get_values`, `get_interpolate` and
@@ -815,6 +853,7 @@ def _geo_values(
 )
 def interpolate(
     request: Annotated[InterpolationRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Estimate a value series at a point between stations by spatial interpolation (opt-in; adds inaccuracy).
 
@@ -836,12 +875,7 @@ def interpolate(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
-    settings = _geo_settings(
-        request,
-        request.interpolation_station_distance,
-        request.interpolation_station_distance_homogeneous,
-        request.interpolation_station_distance_heterogeneous,
-    )
+    settings = _geo_settings(request, http_request.query_params.keys(), "interpolation")
 
     values_ = _geo_values(get_interpolate, api, request, settings, "interpolate")
 
@@ -872,6 +906,7 @@ def interpolate(
 @app.get("/api/summarize", response_model=_SummarizedValuesDict | _SummarizedValuesOgcFeatureCollection | str)
 def summarize(
     request: Annotated[SummaryRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Build a value series at a point from the nearest stations with data (opt-in; not a text summary).
 
@@ -893,12 +928,7 @@ def summarize(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
-    settings = _geo_settings(
-        request,
-        request.summary_station_distance,
-        request.summary_station_distance_homogeneous,
-        request.summary_station_distance_heterogeneous,
-    )
+    settings = _geo_settings(request, http_request.query_params.keys(), "summary")
 
     values_ = _geo_values(get_summarize, api, request, settings, "summarize")
 
