@@ -478,12 +478,15 @@ def stations(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
+    # outside the handler below: nothing of the caller's reaches these settings, so a malformed
+    # server setting is the bare 500 FastAPI answers, which does not read its value back
+    settings = Settings()
     try:
         stations_ = get_stations(
             api=api,
             request=request,
             date=None,
-            settings=Settings(),
+            settings=settings,
         )
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
@@ -533,8 +536,10 @@ def issues(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
+    # outside the handler below, as for `/api/stations`
+    settings = Settings()
     try:
-        issue_list = get_issues(api=api, request=request, settings=Settings())
+        issue_list = get_issues(api=api, request=request, settings=settings)
     except NotImplementedError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -629,6 +634,10 @@ def _geo_settings(
 ) -> Settings:
     """Build the settings shared by the interpolation and the summary endpoint."""
     radii = station_distance_radii(homogeneous, heterogeneous)
+    # the server's own settings first, and outside the handler: one malformed there is the bare 500
+    # FastAPI answers, which does not read its value back. Where an error is located would not
+    # tell, as pydantic-settings merges a dict the environment sets into the one the request gives
+    Settings()
     try:
         return Settings(
             ts_humanize=request.humanize,
@@ -641,7 +650,8 @@ def _geo_settings(
             **radii,
         )
     except ValidationError as e:
-        # a distance given for a name that is not a canonical parameter, or a negative one
+        # with the server's valid on their own, the request's: a distance given for a name that is
+        # not a canonical parameter, or a negative one, or a unit target for an unknown quantity
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
@@ -971,12 +981,14 @@ def history(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
+    # outside the handler below, as for `/api/stations`
+    settings = Settings()
     try:
         stations_ = get_stations(
             api=api,
             request=request,
             date=None,
-            settings=Settings(),
+            settings=settings,
         )
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
@@ -1040,18 +1052,24 @@ def alerts(
 
     set_logging_level(debug=debug)
 
+    # outside the handlers below, as for `/api/stations`: a `ValidationError` is a `ValueError`
+    settings = Settings()
     try:
-        request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=Settings())
-    except ValueError as e:
+        request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=settings)
+    except (ValueError, OverflowError) as e:
+        # a date that does not parse, or one an offset carries out of what a datetime holds
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     try:
         result = request.query()
-    except ValueError as e:
+    except InvalidTimeIntervalError as e:
+        # a date before DWD's rolling window, the one refusal of the request's own `query` raises
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
+        # a feed that does not list, download or read, and an alert in it the parser does not
+        # expect: the date was converted already, so not even an `OverflowError` is the caller's
         log.exception("Failed to get weather alerts")
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     content = result.to_format(fmt, indent=pretty)
     media_type = "text/csv" if fmt == "csv" else "application/json"

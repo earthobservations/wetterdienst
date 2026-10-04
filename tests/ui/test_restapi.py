@@ -2,9 +2,11 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the REST API."""
 
+import io
 import json
 import logging
 import pathlib
+import zipfile
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, get_args
@@ -3682,6 +3684,212 @@ def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
 
     # Starlette's own answer to an exception nothing handled, so the settings are what failed: a
     # request that got past them would fail on the network and answer with a detail of its own
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "params"),
+    [
+        pytest.param("/api/alerts", {}, id="alerts"),
+        pytest.param("/api/stations", {**_OBSERVATION, "station": "01048"}, id="stations"),
+        pytest.param("/api/history", {**_OBSERVATION, "station": "01048"}, id="history"),
+        pytest.param("/api/issues", {"provider": "dwd", "network": "mosmix", "station": "10147"}, id="issues"),
+        pytest.param("/api/interpolate", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}, id="interpolate"),
+        pytest.param("/api/summarize", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}, id="summarize"),
+        pytest.param(
+            "/api/interpolate",
+            {
+                **_OBSERVATION,
+                "station": "01048",
+                "date": "2020-06-30",
+                "interpolation_station_distance": '{"temperature_air_mean": 10}',
+            },
+            id="interpolate-beside-a-refusal",
+        ),
+    ],
+)
+def test_a_setting_the_server_environment_got_wrong_is_not_the_callers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    endpoint: str,
+    params: dict[str, str],
+) -> None:
+    """A malformed `WD_*` setting is the server's 500, without its value, not the caller's 400 (GH-2297).
+
+    Read from `.env` for every `Settings` built, as for `/api/values`. The geo endpoints answered it
+    as a 400, and alerts too, its `ValidationError` being a `ValueError`; the station, history and
+    issue lookups as a 500 carrying the value. A refusal of the caller's beside it does not make it
+    theirs.
+    """
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=not-a-bool\n")
+    monkeypatch.chdir(tmp_path)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.get(endpoint, params=params)
+
+    # Starlette's own answer to an exception nothing handled, so the settings are what failed
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"
+
+
+@pytest.mark.parametrize("endpoint", ["/api/interpolate", "/api/summarize"])
+def test_geo_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient, endpoint: str) -> None:
+    """A unit target for a quantity the converter does not know stays the caller's 400 (GH-2297)."""
+    response = client.get(
+        endpoint,
+        params={**_OBSERVATION, "station": "01048", "date": "2020-06-30", "unit_targets": json.dumps({"foo": "bar"})},
+    )
+
+    assert response.status_code == 400
+    assert "Invalid unit targets: one of {'foo'} not in" in response.json()["detail"]
+
+
+_ALERTS_LISTING = [
+    {
+        "name": (
+            "https://opendata.dwd.de/weather/alerts/cap/COMMUNEUNION_DWD_STAT/"
+            f"Z_CAP_C_EDZW_{timestamp}_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_EN.zip"
+        ),
+        "type": "file",
+    }
+    for timestamp in ("20260726100000", "20260726110000")
+]
+
+
+def _alerts_snapshot(content: object) -> Callable[..., object]:
+    """Stand in for the snapshot download, answering with `content`: a body, or the failure."""
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    return lambda *_args, **_kwargs: File(url="http://x", content=content, status=200)
+
+
+def _alerts_zip(cap: bytes) -> io.BytesIO:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("alert.xml", cap)
+    buffer.seek(0)
+    return buffer
+
+
+def test_alerts_a_date_before_the_window_is_the_callers(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A date before DWD's rolling window is the caller's 400 (GH-2294)."""
+    monkeypatch.setattr(
+        "wetterdienst.provider.dwd.alerts.api.list_remote_directory_fsspec",
+        lambda *_args, **_kwargs: _ALERTS_LISTING,
+    )
+
+    response = client.get("/api/alerts", params={"date": "2026-07-01T00:00:00"})
+
+    assert response.status_code == 400
+    assert "rolling ~48-hour window" in response.json()["detail"]
+
+
+def test_alerts_a_date_that_does_not_parse_is_the_callers(client: TestClient) -> None:
+    """A date that does not parse is the caller's 400, refused before anything is listed (GH-2294)."""
+    response = client.get("/api/alerts", params={"date": "yesterday"})
+
+    assert response.status_code == 400
+    assert "yesterday" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("listing", "download", "detail"),
+    [
+        pytest.param(
+            None,
+            _alerts_snapshot(FileNotFoundError("404")),
+            "could not download weather alerts snapshot",
+            id="download",
+        ),
+        pytest.param(
+            None,
+            _alerts_snapshot(io.BytesIO(b"<html>error</html>")),
+            "not a valid zip archive",
+            id="not-a-zip",
+        ),
+        pytest.param(
+            None,
+            # a `ValueError`, as the request's date refusal is, but from DWD's own timestamp
+            _alerts_snapshot(_alerts_zip(b"<alert><sent>not-a-time</sent></alert>")),
+            "Invalid isoformat string: 'not-a-time'",
+            id="cap-timestamp",
+        ),
+        pytest.param(
+            None,
+            # an `OverflowError`, as the request's own date can raise, but from DWD's timestamp
+            _alerts_snapshot(_alerts_zip(b"<alert><sent>0001-01-01T00:00:00+01:00</sent></alert>")),
+            "date value out of range",
+            id="cap-timestamp-overflow",
+        ),
+        pytest.param([], None, "no weather-alerts snapshot listed at", id="empty-listing"),
+    ],
+)
+def test_alerts_a_feed_that_cannot_be_read_is_a_500(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    listing: list[dict[str, str]] | None,
+    download: Callable[..., object] | None,
+    detail: str,
+) -> None:
+    """A CAP feed that does not list, download or read is the server's 500, not the caller's 400 (GH-2294)."""
+    params = {}
+    if listing is not None:
+        monkeypatch.setattr(
+            "wetterdienst.provider.dwd.alerts.api.list_remote_directory_fsspec",
+            lambda *_args, **_kwargs: listing,
+        )
+        params["date"] = "2026-07-26T10:30:00"
+    if download is not None:
+        monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.download_file", download)
+
+    response = client.get("/api/alerts", params=params)
+
+    assert response.status_code == 500
+    assert detail in response.json()["detail"]
+
+
+def test_alerts_a_date_an_offset_carries_out_of_range_is_the_callers(client: TestClient) -> None:
+    """A date its offset carries past what a datetime holds is the caller's 400, not a bare 500 (GH-2294)."""
+    response = client.get("/api/alerts", params={"date": "0001-01-01T00:00:00+01:00"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "date value out of range"
+
+
+@pytest.mark.parametrize(
+    "setting",
+    [
+        pytest.param('WD_TS_UNIT_TARGETS={"foo": "bar"}', id="unit-targets"),
+        pytest.param("WD_TS_GEO_STATION_DISTANCE__nonsense=5", id="station-distance"),
+    ],
+)
+@pytest.mark.parametrize("endpoint", ["/api/interpolate", "/api/summarize"])
+def test_geo_a_dict_setting_the_server_got_wrong_is_not_the_callers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    endpoint: str,
+    setting: str,
+) -> None:
+    """A malformed dict-valued `WD_*` setting is the server's bare 500, though the request gives that field (GH-2297).
+
+    pydantic-settings merges the dict the environment sets into the one the request gives, so the
+    error is located at a field the request supplied.
+    """
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    (tmp_path / ".env").write_text(f"{setting}\n")
+    monkeypatch.chdir(tmp_path)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.get(endpoint, params={**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+
     assert response.status_code == 500
     assert response.text == "Internal Server Error"
 

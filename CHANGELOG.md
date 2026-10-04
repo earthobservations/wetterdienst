@@ -109,6 +109,12 @@ Types of changes:
   their MCP tools answer a failure on the server's or the data source's side to read what was asked
   for with a 500 carrying its message, where they answered 400, as `/api/values` does. Retry or
   report a 500 rather than rephrasing. A request refused for what it asks keeps its 400 (GH-2276)
+- **Breaking**: `/api/alerts` and its MCP tool answer a failure to list, download or read DWD's CAP
+  feed with a 500 carrying its message, where they answered 400. Retry or report a 500 rather than
+  rephrasing; a `date` that does not parse or lies before DWD's rolling window keeps its 400, and
+  one an offset carries past a datetime's range is a 400 where it was a 500.
+  `DwdWeatherAlertRequest.query()` raises a date before the window as `InvalidTimeIntervalError`,
+  still a `ValueError`, and a listing without any snapshot as `FileNotFoundError` (GH-2294)
 - The `mysql` extra takes pandas 3, as the other extras that bring pandas do. It asked for pandas
   below 3, so installing it downgraded an environment on pandas 3 to 2.x (GH-2250)
 - DWD DMO's coverage, from `discover`, `/api/coverage`, the CLI and MCP, gives each parameter
@@ -144,6 +150,10 @@ Types of changes:
   and `daily` together, such a station returned no hourly values inside the window (GH-2292)
 - `/api/values` and its MCP tool answer `unit_targets` naming a quantity the converter does not
   have, such as `{"foo": "bar"}`, with a 400 saying so, where they answered a bare 500 (GH-2272)
+- `/api/interpolate`, `/api/summarize`, `/api/alerts` and their MCP tools answer a malformed `WD_*`
+  setting in the server's `.env` with a bare 500, where they answered 400 with the setting's value
+  in `detail`; `/api/stations`, `/api/history` and `/api/issues` no longer give the value in their
+  500. A request refused for what it gives keeps its 400 (GH-2297)
 - `wetterdienst values` refuses such `--unit_targets` with `Invalid value for '--unit_targets'`
   and exit status 2, where it died with a traceback (GH-2296)
 - Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most

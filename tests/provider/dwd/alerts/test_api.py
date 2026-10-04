@@ -14,6 +14,7 @@ import polars as pl
 import pytest
 
 from wetterdienst import Wetterdienst
+from wetterdienst.exceptions import InvalidTimeIntervalError
 from wetterdienst.provider.dwd.alerts import (
     DwdWeatherAlertGranularity,
     DwdWeatherAlertLanguage,
@@ -274,3 +275,22 @@ def test_query_live_date_before_window_raises() -> None:
     """Verify a date older than the rolling window raises a helpful error against the live listing."""
     with pytest.raises(ValueError, match="rolling ~48-hour window"):
         DwdWeatherAlertRequest(date="2000-01-01T00:00:00").query()
+
+
+def test_resolve_snapshot_before_window_is_the_dates(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A date before the window raises a typed refusal of the date, still a `ValueError` (GH-2294)."""
+    listing = _fake_listing("20260726100000", "20260726110000")
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.list_remote_directory_fsspec", lambda *_a, **_k: listing)
+
+    request = DwdWeatherAlertRequest(date="2026-07-01T00:00:00")
+    with pytest.raises(InvalidTimeIntervalError, match="earliest available is 2026-07-26T10:00:00"):
+        request._resolve_snapshot()  # noqa: SLF001
+
+
+def test_resolve_snapshot_an_empty_listing_is_not_the_dates(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A listing without snapshots is no date's doing, so not a refusal of it (GH-2294)."""
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.list_remote_directory_fsspec", lambda *_a, **_k: [])
+
+    request = DwdWeatherAlertRequest(date="2026-07-01T00:00:00")
+    with pytest.raises(FileNotFoundError, match="no weather-alerts snapshot listed at"):
+        request._resolve_snapshot()  # noqa: SLF001
