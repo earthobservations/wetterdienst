@@ -21,7 +21,6 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
@@ -172,11 +171,22 @@ class DwdSwsmosValues(TimeseriesValues):
         be read is cached for twelve hours, so without somewhere else to go a single bad download
         would empty every request for half a day. An hour-old forecast is what `LATEST` should mean
         in that window, rather than nothing.
+
+        A run named by its `issue` is checked against the same listing, as `dwd/mosmix` checks its
+        own: one the listing does not name, where it names others, raises `IssueNotFoundError`. It
+        was fetched regardless and its 404 answered with an empty frame per station, which a caller
+        could not tell from a run holding nothing for that station (GH-2324). A listing naming no
+        run says nothing about the issue -- a directory moved, or the host offline -- so the run is
+        fetched as before, and a failure to fetch it is warned about.
         """
         issue = cast("DwdSwsmosRequest", self.sr.stations).issue
-        if issue is not DwdForecastDate.LATEST:
-            return [(_run_url(cast("dt.datetime", issue)), CacheExpiry.TWELVE_HOURS)]
         names, runs = _list_runs(settings)
+        if issue is not DwdForecastDate.LATEST:
+            url = _run_url(cast("dt.datetime", issue))
+            if runs and url.rsplit("/", 1)[-1] not in names:
+                msg = f"Unable to find SWSMOS run {url}"
+                raise IssueNotFoundError(msg)
+            return [(url, CacheExpiry.TWELVE_HOURS)]
         if runs:
             return [(names[n], CacheExpiry.TWELVE_HOURS) for n in reversed(runs[-2:])]
         if _LATEST_FILE in names:
@@ -191,17 +201,7 @@ class DwdSwsmosValues(TimeseriesValues):
         return []
 
     def _run_content(self, url: str, ttl: CacheExpiry, settings: Settings) -> bytes | None:
-        """Fetch one run, or say it could not be fetched.
-
-        A run named by its `issue` that the server does not hold -- expired, or not published yet --
-        raises `IssueNotFoundError`, as `dwd/mosmix` and `dwd/dmo` do for a run they do not list. It
-        was answered with an empty frame per station, which a caller could not tell from a run
-        holding nothing for that station (GH-2324). Only where the listing names other runs, as
-        `dwd/mosmix` checks: a listing naming none is a directory moved or renamed, which is no
-        fault of the caller's issue, and is warned about as any other failed fetch is. `LATEST`
-        asks only for runs the listing has just named, so a 404 there is a run gone between the
-        listing and the fetch, and keeps the fallback to the run before it.
-        """
+        """Fetch one run, or say it could not be fetched."""
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
@@ -211,10 +211,6 @@ class DwdSwsmosValues(TimeseriesValues):
             use_certifi=settings.use_certifi,
         )
         if isinstance(file.content, Exception):
-            issue = cast("DwdSwsmosRequest", self.sr.stations).issue
-            if file.status == HTTPStatus.NOT_FOUND and issue is not DwdForecastDate.LATEST and _list_runs(settings)[1]:
-                msg = f"Unable to find SWSMOS run {url}"
-                raise IssueNotFoundError(msg) from file.content
             if not file.is_no_internet_error:
                 log.warning(f"Failed to fetch SWSMOS run {url}: {file.content}")
             return None
@@ -260,12 +256,13 @@ class DwdSwsmosValues(TimeseriesValues):
         different question. `download_file` has already asked twice by then -- `_worth_retrying_download`
         governs what a blip is -- and 1,836 stations asking 3,672 times is a herd against a server
         that has just failed, not a recovery. The warning naming the run says what happened. The
-        exception is a pinned `issue` the server does not hold, which `_run_content` raises as
-        `IssueNotFoundError`.
+        exception is a pinned `issue` the listing does not name, which `_run_candidates` raises as
+        `IssueNotFoundError` before anything is cached, so every station is refused alike.
         """
         if self._run_frame_cache is None:
+            candidates = self._run_candidates(settings)
             self._run_frame_cache = pl.DataFrame()
-            for url, ttl in self._run_candidates(settings):
+            for url, ttl in candidates:
                 content = self._run_content(url, ttl, settings)
                 df = _read_run(content, url) if content is not None else None
                 if content is not None and df is None and not settings.cache_disable:

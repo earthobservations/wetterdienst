@@ -503,6 +503,12 @@ def test_swsmos_unreadable_run_is_asked_for_again_where_nothing_stands_behind_it
         body = good if kwargs["ttl"] is CacheExpiry.NO_CACHE else b"\x42\x5a\x68truncated"
         return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
 
+    # the listing names the pinned run, so it is fetched
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731080000_opendata.csv.bz2"],  # noqa: SLF001
+    )
     monkeypatch.setattr(api, "download_file", download)
     stations = _stub_stations()
     stations.stations.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
@@ -602,6 +608,12 @@ def test_swsmos_unreadable_run_is_not_asked_for_again_where_there_is_no_cache(
         body = good if kwargs["ttl"] is CacheExpiry.NO_CACHE else b"\x42\x5a\x68truncated"
         return File(url=cast("str", kwargs["url"]), content=BytesIO(body), status=200)
 
+    # the listing names the pinned run, so it is fetched
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731080000_opendata.csv.bz2"],  # noqa: SLF001
+    )
     monkeypatch.setattr(api, "download_file", download)
     stations = _stub_stations(settings=Settings(cache_disable=True))
     stations.stations.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
@@ -745,6 +757,11 @@ def test_swsmos_issue_whose_run_fails_otherwise_is_still_an_empty_answer(
     caplog.set_level(logging.WARNING)
     monkeypatch.setattr(
         api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
         "download_file",
         lambda **kwargs: File(url=kwargs["url"], content=OSError("500 Internal Server Error"), status=500),
     )
@@ -800,3 +817,54 @@ def test_swsmos_available_issues_remote() -> None:
     assert issues == sorted(set(issues))
     assert all(issue.tzinfo is not None and issue.utcoffset() == dt.timedelta(0) for issue in issues)
     assert all((issue.minute, issue.second) == (0, 0) for issue in issues)
+
+
+def test_swsmos_issue_the_listing_names_is_not_refused_when_its_fetch_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A run the listing names is the server's to serve, so a 404 for it is warned about, not refused (GH-2324).
+
+    Refusing it would have `wetterdienst issues` offer a run that `values` then calls the caller's mistake.
+    """
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
+    )
+    stations = _stub_stations()
+    stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
+
+    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "A006",
+        DwdSwsmosRequest.metadata["hourly"]["data"],
+    )
+
+    assert df.is_empty()
+    assert "Failed to fetch SWSMOS run" in caplog.text
+
+
+def test_swsmos_issue_not_found_is_raised_for_every_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A refused issue leaves no empty run cached behind it, so the next station is refused too (GH-2324)."""
+    from wetterdienst.exceptions import IssueNotFoundError  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    stations = _stub_stations(("A006", "B999"))
+    stations.stations.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    # one values object, as one walk over the stations has: `.values` builds a new one per access
+    values = stations.values
+    dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
+
+    for station_id in ("A006", "B999"):
+        with pytest.raises(IssueNotFoundError):
+            values._collect_station_parameter_or_dataset(station_id, dataset)  # noqa: SLF001
