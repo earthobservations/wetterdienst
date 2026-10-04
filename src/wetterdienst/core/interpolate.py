@@ -28,6 +28,7 @@ from wetterdienst.core.util import (
     extract_station_values,
     lapse_rate_for,
     no_elevation_in_reach_error,
+    one_row_per_station,
     open_parameter_data,
     parameters_still_in_reach,
     reduce_to_elevation,
@@ -156,12 +157,10 @@ def request_stations(
     # one row per station, the nearest: the ranked frame carries a row per station *and* dataset,
     # so a multi-dataset request has several rows for one station, each with the coordinates and
     # distance its own dataset's meta index reported. `query()` yields one result per station, and
-    # the row that answers for it is the closest one rather than whichever happened to sort last
+    # the row that answers for it is the closest one rather than whichever happened to sort last,
+    # with an elevation from whichever of its rows has one
     stations_by_id = {
-        station["station_id"]: station
-        for station in df_stations_ranked.unique(subset=["station_id"], keep="first", maintain_order=True).iter_rows(
-            named=True,
-        )
+        station["station_id"]: station for station in one_row_per_station(df_stations_ranked).iter_rows(named=True)
     }
     # counted once, off the ranking, before a single value is downloaded: what each parameter has
     # in its own radius, and how much of that reports an elevation
