@@ -308,6 +308,10 @@ Types of changes:
   now refuses (GH-2334)
 - `[Explorer]` Where the station list of the interpolation and summary's station picker could not
   be loaded, the picker says so and offers Retry, where it stayed empty without a word (GH-2332)
+- `[Explorer]` Where the station list of the interpolation and summary's station picker holds no
+  station with a position, as for DWD derived's `climate_correction_factor`, whose stations are
+  postcodes, or holds none at all, the picker says so, where it stayed empty without a word
+  (GH-2356)
 
 ## [0.17.0] - 2026-09-29
 

@@ -39,7 +39,7 @@ const stationsQuery = computed(() => ({
   parameters: `${props.parameterSelection.resolution}/${props.parameterSelection.dataset}`,
   all: 'true',
 }))
-const { data: stationsData, pending: stationsPending, error: stationsError, refresh: refreshStations, clear: clearStations } = useFetch<StationsResponse>(
+const { data: stationsData, pending: stationsPending, error: stationsError, status: stationsStatus, refresh: refreshStations, clear: clearStations } = useFetch<StationsResponse>(
   '/api/stations',
   {
     query: stationsQuery,
@@ -171,6 +171,12 @@ const displayCoords = computed(() => {
         <div v-else class="text-sm text-gray-500">
           {{ t('interpolation.loadingStations') }}
         </div>
+        <!-- a list that answered with no station left to offer -- none at all, or none with a
+             position -- would leave the select empty with nothing said. Only once it has answered:
+             not while it is out, and not when it failed, which the notice below says -->
+        <p v-if="stationsStatus === 'success' && !stationItems.length" class="mt-2 text-sm text-gray-500">
+          {{ t('interpolation.noStationsWithPosition') }}
+        </p>
         <!-- a failed list leaves the select empty, and nothing asks for it again until the selection
              wants another list. useFetch keeps the error until the next answer: the notice is
              mounted anew once each answer has failed, so a Retry that fails too is announced again;

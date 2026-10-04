@@ -305,3 +305,87 @@ describe('the interpolation\'s station picker whose list could not be fetched', 
     expect(retry()).toBeUndefined()
   })
 })
+
+describe('the interpolation\'s station picker with no station to offer', () => {
+  const notice = 'No station with a position found for the selected parameters.'
+  // dwd/derived climate_correction_factor's stations are postcodes, sent with a null position
+  const postcode = { station_id: '01067', name: null, region: null, latitude: null, longitude: null, elevation: null }
+
+  /** Mount the picker on a dataset of its own, so its list is not one another test left mounted. */
+  async function picker(dataset: string) {
+    const wrapper = await mountSuspended(InterpolationSummarySelection, {
+      props: { parameterSelection: { ...parameterSelection, dataset }, modelValue: { source: 'station' } },
+    })
+    onTestFinished(() => wrapper.unmount())
+    return { wrapper, vm: wrapper.vm as any }
+  }
+
+  it('says so when no station of the list has a position', async () => {
+    // the select opened empty with nothing said why
+    onTestFinished(registerEndpoint('/api/stations', () => ({
+      stations: [postcode, { ...postcode, station_id: '01069' }],
+    })))
+    const { wrapper, vm } = await picker('climate_correction_factor')
+
+    await vi.waitFor(() => expect(vm.allStations).toHaveLength(2))
+    expect(vm.stationItems).toEqual([])
+    await vi.waitFor(() => expect(wrapper.text()).toContain(notice))
+  })
+
+  it('says so when the list is empty', async () => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [] })))
+    const { wrapper } = await picker('urban_temperature_air')
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain(notice))
+  })
+
+  it('says nothing of it when a station is on offer', async () => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [postcode, feldberg] })))
+    const { wrapper, vm } = await picker('urban_pressure')
+
+    await vi.waitFor(() => expect(vm.stationItems).toHaveLength(1))
+    expect(wrapper.text()).not.toContain(notice)
+  })
+
+  it('says nothing of it while the list is out', async () => {
+    // held on a gate, so the picker can be seen before the list answers
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    onTestFinished(() => release())
+    onTestFinished(registerEndpoint('/api/stations', async () => {
+      await gate
+      return { stations: [] }
+    }))
+    const { wrapper } = await picker('urban_wind')
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Loading stations'))
+    expect(wrapper.text()).not.toContain(notice)
+
+    release()
+    await vi.waitFor(() => expect(wrapper.text()).toContain(notice))
+  })
+
+  it('says the list failed rather than that it is empty, until a Retry answers', async () => {
+    // a failed list is empty too, and the Retry notice says what is wrong with it
+    let asked = 0
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      asked++
+      if (asked === 1) {
+        setResponseStatus(event, 500)
+        return { detail: 'Upstream failed' }
+      }
+      return { stations: [] }
+    }))
+    const { wrapper } = await picker('urban_precipitation')
+    const alert = () => wrapper.find('[role="alert"]')
+
+    await vi.waitFor(() => expect(alert().exists() && alert().text()).toBe('Failed to load stations.'))
+    expect(wrapper.text()).not.toContain(notice)
+
+    await wrapper.findAll('button').find(b => b.text() === 'Retry')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain(notice))
+    expect(alert().exists()).toBe(false)
+  })
+})
