@@ -586,6 +586,9 @@ def values(
         log.exception(msg)
         raise HTTPException(status_code=404, detail=msg) from e
 
+    # the server's own settings first, and outside the handler, as in `_geo_settings`: one malformed
+    # there is the bare 500 FastAPI answers, which does not read its value back
+    Settings()
     try:
         settings = Settings(
             ts_convert_units=request.convert_units,
@@ -598,10 +601,8 @@ def values(
             ts_drop_nulls=request.drop_nulls,
         )
     except ValidationError as e:
-        # a unit target given for a quantity or unit the converter has none for. Only that: a value the
-        # server's environment set is not the caller's to fix, nor theirs to read back
-        if any(error["loc"][:1] != ("ts_unit_targets",) for error in e.errors()):
-            raise
+        # with the server's valid on their own, the request's: a unit target given for a quantity or
+        # unit the converter has none for
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     values_ = _values(api=api, request=request, settings=settings)
@@ -892,6 +893,10 @@ def stripes_stations(
     """Wrap get_climate_stripes_temperature_request to provide results via restapi."""
     set_logging_level(debug=debug)
 
+    # the provider request below builds its settings from the environment inside the handler: checked
+    # here first, a malformed server setting is the bare 500 FastAPI answers, which does not read its
+    # value back
+    Settings()
     try:
         stations = _get_stripes_stations(kind=kind, active=active)
     except Exception as e:
@@ -911,6 +916,8 @@ def stripes_values(
     """Get climate stripes data values with timestamps and metadata."""
     set_logging_level(debug=request.debug)
 
+    # checked outside the handler below, as for `/api/stripes/stations`
+    Settings()
     try:
         stripes_data = _get_stripes_data(request)
     except AssertionError:
@@ -947,6 +954,8 @@ def stripes_image(
     """Generate climate stripes image for a station."""
     set_logging_level(debug=request.debug)
 
+    # checked outside the handler below, as for `/api/stripes/stations`
+    Settings()
     try:
         fig = _plot_stripes(request)
     except AssertionError:
