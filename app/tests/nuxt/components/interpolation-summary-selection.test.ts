@@ -209,12 +209,32 @@ describe('the interpolation\'s station list on a change of dataset', () => {
     const vm = wrapper.findComponent(InterpolationSummarySelection).vm as any
     await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
 
+    // as ParameterSelection updates it: the new dataset with the old parameters, then its own
+    // parameters a tick later
     selected.value = { ...selected.value, dataset: 'weather_phenomena' }
+    await nextTick()
+    selected.value = { ...selected.value, parameters: ['weather_phenomenon_fog'] }
     await vi.waitFor(() => {
       expect(asked).toContain('daily/weather_phenomena')
       expect(vm.stationsPending).toBe(false)
     })
     await flushPromises()
     expect(asked).toEqual(['daily/water_equiv', 'daily/weather_phenomena'])
+  })
+
+  it('lets go of the last dataset\'s list once no dataset is chosen', async () => {
+    // a change of resolution leaves no dataset and no parameters, and useFetch carried the last list
+    // over to the query it no longer fetched: its stations stayed on offer
+    onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [feldberg] })))
+    const selected = ref<Record<string, unknown>>({ ...parameterSelection, dataset: 'wind_extreme' })
+    const wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(InterpolationSummarySelection as never, { parameterSelection: selected.value, modelValue: { source: 'station' } }),
+    }))
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.findComponent(InterpolationSummarySelection).vm as any
+    await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
+
+    selected.value = { ...selected.value, resolution: 'hourly', dataset: undefined, parameters: [] }
+    await vi.waitFor(() => expect(vm.allStations).toEqual([]))
   })
 })

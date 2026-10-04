@@ -33,17 +33,18 @@ watch(() => modelValue.value.station, (station) => {
 })
 
 // Fetch stations for station source
-const { data: stationsData, pending: stationsPending, refresh: refreshStations } = useFetch<StationsResponse>(
+const stationsQuery = computed(() => ({
+  provider: props.parameterSelection.provider,
+  network: props.parameterSelection.network,
+  parameters: `${props.parameterSelection.resolution}/${props.parameterSelection.dataset}`,
+  all: 'true',
+}))
+const { data: stationsData, pending: stationsPending, refresh: refreshStations, clear: clearStations } = useFetch<StationsResponse>(
   '/api/stations',
   {
-    query: computed(() => ({
-      provider: props.parameterSelection.provider,
-      network: props.parameterSelection.network,
-      parameters: `${props.parameterSelection.resolution}/${props.parameterSelection.dataset}`,
-      all: 'true',
-    })),
+    query: stationsQuery,
     immediate: false,
-    // fetched by the watcher on the parameter selection alone: useFetch's own refetch on a change of
+    // fetched by the watcher on the list wanted below alone: useFetch's own refetch on a change of
     // the query asked for the whole station list a second time
     watch: false,
     ...RETRY_TRANSIENT,
@@ -74,11 +75,19 @@ const selectedStationItem = computed({
   },
 })
 
-watch(() => props.parameterSelection, () => {
-  if (props.parameterSelection.parameters?.length) {
+// The list the selection asks for, none while it has no parameters. Watched as a string, so only a
+// change of list asks again: a change of dataset comes as two updates, the new dataset first and
+// its parameters a tick later, and a parameter ticked asks for the same list. With none wanted the
+// list is emptied, as useFetch carries the last list over to a query it has not fetched.
+const stationsWanted = computed(() =>
+  props.parameterSelection.parameters?.length ? JSON.stringify(stationsQuery.value) : '')
+
+watch(stationsWanted, (wanted) => {
+  if (wanted)
     refreshStations()
-  }
-}, { deep: true, immediate: true })
+  else
+    clearStations()
+}, { immediate: true })
 
 function setSource(source: InterpolationSource) {
   // clicking the source already in use is not a change, and treating it as one dropped the elevation
