@@ -20,6 +20,7 @@ from wetterdienst.provider.noaa.ghcn.metadata import (
     DAILY_PARAMETER_MULTIPLICATION_FACTORS,
     NoaaGhcnMetadata,
 )
+from wetterdienst.util.geo import EARTH_RADIUS_IN_KM
 from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
 
@@ -30,6 +31,9 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+# how far apart the hourly and the daily list may put a station and still be taken to mean one place
+MAX_DISTANCE_KM_SAME_STATION = 5.0
 
 
 class NoaaGhcnValues(TimeseriesValues):
@@ -211,7 +215,45 @@ class NoaaGhcnRequest(TimeseriesRequest):
         # only the daily frame has start_date and end_date, from its inventory, and wmo_id, which the
         # hourly reader does not select; the hourly stations get nulls
         df = pl.concat(data, how="diagonal")
-        return df.lazy()
+        # a request for one resolution has no pairs to settle
+        return self._take_daily_elevation(df) if len(data) > 1 else df
+
+    @staticmethod
+    def _take_daily_elevation(df: pl.LazyFrame) -> pl.LazyFrame:
+        """Give a station's hourly row the daily list's elevation, where both lists mean one place.
+
+        Then every reader of the station gets one elevation, whichever row it takes (GH-2336). Only
+        where the two lists put the station within 5 km of each other: for some ids they name
+        different stations (MXM00076840 is ARRIAGA on the Chiapas coast in the hourly list and its
+        data, TEMOSACHI 2000 km away and 1900 m higher in the daily one), and there each row keeps
+        its own list's height. Nor does a daily 0.0 replace a height the hourly list gives
+        (GH-2362); both rows then keep their own as well. A daily list giving none leaves the
+        hourly one.
+        """
+        is_daily = pl.col("resolution").eq("daily")
+
+        def daily(column: str) -> pl.Expr:
+            return pl.col(column).filter(is_daily).first().over("station_id")
+
+        lat, lon = pl.col("latitude").cast(pl.Float64).radians(), pl.col("longitude").cast(pl.Float64).radians()
+        lat_daily = daily("latitude").cast(pl.Float64).radians()
+        lon_daily = daily("longitude").cast(pl.Float64).radians()
+        haversine = ((lat_daily - lat) / 2).sin().pow(2) + lat.cos() * lat_daily.cos() * (
+            (lon_daily - lon) / 2
+        ).sin().pow(2)
+        distance_km = 2 * EARTH_RADIUS_IN_KM * haversine.sqrt().arcsin()
+        elevation_daily = daily("elevation")
+        return df.with_columns(
+            pl.when(
+                ~is_daily
+                & distance_km.le(MAX_DISTANCE_KM_SAME_STATION)
+                # with no daily elevation the row keeps its own: this is null, or the hourly one was too
+                & (elevation_daily.cast(pl.Float64).ne(0.0) | pl.col("elevation").is_null())
+            )
+            .then(elevation_daily)
+            .otherwise(pl.col("elevation"))
+            .alias("elevation"),
+        )
 
     def _create_metaindex_for_ghcn_hourly(self) -> pl.LazyFrame:
         from typing import cast  # noqa: PLC0415
@@ -261,9 +303,9 @@ class NoaaGhcnRequest(TimeseriesRequest):
         )
         # the documentation marks a missing elevation as -999.9. The list also carries 9999.0 and
         # 8191.0, undocumented, on rows such as the North Sea lightship GMMU0010434 ELBE NO. 1 and
-        # DNEPRODZERJINSK, which the daily list puts at 148.0 m: placeholders, not heights. -999.0
-        # is still read as a height (GH-2352)
-        df = df.with_columns(pl.col("elevation").replace(["-999.9", "9999.0", "8191.0"], None))
+        # DNEPRODZERJINSK, which the daily list puts at 148.0 m: placeholders, not heights. So is
+        # -999.0, on rows such as BOGUS ALGERIAN, about 570 m below the lowest dry land (GH-2352)
+        df = df.with_columns(pl.col("elevation").replace(["-999.9", "-999.0", "9999.0", "8191.0"], None))
         return df.lazy()
 
     def _create_metaindex_for_ghcn_daily(self) -> pl.LazyFrame:
@@ -320,8 +362,16 @@ class NoaaGhcnRequest(TimeseriesRequest):
             "name",
             "wmo_id",
         ]
-        # the readme marks a missing elevation as -999.9
-        df = df.with_columns(pl.col("elevation").replace("-999.9", None))
+        # the readme marks a missing elevation as -999.9. The Brazilian network (BR0...) also lists 912
+        # stations at 0.0, inland ones on the plateau among them, such as ALFENAS at about 880 m: a
+        # placeholder there, while a 0.0 elsewhere, on a coast or in the Netherlands, is a height,
+        # see GH-2362
+        df = df.with_columns(
+            pl.when(pl.col("station_id").str.starts_with("BR0") & pl.col("elevation").eq("0.0"))
+            .then(None)
+            .otherwise(pl.col("elevation").replace("-999.9", None))
+            .alias("elevation"),
+        )
 
         inventory_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
         inventory_file = download_file(

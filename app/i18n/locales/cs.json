@@ -446,7 +446,7 @@
     "threshold": "Práh",
     "interpolationOptions": "Možnosti interpolace",
     "nearbyDistance": "Vzdálenost blízkých stanic",
-    "nearbyDistanceHint": "Maximální vzdálenost pro zohlednění blízkých stanic. Pokud je stanice v této vzdálenosti, použije se její skutečná hodnota namísto interpolace/sumarizace.",
+    "nearbyDistanceHint": "Maximální vzdálenost pro zohlednění blízkých stanic. Pokud je stanice v této vzdálenosti, použije se její skutečná hodnota namísto interpolace.",
     "advancedSettings": "Pokročilé nastavení",
     "stationDistanceByParam": "Vzdálenost stanic podle parametru",
     "stationDistanceHint": "Maximální vzdálenost (km) ke stanici. Homogenní parametry jako teplota se v rámci oblasti mění pomalu a používají svou hodnotu při každém rozlišení. Heterogenní jako srážky dekorelují rychleji a jejich hodnota platí pro hodinové rozlišení: škáluje se podle rozlišení, ×0,75 u minutových rozlišení a ×2 od denního výše. Jednotlivé parametry lze přepsat níže.",

@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Explorer]` The nearby station distance is offered, and sent, for an interpolation only. It had
+  no effect on a summary, and the backend deprecates it there (GH-2333)
+
 ### Fixed
 
 - `[Explorer]` `[Meteogram]` `[Widget]` `[Stripes]` A Retry that works moves the keyboard focus to

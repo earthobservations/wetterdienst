@@ -30,6 +30,7 @@ from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
+    SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
@@ -279,6 +280,13 @@ use_nearby_station_distance_opt = click.option(
         "Use a station's own values when it is within this many km of the point. "
         "Default: WD_TS_GEO_USE_NEARBY_STATION_DISTANCE if set, else 1"
     ),
+)
+# accepted by `summarize` still, so that an invocation giving it is warned rather than refused (GH-2333)
+summary_use_nearby_station_distance_opt = click.option(
+    "--use_nearby_station_distance",
+    type=click.FLOAT,
+    default=1,
+    deprecated=SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
 )
 # a flag here, where stations/values/history take a value: changing either breaks invocations
 pretty_flag_opt = click.option("--pretty", is_flag=True, help="Pretty-print JSON with 4-space indentation.")
@@ -1078,13 +1086,13 @@ def stations(
     "--dataset",
     type=click.Choice(["icon", "icon_eu"]),
     default=None,
-    help="DWD DMO product; ignored by other networks. Default: as for values",
+    help="DWD DMO product; DMO only, refused for MOSMIX and SWSMOS. Default: icon",
 )
 @click.option(
     "--lead_time",
     type=click.Choice(["short", "long"]),
     default=None,
-    help="DWD DMO forecast lead time; ignored by other networks. Default: as for values",
+    help="DWD DMO forecast lead time; DMO only, refused for MOSMIX and SWSMOS. Default: short",
 )
 @debug_opt
 def issues_cmd(
@@ -1228,8 +1236,12 @@ def history(
     output = json.dumps(data, indent=4 if pretty else None, default=lambda dt: dt.isoformat())
 
     if target:
-        # write to file
-        Path(target).write_text(output)
+        try:
+            Path(target).write_text(output)
+        except OSError as e:
+            # a directory that does not exist or cannot be written, or a path naming a directory
+            msg = f"Could not write --target: {e}"
+            raise click.ClickException(msg) from e
         return
 
     print(output)  # noqa: T201
@@ -1595,7 +1607,7 @@ def interpolate(
 @longitude_opt
 @elevation_opt
 @station_distance_opts("summary")
-@use_nearby_station_distance_opt
+@summary_use_nearby_station_distance_opt
 @sql_values_opt
 @convert_units_opt
 @unit_targets_opt
@@ -1694,7 +1706,6 @@ def summarize(
                 "ts_geo_station_distance_heterogeneous",
                 request.summary_station_distance_heterogeneous,
             ),
-            "use_nearby_station_distance": ("ts_geo_use_nearby_station_distance", request.use_nearby_station_distance),
         }
     )
 
@@ -2006,11 +2017,20 @@ def stripes_values(
         log.exception("Error while plotting warming stripes")
         raise click.ClickException(str(e)) from e
 
+    image = fig.to_image(fmt, scale=dpi / 100)
+
     if target:
-        fig.write_image(target, fmt, scale=dpi / 100)
+        # rendered outside the handler: talking to the renderer's browser can raise an `OSError` of its own
+        # (choreographer's `ChannelClosedError`), which says nothing about --target
+        try:
+            target.write_bytes(image)
+        except OSError as e:
+            # a directory that does not exist or cannot be written; `--target` itself refuses a directory
+            msg = f"Could not write --target: {e}"
+            raise click.ClickException(msg) from e
         return
 
-    click.echo(fig.to_image(fmt, scale=dpi / 100), nl=False)
+    click.echo(image, nl=False)
 
 
 if __name__ == "__main__":
