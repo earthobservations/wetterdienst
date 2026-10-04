@@ -347,14 +347,13 @@ def _build_settings(options: dict[str, tuple[str, Any]]) -> Settings:
     option is passed only when given on the command line: an init argument outranks the
     environment, so passing its default would hide the `WD_TS_*` variable set for that setting.
 
-    The environment's settings are built on their own first, and an error there is raised as it is:
-    a malformed `WD_*` variable is not the command line's to fix. Where an error is located would
-    not tell, as pydantic-settings merges a dict the environment sets into the one an option gives.
-    With those valid, an error once the options are added is theirs, told by the option as click
-    tells an invalid value.
+    Should they fail, the environment's settings are built on their own, and an error there is
+    raised as it is: a malformed `WD_*` variable is not the command line's to fix. Where an error is
+    located would not tell, as pydantic-settings merges a dict the environment sets into the one an
+    option gives. With those valid, the error is the options', told by the option as click tells an
+    invalid value, with the value the option gave rather than the one merged with the environment's.
     """
     ctx = click.get_current_context()
-    Settings()
     # each setting given by the option that sets it
     given = {
         setting: (param, value)
@@ -364,15 +363,20 @@ def _build_settings(options: dict[str, tuple[str, Any]]) -> Settings:
     try:
         return Settings(**{setting: value for setting, (_, value) in given.items()})
     except ValidationError as e:
+        Settings()
         problems = e.errors(include_url=False)
         if any(not problem["loc"] or problem["loc"][0] not in given for problem in problems):
             raise
         names = {param for param, _ in given.values()}
         params = {param.name: param for param in ctx.command.params if param.name in names}
-        lines = [
-            _describe_problem({**problem, "loc": (given[str(problem["loc"][0])][0], *problem["loc"][1:])}, params, ctx)
-            for problem in problems
-        ]
+        lines = []
+        for problem in problems:
+            param, value = given[str(problem["loc"][0])]
+            # an entry within a dict is the option's, the environment's being valid on their own
+            input_ = value if len(problem["loc"]) == 1 else problem["input"]
+            lines.append(
+                _describe_problem({**problem, "loc": (param, *problem["loc"][1:]), "input": input_}, params, ctx)
+            )
         raise click.UsageError("\n".join(lines), ctx=ctx) from e
 
 

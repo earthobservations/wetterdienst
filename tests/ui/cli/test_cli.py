@@ -4,8 +4,10 @@
 
 import itertools
 import json
+import os
 import re
 from collections.abc import Iterator
+from pathlib import Path
 from textwrap import dedent
 
 import click
@@ -644,6 +646,15 @@ _POINT_ARGS = [
 ]
 
 
+@pytest.fixture
+def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings."""
+    for name in list(os.environ):
+        if name.startswith("WD_"):
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+
+
 class _SettingsTaken(Exception):  # noqa: N818
     """Raised in place of fetching, carrying the settings a command built."""
 
@@ -660,6 +671,7 @@ def _settings_of(monkeypatch: pytest.MonkeyPatch, args: list[str], env: dict[str
     return result.exception.args[0]
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
 def test_cli_values_leaves_a_setting_no_option_was_given_for_to_the_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -709,6 +721,7 @@ def test_cli_values_leaves_a_setting_no_option_was_given_for_to_the_environment(
     assert settings.ts_drop_nulls is True
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize(("command", "kind"), [("interpolate", "interpolation"), ("summarize", "summary")])
 def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environment(
     monkeypatch: pytest.MonkeyPatch,
@@ -747,6 +760,7 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
     assert settings.ts_geo_use_nearby_station_distance == 0.5
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize(
     ("args", "message"),
     [
@@ -780,6 +794,7 @@ def test_cli_estimate_refuses_a_setting_by_its_option(args: list[str], message: 
     assert "Value error, " not in result.output
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize(
     ("env", "option"),
     [
@@ -802,6 +817,7 @@ def test_cli_estimate_does_not_blame_the_command_line_for_the_environment(
     assert "Usage:" not in result.output
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
 def test_cli_values_does_not_blame_a_given_unit_targets_for_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a WD_TS_UNIT_TARGETS that Settings refuses is not told as a bad --unit_targets given beside it."""
     monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"foo": "bar"}')
@@ -812,6 +828,7 @@ def test_cli_values_does_not_blame_a_given_unit_targets_for_the_environment(monk
     assert "--unit_targets" not in result.output
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize(
     "args",
     [["values", *_DWD_KL, "--station=01048"], ["interpolate", *_POINT_ARGS], ["summarize", *_POINT_ARGS]],
@@ -831,3 +848,24 @@ def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyP
     _settings_of(monkeypatch, args, {})
     assert calls
     assert all(not kwargs for kwargs in calls)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_values_option_outranks_a_malformed_variable_for_its_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an option given on the command line replaces a WD_TS_* variable Settings would refuse."""
+    settings = _settings_of(
+        monkeypatch, ["values", *_DWD_KL, "--station=01048", "--shape=long"], {"WD_TS_SHAPE": "bogus"}
+    )
+    assert settings.ts_shape == "long"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_estimate_refuses_an_option_with_the_value_it_gave(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a refused dict is shown as the option gave it, not merged with the environment's."""
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE", '{"precipitation_amount": 5}')
+    result = CliRunner().invoke(cli, ["summarize", *_POINT_ARGS, '--summary_station_distance={"foo": 1}'])
+    assert result.exit_code == 2, result.output
+    assert (
+        "Error: Invalid value for '--summary_station_distance': Invalid parameters in ts_geo_station_distance: "
+        "['foo'] not in the canonical parameters (got {'foo': 1.0}).\n"
+    ) in result.output
