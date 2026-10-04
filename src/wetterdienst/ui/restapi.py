@@ -638,19 +638,32 @@ def _request_settings(request: BaseModel, given: Collection[str], fields: Mappin
     bare 500 FastAPI answers, which does not read its value back. Where an error is located would
     not tell, as pydantic-settings merges a dict the environment sets into the one the request
     gives. With the server's valid on their own, an error once the request's fields are added is
-    the request's.
+    the request's, and is told by its field with the value the request gave, not the dict merged
+    from it and the server's.
     """
     Settings()
+    # each setting given by the field that sets it
+    passed = {
+        setting: (field, value)
+        for field, setting in fields.items()
+        if field in given and (value := getattr(request, field)) is not None
+    }
     try:
-        return Settings(
-            **{
-                setting: value
-                for field, setting in fields.items()
-                if field in given and (value := getattr(request, field)) is not None
-            }
-        )
+        return Settings(**{setting: value for setting, (_, value) in passed.items()})
     except ValidationError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        problems = e.errors(include_url=False)
+        if any(not problem["loc"] or problem["loc"][0] not in passed for problem in problems):
+            raise
+        lines = []
+        for problem in problems:
+            field, value = passed[str(problem["loc"][0])]
+            # an entry within a dict is the request's, the server's being valid on their own
+            input_ = value if len(problem["loc"]) == 1 else problem["input"]
+            within = "".join(f"{part}: " for part in problem["loc"][1:])
+            # a field validator's ValueError comes with pydantic's prefix, which tells the caller nothing
+            message = problem["msg"].removeprefix("Value error, ")
+            lines.append(f"Invalid value for '{field}': {within}{message} (got {json.dumps(input_, default=str)})")
+        raise HTTPException(status_code=400, detail="\n".join(lines)) from e
 
 
 def _geo_settings(request: InterpolationRequest | SummaryRequest, given: Collection[str], kind: str) -> Settings:

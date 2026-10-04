@@ -4269,3 +4269,58 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
     assert settings.ts_geo_use_nearby_station_distance == 1
     assert settings.ts_geo_min_gain_of_value_pairs == 0.1
     assert settings.ts_geo_num_additional_stations == 3
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("endpoint", "params", "detail"),
+    [
+        pytest.param(
+            "/api/values",
+            {"station": "01048", "unit_targets": '{"foo": "bar"}'},
+            "Invalid value for 'unit_targets': Invalid unit targets: quantities not supported: foo. ",
+            id="values-unit-targets",
+        ),
+        pytest.param(
+            "/api/summarize",
+            {"station": "01048", "date": "2020-06-30", "unit_targets": '{"foo": "bar"}'},
+            "Invalid value for 'unit_targets': Invalid unit targets: quantities not supported: foo. ",
+            id="summarize-unit-targets",
+        ),
+        pytest.param(
+            "/api/interpolate",
+            {
+                "station": "01048",
+                "date": "2020-06-30",
+                "interpolation_station_distance": '{"temperature_air_mean": 10}',
+            },
+            "Invalid value for 'interpolation_station_distance': Invalid parameters in ts_geo_station_distance: "
+            "['temperature_air_mean'] not in the canonical parameters (got {\"temperature_air_mean\": 10.0})",
+            id="interpolate-station-distance",
+        ),
+    ],
+)
+def test_a_refused_setting_quotes_the_request_not_the_server(
+    monkeypatch: pytest.MonkeyPatch,
+    client: TestClient,
+    endpoint: str,
+    params: dict[str, str],
+    detail: str,
+) -> None:
+    """A refused dict field is told by its field with what the request gave, not the server's entries (GH-2329).
+
+    pydantic-settings merges a dict the server's environment sets into the one the request gives,
+    and the 400 was the whole `ValidationError`, quoting the merged dict.
+    """
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE__precipitation_amount", "25")
+
+    response = client.get(endpoint, params={**_OBSERVATION, **params})
+
+    assert response.status_code == 400
+    refusal = response.json()["detail"]
+    assert refusal.startswith(detail)
+    for servers in ("degree_fahrenheit", "precipitation_amount", "25"):
+        assert servers not in refusal
+    assert "input_value" not in refusal
+    assert "Value error, " not in refusal

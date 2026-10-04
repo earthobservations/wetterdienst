@@ -344,6 +344,9 @@ Types of changes:
   not give to the server's `WD_TS_*` variable, such as `WD_TS_SHAPE=wide`, as the CLI does. They
   passed every field's default, which outranks the environment, so those variables had no effect
   there (GH-2325)
+- The REST API refuses a bad `unit_targets` or station distance in one line naming its field and
+  quoting what the request gave, where the 400 was pydantic's whole message quoting the dict merged
+  from it and the server's `WD_TS_UNIT_TARGETS` or `WD_TS_GEO_STATION_DISTANCE` entries (GH-2329)
 
 ## [0.139.0] - 2026-09-29
 
