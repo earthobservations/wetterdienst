@@ -10,7 +10,7 @@ import platform
 from collections import defaultdict
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 import platformdirs
 from pydantic import (
@@ -22,13 +22,16 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.unit import UnitConverter
+
+if TYPE_CHECKING:
+    from pydantic.fields import FieldInfo
 
 log = logging.getLogger(__name__)
 
@@ -237,6 +240,39 @@ def _merge_fsspec_client_kwargs(given: dict) -> dict:
     return merged
 
 
+class _SettingsFromDotEnv(PydanticBaseSettingsSource):
+    """Read `.env` as pydantic-settings does, but keep only the keys that are settings.
+
+    A `.env` is often shared with other programs -- docker compose, a project's own tooling -- and
+    pydantic-settings hands every key of it on, so with the settings refusing what is not a field,
+    one line of someone else's made every `Settings()` fail, and echoed its value, which may well be
+    a password (GH-2349). The environment never did this: it hands on only the settings.
+
+    The constructor keeps refusing a keyword that is no setting, which `extra="ignore"` would have
+    let pass in silence. A `WD_` key that names no setting is a typo of one rather than another
+    program's, so it is warned about rather than dropped silently.
+    """
+
+    def __init__(self, source: PydanticBaseSettingsSource) -> None:
+        super().__init__(source.settings_cls)
+        self._source = source
+
+    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:  # noqa: ARG002
+        """Look nothing up field by field: `__call__` hands on what the wrapped source read."""
+        return None, field_name, False
+
+    def __call__(self) -> dict[str, Any]:
+        """Return what `.env` sets, without its keys that are no setting."""
+        data = self._source()
+        fields = self.settings_cls.model_fields
+        # such a key comes back lower-cased and whole, prefix and all
+        prefix = str(self.config.get("env_prefix") or "").lower()
+        typos = sorted(key for key in data if key not in fields and prefix and key.lower().startswith(prefix))
+        if typos:
+            log.warning(f"{', '.join(key.upper() for key in typos)} in .env is no wetterdienst setting, and is ignored")
+        return {key: value for key, value in data.items() if key in fields}
+
+
 class Settings(BaseSettings):
     """Settings for the wetterdienst package."""
 
@@ -295,6 +331,18 @@ class Settings(BaseSettings):
     # this setting defines how many additional stations are used in the interpolation process independent of the gain
     # of value pairs, so if the gain is not reached anymore, there at least `num` more stations added to the list
     ts_geo_num_additional_stations: Annotated[int, Field(ge=0)] = 3
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],  # noqa: ARG003
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """Read the settings from where pydantic-settings does, taking only settings from `.env`."""
+        return init_settings, env_settings, _SettingsFromDotEnv(dotenv_settings), file_secret_settings
 
     @field_validator("fsspec_client_kwargs", mode="before")
     @classmethod

@@ -773,3 +773,44 @@ def test_settings_geo_station_distance_mappings_refuse_anything_but_a_mapping_fr
     monkeypatch.setenv(f"WD_{field.upper()}", value)
     with pytest.raises(ValidationError, match=rf"{field}\n  Input should be a valid dictionary"):
         Settings()
+
+
+def test_settings_dotenv_ignores_a_key_that_is_no_setting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A `.env` shared with another program does not stop the settings from loading (GH-2349).
+
+    Its key used to be refused, and its value echoed, by every `Settings()`. The settings in the
+    same file are still read.
+    """
+    monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
+    # a directory of the test's own, so that a `.env` where the tests are run from is not read
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("POSTGRES_PASSWORD=secret-ish\nWD_CACHE_DISABLE=true\n")
+    caplog.set_level(logging.WARNING)
+    assert Settings().cache_disable
+    assert "secret-ish" not in caplog.text
+    assert "POSTGRES_PASSWORD" not in caplog.text
+
+
+def test_settings_dotenv_warns_about_a_wd_key_that_is_no_setting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A misspelt `WD_*` key in `.env` is ignored, but named, so the typo stays visible (GH-2349)."""
+    monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("WD_CACHE_DIABLE=secret-ish\n")
+    caplog.set_level(logging.WARNING)
+    assert not Settings().cache_disable
+    assert "WD_CACHE_DIABLE in .env is no wetterdienst setting, and is ignored" in caplog.text
+    assert "secret-ish" not in caplog.text
+
+
+def test_settings_keyword_that_is_no_setting_is_still_refused() -> None:
+    """Only `.env` is let off: a misspelt keyword to the constructor is still refused (GH-2349)."""
+    with pytest.raises(ValidationError, match="cache_disabel\n  Extra inputs are not permitted"):
+        Settings(cache_disabel=True)
