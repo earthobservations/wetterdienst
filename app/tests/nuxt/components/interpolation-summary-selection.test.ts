@@ -244,12 +244,17 @@ describe('the interpolation\'s station picker whose list could not be fetched', 
     // the select was left empty with nothing said, and only a change of dataset asked again
     let failing = true
     let asked = 0
-    onTestFinished(registerEndpoint('/api/stations', (event) => {
+    // holds Retry's answer, so the picker can be seen while it is out
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    onTestFinished(() => release())
+    onTestFinished(registerEndpoint('/api/stations', async (event) => {
       asked++
       if (failing) {
         setResponseStatus(event, 500)
         return { detail: 'Upstream failed' }
       }
+      await gate
       return { stations: [feldberg] }
     }))
     // a dataset of its own, so the list is not one the tests above leave mounted
@@ -263,6 +268,14 @@ describe('the interpolation\'s station picker whose list could not be fetched', 
 
     failing = false
     await wrapper.findAll('button').find(b => b.text() === 'Retry')!.trigger('click')
+    // useFetch keeps the error until the next answer: while that is out, the picker says it is
+    // loading, not that loading failed, and offers no second Retry
+    await vi.waitFor(() => expect(asked).toBe(2))
+    expect(wrapper.text()).toContain('Loading stations')
+    expect(wrapper.text()).not.toContain('Failed to load stations.')
+    expect(wrapper.findAll('button').some(b => b.text() === 'Retry')).toBe(false)
+
+    release()
     await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
     expect(asked).toBe(2)
     expect(wrapper.text()).not.toContain('Failed to load stations.')
