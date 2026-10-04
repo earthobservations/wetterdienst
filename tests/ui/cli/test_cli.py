@@ -648,9 +648,12 @@ _POINT_ARGS = [
 
 @pytest.fixture
 def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings."""
+    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings.
+
+    The cache directory the test session gives each worker is kept.
+    """
     for name in list(os.environ):
-        if name.startswith("WD_"):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
             monkeypatch.delenv(name)
     monkeypatch.chdir(tmp_path)
 
