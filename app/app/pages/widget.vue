@@ -2,6 +2,7 @@
 import type { Station } from '#shared/types/api'
 import Meteogram from '~/components/Meteogram.vue'
 import { describeApiError, describeFetchError } from '~/utils/api-error'
+import { METEOGRAM_VALUES_SETTINGS } from '~/utils/meteogram'
 
 const MOSMIX = {
   provider: 'dwd',
@@ -74,6 +75,7 @@ async function fetchValues(s: Station) {
     network: MOSMIX.network,
     parameters: MOSMIX.parameters.map(p => `${MOSMIX.resolution}/${MOSMIX.dataset}/${p}`).join(','),
     station: s.station_id,
+    ...METEOGRAM_VALUES_SETTINGS,
   })
   try {
     const res = await fetch(`/api/values?${params}`)

@@ -4127,3 +4127,92 @@ def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     # Starlette's own answer to an exception nothing handled, so the settings are what failed
     assert response.status_code == 500
     assert response.text == "Internal Server Error"
+
+
+@pytest.mark.parametrize("threshold", [0, 5])
+def test_values_refuses_a_skip_threshold_outside_zero_to_one(client: TestClient, threshold: float) -> None:
+    """A skip_threshold outside (0, 1] is a 422, as the CLI option and the setting refuse it (GH-2334).
+
+    0 used to be taken, and skipped nothing.
+    """
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl",
+            "periods": "recent",
+            "station": "01048",
+            "skip_empty": "true",
+            "skip_threshold": threshold,
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["query", "skip_threshold"]
+
+
+def test_values_skip_threshold_bounds_are_in_the_schema_the_mcp_tools_take() -> None:
+    """The MCP tools are generated from the OpenAPI schema, so the bounds reach them there (GH-2334)."""
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    parameters = app.openapi()["paths"]["/api/values"]["get"]["parameters"]
+    (schema,) = (parameter["schema"] for parameter in parameters if parameter["name"] == "skip_threshold")
+    assert schema["exclusiveMinimum"] == 0
+    assert schema["maximum"] == 1
+
+
+def test_issues_dwd_swsmos(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test /api/issues lists the dwd/swsmos runs rather than refusing the network (GH-2319)."""
+    from wetterdienst.provider.dwd.swsmos import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20261004060000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+
+    response = client.get("/api/issues", params={"provider": "dwd", "network": "swsmos", "station": "A006"})
+
+    assert response.status_code == 200
+    assert response.json() == {"issues": ["2026-10-04T06:00:00+00:00"]}
+
+
+def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test /api/values answers an swsmos issue DWD does not hold with a 400, not an empty 200 (GH-2324)."""
+    import bz2  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.swsmos import api  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    catalogue = bz2.compress(
+        b"Kennung;Name;Streckentyp;Streckenbelag;Breite;Laenge;Hoehe;Flughafen;Inaktiv\n"
+        b"A006;Station A006;A;B;54,889156;8,908735;2,0;;\n",
+    )
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20261004060000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: (
+            File(url=kwargs["url"], content=io.BytesIO(catalogue), status=200)
+            if kwargs["url"] == api._CATALOG_URL  # noqa: SLF001
+            else File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404)
+        ),
+    )
+
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "swsmos",
+            "parameters": "hourly/data",
+            "station": "A006",
+            "issue": "2020-01-01T00:00",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "swsmos_20200101000000_opendata.csv.bz2" in response.json()["detail"]

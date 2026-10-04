@@ -23,6 +23,10 @@ Types of changes:
   ...), Hub'Eau's as the Sandre label of `code_systeme_alti_site` (`IGN 1969`, ...), or the code
   where it has none. Stations differ in it, so compare gauge zeros only where it agrees, and not
   between Hub'Eau stations labelled as on an unknown or a local system (GH-2228)
+- `wetterdienst issues`, `/api/issues` and the MCP `issues` tool list the DWD SWSMOS runs, and
+  `DwdSwsmosRequest.available_issues(settings)` returns them as UTC datetimes. They refused
+  dwd/swsmos as unsupported. One run holds every road station, so the list is the same for any
+  station (GH-2319)
 
 ### Changed
 
@@ -137,6 +141,16 @@ Types of changes:
   InfluxDB 3 Core's) for http and 443 for https. It took only the host and went to https on 443
   whatever the target said, so a local InfluxDB 3 Core could not be reached. Write an https
   server, such as InfluxDB Cloud, as `influxdb3s://` (GH-2279)
+- **Breaking**: `Settings` refuses a `ts_skip_threshold` outside (0, 1], as `--skip_threshold`
+  does. One above 1, as `WD_TS_SKIP_THRESHOLD=5`, skipped every station under `ts_skip_empty`, and
+  `values` said "No data available" with no hint at the setting. Such a variable, or one of 0, now
+  fails every `Settings()`; correct or remove it. `/api/values` answers a `skip_threshold` of 0
+  with a 422, and the MCP `values` tool refuses it; to skip no station, leave `skip_empty` off
+  (GH-2334)
+- **Breaking**: DWD SWSMOS raises `IssueNotFoundError` for an `issue` naming a run DWD does not
+  hold, as MOSMIX and DMO do, so the REST API answers it as the caller's error. It returned no rows,
+  as if the run held nothing for the station. Catch `IssueNotFoundError`, or pick the issue from
+  `DwdSwsmosRequest.available_issues` (GH-2324)
 
 ### Fixed
 
@@ -349,6 +363,9 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- Values in the wide shape can be drawn: `ValuesResult.to_plot`, and with it the image formats
+  (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`) of the CLI's `values` and `/api/values`, draw a wide
+  result as they draw the long one. They raised `ColumnNotFoundError` on `parameter` (GH-2330)
 - `wetterdienst alerts` refuses a `--date` that does not parse, or that an offset carries out of a
   datetime's range, as `Invalid value for --date` with exit status 2; the latter was a traceback.
   It raises a malformed `WD_*` variable as it is rather than as an invalid option, as `values`
