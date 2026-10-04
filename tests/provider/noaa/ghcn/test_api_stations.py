@@ -596,4 +596,4 @@ def test_noaa_ghcn_rank_without_any_position_says_so(
     with caplog.at_level(logging.INFO):
         ranked = request.filter_by_rank(latlon=(47.117, 13.733), rank=1)
     assert ranked.df.is_empty()
-    assert "No weather stations with a position were found to rank" in caplog.text
+    assert "None of the stations has a position to be ranked by" in caplog.text

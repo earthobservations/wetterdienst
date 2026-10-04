@@ -590,9 +590,10 @@ class TimeseriesRequest:
         # sorts first, ahead of the nearest station: it is left out, as `filter_by_distance` and
         # `filter_by_bbox` leave it out (GH-2380)
         df = df.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias("distance"))
-        df = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"])
-        if df.is_empty():
-            log.info("No weather stations with a position were found to rank")
+        located = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"])
+        if located.is_empty() and not df.is_empty():
+            log.info("None of the stations has a position to be ranked by")
+        df = located
         return StationsResult(
             stations=self,
             df=df,
@@ -785,6 +786,8 @@ class TimeseriesRequest:
                 nothing that can answer at this station's altitude. There is no elevation to omit
                 here, so the reading as it came is asked for by coordinates: pass the station's
                 own to `interpolate`.
+            LocationOutOfRangeError: Where the station has no position, such as a NOAA GHCN hourly
+                station listed at 0.0, 0.0 or named BOGUS.
 
         """
         latitude, longitude, station_elevation = self._get_position_by_station_id(station_id)
@@ -878,6 +881,8 @@ class TimeseriesRequest:
                 nothing that can answer at this station's altitude. There is no elevation to omit
                 here, so the reading as it came is asked for by coordinates: pass the station's
                 own to `summarize`.
+            LocationOutOfRangeError: Where the station has no position, as `interpolate_by_station_id`
+                says.
 
         """
         latitude, longitude, station_elevation = self._get_position_by_station_id(station_id)
