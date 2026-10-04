@@ -87,3 +87,37 @@ def test_cli_alerts_target_file(tmp_path) -> None:  # noqa: ANN001
     assert result.exit_code == 0
     data = json.loads(target.read_text(encoding="utf-8"))
     assert data["type"] == "FeatureCollection"
+
+
+def test_cli_alerts_date_before_window_is_a_date_usage_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a date before DWD's rolling window is reported as an invalid --date, with exit status 2."""
+    from wetterdienst.exceptions import InvalidTimeIntervalError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    def query(_self: DwdWeatherAlertRequest) -> None:
+        msg = "no weather-alerts snapshot available at or before 2000-01-01T00:00:00+00:00"
+        raise InvalidTimeIntervalError(msg)
+
+    monkeypatch.setattr(DwdWeatherAlertRequest, "query", query)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["alerts", "--date=2000-01-01T00:00:00"])
+    assert result.exit_code == 2
+    assert "Usage:" in result.output
+    assert "Invalid value for --date: no weather-alerts snapshot available" in result.output
+
+
+def test_cli_alerts_unreadable_feed_is_not_a_usage_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a ValueError from reading DWD's feed is a runtime error with exit status 1, not a usage error."""
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    def query(_self: DwdWeatherAlertRequest) -> None:
+        msg = "Invalid isoformat string: 'not-a-timestamp'"
+        raise ValueError(msg)
+
+    monkeypatch.setattr(DwdWeatherAlertRequest, "query", query)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["alerts"])
+    assert result.exit_code == 1
+    assert "Usage:" not in result.output
+    assert "Invalid value" not in result.output
+    assert "Error: Invalid isoformat string: 'not-a-timestamp'" in result.output

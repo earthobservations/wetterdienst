@@ -20,6 +20,7 @@ from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
     ExportRefusedError,
+    InvalidTimeIntervalError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
 )
@@ -120,7 +121,8 @@ lead_time_opt = click.option(
 issue_opt = click.option(
     "--issue",
     type=click.STRING,
-    help="DWD MOSMIX/DMO model run (ISO 8601); list them with: wetterdienst issues. Default: the latest",
+    help="DWD MOSMIX/DMO/SWSMOS model run (ISO 8601); list MOSMIX/DMO runs with: wetterdienst issues. "
+    "Default: the latest",
 )
 date_opt = click.option("--date", type=click.STRING, help=_DATE_HELP)
 start_date_opt = click.option(
@@ -1783,8 +1785,10 @@ def alerts(
 
     try:
         result = request.query()
-    except ValueError as e:
-        raise click.BadParameter(str(e)) from e
+    except InvalidTimeIntervalError as e:
+        # a date before DWD's rolling window, the one refusal of the request's own `query` raises;
+        # any other `ValueError` comes from DWD's feed (a timestamp, polygon or filename it cannot read)
+        raise click.BadParameter(str(e), param_hint="--date") from e
     except Exception as e:
         log.exception("Failed to acquire weather alerts")
         raise click.ClickException(str(e)) from e

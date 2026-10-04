@@ -1,7 +1,12 @@
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import WidgetPage from '~/pages/widget.vue'
+
+// the page's $fetch, passed through to the real one unless a test makes it fail where nothing answered,
+// which no endpoint can do
+const lookup = vi.hoisted(() => ({ fetch: undefined as unknown as ReturnType<typeof vi.fn> }))
+mockNuxtImport('$fetch', original => (lookup.fetch = vi.fn(original)))
 
 describe('widget Page', () => {
   beforeEach(() => {
@@ -35,13 +40,14 @@ describe('widget Page', () => {
   })
 
   it('shows an error when the station lookup fails', async () => {
-    registerEndpoint('/api/stations', () => new Response('not found', { status: 404 }))
+    onTestFinished(registerEndpoint('/api/stations', () => new Response('not found', { status: 404 })))
 
     const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=99999' })
-    await new Promise(resolve => setTimeout(resolve, 0))
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.text()).toContain('Station not found')
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    // a body without a detail is left out
+    await vi.waitFor(() => expect(vm.error).toMatch(/^Backend error 404/))
+    expect(wrapper.text()).not.toContain('not found')
   })
 
   it('tells a failed forecast by the backend\'s detail', async () => {
@@ -136,5 +142,87 @@ describe('widget Page station lookup answered with a 503 once', () => {
     await vi.waitFor(() => expect(vm.station?.station_id).toBe('00001'))
     expect(asked).toBe(2)
     expect(vm.error).toBeNull()
+  })
+})
+
+describe('widget Page station lookup', () => {
+  it('tells a failed lookup by the backend\'s detail, not as a station not found', async () => {
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      setResponseStatus(event, 500)
+      return { detail: 'Failed to download the MOSMIX station list' }
+    }))
+    globalThis.fetch = vi.fn()
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.error).toBe('Backend error 500: Failed to download the MOSMIX station list'))
+    expect(wrapper.text()).toContain('Backend error 500: Failed to download the MOSMIX station list')
+    expect(wrapper.text()).not.toContain('Station not found')
+  })
+
+  it('tells a failed lookup by its status when the body gives no detail', async () => {
+    // a proxy's error page: its status text is told, its body left out
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      setResponseStatus(event, 502, 'Bad Gateway')
+      return '<html>proxy page</html>'
+    }))
+    globalThis.fetch = vi.fn()
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.error).toBe('Backend error 502 Bad Gateway'))
+    expect(wrapper.text()).not.toContain('proxy page')
+    expect(wrapper.text()).not.toContain('Station not found')
+  })
+
+  it('says the station is not found when the answer holds no station', async () => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [] })))
+    globalThis.fetch = vi.fn()
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=99999' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.error).toBe('Station not found'))
+    expect(vm.station).toBeNull()
+    expect(wrapper.text()).toContain('Station not found')
+  })
+
+  it('tells a lookup nothing answered by the error, not as a station not found', async () => {
+    // what ofetch throws where no answer came: no response on it, its request in front of the message
+    const unanswered = new TypeError('[GET] "/api/stations?station=01001": <no response> Failed to fetch')
+    lookup.fetch.mockRejectedValueOnce(unanswered)
+    // back to the real $fetch should the failure not be asked for, so it cannot reach a later test
+    onTestFinished(() => {
+      lookup.fetch.mockReset()
+    })
+    globalThis.fetch = vi.fn()
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.error).toBe('Failed to fetch'))
+    expect(wrapper.text()).not.toContain('Station not found')
+  })
+
+  it('shows a found station without an error', async () => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '01001', name: 'Jan Mayen', latitude: 70.9, longitude: -8.7 }],
+    })))
+    globalThis.fetch = vi.fn().mockImplementation(async () =>
+      new Response(JSON.stringify({ values: [] }), { status: 200 }),
+    )
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    // set once the forecast has been asked for, which follows the found station
+    await vi.waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+    await vi.waitFor(() => expect(vm.pending).toBe(false))
+    expect(vm.station?.station_id).toBe('01001')
+    expect(vm.error).toBeNull()
+    expect(wrapper.text()).toContain('Jan Mayen')
+    expect(wrapper.text()).not.toContain('Station not found')
   })
 })

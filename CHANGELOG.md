@@ -156,6 +156,18 @@ Types of changes:
   500. A request refused for what it gives keeps its 400 (GH-2297)
 - `wetterdienst values` refuses such `--unit_targets` with `Invalid value for '--unit_targets'`
   and exit status 2, where it died with a traceback (GH-2296)
+- `Settings` refuses a `ts_unit_targets` unit the converter does not have for its quantity, such as
+  `{"temperature": "furlong"}`, or one only a source publishes in. It was refused once the stations
+  had been fetched, so the CLI died with a traceback; `values`, `interpolate` and `summarize` now
+  exit with status 2, and `/api/interpolate` and `/api/summarize` answer 400 where they answered
+  404. Such a unit in `WD_TS_UNIT_TARGETS` now fails every `Settings()`, as an unknown quantity
+  there does, where it broke only values requests: set when the REST server starts, it stops it at
+  import; set in `.env` later, requests answer 500. Correct or remove it. An unknown quantity's
+  refusal names only the unknown ones (GH-2306)
+- `/api/values` answers a malformed `WD_TS_UNIT_TARGETS` in the server's `.env` with a bare 500,
+  where it answered 400 with the setting's value in `detail`; `/api/stripes/stations`, `/values`
+  and `/image` no longer give a malformed setting's value in their 500. The MCP tools answer the
+  same (GH-2312)
 - Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most
   places every 6 deg of longitude) or the equator in the zone of the point. Each was placed in its
   own zone, hundreds of kilometres off, or 10000 km off across the equator, so a point near either
@@ -310,6 +322,13 @@ Types of changes:
   the brackets and sent `http://::1:8086`, which names no valid host (GH-2279)
 - The InfluxDB 1 sink reaches an IPv6 host, such as `influxdb://root:pw@[::1]:8086/`. It dropped
   the brackets, so its client's base URL was `http://::1:8086`, which names no valid host (GH-2287)
+- DWD SWSMOS reads the run an `issue` names when asked through the CLI (`--issue`), the REST API or
+  MCP. The issue was dropped on the way, so the latest run was read whatever was asked. An `issue`
+  that is no ISO date raises `InvalidTimeIntervalError`, a `ValueError`, as MOSMIX and DMO do, so
+  the REST API refuses it as the caller's error, as it does theirs (GH-2299)
+- `wetterdienst alerts` reports a DWD feed it cannot read as an error with exit status 1, as it does
+  a failed download, where it reported an invalid option with exit status 2. A `--date` before
+  DWD's rolling window is still a usage error, now named as `Invalid value for --date` (GH-2313)
 
 ## [0.139.0] - 2026-09-29
 

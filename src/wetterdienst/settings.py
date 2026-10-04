@@ -24,6 +24,7 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
 from wetterdienst.metadata.resolution import Resolution
@@ -312,10 +313,26 @@ class Settings(BaseSettings):
     @field_validator("ts_unit_targets", mode="after")
     @classmethod
     def validate_ts_unit_targets_after(cls, values: dict[str, str]) -> dict[str, str]:
-        """Validate the unit targets."""
-        if not values.keys() <= _UNIT_CONVERTER_TARGETS:
-            msg = f"Invalid unit targets: one of {set(values.keys())} not in {set(_UNIT_CONVERTER_TARGETS)}"
+        """Validate the unit targets, the units as well as the quantities.
+
+        A unit the converter has no such name for, or holds back as one a source publishes in, used
+        to pass here and be refused only once a values request had fetched its stations (GH-2306).
+        """
+        if not values:
+            # the default, which every `Settings()` is built with, so no converter is built for it
+            return values
+        unknown = sorted(values.keys() - _UNIT_CONVERTER_TARGETS)
+        if unknown:
+            msg = (
+                f"Invalid unit targets: quantities not supported: {', '.join(unknown)}. "
+                f"Supported quantities are: {', '.join(sorted(_UNIT_CONVERTER_TARGETS))}"
+            )
             raise ValueError(msg)
+        try:
+            UnitConverter().update_targets(values)
+        except InvalidEnumerationError as e:
+            msg = f"Invalid unit targets: {e}"
+            raise ValueError(msg) from e
         return values
 
     @field_validator("ts_geo_station_distance", mode="before")
