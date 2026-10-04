@@ -4528,20 +4528,17 @@ def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, mon
 
 # the settings each endpoint reports, spelled out rather than read from the models, so that a field
 # added to one of them -- or a `Settings` dump in their place -- shows here (GH-2359)
-_REPORTED_VALUES_SETTINGS = {
+_REPORTED_COMMON_SETTINGS = {
     "humanize",
     "convert_units",
     "unit_targets",
-    "shape",
     "skip_empty",
     "skip_threshold",
     "skip_criteria",
     "drop_nulls",
 }
-_REPORTED_GEO_SETTINGS = {
-    "humanize",
-    "convert_units",
-    "unit_targets",
+_REPORTED_VALUES_SETTINGS = _REPORTED_COMMON_SETTINGS | {"shape"}
+_REPORTED_GEO_SETTINGS = _REPORTED_COMMON_SETTINGS | {
     "use_nearby_station_distance",
     "min_gain_of_value_pairs",
     "num_additional_stations",
@@ -4631,7 +4628,7 @@ def test_settings_reports_the_servers_wd_ts_variables(client: TestClient, monkey
         assert settings["station_distance_resolution_factors"]["hourly"] == 1.0
 
 
-def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str) -> list[Settings]:
+def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str, station_name: str | None = None) -> list[Settings]:
     """Answer `endpoint` with a result of one row, and return the settings it is fetched with, once it is."""
     import datetime as dt  # noqa: PLC0415
 
@@ -4643,6 +4640,8 @@ def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str) -> list[Setting
     values = _values_result_of_shape("long")
     # the request the metadata is read off
     values.stations.stations = DwdObservationRequest(parameters=[("daily", "climate_summary")])
+    if station_name is not None:
+        values.stations.df = values.stations.df.with_columns(pl.lit(station_name).alias("name"))
     row = {
         "station_id": "a87d0e9bb6fb2b4b",
         "resolution": "daily",
@@ -4772,9 +4771,9 @@ def test_no_credential_or_cache_setting_is_reported(
     reported = payload if endpoint == "/api/settings" else {_SETTINGS_OF_ENDPOINT[endpoint]: payload["settings"]}
     for name, settings in reported.items():
         assert set(settings) == _REPORTED_SETTINGS[name]
-    if "values" in reported:
-        # a WD_TS_* variable set alongside them is reported all the same
-        assert reported["values"]["skip_empty"] is True
+        # a WD_TS_* variable set alongside them is reported all the same, by the estimating
+        # endpoints too, whose stations' values are read with it
+        assert settings["skip_empty"] is True
 
 
 def test_settings_is_no_mcp_tool() -> None:
@@ -4827,3 +4826,72 @@ def test_mcp_values_tool_reports_the_settings_it_used(monkeypatch: pytest.Monkey
 
     data = asyncio.run(_call())
     assert data["result"]["settings"]["unit_targets"]["temperature"] == "degree_fahrenheit"
+
+
+@pytest.mark.parametrize(
+    ("model_name", "request_model", "server_only"),
+    [
+        ("ValuesSettings", "ValuesRequest", set()),
+        (
+            "InterpolationSettings",
+            "InterpolationRequest",
+            {"skip_empty", "skip_threshold", "skip_criteria", "drop_nulls", "station_distance_resolution_factors"},
+        ),
+        (
+            "SummarySettings",
+            "SummaryRequest",
+            {"skip_empty", "skip_threshold", "skip_criteria", "drop_nulls", "station_distance_resolution_factors"},
+        ),
+    ],
+)
+def test_each_reported_setting_is_a_field_of_the_request_but_the_servers_own(
+    model_name: str,
+    request_model: str,
+    server_only: set[str],
+) -> None:
+    """A reported setting is named by the request field that sets it, but for the ones the server sets alone (GH-2359).
+
+    `_request_settings` passes a request the settings its endpoint reports, by name, and leaves out
+    one the request has no field for: a field renamed on one side alone would be left out silently,
+    and the server's value reported as the one applied.
+    """
+    from wetterdienst.ui import core  # noqa: PLC0415
+
+    reported = set(getattr(restapi, model_name).model_fields)
+    requested = set(getattr(core, request_model).model_fields)
+    assert reported - requested == server_only
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("fmt", ["json", "geojson"])
+@pytest.mark.parametrize("endpoint", ["/api/values", "/api/interpolate", "/api/summarize"])
+def test_data_endpoints_write_the_rest_as_without_the_settings(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    fmt: str,
+) -> None:
+    """Besides the settings, a response with `with_metadata` is the text the result's own format writes (GH-2359).
+
+    The settings are put in by the REST API, which writes the JSON itself: its encoding, the
+    escaping of a station's name included, stays the one `to_json` or `to_geojson` writes.
+    """
+    _stub_result(monkeypatch, endpoint, station_name="Görlitz")
+    result = getattr(restapi, _FETCH_OF_ENDPOINT[endpoint])(settings=Settings())
+    params = {
+        **_OBSERVATION,
+        "station": "01048",
+        "format": fmt,
+        "with_metadata": "true",
+        "with_stations": "true",
+    }
+    if endpoint != "/api/values":
+        params["date"] = "2026-01-01"
+
+    response = client.get(endpoint, params=params)
+
+    assert response.status_code == 200, response.text
+    settings = json.dumps(response.json()["settings"], ensure_ascii=fmt == "json")
+    written = result.to_format(fmt, with_metadata=True, with_stations=True, indent=False)
+    assert "rlitz" in written
+    assert response.text.replace(f'"settings": {settings}, ', "") == written

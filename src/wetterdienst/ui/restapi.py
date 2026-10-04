@@ -180,13 +180,13 @@ _MEDIA_TYPES = {
 }
 
 
-# The settings a request to `/api/values`, `/api/interpolate` and `/api/summarize` can set, by the
-# request field that sets each, and with the setting it sets as its validation alias. The one list
-# of them: an endpoint takes these from its request (GH-2325), reports the ones it used with its
+# The settings a request to `/api/values`, `/api/interpolate` and `/api/summarize` is answered with,
+# by the request field that sets each, and with the setting it sets as its validation alias. The one
+# list of them: an endpoint takes these from its request (GH-2325), reports the ones it used with its
 # metadata, and `/api/settings` reports the server's defaults for them (GH-2359). Listed one by one
 # rather than read from `Settings`, so that neither report reaches a credential or the cache.
 class _AppliedSettings(BaseModel):
-    """The settings every one of the three endpoints takes."""
+    """The settings every one of the three endpoints is answered with."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -196,16 +196,16 @@ class _AppliedSettings(BaseModel):
         validation_alias="ts_unit_targets",
         description="The unit values of each quantity are converted to, for every quantity.",
     )
+    skip_empty: bool = Field(validation_alias="ts_skip_empty")
+    skip_threshold: float = Field(validation_alias="ts_skip_threshold")
+    skip_criteria: Literal["min", "mean", "max"] = Field(validation_alias="ts_skip_criteria")
+    drop_nulls: bool = Field(validation_alias="ts_drop_nulls")
 
 
 class ValuesSettings(_AppliedSettings):
     """The settings of `/api/values`."""
 
     shape: Literal["long", "wide"] = Field(validation_alias="ts_shape")
-    skip_empty: bool = Field(validation_alias="ts_skip_empty")
-    skip_threshold: float = Field(validation_alias="ts_skip_threshold")
-    skip_criteria: Literal["min", "mean", "max"] = Field(validation_alias="ts_skip_criteria")
-    drop_nulls: bool = Field(validation_alias="ts_drop_nulls")
 
 
 _STATION_DISTANCE_DESCRIPTION = (
@@ -224,7 +224,8 @@ class _GeoSettings(_AppliedSettings):
     use_nearby_station_distance: float | None = Field(validation_alias="ts_geo_use_nearby_station_distance")
     min_gain_of_value_pairs: float = Field(validation_alias="ts_geo_min_gain_of_value_pairs")
     num_additional_stations: int = Field(validation_alias="ts_geo_num_additional_stations")
-    # the one setting here no request field sets, which scales a heterogeneous radius a request gives all the same
+    # set by the server alone, as are the skipping of sparse stations and the dropping of nulls
+    # here: neither request has a field for them, and the stations' values are read with them
     station_distance_resolution_factors: dict[str, float] = Field(
         validation_alias="ts_geo_station_distance_resolution_factors",
         description="The factor the heterogeneous radius is multiplied by, for every resolution. Set by the "
@@ -818,9 +819,7 @@ def values(
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
 
-    content = _render(
-        values_, request, kwargs, _applied_settings(ValuesSettings, settings) if request.with_metadata else None
-    )
+    content = _render(values_, request, kwargs, ValuesSettings, settings)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
@@ -847,7 +846,7 @@ def _request_settings(request: BaseModel, given: Collection[str], applied: type[
     passed = {
         str(setting.validation_alias): (field, value)
         for field, setting in applied.model_fields.items()
-        # not the resolution factors, which no request field sets
+        # not a setting the request has no field for, which the server sets alone
         if field in type(request).model_fields and field in given and (value := getattr(request, field)) is not None
     }
     try:
@@ -872,19 +871,22 @@ def _render(
     result: ValuesResult | InterpolatedValuesResult | SummarizedValuesResult,
     request: ValuesRequest | InterpolationRequest | SummaryRequest,
     kwargs: dict[str, Any],
-    applied: _AppliedSettings | None,
+    applied: type[_AppliedSettings],
+    settings: Settings,
 ) -> str | bytes:
-    """Render a result in the format `kwargs` names, the JSON formats with the settings applied, if given.
+    """Render a result in the format `kwargs` names, the JSON formats with the settings `applied`.
 
-    The settings go next to the metadata, as `to_json` and `to_geojson` would write the rest.
+    The settings go next to the metadata, with `with_metadata` alone, and the rest is written as
+    `to_json` and `to_geojson` write it.
     """
-    if applied is None or request.format not in ("json", "geojson"):
+    if not request.with_metadata or request.format not in ("json", "geojson"):
         return result.to_format(**kwargs)
     if request.format == "json":
         data: dict[str, Any] = dict(result.to_dict(with_metadata=True, with_stations=request.with_stations))
     else:
         data = dict(result.to_ogc_feature_collection(with_metadata=True))
-    data = {"metadata": data.pop("metadata"), "settings": applied.model_dump(mode="json"), **data}
+    report = _applied_settings(applied, settings).model_dump(mode="json")
+    data = {"metadata": data.pop("metadata"), "settings": report, **data}
     return json.dumps(data, indent=4 if request.pretty else None, ensure_ascii=request.format == "json")
 
 
@@ -1060,9 +1062,7 @@ def interpolate(
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
 
-    content = _render(
-        values_, request, kwargs, _applied_settings(InterpolationSettings, settings) if request.with_metadata else None
-    )
+    content = _render(values_, request, kwargs, InterpolationSettings, settings)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
@@ -1118,9 +1118,7 @@ def summarize(
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
 
-    content = _render(
-        values_, request, kwargs, _applied_settings(SummarySettings, settings) if request.with_metadata else None
-    )
+    content = _render(values_, request, kwargs, SummarySettings, settings)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
