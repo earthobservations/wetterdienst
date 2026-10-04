@@ -252,6 +252,10 @@ class Settings(BaseSettings):
         env_ignore_empty=True,
         env_prefix="WD_",
         env_nested_delimiter="__",
+        # a field assigned after construction is checked as one given to the constructor is, and the
+        # model validators below run again; without it a value out of bounds or outside its choices
+        # was taken as it was and failed later, far from the assignment (GH-2342)
+        validate_assignment=True,
     )
 
     cache_disable: bool = Field(default=False)
@@ -435,11 +439,15 @@ class Settings(BaseSettings):
         Runs more than once on the same instance -- `Settings.model_validate(settings)` re-runs
         every after-validator, and `TimeseriesRequest` does exactly that -- so the overrides are
         captured only the first time. Expanding the expansion would take the whole table for
-        overrides the user never wrote, which would then outrank a radius set afterwards.
+        overrides the user never wrote, which would then outrank a radius set afterwards. Every
+        assignment to a field runs it again too, so a radius assigned reaches the mapping at once.
+
+        The mapping is written past validation: assigning it would validate it, which runs this
+        validator again without end.
         """
         if self._ts_geo_station_distance_overrides is None:
             self._ts_geo_station_distance_overrides = dict(self.ts_geo_station_distance)
-        self.ts_geo_station_distance = _build_geo_station_distance(
+        self.__dict__["ts_geo_station_distance"] = _build_geo_station_distance(
             self.ts_geo_station_distance_homogeneous,
             self.ts_geo_station_distance_heterogeneous,
             self._ts_geo_station_distance_overrides,
@@ -475,8 +483,9 @@ class Settings(BaseSettings):
         The two radii and the factors are read here, so assigning to them on an existing `Settings`
         object takes effect at once. `ts_geo_station_distance` is not: the overrides are taken when
         the settings are built, and the mapping the field then holds is the expansion of them, so
-        assigning a new mapping to it afterwards is discarded on the next validation. Build a new
-        `Settings` to change the per-parameter radii.
+        a new mapping assigned to it afterwards is checked and then discarded, the expansion being
+        run again from the overrides the settings were built with. Build a new `Settings` to change
+        the per-parameter radii.
         """
         overrides = self._ts_geo_station_distance_overrides or {}
         if parameter_name in overrides:
@@ -493,9 +502,14 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate(self) -> Settings:
-        """Validate the settings."""
+        """Validate the settings.
+
+        Runs again on every assignment, so `ts_shape="wide"` assigned turns `ts_drop_nulls` off as
+        it does when given to the constructor. The field is written past validation, which would
+        otherwise run this validator again without end.
+        """
         if self.ts_shape != "long":
-            self.ts_drop_nulls = False
+            self.__dict__["ts_drop_nulls"] = False
             log.info(
                 "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and "
                 "is thus ignored in this request.",
