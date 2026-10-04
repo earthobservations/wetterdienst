@@ -44,6 +44,7 @@ from wetterdienst.model.result import (
     _ValuesDict,
     _ValuesOgcFeatureCollection,
 )
+from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
     GlossaryEntry,
     HistoryRequest,
@@ -74,12 +75,41 @@ from wetterdienst.util.ui import read_list
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from starlette.types import ASGIApp, Receive, Scope, Send
+
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult, ValuesResult
 
 info = Info()
 
 app = FastAPI(debug=False)
+
+
+class _RefuseInvalidSettings:
+    """Refuse to start the server while a `WD_*` setting is malformed, naming the variable (GH-2335).
+
+    Checked as the server starts the app's lifespan, so it holds whatever starts it -- `wetterdienst
+    restapi`, `uvicorn wetterdienst.ui.restapi:app`, `--reload` -- and covers `/mcp`, which is
+    served by this app. A failure in the app's own lifespan would reach the server as Starlette's
+    formatted traceback; answering the startup here gives the log the variables and what is wrong
+    with them, a line each, without the values, and the server exits before taking a connection.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "lifespan":
+            problems = check_settings()
+            if problems:
+                await receive()
+                message = "\n".join(["Refusing to start, the settings are invalid:", *problems])
+                await send({"type": "lifespan.startup.failed", "message": message})
+                return
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(_RefuseInvalidSettings)
 
 # Set to True at the bottom of this module when the optional ``[mcp]`` extra (fastmcp) is installed
 # and an MCP endpoint has been mounted onto ``app`` at ``/mcp``. Read by the index page.

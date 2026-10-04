@@ -4127,3 +4127,82 @@ def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     # Starlette's own answer to an exception nothing handled, so the settings are what failed
     assert response.status_code == 500
     assert response.text == "Internal Server Error"
+
+
+def _start_lifespan(caplog: pytest.LogCaptureFixture) -> bool:
+    """Start the app's lifespan as uvicorn does, shut it down again, and say whether it started."""
+    import asyncio  # noqa: PLC0415
+
+    from uvicorn.config import Config  # noqa: PLC0415
+    from uvicorn.lifespan.on import LifespanOn  # noqa: PLC0415
+
+    # no log config, so that uvicorn's records reach caplog
+    config = Config(restapi.app, lifespan="on", log_config=None)
+    config.load()
+    lifespan = LifespanOn(config)
+
+    async def run() -> bool:
+        await lifespan.startup()
+        started = not lifespan.should_exit
+        if started:
+            await lifespan.shutdown()
+        return started
+
+    with caplog.at_level(logging.INFO, logger="uvicorn.error"):
+        return asyncio.run(run())
+
+
+def test_restapi_refuses_to_start_with_a_malformed_setting(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A malformed `WD_*` setting stops the server before it serves, told by its variable (GH-2335).
+
+    It used to stop the import with pydantic's traceback, as a side effect of building `Info`, and a
+    `.env` that broke after that gave a bare 500 per request. The log now has the variable and what
+    is wrong with it, without the value and without a traceback.
+    """
+    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=secret-ish\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
+
+    assert not _start_lifespan(caplog)
+
+    assert "WD_CACHE_DISABLE is invalid: Input should be a valid boolean" in caplog.text
+    assert "Application startup failed. Exiting." in caplog.text
+    assert "secret-ish" not in caplog.text
+    assert "Traceback" not in caplog.text
+
+
+def test_restapi_starts_with_valid_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Valid settings pass the startup check, on to the app's own lifespan (GH-2335)."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
+
+    assert _start_lifespan(caplog)
+    assert "Application startup complete." in caplog.text
+
+
+def test_restapi_imports_with_a_malformed_setting(tmp_path: pathlib.Path) -> None:
+    """The REST API's module imports with a malformed `WD_*` setting, for its startup to refuse (GH-2335).
+
+    Its `Info` read the settings on import, so the import failed with pydantic's traceback first.
+    """
+    import os  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import wetterdienst.ui.restapi"],
+        cwd=tmp_path,
+        env={**os.environ, "WD_CACHE_DISABLE": "secret-ish"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
