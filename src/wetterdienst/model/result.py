@@ -776,8 +776,11 @@ class ValuesResult(_ValuesResult):
         wherever a column has no reading at a row another column has one at, and a column of one
         resolution is null throughout the rows of another, as the widening joins on the resolution.
         Kept, those would draw a series under a resolution it does not belong to. The quality
-        columns are not drawn. The series are put in the order the long shape sorts them in, which
-        is the order their facets are laid out in.
+        columns are not drawn.
+
+        The rows are put in the order a long result holds them in, which is the order the plot
+        lays its facets out and colours its stations in: station by station, as they were
+        collected, and sorted within each station by resolution, dataset and parameter.
         """
         datasets_by_resolution: dict[str, set[str]] = {}
         for parameter in self.stations.parameters:
@@ -819,8 +822,11 @@ class ValuesResult(_ValuesResult):
                 )
         if not series:
             return pl.DataFrame()
-        # stable, so that the stations keep their order within a series, as they do in a long frame
-        return pl.concat(series).sort("resolution", "dataset", "parameter", maintain_order=True)
+        # the stations in the order they come in, and stable, so that a series keeps its timestamps' order
+        stations = pl.Enum(df.get_column("station_id").cast(pl.String).unique(maintain_order=True))
+        return pl.concat(series).sort(
+            pl.col("station_id").cast(stations), "resolution", "dataset", "parameter", maintain_order=True
+        )
 
     def _to_image(  # ty: ignore[invalid-method-override]
         self,

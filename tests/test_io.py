@@ -3329,37 +3329,45 @@ def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
         stations_filter=StationsFilter.ALL,
     )
     values = stations.values
+    series = [
+        (parameter.dataset.resolution.name, parameter.dataset.name, name)
+        for parameter, name in zip(request.parameters, names, strict=True)
+    ]
     rows = []
-    for parameter, name in zip(request.parameters, names, strict=True):
-        timestamps = (
-            [dt.datetime(2020, 1, 1, hour, tzinfo=ZoneInfo("UTC")) for hour in (0, 1)]
-            if parameter.dataset.resolution.name == "hourly"
-            else [dt.datetime(2020, 1, day, tzinfo=ZoneInfo("UTC")) for day in (1, 2)]
-        )
-        rows.extend(
-            {
-                "station_id": station_id,
-                "resolution": parameter.dataset.resolution.name,
-                "dataset": parameter.dataset.name,
-                "parameter": name,
-                "timestamp": timestamp,
-                "value": float(len(rows) + index),
-                "quality": 10.0,
-            }
-            for index, (station_id, timestamp) in enumerate(
-                (station_id, timestamp) for station_id in ("01048", "04411") for timestamp in timestamps
+    for station_id in ("01048", "04411"):
+        for resolution, dataset, name in series:
+            # the first station has none of the series that sorts first, so it lays out its facets
+            # and takes its colour in a different order than a sort of all the rows would
+            if station_id == "01048" and (resolution, dataset, name) == min(series):
+                continue
+            timestamps = (
+                [dt.datetime(2020, 1, 1, hour, tzinfo=ZoneInfo("UTC")) for hour in (0, 1)]
+                if resolution == "hourly"
+                else [dt.datetime(2020, 1, day, tzinfo=ZoneInfo("UTC")) for day in (1, 2)]
             )
-        )
-    # one reading of the last parameter missing, which the wide shape writes as a null where another
-    # parameter of its resolution has a reading at that timestamp
+            rows.extend(
+                {
+                    "station_id": station_id,
+                    "resolution": resolution,
+                    "dataset": dataset,
+                    "parameter": name,
+                    "timestamp": timestamp,
+                    "value": float(len(rows) + index),
+                    "quality": 10.0,
+                }
+                for index, timestamp in enumerate(timestamps)
+            )
+    # one reading of the last series missing, which the wide shape writes as a null where another
+    # series of its resolution has a reading at that timestamp
     rows.pop()
     df_collected = pl.DataFrame(rows, schema=TimeseriesValues._long_fields)  # noqa: SLF001
     # shaped and sorted one station at a time and then put together, as a request does
     stations_collected = [df for _, df in df_collected.group_by("station_id", maintain_order=True)]
     df_long = pl.concat(df.sort("resolution", "dataset", "parameter", "timestamp") for df in stations_collected)
+    # diagonally, as a station that has none of a series has no column for it
     df_wide = pl.concat(
-        values._widen_df(df).sort("resolution", "dataset", "timestamp")  # noqa: SLF001
-        for df in stations_collected
+        [values._widen_df(df).sort("resolution", "dataset", "timestamp") for df in stations_collected],  # noqa: SLF001
+        how="diagonal",
     )
     long = ValuesResult(stations=stations, values=values, df=values._cast_metadata_to_enum(df_long))  # noqa: SLF001
     wide = ValuesResult(stations=stations, values=values, df=values._cast_metadata_to_enum(df_wide))  # noqa: SLF001
