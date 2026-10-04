@@ -345,6 +345,9 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- NOAA GHCN hourly stations listed at 9999.0 m or 8191.0 m, 154 placeholders such as the North
+  Sea lightship ELBE NO. 1, have a null `elevation`. `interpolate` and `summarize` given an
+  elevation took them for known ones (GH-2336)
 
 ## [0.139.0] - 2026-09-29
 
