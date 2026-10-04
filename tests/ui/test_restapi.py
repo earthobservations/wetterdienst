@@ -4216,3 +4216,37 @@ def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, mon
 
     assert response.status_code == 400
     assert "swsmos_20200101000000_opendata.csv.bz2" in response.json()["detail"]
+
+
+def test_issues_dmo_options_are_described_as_refused_and_are_refused(client: TestClient) -> None:
+    """The issues tool says a DMO-only option is refused for other networks, and it is (GH-2347).
+
+    It said "ignored", copied from the data endpoints' lead time, which other networks do ignore, so
+    a caller or a model that trusted it passed the option to MOSMIX and was refused.
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def _schemas() -> dict[str, dict]:
+        async with Client(build_mcp_server(restapi.app)) as mcp_client:
+            return {tool.name: tool.input_schema["properties"] for tool in await mcp_client.list_tools()}
+
+    schemas = asyncio.run(_schemas())
+    options = {"dataset": "icon", "lead_time": "long"}
+    for name in options:
+        assert schemas["issues"][name]["description"].endswith("; refused for other networks.")
+    # the data endpoints keep the shared description: there a lead time outside DMO is ignored
+    assert schemas["values"]["lead_time"]["description"].endswith("; ignored for other networks.")
+
+    # every network but DMO: the two that list issues refuse the option, the rest refuse the listing
+    for network, station in (("mosmix", "10147"), ("swsmos", "A006"), ("observation", "00011")):
+        for name, value in options.items():
+            response = client.get(
+                "/api/issues",
+                params={"provider": "dwd", "network": network, "station": station, name: value},
+            )
+            assert response.status_code == 400, (network, name)

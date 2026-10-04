@@ -953,3 +953,21 @@ def test_issues_dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(cli, ["issues", "--provider=dwd", "--network=swsmos", "--station=A006"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == {"issues": ["2026-10-04T06:00:00+00:00"]}
+
+
+@pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])
+@pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006"), ("observation", "00011")])
+def test_issues_help_says_the_dmo_options_are_refused_and_they_are(
+    option: str, value: str, network: str, station: str
+) -> None:
+    """Test `issues` describes --dataset and --lead_time as refused for other networks, as they are (GH-2347).
+
+    The help said "ignored by other networks", which `values` says of its own --lead_time and is true
+    there, but `issues` refuses either option for MOSMIX and SWSMOS.
+    """
+    help_text = next(param.help for param in cli.commands["issues"].params if param.name == option)
+    assert "refused for other networks" in help_text
+    result = CliRunner().invoke(
+        cli, ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", f"--{option}={value}"]
+    )
+    assert result.exit_code == 1, result.output

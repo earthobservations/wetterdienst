@@ -1051,13 +1051,13 @@ def stations(
     "--dataset",
     type=click.Choice(["icon", "icon_eu"]),
     default=None,
-    help="DWD DMO product; ignored by other networks. Default: as for values",
+    help="DWD DMO product; refused for other networks. Default: as for values",
 )
 @click.option(
     "--lead_time",
     type=click.Choice(["short", "long"]),
     default=None,
-    help="DWD DMO forecast lead time; ignored by other networks. Default: as for values",
+    help="DWD DMO forecast lead time; refused for other networks. Default: as for values",
 )
 @debug_opt
 def issues_cmd(
