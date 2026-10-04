@@ -39,7 +39,7 @@ const stationsQuery = computed(() => ({
   parameters: `${props.parameterSelection.resolution}/${props.parameterSelection.dataset}`,
   all: 'true',
 }))
-const { data: stationsData, pending: stationsPending, error: stationsError, refresh: refreshStations, clear: clearStations } = useFetch<StationsResponse>(
+const { data: stationsData, pending: stationsPending, error: stationsError, status: stationsStatus, refresh: refreshStations, clear: clearStations } = useFetch<StationsResponse>(
   '/api/stations',
   {
     query: stationsQuery,
@@ -62,6 +62,11 @@ const stationItems = computed(() =>
     value: station.station_id,
   })),
 )
+
+// A list that answered with no station left to offer -- none at all, or none with a position --
+// would leave the select empty with nothing said. Only once it has answered: not while it is out,
+// and not when it failed, which the Retry notice says.
+const noStationToOffer = computed(() => stationsStatus.value === 'success' && !stationItems.value.length)
 
 const selectedStationItem = computed({
   get: () => selectedStation.value
@@ -157,7 +162,9 @@ const displayCoords = computed(() => {
     </div>
 
     <div v-else>
-      <UFormField :label="t('interpolation.selectStationForCoords')">
+      <!-- the field's help, which describes the select as well, says why a list that answered has
+           nothing in it -->
+      <UFormField :label="t('interpolation.selectStationForCoords')" :help="noStationToOffer ? t('interpolation.noStationsWithPosition') : undefined">
         <USelectMenu
           v-if="!stationsPending"
           v-model="selectedStationItem"
