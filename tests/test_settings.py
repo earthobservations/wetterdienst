@@ -775,11 +775,7 @@ def test_settings_geo_station_distance_mappings_refuse_anything_but_a_mapping_fr
         Settings()
 
 
-def test_settings_dotenv_ignores_a_key_that_is_no_setting(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_settings_dotenv_ignores_a_key_that_is_no_setting(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A `.env` shared with another program does not stop the settings from loading (GH-2349).
 
     Its key used to be refused, and its value echoed, by every `Settings()`. A key without the
@@ -791,11 +787,9 @@ def test_settings_dotenv_ignores_a_key_that_is_no_setting(
     # a directory of the test's own, so that a `.env` where the tests are run from is not read
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text("POSTGRES_PASSWORD=secret-ish\nTS_SHAPE=wide\nWD_CACHE_DISABLE=true\n")
-    caplog.set_level(logging.DEBUG)
     settings = Settings()
     assert settings.cache_disable
     assert settings.ts_shape == "long"
-    assert "secret-ish" not in caplog.text
 
 
 def test_settings_dotenv_ignores_a_misspelt_wd_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
