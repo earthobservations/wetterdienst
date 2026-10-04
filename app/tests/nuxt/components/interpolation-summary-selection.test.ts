@@ -1,6 +1,6 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
-import { setResponseStatus } from 'h3'
+import { getQuery, setResponseStatus } from 'h3'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
@@ -188,5 +188,33 @@ describe('the interpolation\'s station list answered with a 503 once', () => {
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
     expect(asked).toBe(2)
+  })
+})
+
+describe('the interpolation\'s station list on a change of dataset', () => {
+  it('asks /api/stations once for the new dataset', async () => {
+    // useFetch refetched on its own as the query changed, and the watcher on the selection refreshed
+    // as well: the endpoint saw the new dataset twice
+    const asked: unknown[] = []
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      asked.push(getQuery(event).parameters)
+      return { stations: [feldberg] }
+    }))
+    // datasets of their own, so neither list is one the tests above leave mounted
+    const selected = ref({ ...parameterSelection, dataset: 'water_equiv' })
+    const wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(InterpolationSummarySelection as never, { parameterSelection: selected.value, modelValue: { source: 'station' } }),
+    }))
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.findComponent(InterpolationSummarySelection).vm as any
+    await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
+
+    selected.value = { ...selected.value, dataset: 'weather_phenomena' }
+    await vi.waitFor(() => {
+      expect(asked).toContain('daily/weather_phenomena')
+      expect(vm.stationsPending).toBe(false)
+    })
+    await flushPromises()
+    expect(asked).toEqual(['daily/water_equiv', 'daily/weather_phenomena'])
   })
 })

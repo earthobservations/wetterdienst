@@ -43,6 +43,9 @@ const { data: stationsData, pending: stationsPending, refresh: refreshStations }
       all: 'true',
     })),
     immediate: false,
+    // fetched by the watcher on the parameter selection alone: useFetch's own refetch on a change of
+    // the query asked for the whole station list a second time
+    watch: false,
     ...RETRY_TRANSIENT,
     default: () => ({ stations: [] }),
   },

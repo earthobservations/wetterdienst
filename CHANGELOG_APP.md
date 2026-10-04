@@ -296,6 +296,8 @@ Types of changes:
   one whose connection is lost before any answer. A 502, 503 or 504 from a proxy, or a 408 or 429,
   is still asked for once more, which fills a station list such a passing failure hit
   (GH-2298, GH-2315)
+- `[Explorer]` The interpolation and summary's station picker asks for the station list once on a
+  change of dataset, where it asked twice and the backend built the whole list for each (GH-2314)
 ## [0.17.0] - 2026-09-29
 
 ### Changed
