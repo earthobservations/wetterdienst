@@ -310,3 +310,76 @@ def test_noaa_ghcn_daily_stations_brazilian_zero_elevation(
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
     df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
     assert df.select("station_id", "elevation").rows() == [("BR002145042", None), ("NLE00101883", 0.0)]
+
+
+# rows copied from `ghcnh-station-list.csv`, `ghcnd-stations.txt` and `ghcnd-inventory.txt` as NOAA
+# publishes them (2026-10-04). MXM00076840 is ARRIAGA on the Chiapas coast in the hourly list (and in
+# its hourly data), TEMOSACHI in Chihuahua, 2007 km away, in the daily one. GORYACHKOVKA is 229.0 m
+# in the hourly list and 0.0 m in the daily one, 9.4 km apart. The reef light KELP REEFS has no
+# elevation in the hourly list (-999.9) and 0.0 m in the daily one, at the same place
+GHCNH_FAR_APART_OR_ZERO = (
+    "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+    "CAN01013998,48.548,-123.237,-999.9,,KELP REEFS,,,,CWZO,CA\n"
+    "MXM00076840,16.2333,-93.9,48.0,,ARRIAGA  CHIS.,,,76840,,MX\n"
+    "UPM00033676,48.333,28.75,229.0,,GORYACHKOVKA,,,33676,,UA\n"
+)
+GHCND_STATIONS_FAR_APART_OR_ZERO = (
+    "CAN01013998  48.5477 -123.2370    0.0 BC KELP REEFS                                  \n"
+    "MXM00076840  28.9500 -107.8167 1931.8    TEMOSACHI (OBS)                        76840\n"
+    "UPM00033676  48.3670   28.8670    0.0    GORYACHKOVKA                           33676\n"
+)
+GHCND_INVENTORY_FAR_APART_OR_ZERO = (
+    "CAN01013998  48.5477 -123.2370 WDFG 2018 2026\n"
+    "MXM00076840  28.9500 -107.8167 TMAX 1961 2026\n"
+    "UPM00033676  48.3670   28.8670 TMAX 1979 1984\n"
+)
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        pytest.param([("hourly", "data"), ("daily", "data")], id="hourly-first"),
+        pytest.param([("daily", "data"), ("hourly", "data")], id="daily-first"),
+    ],
+)
+@pytest.mark.parametrize(
+    "ghcnh_station_list",
+    [
+        pytest.param(GHCNH_FAR_APART_OR_ZERO, id="as-listed"),
+        # GORYACHKOVKA's hourly row moved onto the daily list's position, so that the 5 km rule
+        # passes it and only the 0.0 rule keeps its height
+        pytest.param(GHCNH_FAR_APART_OR_ZERO.replace("48.333,28.75,", "48.367,28.867,"), id="at-daily-position"),
+    ],
+)
+def test_noaa_ghcn_stations_hourly_and_daily_keep_their_own_elevation(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+    parameters: list[tuple[str, str]],
+    ghcnh_station_list: str,
+) -> None:
+    """A station the lists put over 5 km apart, or at 0.0 m in the daily one, keeps its hourly height (GH-2336).
+
+    ARRIAGA's hourly row is not given TEMOSACHI's 1931.8 m, and GORYACHKOVKA's not the daily list's
+    0.0 m (GH-2362), in either order of the parameters. KELP REEFS, which the hourly list gives no
+    height, takes the daily 0.0 m.
+    """
+    contents = {
+        "ghcnh-station-list.csv": ghcnh_station_list,
+        "ghcnd-stations.txt": GHCND_STATIONS_FAR_APART_OR_ZERO,
+        "ghcnd-inventory.txt": GHCND_INVENTORY_FAR_APART_OR_ZERO,
+    }
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        content = contents[url.rsplit("/", 1)[-1]]
+        return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    df = NoaaGhcnRequest(parameters=parameters, settings=default_settings).all().df
+    assert sorted(df.select("resolution", "station_id", "elevation").rows()) == [
+        ("daily", "CAN01013998", 0.0),
+        ("daily", "MXM00076840", 1931.8),
+        ("daily", "UPM00033676", 0.0),
+        ("hourly", "CAN01013998", 0.0),
+        ("hourly", "MXM00076840", 48.0),
+        ("hourly", "UPM00033676", 229.0),
+    ]

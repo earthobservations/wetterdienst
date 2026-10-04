@@ -20,6 +20,7 @@ from wetterdienst.provider.noaa.ghcn.metadata import (
     DAILY_PARAMETER_MULTIPLICATION_FACTORS,
     NoaaGhcnMetadata,
 )
+from wetterdienst.util.geo import EARTH_RADIUS_IN_KM
 from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
 
@@ -30,6 +31,9 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+# how far apart the hourly and the daily list may put a station and still be taken to mean one place
+MAX_DISTANCE_KM_SAME_STATION = 5.0
 
 
 class NoaaGhcnValues(TimeseriesValues):
@@ -211,17 +215,44 @@ class NoaaGhcnRequest(TimeseriesRequest):
         # only the daily frame has start_date and end_date, from its inventory, and wmo_id, which the
         # hourly reader does not select; the hourly stations get nulls
         df = pl.concat(data, how="diagonal")
-        # a station in both lists takes the daily list's elevation on its hourly row too, and keeps
-        # the hourly one only where the daily list has none, so that every reader of the station
-        # gets one elevation whichever row it takes (GH-2336). A request for one resolution has no
-        # such pairs
-        df = df.with_columns(
-            pl.coalesce(
-                pl.col("elevation").filter(pl.col("resolution").eq("daily")).first().over("station_id"),
-                pl.col("elevation"),
-            ),
+        return self._take_daily_elevation(df)
+
+    @staticmethod
+    def _take_daily_elevation(df: pl.LazyFrame) -> pl.LazyFrame:
+        """Give a station's hourly row the daily list's elevation, where both lists mean one place.
+
+        So every reader of a station in both lists gets one elevation, whichever row it takes
+        (GH-2336). Only where the two lists put the station within 5 km of each other: for some ids
+        they name different stations (MXM00076840 is ARRIAGA on the Chiapas coast in the hourly
+        list and its data, TEMOSACHI 2000 km away and 1900 m higher in the daily one), and there
+        each row keeps its own list's height. Nor does a daily 0.0 replace a height the hourly list
+        gives (GH-2362), and a daily list giving none leaves the hourly one. A request for one
+        resolution has no pairs to settle.
+        """
+        is_daily = pl.col("resolution").eq("daily")
+
+        def daily(column: str) -> pl.Expr:
+            return pl.col(column).filter(is_daily).first().over("station_id")
+
+        lat, lon = pl.col("latitude").cast(pl.Float64).radians(), pl.col("longitude").cast(pl.Float64).radians()
+        lat_daily = daily("latitude").cast(pl.Float64).radians()
+        lon_daily = daily("longitude").cast(pl.Float64).radians()
+        haversine = ((lat_daily - lat) / 2).sin().pow(2) + lat.cos() * lat_daily.cos() * (
+            (lon_daily - lon) / 2
+        ).sin().pow(2)
+        distance_km = 2 * EARTH_RADIUS_IN_KM * haversine.sqrt().arcsin()
+        elevation_daily = daily("elevation")
+        return df.with_columns(
+            pl.when(
+                ~is_daily
+                & distance_km.le(MAX_DISTANCE_KM_SAME_STATION)
+                & elevation_daily.is_not_null()
+                & (elevation_daily.cast(pl.Float64).ne(0.0) | pl.col("elevation").is_null())
+            )
+            .then(elevation_daily)
+            .otherwise(pl.col("elevation"))
+            .alias("elevation"),
         )
-        return df.lazy()
 
     def _create_metaindex_for_ghcn_hourly(self) -> pl.LazyFrame:
         from typing import cast  # noqa: PLC0415

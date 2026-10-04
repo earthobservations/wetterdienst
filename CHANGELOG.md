@@ -146,9 +146,11 @@ Types of changes:
   as if the run held nothing for the station. Catch `IssueNotFoundError`, or pick the issue from
   `DwdSwsmosRequest.available_issues` (GH-2324)
 - A NOAA GHCN station asked for at both `hourly` and `daily` has the daily list's `elevation` on
-  its hourly row as well, or the hourly list's where the daily list gives none. Interpolate and
-  summarize, by station id or by point, then use the same elevation for the station whatever the
-  order of the parameters. A request for one resolution is unchanged (GH-2336)
+  its hourly row as well, where the two lists put it within 5 km of each other; a daily 0.0 does
+  not replace an hourly height. Interpolate and summarize, by station id or by point, then use one
+  elevation for such a station whatever the order of the parameters. Further apart, the lists can
+  name two stations under one id, and each row keeps its own. A request for one resolution is
+  unchanged (GH-2336, GH-2362)
 
 ### Fixed
 
