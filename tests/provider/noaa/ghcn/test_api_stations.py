@@ -141,11 +141,11 @@ def _fake_ghcn_download_file(url: str, **_kwargs: object) -> File:
 def test_noaa_ghcn_hourly_stations_missing_elevation(
     monkeypatch: pytest.MonkeyPatch, default_settings: Settings
 ) -> None:
-    """A station that `ghcnh-station-list.csv` lists at -999.9, its missing value, has a null elevation (GH-2260).
+    """A station that `ghcnh-station-list.csv` lists at -999.9 or -999.0 has a null elevation (GH-2260, GH-2352).
 
     The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it. NOAA's GHCNh
     documentation names only -999.9 as missing, but -999.0, on BOGUS ALGERIAN and 92 other rows, is
-    a placeholder too and also null (GH-2352).
+    a placeholder too.
     """
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file)
     df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df
