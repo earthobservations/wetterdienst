@@ -780,7 +780,8 @@ function handleUnitTargetChange(unitType: string, value: string) {
               </div>
             </div>
             <div class="space-y-3">
-              <div class="space-y-2">
+              <!-- interpolation only: a summary takes the nearest station anyway (GH-2333) -->
+              <div v-if="isInterpolationMode" class="space-y-2">
                 <div class="flex items-center gap-4">
                   <label class="text-sm font-medium">{{ t('explorer.nearbyDistance') }}:</label>
                   <UInputNumber

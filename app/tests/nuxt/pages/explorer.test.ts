@@ -525,3 +525,23 @@ describe('explorer Page DWD DMO parameters per run', () => {
     })
   })
 })
+
+describe('explorer nearby station distance', () => {
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+  })
+
+  // the backend reads it for an interpolation only, and deprecates it for a summary (GH-2333)
+  it.each([
+    ['interpolation', true],
+    ['summary', false],
+  ] as const)('offers the nearby station distance in %s mode: %s', async (mode, offered) => {
+    const { wrapper, vm } = await mountWithSelection(() => ({ values: [] }))
+    vm.stationSelectionState.mode = mode
+    await wrapper.vm.$nextTick()
+    await wrapper.findAll('button').find(b => b.text() === 'Settings')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Interpolation Options'))
+    expect(wrapper.text().includes('Nearby station distance')).toBe(offered)
+  })
+})

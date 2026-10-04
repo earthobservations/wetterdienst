@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Explorer]` The nearby station distance is offered, and sent, for an interpolation only. A
+  summary takes the nearest station with data anyway, so the backend never read it there, and it
+  now deprecates it for summaries (GH-2333)
+
 ### Fixed
 
 - `[Widget]` A failed station lookup is told by the backend's status and reason, as a failed
