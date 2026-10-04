@@ -2187,4 +2187,18 @@ describe('dataViewer failed fetch', () => {
     expect(asked).toBe(2)
     expect(document.body.textContent).not.toContain('ECONNREFUSED')
   })
+
+  it('tells the error of a 502 its one retry gets again', async () => {
+    let asked = 0
+    registerEndpoint('/api/values', (event) => {
+      asked++
+      setResponseStatus(event, 502)
+      return { detail: 'connect ECONNREFUSED' }
+    })
+    const { viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(document.body.textContent).toContain('ECONNREFUSED'))
+    expect(asked).toBe(2)
+    expect((viewer.vm as any).valuesStatus).toBe('error')
+  })
 })
