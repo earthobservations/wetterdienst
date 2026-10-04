@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Explorer]` The settings start from the backend's, as its `GET /api/settings` reports them: its
+  `WD_TS_*` variables over wetterdienst's defaults, and each "Default (...)" unit choice names the
+  backend's unit. A request, the two search radii included, and the page's link still name every
+  setting, so they ask for the same on any backend. A backend without the endpoint, or one that
+  fails, leaves wetterdienst's defaults (GH-2359)
+
 ### Changed
 
 - `[Explorer]` The nearby station distance is offered, and sent, for an interpolation only. It had

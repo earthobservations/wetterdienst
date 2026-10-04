@@ -10,9 +10,10 @@ import InterpolationSummarySelection from '~/components/InterpolationSummarySele
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
+import { defaultUnitTargets, serverDataSettings } from '~/utils/server-settings'
 import { UNIT_TARGET_TYPES } from '~/utils/unit-targets'
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 const stationTableColumns = computed<TableColumn<Station>[]>(() => [
   { accessorKey: 'station_id', header: t('stationTable.stationId') },
@@ -32,16 +33,20 @@ const router = useRouter()
 const { unitTypeLabel } = useUnitTypeLabel()
 
 function unitLabel(unit: string): string {
-  return t(`units.${unit}`)
+  // a server's default may be a unit the catalog has no name for, which is then named as it is
+  return te(`units.${unit}`) ? t(`units.${unit}`) : unit
 }
 
 // the unit types the Unit Targets setting lists, each request naming every one (see pinnedUnitTargets)
 const unitTypes = UNIT_TARGET_TYPES
 
-/** Select items for one unit type: the backend default first, then the units listed for it. */
-function unitTargetItems(unitType: { units: string[], default: string }) {
+// the unit each type left at "Default" comes in: the server's once it has said, else the listed one
+const unitTargetDefaults = ref<Record<string, string>>(defaultUnitTargets(null))
+
+/** Select items for one unit type: the server's default first, then the units listed for it. */
+function unitTargetItems(unitType: { type: string, units: string[] }) {
   return [
-    { label: t('explorer.unitDefault', { unit: unitLabel(unitType.default) }), value: '' },
+    { label: t('explorer.unitDefault', { unit: unitLabel(unitTargetDefaults.value[unitType.type]!) }), value: '' },
     ...unitType.units.map(unit => ({ label: unitLabel(unit), value: unit })),
   ]
 }
@@ -113,19 +118,16 @@ function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelection
   return q
 }
 
+// Every one written, whatever it is: one left out is read back as the server's default, which may
+// not be the value the link was copied with (GH-2359)
 function dataSettingsToQuery(settings: DataSettings): Record<string, string> {
-  const q: Record<string, string> = {}
-  if (!settings.humanize)
-    q.humanize = 'false'
-  if (!settings.convertUnits)
-    q.convertUnits = 'false'
-  if (settings.shape !== 'long')
-    q.shape = settings.shape
-  if (settings.skipEmpty)
-    q.skipEmpty = 'true'
-  if (!settings.dropNulls)
-    q.dropNulls = 'false'
-  return q
+  return {
+    humanize: String(settings.humanize),
+    convertUnits: String(settings.convertUnits),
+    shape: settings.shape,
+    skipEmpty: String(settings.skipEmpty),
+    dropNulls: String(settings.dropNulls),
+  }
 }
 
 const showAbout = ref(false)
@@ -175,22 +177,53 @@ const leadTimeOptions = computed(() => [
   { value: 'long' as const, label: t('explorer.leadTimeLong') },
 ])
 
-// Data settings
-const dataSettings = ref<DataSettings>({
-  humanize: route.query.humanize != null ? route.query.humanize.toString() === 'true' : true,
-  convertUnits: route.query.convertUnits != null ? route.query.convertUnits.toString() === 'true' : true,
+// Data settings: wetterdienst's defaults, the server's in their place once it reports them, and the
+// link's over both
+const startingSettings = ref<DataSettings>({
+  humanize: true,
+  convertUnits: true,
   unitTargets: {},
-  shape: (['long', 'wide'].includes(route.query.shape?.toString() ?? '') ? route.query.shape!.toString() : 'long') as 'long' | 'wide',
-  skipEmpty: route.query.skipEmpty?.toString() === 'true',
+  shape: 'long',
+  skipEmpty: false,
   skipThreshold: 0.95,
   skipCriteria: 'min',
-  dropNulls: route.query.dropNulls != null ? route.query.dropNulls.toString() !== 'false' : true,
+  dropNulls: true,
   useNearbyStationDistance: 1.0,
   stationDistanceHomogeneous: STATION_DISTANCE_DEFAULTS.homogeneous,
   stationDistanceHeterogeneous: STATION_DISTANCE_DEFAULTS.heterogeneous,
   useStationDistancePerParameter: {},
   minGainOfValuePairs: 0.10,
   numAdditionalStations: 3,
+})
+const settingsFromLink: Partial<DataSettings> = {}
+if (route.query.humanize != null)
+  settingsFromLink.humanize = route.query.humanize.toString() === 'true'
+if (route.query.convertUnits != null)
+  settingsFromLink.convertUnits = route.query.convertUnits.toString() === 'true'
+const shapeFromLink = route.query.shape?.toString()
+if (shapeFromLink === 'long' || shapeFromLink === 'wide')
+  settingsFromLink.shape = shapeFromLink
+if (route.query.skipEmpty != null)
+  settingsFromLink.skipEmpty = route.query.skipEmpty.toString() === 'true'
+if (route.query.dropNulls != null)
+  settingsFromLink.dropNulls = route.query.dropNulls.toString() !== 'false'
+const dataSettings = ref<DataSettings>({ ...structuredClone(toRaw(startingSettings.value)), ...settingsFromLink })
+
+// The server's defaults (GH-2359), once it reports them: each takes the place of a setting the link
+// does not name and the user has not changed while the answer was on its way. A server without
+// the endpoint, or one that fails, leaves wetterdienst's. The request still names every setting, so
+// a copied link or API URL asks for the same on any server
+useServerSettings().then((server) => {
+  if (!server)
+    return
+  unitTargetDefaults.value = defaultUnitTargets(server)
+  const reported = serverDataSettings(server)
+  const settings: Record<keyof DataSettings, unknown> = dataSettings.value
+  for (const key of Object.keys(reported) as (keyof DataSettings)[]) {
+    if (!(key in settingsFromLink) && settings[key] === startingSettings.value[key])
+      settings[key] = reported[key]
+  }
+  Object.assign(startingSettings.value, reported)
 })
 
 // Track parameter distance entries with stable IDs
@@ -444,7 +477,7 @@ function addParameterDistance() {
   parameterDistanceEntries.value.push({
     id,
     paramName: '',
-    distance: STATION_DISTANCE_DEFAULTS.heterogeneous,
+    distance: startingSettings.value.stationDistanceHeterogeneous,
   })
 }
 
@@ -805,7 +838,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                           v-model="dataSettings.stationDistanceHomogeneous"
                           :min="0"
                           :step="1"
-                          :placeholder="String(STATION_DISTANCE_DEFAULTS.homogeneous)"
+                          :placeholder="String(startingSettings.stationDistanceHomogeneous)"
                           size="xs"
                           class="w-28"
                         />
@@ -817,7 +850,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                           v-model="dataSettings.stationDistanceHeterogeneous"
                           :min="0"
                           :step="1"
-                          :placeholder="String(STATION_DISTANCE_DEFAULTS.heterogeneous)"
+                          :placeholder="String(startingSettings.stationDistanceHeterogeneous)"
                           size="xs"
                           class="w-28"
                         />
@@ -1031,6 +1064,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
     <DataViewer
       v-if="hasLocationSelection" ref="dataViewerRef" :parameter-selection="parameterSelectionState.selection"
       :station-selection="stationSelectionState" :settings="dataSettings" :lead-time="selectedLeadTime"
+      :unit-target-defaults="unitTargetDefaults"
     />
   </UContainer>
 </template>
