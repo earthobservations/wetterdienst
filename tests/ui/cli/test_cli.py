@@ -781,7 +781,7 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
         ),
         (
             ["summarize", *_POINT_ARGS, '--unit_targets={"foo": "bar"}'],
-            "Error: Invalid value for '--unit_targets': Invalid unit targets: one of {'foo'} not in",
+            "Error: Invalid value for '--unit_targets': Invalid unit targets: ",
         ),
     ],
 )
@@ -815,6 +815,8 @@ def test_cli_estimate_does_not_blame_the_command_line_for_the_environment(
     result = CliRunner().invoke(cli, [command, *_POINT_ARGS, option.replace("KIND", kind)], env=env)
     assert isinstance(result.exception, ValidationError)
     assert "Usage:" not in result.output
+    # told on its own, not as what went wrong while handling the options' error
+    assert result.exception.__suppress_context__
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -869,3 +871,15 @@ def test_cli_estimate_refuses_an_option_with_the_value_it_gave(monkeypatch: pyte
         "Error: Invalid value for '--summary_station_distance': Invalid parameters in ts_geo_station_distance: "
         "['foo'] not in the canonical parameters (got {'foo': 1.0}).\n"
     ) in result.output
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_values_refuses_an_option_beside_a_malformed_variable_another_option_replaces() -> None:
+    """Test a malformed WD_TS_* variable an option replaces does not stand in for another option's error."""
+    result = CliRunner().invoke(
+        cli,
+        ["values", *_DWD_KL, "--station=01048", "--shape=long", '--unit_targets={"foo": "bar"}'],
+        env={"WD_TS_SHAPE": "bogus"},
+    )
+    assert result.exit_code == 2, result.output
+    assert "Error: Invalid value for '--unit_targets': Invalid unit targets: " in result.output

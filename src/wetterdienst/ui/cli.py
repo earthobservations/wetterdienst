@@ -347,11 +347,12 @@ def _build_settings(options: dict[str, tuple[str, Any]]) -> Settings:
     option is passed only when given on the command line: an init argument outranks the
     environment, so passing its default would hide the `WD_TS_*` variable set for that setting.
 
-    Should they fail, the environment's settings are built on their own, and an error there is
+    Should they fail, the environment's settings are checked on their own, and an error there is
     raised as it is: a malformed `WD_*` variable is not the command line's to fix. Where an error is
     located would not tell, as pydantic-settings merges a dict the environment sets into the one an
-    option gives. With those valid, the error is the options', told by the option as click tells an
-    invalid value, with the value the option gave rather than the one merged with the environment's.
+    option gives. A variable an option replaces is left out of that check. With the environment's
+    valid, the error is the options', told by the option as click tells an invalid value, with the
+    value the option gave rather than the one merged with the environment's.
     """
     ctx = click.get_current_context()
     # each setting given by the option that sets it
@@ -363,12 +364,17 @@ def _build_settings(options: dict[str, tuple[str, Any]]) -> Settings:
     try:
         return Settings(**{setting: value for setting, (_, value) in given.items()})
     except ValidationError as e:
-        Settings()
+        # a dict is merged with the environment's, anything else replaces it
+        replaced = {setting for setting, (_, value) in given.items() if not isinstance(value, dict)}
+        try:
+            Settings()
+        except ValidationError as environment:
+            if any(not problem["loc"] or problem["loc"][0] not in replaced for problem in environment.errors()):
+                raise environment from None
         problems = e.errors(include_url=False)
         if any(not problem["loc"] or problem["loc"][0] not in given for problem in problems):
             raise
-        names = {param for param, _ in given.values()}
-        params = {param.name: param for param in ctx.command.params if param.name in names}
+        params = {param.name: param for param in ctx.command.params if param.name}
         lines = []
         for problem in problems:
             param, value = given[str(problem["loc"][0])]
