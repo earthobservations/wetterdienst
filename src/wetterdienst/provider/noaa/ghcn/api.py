@@ -211,6 +211,16 @@ class NoaaGhcnRequest(TimeseriesRequest):
         # only the daily frame has start_date and end_date, from its inventory, and wmo_id, which the
         # hourly reader does not select; the hourly stations get nulls
         df = pl.concat(data, how="diagonal")
+        # a station in both lists takes the daily list's elevation on its hourly row too, and keeps
+        # the hourly one only where the daily list has none, so that every reader of the station
+        # gets one elevation whichever row it takes (GH-2336). A request for one resolution has no
+        # such pairs
+        df = df.with_columns(
+            pl.coalesce(
+                pl.col("elevation").filter(pl.col("resolution").eq("daily")).first().over("station_id"),
+                pl.col("elevation"),
+            ),
+        )
         return df.lazy()
 
     def _create_metaindex_for_ghcn_hourly(self) -> pl.LazyFrame:
