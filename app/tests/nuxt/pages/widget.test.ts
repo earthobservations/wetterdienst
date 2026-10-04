@@ -171,6 +171,8 @@ describe('widget Page station lookup', () => {
     // what ofetch throws where no answer came: no response on it, its request in front of the message
     const unanswered = new TypeError('[GET] "/api/stations?station=01001": <no response> Failed to fetch')
     lookup.fetch.mockRejectedValueOnce(unanswered)
+    // back to the real $fetch should the failure not be asked for, so it cannot reach a later test
+    onTestFinished(() => lookup.fetch.mockReset())
     globalThis.fetch = vi.fn()
     const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
     onTestFinished(() => wrapper.unmount())
