@@ -148,6 +148,11 @@ Types of changes:
 - Values: a station asked for several datasets is no longer skipped when one dataset has no
   `start_date` in the station list and another starts after `end_date`. With NOAA GHCN `hourly`
   and `daily` together, such a station returned no hourly values inside the window (GH-2292)
+- Interpolation and summary take a station's elevation from another requested resolution's row
+  where the first row they read gives none. With NOAA GHCN `hourly` named before `daily`, the
+  `..._by_station_id` methods answered without the elevation of 859 stations the hourly list gives
+  none for (6 the other way round), and an answer at an elevation could leave such stations out
+  (GH-2300)
 - `/api/values` and its MCP tool answer `unit_targets` naming a quantity the converter does not
   have, such as `{"foo": "bar"}`, with a 400 saying so, where they answered a bare 500 (GH-2272)
 - `/api/interpolate`, `/api/summarize`, `/api/alerts` and their MCP tools answer a malformed `WD_*`
@@ -344,6 +349,9 @@ Types of changes:
   datetime's range, as `Invalid value for --date` with exit status 2; the latter was a traceback.
   It raises a malformed `WD_*` variable as it is rather than as an invalid option, as `values`
   does, and a `--target` it cannot write is an error with exit status 1, not a traceback (GH-2322)
+- NOAA GHCN hourly stations listed at 9999.0 m or 8191.0 m, 154 placeholders such as the North
+  Sea lightship ELBE NO. 1, have a null `elevation`. `interpolate` and `summarize` given an
+  elevation took them for known ones (GH-2336)
 
 ## [0.139.0] - 2026-09-29
 
