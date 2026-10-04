@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import platform
+import re
 from collections import defaultdict
 from collections.abc import Mapping
 from pathlib import Path
@@ -18,11 +19,12 @@ from pydantic import (
     Field,
     PrivateAttr,
     SecretStr,
+    ValidationError,
     field_serializer,
     field_validator,
     model_validator,
 )
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict, SettingsError
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
@@ -494,3 +496,36 @@ class Settings(BaseSettings):
     def __str__(self) -> str:
         """Return the settings as a string."""
         return f"""Settings({json.dumps(self.model_dump(mode="json"), indent=4)})"""
+
+
+def describe_settings_error(error: ValidationError | SettingsError) -> list[str]:
+    """Tell what is wrong with the settings, a line for each problem, by the `WD_*` variable that sets it.
+
+    pydantic's own account names the field rather than the variable an operator set, and repeats
+    the value given -- which for `WD_AUTH__*` is a credential, and for `WD_FSSPEC_CLIENT_KWARGS`
+    may hold request headers. Only the variable and what is wrong with it are told here (GH-2335).
+    """
+    if isinstance(error, SettingsError):
+        # a dict, a pair or a nested setting is read as JSON, and pydantic-settings says which field
+        # it could not parse, but not where in the value
+        match = re.search(r'error parsing value for field "(\w+)"', str(error))
+        if match:
+            return [f"WD_{match.group(1).upper()} is invalid: not valid JSON"]
+        return [str(error)]
+    lines = []
+    for problem in error.errors(include_url=False):
+        variable = "WD_" + "__".join(str(part) for part in problem["loc"]).upper() if problem["loc"] else "WD_*"
+        lines.append(f"{variable} is invalid: {problem['msg'].removeprefix('Value error, ')}")
+    return lines
+
+
+def check_settings() -> list[str]:
+    """Build the settings from the environment and `.env` alone, and tell what is wrong with them.
+
+    An empty list means they are valid.
+    """
+    try:
+        Settings()
+    except (ValidationError, SettingsError) as e:
+        return describe_settings_error(e)
+    return []

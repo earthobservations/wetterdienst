@@ -13,7 +13,7 @@ from multidict import CIMultiDict
 from pydantic import SecretStr, ValidationError
 
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.settings import _STATION_DISTANCE_RESOLUTION_FACTORS, Settings, reveal
+from wetterdienst.settings import _STATION_DISTANCE_RESOLUTION_FACTORS, Settings, check_settings, reveal
 
 WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
 WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
@@ -715,3 +715,65 @@ def test_settings_unit_targets_build_no_converter_when_empty(monkeypatch: pytest
     with mock.patch("wetterdienst.settings.UnitConverter") as converter:
         Settings()
     converter.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("env", "lines"),
+    [
+        pytest.param(
+            {"WD_CACHE_DISABLE": "secret-ish"},
+            ["WD_CACHE_DISABLE is invalid: Input should be a valid boolean, unable to interpret input"],
+            id="top-level",
+        ),
+        pytest.param(
+            {"WD_AUTH__CEDA": "secret-ish"},
+            ["WD_AUTH__CEDA is invalid: ceda must be given as 'username:password'"],
+            id="nested",
+        ),
+        pytest.param(
+            {"WD_TS_GEO_STATION_DISTANCE": '{"precipitation_amount": "secret-ish"}'},
+            [
+                (
+                    "WD_TS_GEO_STATION_DISTANCE__PRECIPITATION_AMOUNT is invalid: "
+                    "Input should be a valid number, unable to parse string as a number"
+                )
+            ],
+            id="within-a-dict",
+        ),
+        pytest.param(
+            {"WD_CACHE_DISABLE": "secret-ish", "WD_TS_SHAPE": "secret-ish"},
+            [
+                "WD_CACHE_DISABLE is invalid: Input should be a valid boolean, unable to interpret input",
+                "WD_TS_SHAPE is invalid: Input should be 'wide' or 'long'",
+            ],
+            id="several",
+        ),
+        pytest.param(
+            {"WD_TS_UNIT_TARGETS": "secret-ish"},
+            ["WD_TS_UNIT_TARGETS is invalid: not valid JSON"],
+            id="not-json",
+        ),
+    ],
+)
+def test_check_settings_names_the_variable_without_its_value(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    env: dict[str, str],
+    lines: list[str],
+) -> None:
+    """A malformed `WD_*` setting is told by its variable, a line each, and never by its value (GH-2335)."""
+    monkeypatch.chdir(tmp_path)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    assert check_settings() == lines
+
+
+def test_check_settings_reads_dotenv(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The check reads `.env` as the settings do, and finds nothing wrong with valid ones (GH-2335)."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
+    assert check_settings() == []
+    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=secret-ish\n")
+    assert check_settings() == [
+        "WD_CACHE_DISABLE is invalid: Input should be a valid boolean, unable to interpret input"
+    ]
