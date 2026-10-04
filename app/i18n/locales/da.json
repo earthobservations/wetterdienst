@@ -523,6 +523,7 @@
     "selectStationForCoords": "Vælg en station til koordinater",
     "selectStation": "Vælg en station",
     "loadingStations": "Indlæser stationer …",
+    "loadError": "Kunne ikke indlæse stationer.",
     "coords": "Interpolationskoordinater: {coords}"
   },
   "dateRange": {

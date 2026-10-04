@@ -454,3 +454,40 @@ def test_swsmos_without_issue_reads_the_latest_run() -> None:
         settings=Settings(),
     )
     assert stations_request.issue is DwdForecastDate.LATEST
+
+
+def test_get_issues_lists_the_swsmos_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test dwd/swsmos lists its runs as UTC ISO strings, whatever the station (GH-2319)."""
+    from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest, api  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [
+            f"{api._BASE_URL}/swsmos_LATEST_opendata.csv.bz2",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20261004060000_opendata.csv.bz2",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20261004050000_opendata.csv.bz2",  # noqa: SLF001
+        ],
+    )
+    request = core.IssuesRequest.model_validate({"provider": "dwd", "network": "swsmos", "station": "A006"})
+
+    assert core.get_issues(api=DwdSwsmosRequest, request=request, settings=Settings()) == [
+        "2026-10-04T05:00:00+00:00",
+        "2026-10-04T06:00:00+00:00",
+    ]
+
+
+@pytest.mark.parametrize("option", [{"dataset": "icon"}, {"lead_time": "long"}])
+def test_get_issues_refuses_dmo_options_for_swsmos(option: dict[str, str]) -> None:
+    """Test a DMO-only option asked of dwd/swsmos is refused, as for MOSMIX, rather than ignored (GH-2319)."""
+    from wetterdienst.exceptions import InvalidEnumerationError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    request = core.IssuesRequest.model_validate(
+        {"provider": "dwd", "network": "swsmos", "station": "A006", **option},
+    )
+
+    with pytest.raises(InvalidEnumerationError, match="applies to DWD DMO only"):
+        core.get_issues(api=DwdSwsmosRequest, request=request, settings=Settings())

@@ -43,6 +43,11 @@ _MASK = "*" * 10
 #: what a credential may arrive as: the text of one, or one that has already been validated once
 _Secretish = str | SecretStr
 
+#: the share of readings a station must cover not to be skipped: a threshold above 1 skips every
+#: station, one of 0 or below none, so neither is one. The REST request model takes it too, so the
+#: two cannot drift apart (GH-2334)
+SkipThreshold = Annotated[float, Field(gt=0, le=1)]
+
 
 def _as_given(value: object) -> _Secretish:
     """Pass a secret through as it is, and anything else on as text for the field to wrap.
@@ -260,7 +265,7 @@ class Settings(BaseSettings):
     # returning. The coverage is measured against how many readings the requested window can
     # hold, so the option stands on its own and needs no particular shape of frame under it
     ts_skip_empty: bool = False
-    ts_skip_threshold: float = 0.95
+    ts_skip_threshold: SkipThreshold = 0.95
     ts_skip_criteria: Literal["min", "mean", "max"] = "min"
     ts_drop_nulls: bool = True
     # how far a station may be from the target point to still be interpolated or summarized from.

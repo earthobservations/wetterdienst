@@ -797,3 +797,32 @@ def test_check_settings_names_a_dotenv_key_that_is_no_setting_by_its_whole_key(t
         "WD_CACHE_DIABLE in .env is not a wetterdienst setting",
         "OTHER_SECRET in .env is not a wetterdienst setting",
     ]
+
+
+@pytest.mark.parametrize("threshold", [0, -0.5, 1.01, 5])
+def test_settings_skip_threshold_refuses_a_value_outside_zero_to_one(
+    monkeypatch: pytest.MonkeyPatch,
+    threshold: float,
+) -> None:
+    """A skip threshold outside (0, 1] is refused, as the CLI option refuses it (GH-2334).
+
+    It used to be taken, and one above 1 skipped every station with no hint at the setting.
+    """
+    monkeypatch.delenv("WD_TS_SKIP_THRESHOLD", raising=False)
+    with pytest.raises(ValidationError, match="ts_skip_threshold"):
+        Settings(ts_skip_threshold=threshold)
+
+
+def test_settings_skip_threshold_refuses_an_environment_value_outside_zero_to_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`WD_TS_SKIP_THRESHOLD` is held to (0, 1] as the argument is (GH-2334)."""
+    monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "5")
+    with pytest.raises(ValidationError, match="ts_skip_threshold"):
+        Settings()
+
+
+def test_settings_skip_threshold_takes_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The upper bound is in the range: 1 asks for every reading (GH-2334)."""
+    monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "1")
+    assert Settings().ts_skip_threshold == 1

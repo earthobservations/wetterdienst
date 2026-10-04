@@ -977,3 +977,40 @@ def test_cli_leaves_another_models_error_beside_a_malformed_setting(monkeypatch:
     assert isinstance(result.exception, ValidationError)
     assert result.exception.title == "Other"
     assert "WD_CACHE_DISABLE" not in result.output
+
+
+def test_cli_values_refuses_a_skip_threshold_from_the_environment_outside_zero_to_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test a WD_TS_SKIP_THRESHOLD above 1 is refused by its setting, not run into "No data" (GH-2334).
+
+    `values` reads it when --skip_threshold is not given; one above 1 used to skip every station.
+    It is told by its variable with status 1 (GH-2335): a usage error blaming the option nobody gave
+    would be status 2 instead.
+    """
+
+    def take(_get: object, *, settings: Settings, **_kwargs: object) -> None:
+        raise _SettingsTaken(settings)
+
+    # settings that got through would be fetched with; stop there rather than reach DWD
+    monkeypatch.setattr("wetterdienst.ui.cli._collect_or_exit", take)
+    monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "5")
+    runner = CliRunner()
+    result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048", "--skip_empty=true"])
+    assert result.exit_code == 1, result.output
+    assert "Error: WD_TS_SKIP_THRESHOLD is invalid: Input should be less than or equal to 1" in result.output
+
+
+def test_issues_dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the issues command lists the dwd/swsmos runs rather than refusing the network (GH-2319)."""
+    from wetterdienst.provider.dwd.swsmos import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20261004060000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    runner = CliRunner()
+    result = runner.invoke(cli, ["issues", "--provider=dwd", "--network=swsmos", "--station=A006"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == {"issues": ["2026-10-04T06:00:00+00:00"]}

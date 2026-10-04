@@ -88,6 +88,9 @@ http localhost:7890/api/issues provider==dwd network==mosmix station==10147
 
 # List available DMO ICON run datetimes for a station.
 http localhost:7890/api/issues provider==dwd network==dmo station==10147
+
+# List available SWSMOS run datetimes; one run holds every road station, so any station lists them.
+http localhost:7890/api/issues provider==dwd network==swsmos station==A006
 ```
 
 ### Values

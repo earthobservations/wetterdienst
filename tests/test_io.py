@@ -3255,3 +3255,135 @@ def test_to_target_gives_the_influxdb1_client_a_valid_base_url_for_an_ipv6_host(
     assert client._baseurl == baseurl  # noqa: SLF001
     # `requests` refused the unbracketed `http://::1:8086` as an InvalidURL before sending anything
     assert requests.Request("GET", f"{baseurl}/ping").prepare().url == f"{baseurl}/ping"
+
+
+def _plot_of(result: ValuesResult) -> tuple[list, list[tuple]]:
+    """Read what a values plot draws: its facets' labels, and each trace's points with its facet's.
+
+    Both in the order the figure holds them, which is the order they are laid out in.
+    """
+    figure = result.to_plot()
+
+    def label(axis: str) -> str:
+        # a facet's label sits at the middle of its y axis, in paper coordinates
+        bottom, top = figure.layout[axis.replace("y", "yaxis")].domain
+        (text,) = (a.text for a in figure.layout.annotations if math.isclose(a.y, (bottom + top) / 2))
+        return text
+
+    return (
+        [annotation.text for annotation in figure.layout.annotations],
+        [(label(trace.yaxis), trace.name, tuple(trace.x), tuple(trace.y)) for trace in figure.data],
+    )
+
+
+@pytest.mark.parametrize(
+    ("settings_kwargs", "parameters", "names"),
+    [
+        pytest.param(
+            {},
+            [
+                "hourly/temperature_air/temperature_air_mean_2m",
+                "daily/more_precip/precipitation_amount",
+                "daily/kl/precipitation_amount",
+                "daily/kl/temperature_air_mean_2m",
+            ],
+            ["temperature_air_mean_2m", "precipitation_amount", "precipitation_amount", "temperature_air_mean_2m"],
+            id="two-datasets-merged-in-one-resolution",
+        ),
+        pytest.param(
+            {"ts_humanize": False},
+            ["daily/kl/temperature_air_mean_2m", "hourly/temperature_air/temperature_air_mean_2m"],
+            ["tmk", "tt_tu"],
+            id="original-names-two-resolutions",
+        ),
+        pytest.param(
+            {},
+            ["daily/kl/temperature_air_mean_2m", "daily/kl/precipitation_amount"],
+            ["temperature_air_mean_2m", "precipitation_amount"],
+            id="one-dataset",
+        ),
+        pytest.param(
+            {"ts_humanize": False},
+            ["hourly/wind/wind_speed", "hourly/wind_extreme/wind_gust_max"],
+            ["f", "fx_911"],
+            id="one-dataset-name-beginning-another",
+        ),
+    ],
+)
+def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
+    settings_kwargs: dict,
+    parameters: list[str],
+    names: list[str],
+) -> None:
+    """A wide result plots as the long one does, rather than failing on the `parameter` column.
+
+    The plot read the parameter name off a `parameter` column, which the wide shape has none of,
+    so every image format of a wide result raised `ColumnNotFoundError` (GH-2330).
+    """
+    pytest.importorskip("plotly")
+    request = DwdObservationRequest(parameters=parameters, settings=Settings(**settings_kwargs))
+    stations = StationsResult(
+        stations=request,
+        df=pl.DataFrame(),
+        df_all=pl.DataFrame(),
+        stations_filter=StationsFilter.ALL,
+    )
+    values = stations.values
+    series = [
+        (parameter.dataset.resolution.name, parameter.dataset.name, name)
+        for parameter, name in zip(request.parameters, names, strict=True)
+    ]
+    rows = []
+    for station_id in ("01048", "04411"):
+        for resolution, dataset, name in series:
+            # the first station has none of the series that sorts first, so it lays out its facets
+            # and takes its colour in a different order than a sort of all the rows would
+            if station_id == "01048" and (resolution, dataset, name) == min(series):
+                continue
+            timestamps = (
+                [dt.datetime(2020, 1, 1, hour, tzinfo=ZoneInfo("UTC")) for hour in (0, 1)]
+                if resolution == "hourly"
+                else [dt.datetime(2020, 1, day, tzinfo=ZoneInfo("UTC")) for day in (1, 2)]
+            )
+            rows.extend(
+                {
+                    "station_id": station_id,
+                    "resolution": resolution,
+                    "dataset": dataset,
+                    "parameter": name,
+                    "timestamp": timestamp,
+                    "value": float(len(rows) + index),
+                    "quality": 10.0,
+                }
+                for index, timestamp in enumerate(timestamps)
+            )
+    # one reading of the last series missing, which the wide shape writes as a null where another
+    # series of its resolution has a reading at that timestamp
+    rows.pop()
+    df_collected = pl.DataFrame(rows, schema=TimeseriesValues._long_fields)  # noqa: SLF001
+    # shaped and sorted one station at a time and then put together, as a request does
+    stations_collected = [df for _, df in df_collected.group_by("station_id", maintain_order=True)]
+    df_long = pl.concat(df.sort("resolution", "dataset", "parameter", "timestamp") for df in stations_collected)
+    # diagonally, as a station that has none of a series has no column for it
+    df_wide = pl.concat(
+        [values._widen_df(df).sort("resolution", "dataset", "timestamp") for df in stations_collected],  # noqa: SLF001
+        how="diagonal",
+    )
+    long = ValuesResult(stations=stations, values=values, df=values._cast_metadata_to_enum(df_long))  # noqa: SLF001
+    wide = ValuesResult(stations=stations, values=values, df=values._cast_metadata_to_enum(df_wide))  # noqa: SLF001
+    assert "parameter" not in df_wide.columns
+    assert _plot_of(wide) == _plot_of(long)
+
+
+def test_values_plot_of_an_empty_wide_frame_is_an_empty_figure() -> None:
+    """A wide result with no rows plots as an empty long one does, as a figure with nothing drawn."""
+    pytest.importorskip("plotly")
+    request = DwdObservationRequest(parameters=["daily/kl/temperature_air_mean_2m"])
+    stations = StationsResult(
+        stations=request,
+        df=pl.DataFrame(),
+        df_all=pl.DataFrame(),
+        stations_filter=StationsFilter.ALL,
+    )
+    df = stations.values._widen_df(pl.DataFrame(schema=TimeseriesValues._long_fields))  # noqa: SLF001
+    assert ValuesResult(stations=stations, values=stations.values, df=df).to_plot().data == ()
