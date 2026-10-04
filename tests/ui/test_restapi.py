@@ -4164,13 +4164,17 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
     monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "3")
     monkeypatch.chdir(tmp_path)
     params = {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}
+    # each answered by the stub's failure, a 500, so each reached the entry point with its settings
     with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
-        client.get("/api/summarize", params={**params, "use_nearby_station_distance": 0.5})
+        response = client.get("/api/summarize", params={**params, "use_nearby_station_distance": 0.5})
+    assert (response.status_code, response.json()["detail"]) == (500, "taken")
     assert "use_nearby_station_distance is deprecated. It has no effect on a summary" in caplog.text
-    assert taken[-1].ts_geo_use_nearby_station_distance == 3.0
     caplog.clear()
     with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
-        client.get("/api/summarize", params=params)
-        client.get("/api/interpolate", params={**params, "use_nearby_station_distance": 0.5})
+        responses = [
+            client.get("/api/summarize", params=params),
+            client.get("/api/interpolate", params={**params, "use_nearby_station_distance": 0.5}),
+        ]
+    assert [response.status_code for response in responses] == [500, 500]
     assert "use_nearby_station_distance" not in caplog.text
-    assert taken[-1].ts_geo_use_nearby_station_distance == 0.5
+    assert [settings.ts_geo_use_nearby_station_distance for settings in taken] == [3.0, 3.0, 0.5]
