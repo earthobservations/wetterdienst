@@ -363,6 +363,11 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- A malformed `WD_*` setting is told by the variable that sets it and what is wrong with it, a
+  line each and without pydantic's echo of the value, where it ended in pydantic's traceback. The
+  REST API refuses to start with it, also under `uvicorn` directly unless its lifespan is turned
+  off, and `wetterdienst restapi` exits with uvicorn's status 3; the other CLI commands that read
+  the settings exit with status 1 (GH-2335)
 - Values in the wide shape can be drawn: `ValuesResult.to_plot`, and with it the image formats
   (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`) of the CLI's `values` and `/api/values`, draw a wide
   result as they draw the long one. They raised `ColumnNotFoundError` on `parameter` (GH-2330)

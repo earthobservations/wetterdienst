@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from pydantic import ValidationError
 
 from wetterdienst.ui.cli import cli
 
@@ -147,7 +146,8 @@ def test_cli_alerts_does_not_blame_the_command_line_for_the_environment(monkeypa
     monkeypatch.setenv("WD_CACHE_DISABLE", "notabool")
     runner = CliRunner()
     result = runner.invoke(cli, ["alerts", "--date=2000-01-01T00:00:00"])
-    assert isinstance(result.exception, ValidationError)
+    assert result.exit_code == 1, result.output
+    assert "Error: WD_CACHE_DISABLE is invalid: " in result.output
     assert "Usage:" not in result.output
     assert "--date" not in result.output
 

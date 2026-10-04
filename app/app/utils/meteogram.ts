@@ -152,3 +152,27 @@ export const METEOGRAM_SERIES = {
   cloudCoverHigh: ['cloud_cover_above_7km', 'nh'],
   pressure: ['pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'],
 } as const satisfies Record<string, readonly string[]>
+
+/**
+ * The settings the meteogram's `/api/values` request sends, so that its answer comes in the layout
+ * the meteogram reads whatever the server sets in its `WD_TS_*` variables: long rows keyed by the
+ * canonical names of `METEOGRAM_SERIES`, every station kept, and values in the units the charts
+ * label them in. `unit_targets` names each quantity the meteogram draws: the server's
+ * `WD_TS_UNIT_TARGETS` entries are merged into the ones a request gives, so only a quantity the
+ * request names is sure of its unit. The cloud cover's `decimal` is the default, which the charts
+ * scale to percent.
+ */
+export const METEOGRAM_VALUES_SETTINGS = {
+  shape: 'long',
+  humanize: 'true',
+  convert_units: 'true',
+  unit_targets: JSON.stringify({
+    angle: 'degree',
+    fraction: 'decimal',
+    precipitation: 'millimeter',
+    pressure: 'hectopascal',
+    speed: 'meter_per_second',
+    temperature: 'degree_celsius',
+  }),
+  skip_empty: 'false',
+} as const satisfies Record<string, string>
