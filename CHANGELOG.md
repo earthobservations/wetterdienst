@@ -160,6 +160,11 @@ Types of changes:
 
 ### Fixed
 
+- Climate stripes values and images (CLI `stripes values`, `/api/stripes/values`,
+  `/api/stripes/image`, MCP `stripes_values` and `stripes_image`) no longer fail under
+  `WD_TS_SHAPE=wide`, which raised `ColumnNotFoundError`, or under `WD_TS_SKIP_EMPTY=true`, which
+  raised a `ComputeError` for a station with gaps in its record. They read the values long and
+  unskipped whatever those two say (GH-2348)
 - `wetterdienst issues --dataset/--lead_time`, and the `/api/issues` and MCP `issues` descriptions
   of `dataset` and `lead_time`, said other networks ignore them. They are DWD DMO only, and MOSMIX
   and SWSMOS refuse them, so leave them out there (GH-2347)
