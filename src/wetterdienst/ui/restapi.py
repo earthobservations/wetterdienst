@@ -88,11 +88,13 @@ app = FastAPI(debug=False)
 class _RefuseInvalidSettings:
     """Refuse to start the server while a `WD_*` setting is malformed, naming the variable (GH-2335).
 
-    Checked as the server starts the app's lifespan, so it holds whatever starts it -- `wetterdienst
-    restapi`, `uvicorn wetterdienst.ui.restapi:app`, `--reload` -- and covers `/mcp`, which is
-    served by this app. A failure in the app's own lifespan would reach the server as Starlette's
-    formatted traceback; answering the startup here gives the log the variables and what is wrong
-    with them, a line each, without the values, and the server exits before taking a connection.
+    Checked as the server starts the app's lifespan, so it holds whatever starts it --
+    `wetterdienst restapi`, `uvicorn wetterdienst.ui.restapi:app` -- unless the lifespan is turned
+    off, and covers `/mcp`, which is served by this app. A failure in the app's own lifespan would
+    reach the server as Starlette's formatted traceback; answering the startup here gives the log
+    the variables and what is wrong with them, a line each, without the values, and the server
+    exits before taking a connection. Under `--reload` it is the worker that exits; the reloader
+    stays, and starts a worker again on the next change to a source file.
     """
 
     def __init__(self, app: ASGIApp) -> None:
