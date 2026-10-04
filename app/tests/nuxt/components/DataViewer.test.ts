@@ -10,6 +10,7 @@ import { UApp, USelectMenu } from '#components'
 import { useToast } from '#imports'
 import DataViewer from '~/components/DataViewer.vue'
 import QueryPanel from '~/components/QueryPanel.vue'
+import { UNIT_TARGET_TYPES } from '~/utils/unit-targets'
 
 // DuckDB, as far as Run Query reaches it: the query itself is answered by the test's `answer`, as the
 // Arrow table DuckDB gives, every statement loading the table at once. It gives no result schema,
@@ -2200,5 +2201,59 @@ describe('dataViewer failed fetch', () => {
     await vi.waitFor(() => expect(document.body.textContent).toContain('ECONNREFUSED'))
     expect(asked).toBe(2)
     expect((viewer.vm as any).valuesStatus).toBe('error')
+  })
+})
+
+describe('dataViewer unit targets', () => {
+  // the backend's own default target for each unit type the explorer lists (`UnitConverter.targets`)
+  const defaults = {
+    temperature: 'degree_celsius',
+    speed: 'meter_per_second',
+    pressure: 'hectopascal',
+    precipitation: 'millimeter',
+    precipitation_intensity: 'millimeter_per_hour',
+    length_short: 'centimeter',
+    length_medium: 'meter',
+    length_long: 'kilometer',
+  }
+
+  // the unit targets the viewer's one request names, given the explorer's choices
+  async function unitTargetsAsked(endpoint: string, selection: StationSelectionState, unitTargets: Record<string, string>) {
+    const asked: Record<string, unknown>[] = []
+    registerEndpoint(endpoint, (event) => {
+      asked.push(getQuery(event))
+      return { values: [] }
+    })
+    const wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(UApp, null, {
+        default: () => h(DataViewer, { parameterSelection, stationSelection: selection, settings: { ...settings, unitTargets } }),
+      }),
+    }), { attachTo: document.body })
+    mounted.push(wrapper)
+    await fetchData(wrapper.findComponent(DataViewer))
+    await vi.waitFor(() => expect(asked).toHaveLength(1))
+    return JSON.parse(String(asked[0]!.unit_targets))
+  }
+
+  it('lists each unit type with the unit its "Default" choice names', () => {
+    expect(Object.fromEntries(UNIT_TARGET_TYPES.map(unitType => [unitType.type, unitType.default]))).toEqual(defaults)
+  })
+
+  // each mode's endpoint, all of which take unit targets and merge the server's WD_TS_UNIT_TARGETS into them
+  it.each([
+    ['/api/values', byStation('01048')],
+    ['/api/interpolate', atPoint('interpolation')],
+    ['/api/summarize', atPoint('summary')],
+  ] as const)('asks %s for every listed type in its default unit where none is chosen', async (endpoint, selection) => {
+    expect(await unitTargetsAsked(endpoint, selection, {})).toEqual(defaults)
+  })
+
+  it.each([
+    ['/api/values', byStation('01048')],
+    ['/api/interpolate', atPoint('interpolation')],
+    ['/api/summarize', atPoint('summary')],
+  ] as const)('asks %s for the units chosen, and every other listed type in its default', async (endpoint, selection) => {
+    expect(await unitTargetsAsked(endpoint, selection, { temperature: 'degree_fahrenheit', length_long: 'mile' }))
+      .toEqual({ ...defaults, temperature: 'degree_fahrenheit', length_long: 'mile' })
   })
 })
