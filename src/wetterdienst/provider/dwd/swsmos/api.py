@@ -21,12 +21,13 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
+from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst.exceptions import InvalidEnumerationError, InvalidTimeIntervalError
+from wetterdienst.exceptions import InvalidEnumerationError, InvalidTimeIntervalError, IssueNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
@@ -182,7 +183,15 @@ class DwdSwsmosValues(TimeseriesValues):
         return []
 
     def _run_content(self, url: str, ttl: CacheExpiry, settings: Settings) -> bytes | None:
-        """Fetch one run, or say it could not be fetched."""
+        """Fetch one run, or say it could not be fetched.
+
+        A run named by its `issue` that the server does not hold -- expired, or not published yet --
+        raises `IssueNotFoundError`, as `dwd/mosmix` and `dwd/dmo` do for a run they do not list. It
+        was answered with an empty frame per station, which a caller could not tell from a run
+        holding nothing for that station (GH-2324). `LATEST` asks only for runs the listing has just
+        named, so a 404 there is a run gone between the listing and the fetch, and keeps the
+        fallback to the run before it.
+        """
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
@@ -192,6 +201,10 @@ class DwdSwsmosValues(TimeseriesValues):
             use_certifi=settings.use_certifi,
         )
         if isinstance(file.content, Exception):
+            issue = cast("DwdSwsmosRequest", self.sr.stations).issue
+            if file.status == HTTPStatus.NOT_FOUND and issue is not DwdForecastDate.LATEST:
+                msg = f"Unable to find SWSMOS run {url}"
+                raise IssueNotFoundError(msg) from file.content
             if not file.is_no_internet_error:
                 log.warning(f"Failed to fetch SWSMOS run {url}: {file.content}")
             return None
@@ -236,7 +249,9 @@ class DwdSwsmosValues(TimeseriesValues):
         while here one file is the whole request, so asking again per station cannot answer a
         different question. `download_file` has already asked twice by then -- `_worth_retrying_download`
         governs what a blip is -- and 1,836 stations asking 3,672 times is a herd against a server
-        that has just failed, not a recovery. The warning naming the run says what happened.
+        that has just failed, not a recovery. The warning naming the run says what happened. The
+        exception is a pinned `issue` the server does not hold, which `_run_content` raises as
+        `IssueNotFoundError`.
         """
         if self._run_frame_cache is None:
             self._run_frame_cache = pl.DataFrame()

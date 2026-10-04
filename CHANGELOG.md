@@ -340,6 +340,9 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- DWD SWSMOS raises `IssueNotFoundError` for an `issue` naming a run DWD does not hold, as MOSMIX
+  and DMO do, so the REST API answers it as the caller's error. It returned no rows, as if the run
+  held nothing for the station (GH-2324)
 
 ## [0.139.0] - 2026-09-29
 
