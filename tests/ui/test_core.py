@@ -435,7 +435,7 @@ def test_swsmos_issue_is_forwarded(model: type[StationsRequest | ValuesRequest])
         date=None,
         settings=Settings(),
     )
-    assert stations_request.issue == dt.datetime(2026, 10, 1, 11, tzinfo=dt.UTC)
+    assert stations_request.issue == dt.datetime(2026, 10, 1, 11, tzinfo=dt.timezone.utc)
 
 
 def test_swsmos_without_issue_reads_the_latest_run() -> None:

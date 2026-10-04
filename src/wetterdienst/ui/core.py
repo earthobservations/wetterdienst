@@ -408,7 +408,7 @@ class StationsRequest(BaseModel):
                 periods.append(item)
         return periods
 
-    # Mosmix/DMO
+    # DWD forecasts: issue for MOSMIX/DMO/SWSMOS, lead_time for DMO
     lead_time: _LeadTimeField = None
     issue: _IssueField = None
 
@@ -570,7 +570,7 @@ class ValuesRequest(BaseModel):
                 periods.append(item)
         return periods
 
-    # Mosmix/DMO
+    # DWD forecasts: issue for MOSMIX/DMO/SWSMOS, lead_time for DMO
     lead_time: _LeadTimeField = None
     issue: _IssueField = None
 
@@ -685,7 +685,7 @@ class InterpolationRequest(BaseModel):
 
     date: _DateField
 
-    # Mosmix/DMO
+    # DWD forecasts: issue for MOSMIX/DMO/SWSMOS, lead_time for DMO
     lead_time: _LeadTimeField = None
     issue: _IssueField = None
 
@@ -791,7 +791,7 @@ class SummaryRequest(BaseModel):
 
     date: _DateField
 
-    # Mosmix/DMO
+    # DWD forecasts: issue for MOSMIX/DMO/SWSMOS, lead_time for DMO
     lead_time: _LeadTimeField = None
     issue: _IssueField = None
 
