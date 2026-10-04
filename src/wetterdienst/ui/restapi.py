@@ -553,12 +553,17 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
     apply to this answer alone.
     """
     given = http_request.query_params.keys()
+    # a malformed server setting is the bare 500 FastAPI answers, which does not read its value back.
+    # Built once for the endpoints no parameter given applies to, as each build reads the
+    # environment and the `.env` again, and logs where the cache is
+    server = Settings()
     reported: dict[str, _AppliedSettings] = {}
     refused: list[str] = []
     for endpoint, taking, applied in _ENDPOINT_SETTINGS:
         # a parameter applies to every endpoint whose request takes it, and to no other
+        taken = [name for name in given if name in taking.model_fields]
         try:
-            settings = _request_settings(request, [name for name in given if name in taking.model_fields], applied)
+            settings = _request_settings(request, taken, applied) if taken else server
         except HTTPException as e:
             # a value two endpoints refuse is told once
             refused.extend(line for line in str(e.detail).split("\n") if line not in refused)

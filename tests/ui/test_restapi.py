@@ -5392,3 +5392,21 @@ def test_settings_with_parameters_reports_no_credential_or_cache_setting(
     for secret in ("aemet-secret", "cache-secret", "header-secret", "X-Api-Key"):
         assert secret not in response.text
     assert {endpoint: set(settings) for endpoint, settings in response.json().items()} == _REPORTED_SETTINGS
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_without_parameters_builds_the_settings_once(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """With no parameters, `/api/settings` builds the server's settings once, logging the cache once (GH-2383).
+
+    No parameter applies to any endpoint, so each reports the server's, read once rather than twice
+    per endpoint.
+    """
+    caplog.set_level(logging.INFO, logger="wetterdienst.settings")
+
+    response = client.get("/api/settings")
+
+    assert response.status_code == 200, response.text
+    assert sum(record.getMessage().startswith("Wetterdienst cache is") for record in caplog.records) == 1

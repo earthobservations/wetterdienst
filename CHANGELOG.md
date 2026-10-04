@@ -36,7 +36,7 @@ Types of changes:
 - `GET /api/settings` takes the settings query parameters of `/api/values`, `/api/interpolate` and
   `/api/summarize`, and answers what they resolve to over the server's, for each endpoint that
   takes the parameter. A value one of them refuses is refused here with its 400 or 422, and an
-  unknown parameter is a 422, where it was ignored. Nothing is stored on the server (GH-2383)
+  unknown parameter is a 422, as on those endpoints. Nothing is stored on the server (GH-2383)
 
 ### Changed
 
