@@ -241,16 +241,18 @@ describe('the interpolation\'s station list on a change of dataset', () => {
 
 describe('the interpolation\'s station picker whose list could not be fetched', () => {
   it('says the stations could not be loaded, and asks for them again on Retry', async () => {
-    // the select was left empty with nothing said, and only a change of dataset asked again
-    let failing = true
+    // the select was left empty with nothing said, and nothing asked again until the selection
+    // wanted another list. Two failures, then the stations, held on a gate so the picker can be
+    // seen while Retry's request is out
     let asked = 0
-    // holds Retry's answer, so the picker can be seen while it is out
     let release!: () => void
-    const gate = new Promise<void>((resolve) => { release = resolve })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
     onTestFinished(() => release())
     onTestFinished(registerEndpoint('/api/stations', async (event) => {
       asked++
-      if (failing) {
+      if (asked <= 2) {
         setResponseStatus(event, 500)
         return { detail: 'Upstream failed' }
       }
@@ -260,25 +262,46 @@ describe('the interpolation\'s station picker whose list could not be fetched', 
     // a dataset of its own, so the list is not one the tests above leave mounted
     const wrapper = await mountSuspended(InterpolationSummarySelection, {
       props: { parameterSelection: { ...parameterSelection, dataset: 'solar' }, modelValue: { source: 'station' } },
+      attachTo: document.body,
     })
     onTestFinished(() => wrapper.unmount())
     const vm = wrapper.vm as any
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to load stations.'))
-    expect(asked).toBe(1)
+    const alert = () => wrapper.find('[role="alert"]')
+    const retry = () => wrapper.findAll('button').find(b => b.text() === 'Retry')
 
-    failing = false
-    await wrapper.findAll('button').find(b => b.text() === 'Retry')!.trigger('click')
+    await vi.waitFor(() => expect(alert().exists() && alert().text()).toBe('Failed to load stations.'))
+    expect(asked).toBe(1)
+    const firstAlert = alert().element
+
+    // a Retry that fails too is announced again, by a notice mounted anew
+    ;(retry()!.element as HTMLElement).focus()
+    await retry()!.trigger('click')
+    await vi.waitFor(() => {
+      expect(asked).toBe(2)
+      expect(vm.stationsPending).toBe(false)
+      expect(alert().exists()).toBe(true)
+    })
+    expect(alert().element).not.toBe(firstAlert)
+
     // useFetch keeps the error until the next answer: while that is out, the picker says it is
-    // loading, not that loading failed, and offers no second Retry
-    await vi.waitFor(() => expect(asked).toBe(2))
-    expect(wrapper.text()).toContain('Loading stations')
-    expect(wrapper.text()).not.toContain('Failed to load stations.')
-    expect(wrapper.findAll('button').some(b => b.text() === 'Retry')).toBe(false)
+    // loading, not that loading failed, and the Retry pressed keeps its focus
+    const button = retry()!.element as HTMLElement
+    button.focus()
+    await retry()!.trigger('click')
+    await vi.waitFor(() => {
+      expect(asked).toBe(3)
+      expect(wrapper.text()).toContain('Loading stations')
+      expect(alert().exists()).toBe(false)
+    })
+    expect(retry()?.element).toBe(button)
+    expect(document.activeElement).toBe(button)
+    // pressed again meanwhile, it leaves the request out alone rather than asking anew
+    await retry()!.trigger('click')
 
     release()
     await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
-    expect(asked).toBe(2)
-    expect(wrapper.text()).not.toContain('Failed to load stations.')
-    expect(wrapper.findAll('button').some(b => b.text() === 'Retry')).toBe(false)
+    expect(asked).toBe(3)
+    expect(alert().exists()).toBe(false)
+    expect(retry()).toBeUndefined()
   })
 })
