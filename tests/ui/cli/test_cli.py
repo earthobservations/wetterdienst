@@ -627,7 +627,8 @@ def test_cli_values_does_not_blame_the_command_line_for_the_environment(monkeypa
     result = runner.invoke(
         cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"temperature": "degree_fahrenheit"}']
     )
-    assert isinstance(result.exception, ValidationError)
+    assert result.exit_code == 1, result.output
+    assert "Error: WD_CACHE_DISABLE is invalid: " in result.output
     assert "--unit_targets" not in result.output
 
 
@@ -636,7 +637,8 @@ def test_cli_values_does_not_blame_an_absent_unit_targets_for_the_environment(mo
     monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"foo": "bar"}')
     runner = CliRunner()
     result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048"])
-    assert isinstance(result.exception, ValidationError)
+    assert result.exit_code == 1, result.output
+    assert "Error: WD_TS_UNIT_TARGETS is invalid: " in result.output
     assert "--unit_targets" not in result.output
 
 
@@ -825,10 +827,10 @@ def test_cli_estimate_does_not_blame_the_command_line_for_the_environment(
 ) -> None:
     """Test a WD_* variable Settings refuses is not told as a usage error of `interpolate` or `summarize`."""
     result = CliRunner().invoke(cli, [command, *_POINT_ARGS, option.replace("KIND", kind)], env=env)
-    assert isinstance(result.exception, ValidationError)
+    assert result.exit_code == 1, result.output
     assert "Usage:" not in result.output
-    # told on its own, not as what went wrong while handling the options' error
-    assert result.exception.__suppress_context__
+    (variable,) = env
+    assert f"Error: {variable} is invalid: " in result.output
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -838,7 +840,8 @@ def test_cli_values_does_not_blame_a_given_unit_targets_for_the_environment(monk
     result = CliRunner().invoke(
         cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"temperature": "degree_fahrenheit"}']
     )
-    assert isinstance(result.exception, ValidationError)
+    assert result.exit_code == 1, result.output
+    assert "Error: WD_TS_UNIT_TARGETS is invalid: " in result.output
     assert "--unit_targets" not in result.output
 
 
@@ -915,3 +918,34 @@ def test_cli_refuses_unknown_unit_targets_unit(monkeypatch: pytest.MonkeyPatch, 
     result = runner.invoke(cli, [*args, '--unit_targets={"temperature": "furlong"}'])
     assert result.exit_code == 2, result.output
     assert "Invalid unit targets: Unit furlong not supported for type temperature." in result.output
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(["cache"], id="cache"),
+        pytest.param(["info"], id="info"),
+        pytest.param(["about", "coverage"], id="about-coverage"),
+        pytest.param(["stations", *_DWD_KL, "--all"], id="stations"),
+        pytest.param(["values", *_DWD_KL, "--station=01048"], id="values"),
+        pytest.param(["history", *_DWD_KL, "--station=01048"], id="history"),
+        pytest.param(["issues", "--provider=dwd", "--network=mosmix", "--station=10147"], id="issues"),
+        pytest.param(["interpolate", *_POINT_ARGS], id="interpolate"),
+        pytest.param(["summarize", *_POINT_ARGS], id="summarize"),
+        pytest.param(["stripes", "stations", "--kind=temperature"], id="stripes-stations"),
+        pytest.param(["stripes", "values", "--kind=temperature", "--station=1048"], id="stripes-values"),
+    ],
+)
+def test_cli_tells_a_malformed_setting_by_its_variable(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
+    """Test a malformed WD_* setting is told by its variable, without its value, and exits 1 (GH-2335).
+
+    It used to end in pydantic's traceback, which names the field and repeats the value, or, where a
+    command builds its settings inside a catch-all, in that handler's log of the traceback.
+    """
+    monkeypatch.setenv("WD_CACHE_DISABLE", "secret-ish")
+    result = CliRunner().invoke(cli, args)
+    assert result.exit_code == 1, result.output
+    assert "Error: WD_CACHE_DISABLE is invalid: Input should be a valid boolean" in result.output
+    assert "secret-ish" not in result.output
+    assert not isinstance(result.exception, ValidationError)
