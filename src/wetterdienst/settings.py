@@ -342,15 +342,19 @@ class Settings(BaseSettings):
 
     @field_validator("ts_geo_station_distance", mode="before")
     @classmethod
-    def validate_ts_geo_station_distance_keys(cls, values: dict[str, float] | None) -> dict[str, float]:
+    def validate_ts_geo_station_distance_keys(cls, values: object) -> object:
         """Check the overridden parameter names, which used to be taken on trust.
 
         A name that is not a canonical parameter can never be looked up, so the override silently
         did nothing and the parameter the user meant kept its default radius -- a typo was
-        indistinguishable from having set nothing at all.
+        indistinguishable from having set nothing at all. Anything but a mapping is left for the
+        field to refuse, which names it; looking for keys in it failed with a bare `TypeError`
+        that named nothing (GH-2353).
         """
-        if not values:
+        if values is None:
             return {}
+        if not isinstance(values, Mapping):
+            return values
         if "default" in values:
             msg = (
                 "the 'default' key of ts_geo_station_distance is gone, as it replaced the fallback radius and "
@@ -387,13 +391,15 @@ class Settings(BaseSettings):
 
     @field_validator("ts_geo_station_distance_resolution_factors", mode="before")
     @classmethod
-    def validate_ts_geo_station_distance_resolution_factors_keys(
-        cls,
-        values: dict[str, float] | None,
-    ) -> dict[str, float]:
-        """Check the resolutions, which are a closed vocabulary like the unit types are."""
-        if not values:
+    def validate_ts_geo_station_distance_resolution_factors_keys(cls, values: object) -> object:
+        """Check the resolutions, which are a closed vocabulary like the unit types are.
+
+        Anything but a mapping is left for the field to refuse, as for `ts_geo_station_distance`.
+        """
+        if values is None:
             return {}
+        if not isinstance(values, Mapping):
+            return values
         resolutions = {resolution.value for resolution in Resolution}
         unknown = sorted(set(values) - resolutions)
         if unknown:

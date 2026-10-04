@@ -744,3 +744,32 @@ def test_settings_skip_threshold_takes_one(monkeypatch: pytest.MonkeyPatch) -> N
     """The upper bound is in the range: 1 asks for every reading (GH-2334)."""
     monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "1")
     assert Settings().ts_skip_threshold == 1
+
+
+@pytest.mark.parametrize("field", ["ts_geo_station_distance", "ts_geo_station_distance_resolution_factors"])
+@pytest.mark.parametrize("value", [5, "abc", [1.0]])
+def test_settings_geo_station_distance_mappings_refuse_anything_but_a_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: object,
+) -> None:
+    """Anything but a mapping is refused as pydantic refuses it, named by its field (GH-2353).
+
+    The key checks used to look for keys in it, and failed with a bare `TypeError` naming nothing.
+    """
+    monkeypatch.delenv(f"WD_{field.upper()}", raising=False)
+    with pytest.raises(ValidationError, match=rf"{field}\n  Input should be a valid dictionary"):
+        Settings(**{field: value})
+
+
+@pytest.mark.parametrize("field", ["ts_geo_station_distance", "ts_geo_station_distance_resolution_factors"])
+@pytest.mark.parametrize("value", ["5", '"abc"', "[1.0]"])
+def test_settings_geo_station_distance_mappings_refuse_anything_but_a_mapping_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: str,
+) -> None:
+    """A `WD_*` variable holding JSON that is no object is refused the same way (GH-2353)."""
+    monkeypatch.setenv(f"WD_{field.upper()}", value)
+    with pytest.raises(ValidationError, match=rf"{field}\n  Input should be a valid dictionary"):
+        Settings()

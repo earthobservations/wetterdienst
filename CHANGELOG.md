@@ -154,6 +154,9 @@ Types of changes:
 
 ### Fixed
 
+- `Settings` refuses a `ts_geo_station_distance` or `ts_geo_station_distance_resolution_factors`
+  that is not a mapping, such as `WD_TS_GEO_STATION_DISTANCE=5`, with a `ValidationError` naming
+  the setting, where it raised a bare `TypeError` that named nothing (GH-2353)
 - Interpolate and summarize answer under `ts_humanize=False` and `ts_shape="wide"`, however they
   are set: `Settings`, `WD_*`, the CLI's or REST API's `humanize`. The first returned no data and
   the second raised `ColumnNotFoundError`. The result is long either way, its parameters named by
