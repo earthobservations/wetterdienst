@@ -164,12 +164,24 @@ _DateField = Annotated[str, Field(description=_DATE_DESCRIPTION)]
 _DateOptField = Annotated[str | None, Field(description=_DATE_DESCRIPTION)]
 _ShapeField = Annotated[
     Literal["long", "wide"],
-    Field(description="Output shape: 'long' (one row per value) or 'wide' (one column per parameter)."),
+    Field(
+        description="Output shape: 'long' (one row per value) or 'wide' (one column per parameter). "
+        "Default: the server's WD_TS_SHAPE if set, else long."
+    ),
 ]
-_HumanizeField = Annotated[bool, Field(description="Use human-readable parameter names instead of raw dataset codes.")]
+_HumanizeField = Annotated[
+    bool,
+    Field(
+        description="Use human-readable parameter names instead of raw dataset codes. "
+        "Default: the server's WD_TS_HUMANIZE if set, else true."
+    ),
+]
 _ConvertUnitsField = Annotated[
     bool,
-    Field(description="Convert values to the unit targets: the defaults, overridden per quantity by unit_targets."),
+    Field(
+        description="Convert values to the unit targets: the defaults, overridden per quantity by unit_targets. "
+        "Default: the server's WD_TS_CONVERT_UNITS if set, else true."
+    ),
 ]
 _UnitTargetsField = Annotated[
     dict[str, str] | None,
@@ -177,16 +189,36 @@ _UnitTargetsField = Annotated[
         description="Custom unit targets as a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}."
     ),
 ]
-_SkipEmptyField = Annotated[bool, Field(description="Skip stations whose coverage falls below `skip_threshold`.")]
+_SkipEmptyField = Annotated[
+    bool,
+    Field(
+        description="Skip stations whose coverage falls below `skip_threshold`. "
+        "Default: the server's WD_TS_SKIP_EMPTY if set, else false."
+    ),
+]
 _SkipThresholdField = Annotated[
     float,
-    Field(ge=0, le=1, description="Coverage fraction below which a station is skipped (requires `skip_empty`)."),
+    Field(
+        ge=0,
+        le=1,
+        description="Coverage fraction below which a station is skipped (requires `skip_empty`). "
+        "Default: the server's WD_TS_SKIP_THRESHOLD if set, else 0.95.",
+    ),
 ]
 _SkipCriteriaField = Annotated[
     Literal["min", "mean", "max"],
-    Field(description="Aggregation over the requested parameters' coverage: min, mean or max."),
+    Field(
+        description="Aggregation over the requested parameters' coverage: min, mean or max. "
+        "Default: the server's WD_TS_SKIP_CRITERIA if set, else min."
+    ),
 ]
-_DropNullsField = Annotated[bool, Field(description="Drop rows with null values from the output.")]
+_DropNullsField = Annotated[
+    bool,
+    Field(
+        description="Drop rows with null values from the output. "
+        "Default: the server's WD_TS_DROP_NULLS if set, else true."
+    ),
+]
 _SectionsField = Annotated[
     set[Literal["name", "parameter", "device", "geography", "missing_data"]] | None,
     Field(
@@ -213,7 +245,7 @@ _StationDistanceHomogeneousField = Annotated[
     Field(
         ge=0,
         description="Maximum distance (km) to a station for a parameter that varies slowly across a region, "
-        "such as air temperature. Defaults to the configured radius of 40 km.",
+        "such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40.",
     ),
 ]
 _StationDistanceHeterogeneousField = Annotated[
@@ -222,37 +254,34 @@ _StationDistanceHeterogeneousField = Annotated[
         ge=0,
         description="The same for a parameter that decorrelates faster, such as precipitation, at hourly "
         "resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute "
-        "resolutions, times 2 from daily upwards. Defaults to the configured radius of 20 km.",
+        "resolutions, times 2 from daily upwards. "
+        "Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20.",
     ),
 ]
 _UseNearbyStationDistanceField = Annotated[
     float,
     Field(
-        ge=0, description="Use a nearby station's values directly when it is within this distance (km) of the target."
+        ge=0,
+        description="Use a nearby station's values directly when it is within this distance (km) of the target. "
+        "Default: the server's WD_TS_GEO_USE_NEARBY_STATION_DISTANCE if set, else 1.",
     ),
 ]
 _MinGainOfValuePairsField = Annotated[
     float,
-    Field(ge=0, description="Minimum relative gain in value pairs required to add another interpolation station."),
+    Field(
+        ge=0,
+        description="Minimum relative gain in value pairs required to add another interpolation station. "
+        "Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1.",
+    ),
 ]
 _NumAdditionalStationsField = Annotated[
     int,
-    Field(ge=0, description="Number of additional nearby stations to consider for interpolation."),
+    Field(
+        ge=0,
+        description="Number of additional nearby stations to consider for interpolation. "
+        "Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
+    ),
 ]
-
-
-def station_distance_radii(homogeneous: float | None, heterogeneous: float | None) -> dict[str, Any]:
-    """Collect the radii that were given, as keyword arguments for `Settings`.
-
-    A radius the request did not give is left out rather than passed as the library default, so that
-    a server configured through `WD_TS_GEO_STATION_DISTANCE_*` keeps its own.
-    """
-    radii: dict[str, Any] = {}
-    if homogeneous is not None:
-        radii["ts_geo_station_distance_homogeneous"] = homogeneous
-    if heterogeneous is not None:
-        radii["ts_geo_station_distance_heterogeneous"] = heterogeneous
-    return radii
 
 
 def _read_station_ids(value: str | list | None) -> list[str] | None:

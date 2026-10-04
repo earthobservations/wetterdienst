@@ -5,6 +5,7 @@
 import io
 import json
 import logging
+import os
 import pathlib
 import zipfile
 from collections.abc import Callable
@@ -1069,12 +1070,7 @@ def test_geo_settings_radii_reach_the_settings() -> None:
             "interpolation_station_distance": {"precipitation_amount": 25.0},
         },
     )
-    settings = _geo_settings(
-        request,
-        request.interpolation_station_distance,
-        request.interpolation_station_distance_homogeneous,
-        request.interpolation_station_distance_heterogeneous,
-    )
+    settings = _geo_settings(request, request.model_fields_set, "interpolation")
     assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 60.0
     assert settings.ts_geo_station_distance["precipitation_amount"] == 25.0
     # the radius that was not given keeps its default rather than being reset
@@ -4127,3 +4123,149 @@ def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     # Starlette's own answer to an exception nothing handled, so the settings are what failed
     assert response.status_code == 500
     assert response.text == "Internal Server Error"
+
+
+@pytest.fixture
+def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings.
+
+    The cache directory the test session gives each worker is kept.
+    """
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+
+
+_FETCH_OF_ENDPOINT = {
+    "/api/values": "get_values",
+    "/api/interpolate": "get_interpolate",
+    "/api/summarize": "get_summarize",
+}
+
+
+def _settings_of(monkeypatch: pytest.MonkeyPatch, endpoint: str, params: dict[str, str]) -> Settings:
+    """Answer a request up to its fetch, and return the settings it would fetch with."""
+    taken: list[Settings] = []
+
+    def take(*, settings: Settings, **_kwargs: object) -> None:
+        taken.append(settings)
+        raise RuntimeError
+
+    monkeypatch.setattr(restapi, _FETCH_OF_ENDPOINT[endpoint], take)
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+    response = client.get(endpoint, params=params)
+    assert response.status_code == 500, response.text
+    (settings,) = taken
+    return settings
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_values_leaves_a_setting_the_request_does_not_give_to_the_server(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The server's WD_TS_* variables set what a request to `/api/values` leaves out (GH-2325).
+
+    Every setting was passed from the request model, whose defaults FastAPI fills in, and an init
+    argument outranks the environment. A field the request gives, at its default value too, still
+    outranks the server's.
+    """
+    env = {
+        "WD_TS_SHAPE": "wide",
+        "WD_TS_HUMANIZE": "false",
+        "WD_TS_CONVERT_UNITS": "false",
+        "WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}',
+        "WD_TS_SKIP_EMPTY": "true",
+        "WD_TS_SKIP_CRITERIA": "max",
+        "WD_TS_SKIP_THRESHOLD": "0.5",
+        "WD_TS_DROP_NULLS": "false",
+    }
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    params = {**_OBSERVATION, "station": "01048"}
+
+    settings = _settings_of(monkeypatch, "/api/values", params)
+    assert settings.ts_shape == "wide"
+    assert settings.ts_humanize is False
+    assert settings.ts_convert_units is False
+    assert settings.ts_unit_targets == {"temperature": "degree_fahrenheit"}
+    assert settings.ts_skip_empty is True
+    assert settings.ts_skip_criteria == "max"
+    assert settings.ts_skip_threshold == 0.5
+    assert settings.ts_drop_nulls is False
+
+    settings = _settings_of(
+        monkeypatch,
+        "/api/values",
+        {
+            **params,
+            "shape": "long",
+            "humanize": "true",
+            "convert_units": "true",
+            "skip_empty": "false",
+            "skip_criteria": "min",
+            "skip_threshold": "0.95",
+            "drop_nulls": "true",
+        },
+    )
+    assert settings.ts_shape == "long"
+    assert settings.ts_humanize is True
+    assert settings.ts_convert_units is True
+    assert settings.ts_skip_empty is False
+    assert settings.ts_skip_criteria == "min"
+    assert settings.ts_skip_threshold == 0.95
+    assert settings.ts_drop_nulls is True
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(("endpoint", "kind"), [("/api/interpolate", "interpolation"), ("/api/summarize", "summary")])
+def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    kind: str,
+) -> None:
+    """The server's WD_TS_* variables set what a request to an estimating endpoint leaves out (GH-2325).
+
+    A field the request gives, at its default value too, still outranks the server's.
+    """
+    env = {
+        "WD_TS_HUMANIZE": "false",
+        "WD_TS_CONVERT_UNITS": "false",
+        "WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS": "60",
+        "WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS": "15",
+        "WD_TS_GEO_USE_NEARBY_STATION_DISTANCE": "0",
+        "WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS": "0.5",
+        "WD_TS_GEO_NUM_ADDITIONAL_STATIONS": "5",
+    }
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    params = {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}
+
+    settings = _settings_of(monkeypatch, endpoint, params)
+    assert settings.ts_humanize is False
+    assert settings.ts_convert_units is False
+    assert settings.ts_geo_station_distance_homogeneous == 60
+    assert settings.ts_geo_station_distance_heterogeneous == 15
+    assert settings.ts_geo_use_nearby_station_distance == 0
+    assert settings.ts_geo_min_gain_of_value_pairs == 0.5
+    assert settings.ts_geo_num_additional_stations == 5
+
+    settings = _settings_of(
+        monkeypatch,
+        endpoint,
+        {
+            **params,
+            "humanize": "true",
+            "convert_units": "true",
+            f"{kind}_station_distance_homogeneous": "40",
+            f"{kind}_station_distance_heterogeneous": "20",
+            "use_nearby_station_distance": "1",
+            "min_gain_of_value_pairs": "0.1",
+            "num_additional_stations": "3",
+        },
+    )
+    assert settings.ts_humanize is True
+    assert settings.ts_convert_units is True
+    assert settings.ts_geo_station_distance_homogeneous == 40
+    assert settings.ts_geo_station_distance_heterogeneous == 20
+    assert settings.ts_geo_use_nearby_station_distance == 1
+    assert settings.ts_geo_min_gain_of_value_pairs == 0.1
+    assert settings.ts_geo_num_additional_stations == 3

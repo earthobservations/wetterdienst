@@ -340,6 +340,10 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- The REST API's and MCP's `values`, `interpolate` and `summarize` leave a setting the request does
+  not give to the server's `WD_TS_*` variable, such as `WD_TS_SHAPE=wide`, as the CLI does. They
+  passed every field's default, which outranks the environment, so those variables had no effect
+  there (GH-2325)
 
 ## [0.139.0] - 2026-09-29
 
