@@ -36,7 +36,9 @@ the requested data. Add `with_metadata=true` to include the provider-metadata bl
 value endpoints) `with_stations=true` to include the queried stations' metadata. With
 `with_metadata=true`, the JSON and GeoJSON of `values`, `interpolate` and `summarize` also carry a
 `settings` block next to `metadata`: the settings the result was got with, named as the endpoint's
-query parameters are.
+query parameters are. `interpolate` and `summarize` also report the settings the server sets alone
+for them, which no query parameter of theirs changes: `skip_empty`, `skip_threshold`,
+`skip_criteria`, `drop_nulls` and `station_distance_resolution_factors`.
 
 The following examples use [httpie](https://github.com/httpie/cli) to demonstrate the usage of the REST API.
 

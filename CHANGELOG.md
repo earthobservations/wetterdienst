@@ -30,8 +30,9 @@ Types of changes:
 - `GET /api/settings` reports the settings `/api/values`, `/api/interpolate` and `/api/summarize`
   take where a request leaves them out: the server's `WD_TS_*` variables over wetterdienst's
   defaults, with the unit of every quantity. With `with_metadata`, those three endpoints' JSON and
-  GeoJSON carry a `settings` block next to `metadata`, with the settings the result was got with,
-  which their response schemas declare as optional (GH-2359)
+  GeoJSON, and their MCP tools', carry a `settings` block next to `metadata`, with the settings the
+  result was got with. Their OpenAPI schemas, which declare it, are now named
+  `_ValuesWithSettingsDict`, `_ValuesWithSettingsOgcFeatureCollection` and so on (GH-2359)
 
 ### Changed
 

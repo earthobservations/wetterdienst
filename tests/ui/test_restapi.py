@@ -4945,3 +4945,11 @@ def test_with_metadata_names_the_settings_block_where_it_comes() -> None:
         assert "`settings` block" in description(path)
     for path in ("/api/stations", "/api/history"):
         assert "settings" not in description(path)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_report_reads_back_into_its_model(client: TestClient) -> None:
+    """A settings report, written by field name, validates against the model it was written from (GH-2359)."""
+    reported = client.get("/api/settings").json()
+
+    assert restapi.ServerSettings.model_validate(reported).model_dump(mode="json") == reported

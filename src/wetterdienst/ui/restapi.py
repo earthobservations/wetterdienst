@@ -189,7 +189,8 @@ _MEDIA_TYPES = {
 class _AppliedSettings(BaseModel):
     """The settings every one of the three endpoints is answered with."""
 
-    model_config = ConfigDict(extra="forbid")
+    # by name too, so that a report, which is written by name, reads back
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     humanize: bool = Field(validation_alias="ts_humanize")
     convert_units: bool = Field(validation_alias="ts_convert_units")
@@ -203,8 +204,8 @@ class _AppliedSettings(BaseModel):
     skip_criteria: Literal["min", "mean", "max"] = Field(validation_alias="ts_skip_criteria")
     drop_nulls: bool = Field(
         validation_alias="ts_drop_nulls",
-        description="Whether rows without a value are dropped. Off in the wide shape, and for interpolate and "
-        "summarize, whose shape is always long, in the server's wide shape.",
+        description="Whether rows without a value are dropped. The wide shape, the server's or the request's, "
+        "turns it off.",
     )
 
 
