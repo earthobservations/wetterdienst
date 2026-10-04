@@ -27,6 +27,11 @@ Types of changes:
   `DwdSwsmosRequest.available_issues(settings)` returns them as UTC datetimes. They refused
   dwd/swsmos as unsupported. One run holds every road station, so the list is the same for any
   station (GH-2319)
+- `GET /api/settings` reports the settings `/api/values`, `/api/interpolate` and `/api/summarize`
+  take where a request leaves them out: the server's `WD_TS_*` variables over wetterdienst's
+  defaults, with the unit of every quantity. With `with_metadata`, those three endpoints' JSON and
+  GeoJSON carry a `settings` block next to `metadata`, with the settings the result was got with.
+  Their response schemas are renamed to `_ValuesWithSettingsDict` and the like (GH-2359)
 
 ### Changed
 
