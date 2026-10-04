@@ -897,8 +897,9 @@ class TimeseriesRequest:
 
         A station requested at several resolutions has a row in each one's station list, and the
         lists can disagree: NOAA GHCN's hourly list gives no elevation for hundreds of the stations
-        its daily list does. Each value is the first one known across those rows, so whether the
-        elevation is known does not depend on which resolution the parameters named first.
+        its daily list does. The coordinates are the first row's, and the elevation the first one
+        known across those rows, so whether it is known does not depend on which resolution the
+        parameters named first.
         """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
         stations = self.all().df.filter(pl.col("station_id").eq(station_id))
@@ -906,6 +907,8 @@ class TimeseriesRequest:
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg)
         lat, lon, elevation = stations.select(
-            pl.col("latitude", "longitude", "elevation").drop_nulls().first(),
+            pl.col("latitude").first(),
+            pl.col("longitude").first(),
+            pl.col("elevation").drop_nulls().first(),
         ).row(0)
         return lat, lon, elevation

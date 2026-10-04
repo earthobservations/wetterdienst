@@ -238,10 +238,10 @@ def count_stations_in_reach(
     to visit can answer a question about another elevation.
     """
     counts = {}
-    # a station's elevation and its distance as the walk reads them: `stations_by_id` keeps one row
-    # per station, the nearest, over every dataset in the ranking. Two dataset indexes can disagree
-    # about a station's elevation, and reading a different row here than the walk does would refuse a
-    # request the walk would have answered
+    # a station's elevation and its distance as the walk reads them: `stations_by_id` is built with
+    # `one_row_per_station` too, the nearest row with an elevation from any of the station's rows.
+    # Two dataset indexes can disagree about a station's elevation, and reading it differently here
+    # than the walk does would refuse a request the walk would have answered
     as_the_walk_reads_it = one_row_per_station(df_stations_ranked)
     for parameter in parameters:
         if not isinstance(parameter, ParameterModel) or parameter.name not in interpolatable:
