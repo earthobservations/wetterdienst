@@ -1,7 +1,12 @@
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import WidgetPage from '~/pages/widget.vue'
+
+// the page's $fetch, passed through to the real one unless a test makes it fail where nothing answered,
+// which no endpoint can do
+const lookup = vi.hoisted(() => ({ fetch: undefined as unknown as ReturnType<typeof vi.fn> }))
+mockNuxtImport('$fetch', original => (lookup.fetch = vi.fn(original)))
 
 describe('widget Page', () => {
   beforeEach(() => {
@@ -35,9 +40,10 @@ describe('widget Page', () => {
   })
 
   it('shows an error when the station lookup fails', async () => {
-    registerEndpoint('/api/stations', () => new Response('not found', { status: 404 }))
+    onTestFinished(registerEndpoint('/api/stations', () => new Response('not found', { status: 404 })))
 
     const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=99999' })
+    onTestFinished(() => wrapper.unmount())
     const vm = wrapper.vm as any
     // a body without a detail is left out
     await vi.waitFor(() => expect(vm.error).toMatch(/^Backend error 404/))
@@ -159,8 +165,19 @@ describe('widget Page station lookup', () => {
     await vi.waitFor(() => expect(vm.error).toBe('Station not found'))
     expect(vm.station).toBeNull()
     expect(wrapper.text()).toContain('Station not found')
-    // no forecast is asked for a station that is not there
-    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it('tells a lookup nothing answered by the error, not as a station not found', async () => {
+    // what ofetch throws where no answer came: no response on it, its request in front of the message
+    const unanswered = new TypeError('[GET] "/api/stations?station=01001": <no response> Failed to fetch')
+    lookup.fetch.mockRejectedValueOnce(unanswered)
+    globalThis.fetch = vi.fn()
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.error).toBe('Failed to fetch'))
+    expect(wrapper.text()).not.toContain('Station not found')
   })
 
   it('shows a found station without an error', async () => {
