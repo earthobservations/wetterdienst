@@ -157,11 +157,12 @@ Types of changes:
 - `Settings` ignores a key of `.env` that is no setting, such as another program's
   `POSTGRES_PASSWORD`, as it ignores one in the environment. Such a key made every `Settings()`
   fail, and with it the CLI commands and REST endpoints that read them, and the error echoed its
-  value. A `WD_*` key that is no setting, such as `WD_CACHE_DIABLE`, is ignored with a warning
-  naming it. A keyword to `Settings(...)` that is no setting is still refused (GH-2349)
+  value. A misspelt `WD_*` key, such as `WD_CACHE_DIABLE`, is ignored too, as in the environment.
+  A keyword to `Settings(...)` that is no setting is still refused (GH-2349)
 - `Settings` refuses a `ts_geo_station_distance` or `ts_geo_station_distance_resolution_factors`
   that is not a mapping, such as `WD_TS_GEO_STATION_DISTANCE=5`, with a `ValidationError` naming
-  the setting, where it raised a bare `TypeError` that named nothing (GH-2353)
+  the setting, where it raised a bare `TypeError` that named nothing. An empty list or `0`, which
+  was taken as no overrides, is refused too (GH-2353)
 - Interpolate and summarize answer under `ts_humanize=False` and `ts_shape="wide"`, however they
   are set: `Settings`, `WD_*`, the CLI's or REST API's `humanize`. The first returned no data and
   the second raised `ColumnNotFoundError`. The result is long either way, its parameters named by

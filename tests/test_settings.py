@@ -782,32 +782,28 @@ def test_settings_dotenv_ignores_a_key_that_is_no_setting(
 ) -> None:
     """A `.env` shared with another program does not stop the settings from loading (GH-2349).
 
-    Its key used to be refused, and its value echoed, by every `Settings()`. The settings in the
-    same file are still read.
+    Its key used to be refused, and its value echoed, by every `Settings()`. A key without the
+    prefix is not taken for a setting even where it names one, and the settings in the same file
+    are still read.
     """
     monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
+    monkeypatch.delenv("WD_TS_SHAPE", raising=False)
     # a directory of the test's own, so that a `.env` where the tests are run from is not read
     monkeypatch.chdir(tmp_path)
-    (tmp_path / ".env").write_text("POSTGRES_PASSWORD=secret-ish\nWD_CACHE_DISABLE=true\n")
-    caplog.set_level(logging.WARNING)
-    assert Settings().cache_disable
+    (tmp_path / ".env").write_text("POSTGRES_PASSWORD=secret-ish\nTS_SHAPE=wide\nWD_CACHE_DISABLE=true\n")
+    caplog.set_level(logging.DEBUG)
+    settings = Settings()
+    assert settings.cache_disable
+    assert settings.ts_shape == "long"
     assert "secret-ish" not in caplog.text
-    assert "POSTGRES_PASSWORD" not in caplog.text
 
 
-def test_settings_dotenv_warns_about_a_wd_key_that_is_no_setting(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """A misspelt `WD_*` key in `.env` is ignored, but named, so the typo stays visible (GH-2349)."""
+def test_settings_dotenv_ignores_a_misspelt_wd_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A misspelt `WD_*` key in `.env` is ignored, as the same variable in the environment is (GH-2349)."""
     monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)
     monkeypatch.chdir(tmp_path)
-    (tmp_path / ".env").write_text("WD_CACHE_DIABLE=secret-ish\n")
-    caplog.set_level(logging.WARNING)
+    (tmp_path / ".env").write_text("WD_CACHE_DIABLE=true\n")
     assert not Settings().cache_disable
-    assert "WD_CACHE_DIABLE in .env is no wetterdienst setting, and is ignored" in caplog.text
-    assert "secret-ish" not in caplog.text
 
 
 def test_settings_keyword_that_is_no_setting_is_still_refused() -> None:

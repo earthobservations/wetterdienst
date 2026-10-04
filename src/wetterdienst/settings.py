@@ -249,8 +249,8 @@ class _SettingsFromDotEnv(PydanticBaseSettingsSource):
     a password (GH-2349). The environment never did this: it hands on only the settings.
 
     The constructor keeps refusing a keyword that is no setting, which `extra="ignore"` would have
-    let pass in silence. A `WD_` key that names no setting is a typo of one rather than another
-    program's, so it is warned about rather than dropped silently.
+    let pass in silence. A misspelt `WD_` key is ignored like any other, as it is in the
+    environment.
     """
 
     def __init__(self, source: PydanticBaseSettingsSource) -> None:
@@ -263,14 +263,8 @@ class _SettingsFromDotEnv(PydanticBaseSettingsSource):
 
     def __call__(self) -> dict[str, Any]:
         """Return what `.env` sets, without its keys that are no setting."""
-        data = self._source()
         fields = self.settings_cls.model_fields
-        # such a key comes back lower-cased and whole, prefix and all
-        prefix = str(self.config.get("env_prefix") or "").lower()
-        typos = sorted(key for key in data if key not in fields and prefix and key.lower().startswith(prefix))
-        if typos:
-            log.warning(f"{', '.join(key.upper() for key in typos)} in .env is no wetterdienst setting, and is ignored")
-        return {key: value for key, value in data.items() if key in fields}
+        return {key: value for key, value in self._source().items() if key in fields}
 
 
 class Settings(BaseSettings):
