@@ -143,7 +143,8 @@ def test_noaa_ghcn_hourly_stations_missing_elevation(
     """A station that `ghcnh-station-list.csv` lists at -999.9, its missing value, has a null elevation (GH-2260).
 
     The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it. -999.0 is kept, as NOAA's
-    GHCNh documentation names only -999.9 as missing.
+    GHCNh documentation names only -999.9 as missing; the undocumented 9999.0 and 8191.0 are nulled
+    since GH-2336, and whether -999.0 should be too is GH-2352.
     """
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file)
     df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df

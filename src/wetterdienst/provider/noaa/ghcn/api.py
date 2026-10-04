@@ -260,8 +260,9 @@ class NoaaGhcnRequest(TimeseriesRequest):
             cs.string().str.strip_chars().replace("", None),
         )
         # the documentation marks a missing elevation as -999.9. The list also carries 9999.0 and
-        # 8191.0, undocumented, on 154 rows such as lightships in the North Sea (GMMU0010434 ELBE
-        # NO. 1) and DNEPRODZERJINSK, which the daily list puts at 148.0 m: placeholders, not heights
+        # 8191.0, undocumented, on rows such as the North Sea lightship GMMU0010434 ELBE NO. 1 and
+        # DNEPRODZERJINSK, which the daily list puts at 148.0 m: placeholders, not heights. -999.0
+        # is still read as a height (GH-2352)
         df = df.with_columns(pl.col("elevation").replace(["-999.9", "9999.0", "8191.0"], None))
         return df.lazy()
 
