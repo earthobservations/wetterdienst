@@ -4176,5 +4176,6 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
             client.get("/api/interpolate", params={**params, "use_nearby_station_distance": 0.5}),
         ]
     assert [response.status_code for response in responses] == [500, 500]
-    assert "use_nearby_station_distance" not in caplog.text
+    # the warnings only: the stub's failures are logged with their tracebacks as errors
+    assert not [record for record in caplog.records if record.levelno == logging.WARNING]
     assert [settings.ts_geo_use_nearby_station_distance for settings in taken] == [3.0, 3.0, 0.5]
