@@ -666,10 +666,14 @@ def _request_settings(request: BaseModel, given: Collection[str], fields: Mappin
         raise HTTPException(status_code=400, detail="\n".join(lines)) from e
 
 
-def _geo_settings(request: InterpolationRequest | SummaryRequest, given: Collection[str], kind: str) -> Settings:
+def _geo_settings(
+    request: InterpolationRequest | SummaryRequest,
+    given: Collection[str],
+    kind: Literal["interpolation", "summary"],
+) -> Settings:
     """Build the settings shared by the interpolation and the summary endpoint.
 
-    `kind` names the request's station distance fields: `interpolation` or `summary`.
+    `kind` names the request's station distance fields.
     """
     # a distance given for a name that is not a canonical parameter, or a unit target for an
     # unknown quantity or unit, is the request's 400
