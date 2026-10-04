@@ -758,7 +758,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                 <label class="text-sm">{{ t('explorer.threshold') }}:</label>
                 <UInputNumber
                   v-model="dataSettings.skipThreshold"
-                  :min="0"
+                  :min="0.05"
                   :max="1"
                   :step="0.05"
                   size="sm"
