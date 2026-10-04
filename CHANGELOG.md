@@ -138,6 +138,14 @@ Types of changes:
   whatever the target said, so a local InfluxDB 3 Core could not be reached. Write an https
   server, such as InfluxDB Cloud, as `influxdb3s://` (GH-2279)
 
+### Deprecated
+
+- `summarize`'s `use_nearby_station_distance` (the CLI's `--use_nearby_station_distance`,
+  `/api/summarize` and the MCP `summarize` tool) is deprecated and will be removed in a future
+  release. It never had an effect on a summary, which takes the nearest station with data anyway, so
+  leave it out. The CLI warns when it is given, the REST API logs it, and the schema marks it
+  deprecated. `Settings.ts_geo_use_nearby_station_distance` stays, for interpolation (GH-2333)
+
 ### Fixed
 
 - The `/api/values` description, which is the MCP `values` tool's, and the MCP instructions said

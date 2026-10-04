@@ -769,7 +769,8 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
     assert settings.ts_convert_units is True
     assert settings.ts_geo_station_distance_homogeneous == 40
     assert settings.ts_geo_station_distance_heterogeneous == 20
-    assert settings.ts_geo_use_nearby_station_distance == 0.5
+    # `summarize` accepts the option and reads nothing from it, which it says it does (GH-2333)
+    assert settings.ts_geo_use_nearby_station_distance == (0.5 if command == "interpolate" else 0)
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -915,3 +916,27 @@ def test_cli_refuses_unknown_unit_targets_unit(monkeypatch: pytest.MonkeyPatch, 
     result = runner.invoke(cli, [*args, '--unit_targets={"temperature": "furlong"}'])
     assert result.exit_code == 2, result.output
     assert "Invalid unit targets: Unit furlong not supported for type temperature." in result.output
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_summarize_warns_that_use_nearby_station_distance_is_deprecated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`summarize --use_nearby_station_distance` is accepted, said to have no effect, and has none.
+
+    It used to set a setting no summary reads, so any value left the summary as it was (GH-2333).
+    Left out, the command says nothing about it, and `interpolate`, which does read it, neither.
+    """
+    warning = "DeprecationWarning: The option 'use_nearby_station_distance' is deprecated. It has no effect"
+
+    def run(args: list[str]) -> str:
+        def take(_get: object, *, settings: Settings, **_kwargs: object) -> None:
+            raise _SettingsTaken(settings)
+
+        monkeypatch.setattr("wetterdienst.ui.cli._collect_or_exit", take)
+        result = CliRunner().invoke(cli, args, env={})
+        assert isinstance(result.exception, _SettingsTaken), result.output
+        assert result.exception.args[0].ts_geo_use_nearby_station_distance == (0.5 if args[0] == "interpolate" else 1.0)
+        return result.stderr
+
+    assert warning in run(["summarize", *_POINT_ARGS, "--use_nearby_station_distance=0.5"])
+    assert "use_nearby_station_distance" not in run(["summarize", *_POINT_ARGS])
+    assert "use_nearby_station_distance" not in run(["interpolate", *_POINT_ARGS, "--use_nearby_station_distance=0.5"])

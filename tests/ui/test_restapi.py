@@ -4127,3 +4127,45 @@ def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     # Starlette's own answer to an exception nothing handled, so the settings are what failed
     assert response.status_code == 500
     assert response.text == "Internal Server Error"
+
+
+def test_summarize_use_nearby_station_distance_is_deprecated(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`/api/summarize` accepts `use_nearby_station_distance`, says it is deprecated, and reads nothing from it.
+
+    It used to set a setting no summary reads, so any value left the summary as it was (GH-2333). The
+    schema marks it deprecated, which the MCP tool's schema is built from, and a request giving it is
+    logged. `/api/interpolate` reads it still.
+    """
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    parameters = app.openapi()["paths"]["/api/summarize"]["get"]["parameters"]
+    (field,) = (parameter for parameter in parameters if parameter["name"] == "use_nearby_station_distance")
+    assert field["deprecated"] is True
+    parameters = app.openapi()["paths"]["/api/interpolate"]["get"]["parameters"]
+    (field,) = (parameter for parameter in parameters if parameter["name"] == "use_nearby_station_distance")
+    assert "deprecated" not in field
+
+    taken: list[Settings] = []
+
+    def take(*, settings: Settings, **_kwargs: object) -> None:
+        taken.append(settings)
+        msg = "taken"
+        raise ValueError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_summarize", take)
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_interpolate", take)
+    params = {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
+        client.get("/api/summarize", params={**params, "use_nearby_station_distance": 0.5})
+    assert "use_nearby_station_distance is deprecated. It has no effect on a summary" in caplog.text
+    assert taken[-1].ts_geo_use_nearby_station_distance == 1.0
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
+        client.get("/api/summarize", params=params)
+        client.get("/api/interpolate", params={**params, "use_nearby_station_distance": 0.5})
+    assert "use_nearby_station_distance" not in caplog.text
+    assert taken[-1].ts_geo_use_nearby_station_distance == 0.5

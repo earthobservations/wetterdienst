@@ -28,6 +28,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.ui.core import (
+    SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
@@ -278,6 +279,13 @@ use_nearby_station_distance_opt = click.option(
         "Use a station's own values when it is within this many km of the point. "
         "Default: WD_TS_GEO_USE_NEARBY_STATION_DISTANCE if set, else 1"
     ),
+)
+# accepted by `summarize` still, so that an invocation giving it is warned rather than refused (GH-2333)
+summary_use_nearby_station_distance_opt = click.option(
+    "--use_nearby_station_distance",
+    type=click.FLOAT,
+    default=1,
+    deprecated=SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
 )
 # a flag here, where stations/values/history take a value: changing either breaks invocations
 pretty_flag_opt = click.option("--pretty", is_flag=True, help="Pretty-print JSON with 4-space indentation.")
@@ -1565,7 +1573,7 @@ def interpolate(
 @longitude_opt
 @elevation_opt
 @station_distance_opts("summary")
-@use_nearby_station_distance_opt
+@summary_use_nearby_station_distance_opt
 @sql_values_opt
 @convert_units_opt
 @unit_targets_opt
@@ -1664,7 +1672,6 @@ def summarize(
                 "ts_geo_station_distance_heterogeneous",
                 request.summary_station_distance_heterogeneous,
             ),
-            "use_nearby_station_distance": ("ts_geo_use_nearby_station_distance", request.use_nearby_station_distance),
         }
     )
 
