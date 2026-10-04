@@ -151,6 +151,12 @@ Types of changes:
   hold, as MOSMIX and DMO do, so the REST API answers it as the caller's error. It returned no rows,
   as if the run held nothing for the station. Catch `IssueNotFoundError`, or pick the issue from
   `DwdSwsmosRequest.available_issues` (GH-2324)
+- A NOAA GHCN station asked for at both `hourly` and `daily` has the daily list's `elevation` on
+  its hourly row as well, where the two lists put it within 5 km of each other, unless the daily
+  list gives 0.0 against an hourly height. Interpolate and summarize, by station id or by point,
+  then use one elevation for such a station whatever the order of the parameters. Otherwise each
+  row keeps its own list's elevation. A request for one resolution is not affected by this
+  (GH-2336, GH-2362)
 
 ### Fixed
 
@@ -378,6 +384,9 @@ Types of changes:
 - NOAA GHCN hourly stations listed at 9999.0 m or 8191.0 m, 154 placeholders such as the North
   Sea lightship ELBE NO. 1, have a null `elevation`. `interpolate` and `summarize` given an
   elevation took them for known ones (GH-2336)
+- NOAA GHCN daily stations of the Brazilian network (`BR0...`) listed at 0.0 m, 912 placeholders
+  such as ALFENAS at about 880 m, have a null `elevation`. `interpolate` and `summarize` given an
+  elevation took them for stations at sea level. A 0.0 m outside that network stays (GH-2362)
 
 ## [0.139.0] - 2026-09-29
 
