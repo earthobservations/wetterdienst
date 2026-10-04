@@ -190,12 +190,13 @@ const apiQuery = computed(() => {
   }
   else if (isSummaryMode.value) {
     const interp = ss.interpolation
+    // no use_nearby_station_distance: a summary takes the nearest station anyway, and the backend
+    // deprecates it there (GH-2333)
     const query: Record<string, any> = {
       ...base,
       latitude: interp?.latitude,
       longitude: interp?.longitude,
       elevation: interp?.elevation,
-      use_nearby_station_distance: props.settings.useNearbyStationDistance,
     }
     // Add summary station distance if provided (filter out empty values)
     const stationDistancePerParameter = Object.entries(props.settings.useStationDistancePerParameter)

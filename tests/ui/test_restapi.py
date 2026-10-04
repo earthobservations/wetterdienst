@@ -4125,6 +4125,58 @@ def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     assert response.text == "Internal Server Error"
 
 
+def test_summarize_use_nearby_station_distance_is_deprecated(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: pathlib.Path,
+) -> None:
+    """`/api/summarize` accepts `use_nearby_station_distance`, says it is deprecated, and reads nothing from it.
+
+    It used to set a setting no summary reads, so any value left the summary as it was (GH-2333). The
+    schema marks it deprecated, which the MCP tool's schema is built from, and a request giving it is
+    logged. `/api/interpolate` reads it still.
+    """
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    parameters = app.openapi()["paths"]["/api/summarize"]["get"]["parameters"]
+    (field,) = (parameter for parameter in parameters if parameter["name"] == "use_nearby_station_distance")
+    assert field["deprecated"] is True
+    parameters = app.openapi()["paths"]["/api/interpolate"]["get"]["parameters"]
+    (field,) = (parameter for parameter in parameters if parameter["name"] == "use_nearby_station_distance")
+    assert "deprecated" not in field
+
+    taken: list[Settings] = []
+
+    def take(*, settings: Settings, **_kwargs: object) -> None:
+        taken.append(settings)
+        msg = "taken"
+        raise ValueError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_summarize", take)
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_interpolate", take)
+    # the server's own setting, which a summary keeps; set here, as is the directory a `.env` is read
+    # from, so that neither the shell nor the working directory of whoever runs the tests decides it
+    monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "3")
+    monkeypatch.chdir(tmp_path)
+    params = {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}
+    # each answered by the stub's failure, a 500, so each reached the entry point with its settings
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
+        response = client.get("/api/summarize", params={**params, "use_nearby_station_distance": 0.5})
+    assert (response.status_code, response.json()["detail"]) == (500, "taken")
+    assert "use_nearby_station_distance is deprecated. It has no effect on a summary" in caplog.text
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
+        responses = [
+            client.get("/api/summarize", params=params),
+            client.get("/api/interpolate", params={**params, "use_nearby_station_distance": 0.5}),
+        ]
+    assert [response.status_code for response in responses] == [500, 500]
+    # the warnings only: the stub's failures are logged with their tracebacks as errors
+    assert not [record for record in caplog.records if record.levelno == logging.WARNING]
+    assert [settings.ts_geo_use_nearby_station_distance for settings in taken] == [3.0, 3.0, 0.5]
+
+
 @pytest.fixture
 def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
     """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings.
@@ -4266,7 +4318,8 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
     assert settings.ts_convert_units is True
     assert settings.ts_geo_station_distance_homogeneous == 40
     assert settings.ts_geo_station_distance_heterogeneous == 20
-    assert settings.ts_geo_use_nearby_station_distance == 1
+    # a summary does not pass it on, as it reads none (GH-2333): the server's stays
+    assert settings.ts_geo_use_nearby_station_distance == (1 if kind == "interpolation" else 0)
     assert settings.ts_geo_min_gain_of_value_pairs == 0.1
     assert settings.ts_geo_num_additional_stations == 3
 

@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Explorer]` The nearby station distance is offered, and sent, for an interpolation only. It had
+  no effect on a summary, and the backend deprecates it there (GH-2333)
+
 ### Fixed
 
 - `[Explorer]` Each unit type the Unit Targets setting lists is asked for in the unit its choice

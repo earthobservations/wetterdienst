@@ -2203,6 +2203,24 @@ describe('dataViewer failed fetch', () => {
   })
 })
 
+describe('dataViewer nearby station distance', () => {
+  // the backend reads it for an interpolation only, and deprecates it for a summary (GH-2333)
+  it.each([
+    ['/api/interpolate', atPoint('interpolation'), '1'],
+    ['/api/summarize', atPoint('summary'), undefined],
+  ] as const)('%s is sent use_nearby_station_distance=%s', async (endpoint, selection, sent) => {
+    const asked: Record<string, unknown>[] = []
+    registerEndpoint(endpoint, (event) => {
+      asked.push(getQuery(event))
+      return { values: [] }
+    })
+    const { viewer } = await mountDataViewer(ref(selection))
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(asked).toHaveLength(1))
+    expect(asked[0]!.use_nearby_station_distance).toBe(sent)
+  })
+})
+
 describe('dataViewer unit targets', () => {
   // each unit type the explorer lists, in the unit its "Default (...)" choice names
   const defaults = {

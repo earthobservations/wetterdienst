@@ -46,6 +46,7 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
+    SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     GlossaryEntry,
     HistoryRequest,
     InterpolationRequest,
@@ -727,7 +728,11 @@ def _geo_settings(
             f"{kind}_station_distance": "ts_geo_station_distance",
             f"{kind}_station_distance_homogeneous": "ts_geo_station_distance_homogeneous",
             f"{kind}_station_distance_heterogeneous": "ts_geo_station_distance_heterogeneous",
-            "use_nearby_station_distance": "ts_geo_use_nearby_station_distance",
+            # not read for a summary, which has nothing for it to decide: the field is only accepted
+            # there, and deprecated (GH-2333)
+            **(
+                {"use_nearby_station_distance": "ts_geo_use_nearby_station_distance"} if kind == "interpolation" else {}
+            ),
             "min_gain_of_value_pairs": "ts_geo_min_gain_of_value_pairs",
             "num_additional_stations": "ts_geo_num_additional_stations",
         },
@@ -920,6 +925,9 @@ def summarize(
     `date`.
     """
     set_logging_level(debug=request.debug)
+    # dumped rather than read: reading a deprecated field warns of itself, a DeprecationWarning nobody sees
+    if request.model_dump(include={"use_nearby_station_distance"})["use_nearby_station_distance"] is not None:
+        log.warning(f"use_nearby_station_distance is deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}")
 
     try:
         api = Wetterdienst(request.provider, request.network)

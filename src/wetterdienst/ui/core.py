@@ -267,6 +267,24 @@ _UseNearbyStationDistanceField = Annotated[
         "Default: the server's WD_TS_GEO_USE_NEARBY_STATION_DISTANCE if set, else 1.",
     ),
 ]
+# what the CLI, the REST API and the MCP tool tell a caller who gives `use_nearby_station_distance`
+# to a summary (GH-2333)
+SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED = (
+    "It has no effect on a summary, which takes the nearest station with data anyway, and will be "
+    "removed in a future release. Leave it out."
+)
+# accepted still, so that a request giving it is not refused, and read by nothing. The schema marks
+# it deprecated; the CLI warns the caller who gives it, the REST API only logs it.
+# Defaults to `None`, not 1.0: FastAPI hands a query model every default as if given, so only `None`
+# says it was not
+_SummaryUseNearbyStationDistanceField = Annotated[
+    float | None,
+    Field(
+        ge=0,
+        deprecated=SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
+        description=f"Deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}",
+    ),
+]
 _MinGainOfValuePairsField = Annotated[
     float,
     Field(
@@ -859,7 +877,7 @@ class SummaryRequest(BaseModel):
             return v
         return json.loads(v)
 
-    use_nearby_station_distance: _UseNearbyStationDistanceField = 1.0
+    use_nearby_station_distance: _SummaryUseNearbyStationDistanceField = None
     min_gain_of_value_pairs: _MinGainOfValuePairsField = 0.10
     num_additional_stations: _NumAdditionalStationsField = 3
     format: _FormatField = "json"

@@ -158,6 +158,14 @@ Types of changes:
   row keeps its own list's elevation. A request for one resolution is not affected by this
   (GH-2336, GH-2362)
 
+### Deprecated
+
+- `summarize`'s `use_nearby_station_distance` (the CLI's `--use_nearby_station_distance`,
+  `/api/summarize` and the MCP `summarize` tool) is deprecated and will be removed in a future
+  release. It never had an effect on a summary; leave it out. The CLI warns when it is given, the
+  REST API logs it, and the schema marks it deprecated. The setting
+  `ts_geo_use_nearby_station_distance` stays, for interpolation (GH-2333)
+
 ### Fixed
 
 - Climate stripes values and images (CLI `stripes values`, `/api/stripes/values`,
