@@ -935,6 +935,7 @@ def test_cli_refuses_unknown_unit_targets_unit(monkeypatch: pytest.MonkeyPatch, 
         pytest.param(["summarize", *_POINT_ARGS], id="summarize"),
         pytest.param(["stripes", "stations", "--kind=temperature"], id="stripes-stations"),
         pytest.param(["stripes", "values", "--kind=temperature", "--station=1048"], id="stripes-values"),
+        pytest.param(["alerts"], id="alerts"),
     ],
 )
 def test_cli_tells_a_malformed_setting_by_its_variable(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
