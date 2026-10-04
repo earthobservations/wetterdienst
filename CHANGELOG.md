@@ -159,10 +159,12 @@ Types of changes:
   fail, and with it the CLI commands and REST endpoints that read them, and the error echoed its
   value. A misspelt `WD_*` key, such as `WD_CACHE_DIABLE`, is ignored too, as in the environment.
   A keyword to `Settings(...)` that is no setting is still refused (GH-2349)
+- With pydantic-settings older than 2.11, `Settings` no longer takes a `.env` key without the
+  `WD_` prefix for the setting it names: another program's `CACHE_DIR` or `TS_SHAPE` set
+  wetterdienst's cache directory or result shape (GH-2373)
 - `Settings` refuses a `ts_geo_station_distance` or `ts_geo_station_distance_resolution_factors`
   that is not a mapping, such as `WD_TS_GEO_STATION_DISTANCE=5`, with a `ValidationError` naming
-  the setting, where it raised a bare `TypeError` that named nothing. An empty list or `0`, which
-  was taken as no overrides, is refused too (GH-2353)
+  the setting, where it raised a bare `TypeError` that named nothing (GH-2353)
 - Interpolate and summarize answer under `ts_humanize=False` and `ts_shape="wide"`, however they
   are set: `Settings`, `WD_*`, the CLI's or REST API's `humanize`. The first returned no data and
   the second raised `ColumnNotFoundError`. The result is long either way, its parameters named by

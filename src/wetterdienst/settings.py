@@ -22,7 +22,13 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    DotEnvSettingsSource,
+    EnvSettingsSource,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
@@ -241,30 +247,32 @@ def _merge_fsspec_client_kwargs(given: dict) -> dict:
 
 
 class _SettingsFromDotEnv(PydanticBaseSettingsSource):
-    """Read `.env` as pydantic-settings does, but keep only the keys that are settings.
+    """Read the settings from `.env` as they are read from the environment, and nothing else.
 
     A `.env` is often shared with other programs -- docker compose, a project's own tooling -- and
-    pydantic-settings hands every key of it on, so with the settings refusing what is not a field,
-    one line of someone else's made every `Settings()` fail, and echoed its value, which may well be
-    a password (GH-2349). The environment never did this: it hands on only the settings.
+    `DotEnvSettingsSource` hands on every other key of it as well, so with the settings refusing what
+    is not a field, one line of someone else's made every `Settings()` fail, and echoed its value,
+    which may well be a password (GH-2349). The environment never did this.
 
-    The constructor keeps refusing a keyword that is no setting, which `extra="ignore"` would have
-    let pass in silence. A misspelt `WD_` key is ignored like any other, as it is in the
-    environment.
+    `DotEnvSettingsSource` reads the file's settings as `EnvSettingsSource` reads the environment's,
+    and adds the other keys after; this hands on the first part alone. Filtering what it hands on
+    by field name instead would let an unprefixed key that names a setting through on the older
+    pydantic-settings, which hand one on under its bare name. The constructor keeps refusing a
+    keyword that is no setting, which `extra="ignore"` would have let pass in silence. A misspelt
+    `WD_` key is ignored like any other, as it is in the environment.
     """
 
-    def __init__(self, source: PydanticBaseSettingsSource) -> None:
+    def __init__(self, source: DotEnvSettingsSource) -> None:
         super().__init__(source.settings_cls)
         self._source = source
 
-    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:  # noqa: ARG002
-        """Look nothing up field by field: `__call__` hands on what the wrapped source read."""
-        return None, field_name, False
+    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
+        """Look a field up in `.env`, as the wrapped source does."""
+        return self._source.get_field_value(field, field_name)
 
     def __call__(self) -> dict[str, Any]:
-        """Return what `.env` sets, without its keys that are no setting."""
-        fields = self.settings_cls.model_fields
-        return {key: value for key, value in self._source().items() if key in fields}
+        """Return the settings `.env` sets, without its other keys."""
+        return EnvSettingsSource.__call__(self._source)
 
 
 class Settings(BaseSettings):
@@ -336,7 +344,9 @@ class Settings(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         """Read the settings from where pydantic-settings does, taking only settings from `.env`."""
-        return init_settings, env_settings, _SettingsFromDotEnv(dotenv_settings), file_secret_settings
+        if isinstance(dotenv_settings, DotEnvSettingsSource):
+            dotenv_settings = _SettingsFromDotEnv(dotenv_settings)
+        return init_settings, env_settings, dotenv_settings, file_secret_settings
 
     @field_validator("fsspec_client_kwargs", mode="before")
     @classmethod
@@ -389,11 +399,11 @@ class Settings(BaseSettings):
 
         A name that is not a canonical parameter can never be looked up, so the override silently
         did nothing and the parameter the user meant kept its default radius -- a typo was
-        indistinguishable from having set nothing at all. Anything but a mapping is left for the
-        field to refuse, which names it; looking for keys in it failed with a bare `TypeError`
-        that named nothing (GH-2353).
+        indistinguishable from having set nothing at all. An empty value means no overrides; any
+        other that is not a mapping is left for the field to refuse, which names it, where looking
+        for keys in it failed with a bare `TypeError` that named nothing (GH-2353).
         """
-        if values is None:
+        if not values:
             return {}
         if not isinstance(values, Mapping):
             return values
@@ -436,9 +446,10 @@ class Settings(BaseSettings):
     def validate_ts_geo_station_distance_resolution_factors_keys(cls, values: object) -> object:
         """Check the resolutions, which are a closed vocabulary like the unit types are.
 
-        Anything but a mapping is left for the field to refuse, as for `ts_geo_station_distance`.
+        An empty value means no factors of one's own, and any other that is not a mapping is left
+        for the field to refuse, as for `ts_geo_station_distance`.
         """
-        if values is None:
+        if not values:
             return {}
         if not isinstance(values, Mapping):
             return values
