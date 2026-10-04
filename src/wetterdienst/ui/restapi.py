@@ -54,6 +54,7 @@ from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
+    SettingsRequest,
     StationsRequest,
     StripesImageRequest,
     StripesValuesRequest,
@@ -194,7 +195,8 @@ _Unbounded = Annotated[
 # The settings a request to `/api/values`, `/api/interpolate` and `/api/summarize` is answered with,
 # by the request field that sets each, and with the setting it sets as its validation alias. The REST
 # API's one list of them: an endpoint takes these from its request (GH-2325), reports the ones it
-# used with its metadata, and `/api/settings` reports the server's defaults for them (GH-2359).
+# used with its metadata, and `/api/settings` reports the server's defaults for them (GH-2359), or
+# what the query parameters it is given resolve to over those (GH-2383).
 # Listed one by one rather than read from `Settings`, so that neither report reaches a credential or
 # the cache.
 class _AppliedSettings(BaseModel):
@@ -524,25 +526,47 @@ def version() -> JSONResponse:
     return JSONResponse(content={"version": __version__, "mcp_enabled": mcp_enabled})
 
 
+# each endpoint's settings, by the request it takes them from
+_ENDPOINT_SETTINGS: tuple[tuple[str, type[BaseModel], type[_AppliedSettings]], ...] = (
+    ("values", ValuesRequest, ValuesSettings),
+    ("interpolate", InterpolationRequest, InterpolationSettings),
+    ("summarize", SummaryRequest, SummarySettings),
+)
+
+
 @app.get("/api/settings", response_model=ServerSettings)
-def server_settings() -> Response:
-    """Get the settings `/api/values`, `/api/interpolate` and `/api/summarize` take where a request leaves them out.
+def server_settings(request: Annotated[SettingsRequest, Query()], http_request: Request) -> Response:
+    """Get the settings `/api/values`, `/api/interpolate` and `/api/summarize` take, for the query parameters given.
 
     Each is the server's `WD_TS_*` variable where it sets one, else wetterdienst's default, keyed
     by endpoint and named as the endpoint's query parameters are; the ones an endpoint has no query
     parameter for are the server's alone. `unit_targets` names the unit of every quantity, and
-    `station_distance_resolution_factors` the factor of every resolution. A request's `unit_targets`
-    or station distance dict is merged into these, an entry it gives winning. Each is the one in
-    effect, as a request leaving out every setting gets it: the server's wide shape turns
-    `drop_nulls` off.
+    `station_distance_resolution_factors` the factor of every resolution. Each is the one in effect,
+    as a request leaving out every setting gets it: the server's wide shape turns `drop_nulls` off.
+
+    The query parameters are those of the three endpoints' settings, and a parameter given here is
+    laid over the server's for each endpoint that takes it, as a request to it giving the parameter
+    gets it: `humanize`, `convert_units` and `unit_targets` for all three, `min_gain_of_value_pairs`
+    and `num_additional_stations` for `interpolate` and `summarize`. A request's `unit_targets` or
+    station distance dict is merged into the server's, an entry it gives winning. A value an
+    endpoint refuses is refused here, as that endpoint refuses it. Nothing is stored: the parameters
+    apply to this answer alone.
     """
-    # a malformed server setting is the bare 500 FastAPI answers, which does not read its value back
-    settings = Settings()
-    content = ServerSettings(
-        values=_applied_settings(ValuesSettings, settings),
-        interpolate=_applied_settings(InterpolationSettings, settings),
-        summarize=_applied_settings(SummarySettings, settings),
-    )
+    given = http_request.query_params.keys()
+    reported: dict[str, _AppliedSettings] = {}
+    refused: list[str] = []
+    for endpoint, taking, applied in _ENDPOINT_SETTINGS:
+        # a parameter applies to every endpoint whose request takes it, and to no other
+        try:
+            settings = _request_settings(request, [name for name in given if name in taking.model_fields], applied)
+        except HTTPException as e:
+            # a value two endpoints refuse is told once
+            refused.extend(line for line in str(e.detail).split("\n") if line not in refused)
+            continue
+        reported[endpoint] = _applied_settings(applied, settings)
+    if refused:
+        raise HTTPException(status_code=400, detail="\n".join(refused))
+    content = ServerSettings.model_validate(reported)
     return Response(content=content.model_dump_json(), media_type="application/json")
 
 

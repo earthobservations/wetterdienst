@@ -908,6 +908,50 @@ class SummaryRequest(BaseModel):
         return self
 
 
+class SettingsRequest(BaseModel):
+    """The settings query parameters of the values, interpolation and summary requests (GH-2383).
+
+    Each is the field of the request that takes it, so it is read as that request reads it; one
+    the interpolation and the summary request both take is one field here, given to both.
+    `use_nearby_station_distance` is the interpolation request's: the summary request's is
+    deprecated, and read by nothing.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    humanize: _HumanizeField = True
+    convert_units: _ConvertUnitsField = True
+    unit_targets: _UnitTargetsField = None
+    # values
+    shape: _ShapeField = "long"
+    skip_empty: _SkipEmptyField = False
+    skip_threshold: _SkipThresholdField = 0.95
+    skip_criteria: _SkipCriteriaField = "min"
+    drop_nulls: _DropNullsField = True
+    # interpolate
+    interpolation_station_distance: _InterpolationStationDistanceField = None
+    interpolation_station_distance_homogeneous: _StationDistanceHomogeneousField = None
+    interpolation_station_distance_heterogeneous: _StationDistanceHeterogeneousField = None
+    use_nearby_station_distance: _UseNearbyStationDistanceField = 1.0
+    # summarize
+    summary_station_distance: _SummaryStationDistanceField = None
+    summary_station_distance_homogeneous: _StationDistanceHomogeneousField = None
+    summary_station_distance_heterogeneous: _StationDistanceHeterogeneousField = None
+    # interpolate and summarize
+    min_gain_of_value_pairs: _MinGainOfValuePairsField = 0.10
+    num_additional_stations: _NumAdditionalStationsField = 3
+
+    @field_validator("unit_targets", "interpolation_station_distance", "summary_station_distance", mode="before")
+    @classmethod
+    def validate_json_mapping(cls, v: str | dict | None) -> dict | None:
+        """Read a mapping given as JSON, as the requests read it."""
+        if not v:
+            return None
+        if isinstance(v, dict):
+            return v
+        return json.loads(v)
+
+
 class IssuesRequest(BaseModel):
     """Request model for listing available issue datetimes."""
 

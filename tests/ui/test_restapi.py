@@ -5125,3 +5125,270 @@ def test_mcp_issues_tool_describes_the_dmo_options_as_refused() -> None:
         assert f", default '{getattr(defaults[name].default, 'name', defaults[name].default).lower()}';" in description
     # the data endpoints keep the shared description: there a lead time outside DMO is ignored
     assert schemas["values"]["lead_time"]["description"].endswith("; ignored for other networks.")
+
+
+# a value for each settings query parameter of `/api/settings`, departing from the server's of
+# `_SETTINGS_SERVER`, and the fields of each endpoint's settings it changes: those of every endpoint
+# whose request takes the parameter, and no other (GH-2383)
+_SETTINGS_PARAMETERS = [
+    ("humanize", "false", {"values": {"humanize"}, "interpolate": {"humanize"}, "summarize": {"humanize"}}),
+    (
+        "convert_units",
+        "false",
+        {"values": {"convert_units"}, "interpolate": {"convert_units"}, "summarize": {"convert_units"}},
+    ),
+    (
+        "unit_targets",
+        '{"pressure": "kilopascal"}',
+        {"values": {"unit_targets"}, "interpolate": {"unit_targets"}, "summarize": {"unit_targets"}},
+    ),
+    # the wide shape turns `drop_nulls` off
+    ("shape", "wide", {"values": {"shape", "drop_nulls"}}),
+    ("skip_empty", "true", {"values": {"skip_empty"}}),
+    ("skip_threshold", "0.5", {"values": {"skip_threshold"}}),
+    ("skip_criteria", "mean", {"values": {"skip_criteria"}}),
+    ("drop_nulls", "false", {"values": {"drop_nulls"}}),
+    (
+        "interpolation_station_distance",
+        '{"temperature_air_mean_2m": 5}',
+        {"interpolate": {"interpolation_station_distance"}},
+    ),
+    (
+        "interpolation_station_distance_homogeneous",
+        "10",
+        {"interpolate": {"interpolation_station_distance_homogeneous"}},
+    ),
+    (
+        "interpolation_station_distance_heterogeneous",
+        "5",
+        {"interpolate": {"interpolation_station_distance_heterogeneous"}},
+    ),
+    # the summary's is deprecated, and read by nothing (GH-2333)
+    ("use_nearby_station_distance", "3", {"interpolate": {"use_nearby_station_distance"}}),
+    ("summary_station_distance", '{"temperature_air_mean_2m": 5}', {"summarize": {"summary_station_distance"}}),
+    ("summary_station_distance_homogeneous", "10", {"summarize": {"summary_station_distance_homogeneous"}}),
+    ("summary_station_distance_heterogeneous", "5", {"summarize": {"summary_station_distance_heterogeneous"}}),
+    (
+        "min_gain_of_value_pairs",
+        "0.5",
+        {"interpolate": {"min_gain_of_value_pairs"}, "summarize": {"min_gain_of_value_pairs"}},
+    ),
+    (
+        "num_additional_stations",
+        "5",
+        {"interpolate": {"num_additional_stations"}, "summarize": {"num_additional_stations"}},
+    ),
+]
+
+# what the server sets, so that a parameter is seen laid over the server's settings, and the ones
+# left out seen to keep them
+_SETTINGS_SERVER = {
+    "WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}',
+    "WD_TS_SKIP_CRITERIA": "max",
+    "WD_TS_GEO_NUM_ADDITIONAL_STATIONS": "7",
+    "WD_TS_GEO_STATION_DISTANCE__precipitation_amount": "25",
+}
+
+_ENDPOINT_OF_SETTINGS = {"values": "/api/values", "interpolate": "/api/interpolate", "summarize": "/api/summarize"}
+
+
+def _data_request(endpoint: str, **params: str) -> dict[str, str]:
+    """Give the query of a data request to `endpoint` that is valid but for `params`."""
+    query = {**_OBSERVATION, "station": "01048", **params}
+    if endpoint != "/api/values":
+        query["date"] = "2026-01-01"
+    return query
+
+
+def test_settings_parameters_are_the_data_endpoints_settings_parameters() -> None:
+    """`/api/settings` takes the settings query parameters of the three data endpoints, as they declare them (GH-2383).
+
+    Each is the parameter of every endpoint that takes it, its description and schema included, so
+    the OpenAPI says what a parameter does to the endpoints taking it. The summary's deprecated
+    `use_nearby_station_distance`, which sets no setting, is not among them.
+    """
+    paths = restapi.app.openapi()["paths"]
+    taken = {parameter["name"]: parameter for parameter in paths["/api/settings"]["get"]["parameters"]}
+    expected: set[str] = set()
+    for name, endpoint in _ENDPOINT_OF_SETTINGS.items():
+        settings = restapi.ServerSettings.model_fields[name].annotation.model_fields
+        for parameter in paths[endpoint]["get"]["parameters"]:
+            if parameter["name"] in settings:
+                expected.add(parameter["name"])
+                assert taken[parameter["name"]] == parameter, (endpoint, parameter["name"])
+    assert set(taken) == expected
+    assert {name for name, _, _ in _SETTINGS_PARAMETERS} == expected
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(("parameter", "value", "changed"), _SETTINGS_PARAMETERS)
+def test_settings_parameter_changes_the_endpoints_taking_it(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    parameter: str,
+    value: str,
+    changed: dict[str, set[str]],
+) -> None:
+    """A parameter given to `/api/settings` changes the settings of each endpoint taking it, and no other (GH-2383).
+
+    The settings it leaves out keep the server's, rather than the defaults FastAPI fills in.
+    """
+    for name, setting in _SETTINGS_SERVER.items():
+        monkeypatch.setenv(name, setting)
+    server = client.get("/api/settings").json()
+
+    response = client.get("/api/settings", params={parameter: value})
+
+    assert response.status_code == 200, response.text
+    reported = response.json()
+    assert {
+        endpoint: {field for field, setting in settings.items() if setting != server[endpoint][field]}
+        for endpoint, settings in reported.items()
+    } == {endpoint: changed.get(endpoint, set()) for endpoint in server}
+    if parameter == "unit_targets":
+        # merged into the server's, an entry it gives winning
+        for settings in reported.values():
+            assert settings["unit_targets"]["pressure"] == "kilopascal"
+            assert settings["unit_targets"]["temperature"] == "degree_fahrenheit"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("parameter", "value", "endpoint"),
+    [
+        (parameter, value, _ENDPOINT_OF_SETTINGS[name])
+        for parameter, value, changed in _SETTINGS_PARAMETERS
+        for name in changed
+    ],
+)
+def test_settings_parameter_answers_as_the_data_request_reports(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    parameter: str,
+    value: str,
+    endpoint: str,
+) -> None:
+    """`/api/settings` answers a parameter as a data request giving it reports, with `with_metadata` (GH-2383)."""
+    for name, setting in _SETTINGS_SERVER.items():
+        monkeypatch.setenv(name, setting)
+    reported = client.get("/api/settings", params={parameter: value}).json()[_SETTINGS_OF_ENDPOINT[endpoint]]
+    _stub_result(monkeypatch, endpoint)
+
+    response = client.get(endpoint, params=_data_request(endpoint, with_metadata="true", **{parameter: value}))
+
+    assert response.status_code == 200, response.text
+    assert response.json()["settings"] == reported
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("parameter", "value", "endpoints"),
+    [
+        # refused by the settings
+        ("unit_targets", '{"temperature": "bogus"}', ["/api/values", "/api/interpolate", "/api/summarize"]),
+        ("interpolation_station_distance", '{"nope": 1}', ["/api/interpolate"]),
+        ("summary_station_distance", '{"nope": 1}', ["/api/summarize"]),
+        # refused by the request
+        ("unit_targets", "{bad", ["/api/values", "/api/interpolate", "/api/summarize"]),
+        ("shape", "tall", ["/api/values"]),
+        ("interpolation_station_distance", '{"temperature_air_mean_2m": -1}', ["/api/interpolate"]),
+        ("num_additional_stations", "-1", ["/api/interpolate", "/api/summarize"]),
+    ],
+)
+def test_settings_refuses_a_value_as_the_data_endpoint_does(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    parameter: str,
+    value: str,
+    endpoints: list[str],
+) -> None:
+    """A value a data endpoint refuses is refused by `/api/settings` with the same status and detail (GH-2383)."""
+    response = client.get("/api/settings", params={parameter: value})
+
+    assert response.status_code in (400, 422)
+    for endpoint in endpoints:
+        _stub_result(monkeypatch, endpoint)
+        refused = client.get(endpoint, params=_data_request(endpoint, **{parameter: value}))
+        assert (response.status_code, response.json()) == (refused.status_code, refused.json()), endpoint
+
+
+_REQUEST_OF_ENDPOINT = {
+    "/api/values": restapi.ValuesRequest,
+    "/api/interpolate": restapi.InterpolationRequest,
+    "/api/summarize": restapi.SummaryRequest,
+}
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_tells_each_refused_value_once(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`/api/settings` tells every value an endpoint refuses, one refused by several endpoints once (GH-2383)."""
+    params = {
+        "unit_targets": '{"temperature": "bogus"}',
+        "interpolation_station_distance": '{"nope": 1}',
+        "summary_station_distance": '{"nope": 1}',
+    }
+    expected: list[str] = []
+    for endpoint, request in _REQUEST_OF_ENDPOINT.items():
+        _stub_result(monkeypatch, endpoint)
+        taken = {name: value for name, value in params.items() if name in request.model_fields}
+        refused = client.get(endpoint, params=_data_request(endpoint, **taken))
+        assert refused.status_code == 400
+        expected.extend(line for line in refused.json()["detail"].split("\n") if line not in expected)
+
+    response = client.get("/api/settings", params=params)
+
+    assert response.status_code == 400
+    assert response.json()["detail"].split("\n") == expected
+    assert len(expected) == len(params)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("parameter", ["shpae", "station", "use_nearby_station_distanc"])
+def test_settings_refuses_an_unknown_parameter(client: TestClient, parameter: str) -> None:
+    """`/api/settings` refuses a parameter it does not take, as the data endpoints do, so a typo is not ignored (GH-2383).
+
+    A data endpoint's other parameters, such as `station`, are not settings.
+    """  # noqa: E501
+    response = client.get("/api/settings", params={parameter: "1"})
+
+    assert response.status_code == 422
+    (problem,) = response.json()["detail"]
+    assert (problem["type"], problem["loc"]) == ("extra_forbidden", ["query", parameter])
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_without_parameters_reports_the_servers(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With no parameters, `/api/settings` reports the server's settings, as it did before it took any (GH-2383)."""
+    for name, setting in _SETTINGS_SERVER.items():
+        monkeypatch.setenv(name, setting)
+    settings = Settings()
+
+    reported = client.get("/api/settings").json()
+
+    assert reported == {
+        endpoint: json.loads(restapi._applied_settings(model, settings).model_dump_json())  # noqa: SLF001
+        for endpoint, model in (
+            ("values", restapi.ValuesSettings),
+            ("interpolate", restapi.InterpolationSettings),
+            ("summarize", restapi.SummarySettings),
+        )
+    }
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_with_parameters_reports_no_credential_or_cache_setting(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+) -> None:
+    """Given parameters, `/api/settings` still reports the settings field by field, and no credential or cache (GH-2383)."""  # noqa: E501
+    monkeypatch.setenv("WD_AUTH__AEMET", "aemet-secret")
+    monkeypatch.setenv("WD_CACHE_DIR", str(tmp_path / "cache-secret"))
+    monkeypatch.setenv("WD_FSSPEC_CLIENT_KWARGS", '{"headers": {"X-Api-Key": "header-secret"}}')
+
+    response = client.get("/api/settings", params={name: value for name, value, _ in _SETTINGS_PARAMETERS})
+
+    assert response.status_code == 200, response.text
+    for secret in ("aemet-secret", "cache-secret", "header-secret", "X-Api-Key"):
+        assert secret not in response.text
+    assert {endpoint: set(settings) for endpoint, settings in response.json().items()} == _REPORTED_SETTINGS
