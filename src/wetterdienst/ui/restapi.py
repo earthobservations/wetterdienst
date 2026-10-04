@@ -180,10 +180,12 @@ _MEDIA_TYPES = {
 }
 
 
-#: a radius, factor or gain, which the settings take as infinite too, written then as "Infinity"
+#: a radius, factor or gain, which the settings take as infinite or NaN too, written then as a string
 _Unbounded = Annotated[
     float,
-    WithJsonSchema({"anyOf": [{"type": "number"}, {"type": "string", "enum": ["Infinity"]}]}, mode="serialization"),
+    WithJsonSchema(
+        {"anyOf": [{"type": "number"}, {"type": "string", "enum": ["Infinity", "NaN"]}]}, mode="serialization"
+    ),
 ]
 
 

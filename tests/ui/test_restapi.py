@@ -4984,13 +4984,14 @@ def test_an_infinite_radius_is_reported_as_valid_json(
     monkeypatch: pytest.MonkeyPatch,
     endpoint: str,
 ) -> None:
-    """A radius the settings take as infinite is reported as "Infinity", in JSON the served schema admits (GH-2359).
+    """A radius or factor the settings take as infinite or NaN is reported as a string the served schema admits (GH-2359).
 
-    JSON has no number for it: `/api/settings` failed to write it, and a data endpoint wrote the
-    bare `Infinity` no JSON parser takes.
-    """
+    JSON has no number for either: `/api/settings` failed to write one, and a data endpoint wrote
+    the bare `Infinity` no JSON parser takes.
+    """  # noqa: E501
     jsonschema = pytest.importorskip("jsonschema")
     monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS", "inf")
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_RESOLUTION_FACTORS", '{"daily": NaN}')
     params: dict[str, str] = {}
     schema_name = "ServerSettings"
     if endpoint != "/api/settings":
@@ -5010,6 +5011,7 @@ def test_an_infinite_radius_is_reported_as_valid_json(
     reported = payload["interpolate"] if endpoint == "/api/settings" else payload["settings"]
     kind = "summary" if endpoint == "/api/summarize" else "interpolation"
     assert reported[f"{kind}_station_distance_homogeneous"] == "Infinity"
+    assert reported["station_distance_resolution_factors"]["daily"] == "NaN"
     components = restapi.app.openapi()["components"]
     jsonschema.validate(payload, {"$ref": f"#/components/schemas/{schema_name}", "components": components})
 
