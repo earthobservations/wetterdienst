@@ -137,6 +137,10 @@ Types of changes:
   InfluxDB 3 Core's) for http and 443 for https. It took only the host and went to https on 443
   whatever the target said, so a local InfluxDB 3 Core could not be reached. Write an https
   server, such as InfluxDB Cloud, as `influxdb3s://` (GH-2279)
+- **Breaking**: DWD SWSMOS raises `IssueNotFoundError` for an `issue` naming a run DWD does not
+  hold, as MOSMIX and DMO do, so the REST API answers it as the caller's error. It returned no rows,
+  as if the run held nothing for the station. Catch `IssueNotFoundError`, or pick the issue from
+  `DwdSwsmosRequest.available_issues` (GH-2324)
 
 ### Fixed
 
@@ -344,9 +348,6 @@ Types of changes:
   `DwdSwsmosRequest.available_issues(settings)` returns them as UTC datetimes. They refused
   dwd/swsmos as unsupported. One run holds every road station, so the list is the same for any
   station (GH-2319)
-- DWD SWSMOS raises `IssueNotFoundError` for an `issue` naming a run DWD does not hold, as MOSMIX
-  and DMO do, so the REST API answers it as the caller's error. It returned no rows, as if the run
-  held nothing for the station (GH-2324)
 
 ## [0.139.0] - 2026-09-29
 
