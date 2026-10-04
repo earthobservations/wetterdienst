@@ -105,10 +105,11 @@ class _RefuseInvalidSettings:
             try:
                 problems = check_settings()
             except Exception as e:  # noqa: BLE001
-                # a validator failing other than by refusing the value (GH-2353) is refused all the
-                # same: raised here, uvicorn's default `--lifespan auto` would take it for a
-                # lifespan the app does not support, and serve. Told by its type alone, as its
-                # message is not pydantic's and may carry what it was given
+                # a validator failing other than by refusing the value, as the station distances'
+                # did with a `TypeError` until GH-2353, is refused all the same: raised here,
+                # uvicorn's default `--lifespan auto` would take it for a lifespan the app does not
+                # support, and serve. Told by its type alone, as its message is not pydantic's and
+                # may carry what it was given
                 problems = [f"the settings could not be built: {type(e).__name__}"]
             if problems:
                 await receive()

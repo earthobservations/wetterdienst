@@ -826,7 +826,7 @@ def test_settings_skip_threshold_takes_one(monkeypatch: pytest.MonkeyPatch) -> N
 @pytest.mark.parametrize("field", ["ts_geo_station_distance", "ts_geo_station_distance_resolution_factors"])
 @pytest.mark.parametrize("value", [5, "abc", [1.0]])
 def test_settings_geo_station_distance_mappings_refuse_anything_but_a_mapping(field: str, value: object) -> None:
-    """Anything but a mapping is refused as pydantic refuses it, named by its field (GH-2353).
+    """A non-empty value that is not a mapping is refused by pydantic, named by its field (GH-2353).
 
     The key checks used to look for keys in it, and failed with a bare `TypeError` naming nothing.
     """
