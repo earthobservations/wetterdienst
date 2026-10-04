@@ -24,5 +24,5 @@ export function useFocusAfterRetry(
       return
     await nextTick()
     toValue(target)?.focus()
-  })
+  }, { flush: 'pre' })
 }
