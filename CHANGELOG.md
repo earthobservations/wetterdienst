@@ -168,6 +168,14 @@ Types of changes:
 
 ### Fixed
 
+- Climate stripes values and images (CLI `stripes values`, `/api/stripes/values`,
+  `/api/stripes/image`, MCP `stripes_values` and `stripes_image`) no longer fail under
+  `WD_TS_SHAPE=wide`, which raised `ColumnNotFoundError`, or under `WD_TS_SKIP_EMPTY=true`, which
+  raised a `ComputeError` for a station with gaps in its record. They read the values long and
+  unskipped whatever those two say (GH-2348)
+- `wetterdienst issues --dataset/--lead_time`, and the `/api/issues` and MCP `issues` descriptions
+  of `dataset` and `lead_time`, said other networks ignore them. They are DWD DMO only, and MOSMIX
+  and SWSMOS refuse them, so leave them out there (GH-2347)
 - Interpolate and summarize answer under `ts_humanize=False` and `ts_shape="wide"`, however they
   are set: `Settings`, `WD_*`, the CLI's or REST API's `humanize`. The first returned no data and
   the second raised `ColumnNotFoundError`. The result is long either way, its parameters named by
@@ -343,8 +351,7 @@ Types of changes:
   -999.9 m, the station list's missing value, and `interpolate` and `summarize` given an elevation
   took it for a known one (GH-2247)
 - NOAA GHCN hourly stations without a known elevation have a null `elevation` too. They were
-  listed at -999.9 m, the station list's missing value. Stations listed at -999.0 m keep that
-  value (GH-2260)
+  listed at -999.9 m, the station list's missing value (GH-2260)
 - NOAA GHCN stations asked for both `hourly` and `daily` in one request are listed; the request
   failed with a polars schema error. The hourly stations have a null `start_date` and `end_date`,
   as their station list gives none (GH-2267)
@@ -399,9 +406,15 @@ Types of changes:
 - NOAA GHCN hourly stations listed at 9999.0 m or 8191.0 m, 154 placeholders such as the North
   Sea lightship ELBE NO. 1, have a null `elevation`. `interpolate` and `summarize` given an
   elevation took them for known ones (GH-2336)
+- `wetterdienst history` and `wetterdienst stripes values` end a `--target` they cannot write,
+  such as one in a directory that does not exist, as `Error: Could not write --target: ...` with
+  exit status 1, as `alerts` does; it was a traceback after the whole fetch (GH-2346)
 - NOAA GHCN daily stations of the Brazilian network (`BR0...`) listed at 0.0 m, 912 placeholders
   such as ALFENAS at about 880 m, have a null `elevation`. `interpolate` and `summarize` given an
   elevation took them for stations at sea level. A 0.0 m outside that network stays (GH-2362)
+- NOAA GHCN hourly stations listed at -999.0 m, 93 placeholders such as BOGUS ALGERIAN, have a
+  null `elevation`. `interpolate` and `summarize` given an elevation took them for known ones
+  (GH-2352)
 
 ## [0.139.0] - 2026-09-29
 

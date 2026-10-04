@@ -1086,13 +1086,13 @@ def stations(
     "--dataset",
     type=click.Choice(["icon", "icon_eu"]),
     default=None,
-    help="DWD DMO product; ignored by other networks. Default: as for values",
+    help="DWD DMO product; DMO only, refused for MOSMIX and SWSMOS. Default: icon",
 )
 @click.option(
     "--lead_time",
     type=click.Choice(["short", "long"]),
     default=None,
-    help="DWD DMO forecast lead time; ignored by other networks. Default: as for values",
+    help="DWD DMO forecast lead time; DMO only, refused for MOSMIX and SWSMOS. Default: short",
 )
 @debug_opt
 def issues_cmd(
@@ -1236,8 +1236,12 @@ def history(
     output = json.dumps(data, indent=4 if pretty else None, default=lambda dt: dt.isoformat())
 
     if target:
-        # write to file
-        Path(target).write_text(output)
+        try:
+            Path(target).write_text(output)
+        except OSError as e:
+            # a directory that does not exist or cannot be written, or a path naming a directory
+            msg = f"Could not write --target: {e}"
+            raise click.ClickException(msg) from e
         return
 
     print(output)  # noqa: T201
@@ -2013,11 +2017,20 @@ def stripes_values(
         log.exception("Error while plotting warming stripes")
         raise click.ClickException(str(e)) from e
 
+    image = fig.to_image(fmt, scale=dpi / 100)
+
     if target:
-        fig.write_image(target, fmt, scale=dpi / 100)
+        # rendered outside the handler: talking to the renderer's browser can raise an `OSError` of its own
+        # (choreographer's `ChannelClosedError`), which says nothing about --target
+        try:
+            target.write_bytes(image)
+        except OSError as e:
+            # a directory that does not exist or cannot be written; `--target` itself refuses a directory
+            msg = f"Could not write --target: {e}"
+            raise click.ClickException(msg) from e
         return
 
-    click.echo(fig.to_image(fmt, scale=dpi / 100), nl=False)
+    click.echo(image, nl=False)
 
 
 if __name__ == "__main__":

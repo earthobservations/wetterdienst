@@ -29,7 +29,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.settings import SkipThreshold
+from wetterdienst.settings import Settings, SkipThreshold
 from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.ui import read_list
 
@@ -46,7 +46,6 @@ if TYPE_CHECKING:
         SummarizedValuesResult,
         ValuesResult,
     )
-    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -911,9 +910,20 @@ class IssuesRequest(BaseModel):
     station: _StationIdField
     dataset: Annotated[
         Literal["icon", "icon_eu"] | None,
-        Field(description="DWD DMO product to list issues for ('icon' or 'icon_eu'); ignored for other networks."),
+        Field(
+            description="DWD DMO product to list issues for ('icon' or 'icon_eu'), default 'icon'; "
+            "DMO only, refused for MOSMIX and SWSMOS.",
+        ),
     ] = None
-    lead_time: _LeadTimeField = None
+    # not the shared `_LeadTimeField`: the data requests ignore a lead time outside DMO, but `get_issues`
+    # refuses one
+    lead_time: Annotated[
+        Literal["short", "long"] | None,
+        Field(
+            description="DWD DMO forecast lead time to list issues for ('short' or 'long'), default 'short'; "
+            "DMO only, refused for MOSMIX and SWSMOS.",
+        ),
+    ] = None
     debug: _DebugField = False
 
 
@@ -1344,19 +1354,32 @@ class StripesConfig(TypedDict):
     precipitation: StripesConfigItem
 
 
+def _get_stripes_settings() -> Settings:
+    """Give the settings the stripes read a station's values with.
+
+    `_get_stripes_data` takes the `value` column of a long frame and draws the gaps in a station's
+    record itself. The rest comes from the environment as for any request, but `WD_TS_SHAPE=wide`
+    left no `value` column (`ColumnNotFoundError`), and `WD_TS_SKIP_EMPTY=true` dropped a station
+    with gaps, leaving no years to draw (GH-2348). Those two are fixed here.
+    """
+    return Settings(ts_shape="long", ts_skip_empty=False)
+
+
 def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
-    """Need this for displaying stations in the interactive app."""
+    """Give the request the temperature stripes list their stations and read their values with."""
     return DwdObservationRequest(
         parameters=[("annual", "climate_summary", "temperature_air_mean_2m")],
         periods=periods,
+        settings=_get_stripes_settings(),
     )
 
 
 def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
-    """Need this for displaying stations in the interactive app."""
+    """Give the request the precipitation stripes list their stations and read their values with."""
     return DwdObservationRequest(
         parameters=[("annual", "precipitation_more", "precipitation_amount")],
         periods=periods,
+        settings=_get_stripes_settings(),
     )
 
 
