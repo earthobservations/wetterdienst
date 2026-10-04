@@ -4521,3 +4521,47 @@ def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, mon
 
     assert response.status_code == 400
     assert "swsmos_20200101000000_opendata.csv.bz2" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
+@pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])
+def test_issues_refuses_the_dmo_options_for_mosmix_and_swsmos(
+    client: TestClient, network: str, station: str, option: str, value: str
+) -> None:
+    """/api/issues refuses a DMO-only option for MOSMIX and SWSMOS, as its description says (GH-2347)."""
+    response = client.get(
+        "/api/issues",
+        params={"provider": "dwd", "network": network, "station": station, option: value},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"].startswith(f"{option} applies to DWD DMO only")
+
+
+def test_mcp_issues_tool_describes_the_dmo_options_as_refused() -> None:
+    """The MCP issues tool says a DMO-only option is refused for MOSMIX and SWSMOS, and names its default (GH-2347).
+
+    It said "ignored", copied from the data endpoints' lead time, which other networks do ignore, so
+    a caller or a model that trusted it passed the option to MOSMIX and was refused.
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+    import inspect  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def _schemas() -> dict[str, dict]:
+        async with Client(build_mcp_server(restapi.app)) as mcp_client:
+            return {tool.name: tool.input_schema["properties"] for tool in await mcp_client.list_tools()}
+
+    schemas = asyncio.run(_schemas())
+    defaults = inspect.signature(DwdDmoRequest.available_issues).parameters
+    for name in ("dataset", "lead_time"):
+        description = schemas["issues"][name]["description"]
+        assert description.endswith("; DMO only, refused for MOSMIX and SWSMOS."), name
+        # an enum member for lead_time (SHORT = 78), named in a request by its lowercased name
+        assert f", default '{getattr(defaults[name].default, 'name', defaults[name].default).lower()}';" in description
+    # the data endpoints keep the shared description: there a lead time outside DMO is ignored
+    assert schemas["values"]["lead_time"]["description"].endswith("; ignored for other networks.")

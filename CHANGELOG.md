@@ -160,6 +160,9 @@ Types of changes:
 
 ### Fixed
 
+- `wetterdienst issues --dataset/--lead_time`, and the `/api/issues` and MCP `issues` descriptions
+  of `dataset` and `lead_time`, said other networks ignore them. They are DWD DMO only, and MOSMIX
+  and SWSMOS refuse them, so leave them out there (GH-2347)
 - Interpolate and summarize answer under `ts_humanize=False` and `ts_shape="wide"`, however they
   are set: `Settings`, `WD_*`, the CLI's or REST API's `humanize`. The first returned no data and
   the second raised `ColumnNotFoundError`. The result is long either way, its parameters named by
