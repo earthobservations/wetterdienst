@@ -310,6 +310,9 @@ Types of changes:
   the brackets and sent `http://::1:8086`, which names no valid host (GH-2279)
 - The InfluxDB 1 sink reaches an IPv6 host, such as `influxdb://root:pw@[::1]:8086/`. It dropped
   the brackets, so its client's base URL was `http://::1:8086`, which names no valid host (GH-2287)
+- `wetterdienst alerts` reports a DWD feed it cannot read as an error with exit status 1, as it does
+  a failed download, where it reported an invalid option with exit status 2. A `--date` before
+  DWD's rolling window is still a usage error, now named as `Invalid value for --date` (GH-2313)
 - The CLI's `values`, `interpolate` and `summarize` leave a setting whose option is not given on
   the command line to its `WD_TS_*` variable, such as `WD_TS_SHAPE=wide`. They passed every
   option's default, which outranks the environment, so those variables had no effect (GH-2307)

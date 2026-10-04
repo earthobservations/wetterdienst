@@ -21,6 +21,7 @@ from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
     ExportRefusedError,
+    InvalidTimeIntervalError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
 )
@@ -1834,8 +1835,10 @@ def alerts(
 
     try:
         result = request.query()
-    except ValueError as e:
-        raise click.BadParameter(str(e)) from e
+    except InvalidTimeIntervalError as e:
+        # a date before DWD's rolling window, the one refusal of the request's own `query` raises;
+        # any other `ValueError` comes from DWD's feed (a timestamp, polygon or filename it cannot read)
+        raise click.BadParameter(str(e), param_hint="--date") from e
     except Exception as e:
         log.exception("Failed to acquire weather alerts")
         raise click.ClickException(str(e)) from e
