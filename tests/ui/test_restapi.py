@@ -4611,8 +4611,11 @@ def test_settings_reports_the_servers_wd_ts_variables(client: TestClient, monkey
     reported = client.get("/api/settings").json()
 
     assert reported["values"]["shape"] == "wide"
-    # which the wide shape turns off
-    assert reported["values"]["drop_nulls"] is False
+    # which the wide shape turns off, but not for a request asking for the long shape
+    assert reported["values"]["drop_nulls"] is True
+    # whose shape is long whatever the server's, but whose nulls are kept in the server's wide one
+    assert reported["interpolate"]["drop_nulls"] is False
+    assert reported["summarize"]["drop_nulls"] is False
     for endpoint, kind in (("values", None), ("interpolate", "interpolation"), ("summarize", "summary")):
         settings = reported[endpoint]
         assert settings["humanize"] is False
@@ -4895,3 +4898,30 @@ def test_data_endpoints_write_the_rest_as_without_the_settings(
     written = result.to_format(fmt, with_metadata=True, with_stations=True, indent=False)
     assert "rlitz" in written
     assert response.text.replace(f'"settings": {settings}, ', "") == written
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("drop_nulls", [None, "false"])
+def test_settings_reports_the_drop_nulls_a_long_request_gets_under_a_wide_server(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: str | None,
+) -> None:
+    """`/api/settings` reports the `drop_nulls` a request in the long shape gets where the server's shape is wide (GH-2359).
+
+    The wide shape turns it off, so the server's own settings hold it off, while a request asking
+    for the long shape and leaving `drop_nulls` out gets the server's `WD_TS_DROP_NULLS`, else true.
+    """  # noqa: E501
+    monkeypatch.setenv("WD_TS_SHAPE", "wide")
+    if drop_nulls is not None:
+        monkeypatch.setenv("WD_TS_DROP_NULLS", drop_nulls)
+    reported = client.get("/api/settings").json()["values"]["drop_nulls"]
+
+    taken = _stub_result(monkeypatch, "/api/values")
+    params = {**_OBSERVATION, "station": "01048", "shape": "long", "with_metadata": "true"}
+    applied = client.get("/api/values", params=params).json()["settings"]["drop_nulls"]
+
+    (settings,) = taken
+    assert settings.ts_drop_nulls is applied
+    assert applied is (drop_nulls is None)
+    assert reported is applied

@@ -181,10 +181,11 @@ _MEDIA_TYPES = {
 
 
 # The settings a request to `/api/values`, `/api/interpolate` and `/api/summarize` is answered with,
-# by the request field that sets each, and with the setting it sets as its validation alias. The one
-# list of them: an endpoint takes these from its request (GH-2325), reports the ones it used with its
-# metadata, and `/api/settings` reports the server's defaults for them (GH-2359). Listed one by one
-# rather than read from `Settings`, so that neither report reaches a credential or the cache.
+# by the request field that sets each, and with the setting it sets as its validation alias. The REST
+# API's one list of them: an endpoint takes these from its request (GH-2325), reports the ones it
+# used with its metadata, and `/api/settings` reports the server's defaults for them (GH-2359).
+# Listed one by one rather than read from `Settings`, so that neither report reaches a credential or
+# the cache.
 class _AppliedSettings(BaseModel):
     """The settings every one of the three endpoints is answered with."""
 
@@ -199,7 +200,11 @@ class _AppliedSettings(BaseModel):
     skip_empty: bool = Field(validation_alias="ts_skip_empty")
     skip_threshold: float = Field(validation_alias="ts_skip_threshold")
     skip_criteria: Literal["min", "mean", "max"] = Field(validation_alias="ts_skip_criteria")
-    drop_nulls: bool = Field(validation_alias="ts_drop_nulls")
+    drop_nulls: bool = Field(
+        validation_alias="ts_drop_nulls",
+        description="Whether rows without a value are dropped. Off in the wide shape, and for interpolate and "
+        "summarize, whose shape is always long, in the server's wide shape.",
+    )
 
 
 class ValuesSettings(_AppliedSettings):
@@ -505,14 +510,20 @@ def server_settings() -> JSONResponse:
     """Get the settings `/api/values`, `/api/interpolate` and `/api/summarize` take where a request leaves them out.
 
     Each is the server's `WD_TS_*` variable where it sets one, else wetterdienst's default, keyed
-    by endpoint and named by the endpoint's query parameter. `unit_targets` names the unit of every
-    quantity, and `station_distance_resolution_factors` the factor of every resolution. A request's
-    `unit_targets` or station distance dict is merged into these, an entry it gives winning.
+    by endpoint and named as the endpoint's query parameters are; the ones an endpoint has no query
+    parameter for are the server's alone. `unit_targets` names the unit of every quantity, and
+    `station_distance_resolution_factors` the factor of every resolution. A request's `unit_targets`
+    or station distance dict is merged into these, an entry it gives winning. The wide shape turns
+    `drop_nulls` off, so the one reported for `values` is the one a request in the long shape gets.
     """
     # a malformed server setting is the bare 500 FastAPI answers, which does not read its value back
     settings = Settings()
+    # the server's wide shape turned it off, which a request asking for the long shape does not
+    values = _applied_settings(ValuesSettings, settings).model_copy(
+        update={"drop_nulls": Settings(ts_shape="long").ts_drop_nulls},
+    )
     content = ServerSettings(
-        values=_applied_settings(ValuesSettings, settings),
+        values=values,
         interpolate=_applied_settings(InterpolationSettings, settings),
         summarize=_applied_settings(SummarySettings, settings),
     )

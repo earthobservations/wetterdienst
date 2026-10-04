@@ -145,7 +145,13 @@ _SqlValuesField = Annotated[
     str | None,
     Field(description='SQL WHERE clause applied to the values, e.g. "temperature_air_max_2m < 2.0".'),
 ]
-_WithMetadataField = Annotated[bool, Field(description="Include the provider-metadata block in the output.")]
+_WithMetadataField = Annotated[
+    bool,
+    Field(
+        description="Include the provider-metadata block in the output, and for values, interpolate and summarize "
+        "as JSON or GeoJSON a `settings` block with the settings the result was got with."
+    ),
+]
 _WithStationsField = Annotated[bool, Field(description="Include the queried stations' metadata block in the output.")]
 _FormatField = Annotated[
     Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"],
