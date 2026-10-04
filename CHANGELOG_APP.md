@@ -18,6 +18,14 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` Each unit type the Unit Targets setting lists is asked for in the unit its choice
+  names, "Default (°C)" in °C. On a backend whose `WD_TS_UNIT_TARGETS` sets another unit, such as
+  `{"temperature": "degree_fahrenheit"}`, a type left at "Default" came in that unit instead. A
+  backend without `WD_TS_UNIT_TARGETS` answers as before (GH-2358)
+- `[Meteogram]` `[Widget]` The forecast is asked for in °C, m/s, mm, hPa and degrees, the units
+  the charts label it in. On a backend whose `WD_TS_UNIT_TARGETS` sets another unit, such as
+  `{"temperature": "degree_fahrenheit"}`, the charts drew those values under the labels of the
+  defaults. The request also names the long, humanized layout the charts read (GH-2350)
 - `[Widget]` A failed station lookup is told by the backend's status and reason, as a failed
   forecast is, where it read "Station not found" for any failure, such as the MOSMIX station list
   failing to download. "Station not found" is kept for a station id the backend does not know,
@@ -308,6 +316,10 @@ Types of changes:
   now refuses (GH-2334)
 - `[Explorer]` Where the station list of the interpolation and summary's station picker could not
   be loaded, the picker says so and offers Retry, where it stayed empty without a word (GH-2332)
+- `[Explorer]` Where the station list of the interpolation and summary's station picker holds no
+  station with a position, as for DWD derived's `climate_correction_factor`, whose stations are
+  postcodes, or holds none at all, the picker says so, where it stayed empty without a word
+  (GH-2356)
 
 ## [0.17.0] - 2026-09-29
 
