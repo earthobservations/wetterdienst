@@ -317,6 +317,10 @@ Types of changes:
   naming its option, as `values` does, where they printed pydantic's whole message. All three raise
   a malformed `WD_*` variable as it is rather than as a usage error, also one merged into the dict
   an option gives, such as `WD_TS_UNIT_TARGETS` beside `--unit_targets` (GH-2308)
+- `WD_TS_GEO_USE_NEARBY_STATION_DISTANCE`, `WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS` and
+  `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
+  refused the string an environment variable gives, so setting any of them made every `Settings`
+  fail (GH-2326)
 
 ## [0.139.0] - 2026-09-29
 

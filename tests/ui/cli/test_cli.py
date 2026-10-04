@@ -734,12 +734,18 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
         "WD_TS_CONVERT_UNITS": "false",
         "WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS": "60",
         "WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS": "15",
+        "WD_TS_GEO_USE_NEARBY_STATION_DISTANCE": "0",
+        "WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS": "0.5",
+        "WD_TS_GEO_NUM_ADDITIONAL_STATIONS": "5",
     }
     settings = _settings_of(monkeypatch, [command, *_POINT_ARGS], env)
     assert settings.ts_humanize is False
     assert settings.ts_convert_units is False
     assert settings.ts_geo_station_distance_homogeneous == 60
     assert settings.ts_geo_station_distance_heterogeneous == 15
+    assert settings.ts_geo_use_nearby_station_distance == 0
+    assert settings.ts_geo_min_gain_of_value_pairs == 0.5
+    assert settings.ts_geo_num_additional_stations == 5
     settings = _settings_of(
         monkeypatch,
         [
