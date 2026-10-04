@@ -168,3 +168,35 @@ def test_noaa_ghcn_stations_hourly_and_daily(monkeypatch: pytest.MonkeyPatch, de
         ("hourly", "AOM00066116", None, None, None),
         ("daily", "ACW00011604", dt.datetime(1949, 1, 1, tzinfo=utc), dt.datetime(1949, 12, 31, tzinfo=utc), 10.1),
     ]
+
+
+def test_noaa_ghcn_hourly_stations_placeholder_elevation(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """The hourly list's 9999.0 and 8191.0 are null elevations, and the daily list's height stays (GH-2336).
+
+    The rows are copied from `ghcnh-station-list.csv`, `ghcnd-stations.txt` and `ghcnd-inventory.txt`
+    as NOAA publishes them. ELBE NO. 1 is a lightship in the North Sea, and the daily list puts
+    DNEPRODZERJINSK at 148.0 m where the hourly list gives 9999.0.
+    """
+    contents = {
+        "ghcnh-station-list.csv": (
+            "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+            "GMMU0010434,54.02,8.22,8191.0,,ELBE NO. 1 GERMANY,,,10434,,DE\n"
+            "UPM00033732,48.5,34.6,9999.0,,DNEPRODZERJINSK,,,33732,,UA\n"
+        ),
+        "ghcnd-stations.txt": "UPM00033732  48.5000   34.6000  148.0    DNEPRODZERJINSK                        33732\n",
+        "ghcnd-inventory.txt": "UPM00033732  48.5000   34.6000 PRCP 1965 1990\n",
+    }
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        content = contents[url.rsplit("/", 1)[-1]]
+        return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    df = NoaaGhcnRequest(parameters=[("hourly", "data"), ("daily", "data")], settings=default_settings).all().df
+    assert df.select("resolution", "station_id", "elevation").rows() == [
+        ("hourly", "GMMU0010434", None),
+        ("hourly", "UPM00033732", None),
+        ("daily", "UPM00033732", 148.0),
+    ]
