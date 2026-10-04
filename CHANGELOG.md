@@ -313,7 +313,7 @@ Types of changes:
 - DWD SWSMOS reads the run an `issue` names when asked through the CLI (`--issue`), the REST API or
   MCP. The issue was dropped on the way, so the latest run was read whatever was asked. An `issue`
   that is no ISO date raises `InvalidTimeIntervalError`, a `ValueError`, as MOSMIX and DMO do, so
-  the REST API answers it with a 400 (GH-2299)
+  the REST API refuses it as the caller's error, as it does theirs (GH-2299)
 
 ## [0.139.0] - 2026-09-29
 
