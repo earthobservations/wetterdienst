@@ -1976,11 +1976,20 @@ def stripes_values(
         log.exception("Error while plotting warming stripes")
         raise click.ClickException(str(e)) from e
 
+    image = fig.to_image(fmt, scale=dpi / 100)
+
     if target:
-        fig.write_image(target, fmt, scale=dpi / 100)
+        # rendered outside the handler: talking to the renderer's browser can raise an `OSError` of its own
+        # (choreographer's `ChannelClosedError`), which says nothing about --target
+        try:
+            target.write_bytes(image)
+        except OSError as e:
+            # a directory that does not exist or cannot be written; `--target` itself refuses a directory
+            msg = f"Could not write --target: {e}"
+            raise click.ClickException(msg) from e
         return
 
-    click.echo(fig.to_image(fmt, scale=dpi / 100), nl=False)
+    click.echo(image, nl=False)
 
 
 if __name__ == "__main__":

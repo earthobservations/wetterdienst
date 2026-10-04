@@ -128,3 +128,43 @@ def test_climate_stripes_target_wrong_dpi() -> None:
     result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", "--dpi=0"])
     assert result.exit_code == 2
     assert "Error: Invalid value for '--dpi': 0 is not in the range x>0.\n" in result.stderr
+
+
+def test_stripes_values_target_in_missing_directory_is_a_readable_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Test a --target in a directory that does not exist is a runtime error naming the option, not a traceback."""
+
+    class _Figure:
+        def to_image(self, _fmt: str, scale: float) -> bytes:  # noqa: ARG002
+            return b"png"
+
+    monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", lambda _request: _Figure())
+    target = tmp_path / "missing" / "stripes.png"
+    runner = CliRunner()
+    result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"])
+    assert result.exit_code == 1
+    assert "Usage:" not in result.output
+    assert "Error: Could not write --target: " in result.output
+    assert "No such file or directory" in result.output
+    assert not target.exists()
+
+
+def test_stripes_values_target_naming_a_directory_is_a_usage_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Test a --target naming a directory is refused as an invalid option, before anything is plotted."""
+
+    def _plot_stripes(_request: object) -> None:
+        pytest.fail("plotted although --target names a directory")
+
+    monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", _plot_stripes)
+    target = tmp_path / "stripes.png"
+    target.mkdir()
+    runner = CliRunner()
+    result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"])
+    assert result.exit_code == 2
+    assert "Invalid value for '--target'" in result.output
+    assert "is a directory" in result.output
