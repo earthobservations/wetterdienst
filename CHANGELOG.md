@@ -391,6 +391,9 @@ Types of changes:
 - NOAA GHCN hourly stations listed at 9999.0 m or 8191.0 m, 154 placeholders such as the North
   Sea lightship ELBE NO. 1, have a null `elevation`. `interpolate` and `summarize` given an
   elevation took them for known ones (GH-2336)
+- `wetterdienst history` and `wetterdienst stripes values` end a `--target` they cannot write,
+  such as one in a directory that does not exist, as `Error: Could not write --target: ...` with
+  exit status 1, as `alerts` does; it was a traceback after the whole fetch (GH-2346)
 - NOAA GHCN daily stations of the Brazilian network (`BR0...`) listed at 0.0 m, 912 placeholders
   such as ALFENAS at about 880 m, have a null `elevation`. `interpolate` and `summarize` given an
   elevation took them for stations at sea level. A 0.0 m outside that network stays (GH-2362)
