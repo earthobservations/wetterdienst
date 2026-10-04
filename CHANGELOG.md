@@ -165,8 +165,9 @@ Types of changes:
 - `Settings` ignores a key of `.env` that is no setting, such as another program's
   `POSTGRES_PASSWORD`, as it ignores one in the environment. Such a key made every `Settings()`
   fail with its value in the error, and the CLI commands and the REST API that read the settings
-  refused to run. A misspelt `WD_*` key, such as `WD_CACHE_DIABLE`, is ignored too, as in the
-  environment. A keyword to `Settings(...)` that is no setting is still refused (GH-2349)
+  refused to run. A `WD_*` key that names no setting, such as the misspelt `WD_CACHE_DIABLE`, is
+  ignored too, as in the environment. A keyword to `Settings(...)` that is no setting is still
+  refused (GH-2349)
 - `Settings` no longer takes a `.env` key without the `WD_` prefix for the setting it names, as it
   did with pydantic-settings older than 2.11, which the `>=2.7.0` floor allowed: another program's
   `CACHE_DIR` or `TS_SHAPE` set wetterdienst's cache directory or result shape (GH-2373)
