@@ -340,6 +340,10 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
+- `wetterdienst issues`, `/api/issues` and the MCP `issues` tool list the DWD SWSMOS runs, and
+  `DwdSwsmosRequest.available_issues(settings)` returns them as UTC datetimes. They refused
+  dwd/swsmos as unsupported. One run holds every road station, so the list is the same for any
+  station (GH-2319)
 - DWD SWSMOS raises `IssueNotFoundError` for an `issue` naming a run DWD does not hold, as MOSMIX
   and DMO do, so the REST API answers it as the caller's error. It returned no rows, as if the run
   held nothing for the station (GH-2324)

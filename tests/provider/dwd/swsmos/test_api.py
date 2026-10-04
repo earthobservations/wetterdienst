@@ -650,8 +650,40 @@ def test_swsmos_unparseable_issue_is_an_invalid_time_interval() -> None:
 
 
 # ---------------------------------------------------------------------------
-# A run asked for that DWD does not hold -- GH-2324
+# Listing the runs, and a run asked for that DWD does not hold -- GH-2319, GH-2324
 # ---------------------------------------------------------------------------
+
+
+def test_swsmos_available_issues_lists_the_timestamped_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The runs are listed as UTC datetimes, oldest first, without the alias or a non-run file (GH-2319)."""
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [
+            f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2",  # noqa: SLF001
+            f"{api._BASE_URL}/{_LATEST_FILE}",  # noqa: SLF001
+            f"{api._BASE_URL}/swsKatalog.csv.bz2",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20260731060000_opendata.csv.bz2.sha256",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20260731060000_opendata.csv.bz2",  # noqa: SLF001
+        ],
+    )
+
+    assert DwdSwsmosRequest.available_issues(Settings()) == [
+        dt.datetime(2026, 7, 31, 6, tzinfo=UTC),
+        dt.datetime(2026, 7, 31, 7, tzinfo=UTC),
+    ]
+
+
+def test_swsmos_available_issues_of_a_listing_naming_no_run_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A listing naming no run is answered with no issues, and a warning (GH-2319)."""
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+
+    assert DwdSwsmosRequest.available_issues(Settings()) == []
+    assert "No SWSMOS run listed within" in caplog.text
 
 
 def test_swsmos_issue_the_server_does_not_hold_is_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -728,3 +760,14 @@ def test_swsmos_latest_run_gone_since_the_listing_falls_back_to_the_one_before_i
     )
 
     assert df.get_column("value").to_list() == [17.9]
+
+
+@pytest.mark.remote
+def test_swsmos_available_issues_remote() -> None:
+    """DWD lists SWSMOS runs, each of which an ``issue`` can name (GH-2319)."""
+    issues = DwdSwsmosRequest.available_issues(Settings())
+
+    assert issues
+    assert issues == sorted(set(issues))
+    assert all(issue.tzinfo is not None and issue.utcoffset() == dt.timedelta(0) for issue in issues)
+    assert all((issue.minute, issue.second) == (0, 0) for issue in issues)

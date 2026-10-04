@@ -69,7 +69,18 @@ class DwdForecastDate(Enum):
 # what a run file is called, and nothing else. A bare ``swsmos_`` prefix also matches a checksum
 # sidecar or a second product published beside the runs, and one of those sorts after the run it
 # belongs to -- so the newest name would be a file that is not a run, handed straight to bz2
-_RUN_FILE = re.compile(r"^swsmos_\d{14}_opendata\.csv\.bz2$")
+_RUN_FILE = re.compile(r"^swsmos_(\d{14})_opendata\.csv\.bz2$")
+
+
+def _list_runs(settings: Settings) -> tuple[dict[str, str], list[str]]:
+    """List the run directory: every name it holds with its URL, and the run files among them, oldest first.
+
+    Never cached, so the newest run and the runs on offer are current. Fixed-width digits, so
+    lexical order is chronological order.
+    """
+    files = list_remote_files_fsspec(f"{_BASE_URL}/", settings, CacheExpiry.NO_CACHE)
+    names = {f.rsplit("/", 1)[-1]: f for f in files}
+    return names, sorted(n for n in names if _RUN_FILE.match(n))
 
 
 def _run_url(issue: dt.datetime) -> str:
@@ -165,10 +176,7 @@ class DwdSwsmosValues(TimeseriesValues):
         issue = cast("DwdSwsmosRequest", self.sr.stations).issue
         if issue is not DwdForecastDate.LATEST:
             return [(_run_url(cast("dt.datetime", issue)), CacheExpiry.TWELVE_HOURS)]
-        files = list_remote_files_fsspec(f"{_BASE_URL}/", settings, CacheExpiry.NO_CACHE)
-        names = {f.rsplit("/", 1)[-1]: f for f in files}
-        # fixed-width digits, so lexical order is chronological order
-        runs = sorted(n for n in names if _RUN_FILE.match(n))
+        names, runs = _list_runs(settings)
         if runs:
             return [(names[n], CacheExpiry.TWELVE_HOURS) for n in reversed(runs[-2:])]
         if _LATEST_FILE in names:
@@ -393,6 +401,24 @@ class DwdSwsmosRequest(TimeseriesRequest):
             issue = issue.astimezone(_UTC) if issue.tzinfo else issue.replace(tzinfo=_UTC)
             issue = dt.datetime(issue.year, issue.month, issue.day, issue.hour, tzinfo=_UTC)
         self.issue = issue
+
+    @classmethod
+    def available_issues(cls, settings: Settings) -> list[dt.datetime]:
+        """Return the runs DWD holds, as tz-aware UTC datetimes in ascending order.
+
+        One run file holds every road station, so the list is the same for every station. Only the
+        timestamped run files are listed; the ``swsmos_LATEST`` alias names one of them again.
+        """
+        _, runs = _list_runs(settings)
+        if not runs:
+            # a listing that names no run is answered with no issues, and said to be: see
+            # `DwdSwsmosValues._run_candidates`, which warns of the same listing
+            log.warning(f"No SWSMOS run listed within {_BASE_URL}/; the file names may have changed")
+            return []
+        return [
+            dt.datetime.strptime(cast("re.Match", _RUN_FILE.match(name)).group(1), "%Y%m%d%H%M%S").replace(tzinfo=_UTC)
+            for name in runs
+        ]
 
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)

@@ -4129,6 +4129,22 @@ def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     assert response.text == "Internal Server Error"
 
 
+def test_issues_dwd_swsmos(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test /api/issues lists the dwd/swsmos runs rather than refusing the network (GH-2319)."""
+    from wetterdienst.provider.dwd.swsmos import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20261004060000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+
+    response = client.get("/api/issues", params={"provider": "dwd", "network": "swsmos", "station": "A006"})
+
+    assert response.status_code == 200
+    assert response.json() == {"issues": ["2026-10-04T06:00:00+00:00"]}
+
+
 def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test /api/values answers an swsmos issue DWD does not hold with a 400, not an empty 200 (GH-2324)."""
     import bz2  # noqa: PLC0415

@@ -915,3 +915,18 @@ def test_cli_refuses_unknown_unit_targets_unit(monkeypatch: pytest.MonkeyPatch, 
     result = runner.invoke(cli, [*args, '--unit_targets={"temperature": "furlong"}'])
     assert result.exit_code == 2, result.output
     assert "Invalid unit targets: Unit furlong not supported for type temperature." in result.output
+
+
+def test_issues_dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the issues command lists the dwd/swsmos runs rather than refusing the network (GH-2319)."""
+    from wetterdienst.provider.dwd.swsmos import api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/swsmos_20261004060000_opendata.csv.bz2"],  # noqa: SLF001
+    )
+    runner = CliRunner()
+    result = runner.invoke(cli, ["issues", "--provider=dwd", "--network=swsmos", "--station=A006"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == {"issues": ["2026-10-04T06:00:00+00:00"]}

@@ -525,7 +525,7 @@ def issues(
 ) -> JSONResponse:
     """Return available issue datetimes for a provider/network/station combination.
 
-    Currently supported: provider=dwd, network=mosmix|dmo.
+    Currently supported: provider=dwd, network=mosmix|dmo|swsmos.
     """
     set_logging_level(debug=request.debug)
 
