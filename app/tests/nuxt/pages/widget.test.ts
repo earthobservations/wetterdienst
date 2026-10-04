@@ -38,10 +38,10 @@ describe('widget Page', () => {
     registerEndpoint('/api/stations', () => new Response('not found', { status: 404 }))
 
     const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=99999' })
-    await new Promise(resolve => setTimeout(resolve, 0))
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.text()).toContain('Station not found')
+    const vm = wrapper.vm as any
+    // a body without a detail is left out
+    await vi.waitFor(() => expect(vm.error).toMatch(/^Backend error 404/))
+    expect(wrapper.text()).not.toContain('not found')
   })
 
   it('tells a failed forecast by the backend\'s detail', async () => {
@@ -114,5 +114,72 @@ describe('widget Page station lookup answered with a 500', () => {
     // set once the lookup has failed, which a request asked again does after its second answer
     await vi.waitFor(() => expect((wrapper.vm as any).error).not.toBeNull())
     expect(asked).toBe(1)
+  })
+})
+
+describe('widget Page station lookup', () => {
+  it('tells a failed lookup by the backend\'s detail, not as a station not found', async () => {
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      setResponseStatus(event, 500)
+      return { detail: 'Failed to download the MOSMIX station list' }
+    }))
+    globalThis.fetch = vi.fn()
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.error).toBe('Backend error 500: Failed to download the MOSMIX station list'))
+    expect(wrapper.text()).toContain('Backend error 500: Failed to download the MOSMIX station list')
+    expect(wrapper.text()).not.toContain('Station not found')
+  })
+
+  it('tells a failed lookup by its status when the body gives no detail', async () => {
+    // a proxy's error page: its status text is told, its body left out
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      setResponseStatus(event, 502, 'Bad Gateway')
+      return '<html>proxy page</html>'
+    }))
+    globalThis.fetch = vi.fn()
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.error).toBe('Backend error 502 Bad Gateway'))
+    expect(wrapper.text()).not.toContain('proxy page')
+    expect(wrapper.text()).not.toContain('Station not found')
+  })
+
+  it('says the station is not found when the answer holds no station', async () => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [] })))
+    globalThis.fetch = vi.fn()
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=99999' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.error).toBe('Station not found'))
+    expect(vm.station).toBeNull()
+    expect(wrapper.text()).toContain('Station not found')
+    // no forecast is asked for a station that is not there
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it('shows a found station without an error', async () => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '01001', name: 'Jan Mayen', latitude: 70.9, longitude: -8.7 }],
+    })))
+    globalThis.fetch = vi.fn().mockImplementation(async () =>
+      new Response(JSON.stringify({ values: [] }), { status: 200 }),
+    )
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    // set once the forecast has been asked for, which follows the found station
+    await vi.waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+    await vi.waitFor(() => expect(vm.pending).toBe(false))
+    expect(vm.station?.station_id).toBe('01001')
+    expect(vm.error).toBeNull()
+    expect(wrapper.text()).toContain('Jan Mayen')
+    expect(wrapper.text()).not.toContain('Station not found')
   })
 })
