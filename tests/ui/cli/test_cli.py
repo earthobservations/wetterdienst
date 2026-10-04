@@ -927,8 +927,14 @@ def test_cli_values_refuses_a_skip_threshold_from_the_environment_outside_zero_t
     The setting's own error is raised as it is: a usage error blaming the option nobody gave would
     be a `SystemExit` with status 2 instead.
     """
+
+    def take(_get: object, *, settings: Settings, **_kwargs: object) -> None:
+        raise _SettingsTaken(settings)
+
+    # settings that got through would be fetched with; stop there rather than reach DWD
+    monkeypatch.setattr("wetterdienst.ui.cli._collect_or_exit", take)
     monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "5")
     runner = CliRunner()
     result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048", "--skip_empty=true"])
-    assert isinstance(result.exception, ValidationError)
+    assert isinstance(result.exception, ValidationError), result.exception
     assert result.exception.errors()[0]["loc"] == ("ts_skip_threshold",)

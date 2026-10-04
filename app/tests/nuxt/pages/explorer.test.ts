@@ -27,7 +27,7 @@ const mounted: { unmount: () => void }[] = []
 const endpoints: (() => void)[] = []
 
 // Mount the page with a station and a parameter selected, ready to fetch; `values` answers /api/values
-async function mountWithSelection(values: () => unknown) {
+async function mountWithSelection(values: (event: H3Event) => unknown) {
   endpoints.push(registerEndpoint('/api/coverage', (event) => {
     const q = getQuery(event)
     if (q.provider)
@@ -538,8 +538,8 @@ describe('explorer Page skip threshold', () => {
     // GH-2334: /api/values answers a skip_threshold of 0 with a 422, as the CLI and the setting
     // refuse it; the lowest the input takes is the first step above 0
     const sent: unknown[] = []
-    const { wrapper, vm } = await mountWithSelection((event?: H3Event) => {
-      sent.push(getQuery(event!).skip_threshold)
+    const { wrapper, vm } = await mountWithSelection((event) => {
+      sent.push(getQuery(event).skip_threshold)
       return { values: [VALUE_ROW] }
     })
     vm.dataSettings.skipEmpty = true
