@@ -137,6 +137,12 @@ Types of changes:
   InfluxDB 3 Core's) for http and 443 for https. It took only the host and went to https on 443
   whatever the target said, so a local InfluxDB 3 Core could not be reached. Write an https
   server, such as InfluxDB Cloud, as `influxdb3s://` (GH-2279)
+- **Breaking**: `Settings` refuses a `ts_skip_threshold` outside (0, 1], as `--skip_threshold`
+  does. One above 1, as `WD_TS_SKIP_THRESHOLD=5`, skipped every station under `ts_skip_empty`, and
+  `values` said "No data available" with no hint at the setting. Such a variable, or one of 0, now
+  fails every `Settings()`; correct or remove it. `/api/values` answers a `skip_threshold` of 0
+  with a 422, and the MCP `values` tool refuses it; to skip no station, leave `skip_empty` off
+  (GH-2334)
 
 ### Fixed
 
@@ -340,11 +346,6 @@ Types of changes:
   `WD_TS_GEO_NUM_ADDITIONAL_STATIONS` can be set from the environment or `.env`. The settings
   refused the string an environment variable gives, so setting any of them made every `Settings`
   fail (GH-2326)
-- `Settings` refuses a `ts_skip_threshold` outside (0, 1], as `--skip_threshold` does. One above
-  1, as `WD_TS_SKIP_THRESHOLD=5`, skipped every station under `ts_skip_empty`, and `values` said
-  "No data available" with no hint at the setting. Such a variable, or one of 0, now fails every
-  `Settings()`; correct or remove it. `/api/values` answers a `skip_threshold` of 0 with a 422,
-  and the MCP `values` tool refuses it; to skip no station, leave `skip_empty` off (GH-2334)
 
 ## [0.139.0] - 2026-09-29
 
