@@ -524,6 +524,7 @@
     "selectStation": "Selecteer een station",
     "loadingStations": "Stations laden …",
     "loadError": "Stations laden mislukt.",
+    "noStationsWithPosition": "Geen station met een positie gevonden voor de geselecteerde parameters.",
     "coords": "Interpolatiecoördinaten: {coords}"
   },
   "dateRange": {

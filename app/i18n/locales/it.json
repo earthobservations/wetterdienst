@@ -524,6 +524,7 @@
     "selectStation": "Seleziona una stazione",
     "loadingStations": "Caricamento delle stazioni …",
     "loadError": "Impossibile caricare le stazioni.",
+    "noStationsWithPosition": "Nessuna stazione con posizione trovata per i parametri selezionati.",
     "coords": "Coordinate di interpolazione: {coords}"
   },
   "dateRange": {

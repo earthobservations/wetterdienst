@@ -524,6 +524,7 @@
     "selectStation": "Vælg en station",
     "loadingStations": "Indlæser stationer …",
     "loadError": "Kunne ikke indlæse stationer.",
+    "noStationsWithPosition": "Ingen station med position fundet for de valgte parametre.",
     "coords": "Interpolationskoordinater: {coords}"
   },
   "dateRange": {

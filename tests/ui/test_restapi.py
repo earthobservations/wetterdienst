@@ -5,6 +5,7 @@
 import io
 import json
 import logging
+import os
 import pathlib
 import zipfile
 from collections.abc import Callable
@@ -1069,12 +1070,7 @@ def test_geo_settings_radii_reach_the_settings() -> None:
             "interpolation_station_distance": {"precipitation_amount": 25.0},
         },
     )
-    settings = _geo_settings(
-        request,
-        request.interpolation_station_distance,
-        request.interpolation_station_distance_homogeneous,
-        request.interpolation_station_distance_heterogeneous,
-    )
+    settings = _geo_settings(request, request.model_fields_set, "interpolation")
     assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 60.0
     assert settings.ts_geo_station_distance["precipitation_amount"] == 25.0
     # the radius that was not given keeps its default rather than being reset
@@ -4129,6 +4125,315 @@ def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     assert response.text == "Internal Server Error"
 
 
+@pytest.fixture
+def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings.
+
+    The cache directory the test session gives each worker is kept.
+    """
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+
+
+_FETCH_OF_ENDPOINT = {
+    "/api/values": "get_values",
+    "/api/interpolate": "get_interpolate",
+    "/api/summarize": "get_summarize",
+}
+
+
+def _settings_of(monkeypatch: pytest.MonkeyPatch, endpoint: str, params: dict[str, str]) -> Settings:
+    """Answer a request up to its fetch, and return the settings it would fetch with."""
+    taken: list[Settings] = []
+
+    def take(*, settings: Settings, **_kwargs: object) -> None:
+        taken.append(settings)
+        raise RuntimeError
+
+    monkeypatch.setattr(restapi, _FETCH_OF_ENDPOINT[endpoint], take)
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+    response = client.get(endpoint, params=params)
+    assert response.status_code == 500, response.text
+    (settings,) = taken
+    return settings
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_values_leaves_a_setting_the_request_does_not_give_to_the_server(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The server's WD_TS_* variables set what a request to `/api/values` leaves out (GH-2325).
+
+    Every setting was passed from the request model, whose defaults FastAPI fills in, and an init
+    argument outranks the environment. A field the request gives, at its default value too, still
+    outranks the server's.
+    """
+    env = {
+        "WD_TS_SHAPE": "wide",
+        "WD_TS_HUMANIZE": "false",
+        "WD_TS_CONVERT_UNITS": "false",
+        "WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}',
+        "WD_TS_SKIP_EMPTY": "true",
+        "WD_TS_SKIP_CRITERIA": "max",
+        "WD_TS_SKIP_THRESHOLD": "0.5",
+        "WD_TS_DROP_NULLS": "false",
+    }
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    params = {**_OBSERVATION, "station": "01048"}
+
+    settings = _settings_of(monkeypatch, "/api/values", params)
+    assert settings.ts_shape == "wide"
+    assert settings.ts_humanize is False
+    assert settings.ts_convert_units is False
+    assert settings.ts_unit_targets == {"temperature": "degree_fahrenheit"}
+    assert settings.ts_skip_empty is True
+    assert settings.ts_skip_criteria == "max"
+    assert settings.ts_skip_threshold == 0.5
+    assert settings.ts_drop_nulls is False
+
+    settings = _settings_of(
+        monkeypatch,
+        "/api/values",
+        {
+            **params,
+            "shape": "long",
+            "humanize": "true",
+            "convert_units": "true",
+            "skip_empty": "false",
+            "skip_criteria": "min",
+            "skip_threshold": "0.95",
+            "drop_nulls": "true",
+        },
+    )
+    assert settings.ts_shape == "long"
+    assert settings.ts_humanize is True
+    assert settings.ts_convert_units is True
+    assert settings.ts_skip_empty is False
+    assert settings.ts_skip_criteria == "min"
+    assert settings.ts_skip_threshold == 0.95
+    assert settings.ts_drop_nulls is True
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(("endpoint", "kind"), [("/api/interpolate", "interpolation"), ("/api/summarize", "summary")])
+def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    kind: str,
+) -> None:
+    """The server's WD_TS_* variables set what a request to an estimating endpoint leaves out (GH-2325).
+
+    A field the request gives, at its default value too, still outranks the server's.
+    """
+    env = {
+        "WD_TS_HUMANIZE": "false",
+        "WD_TS_CONVERT_UNITS": "false",
+        "WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS": "60",
+        "WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS": "15",
+        "WD_TS_GEO_USE_NEARBY_STATION_DISTANCE": "0",
+        "WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS": "0.5",
+        "WD_TS_GEO_NUM_ADDITIONAL_STATIONS": "5",
+    }
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    params = {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}
+
+    settings = _settings_of(monkeypatch, endpoint, params)
+    assert settings.ts_humanize is False
+    assert settings.ts_convert_units is False
+    assert settings.ts_geo_station_distance_homogeneous == 60
+    assert settings.ts_geo_station_distance_heterogeneous == 15
+    assert settings.ts_geo_use_nearby_station_distance == 0
+    assert settings.ts_geo_min_gain_of_value_pairs == 0.5
+    assert settings.ts_geo_num_additional_stations == 5
+
+    settings = _settings_of(
+        monkeypatch,
+        endpoint,
+        {
+            **params,
+            "humanize": "true",
+            "convert_units": "true",
+            f"{kind}_station_distance_homogeneous": "40",
+            f"{kind}_station_distance_heterogeneous": "20",
+            "use_nearby_station_distance": "1",
+            "min_gain_of_value_pairs": "0.1",
+            "num_additional_stations": "3",
+        },
+    )
+    assert settings.ts_humanize is True
+    assert settings.ts_convert_units is True
+    assert settings.ts_geo_station_distance_homogeneous == 40
+    assert settings.ts_geo_station_distance_heterogeneous == 20
+    assert settings.ts_geo_use_nearby_station_distance == 1
+    assert settings.ts_geo_min_gain_of_value_pairs == 0.1
+    assert settings.ts_geo_num_additional_stations == 3
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("endpoint", "params", "detail"),
+    [
+        pytest.param(
+            "/api/values",
+            {"station": "01048", "unit_targets": '{"foo": "bar"}'},
+            "Invalid value for 'unit_targets': Invalid unit targets: quantities not supported: foo. ",
+            id="values-unit-targets",
+        ),
+        pytest.param(
+            "/api/summarize",
+            {"station": "01048", "date": "2020-06-30", "unit_targets": '{"foo": "bar"}'},
+            "Invalid value for 'unit_targets': Invalid unit targets: quantities not supported: foo. ",
+            id="summarize-unit-targets",
+        ),
+        pytest.param(
+            "/api/interpolate",
+            {
+                "station": "01048",
+                "date": "2020-06-30",
+                "interpolation_station_distance": '{"temperature_air_mean": 10}',
+            },
+            "Invalid value for 'interpolation_station_distance': Invalid parameters in ts_geo_station_distance: "
+            "['temperature_air_mean'] not in the canonical parameters (got {\"temperature_air_mean\": 10.0})",
+            id="interpolate-station-distance",
+        ),
+    ],
+)
+def test_a_refused_setting_quotes_the_request_not_the_server(
+    monkeypatch: pytest.MonkeyPatch,
+    client: TestClient,
+    endpoint: str,
+    params: dict[str, str],
+    detail: str,
+) -> None:
+    """A refused dict field is told by its field with what the request gave, not the server's entries (GH-2329).
+
+    pydantic-settings merges a dict the server's environment sets into the one the request gives,
+    and the 400 was the whole `ValidationError`, quoting the merged dict.
+    """
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE__precipitation_amount", "25")
+
+    response = client.get(endpoint, params={**_OBSERVATION, **params})
+
+    assert response.status_code == 400
+    refusal = response.json()["detail"]
+    assert refusal.startswith(detail)
+    for servers in ("degree_fahrenheit", "precipitation_amount", "25"):
+        assert servers not in refusal
+    assert "input_value" not in refusal
+    assert "Value error, " not in refusal
+
+
+def _start_lifespan(caplog: pytest.LogCaptureFixture) -> bool:
+    """Start the app's lifespan as uvicorn does, shut it down again, and say whether it started."""
+    import asyncio  # noqa: PLC0415
+
+    from uvicorn.config import Config  # noqa: PLC0415
+    from uvicorn.lifespan.on import LifespanOn  # noqa: PLC0415
+
+    # uvicorn's default lifespan mode, which `wetterdienst restapi` runs with; no log config, so
+    # that uvicorn's records reach caplog
+    config = Config(restapi.app, lifespan="auto", log_config=None)
+    config.load()
+    lifespan = LifespanOn(config)
+
+    async def run() -> bool:
+        await lifespan.startup()
+        started = not lifespan.should_exit
+        if started:
+            await lifespan.shutdown()
+        return started
+
+    with caplog.at_level(logging.INFO, logger="uvicorn.error"):
+        return asyncio.run(run())
+
+
+@pytest.fixture
+def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings."""
+    import os  # noqa: PLC0415
+
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_refuses_to_start_with_a_malformed_setting(
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A malformed `WD_*` setting stops the server before it serves, told by its variable (GH-2335).
+
+    It used to stop the import with pydantic's traceback, as a side effect of building `Info`, and a
+    `.env` that broke after that gave a bare 500 per request. The log now has the variable and what
+    is wrong with it, without the value and without a traceback.
+    """
+    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=secret-ish\n")
+
+    assert not _start_lifespan(caplog)
+
+    assert "WD_CACHE_DISABLE is invalid: Input should be a valid boolean" in caplog.text
+    assert "Application startup failed. Exiting." in caplog.text
+    assert "secret-ish" not in caplog.text
+    assert "Traceback" not in caplog.text
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_starts_with_valid_settings(caplog: pytest.LogCaptureFixture) -> None:
+    """Valid settings pass the startup check, on to the app's own lifespan (GH-2335)."""
+    assert _start_lifespan(caplog)
+    assert "Application startup complete." in caplog.text
+
+
+def test_restapi_imports_with_a_malformed_setting(tmp_path: pathlib.Path) -> None:
+    """The REST API's module imports with a malformed `WD_*` setting, for its startup to refuse (GH-2335).
+
+    Its `Info` read the settings on import, so the import failed with pydantic's traceback first.
+    """
+    import os  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import wetterdienst.ui.restapi"],
+        cwd=tmp_path,
+        env={**os.environ, "WD_CACHE_DISABLE": "secret-ish"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_refuses_to_start_when_the_settings_fail_otherwise(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A settings build failing other than by a validation error is refused too (GH-2335).
+
+    A validator's `TypeError` (GH-2353) escaped the check, and uvicorn, by default in lifespan mode
+    `auto`, took it for a lifespan the app does not support, and served. It is told by its type,
+    as its message is not pydantic's and may carry what the validator was given.
+    """
+
+    def fail() -> list[str]:
+        msg = "secret-ish"
+        raise TypeError(msg)
+
+    monkeypatch.setattr(restapi, "check_settings", fail)
+
+    assert not _start_lifespan(caplog)
+
+    assert "the settings could not be built: TypeError" in caplog.text
+    assert "secret-ish" not in caplog.text
+    assert "Application startup failed. Exiting." in caplog.text
+
+
 @pytest.mark.parametrize("threshold", [0, 5])
 def test_values_refuses_a_skip_threshold_outside_zero_to_one(client: TestClient, threshold: float) -> None:
     """A skip_threshold outside (0, 1] is a 422, as the CLI option and the setting refuse it (GH-2334).
@@ -4216,3 +4521,47 @@ def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, mon
 
     assert response.status_code == 400
     assert "swsmos_20200101000000_opendata.csv.bz2" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
+@pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])
+def test_issues_refuses_the_dmo_options_for_mosmix_and_swsmos(
+    client: TestClient, network: str, station: str, option: str, value: str
+) -> None:
+    """/api/issues refuses a DMO-only option for MOSMIX and SWSMOS, as its description says (GH-2347)."""
+    response = client.get(
+        "/api/issues",
+        params={"provider": "dwd", "network": network, "station": station, option: value},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"].startswith(f"{option} applies to DWD DMO only")
+
+
+def test_mcp_issues_tool_describes_the_dmo_options_as_refused() -> None:
+    """The MCP issues tool says a DMO-only option is refused for MOSMIX and SWSMOS, and names its default (GH-2347).
+
+    It said "ignored", copied from the data endpoints' lead time, which other networks do ignore, so
+    a caller or a model that trusted it passed the option to MOSMIX and was refused.
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+    import inspect  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def _schemas() -> dict[str, dict]:
+        async with Client(build_mcp_server(restapi.app)) as mcp_client:
+            return {tool.name: tool.input_schema["properties"] for tool in await mcp_client.list_tools()}
+
+    schemas = asyncio.run(_schemas())
+    defaults = inspect.signature(DwdDmoRequest.available_issues).parameters
+    for name in ("dataset", "lead_time"):
+        description = schemas["issues"][name]["description"]
+        assert description.endswith("; DMO only, refused for MOSMIX and SWSMOS."), name
+        # an enum member for lead_time (SHORT = 78), named in a request by its lowercased name
+        assert f", default '{getattr(defaults[name].default, 'name', defaults[name].default).lower()}';" in description
+    # the data endpoints keep the shared description: there a lead time outside DMO is ignored
+    assert schemas["values"]["lead_time"]["description"].endswith("; ignored for other networks.")

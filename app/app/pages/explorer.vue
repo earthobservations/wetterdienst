@@ -10,6 +10,7 @@ import InterpolationSummarySelection from '~/components/InterpolationSummarySele
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
+import { UNIT_TARGET_TYPES } from '~/utils/unit-targets'
 
 const { t } = useI18n()
 
@@ -34,28 +35,10 @@ function unitLabel(unit: string): string {
   return t(`units.${unit}`)
 }
 
-// Unit types and the units a reader would want to see values in. A curated subset of what the backend
-// UnitConverter can convert to, in both dimensions and by a wide margin: 8 of its 19 convertible
-// types have a row here, and the rows that do carry a subset of their units -- the length ones three
-// or four of six. Adding a unit or a type is a product decision, not a gap to be closed by copying
-// the backend, and one unit cannot be added at all: it refuses millimeter_per_second as a target,
-// that being what BUFR publishes a rain rate in rather than a unit to read one in.
-const unitTypes = [
-  { type: 'temperature', units: ['degree_celsius', 'degree_kelvin', 'degree_fahrenheit'], default: 'degree_celsius' },
-  { type: 'speed', units: ['meter_per_second', 'kilometer_per_hour', 'knots', 'beaufort'], default: 'meter_per_second' },
-  { type: 'pressure', units: ['pascal', 'hectopascal', 'kilopascal'], default: 'hectopascal' },
-  { type: 'precipitation', units: ['millimeter', 'liter_per_square_meter'], default: 'millimeter' },
-  {
-    type: 'precipitation_intensity',
-    units: ['millimeter_per_hour', 'liter_per_square_meter_per_hour'],
-    default: 'millimeter_per_hour',
-  },
-  { type: 'length_short', units: ['millimeter', 'centimeter', 'meter'], default: 'centimeter' },
-  { type: 'length_medium', units: ['millimeter', 'centimeter', 'meter', 'kilometer'], default: 'meter' },
-  { type: 'length_long', units: ['meter', 'kilometer', 'mile', 'nautical_mile'], default: 'kilometer' },
-]
+// the unit types the Unit Targets setting lists, each request naming every one (see pinnedUnitTargets)
+const unitTypes = UNIT_TARGET_TYPES
 
-/** Select items for one unit type: the backend default first, then the units listed for it above. */
+/** Select items for one unit type: the backend default first, then the units listed for it. */
 function unitTargetItems(unitType: { units: string[], default: string }) {
   return [
     { label: t('explorer.unitDefault', { unit: unitLabel(unitType.default) }), value: '' },

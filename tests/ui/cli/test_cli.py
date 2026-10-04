@@ -627,7 +627,8 @@ def test_cli_values_does_not_blame_the_command_line_for_the_environment(monkeypa
     result = runner.invoke(
         cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"temperature": "degree_fahrenheit"}']
     )
-    assert isinstance(result.exception, ValidationError)
+    assert result.exit_code == 1, result.output
+    assert "Error: WD_CACHE_DISABLE is invalid: " in result.output
     assert "--unit_targets" not in result.output
 
 
@@ -636,7 +637,8 @@ def test_cli_values_does_not_blame_an_absent_unit_targets_for_the_environment(mo
     monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"foo": "bar"}')
     runner = CliRunner()
     result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048"])
-    assert isinstance(result.exception, ValidationError)
+    assert result.exit_code == 1, result.output
+    assert "Error: WD_TS_UNIT_TARGETS is invalid: " in result.output
     assert "--unit_targets" not in result.output
 
 
@@ -825,10 +827,10 @@ def test_cli_estimate_does_not_blame_the_command_line_for_the_environment(
 ) -> None:
     """Test a WD_* variable Settings refuses is not told as a usage error of `interpolate` or `summarize`."""
     result = CliRunner().invoke(cli, [command, *_POINT_ARGS, option.replace("KIND", kind)], env=env)
-    assert isinstance(result.exception, ValidationError)
+    assert result.exit_code == 1, result.output
     assert "Usage:" not in result.output
-    # told on its own, not as what went wrong while handling the options' error
-    assert result.exception.__suppress_context__
+    (variable,) = env
+    assert f"Error: {variable} is invalid: " in result.output
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -838,7 +840,8 @@ def test_cli_values_does_not_blame_a_given_unit_targets_for_the_environment(monk
     result = CliRunner().invoke(
         cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"temperature": "degree_fahrenheit"}']
     )
-    assert isinstance(result.exception, ValidationError)
+    assert result.exit_code == 1, result.output
+    assert "Error: WD_TS_UNIT_TARGETS is invalid: " in result.output
     assert "--unit_targets" not in result.output
 
 
@@ -918,14 +921,72 @@ def test_cli_refuses_unknown_unit_targets_unit(monkeypatch: pytest.MonkeyPatch, 
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(["cache"], id="cache"),
+        pytest.param(["info"], id="info"),
+        pytest.param(["about", "coverage"], id="about-coverage"),
+        pytest.param(["stations", *_DWD_KL, "--all"], id="stations"),
+        pytest.param(["values", *_DWD_KL, "--station=01048"], id="values"),
+        pytest.param(["history", *_DWD_KL, "--station=01048"], id="history"),
+        pytest.param(["issues", "--provider=dwd", "--network=mosmix", "--station=10147"], id="issues"),
+        pytest.param(["interpolate", *_POINT_ARGS], id="interpolate"),
+        pytest.param(["summarize", *_POINT_ARGS], id="summarize"),
+        pytest.param(["stripes", "stations", "--kind=temperature"], id="stripes-stations"),
+        pytest.param(["stripes", "values", "--kind=temperature", "--station=1048"], id="stripes-values"),
+        pytest.param(["alerts"], id="alerts"),
+    ],
+)
+def test_cli_tells_a_malformed_setting_by_its_variable(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
+    """Test a malformed WD_* setting is told by its variable, without its value, and exits 1 (GH-2335).
+
+    It used to end in pydantic's traceback, which names the field and repeats the value, or, where a
+    command builds its settings inside a catch-all, in that handler's log of the traceback.
+    """
+    monkeypatch.setenv("WD_CACHE_DISABLE", "secret-ish")
+    result = CliRunner().invoke(cli, args)
+    assert result.exit_code == 1, result.output
+    assert "Error: WD_CACHE_DISABLE is invalid: Input should be a valid boolean" in result.output
+    assert "secret-ish" not in result.output
+    assert not isinstance(result.exception, ValidationError)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_leaves_another_models_error_beside_a_malformed_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an error of a model other than the settings is not told as the environment's (GH-2335).
+
+    An option can override a malformed variable, and the command then runs on; an error it meets
+    later is its own, and was replaced by the variable's line.
+    """
+    from pydantic import BaseModel  # noqa: PLC0415
+
+    from wetterdienst.ui.cli import _Cli  # noqa: PLC0415
+
+    class Other(BaseModel):
+        number: int
+
+    group = _Cli()
+
+    @group.command()
+    def boom() -> None:
+        Other.model_validate({"number": "x"})
+
+    monkeypatch.setenv("WD_CACHE_DISABLE", "secret-ish")
+    result = CliRunner().invoke(group, ["boom"])
+    assert isinstance(result.exception, ValidationError)
+    assert result.exception.title == "Other"
+    assert "WD_CACHE_DISABLE" not in result.output
+
+
 def test_cli_values_refuses_a_skip_threshold_from_the_environment_outside_zero_to_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test a WD_TS_SKIP_THRESHOLD above 1 is refused by its setting, not run into "No data" (GH-2334).
 
     `values` reads it when --skip_threshold is not given; one above 1 used to skip every station.
-    The setting's own error is raised as it is: a usage error blaming the option nobody gave would
-    be a `SystemExit` with status 2 instead.
+    It is told by its variable with status 1 (GH-2335): a usage error blaming the option nobody gave
+    would be status 2 instead.
     """
 
     def take(_get: object, *, settings: Settings, **_kwargs: object) -> None:
@@ -936,8 +997,8 @@ def test_cli_values_refuses_a_skip_threshold_from_the_environment_outside_zero_t
     monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "5")
     runner = CliRunner()
     result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048", "--skip_empty=true"])
-    assert isinstance(result.exception, ValidationError), result.exception
-    assert result.exception.errors()[0]["loc"] == ("ts_skip_threshold",)
+    assert result.exit_code == 1, result.output
+    assert "Error: WD_TS_SKIP_THRESHOLD is invalid: Input should be less than or equal to 1" in result.output
 
 
 def test_issues_dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -953,3 +1014,38 @@ def test_issues_dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(cli, ["issues", "--provider=dwd", "--network=swsmos", "--station=A006"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == {"issues": ["2026-10-04T06:00:00+00:00"]}
+
+
+@pytest.mark.parametrize("option", ["dataset", "lead_time"])
+def test_issues_help_says_what_the_dmo_options_do(option: str) -> None:
+    """Test `issues` describes --dataset and --lead_time as refused for MOSMIX and SWSMOS (GH-2347).
+
+    The help said "ignored by other networks", which `values` says of its own --lead_time and is true
+    there, but `issues` refuses either option for MOSMIX and SWSMOS. The default it names is the one
+    `available_issues` lists when the option is left out.
+    """
+    import inspect  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+
+    help_text = next(param.help for param in cli.commands["issues"].params if param.name == option)
+    assert "; DMO only, refused for MOSMIX and SWSMOS." in help_text
+    default = inspect.signature(DwdDmoRequest.available_issues).parameters[option].default
+    # an enum member for lead_time (SHORT = 78), named on the command line by its lowercased name
+    assert help_text.endswith(f"Default: {getattr(default, 'name', default).lower()}")
+
+
+@pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])
+@pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
+def test_issues_refuses_the_dmo_options_for_mosmix_and_swsmos(
+    option: str, value: str, network: str, station: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test `issues` refuses --dataset and --lead_time for MOSMIX and SWSMOS, as its help says (GH-2347)."""
+    import logging  # noqa: PLC0415
+
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli, ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", f"--{option}={value}"]
+        )
+    assert result.exit_code == 1, result.output
+    assert f"{option} applies to DWD DMO only" in caplog.text
