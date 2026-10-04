@@ -569,7 +569,8 @@ def values(
     "daily/climate_summary/temperature_air_mean_2m") to keep the response small, and `station` with
     an id from `stations` (e.g. station="01975"). `periods` is optional and provider-specific --
     "recent" for dwd/observation, while a provider that publishes under a single period rejects any
-    other one. In the default JSON (shape="long") the `values` items are grouped by station, then by
+    other one. In the JSON of shape="long", the default unless the server's WD_TS_SHAPE says
+    otherwise, the `values` items are grouped by station, then by
     resolution, dataset and parameter, in timestamp order within each group: a parameter's latest
     timestamp is the last item of its group, not of the array. With shape="wide" an item is one
     timestamp of a station and resolution, with a key per parameter (prefixed with the full dataset
