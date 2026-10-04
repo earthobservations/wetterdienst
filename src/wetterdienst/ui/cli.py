@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar, get_args
 import click
 from click.core import ParameterSource
 from pydantic import BaseModel, ValidationError
+from pydantic_settings import SettingsError
 
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import (
@@ -27,6 +28,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
@@ -725,8 +727,33 @@ def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: 
         sys.exit(1)
 
 
+class _Cli(click.Group):
+    """The command group, telling a malformed `WD_*` setting by its variable (GH-2335).
+
+    A command builds its settings where it needs them, and each used to end in pydantic's traceback
+    when the environment's were malformed, naming the field rather than the variable and repeating
+    the value. Whatever command it comes from, such an error is told here instead, a line each, with
+    exit status 1: the environment is not the command line's to fix. An error the settings from
+    the environment alone do not reproduce is the options', and is left as it is.
+    """
+
+    def invoke(self, ctx: click.Context) -> Any:  # noqa: ANN401
+        try:
+            return super().invoke(ctx)
+        except (ValidationError, SettingsError) as e:
+            # another model's error is not the settings', even beside a malformed variable an
+            # option overrode
+            if isinstance(e, ValidationError) and e.title != Settings.__name__:
+                raise
+            problems = check_settings()
+            if not problems:
+                raise
+            raise click.ClickException("\n".join(problems)) from None
+
+
 @click.group(
     "wetterdienst",
+    cls=_Cli,
     help=wetterdienst_help,
     context_settings={"max_content_width": 120},
 )
@@ -1089,8 +1116,10 @@ def issues_cmd(
         },
     )
 
+    # built outside the catch-all below, so that a malformed `WD_*` setting is told by its variable
+    settings = Settings()
     try:
-        issue_list = get_issues(api=api, request=request, settings=Settings())
+        issue_list = get_issues(api=api, request=request, settings=settings)
     except NotImplementedError:
         log.exception("Issues not available for the given request.")
         sys.exit(1)
@@ -1168,8 +1197,10 @@ def history(
 
     api = get_api(provider=provider, network=network)
 
+    # built outside the catch-all below, so that a malformed `WD_*` setting is told by its variable
+    settings = Settings()
     try:
-        stations_ = get_stations(api=api, request=request, date=None, settings=Settings())
+        stations_ = get_stations(api=api, request=request, date=None, settings=settings)
     except Exception:
         log.exception("Failed to get stations for history.")
         sys.exit(1)
@@ -1966,6 +1997,9 @@ def stripes_values(
 
     set_logging_level(debug=debug)
 
+    # the provider request builds its settings from the environment inside the catch-all below:
+    # checked here first, a malformed `WD_*` setting is told by its variable
+    Settings()
     try:
         fig = _plot_stripes(request)
     except Exception as e:
