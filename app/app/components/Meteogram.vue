@@ -862,6 +862,9 @@ const renderFailures = ref(0)
 // the render under way, which is one at a time, and taken up as it fails
 const chartCodeNotLoaded = ref(false)
 let codeImportFailed = false
+// a Retry that works hands its focus on to the chart it drew
+const chartNotice = useTemplateRef<HTMLElement>('chartNotice')
+useFocusAfterRetry(renderFailed, chartNotice, chartRef)
 
 function importChartCode<T>(load: () => Promise<T>): Promise<T> {
   return load().catch((error) => {
@@ -2084,6 +2087,7 @@ watch(
       <div v-if="!compact" class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
         <div
           v-if="renderFailed"
+          ref="chartNotice"
           class="flex flex-wrap items-center justify-center gap-3 p-4 text-red-600 dark:text-red-400"
         >
           <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
@@ -2100,7 +2104,7 @@ watch(
           <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderChart()" />
           <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
         </div>
-        <div ref="chartRef" :style="{ width: '100%', height: chartHeight, position: 'relative' }" />
+        <div ref="chartRef" tabindex="-1" :style="{ width: '100%', height: chartHeight, position: 'relative' }" />
       </div>
 
       <!-- Premium Compact Overview Grid -->

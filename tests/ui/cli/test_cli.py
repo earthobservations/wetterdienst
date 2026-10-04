@@ -771,7 +771,8 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
     assert settings.ts_convert_units is True
     assert settings.ts_geo_station_distance_homogeneous == 40
     assert settings.ts_geo_station_distance_heterogeneous == 20
-    assert settings.ts_geo_use_nearby_station_distance == 0.5
+    # `summarize` accepts the option and reads nothing from it, which it says it does (GH-2333)
+    assert settings.ts_geo_use_nearby_station_distance == (0.5 if command == "interpolate" else 0)
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -921,6 +922,30 @@ def test_cli_refuses_unknown_unit_targets_unit(monkeypatch: pytest.MonkeyPatch, 
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_summarize_warns_that_use_nearby_station_distance_is_deprecated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`summarize --use_nearby_station_distance` is accepted, said to have no effect, and has none.
+
+    It used to set a setting no summary reads, so any value left the summary as it was (GH-2333).
+    Left out, the command says nothing about it, and `interpolate`, which does read it, neither.
+    """
+    warning = "DeprecationWarning: The option 'use_nearby_station_distance' is deprecated. It has no effect"
+
+    def run(args: list[str]) -> str:
+        def take(_get: object, *, settings: Settings, **_kwargs: object) -> None:
+            raise _SettingsTaken(settings)
+
+        monkeypatch.setattr("wetterdienst.ui.cli._collect_or_exit", take)
+        result = CliRunner().invoke(cli, args, env={})
+        assert isinstance(result.exception, _SettingsTaken), result.output
+        assert result.exception.args[0].ts_geo_use_nearby_station_distance == (0.5 if args[0] == "interpolate" else 1.0)
+        return result.stderr
+
+    assert warning in run(["summarize", *_POINT_ARGS, "--use_nearby_station_distance=0.5"])
+    assert "use_nearby_station_distance" not in run(["summarize", *_POINT_ARGS])
+    assert "use_nearby_station_distance" not in run(["interpolate", *_POINT_ARGS, "--use_nearby_station_distance=0.5"])
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize(
     "args",
     [
@@ -1014,3 +1039,38 @@ def test_issues_dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(cli, ["issues", "--provider=dwd", "--network=swsmos", "--station=A006"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == {"issues": ["2026-10-04T06:00:00+00:00"]}
+
+
+@pytest.mark.parametrize("option", ["dataset", "lead_time"])
+def test_issues_help_says_what_the_dmo_options_do(option: str) -> None:
+    """Test `issues` describes --dataset and --lead_time as refused for MOSMIX and SWSMOS (GH-2347).
+
+    The help said "ignored by other networks", which `values` says of its own --lead_time and is true
+    there, but `issues` refuses either option for MOSMIX and SWSMOS. The default it names is the one
+    `available_issues` lists when the option is left out.
+    """
+    import inspect  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+
+    help_text = next(param.help for param in cli.commands["issues"].params if param.name == option)
+    assert "; DMO only, refused for MOSMIX and SWSMOS." in help_text
+    default = inspect.signature(DwdDmoRequest.available_issues).parameters[option].default
+    # an enum member for lead_time (SHORT = 78), named on the command line by its lowercased name
+    assert help_text.endswith(f"Default: {getattr(default, 'name', default).lower()}")
+
+
+@pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])
+@pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
+def test_issues_refuses_the_dmo_options_for_mosmix_and_swsmos(
+    option: str, value: str, network: str, station: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test `issues` refuses --dataset and --lead_time for MOSMIX and SWSMOS, as its help says (GH-2347)."""
+    import logging  # noqa: PLC0415
+
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli, ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", f"--{option}={value}"]
+        )
+    assert result.exit_code == 1, result.output
+    assert f"{option} applies to DWD DMO only" in caplog.text

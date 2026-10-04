@@ -491,3 +491,85 @@ def test_get_issues_refuses_dmo_options_for_swsmos(option: dict[str, str]) -> No
 
     with pytest.raises(InvalidEnumerationError, match="applies to DWD DMO only"):
         core.get_issues(api=DwdSwsmosRequest, request=request, settings=Settings())
+
+
+@pytest.mark.parametrize(
+    "environment", [{"WD_TS_SHAPE": "wide"}, {"WD_TS_SKIP_EMPTY": "true"}], ids=["wide", "skip_empty"]
+)
+@pytest.mark.parametrize(
+    ("kind", "dataset", "name_original"),
+    [("temperature", "climate_summary", "ja_tt"), ("precipitation", "precipitation_more", "ja_rr")],
+)
+def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
+    monkeypatch: pytest.MonkeyPatch,
+    environment: dict[str, str],
+    kind: str,
+    dataset: str,
+    name_original: str,
+) -> None:
+    """Test the environment leaves the stripes a station's whole record, in a `value` column (GH-2348).
+
+    The stripes requests take their settings from the environment. A wide frame has no `value`
+    column, so `WD_TS_SHAPE=wide` raised `ColumnNotFoundError`, and `WD_TS_SKIP_EMPTY=true` dropped
+    a station with gaps in its record, which left no years to draw. The station list and the
+    station's one download are stubbed, so the dropping of nulls, the skipping and the shaping all
+    still run and nothing leaves the machine.
+    """
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    # two years of five missing, well below the 0.95 `ts_skip_threshold` asks for by default
+    values = [1.0, None, None, 4.0, 5.0]
+    years = list(range(2000, 2000 + len(values)))
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "annual",
+                "dataset": dataset,
+                "station_id": "01048",
+                "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                "end_date": dt.datetime(2025, 12, 31, tzinfo=dt.timezone.utc),
+                "latitude": 51.1278,
+                "longitude": 13.7543,
+                "elevation": 228.0,
+                "name": "Dresden-Klotzsche",
+                "state": "Sachsen",
+            },
+        ],
+    )
+
+    def _all(self: DwdObservationRequest) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+
+    def _collect_station_parameter_or_dataset(
+        self: DwdObservationValues,  # noqa: ARG001
+        station_id: str,
+        parameter_or_dataset: object,  # noqa: ARG001
+    ) -> pl.DataFrame:
+        # as the source has them: named by its codes, the missing years as nulls
+        return pl.DataFrame(
+            [
+                {
+                    "station_id": station_id,
+                    "resolution": "annual",
+                    "dataset": dataset,
+                    "parameter": name_original,
+                    "timestamp": dt.datetime(year, 1, 1, tzinfo=dt.timezone.utc),
+                    "value": value,
+                    "quality": 10.0,
+                }
+                for year, value in zip(years, values, strict=True)
+            ],
+            schema_overrides={"value": pl.Float64},
+        )
+
+    for name, setting in environment.items():
+        monkeypatch.setenv(name, setting)
+    monkeypatch.setattr(DwdObservationRequest, "all", _all)
+    monkeypatch.setattr(
+        DwdObservationValues, "_collect_station_parameter_or_dataset", _collect_station_parameter_or_dataset
+    )
+    df = _get_stripes_data(StripesValuesRequest(kind=kind, station="01048")).df
+    assert df.get_column("timestamp").dt.year().to_list() == years
+    assert df.get_column("value").to_list() == values

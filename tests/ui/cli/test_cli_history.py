@@ -1,9 +1,10 @@
 """Tests for the CLI history command."""
 
 import json
+from pathlib import Path
 
 import pytest
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 from dirty_equals import IsApprox, IsStr
 
 from wetterdienst.ui.cli import cli
@@ -172,3 +173,56 @@ def test_history_no_station_selection() -> None:
     )
     assert result.exit_code == 2
     assert "Error: Missing option: one of '--all' or '--station'." in result.output
+
+
+def _unwritable_history_target(monkeypatch: pytest.MonkeyPatch, target: Path) -> Result:
+    """Run history for one station with the fetch stubbed out, writing to `target`."""
+
+    class _History:
+        def query(self) -> list:
+            return []
+
+    class _Stations:
+        history = _History()
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", lambda **_kwargs: _Stations())
+    runner = CliRunner()
+    return runner.invoke(
+        cli,
+        [
+            "history",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary",
+            "--station=02564",
+            f"--target={target}",
+        ],
+    )
+
+
+def test_history_target_in_missing_directory_is_a_readable_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Test a --target in a directory that does not exist is a runtime error naming the option, not a traceback."""
+    target = tmp_path / "missing" / "history.json"
+    result = _unwritable_history_target(monkeypatch, target)
+    assert result.exit_code == 1
+    assert "Usage:" not in result.output
+    assert "Error: Could not write --target: " in result.output
+    assert "No such file or directory" in result.output
+    assert not target.exists()
+
+
+def test_history_target_naming_a_directory_is_a_readable_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Test a --target naming a directory is a runtime error naming the option, not a traceback."""
+    target = tmp_path / "history.json"
+    target.mkdir()
+    result = _unwritable_history_target(monkeypatch, target)
+    assert result.exit_code == 1
+    assert "Usage:" not in result.output
+    assert "Error: Could not write --target: " in result.output
+    assert target.is_dir()

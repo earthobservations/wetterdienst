@@ -347,7 +347,7 @@ Three more settings control which stations are drawn on (see also the
 
 | Name                               | Type  | Default | Description                                                                                                            |
 |------------------------------------|-------|---------|------------------------------------------------------------------------------------------------------------------------|
-| ts_geo_use_nearby_station_distance | float | 1.0     | Distance (in km) up to which a nearby station's value is used directly instead of interpolating.                        |
+| ts_geo_use_nearby_station_distance | float | 1.0     | Distance (in km) up to which a nearby station's value is used directly instead of interpolating. Not read by a summary. |
 | ts_geo_min_gain_of_value_pairs     | float | 0.1     | Minimum gain of value pairs for an additional station to be included, to avoid using every station in a dense network.  |
 | ts_geo_num_additional_stations     | int   | 3       | Number of additional stations used regardless of the gain, to guarantee a minimum number of stations.                   |
 
@@ -460,7 +460,7 @@ wetterdienst interpolate \
   --interpolation_station_distance '{"precipitation_amount": 25}'
 ```
 
-`summarize` takes the same three under `--summary_…`, next to `--use_nearby_station_distance`:
+`summarize` takes the same three under `--summary_…`:
 
 ```bash
 wetterdienst summarize \
@@ -468,9 +468,13 @@ wetterdienst summarize \
   --parameters daily/climate_summary/precipitation_amount \
   --station 02480 \
   --start-date 2022-01-01 --end-date 2022-01-20 \
-  --summary_station_distance_heterogeneous 15 \
-  --use_nearby_station_distance 2
+  --summary_station_distance_heterogeneous 15
 ```
+
+Its `--use_nearby_station_distance`, and the `use_nearby_station_distance` of `/api/summarize` and
+the MCP `summarize` tool, are deprecated and will be removed in a future release. They have no
+effect: a summary takes the nearest station with data anyway, so there is nothing for them to
+decide.
 
 An option that is left out keeps whatever the environment and the defaults say, so a radius set
 through `WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS` is not overwritten by the command. The
