@@ -57,9 +57,7 @@ async function loadAvailableIssues(stationId: string) {
   try {
     const res = await $fetch<{ issues: string[] }>('/api/issues', {
       query: { provider: MOSMIX.provider, network: MOSMIX.network, station: stationId },
-      // asked once, whatever the failure: ofetch asks a failed GET again, and the REST API answers a failure
-      // on its or the source's side with a 500, where asking again doubles the work behind it
-      retry: 0,
+      ...RETRY_TRANSIENT,
     })
     availableIssues.value = res.issues ?? []
   }
@@ -88,9 +86,7 @@ async function loadMapStations() {
         parameters: `${MOSMIX.resolution}/${MOSMIX.dataset}`,
         all: 'true',
       },
-      // asked once, whatever the failure: ofetch asks a failed GET again, and the REST API answers a failure
-      // on its or the source's side with a 500, where asking again doubles the work behind it
-      retry: 0,
+      ...RETRY_TRANSIENT,
     })
     mapStations.value = res.stations ?? []
   }
@@ -205,9 +201,7 @@ onMounted(async () => {
         parameters: `${MOSMIX.resolution}/${MOSMIX.dataset}`,
         station: stationId,
       },
-      // asked once, whatever the failure: ofetch asks a failed GET again, and the REST API answers a failure
-      // on its or the source's side with a 500, where asking again doubles the work behind it
-      retry: 0,
+      ...RETRY_TRANSIENT,
     })
     const station = (res.stations ?? [])[0]
     if (station) {

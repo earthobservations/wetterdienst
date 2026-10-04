@@ -43,9 +43,7 @@ const { data: stationsData, pending: stationsPending, refresh: refreshStations }
       all: 'true',
     })),
     immediate: false,
-    // asked once, whatever the failure: ofetch asks a failed GET again, and the REST API answers a failure
-    // on its or the source's side with a 500, where asking again doubles the work behind it
-    retry: 0,
+    ...RETRY_TRANSIENT,
     default: () => ({ stations: [] }),
   },
 )

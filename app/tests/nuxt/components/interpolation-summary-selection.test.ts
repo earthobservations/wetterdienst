@@ -167,3 +167,26 @@ describe('the interpolation\'s station list that could not be fetched', () => {
     expect(asked).toBe(1)
   })
 })
+
+describe('the interpolation\'s station list answered with a 503 once', () => {
+  it('asks /api/stations once more, and lists what that answer brings', async () => {
+    // a 503 the first time only, as a proxy gives while the backend restarts
+    let asked = 0
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      asked++
+      if (asked === 1) {
+        setResponseStatus(event, 503)
+        return { detail: 'Service Unavailable' }
+      }
+      return { stations: [feldberg] }
+    }))
+    // a dataset of its own, so the list is not one the tests above leave mounted
+    const wrapper = await mountSuspended(InterpolationSummarySelection, {
+      props: { parameterSelection: { ...parameterSelection, dataset: 'more_precip' }, modelValue: { source: 'station' } },
+    })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.allStations).toHaveLength(1))
+    expect(asked).toBe(2)
+  })
+})
