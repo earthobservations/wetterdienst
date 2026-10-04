@@ -2319,3 +2319,62 @@ describe('dataViewer chart after a Retry', () => {
     expect(document.activeElement).toBe(elsewhere)
   })
 })
+
+describe('dataViewer settings the explorer starts from the server\'s', () => {
+  // the viewer's one request, given the units chosen and the ones "Default (...)" names
+  async function asked(
+    endpoint: string,
+    selection: StationSelectionState,
+    unitTargets: Record<string, string> = {},
+    unitTargetDefaults?: Record<string, string>,
+  ) {
+    const queries: Record<string, unknown>[] = []
+    registerEndpoint(endpoint, (event) => {
+      queries.push(getQuery(event))
+      return { values: [] }
+    })
+    const wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(UApp, null, {
+        default: () => h(DataViewer, {
+          parameterSelection,
+          stationSelection: selection,
+          settings: { ...settings, unitTargets },
+          unitTargetDefaults,
+        }),
+      }),
+    }), { attachTo: document.body })
+    mounted.push(wrapper)
+    await fetchData(wrapper.findComponent(DataViewer))
+    await vi.waitFor(() => expect(queries).toHaveLength(1))
+    return queries[0]!
+  }
+
+  // sent at wetterdienst's own too: one left out would be the server's WD_TS_GEO_STATION_DISTANCE_*,
+  // not the one the explorer shows (GH-2359)
+  it.each([
+    ['/api/interpolate', atPoint('interpolation'), 'interpolation'],
+    ['/api/summarize', atPoint('summary'), 'summary'],
+  ] as const)('asks %s for both radii at their defaults', async (endpoint, selection, prefix) => {
+    const query = await asked(endpoint, selection)
+    expect(query[`${prefix}_station_distance_homogeneous`]).toBe('40')
+    expect(query[`${prefix}_station_distance_heterogeneous`]).toBe('20')
+  })
+
+  it('pins a type left at "Default" to the unit given for it, and a chosen one to the choice', async () => {
+    const query = await asked('/api/values', byStation('01048'), { speed: 'beaufort' }, {
+      temperature: 'degree_fahrenheit',
+      speed: 'knots',
+    })
+    expect(JSON.parse(String(query.unit_targets))).toEqual({
+      temperature: 'degree_fahrenheit',
+      speed: 'beaufort',
+      // a type the defaults given leave out keeps the one listed for it
+      pressure: 'hectopascal',
+      precipitation: 'millimeter',
+      precipitation_intensity: 'millimeter_per_hour',
+      length_short: 'centimeter',
+      length_medium: 'meter',
+      length_long: 'kilometer',
+    })
+  })
+})
