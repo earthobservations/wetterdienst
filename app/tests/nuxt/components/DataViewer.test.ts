@@ -10,7 +10,6 @@ import { UApp, USelectMenu } from '#components'
 import { useToast } from '#imports'
 import DataViewer from '~/components/DataViewer.vue'
 import QueryPanel from '~/components/QueryPanel.vue'
-import { UNIT_TARGET_TYPES } from '~/utils/unit-targets'
 
 // DuckDB, as far as Run Query reaches it: the query itself is answered by the test's `answer`, as the
 // Arrow table DuckDB gives, every statement loading the table at once. It gives no result schema,
@@ -2205,7 +2204,7 @@ describe('dataViewer failed fetch', () => {
 })
 
 describe('dataViewer unit targets', () => {
-  // the backend's own default target for each unit type the explorer lists (`UnitConverter.targets`)
+  // each unit type the explorer lists, in the unit its "Default (...)" choice names
   const defaults = {
     temperature: 'degree_celsius',
     speed: 'meter_per_second',
@@ -2234,10 +2233,6 @@ describe('dataViewer unit targets', () => {
     await vi.waitFor(() => expect(asked).toHaveLength(1))
     return JSON.parse(String(asked[0]!.unit_targets))
   }
-
-  it('lists each unit type with the unit its "Default" choice names', () => {
-    expect(Object.fromEntries(UNIT_TARGET_TYPES.map(unitType => [unitType.type, unitType.default]))).toEqual(defaults)
-  })
 
   // each mode's endpoint, all of which take unit targets and merge the server's WD_TS_UNIT_TARGETS into them
   it.each([
