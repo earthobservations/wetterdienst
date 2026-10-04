@@ -154,6 +154,10 @@ Types of changes:
 
 ### Fixed
 
+- Climate stripes (CLI `stripes`, `/api/stripes/*`, the MCP stripes tools) no longer fail under
+  `WD_TS_SHAPE=wide`, which raised `ColumnNotFoundError`, or under `WD_TS_SKIP_EMPTY=true`, which
+  raised a `ComputeError` for a station with gaps in its record. They read the values long and
+  unskipped whatever those two say (GH-2348)
 - Interpolate and summarize answer under `ts_humanize=False` and `ts_shape="wide"`, however they
   are set: `Settings`, `WD_*`, the CLI's or REST API's `humanize`. The first returned no data and
   the second raised `ColumnNotFoundError`. The result is long either way, its parameters named by
