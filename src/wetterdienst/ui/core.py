@@ -244,8 +244,8 @@ _NumAdditionalStationsField = Annotated[
 def station_distance_radii(homogeneous: float | None, heterogeneous: float | None) -> dict[str, Any]:
     """Collect the radii that were given, as keyword arguments for `Settings`.
 
-    A radius that was not given is left out rather than passed as the library default, so that a
-    CLI user or a server configured through `WD_TS_GEO_STATION_DISTANCE_*` keeps its own.
+    A radius the request did not give is left out rather than passed as the library default, so that
+    a server configured through `WD_TS_GEO_STATION_DISTANCE_*` keeps its own.
     """
     radii: dict[str, Any] = {}
     if homogeneous is not None:
