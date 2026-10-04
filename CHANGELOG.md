@@ -149,8 +149,8 @@ Types of changes:
   its hourly row as well, where the two lists put it within 5 km of each other, unless the daily
   list gives 0.0 against an hourly height. Interpolate and summarize, by station id or by point,
   then use one elevation for such a station whatever the order of the parameters. Otherwise each
-  row keeps its own: further apart, the lists can name two stations under one id. A request for
-  one resolution is unchanged (GH-2336, GH-2362)
+  row keeps its own list's elevation. A request for one resolution is not affected by this
+  (GH-2336, GH-2362)
 
 ### Fixed
 
