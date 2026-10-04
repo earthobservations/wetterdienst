@@ -646,3 +646,50 @@ def test_fsspec_client_kwargs_keep_headers_that_are_not_a_dict_as_given(headers:
 
     assert settings.fsspec_client_kwargs["headers"] is headers
     assert settings.fsspec_client_kwargs["timeout"] == 30
+
+
+@pytest.mark.parametrize(
+    ("unit_targets", "message"),
+    [
+        pytest.param(
+            {"temperature": "furlong"},
+            "Invalid unit targets: Unit furlong not supported for type temperature.",
+            id="unknown-unit",
+        ),
+        pytest.param(
+            {"temperature": "meter"},
+            "Invalid unit targets: Unit meter not supported for type temperature.",
+            id="unit-of-another-quantity",
+        ),
+        pytest.param(
+            {"precipitation_intensity": "millimeter_per_second"},
+            "Invalid unit targets: Unit millimeter_per_second is what a source publishes in and cannot be a "
+            "target for type precipitation_intensity",
+            id="source-only-unit",
+        ),
+    ],
+)
+def test_settings_unit_targets_refuse_a_unit_the_converter_cannot_report_in(
+    monkeypatch: pytest.MonkeyPatch,
+    unit_targets: dict[str, str],
+    message: str,
+) -> None:
+    """A unit target is refused for its unit too, not only its quantity (GH-2306).
+
+    It used to pass here and be refused only once a values request had fetched its stations.
+    """
+    monkeypatch.delenv("WD_TS_UNIT_TARGETS", raising=False)
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        Settings(ts_unit_targets=unit_targets)
+
+
+def test_settings_unit_targets_name_only_the_unknown_quantities(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The refusal names the unknown quantities, sorted, rather than every one given (GH-2306)."""
+    monkeypatch.delenv("WD_TS_UNIT_TARGETS", raising=False)
+    with pytest.raises(ValidationError) as excinfo:
+        Settings(ts_unit_targets={"temperature": "degree_fahrenheit", "foo": "bar", "abc": "x"})
+    # the message alone, without pydantic's echo of the input after it
+    message = str(excinfo.value).split(" [type=")[0]
+    assert "Invalid unit targets: quantities not supported: abc, foo. Supported quantities are: angle, " in message
+    assert "temperature" in message  # in the sorted list of supported ones
+    assert "'temperature'" not in message

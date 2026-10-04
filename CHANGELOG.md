@@ -156,6 +156,11 @@ Types of changes:
   500. A request refused for what it gives keeps its 400 (GH-2297)
 - `wetterdienst values` refuses such `--unit_targets` with `Invalid value for '--unit_targets'`
   and exit status 2, where it died with a traceback (GH-2296)
+- `Settings` refuses a `ts_unit_targets` unit the converter does not have for its quantity, such as
+  `{"temperature": "furlong"}`, or one only a source publishes in. It was refused once the stations
+  had been fetched, so the CLI died with a traceback; `values`, `interpolate` and `summarize` now
+  exit with status 2, and the REST endpoints and MCP tools answer 400. An unknown quantity's
+  refusal names only the unknown ones (GH-2306)
 - Interpolation places stations across a UTM zone boundary (in Germany at 6 and 12 deg E, most
   places every 6 deg of longitude) or the equator in the zone of the point. Each was placed in its
   own zone, hundreds of kilometres off, or 10000 km off across the equator, so a point near either
