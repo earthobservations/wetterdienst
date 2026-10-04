@@ -4136,8 +4136,9 @@ def _start_lifespan(caplog: pytest.LogCaptureFixture) -> bool:
     from uvicorn.config import Config  # noqa: PLC0415
     from uvicorn.lifespan.on import LifespanOn  # noqa: PLC0415
 
-    # no log config, so that uvicorn's records reach caplog
-    config = Config(restapi.app, lifespan="on", log_config=None)
+    # uvicorn's default lifespan mode, which `wetterdienst restapi` runs with; no log config, so
+    # that uvicorn's records reach caplog
+    config = Config(restapi.app, lifespan="auto", log_config=None)
     config.load()
     lifespan = LifespanOn(config)
 
@@ -4209,3 +4210,26 @@ def test_restapi_imports_with_a_malformed_setting(tmp_path: pathlib.Path) -> Non
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_refuses_to_start_when_the_settings_fail_otherwise(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A settings build failing other than by a validation error is refused too (GH-2335).
+
+    A validator's `TypeError` (GH-2353) escaped the check, and uvicorn, by default in lifespan mode
+    `auto`, took it for a lifespan the app does not support, and served.
+    """
+
+    def fail() -> list[str]:
+        msg = "argument of type 'int' is not iterable"
+        raise TypeError(msg)
+
+    monkeypatch.setattr(restapi, "check_settings", fail)
+
+    assert not _start_lifespan(caplog)
+
+    assert "the settings could not be built: TypeError: argument of type 'int' is not iterable" in caplog.text
+    assert "Application startup failed. Exiting." in caplog.text

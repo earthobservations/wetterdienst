@@ -102,7 +102,13 @@ class _RefuseInvalidSettings:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "lifespan":
-            problems = check_settings()
+            try:
+                problems = check_settings()
+            except Exception as e:  # noqa: BLE001
+                # a validator failing other than by refusing the value (GH-2353) is refused all the
+                # same: raised here, uvicorn's default `--lifespan auto` would take it for a
+                # lifespan the app does not support, and serve
+                problems = [f"the settings could not be built: {type(e).__name__}: {e}"]
             if problems:
                 await receive()
                 message = "\n".join(["Refusing to start, the settings are invalid:", *problems])
