@@ -861,4 +861,30 @@ describe('explorer Page settings from the server (GH-2359)', () => {
     await expect(useServerSettings()).resolves.toEqual(serverSettings())
     expect(settingsAsked).toBe(2)
   })
+
+  it('does not ask a backend without the endpoint again', async () => {
+    endpoints.push(registerEndpoint('/api/settings', () => {
+      settingsAsked += 1
+      throw createError({ statusCode: 404 })
+    }))
+
+    await expect(useServerSettings()).resolves.toBeNull()
+    await expect(useServerSettings()).resolves.toBeNull()
+    expect(settingsAsked).toBe(1)
+  })
+
+  it('starts a new parameter\'s radius at 20 km where the server\'s heterogeneous one is infinite', async () => {
+    endpoints.push(registerEndpoint('/api/settings', () => {
+      const settings = serverSettings()
+      settings.interpolate.interpolation_station_distance_heterogeneous = 'Infinity'
+      return settings
+    }))
+    const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.startingSettings.stationDistanceHeterogeneous).toBe(Number.POSITIVE_INFINITY))
+
+    vm.addParameterDistance()
+    expect(vm.parameterDistanceEntries.at(-1).distance).toBe(20)
+  })
 })

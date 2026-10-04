@@ -485,10 +485,13 @@ function isValidParameter(paramName: string): boolean {
 // one.
 function addParameterDistance() {
   const id = `param_${Date.now()}`
+  // the server's heterogeneous radius, but not an infinite one, which a per-parameter radius sent
+  // as JSON would be written as null for, and refused
+  const heterogeneous = startingSettings.value.stationDistanceHeterogeneous
   parameterDistanceEntries.value.push({
     id,
     paramName: '',
-    distance: startingSettings.value.stationDistanceHeterogeneous,
+    distance: Number.isFinite(heterogeneous) ? heterogeneous : STATION_DISTANCE_DEFAULTS.heterogeneous,
   })
 }
 
