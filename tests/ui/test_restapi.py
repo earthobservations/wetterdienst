@@ -3659,7 +3659,7 @@ def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClien
     )
 
     assert response.status_code == 400
-    assert "Invalid unit targets: one of {'foo'} not in" in response.json()["detail"]
+    assert "Invalid unit targets: quantities not supported: foo." in response.json()["detail"]
 
 
 def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
@@ -3746,7 +3746,7 @@ def test_geo_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient, 
     )
 
     assert response.status_code == 400
-    assert "Invalid unit targets: one of {'foo'} not in" in response.json()["detail"]
+    assert "Invalid unit targets: quantities not supported: foo." in response.json()["detail"]
 
 
 _ALERTS_LISTING = [
@@ -4016,6 +4016,32 @@ def test_values_geojson_items_are_the_ones_the_description_states(stubbed_values
             for item in long
             if item["station_id"] == station_id and item["dataset"] == dataset
         ]
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "params"),
+    [
+        pytest.param("/api/values", {**_OBSERVATION, "station": "01048"}, id="values"),
+        pytest.param("/api/interpolate", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}, id="interpolate"),
+        pytest.param("/api/summarize", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}, id="summarize"),
+    ],
+)
+def test_a_unit_target_for_an_unknown_unit_is_a_400(
+    monkeypatch: pytest.MonkeyPatch,
+    client: TestClient,
+    endpoint: str,
+    params: dict[str, str],
+) -> None:
+    """A unit the converter has none of for a known quantity is the caller's 400 (GH-2306).
+
+    It passed the settings and was refused only once the stations had been fetched. Refused before
+    anything is downloaded.
+    """
+    monkeypatch.delenv("WD_TS_UNIT_TARGETS", raising=False)
+    response = client.get(endpoint, params={**params, "unit_targets": json.dumps({"temperature": "furlong"})})
+
+    assert response.status_code == 400
+    assert "Invalid unit targets: Unit furlong not supported for type temperature." in response.json()["detail"]
 
 
 @pytest.mark.parametrize(

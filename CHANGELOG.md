@@ -156,6 +156,14 @@ Types of changes:
   500. A request refused for what it gives keeps its 400 (GH-2297)
 - `wetterdienst values` refuses such `--unit_targets` with `Invalid value for '--unit_targets'`
   and exit status 2, where it died with a traceback (GH-2296)
+- `Settings` refuses a `ts_unit_targets` unit the converter does not have for its quantity, such as
+  `{"temperature": "furlong"}`, or one only a source publishes in. It was refused once the stations
+  had been fetched, so the CLI died with a traceback; `values`, `interpolate` and `summarize` now
+  exit with status 2, and `/api/interpolate` and `/api/summarize` answer 400 where they answered
+  404. Such a unit in `WD_TS_UNIT_TARGETS` now fails every `Settings()`, as an unknown quantity
+  there does, where it broke only values requests: set when the REST server starts, it stops it at
+  import; set in `.env` later, requests answer 500. Correct or remove it. An unknown quantity's
+  refusal names only the unknown ones (GH-2306)
 - `/api/values` answers a malformed `WD_TS_UNIT_TARGETS` in the server's `.env` with a bare 500,
   where it answered 400 with the setting's value in `detail`; `/api/stripes/stations`, `/values`
   and `/image` no longer give a malformed setting's value in their 500. The MCP tools answer the

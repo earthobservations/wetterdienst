@@ -601,8 +601,8 @@ def values(
             ts_drop_nulls=request.drop_nulls,
         )
     except ValidationError as e:
-        # with the server's valid on their own, the request's: a unit target given for a quantity the
-        # converter has none for
+        # with the server's valid on their own, the request's: a unit target given for a quantity or
+        # unit the converter has none for
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     values_ = _values(api=api, request=request, settings=settings)
@@ -652,13 +652,13 @@ def _geo_settings(
         )
     except ValidationError as e:
         # with the server's valid on their own, the request's: a distance given for a name that is
-        # not a canonical parameter, or a negative one, or a unit target for an unknown quantity
+        # not a canonical parameter, or a negative one, or a unit target for an unknown quantity or unit
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 # what a request can provoke on its way through `get_values`, `get_interpolate` and
 # `get_summarize` besides the refusals the helpers below name: a date, period, parameter, bounding
-# box, point, unit target or issue that cannot be served as given, or a station the lookup does not
+# box, point or issue that cannot be served as given, or a station the lookup does not
 # know. The station lookup of `/api/stations` and `/api/history`, the issue listing and the values of
 # the climate stripes provoke a subset of these, and two more: a dataset `/api/history` cannot list
 # without the date it has no field for (a refusal the helpers below name before this), and stripes
