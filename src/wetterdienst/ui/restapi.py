@@ -588,10 +588,11 @@ def _openapi() -> dict[str, Any]:
     wetterdienst's defaults in Python, which the CLI builds its requests with, and FastAPI fills in
     for a parameter left out, which the endpoints do not pass on (`_request_settings`).
 
-    A parameter the schema has no default for keeps none: the radii and the JSON-encoded dicts
-    (`unit_targets`, the station distances). A dict given is merged into the server's, so a client
-    leaving it out gets the server's already, and the server's whole dict, a unit for every
-    quantity, would be sent back as a request's own were it the default; `/api/settings` reports it.
+    A parameter whose request field defaults to None has no schema default and keeps none: the
+    radii and the JSON-encoded dicts (`unit_targets`, the station distances). A dict given is
+    merged into the server's, so a client leaving it out gets the server's already, and the
+    server's whole dict, a unit for every quantity, would be sent back as a request's own were it
+    the default; `/api/settings` reports it.
 
     Built once per process, as FastAPI builds the schema, and kept: with the `[mcp]` extra, as the
     module is imported, by the MCP endpoint, whose tools' defaults are then the server's too, and
@@ -615,7 +616,7 @@ def _openapi() -> dict[str, Any]:
         f"/api/{endpoint}": {
             field: value
             for field, value in _applied_settings(applied, server).model_dump().items()
-            if field in taking.model_fields
+            if field in taking.model_fields and taking.model_fields[field].default is not None
         }
         for endpoint, taking, applied in _ENDPOINT_SETTINGS
     }
@@ -624,12 +625,12 @@ def _openapi() -> dict[str, Any]:
         field: value
         for values in defaults.values()
         for field, value in values.items()
-        if field in SettingsRequest.model_fields
+        if field in SettingsRequest.model_fields and SettingsRequest.model_fields[field].default is not None
     }
     schema = FastAPI.openapi(app)
     for path, values in defaults.items():
         for parameter in schema["paths"][path]["get"]["parameters"]:
-            if parameter["name"] not in values or "default" not in parameter["schema"]:
+            if parameter["name"] not in values:
                 continue
             value = values[parameter["name"]]
             if isinstance(value, float) and not math.isfinite(value):
