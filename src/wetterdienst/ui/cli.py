@@ -1165,7 +1165,11 @@ def issues_cmd(
     default="json",
     help="Output format. Default: json",
 )
-@click.option("--target", type=click.STRING, help="Write the output to this .json file instead of stdout.")
+@click.option(
+    "--target",
+    type=click.STRING,
+    help="Write the output to this .json file instead of stdout. Example: file://history.json",
+)
 @pretty_opt
 @with_metadata_opt
 @with_stations_opt
@@ -1189,7 +1193,7 @@ def history(
 
     Select the stations with exactly one of --all or --station.
     """
-    # a local path, or a `file://` URI as `alerts` takes it; the `.json` check reads the path itself
+    # a local path, or a `file://` URI read as the path after it, as in `alerts`; the `.json` check reads that path
     path = target.removeprefix("file://") if target else None
     if path is not None and not path.endswith(".json"):
         msg = "--target for history endpoint must end with .json"
@@ -1245,7 +1249,7 @@ def history(
 
     output = json.dumps(data, indent=4 if pretty else None, default=lambda dt: dt.isoformat())
 
-    if path:
+    if path is not None:
         try:
             Path(path).write_text(output)
         except OSError as e:
