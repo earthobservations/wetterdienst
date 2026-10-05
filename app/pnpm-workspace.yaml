@@ -22,7 +22,7 @@ overrides:
   # packages pin below the fix -- brace-expansion (ReDoS) and esbuild (dev-server file
   # read, GHSA-g7r4-m6w7-qqqr). `pnpm update` cannot move them because their parents pin
   # the vulnerable range; the scoped ranges below leave other major lines untouched.
-  brace-expansion@>=4.0.0 <5.0.8: ^5.0.8
+  brace-expansion@>=4.0.0 <5.0.12: ^5.0.12
   esbuild@>=0.27.3 <0.28.1: ^0.28.1
   # Without this, pnpm's trustPolicy: no-downgrade rejects semver@6.3.1 (a
   # long-standing transitive dep of @babel/core@7.x, pulled in via

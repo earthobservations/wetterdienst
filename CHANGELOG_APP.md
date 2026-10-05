@@ -344,6 +344,14 @@ Types of changes:
   postcodes, or holds none at all, the picker says so, where it stayed empty without a word
   (GH-2356)
 
+### Security
+
+- `[Build]` The three `brace-expansion` advisories (2 high, 1 moderate: denial of service through
+  recursion and quadratic expansion) are resolved with 5.0.12. `braces` and `node-forge` stay in
+  `pnpm audit`: neither has a fixed release yet, and both are build and dev-server tooling that
+  the built app does not ship. Dependencies are refreshed within their ranges -- `@nuxt/ui`
+  4.11.3, `suncalc` 2.1 (GH-2405)
+
 ## [0.17.0] - 2026-09-29
 
 ### Changed
