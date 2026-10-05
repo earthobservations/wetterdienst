@@ -302,6 +302,8 @@
     "openWidget": "Otevřít jako vložitelný widget",
     "chart": {
       "noData": "Pro vybraný dotaz nejsou k dispozici žádná data",
+      "label": "Graf předpovědi pro {name}",
+      "labelNoStation": "Graf předpovědi",
       "panels": "Panely",
       "panelTemperature": "Teplota",
       "panelWind": "Vítr",
@@ -562,6 +564,8 @@
     "fetchErrorToastTitle": "Požadavek na data selhal",
     "dataTitle": "Data",
     "noChartData": "Pro graf nejsou k dispozici žádná data",
+    "chartLabel": "Graf hodnot",
+    "facetChartLabel": "Graf: {parameter}",
     "rowsPerPage": "Řádků na stránku",
     "copied": "Zkopírováno",
     "copiedRows": "{count} řádků zkopírováno do schránky",
