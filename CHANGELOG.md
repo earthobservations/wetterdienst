@@ -18,10 +18,9 @@ Types of changes:
 
 ### Fixed
 
-- `wetterdienst issues` reports a request it refuses, such as `--lead_time` on MOSMIX, as a
-  one-line usage error with exit code 2 instead of a traceback with exit code 1, judged by the
-  check `/api/issues` uses to tell a 400 from a 500. An upstream failure still logs its traceback
-  and exits 1 (GH-2368)
+- `wetterdienst issues` reports a refused option, such as `--lead_time` on MOSMIX, as a one-line
+  usage error with exit code 2 instead of a traceback with exit code 1. An upstream failure still
+  logs its traceback and exits 1 (GH-2368)
 
 ## [0.140.0] - 2026-10-05
 
