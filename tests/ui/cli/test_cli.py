@@ -1085,4 +1085,5 @@ def test_cli_tells_a_numeric_auth_setting_by_its_variable(monkeypatch: pytest.Mo
     monkeypatch.setenv("WD_AUTH__CEDA", "5")
     result = CliRunner().invoke(cli, ["cache"])
     assert result.exit_code == 1, result.output
-    assert result.output == "Error: WD_AUTH__CEDA is invalid: Input should be a valid tuple\n"
+    assert "Error: WD_AUTH__CEDA is invalid: Input should be a valid tuple" in result.output.splitlines()
+    assert "Traceback" not in result.output

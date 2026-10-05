@@ -9,7 +9,7 @@ import logging
 import platform
 import re
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -118,8 +118,9 @@ class Auth(BaseModel):
         """Parse the Frost (client_id, secret) pair, a lone client id counting as one with no secret.
 
         An all-digit client id arrives as an `int`, as the environment decodes a nested value as JSON
-        where it parses, and is still an id. Any other value that is not a pair is left for the field
-        to refuse, which names it, where reading it as one failed with a bare `TypeError` (GH-2379).
+        where it parses, and is still an id. Any other value that is no sequence -- a float, `true`, a
+        JSON object -- is left for the field to refuse, which names it, where reading it as a pair
+        failed with a bare `TypeError` or took the object's keys (GH-2379).
         """
         if value is None:
             return None
@@ -127,7 +128,7 @@ class Auth(BaseModel):
             value = str(value)
         if isinstance(value, (str, SecretStr)):
             return value, ""
-        if not isinstance(value, (tuple, list)):
+        if isinstance(value, Mapping) or not isinstance(value, Iterable):
             return value
         as_tuple = tuple(value)
         if len(as_tuple) != 2:
@@ -143,9 +144,9 @@ class Auth(BaseModel):
     ) -> object:
         """Parse the CEDA (username, password) pair, e.g. from ``WD_AUTH__CEDA=username:password``.
 
-        A value that is neither that text nor a pair -- a number or `true`, which the environment
-        decodes as JSON -- is left for the field to refuse, which names it, where reading it as a
-        pair failed with a bare `TypeError` (GH-2379).
+        A value that is neither that text nor a sequence -- a number, `true` or a JSON object, which
+        the environment decodes as JSON -- is left for the field to refuse, which names it, where
+        reading it as a pair failed with a bare `TypeError` or took the object's keys (GH-2379).
         """
         if value is None:
             return None
@@ -159,7 +160,7 @@ class Auth(BaseModel):
                 msg = "ceda must be given as 'username:password'"
                 raise ValueError(msg)
             return username, password
-        if not isinstance(value, (tuple, list)):
+        if isinstance(value, Mapping) or not isinstance(value, Iterable):
             return value
         as_tuple = tuple(value)
         if len(as_tuple) != 2:

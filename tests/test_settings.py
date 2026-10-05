@@ -2,10 +2,12 @@
 # Distributed under the MIT License. See LICENSE for more info.#
 """Tests for settings."""
 
+import collections
 import copy
 import logging
 import os
 import re
+from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
 
@@ -1069,3 +1071,18 @@ def test_settings_auth_refuses_a_masked_value_assigned_as_a_credential(field: st
     with pytest.raises(ValidationError, match="mask"):
         setattr(settings.auth, field, value)
     assert getattr(settings.auth, field) is None
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("field", ["ceda", "metno_frost"])
+@pytest.mark.parametrize("container", [collections.deque, iter], ids=["deque", "iterator"])
+def test_settings_auth_reads_a_pair_from_any_sequence(field: str, container: Callable) -> None:
+    """A pair given as another iterable than a tuple or list is read as one, and its mask refused (GH-2379).
+
+    Leaving every value but a tuple or list for the field passed these on unread, and the mask in them
+    went unseen.
+    """
+    pair = Settings(auth={field: container(["DUMMY-ID", "DUMMY-SECRET"])}).auth
+    assert tuple(reveal(part) for part in getattr(pair, field)) == ("DUMMY-ID", "DUMMY-SECRET")
+    with pytest.raises(ValidationError, match="mask"):
+        Settings(auth={field: container(["DUMMY-ID", "*" * 10])})
