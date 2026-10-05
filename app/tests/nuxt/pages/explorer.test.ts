@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import type { ProviderNetworkCoverageResponse, ServerSettings } from '#shared/types/api'
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
@@ -983,6 +983,14 @@ describe('explorer Page Unit Targets selects (GH-2391)', () => {
   })
 })
 
+// the answers the page has been given to its requests for a shape's settings, in the order asked
+const shapeAnswers = vi.hoisted(() => [] as Promise<unknown>[])
+mockNuxtImport('serverSettingsFor', original => (...args: unknown[]) => {
+  const answer = original(...args)
+  shapeAnswers.push(answer)
+  return answer
+})
+
 describe('explorer Page settings of the shape the user switches to (GH-2398)', () => {
   // the shape each GET /api/settings asked for, undefined for the server's own
   const asked: unknown[] = []
@@ -990,6 +998,7 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
   beforeEach(() => {
     clearNuxtState('server-settings')
     asked.length = 0
+    shapeAnswers.length = 0
   })
 
   afterEach(() => {
@@ -1021,9 +1030,11 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
     await wrapper.findAll('button').find(b => b.text() === label)!.trigger('click')
   }
 
-  // the answers to the requests made so far, taken in
+  // the page done with the shape's answers: a request it would make is made once the tasks queued
+  // have run, and each answer is taken in before an await on it made after the page's returns
   async function settle() {
-    await new Promise(resolve => setTimeout(resolve, 50))
+    await new Promise(resolve => setTimeout(resolve))
+    await Promise.all(shapeAnswers)
     await nextTick()
   }
 
@@ -1057,6 +1068,7 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
     await switchShape(wrapper, 'Long')
     await vi.waitFor(() => expect(asked).toEqual([undefined, 'long']))
     await settle()
+    expect(shapeAnswers).toHaveLength(1)
 
     expect(vm.dataSettings).toMatchObject({ shape: 'long', dropNulls: false })
   })
@@ -1143,13 +1155,10 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
     const held = new Promise<void>((resolve) => {
       release = resolve
     })
-    let lateAnswered = false
     endpoints.push(registerEndpoint('/api/settings', async (event) => {
       asked.push(getQuery(event).shape)
-      if (getQuery(event).shape === 'long') {
+      if (getQuery(event).shape === 'long')
         await held
-        lateAnswered = true
-      }
       return wideServer(event)
     }))
     const { wrapper, vm } = await mountOnWideServer([])
@@ -1158,10 +1167,10 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
     await vi.waitFor(() => expect(asked).toEqual([undefined, 'long']))
     await switchShape(wrapper, 'Wide')
     await vi.waitFor(() => expect(asked).toEqual([undefined, 'long', 'wide']))
-    await settle()
+    expect(shapeAnswers).toHaveLength(2)
+    await shapeAnswers[1]
     // the long shape's answer, drop_nulls on, comes in last
     release()
-    await vi.waitFor(() => expect(lateAnswered).toBe(true))
     await settle()
 
     expect(vm.dataSettings).toMatchObject({ shape: 'wide', dropNulls: false })

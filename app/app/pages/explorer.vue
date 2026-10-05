@@ -256,24 +256,20 @@ const seededFromServer = useServerSettings().then((server) => {
   return true
 })
 
-// The settings whose value in effect the shape decides: the wide shape turns drop_nulls off
-const SHAPE_SETTINGS = ['dropNulls'] as const satisfies (keyof DataSettings)[]
 let shapeAsked = 0
 
-// A shape the user switches to has its own server settings (GH-2398): the server's, for that shape,
-// take the place of the ones the server reported for the shape before, under the same rule as its
-// first answer. They are asked after that answer, so they are laid over it, and only of a backend
-// that gave one. A backend that refuses the parameter, or fails, leaves the settings as they are, as
-// does the answer to a switch the user has made again since
+// A shape the user switches to has its own server settings (GH-2398), as the wide shape turns
+// drop_nulls off: the server's, for that shape, take the place of the ones it reported for the shape
+// before, under the same rule as its first answer. They are asked after that answer, so they are
+// laid over it, and only of a backend that gave one. A backend that refuses the parameter, or fails,
+// leaves the settings as they are, as does the answer to a switch the user has made again since
 async function reseedForShape(shape: DataSettings['shape']) {
   const asked = ++shapeAsked
   if (!await seededFromServer)
     return
   const server = await serverSettingsFor({ shape })
-  if (asked !== shapeAsked || !server)
-    return
-  const reported = serverDataSettings(server)
-  seedSettings(Object.fromEntries(SHAPE_SETTINGS.filter(key => key in reported).map(key => [key, reported[key]])))
+  if (asked === shapeAsked && server)
+    seedSettings(serverDataSettings(server))
 }
 
 // Track parameter distance entries with stable IDs
