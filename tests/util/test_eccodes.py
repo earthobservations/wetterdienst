@@ -239,8 +239,8 @@ def test_the_lock_carries_the_eccodes_library_wherever_the_extra_asks_for_it(ext
     eccodes' own wheel asks for `eccodeslib`, but uv.lock recorded eccodes without it, so the lock
     held bindings that load only where a system library is present. Naming it in the extra puts it
     in the lock; this pins that. eccodeslib and its eckitlib publish wheels only, so a requirement
-    admitted where none fits fails the whole sync: for each Python the classifiers name and each
-    platform and architecture below, the marker admits it only where every locked package of the
+    admitted where none fits fails the whole sync: for each Python the classifiers name, the one
+    after them, and each platform and architecture below, the marker admits it only where every locked package of the
     library has a wheel for it. What the marker does not name (musl, the glibc or macOS version,
     free-threading) is beyond this check.
     """
@@ -256,38 +256,47 @@ def test_the_lock_carries_the_eccodes_library_wherever_the_extra_asks_for_it(ext
         dependency["name"] for dependency in locked["wetterdienst"][0]["optional-dependencies"][extra]
     }
 
-    library = ["eccodeslib"]
-    for name in library:
-        library += [
-            dependency["name"]
-            for dependency in locked[name][0].get("dependencies", [])
-            if dependency["name"] not in library
-        ]
+    library: list[str] = []
+    queue = ["eccodeslib"]
+    while queue:
+        name = queue.pop()
+        if name not in library:
+            library.append(name)
+            queue += [dependency["name"] for dependency in locked[name][0].get("dependencies", [])]
     # one locked version each, or the wheels below would be checked against a fork they may not
     # belong to: a lock forked by Python needs this test to follow the forks' markers
     assert all(len(locked[name]) == 1 for name in library), library
     packages = {name: locked[name][0] for name in library}
-    pythons = [
-        classifier.rsplit(" ", 1)[1]
+    minors = [
+        int(classifier.rsplit(".", 1)[1])
         for classifier in pyproject["project"]["classifiers"]
         if re.fullmatch(r"Programming Language :: Python :: 3\.\d+", classifier)
     ]
+    # and the next one, which `requires-python` admits before the classifiers name it
+    pythons = [f"3.{minor}" for minor in [*minors, max(minors) + 1]]
+    # platform_system, sys_platform, platform_machine -> the wheel platform tag that installs there
     platforms = {
-        ("Linux", "x86_64"): r"manylinux_\d+_\d+_x86_64",
-        ("Linux", "aarch64"): r"manylinux_\d+_\d+_aarch64",
-        ("Linux", "ppc64le"): r"manylinux_\d+_\d+_ppc64le",
-        ("Linux", "s390x"): r"manylinux_\d+_\d+_s390x",
-        ("Linux", "armv7l"): r"manylinux_\d+_\d+_armv7l",
-        ("Darwin", "arm64"): r"macosx_\d+_\d+_arm64",
-        ("Darwin", "x86_64"): r"macosx_\d+_\d+_x86_64",
-        ("Windows", "AMD64"): r"win_amd64",
-        ("FreeBSD", "amd64"): r"freebsd_\w+_amd64",
+        ("Linux", "linux", "x86_64"): r"manylinux_\d+_\d+_x86_64",
+        ("Linux", "linux", "aarch64"): r"manylinux_\d+_\d+_aarch64",
+        ("Linux", "linux", "ppc64le"): r"manylinux_\d+_\d+_ppc64le",
+        ("Linux", "linux", "s390x"): r"manylinux_\d+_\d+_s390x",
+        ("Linux", "linux", "armv7l"): r"manylinux_\d+_\d+_armv7l",
+        ("Darwin", "darwin", "arm64"): r"macosx_\d+_\d+_arm64",
+        ("Darwin", "darwin", "x86_64"): r"macosx_\d+_\d+_x86_64",
+        ("Windows", "win32", "AMD64"): r"win_amd64",
+        ("FreeBSD", "freebsd14", "amd64"): r"freebsd_\w+_amd64",
     }
     admitted = 0
     for python in pythons:
         abi = "cp" + python.replace(".", "")
-        for (system, machine), tag in platforms.items():
-            environment = {"python_version": python, "platform_system": system, "platform_machine": machine}
+        for (system, sys_platform, machine), tag in platforms.items():
+            environment = {
+                "python_version": python,
+                "python_full_version": f"{python}.0",
+                "platform_system": system,
+                "sys_platform": sys_platform,
+                "platform_machine": machine,
+            }
             if not requirement.marker.evaluate(environment):
                 continue
             admitted += 1
