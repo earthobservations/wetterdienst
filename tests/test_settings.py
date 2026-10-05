@@ -1036,3 +1036,36 @@ def test_settings_auth_refuses_a_value_that_is_no_credential_by_its_field(auth: 
     with pytest.raises(ValidationError) as excinfo:
         Settings(auth=auth)
     assert [error["loc"] for error in excinfo.value.errors()] == [("auth", field)]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_validates_an_assigned_credential() -> None:
+    """A credential assigned after construction is held as one given to the constructor is (GH-2387)."""
+    settings = Settings()
+    settings.auth.knmi = "DUMMY-KNMI-KEY"
+    settings.auth.ceda = "DUMMY-CEDA-USER:DUMMY-CEDA-PASSWORD"
+    settings.auth.metno_frost = "DUMMY-FROST-ID"
+
+    assert isinstance(settings.auth.knmi, SecretStr)
+    assert reveal(settings.auth.knmi) == "DUMMY-KNMI-KEY"
+    assert all(isinstance(part, SecretStr) for part in settings.auth.ceda)
+    assert tuple(reveal(part) for part in settings.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
+    assert tuple(reveal(part) for part in settings.auth.metno_frost) == ("DUMMY-FROST-ID", "")
+    assert "DUMMY" not in repr(settings)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("aemet", "*" * 10),
+        ("ceda", ("*" * 10, "*" * 10)),
+        ("metno_frost", ("DUMMY-FROST-ID", "*" * 10)),
+    ],
+)
+def test_settings_auth_refuses_a_masked_value_assigned_as_a_credential(field: str, value: object) -> None:
+    """The mask a JSON dump leaves behind is refused on assignment as in the constructor (GH-2387)."""
+    settings = Settings()
+    with pytest.raises(ValidationError, match="mask"):
+        setattr(settings.auth, field, value)
+    assert getattr(settings.auth, field) is None

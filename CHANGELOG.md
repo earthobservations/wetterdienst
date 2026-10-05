@@ -22,6 +22,10 @@ Types of changes:
   `WD_AUTH__CEDA` or `WD_AUTH__METNO_FROST` that is neither text nor a pair, such as `5`, `true` or
   a JSON object, with a `ValidationError` naming `auth.ceda` / `auth.metno_frost`. It raised a
   bare `TypeError` that named nothing, or took a JSON object's keys as the pair (GH-2379)
+- A credential assigned to `settings.auth` after construction, such as `settings.auth.knmi = "key"`,
+  is held as a secret and checked as one given to the constructor is: a `username:password` text
+  for `ceda` is split, and the mask a JSON dump leaves behind is refused. It was kept as plain
+  text, which `reveal()` and the providers failed on (GH-2387)
 
 ## [0.140.0] - 2026-10-05
 

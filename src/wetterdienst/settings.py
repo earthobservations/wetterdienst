@@ -16,6 +16,7 @@ from typing import Annotated, Literal
 import platformdirs
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Field,
     PrivateAttr,
     SecretStr,
@@ -80,6 +81,11 @@ class Auth(BaseModel):
 
     `reveal()` takes a value back out, and is the only thing that should.
     """
+
+    # a credential assigned after construction (`settings.auth.knmi = ...`) is wrapped, split and
+    # checked as one given to the constructor is; without it a plain `str` was kept, which `reveal()`
+    # could not read and which printed as it was (GH-2387)
+    model_config = ConfigDict(validate_assignment=True)
 
     aemet: SecretStr | None = Field(default=None)
     knmi: SecretStr | None = Field(default=None)
