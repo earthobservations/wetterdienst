@@ -1001,8 +1001,9 @@ class IssuesRequest(BaseModel):
 # provider converts it to its own zone, an issue a negative offset carries past year 9999 -- and the
 # dates on the way that come that close are the request's. Anything else -- a provider's file in a
 # layout its parser does not expect, an upstream that does not answer, a frame of an unexpected
-# shape -- is not the caller's to fix, and is a 500. Kept here rather than in the REST API so the
-# CLI tells the two apart the same way without importing FastAPI
+# shape -- is not the caller's to fix, and is a 500. Kept here rather than in the REST API so that
+# `wetterdienst issues` asks the same question without importing FastAPI: there a refusal is a usage
+# error, exit 2, and anything else a logged traceback, exit 1
 _CALLER_REFUSALS = (
     OverflowError,
     InvalidBoundingBoxError,

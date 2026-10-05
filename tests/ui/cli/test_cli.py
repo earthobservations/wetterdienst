@@ -1083,9 +1083,8 @@ def test_issues_tells_a_refusal_in_one_line(
 ) -> None:
     """Test `issues` reports a refusal the caller can rephrase as a usage error, not a traceback (GH-2368).
 
-    The refusals are the ones `/api/issues` answers with a 400 rather than a 500, read from the set the
-    two share: a DMO-only option on MOSMIX is the one `get_issues` raises today, and a second member
-    of the set stands for the rest.
+    The refusals are read from the check `/api/issues` uses to tell a 400 from a 500: a DMO-only option
+    on MOSMIX is the one `get_issues` raises today, and a second member of the set stands for the rest.
     """
 
     def get_issues(**_kwargs: object) -> list[str]:
