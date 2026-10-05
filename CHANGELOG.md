@@ -436,6 +436,12 @@ Types of changes:
 - NOAA GHCN hourly stations listed at -999.0 m, 93 placeholders such as BOGUS ALGERIAN, have a
   null `elevation`. `interpolate` and `summarize` given an elevation took them for known ones
   (GH-2352)
+- A `Settings` field assigned after construction is validated as one given to the constructor:
+  `settings.ts_skip_threshold = 5` or `settings.ts_shape = "foo"` raises a `ValidationError` naming
+  the field, where it was taken and failed later or skipped every station. Assigning
+  `ts_shape = "wide"` turns `ts_drop_nulls` off at once, a radius assigned reaches
+  `ts_geo_station_distance` at once, and a dict assigned to `fsspec_client_kwargs` is merged into
+  the defaults as one given is, where it replaced them (GH-2342)
 - NOAA GHCN hourly stations listed at 0.0, 0.0, or named `BOGUS ...`, 15 placeholders such as
   BOGUS AUSTRIAN, have a null `latitude` and `longitude`. They are still fetched by id, but no
   rank, distance or bbox search, `interpolate` or `summarize` picks them. A rank search now leaves
