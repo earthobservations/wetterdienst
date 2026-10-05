@@ -349,8 +349,7 @@ Types of changes:
 - `[Build]` The three `brace-expansion` advisories (2 high, 1 moderate: denial of service through
   recursion and quadratic expansion) are resolved with 5.0.12. `braces` and `node-forge` stay in
   `pnpm audit`: neither has a fixed release yet, and both are build and dev-server tooling that
-  the built app does not ship. Other dependencies are refreshed within their ranges, among them
-  `@nuxt/ui` 4.11.3 with its bug fixes (GH-2405)
+  the built app does not ship (GH-2405)
 
 ## [0.17.0] - 2026-09-29
 
