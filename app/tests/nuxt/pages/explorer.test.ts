@@ -1,11 +1,11 @@
 import type { H3Event } from 'h3'
-import type { ProviderNetworkCoverageResponse } from '#shared/types/api'
+import type { ProviderNetworkCoverageResponse, ServerSettings } from '#shared/types/api'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { UApp } from '#components'
-import { useRouter, useToast } from '#imports'
+import { clearNuxtState, useRouter, useServerSettings, useToast } from '#imports'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
@@ -576,5 +576,315 @@ describe('explorer Page skip threshold', () => {
 
     await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
     await vi.waitFor(() => expect(sent).toEqual(['0.05']))
+  })
+})
+
+describe('explorer Page settings from the server (GH-2359)', () => {
+  // what GET /api/settings answers on a server whose WD_TS_* variables move every setting the
+  // explorer shows off wetterdienst's default. The wide shape turns drop_nulls off, as the server
+  // reports it
+  function serverSettings(): ServerSettings {
+    const common = {
+      humanize: false,
+      convert_units: true,
+      unit_targets: { temperature: 'degree_fahrenheit', speed: 'knots', length_long: 'furlong', angle: 'degree' },
+      skip_empty: true,
+      skip_threshold: 0.8,
+      skip_criteria: 'max' as const,
+      drop_nulls: false,
+    }
+    const geo = {
+      ...common,
+      min_gain_of_value_pairs: 0.2,
+      num_additional_stations: 5,
+      station_distance_resolution_factors: { hourly: 1, daily: 2 },
+    }
+    return {
+      values: { ...common, shape: 'wide' },
+      interpolate: {
+        ...geo,
+        use_nearby_station_distance: 2.5,
+        interpolation_station_distance: {},
+        interpolation_station_distance_homogeneous: 60,
+        interpolation_station_distance_heterogeneous: 30,
+      },
+      summarize: {
+        ...geo,
+        summary_station_distance: {},
+        summary_station_distance_homogeneous: 60,
+        summary_station_distance_heterogeneous: 30,
+      },
+    }
+  }
+
+  // the settings the explorer starts from where the server reports none: wetterdienst's
+  const WETTERDIENST_DEFAULTS = {
+    humanize: true,
+    convertUnits: true,
+    unitTargets: {},
+    shape: 'long',
+    skipEmpty: false,
+    skipThreshold: 0.95,
+    skipCriteria: 'min',
+    dropNulls: true,
+    useNearbyStationDistance: 1,
+    stationDistanceHomogeneous: 40,
+    stationDistanceHeterogeneous: 20,
+    useStationDistancePerParameter: {},
+    minGainOfValuePairs: 0.1,
+    numAdditionalStations: 3,
+  }
+
+  // the server's settings, by the explorer's names
+  const SERVER_DEFAULTS = {
+    ...WETTERDIENST_DEFAULTS,
+    humanize: false,
+    shape: 'wide',
+    skipEmpty: true,
+    skipThreshold: 0.8,
+    skipCriteria: 'max',
+    dropNulls: false,
+    useNearbyStationDistance: 2.5,
+    stationDistanceHomogeneous: 60,
+    stationDistanceHeterogeneous: 30,
+    minGainOfValuePairs: 0.2,
+    numAdditionalStations: 5,
+  }
+
+  // the requests GET /api/settings got
+  let settingsAsked = 0
+
+  beforeEach(() => {
+    // asked once per app load: each test loads it afresh
+    clearNuxtState('server-settings')
+    settingsAsked = 0
+  })
+
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+    useToast().clear()
+  })
+
+  // the Unit Targets setting's "Default (...)" choices, one per type it lists. Read from the items
+  // the selects are given rather than from the selects, which refuse the choice's empty value
+  function defaultUnitChoices(vm: any): string[] {
+    return vm.unitTypes.map((unitType: { type: string, units: string[] }) => vm.unitTargetItems(unitType)[0].label)
+  }
+
+  // the query Show sends to /api/values
+  async function showQuery(wrapper: Awaited<ReturnType<typeof mountWithSelection>>['wrapper'], sent: Record<string, unknown>[]) {
+    await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(sent).toHaveLength(1))
+    return sent[0]!
+  }
+
+  it('starts from the server\'s settings, names its units as the defaults, and sends every one', async () => {
+    endpoints.push(registerEndpoint('/api/settings', () => {
+      settingsAsked += 1
+      return serverSettings()
+    }))
+    const sent: Record<string, unknown>[] = []
+    const { wrapper, vm } = await mountWithSelection((event) => {
+      sent.push(getQuery(event))
+      return { values: [VALUE_ROW] }
+    })
+
+    await vi.waitFor(() => expect(vm.dataSettings).toEqual(SERVER_DEFAULTS))
+    // the boxes' placeholders, and a new parameter's radius, are the server's radii too
+    expect(vm.startingSettings).toEqual(SERVER_DEFAULTS)
+    // a unit the app has no name for is named as the server names it
+    expect(defaultUnitChoices(vm)).toEqual([
+      'Default (Degrees Fahrenheit (°F))',
+      'Default (Knots (kn))',
+      'Default (Hectopascal (hPa))',
+      'Default (Millimetres (mm))',
+      'Default (Millimetres per hour (mm/h))',
+      'Default (Centimetres (cm))',
+      'Default (Metres (m))',
+      'Default (furlong)',
+    ])
+
+    const query = await showQuery(wrapper, sent)
+    expect(query).toMatchObject({
+      humanize: 'false',
+      convert_units: 'true',
+      shape: 'wide',
+      skip_empty: 'true',
+      skip_threshold: '0.8',
+      skip_criteria: 'max',
+      drop_nulls: 'false',
+    })
+    expect(JSON.parse(String(query.unit_targets))).toEqual({
+      temperature: 'degree_fahrenheit',
+      speed: 'knots',
+      pressure: 'hectopascal',
+      precipitation: 'millimeter',
+      precipitation_intensity: 'millimeter_per_hour',
+      length_short: 'centimeter',
+      length_medium: 'meter',
+      length_long: 'furlong',
+    })
+    expect(settingsAsked).toBe(1)
+  })
+
+  it.each([404, 500])('keeps wetterdienst\'s settings where /api/settings answers %i', async (status) => {
+    endpoints.push(registerEndpoint('/api/settings', () => {
+      settingsAsked += 1
+      throw createError({ statusCode: status })
+    }))
+    const sent: Record<string, unknown>[] = []
+    const { wrapper, vm } = await mountWithSelection((event) => {
+      sent.push(getQuery(event))
+      return { values: [VALUE_ROW] }
+    })
+
+    await expect(useServerSettings()).resolves.toBeNull()
+    expect(settingsAsked).toBeGreaterThan(0)
+    expect(vm.dataSettings).toEqual(WETTERDIENST_DEFAULTS)
+    expect(defaultUnitChoices(vm)[0]).toBe('Default (Degrees Celsius (°C))')
+
+    // and the page works on
+    const query = await showQuery(wrapper, sent)
+    expect(query).toMatchObject({ humanize: 'true', shape: 'long', drop_nulls: 'true', skip_threshold: '0.95' })
+    expect(JSON.parse(String(query.unit_targets))).toMatchObject({ temperature: 'degree_celsius', speed: 'meter_per_second' })
+    await vi.waitFor(() => expect(wrapper.text()).toContain('12.3'))
+  })
+
+  it('keeps what the link names and the user changed while the answer was on its way', async () => {
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    endpoints.push(registerEndpoint('/api/settings', async () => {
+      settingsAsked += 1
+      await held
+      return serverSettings()
+    }))
+    const wrapper = await mountSuspended(ExplorerPage, { route: '/explorer?humanize=true&shape=long' })
+    mounted.push(wrapper)
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(settingsAsked).toBe(1))
+
+    vm.dataSettings.skipThreshold = 0.5
+    vm.dataSettings.stationDistanceHomogeneous = 55
+    release()
+    await useServerSettings()
+    await wrapper.vm.$nextTick()
+
+    expect(vm.dataSettings).toEqual({
+      ...SERVER_DEFAULTS,
+      // the link's
+      humanize: true,
+      shape: 'long',
+      // the user's
+      skipThreshold: 0.5,
+      stationDistanceHomogeneous: 55,
+    })
+  })
+
+  it('names every setting in the link, which reads back the same where the server\'s differ', async () => {
+    endpoints.push(registerEndpoint('/api/settings', () => serverSettings()))
+    const { wrapper, vm } = await mountWithSelection(() => ({ values: [VALUE_ROW] }))
+    await vi.waitFor(() => expect(vm.dataSettings.humanize).toBe(false))
+
+    // wetterdienst's own, which a link that left it out would read back as the server's
+    vm.dataSettings.humanize = true
+    await wrapper.vm.$nextTick()
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query).toMatchObject({
+      humanize: 'true',
+      convertUnits: 'true',
+      shape: 'wide',
+      skipEmpty: 'true',
+      dropNulls: 'false',
+    }))
+
+    const link = useRouter().currentRoute.value.fullPath
+    const reopened = await mountSuspended(ExplorerPage, { route: link })
+    mounted.push(reopened)
+    await useServerSettings()
+    await reopened.vm.$nextTick()
+    expect((reopened.vm as any).dataSettings).toMatchObject({ humanize: true, shape: 'wide', skipEmpty: true, dropNulls: false })
+  })
+
+  it('keeps a setting the user changed and changed back while the answer was on its way', async () => {
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    endpoints.push(registerEndpoint('/api/settings', async () => {
+      settingsAsked += 1
+      await held
+      return serverSettings()
+    }))
+    const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(settingsAsked).toBe(1))
+
+    vm.dataSettings.humanize = false
+    vm.dataSettings.humanize = true
+    release()
+    await useServerSettings()
+    await wrapper.vm.$nextTick()
+
+    expect(vm.dataSettings.humanize).toBe(true)
+    // one the user left alone is the server's
+    expect(vm.dataSettings.shape).toBe('wide')
+  })
+
+  it('keeps an infinite radius the server reports, which the request then leaves to it', async () => {
+    endpoints.push(registerEndpoint('/api/settings', () => {
+      const settings = serverSettings()
+      settings.interpolate.interpolation_station_distance_homogeneous = 'Infinity'
+      return settings
+    }))
+    const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.dataSettings.stationDistanceHomogeneous).toBe(Number.POSITIVE_INFINITY))
+    expect(vm.dataSettings.stationDistanceHeterogeneous).toBe(30)
+  })
+
+  it('asks again after a failure, which is not asked twice for a 500', async () => {
+    endpoints.push(registerEndpoint('/api/settings', () => {
+      settingsAsked += 1
+      if (settingsAsked === 1)
+        throw createError({ statusCode: 500 })
+      return serverSettings()
+    }))
+
+    await expect(useServerSettings()).resolves.toBeNull()
+    expect(settingsAsked).toBe(1)
+    // a backend that was still starting answers the next one
+    await expect(useServerSettings()).resolves.toEqual(serverSettings())
+    expect(settingsAsked).toBe(2)
+  })
+
+  it('does not ask a backend without the endpoint again', async () => {
+    endpoints.push(registerEndpoint('/api/settings', () => {
+      settingsAsked += 1
+      throw createError({ statusCode: 404 })
+    }))
+
+    await expect(useServerSettings()).resolves.toBeNull()
+    await expect(useServerSettings()).resolves.toBeNull()
+    expect(settingsAsked).toBe(1)
+  })
+
+  it('starts a new parameter\'s radius at 20 km where the server\'s heterogeneous one is infinite', async () => {
+    endpoints.push(registerEndpoint('/api/settings', () => {
+      const settings = serverSettings()
+      settings.interpolate.interpolation_station_distance_heterogeneous = 'Infinity'
+      return settings
+    }))
+    const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.startingSettings.stationDistanceHeterogeneous).toBe(Number.POSITIVE_INFINITY))
+
+    vm.addParameterDistance()
+    expect(vm.parameterDistanceEntries.at(-1).distance).toBe(20)
   })
 })

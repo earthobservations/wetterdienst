@@ -5,7 +5,8 @@
 // the backend, and one unit cannot be added at all: it refuses millimeter_per_second as a target,
 // that being what BUFR publishes a rain rate in rather than a unit to read one in.
 // Each `default` is the backend's own default target for that type (`UnitConverter.targets`), which
-// the explorer names in its "Default (...)" choice and pins in every request.
+// the explorer names in its "Default (...)" choice and pins in every request where the server does not
+// report its own (`GET /api/settings`, GH-2359).
 export const UNIT_TARGET_TYPES = [
   { type: 'temperature', units: ['degree_celsius', 'degree_kelvin', 'degree_fahrenheit'], default: 'degree_celsius' },
   { type: 'speed', units: ['meter_per_second', 'kilometer_per_hour', 'knots', 'beaufort'], default: 'meter_per_second' },
@@ -22,14 +23,18 @@ export const UNIT_TARGET_TYPES = [
 ]
 
 /**
- * The `unit_targets` a request sends: the user's choice for each type, and the listed default for
- * every type in `UNIT_TARGET_TYPES` left at "Default". The server merges its `WD_TS_UNIT_TARGETS`
- * into a request's targets, so a type the request leaves out comes in the server's unit, not the
- * one the "Default (...)" choice names; naming every listed type keeps that label true.
+ * The `unit_targets` a request sends: the user's choice for each type, and the default for every
+ * type in `UNIT_TARGET_TYPES` left at "Default" -- the server's unit where the explorer has it, else
+ * the listed one. The server merges its `WD_TS_UNIT_TARGETS` into a request's targets, so a type the
+ * request leaves out comes in the server's unit, not the one the "Default (...)" choice names; naming
+ * every listed type keeps that label true, and the request the same on any server.
  */
-export function pinnedUnitTargets(chosen: Record<string, string>): Record<string, string> {
+export function pinnedUnitTargets(
+  chosen: Record<string, string>,
+  defaults: Record<string, string> = {},
+): Record<string, string> {
   const targets: Record<string, string> = Object.fromEntries(
-    UNIT_TARGET_TYPES.map(unitType => [unitType.type, unitType.default]),
+    UNIT_TARGET_TYPES.map(unitType => [unitType.type, defaults[unitType.type] ?? unitType.default]),
   )
   for (const [type, unit] of Object.entries(chosen)) {
     if (unit != null && String(unit).trim() !== '')

@@ -1207,7 +1207,7 @@ def select_history_sections(history: dict[str, Any], sections: AbstractSet[str] 
 def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
     """Trim a rank-filtered stations *listing* to the requested ``rank`` rows.
 
-    ``filter_by_rank`` intentionally keeps *all* stations (distance-sorted) in ``df`` because the real
+    ``filter_by_rank`` intentionally keeps *all* stations with a position (distance-sorted) in ``df`` because the real
     ``rank`` limit is applied later, during value collection: that walk takes the ``rank`` closest
     stations that actually carry data -- as sparsely as ``ts_skip_empty`` / ``ts_skip_threshold`` /
     ``ts_skip_criteria`` allow -- and exposes them via ``ValuesResult.df_stations``.

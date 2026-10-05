@@ -21,8 +21,8 @@ export interface DataSettings {
 }
 
 /**
- * The backend's own radii. Kept here so a setting left untouched is not sent at all, which leaves
- * a server configured through `WD_TS_GEO_STATION_DISTANCE_*` to its own values.
+ * wetterdienst's own radii, which the explorer starts from where the server does not report its
+ * own (`GET /api/settings`, GH-2359).
  */
 export const STATION_DISTANCE_DEFAULTS = {
   homogeneous: 40,
