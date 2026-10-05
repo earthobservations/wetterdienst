@@ -169,12 +169,12 @@ Types of changes:
   then use one elevation for such a station whatever the order of the parameters. Otherwise each
   row keeps its own list's elevation. A request for one resolution is not affected by this
   (GH-2336, GH-2362)
-- Locked dependencies refreshed to their latest compatible versions -- 22 packages, among them
-  duckdb 1.5.6, fastapi 0.142.2, platformdirs 4.12.2, and SQLAlchemy 2.1.2 and xarray 2026.9 on
-  Python 3.11 and later; 3.10 keeps the release lines that still support it. With fastapi 0.142,
-  the REST API records OpenTelemetry traces, metrics and logs where the server has an OpenTelemetry
-  provider set up, or sets `OTEL_EXPORTER_OTLP_ENDPOINT` with the OpenTelemetry SDK installed;
-  without the SDK, that variable gets a warning at start. Otherwise nothing changes (GH-2403)
+- Locked dependencies refreshed to their latest compatible versions -- 21 packages, among them
+  duckdb 1.5.6, platformdirs 4.12.2, and SQLAlchemy 2.1.2 and xarray 2026.9 on Python 3.11 and
+  later; 3.10 keeps the release lines that still support it. fastapi stays at 0.141.1. Where no home
+  directory can be found and `WD_CACHE_DIR` is unset, `Settings()` now raises a `RuntimeError`,
+  where it cached in a directory named `~` below the working directory: set `WD_CACHE_DIR` or
+  `HOME` (GH-2403)
 
 ### Deprecated
 
