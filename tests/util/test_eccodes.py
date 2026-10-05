@@ -4,10 +4,21 @@
 
 import builtins
 import logging
+import re
+import sys
+from pathlib import Path
 
 import pytest
+from packaging.requirements import Requirement
 
 from wetterdienst.util import eccodes
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # pragma: no cover
+    import tomli as tomllib
+
+ROOT = Path(__file__).parent.parent.parent
 
 
 @pytest.fixture(autouse=True)
@@ -219,3 +230,48 @@ def test_a_broken_eccodes_seen_through_pdbufr_is_not_read_as_absence(
     with caplog.at_level(logging.WARNING):
         assert eccodes.ensure_pdbufr() is False
     assert "eccodes.eccodes" in caplog.text
+
+
+@pytest.mark.parametrize("extra", ["bufr", "eccodes"])
+def test_the_lock_carries_the_eccodes_library_wherever_the_extra_asks_for_it(extra: str) -> None:
+    """A frozen sync of the extra installs the compiled library, not only the bindings.
+
+    eccodes' own wheel asks for `eccodeslib`, but uv.lock recorded eccodes without it, so the lock
+    held bindings that load only where a system library is present. Naming it in the extra puts it
+    in the lock; this pins that, and that every Python and platform the marker admits has a wheel,
+    since eccodeslib publishes no sdist and a missing wheel fails the whole sync.
+    """
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf8"))
+    (requirement,) = [
+        Requirement(spec)
+        for spec in pyproject["project"]["optional-dependencies"][extra]
+        if Requirement(spec).name == "eccodeslib"
+    ]
+    assert requirement.marker is not None
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf8"))
+    packages = {package["name"]: package for package in lock["package"]}
+    assert "eccodeslib" in {
+        dependency["name"] for dependency in packages["wetterdienst"]["optional-dependencies"][extra]
+    }
+
+    wheels = [wheel["url"].rsplit("/", 1)[1] for wheel in packages["eccodeslib"]["wheels"]]
+    pythons = [
+        classifier.rsplit(" ", 1)[1]
+        for classifier in pyproject["project"]["classifiers"]
+        if re.fullmatch(r"Programming Language :: Python :: 3\.\d+", classifier)
+    ]
+    platforms = {
+        "Linux": [r"manylinux_\d+_\d+_x86_64", r"manylinux_\d+_\d+_aarch64"],
+        "Darwin": [r"macosx_\d+_\d+_arm64", r"macosx_\d+_\d+_x86_64"],
+    }
+    admitted = [
+        (python, tag)
+        for python in pythons
+        for system, tags in platforms.items()
+        for tag in tags
+        if requirement.marker.evaluate({"python_version": python, "platform_system": system})
+    ]
+    assert admitted
+    for python, tag in admitted:
+        abi = "cp" + python.replace(".", "")
+        assert any(re.search(rf"-{abi}-{abi}-{tag}\.whl$", wheel) for wheel in wheels), (python, tag)
