@@ -302,6 +302,8 @@
     "openWidget": "Abrir como widget integrable",
     "chart": {
       "noData": "No hay datos disponibles para la consulta seleccionada",
+      "label": "Gráfico de pronóstico para {name}",
+      "labelNoStation": "Gráfico de pronóstico",
       "panels": "Paneles",
       "panelTemperature": "Temperatura",
       "panelWind": "Viento",
@@ -562,6 +564,8 @@
     "fetchErrorToastTitle": "La solicitud de datos ha fallado",
     "dataTitle": "Datos",
     "noChartData": "No hay datos disponibles para el gráfico",
+    "chartLabel": "Gráfico de los valores",
+    "facetChartLabel": "Gráfico de {parameter}",
     "rowsPerPage": "Filas por página",
     "copied": "Copiado",
     "copiedRows": "{count} filas copiadas al portapapeles",

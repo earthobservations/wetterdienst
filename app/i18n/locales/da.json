@@ -302,6 +302,8 @@
     "openWidget": "Åbn som indlejrbar widget",
     "chart": {
       "noData": "Ingen data tilgængelige for den valgte forespørgsel",
+      "label": "Prognosediagram for {name}",
+      "labelNoStation": "Prognosediagram",
       "panels": "Paneler",
       "panelTemperature": "Temperatur",
       "panelWind": "Vind",
@@ -562,6 +564,8 @@
     "fetchErrorToastTitle": "Dataforespørgslen mislykkedes",
     "dataTitle": "Data",
     "noChartData": "Ingen data tilgængelige til diagrammet",
+    "chartLabel": "Diagram over værdierne",
+    "facetChartLabel": "Diagram over {parameter}",
     "rowsPerPage": "Rækker pr. side",
     "copied": "Kopieret",
     "copiedRows": "{count} rækker kopieret til udklipsholderen",

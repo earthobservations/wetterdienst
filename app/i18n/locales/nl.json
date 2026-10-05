@@ -302,6 +302,8 @@
     "openWidget": "Openen als insluitbare widget",
     "chart": {
       "noData": "Geen gegevens beschikbaar voor de geselecteerde zoekopdracht",
+      "label": "Verwachtingsgrafiek voor {name}",
+      "labelNoStation": "Verwachtingsgrafiek",
       "panels": "Panelen",
       "panelTemperature": "Temperatuur",
       "panelWind": "Wind",
@@ -562,6 +564,8 @@
     "fetchErrorToastTitle": "Gegevensaanvraag mislukt",
     "dataTitle": "Gegevens",
     "noChartData": "Geen gegevens beschikbaar voor de grafiek",
+    "chartLabel": "Grafiek van de waarden",
+    "facetChartLabel": "Grafiek van {parameter}",
     "rowsPerPage": "Rijen per pagina",
     "copied": "Gekopieerd",
     "copiedRows": "{count} rijen naar het klembord gekopieerd",

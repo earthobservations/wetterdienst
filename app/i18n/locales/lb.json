@@ -302,6 +302,8 @@
     "openWidget": "Als anbettbar Widget opmaachen",
     "chart": {
       "noData": "Keng Daten verfügbar fir déi ausgewielten Ufro",
+      "label": "Prognosediagramm fir {name}",
+      "labelNoStation": "Prognosediagramm",
       "panels": "Panelen",
       "panelTemperature": "Temperatur",
       "panelWind": "Wand",
@@ -562,6 +564,8 @@
     "fetchErrorToastTitle": "Datenufro huet net geklappt",
     "dataTitle": "Daten",
     "noChartData": "Keng Daten verfügbar fir d'Diagramm",
+    "chartLabel": "Diagramm vun de Wäerter",
+    "facetChartLabel": "Diagramm vun {parameter}",
     "rowsPerPage": "Zeile pro Säit",
     "copied": "Kopéiert",
     "copiedRows": "{count} Zeilen an d'Tëschenoflag kopéiert",
