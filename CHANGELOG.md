@@ -23,6 +23,31 @@ Types of changes:
   interpolate, or a `station` without a position -- with a 400 rather than a 404, as they answer
   an elevation no station can be placed against. The server logs it as an info line, not as an
   error with its traceback (GH-2385)
+### Fixed
+
+- `Settings` takes an all-digit `WD_AUTH__METNO_FROST` as the Frost client id it is, and refuses a
+  `WD_AUTH__CEDA` or `WD_AUTH__METNO_FROST` that is neither text nor a pair, such as `5`, `true` or
+  a JSON object, with a `ValidationError` naming `auth.ceda` / `auth.metno_frost`. It raised a
+  bare `TypeError` that named nothing, or took a JSON object's keys as the pair (GH-2379)
+- A credential assigned to `settings.auth` after construction, such as `settings.auth.knmi = "key"`,
+  is held as a secret and checked as one given to the constructor is: a `username:password` text
+  for `ceda` is split, and the mask a JSON dump leaves behind is refused. It was kept as plain
+  text, which `reveal()` and the providers failed on (GH-2387)
+- `wetterdienst issues` reports a refused option, such as `--lead_time` on MOSMIX, as a one-line
+  usage error with exit code 2 instead of a traceback with exit code 1. An upstream failure still
+  logs its traceback and exits 1 (GH-2368)
+- The climate stripes refuse a station that returns no rows, such as one whose data file is
+  missing, with `NotEnoughDataError` ("has data for no year"): a 400 from `/api/stripes/values`
+  and `/api/stripes/image` and their MCP tools, and that message from `wetterdienst stripes`. They
+  raised polars' `ComputeError`, a 500 (GH-2369)
+- `wetterdienst history --target file://history.json`, the form its docs show, writes
+  `history.json`. The `file://` prefix was kept, so the write went to `file:/history.json` and
+  failed with "No such file or directory". A plain path works as before (GH-2370)
+- `Settings()` no longer fails where no home directory resolves (HOME unset and the uid missing
+  from the password database), which it did with platformdirs 4.12 even with
+  `cache_disable=True`. Without `WD_CACHE_DIR` the cache is then kept in a temporary directory, one
+  per process and removed at exit, with a warning to set `WD_CACHE_DIR` or `HOME`; a `~` directory
+  below the working directory is no longer created with older platformdirs either (GH-2408)
 
 ## [0.140.0] - 2026-10-05
 

@@ -2400,3 +2400,36 @@ describe('dataViewer settings the explorer starts from the server\'s', () => {
     })
   })
 })
+
+describe('dataViewer chart names', () => {
+  // the charts Plotly drew into, the single one or each facet, each once however often it was drawn,
+  // by the role and the name a screen reader announces them with
+  function drawnInto(faceted: boolean) {
+    const draw = faceted ? plotly.react : plotly.newPlot
+    return [...new Set(draw.mock.calls.map(call => (call as unknown as [HTMLElement])[0]))]
+      .map(chart => [chart.getAttribute('role'), chart.getAttribute('aria-label')])
+  }
+
+  it('names the single chart, as a figure', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.newPlot.mockClear()
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    expect(drawnInto(false)).toEqual([['figure', 'Chart of the values']])
+  })
+
+  it('names each facet by its parameter, as a figure', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    plotly.react.mockClear()
+    await showChart(wrapper, true)
+    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
+    expect(drawnInto(true)).toEqual([
+      ['figure', 'Chart of temperature_air_mean_2m'],
+      ['figure', 'Chart of precipitation_height'],
+    ])
+  })
+})

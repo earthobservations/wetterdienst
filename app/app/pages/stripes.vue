@@ -107,6 +107,14 @@ const plotContainer = ref<HTMLElement | null>(null)
 const isLoading = ref(false)
 const hasPlot = ref(false)
 const lastFetchedData = ref<StripesValuesResponse | null>(null)
+// the stripes' title: the kind and the station of the values. A kind changed clears the stripes, so
+// the kind chosen is theirs
+function plotTitle(data: StripesValuesResponse) {
+  const station = data.metadata.station
+  return t('stripes.plotTitle', { kind: kindLabel(kind.value), name: station.name, id: station.station_id })
+}
+// the stripes' accessible name, their title
+const plotLabel = computed(() => lastFetchedData.value ? plotTitle(lastFetchedData.value) : undefined)
 // The stripes' drawings, numbered as they start. Failed: the newest threw -- Plotly's import or its
 // drawing -- and the chart area says so; failures counted, so a Retry that fails too is told again
 let plotsStarted = 0
@@ -394,11 +402,7 @@ async function drawStripes(data: StripesValuesResponse) {
     traces.push(trendlineTrace as Plotly.Data)
 
   // Layout configuration
-  const titleText = t('stripes.plotTitle', {
-    kind: kindLabel(kind.value),
-    name: data.metadata.station.name,
-    id: data.metadata.station.station_id,
-  })
+  const titleText = plotTitle(data)
   const containerWidth = plotContainer.value.clientWidth
 
   const layout: Partial<Plotly.Layout> = {
@@ -868,8 +872,9 @@ onMounted(() => {
           <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="lastFetchedData && plotStripes(lastFetchedData)" />
           <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
         </div>
+        <!-- a figure, not an image: Plotly's own controls in it stay reachable; nor a landmark -->
         <div
-          ref="plotContainer" tabindex="-1" :class="{ hidden: !hasPlot }"
+          ref="plotContainer" tabindex="-1" role="figure" :aria-label="plotLabel" :class="{ hidden: !hasPlot }"
           class="w-full overflow-hidden" style="min-height: 400px;"
         />
         <div v-if="hasPlot && !plotFailed" class="mt-4">
