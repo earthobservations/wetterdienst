@@ -1076,7 +1076,7 @@ def test_settings_auth_refuses_a_masked_value_assigned_as_a_credential(field: st
 @pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize("field", ["ceda", "metno_frost"])
 @pytest.mark.parametrize("container", [collections.deque, iter], ids=["deque", "iterator"])
-def test_settings_auth_reads_a_pair_from_any_sequence(field: str, container: Callable) -> None:
+def test_settings_auth_reads_a_pair_from_another_iterable(field: str, container: Callable) -> None:
     """A pair given as another iterable than a tuple or list is read as one, and its mask refused (GH-2379).
 
     Leaving every value but a tuple or list for the field passed these on unread, and the mask in them

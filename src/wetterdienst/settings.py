@@ -118,9 +118,9 @@ class Auth(BaseModel):
         """Parse the Frost (client_id, secret) pair, a lone client id counting as one with no secret.
 
         An all-digit client id arrives as an `int`, as the environment decodes a nested value as JSON
-        where it parses, and is still an id. Any other value that is no sequence -- a float, `true`, a
-        JSON object -- is left for the field to refuse, which names it, where reading it as a pair
-        failed with a bare `TypeError` or took the object's keys (GH-2379).
+        where it parses, and is still an id. A mapping, or any other value that is not iterable -- a
+        float, `true`, a JSON object -- is left for the field to refuse, which names it, where reading
+        it as a pair failed with a bare `TypeError` or took the object's keys (GH-2379).
         """
         if value is None:
             return None
@@ -144,9 +144,10 @@ class Auth(BaseModel):
     ) -> object:
         """Parse the CEDA (username, password) pair, e.g. from ``WD_AUTH__CEDA=username:password``.
 
-        A value that is neither that text nor a sequence -- a number, `true` or a JSON object, which
-        the environment decodes as JSON -- is left for the field to refuse, which names it, where
-        reading it as a pair failed with a bare `TypeError` or took the object's keys (GH-2379).
+        A mapping, or a value that is neither that text nor iterable -- a number, `true` or a JSON
+        object, which the environment decodes as JSON -- is left for the field to refuse, which names
+        it, where reading it as a pair failed with a bare `TypeError` or took the object's keys
+        (GH-2379).
         """
         if value is None:
             return None
