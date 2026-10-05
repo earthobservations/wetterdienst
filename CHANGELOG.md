@@ -22,6 +22,9 @@ Types of changes:
   missing, with `NotEnoughDataError` ("has data for no year"): a 400 from `/api/stripes/values`
   and `/api/stripes/image` and their MCP tools, and that message from `wetterdienst stripes`. They
   raised polars' `ComputeError`, a 500 (GH-2369)
+- `wetterdienst history --target file://history.json`, the form its docs show, writes
+  `history.json`. The `file://` prefix was kept, so the write went to `file:/history.json` and
+  failed with "No such file or directory". A plain path works as before (GH-2370)
 
 ## [0.140.0] - 2026-10-05
 
