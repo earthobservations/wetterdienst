@@ -28,7 +28,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
-from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import Settings, SkipThreshold
 from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.ui import read_list
@@ -1538,18 +1538,15 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         dataset = "precipitation_more"
         parameter = "precipitation_amount"
 
-    # as the values were converted, by the settings the stripes request is built with: to the target
-    # of their quantity, or left in the unit the source publishes them in
-    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+    # by the parameter and settings the values were read with: the target of its quantity where they
+    # were converted, the unit the source publishes them in where not
+    from wetterdienst.core.util import _values_unit  # noqa: PLC0415
 
-    parameter_model = DwdObservationMetadata[resolution][dataset][parameter]
-    settings = _get_stripes_settings()
-    unit_converter = UnitConverter()
-    unit_converter.update_targets(settings.ts_unit_targets)
-    unit = (
-        unit_converter.targets[parameter_model.unit_type]
-        if settings.ts_convert_units
-        else unit_converter.get_unit(parameter_model.unit, parameter_model.unit_type)
+    (parameter_model,) = stations.parameters
+    unit = _values_unit(
+        parameter_model,
+        stations.values.unit_converter,
+        convert_units=stations.settings.ts_convert_units,
     )
 
     metadata = StripesMetadata(
@@ -1557,7 +1554,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         resolution=resolution,
         dataset=dataset,
         parameter=parameter,
-        unit=unit.name,
+        unit=unit,
     )
 
     return StripesData(metadata=metadata, df=df)
