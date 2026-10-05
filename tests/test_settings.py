@@ -1005,9 +1005,10 @@ def _no_home(appname: str) -> str:
 
 @pytest.fixture
 def fresh_temporary_cache_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Path]:
-    """Create the fallback cache directory below `tmp_path`, anew for each test."""
+    """Create the fallback cache directory below `tmp_path`, anew for each test, with no exit handler."""
     monkeypatch.delenv("WD_CACHE_DIR", raising=False)
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(atexit, "register", lambda *_args, **_kwargs: None)
     _temporary_cache_dir.cache_clear()
     yield tmp_path
     _temporary_cache_dir.cache_clear()
@@ -1093,7 +1094,6 @@ def test_settings_make_one_temporary_cache_dir_for_threads_that_miss_at_once(
 ) -> None:
     """A second thread asking while the first makes the directory gets the same one (GH-2408)."""
     monkeypatch.setattr(platformdirs, "user_cache_dir", _no_home)
-    monkeypatch.setattr(atexit, "register", lambda *_args, **_kwargs: None)
     mkdtemp = tempfile.mkdtemp
     made = []
     second: list[Path] = []
