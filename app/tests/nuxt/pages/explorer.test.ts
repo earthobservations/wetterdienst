@@ -1073,21 +1073,50 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
     expect(vm.dataSettings).toMatchObject({ shape: 'long', dropNulls: false })
   })
 
-  it('keeps a Drop nulls the link names', async () => {
+  // the page opened from the link it wrote on that server, as a reload does, the link naming
+  // `humanize` off the server's too
+  async function mountFromLink(query: string) {
     endpoints.push(registerEndpoint('/api/settings', (event) => {
       asked.push(getQuery(event).shape)
-      return wideServer(event)
+      return { values: { ...wideServer(event).values, humanize: false } }
     }))
-    const wrapper = await mountSuspended(ExplorerPage, { route: '/explorer?dropNulls=false' })
+    const wrapper = await mountSuspended(ExplorerPage, { route: `/explorer?humanize=true&shape=wide&${query}` })
     mounted.push(wrapper)
     const vm = wrapper.vm as any
-    await vi.waitFor(() => expect(vm.dataSettings.shape).toBe('wide'))
+    await expect(useServerSettings()).resolves.not.toBeNull()
+    await settle()
+    return vm
+  }
+
+  it('takes the link\'s Drop nulls on load, over the server\'s', async () => {
+    const vm = await mountFromLink('dropNulls=true')
+
+    expect(vm.dataSettings).toMatchObject({ humanize: true, shape: 'wide', dropNulls: true })
+    expect(asked).toEqual([undefined])
+  })
+
+  it('takes the new shape\'s Drop nulls over the link\'s, and keeps the link\'s other settings (GH-2400)', async () => {
+    const vm = await mountFromLink('dropNulls=false')
 
     vm.dataSettings.shape = 'long'
     await vi.waitFor(() => expect(asked).toEqual([undefined, 'long']))
     await settle()
 
-    expect(vm.dataSettings.dropNulls).toBe(false)
+    expect(vm.dataSettings).toMatchObject({ humanize: true, shape: 'long', dropNulls: true })
+  })
+
+  it('keeps a Drop nulls the link names and the user changed (GH-2400)', async () => {
+    const vm = await mountFromLink('dropNulls=false')
+
+    // changed and changed back, which is still the user's
+    vm.dataSettings.dropNulls = true
+    vm.dataSettings.dropNulls = false
+    vm.dataSettings.shape = 'long'
+    await vi.waitFor(() => expect(asked).toEqual([undefined, 'long']))
+    await settle()
+    expect(shapeAnswers).toHaveLength(1)
+
+    expect(vm.dataSettings).toMatchObject({ shape: 'long', dropNulls: false })
   })
 
   it.each([404, 422, 500])('keeps Drop nulls where /api/settings answers the shape with a %i', async (status) => {
