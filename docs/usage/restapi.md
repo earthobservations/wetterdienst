@@ -72,8 +72,21 @@ A setting a request to `values`, `interpolate` or `summarize` leaves out takes t
 `WD_TS_*` variable, where it sets one, else wetterdienst's default. The settings endpoint reports
 what each of them takes, keyed by endpoint, with `unit_targets` naming the unit of every quantity.
 
+It takes the settings query parameters of the three endpoints, and answers what they resolve to
+over the server's, for each endpoint that takes the parameter: `humanize`, `convert_units` and
+`unit_targets` apply to all three, `min_gain_of_value_pairs` and `num_additional_stations` to
+`interpolate` and `summarize`. A value an endpoint refuses is refused here the same way, and an
+unknown parameter too, so a set of settings can be checked before fetching. Nothing is stored on
+the server: the parameters apply to that one answer.
+
 ```bash
 http localhost:7890/api/settings
+
+# What a values request with shape=wide would get: the wide shape turns drop_nulls off.
+http localhost:7890/api/settings shape==wide
+
+# Check unit targets before fetching; an unknown unit is a 400 naming it.
+http localhost:7890/api/settings unit_targets=='{"temperature": "degree_fahrenheit"}'
 ```
 
 ### Stations
