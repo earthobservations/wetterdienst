@@ -257,3 +257,31 @@ describe('meteogram chart after a Retry', { timeout: 15_000 }, () => {
     expect(document.activeElement).toBe(button)
   })
 })
+
+describe('meteogram chart name', { timeout: 15_000 }, () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  // the chart Plotly drew into, by the role and the name a screen reader announces it with
+  async function drawnInto(stationName: string | null) {
+    plotly.newPlot.mockClear()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName }, attachTo: document.body })
+    await wrapper.setProps({ values })
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    // the mock takes no arguments in its type, so its call is read as Plotly's (element)
+    const [chart] = plotly.newPlot.mock.calls[0] as unknown as [HTMLElement]
+    return [chart.getAttribute('role'), chart.getAttribute('aria-label')]
+  }
+
+  it('names the chart by its station, as a region', async () => {
+    expect(await drawnInto('Berlin')).toEqual(['region', 'Forecast chart for Berlin'])
+  })
+
+  it('names the chart without a station where it is given none', async () => {
+    expect(await drawnInto(null)).toEqual(['region', 'Forecast chart'])
+  })
+})
