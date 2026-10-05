@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `wetterdienst stripes values` checks `--target`'s suffix against `--format`: `--format=jpg` now
+  takes a `.jpeg` target, and a target merely ending in the format's letters, such as `stripespng`
+  or `out.xpng`, is refused instead of written without the extension. The refusal names the
+  suffixes it takes, `'.png'` where it said `'png'` (GH-2371)
 ### Added
 
 - The JSON of `/api/stripes/values` and the MCP `stripes_values` tool name the unit of their
