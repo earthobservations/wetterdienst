@@ -270,9 +270,12 @@ def _stripes_of(monkeypatch: pytest.MonkeyPatch, values: dict[int, float | None]
     )
     # read with the parameter and settings of the real request, which the metadata names the unit by
     real = core._get_stripes_temperature_request()  # noqa: SLF001
+    # as the values build theirs
+    unit_converter = UnitConverter()
+    unit_converter.update_targets(real.settings.ts_unit_targets)
     stations = SimpleNamespace(
         to_dict=lambda: {"stations": [{"station_id": "01048", "name": "Dresden-Klotzsche"}]},
-        values=SimpleNamespace(all=lambda: SimpleNamespace(df=frame), unit_converter=UnitConverter()),
+        values=SimpleNamespace(all=lambda: SimpleNamespace(df=frame), unit_converter=unit_converter),
         parameters=real.parameters,
         settings=real.settings,
     )

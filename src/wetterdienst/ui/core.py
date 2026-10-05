@@ -1530,31 +1530,21 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         pl.when(value.is_not_null()).then(-0.02).otherwise(None).alias("availability"),
     )
 
-    resolution = "annual"
-    if kind == "temperature":
-        dataset = "climate_summary"
-        parameter = "temperature_air_mean_2m"
-    else:
-        dataset = "precipitation_more"
-        parameter = "precipitation_amount"
-
-    # by the parameter and settings the values were read with: the target of its quantity where they
-    # were converted, the unit the source publishes them in where not
+    # named by the one parameter the values were read for, as is their unit: the target of its
+    # quantity where they were converted, the unit the source publishes them in where not
     from wetterdienst.core.util import _values_unit  # noqa: PLC0415
 
     (parameter_model,) = stations.parameters
-    unit = _values_unit(
-        parameter_model,
-        stations.values.unit_converter,
-        convert_units=stations.settings.ts_convert_units,
-    )
-
     metadata = StripesMetadata(
         station=station,
-        resolution=resolution,
-        dataset=dataset,
-        parameter=parameter,
-        unit=unit,
+        resolution=parameter_model.dataset.resolution.name,
+        dataset=parameter_model.dataset.name,
+        parameter=parameter_model.name,
+        unit=_values_unit(
+            parameter_model,
+            stations.values.unit_converter,
+            convert_units=stations.settings.ts_convert_units,
+        ),
     )
 
     return StripesData(metadata=metadata, df=df)

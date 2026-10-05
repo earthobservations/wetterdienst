@@ -1341,9 +1341,9 @@ def stripes_values(
 ) -> Response:
     """Get climate stripes data values with timestamps and metadata.
 
-    The JSON metadata names the unit of the values in `unit` (e.g. "degree_celsius"): the server's
-    unit settings set it, as for `/api/values`, whose settings report the unit of each quantity in
-    `unit_targets`.
+    The JSON metadata names the unit of the values in `unit`, e.g. "degree_celsius". The server's
+    WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter
+    for: the target of the quantity where the values are converted, the source's unit where not.
     """
     set_logging_level(debug=request.debug)
 

@@ -5992,7 +5992,7 @@ def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: li
 
 @pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize(
-    ("kind", "environment", "unit", "values"),
+    ("kind", "environment", "unit", "expected"),
     [
         pytest.param("temperature", {}, "degree_celsius", [1.0, 2.0], id="temperature"),
         pytest.param(
@@ -6025,14 +6025,15 @@ def test_stripes_values_name_the_unit_the_server_converts_to(
     kind: str,
     environment: dict[str, str],
     unit: str,
-    values: list[float],
+    expected: list[float],
 ) -> None:
     """The stripes metadata names the unit of their values, which the server's settings set (GH-2372).
 
     The stripes read a station's values with the server's `WD_TS_CONVERT_UNITS` and
     `WD_TS_UNIT_TARGETS`, so a station whose annual mean was 1.0 °C came back as 33.8 under a
     Fahrenheit target, with nothing in the metadata saying so. The station's listing and download
-    are stubbed, so the conversion runs and nothing leaves the machine.
+    are stubbed, so the conversion runs and nothing leaves the machine. The station's record is
+    1.0 and 2.0 in the source's unit; `expected` is what comes back.
     """
     for name, setting in environment.items():
         monkeypatch.setenv(name, setting)
@@ -6043,7 +6044,12 @@ def test_stripes_values_name_the_unit_the_server_converts_to(
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["metadata"]["unit"] == unit
-    assert [item["value"] for item in data["values"]] == values
+    assert [item["value"] for item in data["values"]] == expected
+    # named by the parameter the unit is taken from
+    assert (data["metadata"]["resolution"], data["metadata"]["dataset"], data["metadata"]["parameter"]) == {
+        "temperature": ("annual", "climate_summary", "temperature_air_mean_2m"),
+        "precipitation": ("annual", "precipitation_more", "precipitation_amount"),
+    }[kind]
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
