@@ -40,6 +40,7 @@ from wetterdienst.ui.core import (
     SummaryRequest,
     ValuesRequest,
     _get_stripes_stations,
+    _is_caller_refusal,
     _plot_stripes,
     describe_fields,
     get_glossary,
@@ -1139,7 +1140,11 @@ def issues_cmd(
     except NotImplementedError:
         log.exception("Issues not available for the given request.")
         sys.exit(1)
-    except Exception:
+    except Exception as e:
+        # a request the caller can rephrase, such as a DMO-only option on MOSMIX, is told in one
+        # line, as `/api/issues` answers it with a 400; an upstream failure keeps its traceback
+        if _is_caller_refusal(e, request):
+            raise click.UsageError(str(e)) from e
         log.exception("Failed to get issues.")
         sys.exit(1)
 
