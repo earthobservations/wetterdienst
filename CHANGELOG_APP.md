@@ -18,9 +18,9 @@ Types of changes:
 
 ### Fixed
 
-- `[Explorer/Stripes/Meteogram]` A screen reader names each chart: the data viewer's chart, or each
-  facet by its parameter, the meteogram by its station and the stripes by their kind and station.
-  They were unnamed, so reaching one announced nothing useful (GH-2376)
+- `[Explorer/Stripes/Meteogram/Widget]` A screen reader names each chart: the data viewer's chart,
+  or each facet by its parameter, the meteogram (also in the widget) by its station and the stripes
+  by their kind and station. They were unnamed, so reaching one announced nothing useful (GH-2376)
 
 ## [0.18.0] - 2026-10-05
 
