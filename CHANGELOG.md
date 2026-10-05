@@ -21,13 +21,8 @@ Types of changes:
 - `wetterdienst history --target file://history.json`, the form its docs show, writes
   `history.json`. The `file://` prefix was kept, so the write went to `file:/history.json` and
   failed with "No such file or directory". A plain path works as before (GH-2370)
-- The `bufr` and `eccodes` extras name `eccodeslib`, the compiled ecCodes library, on Linux
-  x86_64/aarch64 and macOS for Python 3.11 to 3.14. uv.lock had left it out, so an install from the
-  lock, the Docker image's included, read BUFR only where a system libeccodes was present. Where it
-  is installed, eccodes loads it before a system or conda library; set
-  `FINDLIBS_DISABLE_PACKAGE=yes` to keep using one of those. On musl, glibc before 2.28 or a
-  free-threaded Python, which have no eccodeslib wheel, nothing meets the extra any more: install
-  `eccodes` and `pdbufr` without it, over a system libeccodes (GH-2409)
+- The Docker image reads BUFR: DWD road weather data, and radar BUFR with `read_bufr`. It had the
+  eccodes bindings but no ecCodes library behind them; it now installs Debian's (GH-2409)
 
 ## [0.140.0] - 2026-10-05
 
