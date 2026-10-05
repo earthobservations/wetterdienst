@@ -216,32 +216,65 @@ if (route.query.dropNulls != null)
   settingsFromLink.dropNulls = route.query.dropNulls.toString() !== 'false'
 const dataSettings = ref<DataSettings>({ ...structuredClone(toRaw(startingSettings.value)), ...settingsFromLink })
 
-// the settings the user has changed, ever: one changed and changed back is still theirs
+// the settings the user has changed, ever: one changed and changed back is still theirs. The
+// server's, written by `seedSettings`, are not
 const changedSettings = new Set<keyof DataSettings>()
-const stopTrackingChanges = watch(() => ({ ...dataSettings.value }), (now, before) => {
+let seeding = false
+watch(() => ({ ...dataSettings.value }), (now, before) => {
+  if (seeding)
+    return
   for (const key of Object.keys(now) as (keyof DataSettings)[]) {
     if (now[key] !== before[key])
       changedSettings.add(key)
   }
+  if (now.shape !== before.shape)
+    void reseedForShape(now.shape)
 }, { flush: 'sync' })
 
-// The server's defaults (GH-2359), once it reports them: each takes the place of a setting the link
-// does not name and the user has not changed while the answer was on its way. A server without
-// the endpoint, or one that fails, leaves wetterdienst's. The request still names every setting, so
-// a copied link or API URL asks for the same on any server
-useServerSettings().then((server) => {
-  stopTrackingChanges()
-  if (!server)
-    return
-  unitTargetDefaults.value = defaultUnitTargets(server)
-  const reported = serverDataSettings(server)
+/** Each of `reported` in place of a setting the link does not name and the user has not changed. */
+function seedSettings(reported: Partial<DataSettings>) {
   const settings: Record<keyof DataSettings, unknown> = dataSettings.value
+  seeding = true
   for (const key of Object.keys(reported) as (keyof DataSettings)[]) {
     if (!(key in settingsFromLink) && !changedSettings.has(key))
       settings[key] = reported[key]
   }
+  seeding = false
+}
+
+// The server's defaults (GH-2359), once it reports them: each takes the place of a setting the link
+// does not name and the user has not changed while the answer was on its way. A server without
+// the endpoint, or one that fails, leaves wetterdienst's. The request still names every setting, so
+// a copied link or API URL asks for the same on any server. Whether there was an answer
+const seededFromServer = useServerSettings().then((server) => {
+  if (!server)
+    return false
+  unitTargetDefaults.value = defaultUnitTargets(server)
+  const reported = serverDataSettings(server)
+  seedSettings(reported)
   Object.assign(startingSettings.value, reported)
+  return true
 })
+
+// The settings whose value in effect the shape decides: the wide shape turns drop_nulls off
+const SHAPE_SETTINGS = ['dropNulls'] as const satisfies (keyof DataSettings)[]
+let shapeAsked = 0
+
+// A shape the user switches to has its own server settings (GH-2398): the server's, for that shape,
+// take the place of the ones the server reported for the shape before, under the same rule as its
+// first answer. They are asked after that answer, so they are laid over it, and only of a backend
+// that gave one. A backend that refuses the parameter, or fails, leaves the settings as they are, as
+// does the answer to a switch the user has made again since
+async function reseedForShape(shape: DataSettings['shape']) {
+  const asked = ++shapeAsked
+  if (!await seededFromServer)
+    return
+  const server = await serverSettingsFor({ shape })
+  if (asked !== shapeAsked || !server)
+    return
+  const reported = serverDataSettings(server)
+  seedSettings(Object.fromEntries(SHAPE_SETTINGS.filter(key => key in reported).map(key => [key, reported[key]])))
+}
 
 // Track parameter distance entries with stable IDs
 const parameterDistanceEntries = ref<Array<{ id: string, paramName: string, distance: number }>>([])
