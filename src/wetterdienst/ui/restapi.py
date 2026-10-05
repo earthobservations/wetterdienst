@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 import logging
 import math
-import sys
 from textwrap import dedent
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar
 
@@ -20,18 +19,11 @@ from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
-    InvalidBoundingBoxError,
-    InvalidEnumerationError,
     InvalidTimeIntervalError,
-    IssueNotFoundError,
     LocationOutOfRangeError,
-    NoParametersFoundError,
-    NoPeriodsFoundError,
     NoStationsWithElevationError,
-    NotEnoughDataError,
     ParameterNotCarriedError,
     StartDateEndDateError,
-    StationNotFoundError,
 )
 from wetterdienst.metadata.resolution import Resolution
 
@@ -63,6 +55,7 @@ from wetterdienst.ui.core import (
     ValuesRequest,
     _get_stripes_data,
     _get_stripes_stations,
+    _is_caller_refusal,
     _plot_stripes,
     get_glossary,
     get_interpolate,
@@ -1067,62 +1060,6 @@ def _geo_settings(
     return _request_settings(request, given, InterpolationSettings if kind == "interpolation" else SummarySettings)
 
 
-# what a request can provoke on its way through `get_values`, `get_interpolate` and
-# `get_summarize` besides the refusals the helpers below name: a date, period, parameter, bounding
-# box, point or issue that cannot be served as given, or a station the lookup does not
-# know. The station lookup of `/api/stations` and `/api/history`, the issue listing and the values of
-# the climate stripes provoke a subset of these, and two more: a dataset `/api/history` cannot list
-# without the date it has no field for (a refusal the helpers below name before this), and stripes
-# over years holding too little data.
-# An `OverflowError` is a date at the edge of what a datetime holds -- `9999-12-31T23:00Z` once a
-# provider converts it to its own zone, an issue a negative offset carries past year 9999 -- and the
-# dates on the way that come that close are the request's. Anything else -- a provider's file in a
-# layout its parser does not expect, an upstream that does not answer, a frame of an unexpected
-# shape -- is not the caller's to fix, and is a 500
-_CALLER_REFUSALS = (
-    OverflowError,
-    InvalidBoundingBoxError,
-    InvalidEnumerationError,
-    InvalidTimeIntervalError,
-    IssueNotFoundError,
-    LocationOutOfRangeError,
-    NoParametersFoundError,
-    NoPeriodsFoundError,
-    NotEnoughDataError,
-    StartDateEndDateError,
-    StationNotFoundError,
-)
-
-
-def _is_caller_refusal(e: Exception, request: BaseModel) -> bool:
-    """Tell whether a failure is the request's own, which the caller can rephrase.
-
-    The caller's own `sql` or `sql_values` is the only SQL run on the way, so a DuckDB error about
-    the statement -- its syntax, a column or function it names, a value it compares -- is theirs.
-    So, where the request carries a clause, are the refusals of the connection the clause runs on
-    (`ExportMixin._filter_by_sql`): a file, URL or extension it may not touch
-    (`PermissionException`), more memory than the limit sized to the frame lets it build
-    (`OutOfMemoryException`), a construct DuckDB does not implement, such as an outer join on a
-    correlated column (`NotSupportedError`), and an extension DuckDB would install on the fly,
-    refused with the bare `duckdb.Error`. Every DuckDB error derives from that one, so only the exact class counts:
-    an `InternalException` or an `IOException` fails inside DuckDB and stays a 500, and so does
-    DuckDB running out of memory for a request without a clause. DuckDB is optional, and an error of
-    its can only be raised once it has been imported.
-    """
-    duckdb = sys.modules.get("duckdb")
-    if isinstance(e, _CALLER_REFUSALS):
-        return True
-    if duckdb is None:
-        return False
-    if isinstance(e, (duckdb.ProgrammingError, duckdb.DataError)):
-        return True
-    clause_given = any(getattr(request, name, None) for name in ("sql", "sql_values"))
-    return clause_given and (
-        isinstance(e, (duckdb.PermissionException, duckdb.OutOfMemoryException, duckdb.NotSupportedError))
-        or type(e) is duckdb.Error
-    )
-
-
 def _values(
     api: type[TimeseriesRequest],
     request: ValuesRequest,
@@ -1165,16 +1102,17 @@ def _geo_values(
 
     Both endpoints answered every failure with a 404, which reads as "no such thing" for a request
     that was understood and simply cannot be served as phrased -- an elevation no station in reach
-    can be placed against, or a window that ends before it starts. Those are 400s, and a reader
-    missing on the server is a 501; the same three in both places, so they are decided here rather
-    than twice over.
+    can be placed against, a station without a position, a point an interpolation cannot place
+    beyond the latitudes UTM covers (a summary converts nothing to UTM), or a window that ends
+    before it starts. Those are 400s, and a reader missing on the server is a 501; the same
+    decisions in both places, so they are made here rather than twice over.
     """
     try:
         return get(api=api, request=request, settings=settings)
-    except (NoStationsWithElevationError, ParameterNotCarriedError) as e:
+    except (LocationOutOfRangeError, NoStationsWithElevationError, ParameterNotCarriedError) as e:
         # the message is the whole of it: which parameters lost their stations, and that asking
-        # without an elevation gets them back; or which parameters the run does not carry, and the
-        # lead time that does
+        # without an elevation gets them back; which parameters the run does not carry, and the
+        # lead time that does; or the latitudes UTM covers, or the station that has no position
         log.info(f"Failed to {what}: {e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
     except StartDateEndDateError as e:
@@ -1339,7 +1277,12 @@ def stripes_stations(
 def stripes_values(
     request: Annotated[StripesValuesRequest, Query()],
 ) -> Response:
-    """Get climate stripes data values with timestamps and metadata."""
+    """Get climate stripes data values with timestamps and metadata.
+
+    The JSON metadata names the unit of the values in `unit`, e.g. "degree_celsius". The server's
+    WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter
+    for: the target of the quantity where the values are converted, the source's unit where not.
+    """
     set_logging_level(debug=request.debug)
 
     # checked outside the handler below, as for `/api/stripes/stations`
