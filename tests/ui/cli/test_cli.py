@@ -1074,3 +1074,15 @@ def test_issues_refuses_the_dmo_options_for_mosmix_and_swsmos(
         )
     assert result.exit_code == 1, result.output
     assert f"{option} applies to DWD DMO only" in caplog.text
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_cli_tells_a_numeric_auth_setting_by_its_variable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a WD_AUTH__CEDA the environment decodes as a number is told by its variable, in one line (GH-2379).
+
+    It used to end in a bare `TypeError` traceback that named nothing.
+    """
+    monkeypatch.setenv("WD_AUTH__CEDA", "5")
+    result = CliRunner().invoke(cli, ["cache"])
+    assert result.exit_code == 1, result.output
+    assert result.output == "Error: WD_AUTH__CEDA is invalid: Input should be a valid tuple\n"

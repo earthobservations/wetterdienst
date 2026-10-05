@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `Settings` takes an all-digit `WD_AUTH__METNO_FROST` as the Frost client id it is, and refuses a
+  `WD_AUTH__CEDA` or `WD_AUTH__METNO_FROST` that is neither text nor a pair, such as `5`, `true` or
+  a JSON object, with a `ValidationError` naming `auth.ceda` / `auth.metno_frost`. It raised a
+  bare `TypeError` that named nothing, or took a JSON object's keys as the pair (GH-2379)
+
 ## [0.140.0] - 2026-10-05
 
 ### Added

@@ -107,13 +107,22 @@ class Auth(BaseModel):
     @classmethod
     def validate_metno_frost(
         cls,
-        value: tuple[_Secretish, _Secretish] | _Secretish | None,
-    ) -> tuple[_Secretish, _Secretish] | None:
-        """Parse the Frost (client_id, secret) pair, a lone client id counting as one with no secret."""
+        value: object,
+    ) -> object:
+        """Parse the Frost (client_id, secret) pair, a lone client id counting as one with no secret.
+
+        An all-digit client id arrives as an `int`, as the environment decodes a nested value as JSON
+        where it parses, and is still an id. Any other value that is not a pair is left for the field
+        to refuse, which names it, where reading it as one failed with a bare `TypeError` (GH-2379).
+        """
         if value is None:
             return None
+        if isinstance(value, int) and not isinstance(value, bool):
+            value = str(value)
         if isinstance(value, (str, SecretStr)):
             return value, ""
+        if not isinstance(value, (tuple, list)):
+            return value
         as_tuple = tuple(value)
         if len(as_tuple) != 2:
             msg = f"metno_frost must be a (client_id, secret) pair, got {len(as_tuple)} element(s)"
@@ -124,9 +133,14 @@ class Auth(BaseModel):
     @classmethod
     def validate_ceda(
         cls,
-        value: tuple[_Secretish, _Secretish] | _Secretish | None,
-    ) -> tuple[_Secretish, _Secretish] | None:
-        """Parse the CEDA (username, password) pair, e.g. from ``WD_AUTH__CEDA=username:password``."""
+        value: object,
+    ) -> object:
+        """Parse the CEDA (username, password) pair, e.g. from ``WD_AUTH__CEDA=username:password``.
+
+        A value that is neither that text nor a pair -- a number or `true`, which the environment
+        decodes as JSON -- is left for the field to refuse, which names it, where reading it as a
+        pair failed with a bare `TypeError` (GH-2379).
+        """
         if value is None:
             return None
         if isinstance(value, SecretStr):
@@ -139,6 +153,8 @@ class Auth(BaseModel):
                 msg = "ceda must be given as 'username:password'"
                 raise ValueError(msg)
             return username, password
+        if not isinstance(value, (tuple, list)):
+            return value
         as_tuple = tuple(value)
         if len(as_tuple) != 2:
             msg = f"ceda must be a (username, password) pair, got {len(as_tuple)} element(s)"
