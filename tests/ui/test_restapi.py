@@ -3100,12 +3100,12 @@ def test_a_refusal_of_the_request_keeps_its_4xx(
     status: int,
     detail: str,
 ) -> None:
-    """A request refused for what it asks is still the caller's to fix, and answers as it did (GH-2252).
+    """A request refused for what it asks is still the caller's to fix, and answers with a 4xx (GH-2252).
 
     Each is refused before anything is downloaded, so these are real requests rather than stubs.
-    The 404s from the geo endpoints are the status those answered with before; only failures that
-    are not a refusal of the request moved, to a 500. A point beyond the latitudes UTM covers is a
-    400 since GH-2385, as the other points the geo endpoints cannot answer at are.
+    The 404s from the geo endpoints are the status those answered with before GH-2252; only failures
+    that are not a refusal of the request moved, to a 500. A point beyond the latitudes UTM covers
+    is a 400 since GH-2385, as the other points the geo endpoints cannot answer at are.
     """
     response = client.get(endpoint, params=params)
 
@@ -5935,29 +5935,23 @@ def test_openapi_with_a_route_added_keeps_the_servers_defaults(monkeypatch: pyte
     assert shape["schema"]["default"] == "wide"
 
 
-def _stub_stations_one_without_position(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Stand in for the DWD station list: one station with a position, one without (GH-2385)."""
+def _stub_a_station_without_position(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand in for the DWD station list with a station that has no position (GH-2385)."""
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
-    stations = [
-        {
-            "resolution": "daily",
-            "dataset": "climate_summary",
-            "station_id": station_id,
-            "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-            "end_date": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
-            "latitude": latitude,
-            "longitude": longitude,
-            "elevation": 228.0,
-            "name": name,
-            "region": "Sachsen",
-        }
-        for station_id, latitude, longitude, name in (
-            ("01048", 51.1278, 13.7543, "Dresden-Klotzsche"),
-            ("09999", None, None, "Nowhere"),
-        )
-    ]
-    frame = pl.LazyFrame(stations, schema_overrides={"latitude": pl.Float64, "longitude": pl.Float64})
+    station = {
+        "resolution": "daily",
+        "dataset": "climate_summary",
+        "station_id": "09999",
+        "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+        "end_date": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "latitude": None,
+        "longitude": None,
+        "elevation": 228.0,
+        "name": "Nowhere",
+        "region": "Sachsen",
+    }
+    frame = pl.LazyFrame([station], schema_overrides={"latitude": pl.Float64, "longitude": pl.Float64})
     monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: frame)
 
 
@@ -5998,7 +5992,7 @@ def test_geo_a_location_out_of_range_is_a_400(
     request that was understood get a 400. A point beyond the latitudes UTM covers reaches it on
     interpolate only, as a summary converts nothing to UTM.
     """
-    _stub_stations_one_without_position(monkeypatch)
+    _stub_a_station_without_position(monkeypatch)
     params = {
         "provider": "dwd",
         "network": "observation",
@@ -6033,7 +6027,7 @@ def test_mcp_a_location_out_of_range_is_a_400(
 
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
-    _stub_stations_one_without_position(monkeypatch)
+    _stub_a_station_without_position(monkeypatch)
     mcp = build_mcp_server(restapi.app)
     arguments = {
         "provider": "dwd",
