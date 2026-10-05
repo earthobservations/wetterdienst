@@ -22,7 +22,9 @@ Types of changes:
   `history.json`. The `file://` prefix was kept, so the write went to `file:/history.json` and
   failed with "No such file or directory". A plain path works as before (GH-2370)
 - The Docker image reads BUFR: DWD road weather data, and radar BUFR with `read_bufr`. It had the
-  eccodes bindings but no ecCodes library behind them; it now installs Debian's (GH-2409)
+  eccodes bindings but no ecCodes library behind them; it now installs Debian's, which adds about
+  55 MiB. That library is 2.41.0, so the bindings warn on import that 2.42.0 is recommended
+  (GH-2409)
 
 ## [0.140.0] - 2026-10-05
 
