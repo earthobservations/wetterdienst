@@ -118,7 +118,7 @@ def test_stripes_values_target_not_matching_format(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"])
     assert result.exit_code == 1
-    assert "Error: 'target' must have extension 'png'" in result.stderr
+    assert "Error: 'target' must have extension '.png'" in result.stderr
 
 
 @pytest.mark.remote
@@ -206,14 +206,14 @@ def test_stripes_values_target_with_the_format_suffix_is_written(
 
 
 @pytest.mark.parametrize(
-    ("fmt", "name"),
+    ("fmt", "name", "expected"),
     [
-        pytest.param("png", "stripespng", id="no-dot"),
-        pytest.param("png", "stripes.xpng", id="longer-suffix"),
-        pytest.param("png", "stripes", id="no-suffix"),
-        pytest.param("png", "stripes.jpg", id="other-format"),
-        pytest.param("jpg", "stripes.xjpeg", id="longer-jpeg-suffix"),
-        pytest.param("svg", "stripes.svg.png", id="last-suffix-counts"),
+        pytest.param("png", "stripespng", "'.png'", id="no-dot"),
+        pytest.param("png", "stripes.xpng", "'.png'", id="longer-suffix"),
+        pytest.param("png", "stripes", "'.png'", id="no-suffix"),
+        pytest.param("png", "stripes.jpg", "'.png'", id="other-format"),
+        pytest.param("jpg", "stripes.xjpeg", "'.jpg' or '.jpeg'", id="longer-jpeg-suffix"),
+        pytest.param("svg", "stripes.svg.png", "'.svg'", id="last-suffix-counts"),
     ],
 )
 def test_stripes_values_target_without_the_format_suffix_is_refused(
@@ -221,8 +221,9 @@ def test_stripes_values_target_without_the_format_suffix_is_refused(
     tmp_path: Path,
     fmt: str,
     name: str,
+    expected: str,
 ) -> None:
-    """Test a --target whose suffix is not the dot plus --format is refused before anything is plotted."""
+    """Test a --target whose suffix is not the dot plus --format is refused, naming the suffixes, before plotting."""
 
     def _plot_stripes(_request: object) -> None:
         pytest.fail("plotted although --target has the wrong suffix")
@@ -235,5 +236,5 @@ def test_stripes_values_target_without_the_format_suffix_is_refused(
         ["stripes", "values", "--kind=precipitation", "--station=1048", f"--format={fmt}", f"--target={target}"],
     )
     assert result.exit_code == 1
-    assert f"Error: 'target' must have extension '{fmt}'" in result.output
+    assert f"Error: 'target' must have extension {expected}\n" in result.output
     assert not target.exists()
