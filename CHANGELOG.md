@@ -18,6 +18,9 @@ Types of changes:
 
 ### Fixed
 
+- `wetterdienst issues` reports a refused option, such as `--lead_time` on MOSMIX, as a one-line
+  usage error with exit code 2 instead of a traceback with exit code 1. An upstream failure still
+  logs its traceback and exits 1 (GH-2368)
 - The climate stripes refuse a station that returns no rows, such as one whose data file is
   missing, with `NotEnoughDataError` ("has data for no year"): a 400 from `/api/stripes/values`
   and `/api/stripes/image` and their MCP tools, and that message from `wetterdienst stripes`. They

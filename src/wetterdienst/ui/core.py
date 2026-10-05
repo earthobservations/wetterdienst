@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from collections.abc import Mapping, Sequence  # noqa: TC003
 from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
@@ -18,9 +19,13 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 from typing_extensions import LiteralString, TypedDict
 
 from wetterdienst.exceptions import (
+    InvalidBoundingBoxError,
     InvalidEnumerationError,
     InvalidTimeIntervalError,
+    IssueNotFoundError,
+    LocationOutOfRangeError,
     NoParametersFoundError,
+    NoPeriodsFoundError,
     NotEnoughDataError,
     StartDateEndDateError,
     StationNotFoundError,
@@ -983,6 +988,64 @@ class IssuesRequest(BaseModel):
         ),
     ] = None
     debug: _DebugField = False
+
+
+# what a request can provoke on its way through `get_values`, `get_interpolate` and
+# `get_summarize` besides the refusals the REST API's handlers name: a date, period, parameter,
+# bounding box, point or issue that cannot be served as given, or a station the lookup does not
+# know. The station lookup of `/api/stations` and `/api/history`, the issue listing and the values of
+# the climate stripes provoke a subset of these, and two more: a dataset `/api/history` cannot list
+# without the date it has no field for (a refusal its handler names before this), and stripes
+# over years holding too little data.
+# An `OverflowError` is a date at the edge of what a datetime holds -- `9999-12-31T23:00Z` once a
+# provider converts it to its own zone, an issue a negative offset carries past year 9999 -- and the
+# dates on the way that come that close are the request's. Anything else -- a provider's file in a
+# layout its parser does not expect, an upstream that does not answer, a frame of an unexpected
+# shape -- is not the caller's to fix, and is a 500. Kept here rather than in the REST API so that
+# `wetterdienst issues` asks the same question without importing FastAPI: there a refusal is a usage
+# error, exit 2, and anything else a logged traceback, exit 1
+_CALLER_REFUSALS = (
+    OverflowError,
+    InvalidBoundingBoxError,
+    InvalidEnumerationError,
+    InvalidTimeIntervalError,
+    IssueNotFoundError,
+    LocationOutOfRangeError,
+    NoParametersFoundError,
+    NoPeriodsFoundError,
+    NotEnoughDataError,
+    StartDateEndDateError,
+    StationNotFoundError,
+)
+
+
+def _is_caller_refusal(e: Exception, request: BaseModel) -> bool:
+    """Tell whether a failure is the request's own, which the caller can rephrase.
+
+    The caller's own `sql` or `sql_values` is the only SQL run on the way, so a DuckDB error about
+    the statement -- its syntax, a column or function it names, a value it compares -- is theirs.
+    So, where the request carries a clause, are the refusals of the connection the clause runs on
+    (`ExportMixin._filter_by_sql`): a file, URL or extension it may not touch
+    (`PermissionException`), more memory than the limit sized to the frame lets it build
+    (`OutOfMemoryException`), a construct DuckDB does not implement, such as an outer join on a
+    correlated column (`NotSupportedError`), and an extension DuckDB would install on the fly,
+    refused with the bare `duckdb.Error`. Every DuckDB error derives from that one, so only the exact class counts:
+    an `InternalException` or an `IOException` fails inside DuckDB and stays a 500, and so does
+    DuckDB running out of memory for a request without a clause. DuckDB is optional, and an error of
+    its can only be raised once it has been imported.
+    """
+    duckdb = sys.modules.get("duckdb")
+    if isinstance(e, _CALLER_REFUSALS):
+        return True
+    if duckdb is None:
+        return False
+    if isinstance(e, (duckdb.ProgrammingError, duckdb.DataError)):
+        return True
+    clause_given = any(getattr(request, name, None) for name in ("sql", "sql_values"))
+    return clause_given and (
+        isinstance(e, (duckdb.PermissionException, duckdb.OutOfMemoryException, duckdb.NotSupportedError))
+        or type(e) is duckdb.Error
+    )
 
 
 class GlossaryEntry(TypedDict):
