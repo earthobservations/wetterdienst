@@ -5,7 +5,7 @@ import { createError, getQuery } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { UApp } from '#components'
-import { clearNuxtState, useRouter, useServerSettings, useToast } from '#imports'
+import { clearNuxtState, useNuxtApp, useRouter, useServerSettings, useToast } from '#imports'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
@@ -666,8 +666,8 @@ describe('explorer Page settings from the server (GH-2359)', () => {
     useToast().clear()
   })
 
-  // the Unit Targets setting's "Default (...)" choices, one per type it lists. Read from the items
-  // the selects are given rather than from the selects, which refuse the choice's empty value
+  // the Unit Targets setting's "Default (...)" choices, one per type it lists, read from the items
+  // the selects are given (the selects themselves are read by the GH-2391 tests)
   function defaultUnitChoices(vm: any): string[] {
     return vm.unitTypes.map((unitType: { type: string, units: string[] }) => vm.unitTargetItems(unitType)[0].label)
   }
@@ -886,5 +886,98 @@ describe('explorer Page settings from the server (GH-2359)', () => {
 
     vm.addParameterDistance()
     expect(vm.parameterDistanceEntries.at(-1).distance).toBe(20)
+  })
+})
+
+describe('explorer Page Unit Targets selects (GH-2391)', () => {
+  // the errors Vue reports while a test runs: a select item that refuses its value throws in setup
+  const errors: unknown[] = []
+  let stopCollecting: (() => void) | undefined
+
+  beforeEach(() => {
+    clearNuxtState('server-settings')
+    errors.length = 0
+    stopCollecting = useNuxtApp().hook('vue:error', (error) => {
+      errors.push(error)
+    })
+  })
+
+  afterEach(() => {
+    stopCollecting?.()
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+    useToast().clear()
+  })
+
+  const HINT = 'Override default target units for specific unit types. Leave empty to use defaults.'
+
+  // the explorer on a server converting temperatures to Fahrenheit and speeds to knots, with
+  // Settings -> Unit Targets open
+  async function mountWithUnitTargets(sent: Record<string, unknown>[]) {
+    endpoints.push(registerEndpoint('/api/settings', () => ({
+      values: { unit_targets: { temperature: 'degree_fahrenheit', speed: 'knots' } },
+    })))
+    const { wrapper, vm } = await mountWithSelection((event) => {
+      sent.push(getQuery(event))
+      return { values: [VALUE_ROW] }
+    })
+    await vi.waitFor(() => expect(vm.unitTargetDefaults.temperature).toBe('degree_fahrenheit'))
+    await wrapper.findAll('button').find(b => b.text() === 'Settings')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.findAll('button').some(b => b.text() === 'Unit Targets')).toBe(true))
+    await wrapper.findAll('button').find(b => b.text() === 'Unit Targets')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain(HINT))
+    return { wrapper, vm }
+  }
+
+  // the Unit Targets selects' triggers, one per type in the order listed
+  function unitTargetTriggers(wrapper: Awaited<ReturnType<typeof mountWithSelection>>['wrapper']) {
+    const hint = wrapper.findAll('p').find(p => p.text() === HINT)!
+    return [...hint.element.parentElement!.querySelectorAll<HTMLButtonElement>('button[role="combobox"]')]
+  }
+
+  // open a select and pick the item labelled `label`
+  async function choose(trigger: HTMLButtonElement, label: string) {
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    let item: HTMLElement | undefined
+    await vi.waitFor(() => {
+      item = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')]
+        .find(option => option.textContent?.trim() === label)
+      expect(item).toBeDefined()
+    })
+    item!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await vi.waitFor(() => expect(document.body.querySelector('[role="listbox"]')).toBeNull())
+  }
+
+  it('names the server\'s unit on each select left at Default, without an error', async () => {
+    const { wrapper } = await mountWithUnitTargets([])
+
+    expect(unitTargetTriggers(wrapper).map(trigger => trigger.textContent?.trim())).toEqual([
+      'Default (Degrees Fahrenheit (°F))',
+      'Default (Knots (kn))',
+      'Default (Hectopascal (hPa))',
+      'Default (Millimetres (mm))',
+      'Default (Millimetres per hour (mm/h))',
+      'Default (Centimetres (cm))',
+      'Default (Metres (m))',
+      'Default (Kilometres (km))',
+    ])
+    expect(errors).toEqual([])
+  })
+
+  it('puts a type chosen back to Default to the server\'s unit in the request', async () => {
+    const sent: Record<string, unknown>[] = []
+    const { wrapper, vm } = await mountWithUnitTargets(sent)
+
+    await choose(unitTargetTriggers(wrapper)[0]!, 'Kelvin (K)')
+    expect(vm.dataSettings.unitTargets).toEqual({ temperature: 'degree_kelvin' })
+    await choose(unitTargetTriggers(wrapper)[0]!, 'Default (Degrees Fahrenheit (°F))')
+    expect(vm.dataSettings.unitTargets).toEqual({})
+    expect(unitTargetTriggers(wrapper)[0]!.textContent?.trim()).toBe('Default (Degrees Fahrenheit (°F))')
+
+    await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(sent).toHaveLength(1))
+    expect(JSON.parse(String(sent[0]!.unit_targets))).toMatchObject({ temperature: 'degree_fahrenheit', speed: 'knots' })
+    expect(useRouter().currentRoute.value.fullPath).not.toContain('default')
+    expect(errors).toEqual([])
   })
 })

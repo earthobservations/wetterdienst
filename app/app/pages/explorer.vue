@@ -43,10 +43,17 @@ const unitTypes = UNIT_TARGET_TYPES
 // the unit each type left at "Default" comes in: the server's once it has said, else the listed one
 const unitTargetDefaults = ref<Record<string, string>>(defaultUnitTargets(null))
 
+// the value of the "Default (...)" choice, which stands for no entry in `unitTargets`: a select item
+// refuses an empty value (reka-ui throws), and no unit is named this
+const UNIT_TARGET_DEFAULT = 'default'
+
 /** Select items for one unit type: the server's default first, then the units listed for it. */
 function unitTargetItems(unitType: { type: string, units: string[] }) {
   return [
-    { label: t('explorer.unitDefault', { unit: unitLabel(unitTargetDefaults.value[unitType.type]!) }), value: '' },
+    {
+      label: t('explorer.unitDefault', { unit: unitLabel(unitTargetDefaults.value[unitType.type]!) }),
+      value: UNIT_TARGET_DEFAULT,
+    },
     ...unitType.units.map(unit => ({ label: unitLabel(unit), value: unit })),
   ]
 }
@@ -535,7 +542,7 @@ function removeParameterDistance(id: string, paramName: string) {
 
 // Helper function for unit target changes
 function handleUnitTargetChange(unitType: string, value: string) {
-  if (value === '') {
+  if (value === UNIT_TARGET_DEFAULT) {
     delete dataSettings.value.unitTargets[unitType]
   }
   else {
@@ -724,7 +731,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         {{ unitTypeLabel(unitType.type) }}:
                       </label>
                       <USelect
-                        :model-value="dataSettings.unitTargets[unitType.type] ?? ''"
+                        :model-value="dataSettings.unitTargets[unitType.type] ?? UNIT_TARGET_DEFAULT"
                         :items="unitTargetItems(unitType)"
                         size="xs"
                         class="w-44"

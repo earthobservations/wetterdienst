@@ -32,6 +32,9 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` Each Unit Targets select left at its default shows "Default (...)" with the unit,
+  and the choice is offered again. Opening Unit Targets raised an error per unit type, every select
+  showed nothing, and a type moved to another unit could not be put back to Default (GH-2391)
 - `[Explorer]` `[Meteogram]` `[Widget]` `[Stripes]` A Retry that works moves the keyboard focus to
   what it brought back: the station select of the interpolation/summary picker, or the chart.
   The focus fell to the top of the page, sending a keyboard or screen reader user to find their
