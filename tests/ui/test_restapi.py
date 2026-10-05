@@ -5932,3 +5932,24 @@ def test_openapi_with_a_route_added_keeps_the_servers_defaults(monkeypatch: pyte
         parameter for parameter in schema["paths"]["/api/values"]["get"]["parameters"] if parameter["name"] == "shape"
     )
     assert shape["schema"]["default"] == "wide"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_does_not_configure_opentelemetry_export_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An `OTEL_EXPORTER_OTLP_ENDPOINT` leaves the server's start alone (GH-2407).
+
+    FastAPI 0.142 adds OTLP exporters from the `OTEL_*` variables as an app starts, and warns at
+    startup where the OpenTelemetry SDK is not installed; the REST API turns that off.
+    """
+    for name in list(os.environ):
+        if name.startswith("OTEL_"):
+            monkeypatch.delenv(name)
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:4318")
+
+    assert restapi.app._native_telemetry.config["auto_configure"] is False  # noqa: SLF001
+    with caplog.at_level(logging.WARNING, logger="fastapi"), TestClient(restapi.app) as client:
+        assert client.get("/robots.txt").status_code == 200
+    assert not [record for record in caplog.records if "telemetry" in record.getMessage()]

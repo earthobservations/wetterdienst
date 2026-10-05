@@ -87,7 +87,10 @@ if TYPE_CHECKING:
 
 info = Info()
 
-app = FastAPI(debug=False)
+# FastAPI's OpenTelemetry stays on, so a provider the operator sets up gets its spans, metrics and
+# logs. Its startup export from `OTEL_EXPORTER_OTLP_*` is off: it would add a second exporter to
+# that provider, or warn where no OpenTelemetry SDK is installed (GH-2407)
+app = FastAPI(debug=False, telemetry={"auto_configure": False})
 
 
 class _RefuseInvalidSettings:
