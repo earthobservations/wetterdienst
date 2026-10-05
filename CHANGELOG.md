@@ -22,6 +22,9 @@ Types of changes:
   -99.0 m, has a null `elevation`. `interpolate` and `summarize` given an elevation moved its air
   temperatures and dew points from about 100 m below sea level; they now leave it out for those,
   as other stations of unknown elevation. Real heights below sea level stay (GH-2377)
+- `wetterdienst history --target file://history.json`, the form its docs show, writes
+  `history.json`. The `file://` prefix was kept, so the write went to `file:/history.json` and
+  failed with "No such file or directory". A plain path works as before (GH-2370)
 
 ## [0.140.0] - 2026-10-05
 
