@@ -241,22 +241,32 @@ def test_the_lock_carries_the_eccodes_library_wherever_the_extra_asks_for_it(ext
     in the lock; this pins that. eccodeslib and its eckitlib publish wheels only, so a requirement
     admitted where none fits fails the whole sync: for each Python the classifiers name and each
     platform and architecture below, the marker admits it only where every locked package of the
-    library has a wheel for it. What no marker names (musl, the glibc version, free-threading) is
-    beyond this check.
+    library has a wheel for it. What the marker does not name (musl, the glibc or macOS version,
+    free-threading) is beyond this check.
     """
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf8"))
     requirements = [Requirement(spec) for spec in pyproject["project"]["optional-dependencies"][extra]]
     (requirement,) = [requirement for requirement in requirements if requirement.name == "eccodeslib"]
     assert requirement.marker is not None
     lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf8"))
-    packages = {package["name"]: package for package in lock["package"]}
+    locked: dict[str, list[dict]] = {}
+    for package in lock["package"]:
+        locked.setdefault(package["name"], []).append(package)
     assert "eccodeslib" in {
-        dependency["name"] for dependency in packages["wetterdienst"]["optional-dependencies"][extra]
+        dependency["name"] for dependency in locked["wetterdienst"][0]["optional-dependencies"][extra]
     }
 
     library = ["eccodeslib"]
     for name in library:
-        library += [dependency["name"] for dependency in packages[name].get("dependencies", [])]
+        library += [
+            dependency["name"]
+            for dependency in locked[name][0].get("dependencies", [])
+            if dependency["name"] not in library
+        ]
+    # one locked version each, or the wheels below would be checked against a fork they may not
+    # belong to: a lock forked by Python needs this test to follow the forks' markers
+    assert all(len(locked[name]) == 1 for name in library), library
+    packages = {name: locked[name][0] for name in library}
     pythons = [
         classifier.rsplit(" ", 1)[1]
         for classifier in pyproject["project"]["classifiers"]
