@@ -66,7 +66,10 @@ jobs:
           cache-to: type=gha,mode=max,scope=linux-amd64
 
       - name: Run tests
-        run: docker run wd:test wetterdienst info
+        run: |
+          docker run wd:test wetterdienst info
+          # the bindings of the `bufr` extra find an ecCodes library to load (GH-2409)
+          docker run wd:test python -c "from wetterdienst.util.eccodes import bufr_is_available; assert bufr_is_available()"
 
   # Build each platform natively and push it by digest (release/nightly/manual only).
   build:
