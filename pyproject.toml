@@ -142,6 +142,13 @@ bufr = [
     # keep out. Inside this repo one lock covers every extra and the `eccodes` extra below would
     # have bound it either way; a consumer installing this extra alone has no such luck
     "eccodes>=1.7.1,<3",
+    # the compiled ecCodes library. eccodes' py3-none-any wheel asks for it, but its Windows wheels
+    # and PyPI's JSON metadata do not, and uv.lock records eccodes without it -- so a frozen sync
+    # installed bindings that load only where a system library is present. eccodeslib is wheels
+    # only: none for Windows, where eccodes' own wheel carries the library, and since 2.48.3 none
+    # for Python 3.10 or for macOS before 15. The floor is the oldest release the bindings do not
+    # warn about
+    "eccodeslib>=2.42.0,<3; platform_system != 'Windows' and python_version >= '3.11'",
     "pdbufr>=0.10.2,<1",
 ]
 cratedb = [
@@ -161,6 +168,8 @@ duckdb = [
 # keeps resolving
 eccodes = [
     "eccodes>=1.7.1,<3",
+    # see `bufr` above
+    "eccodeslib>=2.42.0,<3; platform_system != 'Windows' and python_version >= '3.11'",
 ]
 excel = [
     "xlsxwriter>=3.0.9,<4",
@@ -392,6 +401,8 @@ scikit-learn = "sklearn"
 
 [tool.deptry.per_rule_ignores]
 DEP002 = [
+    # never imported: the compiled library eccodes' bindings find through findlibs
+    "eccodeslib",
     "kaleido",
     "mysqlclient",
     "pandas",
