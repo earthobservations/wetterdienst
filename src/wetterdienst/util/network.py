@@ -223,14 +223,15 @@ class FileDirCache(MutableMapping):
             self._cache = None
             return
 
-        import platformdirs  # noqa: PLC0415
         from diskcache import Cache  # noqa: PLC0415
+
+        from wetterdienst.settings import default_cache_dir  # noqa: PLC0415
 
         subdir = "infinite" if self.listings_expiry_time is None else str(self.listings_expiry_time)
         if listings_cache_location:
             cache_location = Path(listings_cache_location) / subdir
         else:
-            cache_location = Path(platformdirs.user_cache_dir(appname="wetterdienst-fsspec")) / subdir
+            cache_location = default_cache_dir(appname="wetterdienst-fsspec") / subdir
 
         _remove_legacy_listings_cache_dirs(cache_location.parent, keep=cache_location.name)
 

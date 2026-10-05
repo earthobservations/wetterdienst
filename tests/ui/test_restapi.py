@@ -3060,7 +3060,7 @@ def _year_10000_message() -> str:
         pytest.param(
             "/api/interpolate",
             {**_OBSERVATION, "latitude": 85.0, "longitude": 10.0, "date": "2020-06-30"},
-            404,
+            400,
             "latitude out of range (must be between 80 deg S and 84 deg N)",
             id="interpolate-point-beyond-utm",
         ),
@@ -3100,11 +3100,12 @@ def test_a_refusal_of_the_request_keeps_its_4xx(
     status: int,
     detail: str,
 ) -> None:
-    """A request refused for what it asks is still the caller's to fix, and answers as it did (GH-2252).
+    """A request refused for what it asks is still the caller's to fix, and answers with a 4xx (GH-2252).
 
     Each is refused before anything is downloaded, so these are real requests rather than stubs.
-    The 404s from the geo endpoints are the status those answered with before; only failures that
-    are not a refusal of the request moved, to a 500.
+    The 404s from the geo endpoints are the status those answered with before GH-2252; only failures
+    that are not a refusal of the request moved, to a 500. A point beyond the latitudes UTM covers
+    is a 400 since GH-2385, as the other points the geo endpoints cannot answer at are.
     """
     response = client.get(endpoint, params=params)
 
@@ -6073,3 +6074,131 @@ def test_mcp_stripes_values_name_the_unit(monkeypatch: pytest.MonkeyPatch) -> No
     data = asyncio.run(_call())
     assert data["metadata"]["unit"] == "degree_fahrenheit"
     assert [item["value"] for item in data["values"]] == [33.8, 35.6]
+
+
+def _stub_a_station_without_position(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand in for the DWD station list with a station that has no position (GH-2385)."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    station = {
+        "resolution": "daily",
+        "dataset": "climate_summary",
+        "station_id": "09999",
+        "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+        "end_date": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "latitude": None,
+        "longitude": None,
+        "elevation": 228.0,
+        "name": "Nowhere",
+        "region": "Sachsen",
+    }
+    frame = pl.LazyFrame([station], schema_overrides={"latitude": pl.Float64, "longitude": pl.Float64})
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: frame)
+
+
+_LOCATION_OUT_OF_RANGE = [
+    pytest.param(
+        "interpolate",
+        {"latitude": 85, "longitude": 10},
+        "latitude out of range (must be between 80 deg S and 84 deg N)",
+        id="interpolate-beyond-utm",
+    ),
+    pytest.param(
+        "interpolate",
+        {"station": "09999"},
+        "station 09999 has no position to interpolate or summarize at",
+        id="interpolate-station-without-position",
+    ),
+    pytest.param(
+        "summarize",
+        {"station": "09999"},
+        "station 09999 has no position to interpolate or summarize at",
+        id="summarize-station-without-position",
+    ),
+]
+
+
+@pytest.mark.parametrize(("endpoint", "point", "detail"), _LOCATION_OUT_OF_RANGE)
+def test_geo_a_location_out_of_range_is_a_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    point: dict[str, object],
+    detail: str,
+) -> None:
+    """A point there is no estimate at is the caller's to move: a 400 and an info line (GH-2385).
+
+    It was answered with a 404 and its traceback logged as an error, where the other refusals of a
+    request that was understood get a 400. A point beyond the latitudes UTM covers reaches it on
+    interpolate only, as a summary converts nothing to UTM.
+    """
+    _stub_a_station_without_position(monkeypatch)
+    params = {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/kl/temperature_air_mean_2m",
+        "date": "2020-01-01",
+        **point,
+    }
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get(f"/api/{endpoint}", params=params)
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+    records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [
+        (logging.INFO, f"Failed to {endpoint}: {detail}")
+    ]
+    assert not any(record.exc_info for record in records)
+
+
+@pytest.mark.parametrize(("tool", "point", "detail"), _LOCATION_OUT_OF_RANGE)
+def test_mcp_a_location_out_of_range_is_a_400(
+    monkeypatch: pytest.MonkeyPatch,
+    tool: str,
+    point: dict[str, object],
+    detail: str,
+) -> None:
+    """The MCP tools are the REST API's routes, and answer such a point with the same 400 (GH-2385)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    _stub_a_station_without_position(monkeypatch)
+    mcp = build_mcp_server(restapi.app)
+    arguments = {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/kl/temperature_air_mean_2m",
+        "date": "2020-01-01",
+        **point,
+    }
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(tool, arguments)
+
+    with pytest.raises(ToolError, match="HTTP error 400") as error:
+        asyncio.run(_call())
+    assert detail in str(error.value)
+
+
+@pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
+def test_stripes_a_station_that_returns_no_rows_is_a_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+) -> None:
+    """A listed station whose values come back without rows is the caller's 400, not a 500 (GH-2369)."""
+    _stub_stripes(monkeypatch, [{"station_id": "01048", "name": "Dresden-Klotzsche"}], {})
+
+    response = client.get(endpoint, params={"kind": "temperature", "station": "01048"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "At least two years with data are required to create climate stripes; station 01048 has data for no year"
+    )
