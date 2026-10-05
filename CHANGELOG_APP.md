@@ -20,8 +20,9 @@ Types of changes:
 
 - `[Explorer/Stripes/Meteogram/Widget]` A screen reader announces each chart as a figure with a
   name: the data viewer's chart, or each facet by its parameter, the meteogram (also in the widget)
-  by its station and the stripes by their kind and station. Plotly's buttons in it stay reachable.
-  They were unnamed, so reaching one announced nothing useful (GH-2376)
+  by its station and the stripes by their kind and station. The data viewer's and the stripes'
+  Plotly buttons stay reachable. The charts were unnamed, so reaching one announced nothing useful
+  (GH-2376)
 
 ## [0.18.0] - 2026-10-05
 

@@ -2104,7 +2104,8 @@ watch(
           <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderChart()" />
           <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
         </div>
-        <!-- a figure, not an image: Plotly's own controls in it stay reachable; nor a landmark -->
+        <!-- a figure, as the app's other charts, and no landmark; drawn without Plotly's modebar, it holds
+             no controls of Plotly's to keep reachable -->
         <div
           ref="chartRef" tabindex="-1" role="figure"
           :aria-label="stationName ? t('meteogram.chart.label', { name: stationName }) : t('meteogram.chart.labelNoStation')"

@@ -2402,11 +2402,11 @@ describe('dataViewer settings the explorer starts from the server\'s', () => {
 })
 
 describe('dataViewer chart names', () => {
-  // the charts Plotly drew into, the single one or each facet, by the role and the name a screen
-  // reader announces them with
+  // the charts Plotly drew into, the single one or each facet, each once however often it was drawn,
+  // by the role and the name a screen reader announces them with
   function drawnInto(faceted: boolean) {
     const draw = faceted ? plotly.react : plotly.newPlot
-    return draw.mock.calls.map(call => (call as unknown as [HTMLElement])[0])
+    return [...new Set(draw.mock.calls.map(call => (call as unknown as [HTMLElement])[0]))]
       .map(chart => [chart.getAttribute('role'), chart.getAttribute('aria-label')])
   }
 
