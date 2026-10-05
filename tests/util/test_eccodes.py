@@ -343,36 +343,40 @@ def test_two_threads_do_not_put_back_each_others_filters() -> None:
     The REST API answers in a thread pool, and `lru_cache` runs a body again for a second caller
     that asks before the first has an answer. Interleaved, the second puts back the list holding
     the first one's filter after the first has put back the original, and the advice stays
-    silenced for the rest of the process. Here the first waits inside while the second tries to
-    come in.
+    silenced for the rest of the process. That is the order staged here: the first leaves once the
+    second is in, or after half a second, and the second leaves after the first. With the lock the
+    second is not in until the first has left, so the half second runs out and nothing leaks.
     """
-    original = list(warnings.filters)
-    inside = threading.Event()
-    leave = threading.Event()
+    first_in = threading.Event()
+    second_in = threading.Event()
+    first_out = threading.Event()
     # each thread says it has been in and out, so one that raised on the way is not read as a pass
     through = []
 
     def first() -> None:
         with eccodes._without_eccodes_version_advice():  # noqa: SLF001
-            inside.set()
-            leave.wait(5)
+            first_in.set()
+            second_in.wait(0.5)
+        first_out.set()
         through.append("first")
 
     def second() -> None:
-        inside.wait(5)
         with eccodes._without_eccodes_version_advice():  # noqa: SLF001
-            leave.set()
+            second_in.set()
+            first_out.wait(5)
         through.append("second")
 
-    threads = [threading.Thread(target=first), threading.Thread(target=second)]
-    for thread in threads:
-        thread.start()
-    # without the lock, the second is in at once and lets the first go before this times out
-    assert not leave.wait(0.5)
-    leave.set()
-    for thread in threads:
-        thread.join(5)
-        # one still inside would hold the lock, and every later probe in this worker would hang
-        assert not thread.is_alive()
-    assert sorted(through) == ["first", "second"]
-    assert warnings.filters == original
+    # and put back whatever a failure here leaves, so it does not reach the tests after
+    with warnings.catch_warnings():
+        original = list(warnings.filters)
+        threads = [threading.Thread(target=first), threading.Thread(target=second)]
+        threads[0].start()
+        # the first is in before the second starts; without the lock the second follows at once
+        assert first_in.wait(5)
+        threads[1].start()
+        for thread in threads:
+            thread.join(5)
+            # one still inside would hold the lock, and every later probe in this worker would hang
+            assert not thread.is_alive()
+        assert sorted(through) == ["first", "second"]
+        assert warnings.filters == original
