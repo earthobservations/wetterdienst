@@ -1,9 +1,9 @@
 import type { H3Event } from 'h3'
 import type { ProviderNetworkCoverageResponse, ServerSettings } from '#shared/types/api'
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import { UApp } from '#components'
 import { clearNuxtState, useNuxtApp, useRouter, useServerSettings, useToast } from '#imports'
 import ParameterSelection from '~/components/ParameterSelection.vue'
@@ -980,5 +980,199 @@ describe('explorer Page Unit Targets selects (GH-2391)', () => {
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     expect(JSON.parse(String(sent[0]!.unit_targets))).toMatchObject({ temperature: 'degree_fahrenheit', speed: 'knots' })
     expect(errors).toEqual([])
+  })
+})
+
+// the answers the page has been given to its requests for a shape's settings, in the order asked
+const shapeAnswers = vi.hoisted(() => [] as Promise<unknown>[])
+mockNuxtImport('serverSettingsFor', original => (...args: unknown[]) => {
+  const answer = original(...args)
+  shapeAnswers.push(answer)
+  return answer
+})
+
+describe('explorer Page settings of the shape the user switches to (GH-2398)', () => {
+  // the shape each GET /api/settings asked for, undefined for the server's own
+  const asked: unknown[] = []
+
+  beforeEach(() => {
+    clearNuxtState('server-settings')
+    asked.length = 0
+    shapeAnswers.length = 0
+  })
+
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+    useToast().clear()
+  })
+
+  // GET /api/settings on a server with WD_TS_SHAPE=wide, which turns drop_nulls off, where the long
+  // shape a request names has `dropNullsLong`: WD_TS_DROP_NULLS, or wetterdienst's true
+  function wideServer(event: H3Event, dropNullsLong = true) {
+    const shape = getQuery(event).shape === 'long' ? 'long' : 'wide'
+    return { values: { shape, drop_nulls: shape === 'long' ? dropNullsLong : false } }
+  }
+
+  // the explorer on that server, with its settings in and Settings open
+  async function mountOnWideServer(sent: Record<string, unknown>[]) {
+    const { wrapper, vm } = await mountWithSelection((event) => {
+      sent.push(getQuery(event))
+      return { values: [VALUE_ROW] }
+    })
+    await vi.waitFor(() => expect(vm.dataSettings).toMatchObject({ shape: 'wide', dropNulls: false }))
+    await wrapper.findAll('button').find(b => b.text() === 'Settings')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.findAll('button').some(b => b.text() === 'Long')).toBe(true))
+    return { wrapper, vm }
+  }
+
+  async function switchShape(wrapper: Awaited<ReturnType<typeof mountWithSelection>>['wrapper'], label: string) {
+    await wrapper.findAll('button').find(b => b.text() === label)!.trigger('click')
+  }
+
+  // the page done with the shape's answers: a request it would make is made once the tasks queued
+  // have run, and each answer is taken in before an await on it made after the page's returns
+  async function settle() {
+    await new Promise(resolve => setTimeout(resolve))
+    await Promise.all(shapeAnswers)
+    await nextTick()
+  }
+
+  it.each([true, false])('takes the long shape\'s Drop nulls (%s) where the user switches to it, and sends it', async (dropNullsLong) => {
+    endpoints.push(registerEndpoint('/api/settings', (event) => {
+      asked.push(getQuery(event).shape)
+      return wideServer(event, dropNullsLong)
+    }))
+    const sent: Record<string, unknown>[] = []
+    const { wrapper, vm } = await mountOnWideServer(sent)
+
+    await switchShape(wrapper, 'Long')
+    await vi.waitFor(() => expect(asked).toEqual([undefined, 'long']))
+    await vi.waitFor(() => expect(vm.dataSettings.dropNulls).toBe(dropNullsLong))
+
+    await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]).toMatchObject({ shape: 'long', drop_nulls: String(dropNullsLong) })
+  })
+
+  it('keeps a Drop nulls the user changed', async () => {
+    endpoints.push(registerEndpoint('/api/settings', (event) => {
+      asked.push(getQuery(event).shape)
+      return wideServer(event)
+    }))
+    const { wrapper, vm } = await mountOnWideServer([])
+
+    // changed and changed back, which is still the user's
+    vm.dataSettings.dropNulls = true
+    vm.dataSettings.dropNulls = false
+    await switchShape(wrapper, 'Long')
+    await vi.waitFor(() => expect(asked).toEqual([undefined, 'long']))
+    await settle()
+    expect(shapeAnswers).toHaveLength(1)
+
+    expect(vm.dataSettings).toMatchObject({ shape: 'long', dropNulls: false })
+  })
+
+  it('keeps a Drop nulls the link names', async () => {
+    endpoints.push(registerEndpoint('/api/settings', (event) => {
+      asked.push(getQuery(event).shape)
+      return wideServer(event)
+    }))
+    const wrapper = await mountSuspended(ExplorerPage, { route: '/explorer?dropNulls=false' })
+    mounted.push(wrapper)
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.dataSettings.shape).toBe('wide'))
+
+    vm.dataSettings.shape = 'long'
+    await vi.waitFor(() => expect(asked).toEqual([undefined, 'long']))
+    await settle()
+
+    expect(vm.dataSettings.dropNulls).toBe(false)
+  })
+
+  it.each([404, 422, 500])('keeps Drop nulls where /api/settings answers the shape with a %i', async (status) => {
+    endpoints.push(registerEndpoint('/api/settings', (event) => {
+      asked.push(getQuery(event).shape)
+      if (getQuery(event).shape)
+        throw createError({ statusCode: status })
+      return wideServer(event)
+    }))
+    const { wrapper, vm } = await mountOnWideServer([])
+
+    await switchShape(wrapper, 'Long')
+    await vi.waitFor(() => expect(asked).toEqual([undefined, 'long']))
+    await settle()
+
+    expect(vm.dataSettings).toMatchObject({ shape: 'long', dropNulls: false })
+  })
+
+  it('does not ask a backend without /api/settings for the shape', async () => {
+    endpoints.push(registerEndpoint('/api/settings', (event) => {
+      asked.push(getQuery(event).shape)
+      throw createError({ statusCode: 404 })
+    }))
+    const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
+    const vm = wrapper.vm as any
+    await expect(useServerSettings()).resolves.toBeNull()
+
+    vm.dataSettings.shape = 'wide'
+    await settle()
+
+    expect(asked).toEqual([undefined])
+    expect(vm.dataSettings).toMatchObject({ shape: 'wide', dropNulls: true })
+  })
+
+  it('lays the shape\'s Drop nulls over the first answer, where the user switched before it came', async () => {
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    // a server of wetterdienst's long shape, whose wide one turns drop_nulls off
+    endpoints.push(registerEndpoint('/api/settings', async (event) => {
+      const shape = getQuery(event).shape
+      asked.push(shape)
+      if (!shape)
+        await held
+      return { values: { shape: shape ?? 'long', drop_nulls: shape !== 'wide' } }
+    }))
+    const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(asked).toEqual([undefined]))
+
+    vm.dataSettings.shape = 'wide'
+    await settle()
+    release()
+    await vi.waitFor(() => expect(asked).toEqual([undefined, 'wide']))
+    await settle()
+
+    expect(vm.dataSettings).toMatchObject({ shape: 'wide', dropNulls: false })
+  })
+
+  it('takes no answer for a shape the user has switched away from since', async () => {
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    endpoints.push(registerEndpoint('/api/settings', async (event) => {
+      asked.push(getQuery(event).shape)
+      if (getQuery(event).shape === 'long')
+        await held
+      return wideServer(event)
+    }))
+    const { wrapper, vm } = await mountOnWideServer([])
+
+    await switchShape(wrapper, 'Long')
+    await vi.waitFor(() => expect(asked).toEqual([undefined, 'long']))
+    await switchShape(wrapper, 'Wide')
+    await vi.waitFor(() => expect(asked).toEqual([undefined, 'long', 'wide']))
+    expect(shapeAnswers).toHaveLength(2)
+    await shapeAnswers[1]
+    // the long shape's answer, drop_nulls on, comes in last
+    release()
+    await settle()
+
+    expect(vm.dataSettings).toMatchObject({ shape: 'wide', dropNulls: false })
   })
 })
