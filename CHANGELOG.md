@@ -21,8 +21,8 @@ Types of changes:
 - The `restapi` extra now needs `fastapi>=0.142` (was `>=0.115`), which brings `opentelemetry-api`;
   upgrade fastapi where it is pinned lower. The REST API turns off fastapi's OpenTelemetry export
   from `OTEL_*` variables: to export, set up a provider yourself, e.g. with
-  `opentelemetry-instrument`. It still gets fastapi's spans, metrics and logs, or, where the
-  `opentelemetry-instrumentation-fastapi` middleware runs, that instrumentation's (GH-2407)
+  `opentelemetry-instrument`. Such a provider now gets fastapi's spans, metrics and logs, or, where
+  the `opentelemetry-instrumentation-fastapi` middleware runs, that instrumentation's (GH-2407)
 
 ## [0.140.0] - 2026-10-05
 
