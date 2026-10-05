@@ -5471,10 +5471,11 @@ def _schema_parameters(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> d
 
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_openapi_settings_defaults_are_the_servers(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The schema's default of a settings parameter is the server's value in effect, as `/api/settings` says (GH-2393).
+    """The schema's default of a settings parameter is the server's value, as `/api/settings` says (GH-2393).
 
     It was wetterdienst's, which a client filling in the defaults sent, hiding the server's. The
     parameters without a default, the radii and the dicts, keep none, and nothing else changes.
+    `drop_nulls` is the server's as set, where `/api/settings` reports the value in effect.
     """
     plain = _schema_parameters(client, monkeypatch)
     for name, value in _SERVER_SETTINGS_ENV.items():
@@ -5545,11 +5546,10 @@ def test_openapi_with_malformed_server_settings_is_built_without_them(
     assert parameters["/api/values"]["shape"]["schema"]["default"] == "long"
     assert restapi.app.openapi_schema is None
     monkeypatch.delenv("WD_TS_SKIP_THRESHOLD")
-    assert restapi.app.openapi()["paths"]["/api/values"]["get"]["parameters"] is not None
+    schema = restapi.app.openapi()
+    assert schema is restapi.app.openapi_schema
     (shape,) = (
-        parameter
-        for parameter in restapi.app.openapi_schema["paths"]["/api/values"]["get"]["parameters"]
-        if parameter["name"] == "shape"
+        parameter for parameter in schema["paths"]["/api/values"]["get"]["parameters"] if parameter["name"] == "shape"
     )
     assert shape["schema"]["default"] == "wide"
 
@@ -5625,3 +5625,31 @@ def test_openapi_drop_nulls_default_is_the_servers_as_set_whatever_its_shape(
     assert client.get("/api/settings").json()["values"]["drop_nulls"] is False
     filled_in = client.get("/api/settings", params={"shape": "long", "drop_nulls": str(default).lower()}).json()
     assert filled_in["values"] == client.get("/api/settings", params={"shape": "long"}).json()["values"]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_openapi_with_a_route_added_keeps_the_servers_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A route added after the schema is built reaches it, which keeps the server's defaults (GH-2393).
+
+    FastAPI builds its schema again for a route added; the server's defaults are written into that
+    one too, and the schema is kept until the next.
+    """
+    from fastapi import APIRouter  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_TS_SHAPE", "wide")
+    monkeypatch.setattr(restapi.app, "openapi_schema", None)
+    first = restapi.app.openapi()
+    assert restapi.app.openapi() is first
+
+    router = APIRouter()
+    router.add_api_route("/api/added", lambda: None)
+    monkeypatch.setattr(restapi.app.router, "routes", list(restapi.app.router.routes))
+    monkeypatch.setattr(restapi.app.router, "_routes_version", restapi.app.router._routes_version)  # noqa: SLF001
+    restapi.app.include_router(router)
+
+    schema = restapi.app.openapi()
+    assert "/api/added" in schema["paths"]
+    (shape,) = (
+        parameter for parameter in schema["paths"]["/api/values"]["get"]["parameters"] if parameter["name"] == "shape"
+    )
+    assert shape["schema"]["default"] == "wide"

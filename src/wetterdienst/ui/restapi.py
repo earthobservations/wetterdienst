@@ -599,14 +599,16 @@ def _openapi() -> dict[str, Any]:
     server's whole dict, a unit for every quantity, would be sent back as a request's own were it
     the default; `/api/settings` reports it.
 
-    Built once per process, as FastAPI builds the schema, and kept: with the `[mcp]` extra, as the
-    module is imported, by the MCP endpoint, whose tools' defaults are then the server's too, and
-    else on the first request for the schema. A `.env` edited after that reaches the requests and
-    `/api/settings`, which read `Settings()` each time, but not the schema, until the server is
-    restarted.
+    Built once per process, and kept as FastAPI keeps the schema, which it builds again only for a
+    route added: with the `[mcp]` extra, as the module is imported, by the MCP endpoint, whose
+    tools' defaults are then the server's too, and else on the first request for the schema. A
+    `.env` edited after that reaches the requests and `/api/settings`, which read `Settings()` each
+    time, but not the schema, until the server is restarted.
     """
-    if app.openapi_schema is not None:
-        return app.openapi_schema
+    kept = app.openapi_schema
+    schema = FastAPI.openapi(app)
+    if schema is kept:
+        return schema
     try:
         server = Settings()
     except Exception:  # noqa: BLE001
@@ -614,7 +616,6 @@ def _openapi() -> dict[str, Any]:
         # value (`_RefuseInvalidSettings`). Reached as the module is imported, by the MCP build,
         # which would log the error with the values. Built with wetterdienst's defaults then,
         # and not kept, so that a later call takes the server's
-        schema = FastAPI.openapi(app)
         app.openapi_schema = None
         return schema
     defaults = {
@@ -625,9 +626,7 @@ def _openapi() -> dict[str, Any]:
         }
         for endpoint, taking, applied in _ENDPOINT_SETTINGS
     }
-    for values in defaults.values():
-        if "drop_nulls" in values:
-            values["drop_nulls"] = server.ts_drop_nulls
+    defaults["/api/values"]["drop_nulls"] = server.ts_drop_nulls
     # a parameter several endpoints take sets one setting, which each reports alike
     defaults["/api/settings"] = {
         field: value
@@ -635,7 +634,6 @@ def _openapi() -> dict[str, Any]:
         for field, value in values.items()
         if field in SettingsRequest.model_fields and SettingsRequest.model_fields[field].default is not None
     }
-    schema = FastAPI.openapi(app)
     for path, values in defaults.items():
         for parameter in schema["paths"][path]["get"]["parameters"]:
             if parameter["name"] not in values:
