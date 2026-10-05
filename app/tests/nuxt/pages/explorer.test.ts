@@ -1111,6 +1111,33 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
     expect(vm.dataSettings).toMatchObject({ shape: 'wide', dropNulls: true })
   })
 
+  it('lays the shape\'s Drop nulls over the first answer, where the user switched before it came', async () => {
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    // a server of wetterdienst's long shape, whose wide one turns drop_nulls off
+    endpoints.push(registerEndpoint('/api/settings', async (event) => {
+      const shape = getQuery(event).shape
+      asked.push(shape)
+      if (!shape)
+        await held
+      return { values: { shape: shape ?? 'long', drop_nulls: shape !== 'wide' } }
+    }))
+    const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(asked).toEqual([undefined]))
+
+    vm.dataSettings.shape = 'wide'
+    await settle()
+    release()
+    await vi.waitFor(() => expect(asked).toEqual([undefined, 'wide']))
+    await settle()
+
+    expect(vm.dataSettings).toMatchObject({ shape: 'wide', dropNulls: false })
+  })
+
   it('takes no answer for a shape the user has switched away from since', async () => {
     let release!: () => void
     const held = new Promise<void>((resolve) => {
