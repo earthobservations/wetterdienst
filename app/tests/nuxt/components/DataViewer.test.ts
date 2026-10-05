@@ -2432,4 +2432,28 @@ describe('dataViewer chart names', () => {
       ['region', 'Chart of precipitation_height'],
     ])
   })
+
+  it.each([false, true])('names no chart while it could not be drawn, and each once Retry draws it, faceted: %s', async (faceted) => {
+    // the area holds nothing then: a region named as the chart would claim a chart that is not there
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const draw = faceted ? plotly.react : plotly.newPlot
+    draw.mockClear()
+    draw.mockRejectedValueOnce(new Error('drawing failed'))
+    await showChart(wrapper, faceted)
+    const retry = () => wrapper.findAll('button').find(button => button.text() === 'Retry')
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+    // each chart, the facets Plotly did not come to too
+    expect(drawnInto(faceted)).toEqual([[null, null]])
+    expect(document.body.querySelectorAll('[aria-label^="Chart of"]')).toHaveLength(0)
+
+    draw.mockClear()
+    await retry()!.trigger('click')
+    await vi.waitFor(() => expect(retry()).toBeUndefined())
+    expect(drawnInto(faceted)).toEqual(faceted
+      ? [['region', 'Chart of temperature_air_mean_2m'], ['region', 'Chart of precipitation_height']]
+      : [['region', 'Chart of the values']])
+  })
 })

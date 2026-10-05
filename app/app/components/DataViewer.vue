@@ -1139,6 +1139,11 @@ const chartNotice = useTemplateRef<HTMLElement>('chartNotice')
 useFocusAfterRetry(chartNotDrawn, chartNotice, () => facetByParameter.value
   ? facetChartRefs.value.get(facetedChartData.value[0]?.parameter ?? '')
   : chartRef.value)
+// a chart's name, as a region rather than an image, so Plotly's own controls in it stay reachable;
+// none while the chart shown could not be drawn, as its area then holds nothing
+function chartRegion(name: string) {
+  return chartNotDrawn.value ? {} : { 'role': 'region', 'aria-label': name }
+}
 
 // Render chart helper functions
 async function drawMainChart(newest: () => boolean) {
@@ -1450,17 +1455,16 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
                 <h4 class="text-sm font-medium mb-2">
                   {{ facet.parameter }}
                 </h4>
-                <!-- regions, not images: Plotly's own controls in them stay reachable -->
                 <div
                   :ref="el => setFacetChartRef(facet.parameter, el as HTMLDivElement)" tabindex="-1" class="w-full"
-                  role="region" :aria-label="t('dataViewer.facetChartLabel', { parameter: facet.parameter })"
+                  v-bind="chartRegion(t('dataViewer.facetChartLabel', { parameter: facet.parameter }))"
                   style="height: 300px;"
                 />
               </div>
             </div>
             <!-- Single combined chart -->
             <div
-              v-else ref="chartRef" tabindex="-1" role="region" :aria-label="t('dataViewer.chartLabel')"
+              v-else ref="chartRef" tabindex="-1" v-bind="chartRegion(t('dataViewer.chartLabel'))"
               class="w-full overflow-visible" style="height: 400px;"
             />
           </div>

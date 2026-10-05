@@ -918,14 +918,19 @@ describe('stripes Page chart name', { timeout: 15_000 }, () => {
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
   afterEach(() => {
+    vi.restoreAllMocks()
     wrapper?.unmount()
     wrapper = undefined
     useToast().clear()
     document.body.innerHTML = ''
   })
 
-  it('names the stripes by their kind and station, as a region', async () => {
-    plotly.newPlot.mockClear()
+  const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
+  const name = 'Climate stripes (Precipitation) for Berlin-Tempelhof, Germany (1048)'
+
+  // the stripes shown for the station, and the chart Plotly was handed to draw them into, by the
+  // role and the name a screen reader announces it with
+  async function shown() {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
       metadata: { station },
@@ -940,10 +945,28 @@ describe('stripes Page chart name', { timeout: 15_000 }, () => {
     await nextTick()
     await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-
     // the mock takes no arguments in its type, so its call is read as Plotly's (element)
     const [chart] = plotly.newPlot.mock.calls[0] as unknown as [HTMLElement]
-    expect(chart.getAttribute('role')).toBe('region')
-    expect(chart.getAttribute('aria-label')).toBe('Climate stripes (Precipitation) for Berlin-Tempelhof, Germany (1048)')
+    return () => [chart.getAttribute('role'), chart.getAttribute('aria-label')]
+  }
+
+  it('names no stripes while they could not be drawn, and the stripes once Retry draws them', async () => {
+    // the area holds nothing then: a region named as the stripes would claim stripes that are not there
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    plotly.newPlot.mockClear()
+    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    const named = await shown()
+    await vi.waitFor(() => expect(retry()).toBeDefined())
+    expect(named()).toEqual([null, null])
+
+    retry()!.click()
+    await vi.waitFor(() => expect(retry()).toBeUndefined())
+    expect(named()).toEqual(['region', name])
+  })
+
+  it('names the stripes by their kind and station, as a region', async () => {
+    plotly.newPlot.mockClear()
+    const named = await shown()
+    await vi.waitFor(() => expect(named()).toEqual(['region', name]))
   })
 })

@@ -865,6 +865,14 @@ let codeImportFailed = false
 // a Retry that works hands its focus on to the chart it drew
 const chartNotice = useTemplateRef<HTMLElement>('chartNotice')
 useFocusAfterRetry(renderFailed, chartNotice, chartRef)
+// the chart's name, as a region rather than an image, so Plotly's own controls in it stay reachable;
+// none while it could not be drawn, as its area then holds nothing
+const chartRegion = computed(() => renderFailed.value
+  ? {}
+  : {
+      'role': 'region',
+      'aria-label': props.stationName ? t('meteogram.chart.label', { name: props.stationName }) : t('meteogram.chart.labelNoStation'),
+    })
 
 function importChartCode<T>(load: () => Promise<T>): Promise<T> {
   return load().catch((error) => {
@@ -2104,12 +2112,7 @@ watch(
           <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderChart()" />
           <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
         </div>
-        <!-- a region, not an image: Plotly's own controls in it stay reachable -->
-        <div
-          ref="chartRef" tabindex="-1" role="region"
-          :aria-label="stationName ? t('meteogram.chart.label', { name: stationName }) : t('meteogram.chart.labelNoStation')"
-          :style="{ width: '100%', height: chartHeight, position: 'relative' }"
-        />
+        <div ref="chartRef" tabindex="-1" v-bind="chartRegion" :style="{ width: '100%', height: chartHeight, position: 'relative' }" />
       </div>
 
       <!-- Premium Compact Overview Grid -->
