@@ -3,6 +3,8 @@
 """Tests for the CLI command `interpolate`."""
 
 import json
+import logging
+from io import BytesIO
 
 import pytest
 from click.testing import CliRunner
@@ -10,6 +12,7 @@ from dirty_equals import IsStr
 
 from tests.conftest import is_html_document
 from wetterdienst.ui.cli import cli
+from wetterdienst.util.network import File
 
 
 @pytest.mark.remote
@@ -598,3 +601,40 @@ def test_cli_interpolate_date_and_start_date_conflict() -> None:
     )
     assert result.exit_code != 0
     assert "Use either --date or --start-date" in result.output
+
+
+@pytest.mark.parametrize("command", ["interpolate", "summarize"])
+def test_cli_estimate_at_a_station_without_position(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, command: str
+) -> None:
+    """An estimate at a station without a position is refused in one line, not a traceback (GH-2380).
+
+    BOGUS AUSTRIAN, as `ghcnh-station-list.csv` lists it, has no position since GH-2380.
+    """
+    station_list = (
+        "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        "AUM00011158,47.117,13.733,-999.0,,BOGUS AUSTRIAN,,,11158,,AT\n"
+    )
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        assert url.endswith("/ghcnh-station-list.csv")
+        return File(url=url, content=BytesIO(station_list.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            [
+                command,
+                "--provider=noaa",
+                "--network=ghcn",
+                "--parameters=hourly/data/temperature_air_mean_2m",
+                "--station=AUM00011158",
+                "--date=1938-01-02",
+            ],
+        )
+    assert result.exit_code == 1
+    assert [record.message for record in caplog.records] == [
+        "station AUM00011158 has no position to interpolate or summarize at",
+    ]
+    assert all(record.exc_info is None for record in caplog.records)

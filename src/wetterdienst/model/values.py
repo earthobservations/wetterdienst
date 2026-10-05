@@ -92,8 +92,14 @@ class TimeseriesValues(ABC):
 
         """
         stations = self.sr.df
+        # from a row that has a position: a station requested at several resolutions has a row in
+        # each one's list, and one can have none, as a NOAA GHCN hourly row can (GH-2380)
         longitude, latitude = (
-            stations.filter(pl.col("station_id").eq(station_id))
+            stations.filter(
+                pl.col("station_id").eq(station_id),
+                pl.col("latitude").is_not_null(),
+                pl.col("longitude").is_not_null(),
+            )
             .select([pl.col("longitude"), pl.col("latitude")])
             .transpose()
             .to_series()

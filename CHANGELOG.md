@@ -27,6 +27,12 @@ Types of changes:
   `DwdSwsmosRequest.available_issues(settings)` returns them as UTC datetimes. They refused
   dwd/swsmos as unsupported. One run holds every road station, so the list is the same for any
   station (GH-2319)
+- `GET /api/settings` reports the settings `/api/values`, `/api/interpolate` and `/api/summarize`
+  take where a request leaves them out: the server's `WD_TS_*` variables over wetterdienst's
+  defaults, with the unit of every quantity. With `with_metadata`, those three endpoints' JSON and
+  GeoJSON, and their MCP tools', carry a `settings` block next to `metadata`, with the settings the
+  result was got with. Their OpenAPI schemas, which declare it, are now named
+  `_ValuesWithSettingsDict`, `_ValuesWithSettingsOgcFeatureCollection` and so on (GH-2359)
 
 ### Changed
 
@@ -436,6 +442,12 @@ Types of changes:
   `ts_shape = "wide"` turns `ts_drop_nulls` off at once, a radius assigned reaches
   `ts_geo_station_distance` at once, and a dict assigned to `fsspec_client_kwargs` is merged into
   the defaults as one given is, where it replaced them (GH-2342)
+- NOAA GHCN hourly stations listed at 0.0, 0.0, or named `BOGUS ...`, 15 placeholders such as
+  BOGUS AUSTRIAN, have a null `latitude` and `longitude`. They are still fetched by id, but no
+  rank, distance or bbox search, `interpolate` or `summarize` picks them. A rank search now leaves
+  out every station without a position, which it sorted first, ahead of the nearest; estimating
+  at one by station id is refused with a `LocationOutOfRangeError`. The CLI prints that error in
+  one line, also for a point beyond the latitudes UTM covers, where it was a traceback (GH-2380)
 
 ## [0.139.0] - 2026-09-29
 

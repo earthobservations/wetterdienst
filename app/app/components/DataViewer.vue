@@ -6,7 +6,6 @@ import type { ParameterSelectionState } from '~/types/parameter-selection-state.
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
 import { h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
-import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
 import { describeFetchError } from '~/utils/api-error'
 import { formatDate } from '~/utils/format'
 import { timestampDate } from '~/utils/timestamp'
@@ -19,6 +18,8 @@ const props = defineProps<{
   settings: DataSettings
   /** DWD DMO's run, `lead_time`, where the selection offers a choice of one; every endpoint takes it */
   leadTime?: 'short' | 'long'
+  /** The unit a type left at "Default (...)" is pinned to, by type: the server's, where the explorer has it */
+  unitTargetDefaults?: Record<string, string>
 }>()
 
 const { t } = useI18n()
@@ -110,17 +111,17 @@ const isInterpolationMode = computed(() => stationSelection.value.mode === 'inte
 const isSummaryMode = computed(() => stationSelection.value.mode === 'summary')
 
 /**
- * The two search radii, named for the endpoint that takes them, and only when the user moved them
- * off the backend's own defaults -- an untouched setting is not sent, so a server configured
- * through `WD_TS_GEO_STATION_DISTANCE_*` keeps its values.
+ * The two search radii, named for the endpoint that takes them. Sent whatever they are, as every
+ * other setting is: the explorer starts them from the server's own (GH-2359), and one left out would
+ * be the server's `WD_TS_GEO_STATION_DISTANCE_*` rather than the one the box shows.
  */
 function stationDistanceRadii(prefix: 'interpolation' | 'summary'): Record<string, number> {
   const radii: Record<string, number> = {}
   // a cleared number input is null rather than a number, which would be sent as an empty value
   const given = (value: number) => Number.isFinite(value)
-  if (given(props.settings.stationDistanceHomogeneous) && props.settings.stationDistanceHomogeneous !== STATION_DISTANCE_DEFAULTS.homogeneous)
+  if (given(props.settings.stationDistanceHomogeneous))
     radii[`${prefix}_station_distance_homogeneous`] = props.settings.stationDistanceHomogeneous
-  if (given(props.settings.stationDistanceHeterogeneous) && props.settings.stationDistanceHeterogeneous !== STATION_DISTANCE_DEFAULTS.heterogeneous)
+  if (given(props.settings.stationDistanceHeterogeneous))
     radii[`${prefix}_station_distance_heterogeneous`] = props.settings.stationDistanceHeterogeneous
   return radii
 }
@@ -153,9 +154,9 @@ const apiQuery = computed(() => {
   if (props.leadTime)
     base.lead_time = props.leadTime
 
-  // every unit type the explorer lists, the user's choice or its listed default, so a type left at
-  // "Default (...)" does not come in the server's `WD_TS_UNIT_TARGETS` unit instead
-  base.unit_targets = JSON.stringify(pinnedUnitTargets(props.settings.unitTargets))
+  // every unit type the explorer lists, the user's choice or the default its "Default (...)" names, so
+  // the request asks for the same units on any server
+  base.unit_targets = JSON.stringify(pinnedUnitTargets(props.settings.unitTargets, props.unitTargetDefaults))
 
   // Add date range if provided
   if (ss.dateRange?.startDate) {

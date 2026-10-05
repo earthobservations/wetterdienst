@@ -145,6 +145,14 @@ _SqlValuesField = Annotated[
     Field(description='SQL WHERE clause applied to the values, e.g. "temperature_air_max_2m < 2.0".'),
 ]
 _WithMetadataField = Annotated[bool, Field(description="Include the provider-metadata block in the output.")]
+# of the values, interpolate and summarize requests, whose JSON formats report their settings with it
+_WithMetadataSettingsField = Annotated[
+    bool,
+    Field(
+        description="Include the provider-metadata block in the output, and with it, in JSON or GeoJSON, a "
+        "`settings` block with the settings the result was got with."
+    ),
+]
 _WithStationsField = Annotated[bool, Field(description="Include the queried stations' metadata block in the output.")]
 _FormatField = Annotated[
     Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"],
@@ -649,7 +657,7 @@ class ValuesRequest(BaseModel):
     # sql
     sql: _SqlField = None
 
-    with_metadata: _WithMetadataField = False
+    with_metadata: _WithMetadataSettingsField = False
     with_stations: _WithStationsField = False
 
     format: _FormatField = "json"
@@ -778,7 +786,7 @@ class InterpolationRequest(BaseModel):
     num_additional_stations: _NumAdditionalStationsField = 3
     format: _FormatField = "json"
 
-    with_metadata: _WithMetadataField = False
+    with_metadata: _WithMetadataSettingsField = False
     with_stations: _WithStationsField = False
 
     pretty: _PrettyField = False
@@ -882,7 +890,7 @@ class SummaryRequest(BaseModel):
     num_additional_stations: _NumAdditionalStationsField = 3
     format: _FormatField = "json"
 
-    with_metadata: _WithMetadataField = False
+    with_metadata: _WithMetadataSettingsField = False
     with_stations: _WithStationsField = False
 
     pretty: _PrettyField = False
@@ -1155,7 +1163,7 @@ def select_history_sections(history: dict[str, Any], sections: AbstractSet[str] 
 def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
     """Trim a rank-filtered stations *listing* to the requested ``rank`` rows.
 
-    ``filter_by_rank`` intentionally keeps *all* stations (distance-sorted) in ``df`` because the real
+    ``filter_by_rank`` intentionally keeps *all* stations with a position (distance-sorted) in ``df`` because the real
     ``rank`` limit is applied later, during value collection: that walk takes the ``rank`` closest
     stations that actually carry data -- as sparsely as ``ts_skip_empty`` / ``ts_skip_threshold`` /
     ``ts_skip_criteria`` allow -- and exposes them via ``ValuesResult.df_stations``.

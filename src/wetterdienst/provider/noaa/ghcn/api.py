@@ -306,6 +306,19 @@ class NoaaGhcnRequest(TimeseriesRequest):
         # DNEPRODZERJINSK, which the daily list puts at 148.0 m: placeholders, not heights. So is
         # -999.0, on rows such as BOGUS ALGERIAN, about 570 m below the lowest dry land (GH-2352)
         df = df.with_columns(pl.col("elevation").replace(["-999.9", "-999.0", "9999.0", "8191.0"], None))
+        # 0.0, 0.0 is no position either: BOGUS ARGENTINEAN and NAME AND LOC UNKN are listed there,
+        # and their data rows repeat it. A station named BOGUS, such as BOGUS AUSTRIAN or the ten
+        # BOGUS CHINESE, is a placeholder whose identity, so whose position, was not established. Both
+        # stay in the list and can be fetched by id, but without a position no distance search,
+        # interpolation or summary picks them (GH-2380). Only this list: every name in it starting
+        # BOGUS is such a placeholder, while the daily list's BOGUS CREEK is a real place in Idaho
+        no_position = (
+            pl.col("latitude").cast(pl.Float64).eq(0.0) & pl.col("longitude").cast(pl.Float64).eq(0.0)
+        ) | pl.col("name").str.starts_with("BOGUS ")
+        df = df.with_columns(
+            pl.when(no_position).then(None).otherwise(pl.col(column)).alias(column)
+            for column in ("latitude", "longitude")
+        )
         return df.lazy()
 
     def _create_metaindex_for_ghcn_daily(self) -> pl.LazyFrame:
