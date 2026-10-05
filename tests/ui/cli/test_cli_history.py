@@ -226,3 +226,54 @@ def test_history_target_naming_a_directory_is_a_readable_error(
     assert "Usage:" not in result.output
     assert "Error: Could not write --target: " in result.output
     assert target.is_dir()
+
+
+def _history_to_target(monkeypatch: pytest.MonkeyPatch, target: str) -> Result:
+    """Run history for one station with the fetch stubbed out to no histories, writing to `target`."""
+
+    class _History:
+        def query(self) -> list:
+            return []
+
+    class _Stations:
+        history = _History()
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", lambda **_kwargs: _Stations())
+    return CliRunner().invoke(
+        cli,
+        [
+            "history",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary",
+            "--station=02564",
+            f"--target={target}",
+        ],
+    )
+
+
+def test_history_target_relative_file_uri(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Test the documented `--target file://history.json` writes history.json in the working directory."""
+    monkeypatch.chdir(tmp_path)
+    result = _history_to_target(monkeypatch, "file://history.json")
+    assert result.exit_code == 0, result.output
+    assert json.loads((tmp_path / "history.json").read_text()) == {"histories": []}
+    # not a file inside a directory `file:`, which is where the unstripped URI pointed
+    assert not (tmp_path / "file:").exists()
+
+
+def test_history_target_absolute_file_uri(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Test a `file://` URI holding an absolute path writes to that path."""
+    target = tmp_path / "history.json"
+    result = _history_to_target(monkeypatch, f"file://{target}")
+    assert result.exit_code == 0, result.output
+    assert json.loads(target.read_text()) == {"histories": []}
+
+
+def test_history_target_file_uri_without_json_suffix(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Test the `.json` check still applies to a `file://` URI, read on the path it names."""
+    monkeypatch.chdir(tmp_path)
+    result = _history_to_target(monkeypatch, "file://history.txt")
+    assert result.exit_code == 2
+    assert "--target for history endpoint must end with .json" in result.output
+    assert list(tmp_path.iterdir()) == []

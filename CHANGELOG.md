@@ -24,6 +24,12 @@ Types of changes:
   `opentelemetry-instrument`. Such a provider now gets fastapi's spans, metrics and logs, or, where
   the `opentelemetry-instrumentation-fastapi` middleware runs, that instrumentation's (GH-2407)
 
+### Fixed
+
+- `wetterdienst history --target file://history.json`, the form its docs show, writes
+  `history.json`. The `file://` prefix was kept, so the write went to `file:/history.json` and
+  failed with "No such file or directory". A plain path works as before (GH-2370)
+
 ## [0.140.0] - 2026-10-05
 
 ### Added
