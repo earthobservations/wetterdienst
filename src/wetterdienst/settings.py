@@ -4,10 +4,14 @@
 
 from __future__ import annotations
 
+import atexit
+import functools
 import json
 import logging
 import platform
 import re
+import shutil
+import tempfile
 from collections import defaultdict
 from collections.abc import Mapping
 from pathlib import Path
@@ -210,6 +214,47 @@ def _build_geo_station_distance(
     return d
 
 
+def default_cache_dir(appname: str = "wetterdienst") -> Path:
+    """Return the user's cache directory for `appname`, or a temporary one where there is no home.
+
+    platformdirs 4.12 raises `RuntimeError` where no home directory resolves (HOME unset and the
+    uid missing from the password database, as in a container run with an arbitrary `--user`), and
+    earlier versions returned the path with its `~` unexpanded, which became a directory named `~`
+    below the working directory. Either way `Settings()` used to fail or misplace the cache, even
+    with the cache disabled (GH-2408).
+    """
+    try:
+        path = platformdirs.user_cache_dir(appname=appname)
+    except RuntimeError:
+        return _temporary_cache_dir(appname)
+    if path.startswith("~"):
+        return _temporary_cache_dir(appname)
+    return Path(path)
+
+
+@functools.cache
+def _temporary_cache_dir(appname: str) -> Path:
+    """Create one private temporary cache directory per process, removed when the process exits.
+
+    `mkdtemp` rather than a fixed name below the shared temporary directory, which another user
+    could create first and fill.
+    """
+    try:
+        path = Path(tempfile.mkdtemp(prefix=f"{appname}-"))
+    except OSError as error:
+        msg = (
+            f"no directory for the {appname} cache: the home directory could not be determined and no "
+            "temporary directory could be created; set WD_CACHE_DIR to a writable directory, or HOME"
+        )
+        raise RuntimeError(msg) from error
+    atexit.register(shutil.rmtree, path, ignore_errors=True)
+    log.warning(
+        f"the home directory could not be determined, so the {appname} cache is kept in {path} and "
+        "removed when this process exits; set WD_CACHE_DIR, or HOME, to keep it across runs"
+    )
+    return path
+
+
 def _default_fsspec_client_kwargs() -> dict:
     """Return the client kwargs every request goes out with unless the caller says otherwise."""
     return {
@@ -259,7 +304,7 @@ class Settings(BaseSettings):
     )
 
     cache_disable: bool = Field(default=False)
-    cache_dir: Path = Field(default_factory=lambda: Path(platformdirs.user_cache_dir(appname="wetterdienst")))
+    cache_dir: Path = Field(default_factory=default_cache_dir)
     fsspec_client_kwargs: dict = Field(default_factory=_default_fsspec_client_kwargs)
     auth: Auth = Field(default_factory=Auth)
     use_certifi: bool = Field(default=False)

@@ -6,15 +6,24 @@ import copy
 import logging
 import os
 import re
+import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from unittest import mock
 
+import platformdirs
 import pytest
 from multidict import CIMultiDict
 from pydantic import SecretStr, ValidationError
 
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.settings import _STATION_DISTANCE_RESOLUTION_FACTORS, Settings, check_settings, reveal
+from wetterdienst.settings import (
+    _STATION_DISTANCE_RESOLUTION_FACTORS,
+    Settings,
+    _temporary_cache_dir,
+    check_settings,
+    reveal,
+)
 
 WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
 WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
@@ -981,3 +990,76 @@ def test_settings_drop_nulls_again_once_the_shape_assigned_is_long_again() -> No
     settings = Settings(ts_shape="wide", ts_drop_nulls=False)
     settings.ts_shape = "long"
     assert settings.ts_drop_nulls_effective is False
+
+
+def _no_home(appname: str) -> str:
+    """Raise what platformdirs 4.12 raises where no home directory resolves."""
+    msg = f"could not determine the home directory for '~/.cache/{appname}', set HOME or an absolute XDG variable"
+    raise RuntimeError(msg)
+
+
+@pytest.fixture
+def fresh_temporary_cache_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Path]:
+    """Create the fallback cache directory below `tmp_path`, anew for each test."""
+    monkeypatch.delenv("WD_CACHE_DIR", raising=False)
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    _temporary_cache_dir.cache_clear()
+    yield tmp_path
+    _temporary_cache_dir.cache_clear()
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("cache_disable", [False, True])
+def test_settings_fall_back_to_a_temporary_cache_dir_where_no_home_resolves(
+    fresh_temporary_cache_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    *,
+    cache_disable: bool,
+) -> None:
+    """`Settings()` no longer raises where platformdirs finds no home, cache disabled or not (GH-2408)."""
+    monkeypatch.setattr(platformdirs, "user_cache_dir", _no_home)
+    caplog.set_level(logging.WARNING)
+    settings = Settings(cache_disable=cache_disable)
+    assert settings.cache_dir.parent == fresh_temporary_cache_dir
+    assert settings.cache_dir.name.startswith("wetterdienst-")
+    assert settings.cache_dir.is_dir()
+    # one directory per process, not one per `Settings()`
+    assert Settings().cache_dir == settings.cache_dir
+    warnings = [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "WD_CACHE_DIR" in warnings[0]
+    assert "HOME" in warnings[0]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_fall_back_to_a_temporary_cache_dir_for_an_unexpanded_home(
+    fresh_temporary_cache_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Platformdirs before 4.12 returned `~/...` unexpanded, which made a `~` directory below the cwd (GH-2408)."""
+    monkeypatch.setattr(platformdirs, "user_cache_dir", lambda appname: f"~/.cache/{appname}")
+    assert Settings().cache_dir.parent == fresh_temporary_cache_dir
+
+
+@pytest.mark.usefixtures("_no_ambient_settings", "fresh_temporary_cache_dir")
+def test_settings_take_the_cache_dir_given_where_no_home_resolves(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A `WD_CACHE_DIR` given means the default is never asked for (GH-2408)."""
+    monkeypatch.setattr(platformdirs, "user_cache_dir", _no_home)
+    monkeypatch.setenv("WD_CACHE_DIR", str(tmp_path / "given"))
+    assert Settings().cache_dir == tmp_path / "given"
+    assert Settings(cache_dir=tmp_path / "keyword").cache_dir == tmp_path / "keyword"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings", "fresh_temporary_cache_dir")
+def test_settings_name_wd_cache_dir_and_home_where_no_cache_dir_can_be_made(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With neither a home nor a temporary directory, the error says what to set (GH-2408)."""
+    monkeypatch.setattr(platformdirs, "user_cache_dir", _no_home)
+
+    def refuse(**_kwargs: object) -> str:
+        raise FileNotFoundError(2, "No usable temporary directory found")
+
+    monkeypatch.setattr(tempfile, "mkdtemp", refuse)
+    with pytest.raises(RuntimeError, match=r"set WD_CACHE_DIR to a writable directory, or HOME"):
+        Settings(cache_disable=True)
