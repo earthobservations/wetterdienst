@@ -3,6 +3,7 @@
 """Tests for NOAA GHCN stations."""
 
 import datetime as dt
+import logging
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
@@ -12,7 +13,8 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
 from wetterdienst.core.util import one_row_per_station
-from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
+from wetterdienst.exceptions import LocationOutOfRangeError
+from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
 from wetterdienst.util.network import File
 
 
@@ -383,3 +385,215 @@ def test_noaa_ghcn_stations_hourly_and_daily_keep_their_own_elevation(
         ("hourly", "MXM00076840", 48.0),
         ("hourly", "UPM00033676", 229.0),
     ]
+
+
+# rows copied from `ghcnh-station-list.csv` as NOAA publishes it (2026-10-04). BOGUS ARGENTINEAN and
+# NAME AND LOC UNKN are listed at 0.0, 0.0; BOGUS AUSTRIAN at 47.117, 13.733, between MARIAPFARR and
+# MAUTERNDORF. GREENWICH ROYAL OBSERVATORY (longitude 0.0) and PONTIANAK BORNEO (latitude 0.0) are
+# real places on the prime meridian and the equator
+GHCNH_WITHOUT_POSITION = (
+    "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+    "ARM00087500,0.0,0.0,-999.0,,BOGUS ARGENTINEAN,,,87500,,AR\n"
+    "ARM00087869,0.0,0.0,-999.0,,NAME AND LOC UNKN,,,87869,,AR\n"
+    "AUM00011158,47.117,13.733,-999.0,,BOGUS AUSTRIAN,,,11158,,AT\n"
+    "AUM00011162,47.1333,13.6833,1115.0,,MAUTERNDORF,,,11162,,AT\n"
+    "AUM00011348,47.15,13.75,1151.0,,MARIAPFARR,,,11348,,AT\n"
+    "GHU00065408,4.88,-1.77,8.0,,TAKORADI GHANA,,,,,GH\n"
+    "IDU00096583,0.0,109.33,3.0,,PONTIANAK BORNEO,,,,,ID\n"
+    "UKU68-00010,51.48,0.0,48.5,,GREENWICH ROYAL OBSERVATORY,,,,,GB\n"
+)
+GHCNH_WITHOUT_POSITION_IDS = {"ARM00087500", "ARM00087869", "AUM00011158"}
+
+
+def _ghcnh_hourly_data(station_id: str) -> str:
+    """Write a GHCNh data file of one row, at 1938-01-02 06:00, giving only the temperature.
+
+    The -11.1 degC is BOGUS AUSTRIAN's first reading as `GHCNh_AUM00011158_por.psv` gives it.
+    """
+    parameters = [parameter.name_original for parameter in NoaaGhcnMetadata.hourly.data]
+    columns = ["STATION", "DATE", *parameters]
+    row = {"STATION": station_id, "DATE": "1938-01-02T06:00:00", "temperature": "-11.1"}
+    return "|".join(columns) + "\n" + "|".join(row.get(column, "") for column in columns) + "\n"
+
+
+def _fake_ghcn_download_file_without_position(url: str, **_kwargs: object) -> File:
+    """Serve the hourly list above, and a data file for each of its stations, by file name."""
+    file_name = url.rsplit("/", 1)[-1]
+    if file_name == "ghcnh-station-list.csv":
+        content = GHCNH_WITHOUT_POSITION
+    else:
+        content = _ghcnh_hourly_data(file_name.removeprefix("GHCNh_").removesuffix("_por.psv"))
+    return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+
+
+def test_noaa_ghcn_hourly_stations_without_position(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """A station the hourly list puts at 0.0, 0.0, or names BOGUS, has no position (GH-2380).
+
+    Only 0.0 on both axes is no position: a station on the equator or the prime meridian keeps its
+    own.
+    """
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file_without_position)
+    df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df
+    assert df.select("station_id", "latitude", "longitude").rows() == [
+        ("ARM00087500", None, None),
+        ("ARM00087869", None, None),
+        ("AUM00011158", None, None),
+        ("AUM00011162", 47.1333, 13.6833),
+        ("AUM00011348", 47.15, 13.75),
+        ("GHU00065408", 4.88, -1.77),
+        ("IDU00096583", 0.0, 109.33),
+        ("UKU68-00010", 51.48, 0.0),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("latlon", "nearest"),
+    [
+        pytest.param((47.117, 13.733), "AUM00011348", id="bogus-austrian"),
+        pytest.param((0.0, 0.0), "GHU00065408", id="null-island"),
+    ],
+)
+def test_noaa_ghcn_hourly_stations_without_position_not_ranked(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+    latlon: tuple[float, float],
+    nearest: str,
+) -> None:
+    """No distance search picks a station without a position (GH-2380).
+
+    A rank search put BOGUS AUSTRIAN first at its listed position, and the two stations listed at
+    0.0, 0.0 first there. Without a position, a rank search leaves them out rather than sorting
+    their null distance first, and neither a search by distance nor one by bounding box picks them.
+    """
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file_without_position)
+    request = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings)
+    ranked = request.filter_by_rank(latlon=latlon, rank=2).df
+    # MARIAPFARR 3.9 km from BOGUS AUSTRIAN's listed position, TAKORADI GHANA 577 km from 0.0, 0.0
+    assert ranked.get_column("station_id").first() == nearest
+    # the five stations with a position, each with a distance
+    assert ranked.height == 5
+    assert GHCNH_WITHOUT_POSITION_IDS.isdisjoint(ranked.get_column("station_id"))
+    assert ranked.get_column("distance").null_count() == 0
+    nearby = request.filter_by_distance(latlon=latlon, distance=20000).df
+    assert GHCNH_WITHOUT_POSITION_IDS.isdisjoint(nearby.get_column("station_id"))
+    everywhere = request.filter_by_bbox(left=-180, bottom=-90, right=180, top=90).df
+    assert GHCNH_WITHOUT_POSITION_IDS.isdisjoint(everywhere.get_column("station_id"))
+
+
+@pytest.mark.parametrize("station_id", sorted(GHCNH_WITHOUT_POSITION_IDS))
+def test_noaa_ghcn_hourly_stations_without_position_fetched_by_id(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, station_id: str
+) -> None:
+    """A station without a position is still listed and its values fetched by id (GH-2380).
+
+    Its GeoJSON feature has a null geometry, and an estimate at its position is refused by name
+    rather than failing on the missing coordinates.
+    """
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file_without_position)
+    request = NoaaGhcnRequest(
+        parameters=[NoaaGhcnMetadata.hourly.data.temperature_air_mean_2m],
+        start_date=dt.datetime(1938, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=dt.datetime(1938, 1, 31, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+    )
+    stations = request.filter_by_station_id(station_id)
+    assert stations.df.select("station_id", "latitude", "longitude").rows() == [(station_id, None, None)]
+    (feature,) = stations.to_ogc_feature_collection()["data"]["features"]
+    assert feature["geometry"] is None
+    values = stations.values.all().df
+    assert values.select("station_id", "timestamp", "value").rows() == [
+        (station_id, dt.datetime(1938, 1, 2, 6, tzinfo=ZoneInfo("UTC")), -11.1),
+    ]
+    with pytest.raises(LocationOutOfRangeError, match=f"station {station_id} has no position"):
+        request.interpolate_by_station_id(station_id)
+    with pytest.raises(LocationOutOfRangeError, match=f"station {station_id} has no position"):
+        request.summarize_by_station_id(station_id)
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        pytest.param([("hourly", "data"), ("daily", "data")], id="hourly-first"),
+        pytest.param([("daily", "data"), ("hourly", "data")], id="daily-first"),
+    ],
+)
+def test_noaa_ghcn_stations_position_by_id_from_the_row_that_has_one(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, parameters: list[tuple[str, str]]
+) -> None:
+    """A station whose hourly row has no position takes its daily row's, whichever is named first (GH-2380).
+
+    No id in the lists has this today -- BOGUS AUSTRIAN is not in the daily list -- so the daily row
+    is made up, at the position the hourly list gives.
+    """
+    contents = {
+        "ghcnh-station-list.csv": GHCNH_WITHOUT_POSITION,
+        "ghcnd-stations.txt": "AUM00011158  47.1170   13.7330 1100.0    BOGUS AUSTRIAN                         11158\n",
+        "ghcnd-inventory.txt": "AUM00011158  47.1170   13.7330 TMAX 1938 1943\n",
+    }
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        content = contents[url.rsplit("/", 1)[-1]]
+        return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    request = NoaaGhcnRequest(parameters=parameters, settings=default_settings)
+    assert request._get_position_by_station_id("AUM00011158") == (47.117, 13.733, 1100.0)  # noqa: SLF001
+
+
+def test_noaa_ghcn_daily_values_time_zone_from_the_row_that_has_a_position(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """A station's daily values find their time zone though its hourly row, named first, has no position (GH-2380).
+
+    The daily reader puts a day's midnight in the station's own time zone, which it looks up by
+    position. As above, the daily row is made up; the daily reading is -5.0 degC.
+    """
+    contents = {
+        "ghcnh-station-list.csv": GHCNH_WITHOUT_POSITION,
+        "ghcnd-stations.txt": "AUM00011158  47.1170   13.7330 1100.0    BOGUS AUSTRIAN                         11158\n",
+        "ghcnd-inventory.txt": "AUM00011158  47.1170   13.7330 TMAX 1938 1943\n",
+        "AUM00011158.csv": (
+            '"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","TMAX","TMAX_ATTRIBUTES"\n'
+            '"AUM00011158","1938-01-02","47.117","13.733","1100.0","BOGUS AUSTRIAN","  -50",",,E"\n'
+        ),
+        "GHCNh_AUM00011158_por.psv": _ghcnh_hourly_data("AUM00011158"),
+    }
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        content = contents[url.rsplit("/", 1)[-1]]
+        return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    request = NoaaGhcnRequest(
+        parameters=[
+            NoaaGhcnMetadata.hourly.data.temperature_air_mean_2m,
+            NoaaGhcnMetadata.daily.data.temperature_air_max_2m,
+        ],
+        settings=default_settings,
+    )
+    df = request.filter_by_station_id("AUM00011158").values.all().df
+    # midnight in Vienna, an hour ahead of UTC in January 1938
+    assert sorted(df.select(pl.col("resolution").cast(pl.String), "timestamp", "value").rows()) == [
+        ("daily", dt.datetime(1938, 1, 1, 23, tzinfo=ZoneInfo("UTC")), -5.0),
+        ("hourly", dt.datetime(1938, 1, 2, 6, tzinfo=ZoneInfo("UTC")), -11.1),
+    ]
+
+
+def test_noaa_ghcn_rank_without_any_position_says_so(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A rank search over stations of which none has a position finds none, and says so (GH-2380)."""
+    station_list = "\n".join(GHCNH_WITHOUT_POSITION.splitlines()[:4]) + "\n"
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        return File(url=url, content=BytesIO(station_list.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    request = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings)
+    assert request.all().df.get_column("station_id").to_list() == sorted(GHCNH_WITHOUT_POSITION_IDS)
+    with caplog.at_level(logging.INFO):
+        ranked = request.filter_by_rank(latlon=(47.117, 13.733), rank=1)
+    assert ranked.df.is_empty()
+    assert "None of the stations has a position to be ranked by" in caplog.text

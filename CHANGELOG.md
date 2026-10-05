@@ -436,6 +436,12 @@ Types of changes:
 - NOAA GHCN hourly stations listed at -999.0 m, 93 placeholders such as BOGUS ALGERIAN, have a
   null `elevation`. `interpolate` and `summarize` given an elevation took them for known ones
   (GH-2352)
+- NOAA GHCN hourly stations listed at 0.0, 0.0, or named `BOGUS ...`, 15 placeholders such as
+  BOGUS AUSTRIAN, have a null `latitude` and `longitude`. They are still fetched by id, but no
+  rank, distance or bbox search, `interpolate` or `summarize` picks them. A rank search now leaves
+  out every station without a position, which it sorted first, ahead of the nearest; estimating
+  at one by station id is refused with a `LocationOutOfRangeError`. The CLI prints that error in
+  one line, also for a point beyond the latitudes UTM covers, where it was a traceback (GH-2380)
 
 ## [0.139.0] - 2026-09-29
 
