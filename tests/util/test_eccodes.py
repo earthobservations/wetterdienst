@@ -5,6 +5,7 @@
 import builtins
 import importlib
 import logging
+import re
 import sys
 import threading
 import warnings
@@ -228,29 +229,30 @@ def test_a_broken_eccodes_seen_through_pdbufr_is_not_read_as_absence(
 
 
 class _StaleLibrary:
-    """The loaded library, reporting itself as 2.34.1 -- what Ubuntu 24.04 ships.
+    """The loaded library, reporting itself as an older one.
 
     A stand-in for gribapi's `lib` rather than a patch of it: the compiled library takes no
     attributes. Its first answer comes with another warning of the same category, to show the
     filter lets through what it does not name -- and the first answer is the one the import asks for.
     """
 
-    def __init__(self, lib: object) -> None:
+    def __init__(self, lib: object, version: int) -> None:
         self._lib = lib
+        self._version = version
         self._asked = False
 
     def grib_get_api_version(self) -> int:
         if not self._asked:
             self._asked = True
             warnings.warn("something else the bindings say on import", UserWarning, stacklevel=1)
-        return 23401
+        return self._version
 
     def __getattr__(self, name: str) -> object:
         return getattr(self._lib, name)
 
 
 @pytest.fixture
-def _a_first_import_of_a_stale_library(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def stale_library(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
     """Import eccodes and pdbufr afresh, over a library older than the bindings recommend.
 
     The suite has imported both already -- `BUFR_AVAILABLE` asks while collecting -- and the advice
@@ -259,12 +261,19 @@ def _a_first_import_of_a_stale_library(monkeypatch: pytest.MonkeyPatch) -> Itera
     and `eccodes.highlevel` stay, so the library is not loaded a second time nor declared to cffi
     again, which it refuses; the advice reads the version from `gribapi.gribapi.lib`, which is
     where the stale one is put.
+
+    The stale one is a minor release below what the installed bindings recommend, which moves
+    with them -- 2.42.0 in eccodes 2.48, 2.31.0 in 1.7.1, the floor the minimum-versions job
+    installs. Its version is what the fixture gives the test.
     """
+    import gribapi  # noqa: PLC0415
     import gribapi.gribapi  # noqa: PLC0415
 
-    monkeypatch.setattr(gribapi.gribapi, "lib", _StaleLibrary(gribapi.gribapi.lib))
+    stale = gribapi.min_recommended_version_int - 100
+    version = f"{stale // 10000}.{stale // 100 % 100}.{stale % 100}"
+    monkeypatch.setattr(gribapi.gribapi, "lib", _StaleLibrary(gribapi.gribapi.lib, stale))
     # read once from the library as gribapi.gribapi was first imported, and named in the advice
-    monkeypatch.setattr(gribapi.gribapi, "__version__", "2.34.1")
+    monkeypatch.setattr(gribapi.gribapi, "__version__", version)
 
     def forgotten(name: str) -> bool:
         return name in {"gribapi", "eccodes", "eccodes.eccodes"} or name.split(".", maxsplit=1)[0] == "pdbufr"
@@ -273,7 +282,7 @@ def _a_first_import_of_a_stale_library(monkeypatch: pytest.MonkeyPatch) -> Itera
     for name in before:
         del sys.modules[name]
     try:
-        yield
+        yield version
     finally:
         for name in [name for name in sys.modules if forgotten(name)]:
             del sys.modules[name]
@@ -281,8 +290,7 @@ def _a_first_import_of_a_stale_library(monkeypatch: pytest.MonkeyPatch) -> Itera
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-@pytest.mark.usefixtures("_a_first_import_of_a_stale_library")
-def test_the_stale_library_does_provoke_the_advice() -> None:
+def test_the_stale_library_does_provoke_the_advice(stale_library: str) -> None:
     """The control for the test below: imported plainly, the stand-in gets the bindings' advice.
 
     Without it, the test below would pass just as well if the advice were reworded, raised from a
@@ -292,11 +300,15 @@ def test_the_stale_library_does_provoke_the_advice() -> None:
         warnings.simplefilter("always")
         importlib.import_module("eccodes")
     said = [str(warning.message) for warning in seen]
-    assert "ecCodes 2.42.0 or higher is recommended. You are running version 2.34.1" in said
+    # whichever version the installed bindings recommend, matched by the pattern the filter uses,
+    # so this also says the filter's pattern fits the advice as given
+    advice = eccodes._ECCODES_VERSION_ADVICE  # noqa: SLF001
+    running = re.escape(stale_library)
+    assert [message for message in said if re.fullmatch(rf"{advice}\. You are running version {running}", message)]
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-@pytest.mark.usefixtures("_a_first_import_of_a_stale_library")
+@pytest.mark.usefixtures("stale_library")
 @pytest.mark.parametrize("probe", ["ensure_eccodes", "ensure_pdbufr"])
 def test_the_advice_to_upgrade_the_library_is_not_warned(probe: str) -> None:
     """A distribution's ecCodes is older than the bindings recommend, and reads BUFR all the same.
@@ -315,15 +327,14 @@ def test_the_advice_to_upgrade_the_library_is_not_warned(probe: str) -> None:
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-@pytest.mark.usefixtures("_a_first_import_of_a_stale_library")
-def test_the_library_version_is_logged_in_its_place(caplog: pytest.LogCaptureFixture) -> None:
+def test_the_library_version_is_logged_in_its_place(stale_library: str, caplog: pytest.LogCaptureFixture) -> None:
     """Which library loaded is still there to be read, at debug."""
     with (
         caplog.at_level(logging.DEBUG, logger=eccodes.__name__),
         pytest.warns(UserWarning, match="something else the bindings say on import"),
     ):
         assert eccodes.ensure_eccodes() is True
-    assert "ecCodes library 2.34.1" in caplog.text
+    assert f"ecCodes library {stale_library}" in caplog.text
 
 
 def test_two_threads_do_not_put_back_each_others_filters() -> None:
