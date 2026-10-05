@@ -41,7 +41,9 @@ def _without_eccodes_version_advice() -> Iterator[None]:
     `catch_warnings` swaps the process's filter list and puts back what it found, so two threads
     inside it at once -- the REST API's first two BUFR requests, `lru_cache` running a body twice
     when asked twice before it has an answer -- would put back each other's list and could leave
-    the filter in place for good. The lock keeps them one at a time.
+    the filter in place for good. The lock keeps them one at a time. It cannot do as much for
+    another thread changing the filters by other means meanwhile, which `catch_warnings` is not
+    safe against anywhere; the window is each probe's first import, not every request.
     """
     with _ADVICE_LOCK, warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=_ECCODES_VERSION_ADVICE, category=UserWarning)

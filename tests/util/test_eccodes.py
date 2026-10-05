@@ -357,4 +357,6 @@ def test_two_threads_do_not_put_back_each_others_filters() -> None:
     leave.set()
     for thread in threads:
         thread.join(5)
+        # one still inside would hold the lock, and every later probe in this worker would hang
+        assert not thread.is_alive()
     assert warnings.filters == original
