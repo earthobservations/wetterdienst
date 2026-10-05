@@ -580,8 +580,9 @@ def test_stripes_of_a_station_that_returns_no_rows_are_refused(monkeypatch: pyte
 
     The values drop a station whose collected frame is empty, so one whose data file is missing left
     an empty frame, and `upsample` raised `ComputeError` ("cannot determine upsample boundaries")
-    rather than the refusal a station with only null values gets. The station list and the
-    station's collected data are stubbed, so the values' own empty frame is what reaches the stripes.
+    rather than the refusal a station with only null values gets. The station list is stubbed, and
+    the station's one download returns the bare frame DWD's values return for a file that is not
+    there, so the values' own empty frame is what reaches the stripes.
     """
     from wetterdienst.exceptions import NotEnoughDataError  # noqa: PLC0415
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
@@ -609,7 +610,9 @@ def test_stripes_of_a_station_that_returns_no_rows_are_refused(monkeypatch: pyte
         return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
 
     monkeypatch.setattr(DwdObservationRequest, "all", _all)
-    monkeypatch.setattr(DwdObservationValues, "_collect_station_data", lambda *_args: pl.DataFrame())
+    monkeypatch.setattr(
+        DwdObservationValues, "_collect_station_parameter_or_dataset", lambda *_args, **_kwargs: pl.DataFrame()
+    )
     with pytest.raises(
         NotEnoughDataError,
         match="At least two years with data are required to create climate stripes; station 01048 has data for no year",

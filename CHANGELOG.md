@@ -19,8 +19,9 @@ Types of changes:
 ### Fixed
 
 - The climate stripes refuse a station that returns no rows, such as one whose data file is
-  missing, with `NotEnoughDataError` ("has data for no year"), a 400 from `/api/stripes/values`
-  and `/api/stripes/image`. They raised polars' `ComputeError`, a 500 (GH-2369)
+  missing, with `NotEnoughDataError` ("has data for no year"): a 400 from `/api/stripes/values`
+  and `/api/stripes/image` and their MCP tools, and that message from `wetterdienst stripes`. They
+  raised polars' `ComputeError`, a 500 (GH-2369)
 
 ## [0.140.0] - 2026-10-05
 
