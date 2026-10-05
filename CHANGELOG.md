@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `wetterdienst stripes values` checks `--target`'s suffix against `--format`: `--format=jpg` now
+  takes a `.jpeg` target, and a target merely ending in the format's letters, such as `stripespng`
+  or `out.xpng`, is refused instead of written without the extension (GH-2371)
+
 ## [0.140.0] - 2026-10-05
 
 ### Added
