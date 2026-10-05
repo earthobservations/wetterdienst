@@ -4,9 +4,13 @@
 
 import builtins
 import logging
+import sys
+import warnings
+from collections.abc import Iterator
 
 import pytest
 
+from tests.conftest import BUFR_AVAILABLE
 from wetterdienst.util import eccodes
 
 
@@ -219,3 +223,82 @@ def test_a_broken_eccodes_seen_through_pdbufr_is_not_read_as_absence(
     with caplog.at_level(logging.WARNING):
         assert eccodes.ensure_pdbufr() is False
     assert "eccodes.eccodes" in caplog.text
+
+
+class _StaleLibrary:
+    """The loaded library, reporting itself as 2.34.1 -- what Ubuntu 24.04 ships.
+
+    A stand-in for gribapi's `lib` rather than a patch of it: the compiled library takes no
+    attributes. Its first answer comes with another warning of the same category, to show the
+    filter lets through what it does not name -- and the first answer is the one the import asks for.
+    """
+
+    def __init__(self, lib: object) -> None:
+        self._lib = lib
+        self._asked = False
+
+    def grib_get_api_version(self) -> int:
+        if not self._asked:
+            self._asked = True
+            warnings.warn("something else the bindings say on import", UserWarning, stacklevel=1)
+        return 23401
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._lib, name)
+
+
+@pytest.fixture
+def _a_first_import_of_a_stale_library(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Import eccodes and pdbufr afresh, over a library older than the bindings recommend.
+
+    The suite has imported both already -- `BUFR_AVAILABLE` asks while collecting -- and the advice
+    is given once, by `gribapi/__init__.py` as it is first imported. So that module and the chain
+    importing it is forgotten for the test, and put back after it. `gribapi.gribapi`, the bindings
+    and `eccodes.highlevel` stay, so the library is not loaded a second time nor declared to cffi
+    again, which it refuses; the advice reads the version from `gribapi.gribapi.lib`, which is
+    where the stale one is put.
+    """
+    import gribapi.gribapi  # noqa: PLC0415
+
+    monkeypatch.setattr(gribapi.gribapi, "lib", _StaleLibrary(gribapi.gribapi.lib))
+    # read once from the library as gribapi.gribapi was first imported, and named in the advice
+    monkeypatch.setattr(gribapi.gribapi, "__version__", "2.34.1")
+
+    def forgotten(name: str) -> bool:
+        return name in {"gribapi", "eccodes", "eccodes.eccodes"} or name.split(".", maxsplit=1)[0] == "pdbufr"
+
+    before = {name: module for name, module in sys.modules.items() if forgotten(name)}
+    for name in before:
+        del sys.modules[name]
+    eccodes._log_eccodes_version.cache_clear()  # noqa: SLF001
+    try:
+        yield
+    finally:
+        for name in [name for name in sys.modules if forgotten(name)]:
+            del sys.modules[name]
+        sys.modules.update(before)
+        eccodes._log_eccodes_version.cache_clear()  # noqa: SLF001
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.usefixtures("_a_first_import_of_a_stale_library")
+@pytest.mark.parametrize("probe", ["ensure_eccodes", "ensure_pdbufr"])
+def test_the_advice_to_upgrade_the_library_is_logged_rather_than_warned(
+    probe: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A distribution's ecCodes is older than the bindings recommend, and reads BUFR all the same.
+
+    The bindings warned so on every first import -- Debian trixie ships 2.41 and Ubuntu 24.04 2.34,
+    against a recommended 2.42 -- and a caller could neither act on it nor tell it was harmless
+    (GH-2442). Either probe may be the first import in a process, pdbufr importing eccodes itself.
+    The library's version is logged at debug in its place, and nothing else the import says is
+    held back.
+    """
+    with warnings.catch_warnings(record=True) as seen, caplog.at_level(logging.DEBUG, logger=eccodes.__name__):
+        warnings.simplefilter("always")
+        assert getattr(eccodes, probe)() is True
+    said = [str(warning.message) for warning in seen]
+    assert not [message for message in said if "or higher is recommended" in message]
+    assert "something else the bindings say on import" in said
+    assert "ecCodes library 2.34.1" in caplog.text
