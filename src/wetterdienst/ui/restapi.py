@@ -589,9 +589,9 @@ def _openapi() -> dict[str, Any]:
     in effect that `/api/settings` reports: leaving it out means the value set whatever the shape,
     which decides only whether it applies, so a client that fills it in and asks for the long
     shape on a wide server still drops nulls. A parameter for `/api/settings` takes the value of
-    the endpoint it applies to. The request models keep
-    wetterdienst's defaults in Python, which the CLI builds its requests with, and FastAPI fills in
-    for a parameter left out, which the endpoints do not pass on (`_request_settings`).
+    the endpoint it applies to. The request models keep wetterdienst's defaults in Python, which
+    the CLI builds its requests with, and FastAPI fills in for a parameter left out, which the
+    endpoints do not pass on (`_request_settings`).
 
     A parameter whose request field defaults to None has no schema default and keeps none: the
     radii and the JSON-encoded dicts (`unit_targets`, the station distances). A dict given is
@@ -633,7 +633,7 @@ def _openapi() -> dict[str, Any]:
         field: value
         for values in defaults.values()
         for field, value in values.items()
-        if field in SettingsRequest.model_fields and SettingsRequest.model_fields[field].default is not None
+        if field in SettingsRequest.model_fields
     }
     for path, values in defaults.items():
         for parameter in schema["paths"][path]["get"]["parameters"]:

@@ -5649,6 +5649,8 @@ def test_openapi_with_a_route_added_keeps_the_servers_defaults(monkeypatch: pyte
     router.add_api_route("/api/added", lambda: None)
     monkeypatch.setattr(restapi.app.router, "routes", list(restapi.app.router.routes))
     monkeypatch.setattr(restapi.app.router, "_routes_version", restapi.app.router._routes_version)  # noqa: SLF001
+    # which FastAPI sets to the routes' count it built its schema for, as it builds it for the route added
+    monkeypatch.setattr(restapi.app, "_openapi_routes_version", restapi.app._openapi_routes_version)  # noqa: SLF001
     restapi.app.include_router(router)
 
     schema = restapi.app.openapi()
