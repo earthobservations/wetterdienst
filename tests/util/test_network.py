@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import pickle
+import tempfile
 import threading
 import time
 from collections.abc import Callable, Iterator, MutableMapping
@@ -15,6 +16,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import platformdirs
 import pytest
 import stamina
 from aiohttp import (
@@ -34,7 +36,7 @@ from pydantic import SecretStr
 
 from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.settings import Settings
+from wetterdienst.settings import Settings, _temporary_cache_dir
 from wetterdienst.util import network
 from wetterdienst.util.network import (
     _BLOB_CACHE_DIR,
@@ -2432,3 +2434,24 @@ def test_a_callers_own_header_goes_out_beside_the_user_agent(http_server: tuple[
     assert result.status == 200
     assert requests[0]["headers"]["X-Custom"] == "1"
     assert requests[0]["headers"]["User-Agent"].startswith("wetterdienst/")
+
+
+def test_file_dir_cache_falls_back_to_a_temporary_dir_where_no_home_resolves(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The listings cache without a location given no longer raises where platformdirs finds no home (GH-2408)."""
+
+    def no_home(appname: str) -> str:
+        msg = f"could not determine the home directory for '~/.cache/{appname}', set HOME or an absolute XDG variable"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(platformdirs, "user_cache_dir", no_home)
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    _temporary_cache_dir.cache_clear()
+    try:
+        cache = FileDirCache(listings_expiry_time=300.0, use_listings_cache=True)
+        assert cache.cache_location is not None
+        assert cache.cache_location.parent.parent == tmp_path
+        assert cache.cache_location.parent.name.startswith("wetterdienst-fsspec-")
+    finally:
+        _temporary_cache_dir.cache_clear()
