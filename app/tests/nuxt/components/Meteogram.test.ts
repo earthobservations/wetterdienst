@@ -277,11 +277,11 @@ describe('meteogram chart name', { timeout: 15_000 }, () => {
     return [chart.getAttribute('role'), chart.getAttribute('aria-label')]
   }
 
-  it('names the chart by its station, as a region', async () => {
-    expect(await drawnInto('Berlin')).toEqual(['region', 'Forecast chart for Berlin'])
+  it('names the chart by its station, as a figure', async () => {
+    expect(await drawnInto('Berlin')).toEqual(['figure', 'Forecast chart for Berlin'])
   })
 
   it('names the chart without a station where it is given none', async () => {
-    expect(await drawnInto(null)).toEqual(['region', 'Forecast chart'])
+    expect(await drawnInto(null)).toEqual(['figure', 'Forecast chart'])
   })
 })

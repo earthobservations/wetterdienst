@@ -872,9 +872,9 @@ onMounted(() => {
           <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="lastFetchedData && plotStripes(lastFetchedData)" />
           <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
         </div>
-        <!-- a region, not an image: Plotly's own controls in it stay reachable -->
+        <!-- a figure, not an image: Plotly's own controls in it stay reachable; nor a landmark -->
         <div
-          ref="plotContainer" tabindex="-1" role="region" :aria-label="plotLabel" :class="{ hidden: !hasPlot }"
+          ref="plotContainer" tabindex="-1" role="figure" :aria-label="plotLabel" :class="{ hidden: !hasPlot }"
           class="w-full overflow-hidden" style="min-height: 400px;"
         />
         <div v-if="hasPlot && !plotFailed" class="mt-4">

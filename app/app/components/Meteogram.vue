@@ -2104,9 +2104,9 @@ watch(
           <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderChart()" />
           <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
         </div>
-        <!-- a region, not an image: Plotly's own controls in it stay reachable -->
+        <!-- a figure, not an image: Plotly's own controls in it stay reachable; nor a landmark -->
         <div
-          ref="chartRef" tabindex="-1" role="region"
+          ref="chartRef" tabindex="-1" role="figure"
           :aria-label="stationName ? t('meteogram.chart.label', { name: stationName }) : t('meteogram.chart.labelNoStation')"
           :style="{ width: '100%', height: chartHeight, position: 'relative' }"
         />

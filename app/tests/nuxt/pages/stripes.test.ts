@@ -924,7 +924,7 @@ describe('stripes Page chart name', { timeout: 15_000 }, () => {
     document.body.innerHTML = ''
   })
 
-  it('names the stripes by their kind and station, as a region', async () => {
+  it('names the stripes by their kind and station, as a figure', async () => {
     plotly.newPlot.mockClear()
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
@@ -943,7 +943,7 @@ describe('stripes Page chart name', { timeout: 15_000 }, () => {
 
     // the mock takes no arguments in its type, so its call is read as Plotly's (element)
     const [chart] = plotly.newPlot.mock.calls[0] as unknown as [HTMLElement]
-    expect(chart.getAttribute('role')).toBe('region')
+    expect(chart.getAttribute('role')).toBe('figure')
     expect(chart.getAttribute('aria-label')).toBe('Climate stripes (Precipitation) for Berlin-Tempelhof, Germany (1048)')
   })
 })
