@@ -88,8 +88,9 @@ if TYPE_CHECKING:
 info = Info()
 
 # FastAPI's OpenTelemetry stays on, so it reports to a provider the operator sets up. Its startup
-# export from `OTEL_EXPORTER_OTLP_*` is off: it would add a second exporter to that provider, or
-# warn where no OpenTelemetry SDK is installed (GH-2407)
+# export from `OTEL_EXPORTER_OTLP_*` is off: it would set up providers where the OpenTelemetry SDK
+# is installed and none is, add a second exporter to one the operator set up, or warn where no SDK
+# is installed. To export, set up the provider, e.g. with `opentelemetry-instrument` (GH-2407)
 app = FastAPI(debug=False, telemetry={"auto_configure": False})
 
 
