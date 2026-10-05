@@ -7,8 +7,8 @@ import copy
 import logging
 import os
 import re
-import shutil
 import tempfile
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 from unittest import mock
@@ -17,13 +17,16 @@ import platformdirs
 import pytest
 from multidict import CIMultiDict
 from pydantic import SecretStr, ValidationError
+from pydantic_settings import SettingsError
 
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import (
     _STATION_DISTANCE_RESOLUTION_FACTORS,
     Settings,
+    _remove_unless_forked,
     _temporary_cache_dir,
     check_settings,
+    default_cache_dir,
     reveal,
 )
 
@@ -1031,7 +1034,7 @@ def test_settings_fall_back_to_a_temporary_cache_dir_where_no_home_resolves(
     # one directory per process, not one per `Settings()`
     assert Settings().cache_dir == settings.cache_dir
     # and removed when the process exits
-    assert at_exit == [((shutil.rmtree, settings.cache_dir), {"ignore_errors": True})]
+    assert at_exit == [((_remove_unless_forked, settings.cache_dir, os.getpid()), {})]
     warnings = [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
     assert len(warnings) == 1
     assert "WD_CACHE_DIR" in warnings[0]
@@ -1067,5 +1070,48 @@ def test_settings_name_wd_cache_dir_and_home_where_no_cache_dir_can_be_made(monk
         raise FileNotFoundError(2, "No usable temporary directory found")
 
     monkeypatch.setattr(tempfile, "mkdtemp", refuse)
-    with pytest.raises(RuntimeError, match=r"set WD_CACHE_DIR to a writable directory, or HOME"):
+    with pytest.raises(SettingsError, match=r"set WD_CACHE_DIR to a writable directory, or HOME"):
         Settings(cache_disable=True)
+    # told by the CLI and the REST API as an invalid setting is, not as a bare exception type
+    (problem,) = check_settings()
+    assert "set WD_CACHE_DIR to a writable directory, or HOME" in problem
+
+
+def test_settings_leave_the_temporary_cache_dir_to_the_process_that_made_it(tmp_path: Path) -> None:
+    """A forked child exiting does not remove the directory its parent still uses (GH-2408)."""
+    path = tmp_path / "wetterdienst-cache"
+    path.mkdir()
+    _remove_unless_forked(path, os.getpid() + 1)
+    assert path.is_dir()
+    _remove_unless_forked(path, os.getpid())
+    assert not path.exists()
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_make_one_temporary_cache_dir_for_threads_that_miss_at_once(
+    fresh_temporary_cache_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A second thread asking while the first makes the directory gets the same one (GH-2408)."""
+    monkeypatch.setattr(platformdirs, "user_cache_dir", _no_home)
+    monkeypatch.setattr(atexit, "register", lambda *_args, **_kwargs: None)
+    mkdtemp = tempfile.mkdtemp
+    made = []
+    second: list[Path] = []
+
+    def mkdtemp_while_another_thread_asks(**kwargs: object) -> str:
+        made.append(mkdtemp(**kwargs))
+        if len(made) == 1:
+            other = threading.Thread(target=lambda: second.append(default_cache_dir()))
+            other.start()
+            # with the lock the other thread waits for this one, and is still waiting here
+            other.join(timeout=0.2)
+            threads.append(other)
+        return made[-1]
+
+    threads: list[threading.Thread] = []
+    monkeypatch.setattr(tempfile, "mkdtemp", mkdtemp_while_another_thread_asks)
+    first = default_cache_dir()
+    threads[0].join()
+    assert len(made) == 1
+    assert second == [first]
+    assert first.parent == fresh_temporary_cache_dir

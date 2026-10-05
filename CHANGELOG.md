@@ -19,11 +19,10 @@ Types of changes:
 ### Fixed
 
 - `Settings()` no longer fails where no home directory resolves (HOME unset and the uid missing
-  from the password database, as in a container run with an arbitrary `--user`), which it did with
-  platformdirs 4.12 even with `cache_disable=True`. Without `WD_CACHE_DIR` the cache is then kept
-  in a temporary directory, one per process and removed at exit, with a warning to set
-  `WD_CACHE_DIR` or `HOME`; a `~` directory below the working directory is no longer created
-  with older platformdirs either (GH-2408)
+  from the password database), which it did with platformdirs 4.12 even with
+  `cache_disable=True`. Without `WD_CACHE_DIR` the cache is then kept in a temporary directory, one
+  per process and removed at exit, with a warning to set `WD_CACHE_DIR` or `HOME`; a `~` directory
+  below the working directory is no longer created with older platformdirs either (GH-2408)
 
 ## [0.140.0] - 2026-10-05
 

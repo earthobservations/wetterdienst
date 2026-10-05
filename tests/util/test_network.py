@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for network utilities."""
 
+import atexit
 import json
 import logging
 import os
@@ -2447,6 +2448,7 @@ def test_file_dir_cache_falls_back_to_a_temporary_dir_where_no_home_resolves(
 
     monkeypatch.setattr(platformdirs, "user_cache_dir", no_home)
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(atexit, "register", lambda *_args, **_kwargs: None)
     _temporary_cache_dir.cache_clear()
     try:
         cache = FileDirCache(listings_expiry_time=300.0, use_listings_cache=True)
