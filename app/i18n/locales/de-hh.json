@@ -434,7 +434,7 @@
     "humanize": "Parameter verständlich benennen",
     "convertUnits": "In SI-Einheiten umrechnen",
     "unitTargets": "Zieleinheiten",
-    "unitTargetsHint": "Überschreib die Standard-Zieleinheit für bestimmte Einheitentypen. Mit „Standard“ bleibt’s bei der Einheit vom Server.",
+    "unitTargetsHint": "Überschreib die Standard-Zieleinheit für bestimmte Einheitentypen. Mit „Standard“ wird in die Einheit in Klammern umgerechnet.",
     "unitDefault": "Standard ({unit})",
     "valuesOptions": "Werte-Optionen",
     "shape": "Form",

@@ -19,8 +19,8 @@ Types of changes:
 ### Fixed
 
 - `[Explorer]` The Unit Targets hint no longer says to leave a select empty, which none of them
-  can be: it names the "Default" choice each select shows, which keeps the server's unit, in all
-  eleven languages (GH-2395)
+  can be: it names the "Default" choice each select shows, which converts to the unit named in its
+  brackets, in all eleven languages (GH-2395)
 
 ## [0.18.0] - 2026-10-05
 

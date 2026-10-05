@@ -434,7 +434,7 @@
     "humanize": "Humanizovat parametry",
     "convertUnits": "Převést na jednotky SI",
     "unitTargets": "Cílové jednotky",
-    "unitTargetsHint": "Přepište výchozí cílovou jednotku pro konkrétní typy jednotek. „Výchozí“ ponechá jednotku serveru.",
+    "unitTargetsHint": "Přepište výchozí cílovou jednotku pro konkrétní typy jednotek. „Výchozí“ převádí na jednotku uvedenou v závorce.",
     "unitDefault": "Výchozí ({unit})",
     "valuesOptions": "Možnosti hodnot",
     "shape": "Tvar",

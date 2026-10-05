@@ -434,7 +434,7 @@
     "humanize": "Humanizar parámetros",
     "convertUnits": "Convertir a unidades SI",
     "unitTargets": "Unidades de destino",
-    "unitTargetsHint": "Reemplaza la unidad de destino predeterminada para tipos de unidad concretos. «Predeterminado» mantiene la unidad del servidor.",
+    "unitTargetsHint": "Reemplaza la unidad de destino predeterminada para tipos de unidad concretos. «Predeterminado» convierte a la unidad indicada entre paréntesis.",
     "unitDefault": "Predeterminado ({unit})",
     "valuesOptions": "Opciones de valores",
     "shape": "Forma",

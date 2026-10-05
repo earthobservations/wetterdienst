@@ -434,7 +434,7 @@
     "humanize": "Humanize parameters",
     "convertUnits": "Convert to SI units",
     "unitTargets": "Unit Targets",
-    "unitTargetsHint": "Override the default target unit for specific unit types. \"Default\" keeps the server's unit.",
+    "unitTargetsHint": "Override the default target unit for specific unit types. \"Default\" converts to the unit named in brackets.",
     "unitDefault": "Default ({unit})",
     "valuesOptions": "Values Options",
     "shape": "Shape",

@@ -434,7 +434,7 @@
     "humanize": "Humaniser les paramètres",
     "convertUnits": "Convertir en unités SI",
     "unitTargets": "Unités cibles",
-    "unitTargetsHint": "Remplacez l'unité cible par défaut pour certains types d'unités. « Par défaut » conserve l'unité du serveur.",
+    "unitTargetsHint": "Remplacez l'unité cible par défaut pour certains types d'unités. « Par défaut » convertit dans l'unité indiquée entre parenthèses.",
     "unitDefault": "Par défaut ({unit})",
     "valuesOptions": "Options des valeurs",
     "shape": "Forme",

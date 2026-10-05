@@ -434,7 +434,7 @@
     "humanize": "Parameteren humaniséieren",
     "convertUnits": "An SI-Eenheeten ëmrechnen",
     "unitTargets": "Zilleenheeten",
-    "unitTargetsHint": "Iwwerschreift d'Standard-Zilleenheet fir bestëmmten Eenheetstypen. „Standard“ behält d'Eenheet vum Server.",
+    "unitTargetsHint": "Iwwerschreift d'Standard-Zilleenheet fir bestëmmten Eenheetstypen. „Standard“ rechent an d'Eenheet tëscht de Klameren ëm.",
     "unitDefault": "Standard ({unit})",
     "valuesOptions": "Wäerter-Optiounen",
     "shape": "Form",
