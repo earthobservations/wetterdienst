@@ -5410,3 +5410,252 @@ def test_settings_without_parameters_builds_the_settings_once(
 
     assert response.status_code == 200, response.text
     assert sum(record.getMessage().startswith("Wetterdienst cache is") for record in caplog.records) == 1
+
+
+# server variables setting each settings parameter the schema gives a default for, and some it gives
+# none for, with the defaults they make, by endpoint (GH-2393)
+_SERVER_SETTINGS_ENV = {
+    "WD_TS_SHAPE": "wide",
+    "WD_TS_HUMANIZE": "false",
+    "WD_TS_CONVERT_UNITS": "false",
+    "WD_TS_SKIP_EMPTY": "true",
+    "WD_TS_SKIP_THRESHOLD": "0.5",
+    "WD_TS_SKIP_CRITERIA": "max",
+    "WD_TS_GEO_USE_NEARBY_STATION_DISTANCE": "2",
+    "WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS": "0.3",
+    "WD_TS_GEO_NUM_ADDITIONAL_STATIONS": "5",
+    # which have no schema default, and keep none
+    "WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}',
+    "WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS": "60",
+    "WD_TS_GEO_STATION_DISTANCE__precipitation_amount": "25",
+}
+_GEO_SERVER_DEFAULTS = {
+    "humanize": False,
+    "convert_units": False,
+    "min_gain_of_value_pairs": 0.3,
+    "num_additional_stations": 5,
+}
+_VALUES_SERVER_DEFAULTS = {
+    "humanize": False,
+    "convert_units": False,
+    "shape": "wide",
+    "skip_empty": True,
+    "skip_threshold": 0.5,
+    "skip_criteria": "max",
+    # as set, WD_TS_DROP_NULLS being unset, which the wide shape decides only whether it applies
+    "drop_nulls": True,
+}
+_SCHEMA_SERVER_DEFAULTS = {
+    "/api/values": _VALUES_SERVER_DEFAULTS,
+    "/api/interpolate": {**_GEO_SERVER_DEFAULTS, "use_nearby_station_distance": 2.0},
+    "/api/summarize": _GEO_SERVER_DEFAULTS,
+    "/api/settings": {**_VALUES_SERVER_DEFAULTS, **_GEO_SERVER_DEFAULTS, "use_nearby_station_distance": 2.0},
+}
+_SCHEMA_REQUESTS = {
+    "/api/values": "ValuesRequest",
+    "/api/interpolate": "InterpolationRequest",
+    "/api/summarize": "SummaryRequest",
+    "/api/settings": "SettingsRequest",
+}
+
+
+def _schema_parameters(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> dict[str, dict[str, dict]]:
+    """Build `/openapi.json` anew, as a new process does, and return each endpoint's query parameters by name."""
+    monkeypatch.setattr(restapi.app, "openapi_schema", None)
+    schema = client.get("/openapi.json").json()
+    return {
+        path: {parameter["name"]: parameter for parameter in schema["paths"][path]["get"]["parameters"]}
+        for path in _SCHEMA_SERVER_DEFAULTS
+    }
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_openapi_settings_defaults_are_the_servers(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The schema's default of a settings parameter is the server's value, as `/api/settings` says (GH-2393).
+
+    It was wetterdienst's, which a client filling in the defaults sent, hiding the server's. The
+    parameters without a default, the radii and the dicts, keep none, and nothing else changes.
+    `drop_nulls` is the server's as set, where `/api/settings` reports the value in effect.
+    """
+    plain = _schema_parameters(client, monkeypatch)
+    for name, value in _SERVER_SETTINGS_ENV.items():
+        monkeypatch.setenv(name, value)
+
+    parameters = _schema_parameters(client, monkeypatch)
+
+    reported = client.get("/api/settings").json()
+    for path, expected in _SCHEMA_SERVER_DEFAULTS.items():
+        assert {name: parameters[path][name]["schema"]["default"] for name in expected} == expected, path
+        if path != "/api/settings":
+            # but `drop_nulls`, which it reports in effect
+            as_reported = {name: value for name, value in expected.items() if name != "drop_nulls"}
+            assert as_reported.items() <= reported[path.removeprefix("/api/")].items()
+        assert parameters[path].keys() == plain[path].keys()
+        for name, parameter in parameters[path].items():
+            if name not in expected:
+                assert parameter == plain[path][name], (path, name)
+                continue
+            # the description, and all else but the default, is as it was
+            assert {**parameter, "schema": {**parameter["schema"], "default": None}} == {
+                **plain[path][name],
+                "schema": {**plain[path][name]["schema"], "default": None},
+            }
+    for path, name in (
+        ("/api/values", "unit_targets"),
+        ("/api/interpolate", "interpolation_station_distance"),
+        ("/api/interpolate", "interpolation_station_distance_homogeneous"),
+        ("/api/summarize", "summary_station_distance"),
+        ("/api/summarize", "use_nearby_station_distance"),
+        ("/api/settings", "unit_targets"),
+    ):
+        assert "default" not in parameters[path][name]["schema"], (path, name)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_openapi_settings_defaults_are_wetterdienst_s_where_the_server_sets_none(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With no WD_TS_* variable set, each settings parameter's schema default is the request model's (GH-2393)."""
+    from wetterdienst.ui import core  # noqa: PLC0415
+
+    parameters = _schema_parameters(client, monkeypatch)
+
+    for path, expected in _SCHEMA_SERVER_DEFAULTS.items():
+        fields = getattr(core, _SCHEMA_REQUESTS[path]).model_fields
+        assert {name: parameters[path][name]["schema"]["default"] for name in expected} == {
+            name: fields[name].default for name in expected
+        }
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_openapi_with_malformed_server_settings_is_built_without_them(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A malformed server setting leaves the schema wetterdienst's defaults, and the schema is not kept (GH-2393).
+
+    The MCP endpoint builds its tools from the schema as the module is imported, which would log
+    the settings' error with the values, where the server refuses to start naming the variable alone.
+    """
+    monkeypatch.setenv("WD_TS_SHAPE", "wide")
+    monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "5")
+
+    parameters = _schema_parameters(client, monkeypatch)
+
+    assert parameters["/api/values"]["shape"]["schema"]["default"] == "long"
+    assert restapi.app.openapi_schema is None
+    monkeypatch.delenv("WD_TS_SKIP_THRESHOLD")
+    schema = restapi.app.openapi()
+    assert schema is restapi.app.openapi_schema
+    (shape,) = (
+        parameter for parameter in schema["paths"]["/api/values"]["get"]["parameters"] if parameter["name"] == "shape"
+    )
+    assert shape["schema"]["default"] == "wide"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_mcp_tool_settings_defaults_are_the_servers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The MCP tools, built from the schema, give the server's value as a settings argument's default (GH-2393)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    for name, value in _SERVER_SETTINGS_ENV.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(restapi.app, "openapi_schema", None)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _tools() -> dict[str, dict]:
+        async with Client(mcp) as client:
+            return {tool.name: tool.input_schema["properties"] for tool in await client.list_tools()}
+
+    tools = asyncio.run(_tools())
+    for tool in ("values", "interpolate", "summarize"):
+        expected = _SCHEMA_SERVER_DEFAULTS[f"/api/{tool}"]
+        assert {name: tools[tool][name]["default"] for name in expected} == expected
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_openapi_gives_an_infinite_server_setting_no_default(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A server setting JSON has no number for leaves its parameter without a schema default (GH-2393).
+
+    `/api/settings` writes it as the string "Infinity", which is no default of a number parameter.
+    """
+    monkeypatch.setenv("WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS", "inf")
+    monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "inf")
+
+    parameters = _schema_parameters(client, monkeypatch)
+
+    for path in ("/api/interpolate", "/api/summarize", "/api/settings"):
+        assert "default" not in parameters[path]["min_gain_of_value_pairs"]["schema"], path
+        assert parameters[path]["num_additional_stations"]["schema"]["default"] == 3
+    for path in ("/api/interpolate", "/api/settings"):
+        assert "default" not in parameters[path]["use_nearby_station_distance"]["schema"], path
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(("drop_nulls", "default"), [(None, True), ("false", False), ("true", True)])
+def test_openapi_drop_nulls_default_is_the_servers_as_set_whatever_its_shape(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: str | None,
+    default: bool,  # noqa: FBT001
+) -> None:
+    """The schema's `drop_nulls` default is the server's as set, which a wide server shape leaves as it is (GH-2393).
+
+    Leaving it out means the value set: a client filling it in and asking for the long shape of a
+    wide server drops nulls as one leaving it out does. `/api/settings` reports the value in effect,
+    which the wide shape turns off.
+    """
+    monkeypatch.setenv("WD_TS_SHAPE", "wide")
+    if drop_nulls is not None:
+        monkeypatch.setenv("WD_TS_DROP_NULLS", drop_nulls)
+
+    parameters = _schema_parameters(client, monkeypatch)
+
+    for path in ("/api/values", "/api/settings"):
+        assert parameters[path]["drop_nulls"]["schema"]["default"] is default, path
+    assert client.get("/api/settings").json()["values"]["drop_nulls"] is False
+    filled_in = client.get("/api/settings", params={"shape": "long", "drop_nulls": str(default).lower()}).json()
+    assert filled_in["values"] == client.get("/api/settings", params={"shape": "long"}).json()["values"]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.skipif(
+    not hasattr(restapi.app.router, "_routes_version"),
+    reason="FastAPI keeps its schema whatever routes are added, before it counted them",
+)
+def test_openapi_with_a_route_added_keeps_the_servers_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A route added after the schema is built reaches it, which keeps the server's defaults (GH-2393).
+
+    FastAPI builds its schema again for a route added; the server's defaults are written into that
+    one too, and the schema is kept until the next.
+    """
+    from fastapi import APIRouter  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_TS_SHAPE", "wide")
+    monkeypatch.setattr(restapi.app, "openapi_schema", None)
+    first = restapi.app.openapi()
+    assert restapi.app.openapi() is first
+
+    router = APIRouter()
+    router.add_api_route("/api/added", lambda: None)
+    monkeypatch.setattr(restapi.app.router, "routes", list(restapi.app.router.routes))
+    monkeypatch.setattr(restapi.app.router, "_routes_version", restapi.app.router._routes_version)  # noqa: SLF001
+    # which FastAPI sets to the routes' count it built its schema for, as it builds it for the route added
+    monkeypatch.setattr(restapi.app, "_openapi_routes_version", restapi.app._openapi_routes_version)  # noqa: SLF001
+    restapi.app.include_router(router)
+
+    schema = restapi.app.openapi()
+    assert "/api/added" in schema["paths"]
+    (shape,) = (
+        parameter for parameter in schema["paths"]["/api/values"]["get"]["parameters"] if parameter["name"] == "shape"
+    )
+    assert shape["schema"]["default"] == "wide"

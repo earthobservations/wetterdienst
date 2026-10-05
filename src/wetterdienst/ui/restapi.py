@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import sys
 from textwrap import dedent
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar
@@ -575,6 +576,81 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
         raise HTTPException(status_code=400, detail="\n".join(refused))
     content = ServerSettings.model_validate(reported)
     return Response(content=content.model_dump_json(), media_type="application/json")
+
+
+def _openapi() -> dict[str, Any]:
+    """Build the OpenAPI schema, giving each settings query parameter the server's value as its default (GH-2393).
+
+    A settings parameter a request to `/api/values`, `/api/interpolate`, `/api/summarize` or
+    `/api/settings` leaves out takes the server's value, but the schema advertised wetterdienst's,
+    which a client filling in the defaults then sent, hiding the server's. Each default is now the
+    one `/api/settings` reports for the endpoint without parameters, worked out as it does it:
+    `_applied_settings` over `Settings()`. `drop_nulls` alone is the server's as set, not the one
+    in effect that `/api/settings` reports: leaving it out means the value set whatever the shape,
+    which decides only whether it applies, so a client that fills it in and asks for the long
+    shape on a wide server still drops nulls. A parameter for `/api/settings` takes the value of
+    the endpoint it applies to. The request models keep wetterdienst's defaults in Python, which
+    the CLI builds its requests with, and FastAPI fills in for a parameter left out, which the
+    endpoints do not pass on (`_request_settings`).
+
+    A parameter whose request field defaults to None has no schema default and keeps none: the
+    radii and the JSON-encoded dicts (`unit_targets`, the station distances). A dict given is
+    merged into the server's, so a client leaving it out gets the server's already, and the
+    server's whole dict, a unit for every quantity, would be sent back as a request's own were it
+    the default; `/api/settings` reports it.
+
+    Built once per process: with the `[mcp]` extra, as the module is imported, by the MCP endpoint,
+    whose tools' defaults are then the server's too, and else on the first request for the schema.
+    It is kept as FastAPI keeps it, and a recent FastAPI builds it again, reading `Settings()`
+    anew, only for a route added. A `.env` edited after the build reaches the requests and
+    `/api/settings`, which read `Settings()` each time, but not the schema, until the server is
+    restarted.
+    """
+    kept = app.openapi_schema
+    schema = FastAPI.openapi(app)
+    if schema is kept:
+        return schema
+    try:
+        server = Settings()
+    except Exception:  # noqa: BLE001
+        # malformed, which the server refuses to start for, naming each variable without its
+        # value (`_RefuseInvalidSettings`). Reached as the module is imported, by the MCP build,
+        # which would log the error with the values. Built with wetterdienst's defaults then,
+        # and not kept, so that a later call takes the server's
+        app.openapi_schema = None
+        return schema
+    defaults = {
+        f"/api/{endpoint}": {
+            field: value
+            for field, value in _applied_settings(applied, server).model_dump().items()
+            if field in taking.model_fields and taking.model_fields[field].default is not None
+        }
+        for endpoint, taking, applied in _ENDPOINT_SETTINGS
+    }
+    defaults["/api/values"]["drop_nulls"] = server.ts_drop_nulls
+    # a parameter several endpoints take sets one setting, which each reports alike
+    defaults["/api/settings"] = {
+        field: value
+        for values in defaults.values()
+        for field, value in values.items()
+        if field in SettingsRequest.model_fields
+    }
+    for path, values in defaults.items():
+        for parameter in schema["paths"][path]["get"]["parameters"]:
+            if parameter["name"] not in values:
+                continue
+            value = values[parameter["name"]]
+            if isinstance(value, float) and not math.isfinite(value):
+                # JSON has no number for it, and the string `/api/settings` writes is no default of a
+                # number: left out, as absent means the server's
+                del parameter["schema"]["default"]
+            else:
+                parameter["schema"]["default"] = value
+    return schema
+
+
+# FastAPI's documented way to extend the schema, which the route serving it calls on the app
+app.openapi = _openapi  # ty: ignore[invalid-assignment]
 
 
 # OAuth discovery endpoints. The `/mcp` server is open (no auth), so MCP clients such as Claude

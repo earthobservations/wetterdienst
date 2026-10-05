@@ -455,6 +455,12 @@ Types of changes:
   False into `ts_drop_nulls` for good, so a `Settings` reused for a long request returned the
   null rows. The field now keeps the value given, so `Settings(ts_shape="wide").ts_drop_nulls`
   reads True; read `ts_drop_nulls_effective` for whether nulls are dropped (GH-2388)
+- The REST API's OpenAPI schema, and the MCP tools built from it, give each settings parameter of
+  `/api/values`, `/api/interpolate`, `/api/summarize` and `/api/settings` the server's value as
+  its default: with `WD_TS_SHAPE=wide`, `shape` is `wide`. `drop_nulls` is `WD_TS_DROP_NULLS` or
+  true, what leaving it out means whatever the shape. They gave wetterdienst's, which a client
+  filling in defaults sent, hiding the server's. Read once per server process: restart it after
+  editing its `.env` (GH-2393)
 
 ## [0.139.0] - 2026-09-29
 
