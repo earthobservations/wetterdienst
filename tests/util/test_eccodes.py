@@ -338,16 +338,20 @@ def test_two_threads_do_not_put_back_each_others_filters() -> None:
     original = list(warnings.filters)
     inside = threading.Event()
     leave = threading.Event()
+    # each thread says it has been in and out, so one that raised on the way is not read as a pass
+    through = []
 
     def first() -> None:
         with eccodes._without_eccodes_version_advice():  # noqa: SLF001
             inside.set()
             leave.wait(5)
+        through.append("first")
 
     def second() -> None:
         inside.wait(5)
         with eccodes._without_eccodes_version_advice():  # noqa: SLF001
             leave.set()
+        through.append("second")
 
     threads = [threading.Thread(target=first), threading.Thread(target=second)]
     for thread in threads:
@@ -359,4 +363,5 @@ def test_two_threads_do_not_put_back_each_others_filters() -> None:
         thread.join(5)
         # one still inside would hold the lock, and every later probe in this worker would hang
         assert not thread.is_alive()
+    assert sorted(through) == ["first", "second"]
     assert warnings.filters == original

@@ -57,7 +57,9 @@ def ensure_eccodes() -> bool:
         with _without_eccodes_version_advice():
             import eccodes  # noqa: PLC0415
 
-        log.debug(f"ecCodes library {eccodes.eccodes.codes_get_api_version()}")
+        # asking the library its version is the check that it loaded, not only what is logged
+        version = eccodes.eccodes.codes_get_api_version()
+        log.debug(f"ecCodes library {version}")
     except ModuleNotFoundError as e:
         if e.name in (None, "eccodes"):
             # not installed -- or nothing to go on, in which case the quiet path is the one
