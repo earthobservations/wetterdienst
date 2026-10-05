@@ -1193,7 +1193,7 @@ def history(
 
     Select the stations with exactly one of --all or --station.
     """
-    # a local path, or a `file://` URI read as the path after it, as in `alerts`; the `.json` check reads that path
+    # a local path, or a `file://` URI with its prefix removed as `alerts` removes it; the `.json` check reads the rest
     path = target.removeprefix("file://") if target else None
     if path is not None and not path.endswith(".json"):
         msg = "--target for history endpoint must end with .json"
