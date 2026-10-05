@@ -5442,8 +5442,8 @@ _VALUES_SERVER_DEFAULTS = {
     "skip_empty": True,
     "skip_threshold": 0.5,
     "skip_criteria": "max",
-    # which the wide shape turns off
-    "drop_nulls": False,
+    # as set, WD_TS_DROP_NULLS being unset, which the wide shape decides only whether it applies
+    "drop_nulls": True,
 }
 _SCHEMA_SERVER_DEFAULTS = {
     "/api/values": _VALUES_SERVER_DEFAULTS,
@@ -5486,7 +5486,9 @@ def test_openapi_settings_defaults_are_the_servers(client: TestClient, monkeypat
     for path, expected in _SCHEMA_SERVER_DEFAULTS.items():
         assert {name: parameters[path][name]["schema"]["default"] for name in expected} == expected, path
         if path != "/api/settings":
-            assert expected.items() <= reported[path.removeprefix("/api/")].items()
+            # but `drop_nulls`, which it reports in effect
+            as_reported = {name: value for name, value in expected.items() if name != "drop_nulls"}
+            assert as_reported.items() <= reported[path.removeprefix("/api/")].items()
         assert parameters[path].keys() == plain[path].keys()
         for name, parameter in parameters[path].items():
             if name not in expected:
@@ -5596,3 +5598,30 @@ def test_openapi_gives_an_infinite_server_setting_no_default(
         assert parameters[path]["num_additional_stations"]["schema"]["default"] == 3
     for path in ("/api/interpolate", "/api/settings"):
         assert "default" not in parameters[path]["use_nearby_station_distance"]["schema"], path
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(("drop_nulls", "default"), [(None, True), ("false", False), ("true", True)])
+def test_openapi_drop_nulls_default_is_the_servers_as_set_whatever_its_shape(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: str | None,
+    default: bool,  # noqa: FBT001
+) -> None:
+    """The schema's `drop_nulls` default is the server's as set, which a wide server shape leaves as it is (GH-2393).
+
+    Leaving it out means the value set: a client filling it in and asking for the long shape of a
+    wide server drops nulls as one leaving it out does. `/api/settings` reports the value in effect,
+    which the wide shape turns off.
+    """
+    monkeypatch.setenv("WD_TS_SHAPE", "wide")
+    if drop_nulls is not None:
+        monkeypatch.setenv("WD_TS_DROP_NULLS", drop_nulls)
+
+    parameters = _schema_parameters(client, monkeypatch)
+
+    for path in ("/api/values", "/api/settings"):
+        assert parameters[path]["drop_nulls"]["schema"]["default"] is default, path
+    assert client.get("/api/settings").json()["values"]["drop_nulls"] is False
+    filled_in = client.get("/api/settings", params={"shape": "long", "drop_nulls": str(default).lower()}).json()
+    assert filled_in["values"] == client.get("/api/settings", params={"shape": "long"}).json()["values"]

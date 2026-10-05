@@ -585,8 +585,11 @@ def _openapi() -> dict[str, Any]:
     `/api/settings` leaves out takes the server's value, but the schema advertised wetterdienst's,
     which a client filling in the defaults then sent, hiding the server's. Each default is now the
     one `/api/settings` reports for the endpoint without parameters, worked out as it does it:
-    `_applied_settings` over `Settings()`, so `drop_nulls` is the one in effect. A parameter
-    for `/api/settings` takes the value of the endpoint it applies to. The request models keep
+    `_applied_settings` over `Settings()`. `drop_nulls` alone is the server's as set, not the one
+    in effect that `/api/settings` reports: leaving it out means the value set whatever the shape,
+    which decides only whether it applies, so a client that fills it in and asks for the long
+    shape on a wide server still drops nulls. A parameter for `/api/settings` takes the value of
+    the endpoint it applies to. The request models keep
     wetterdienst's defaults in Python, which the CLI builds its requests with, and FastAPI fills in
     for a parameter left out, which the endpoints do not pass on (`_request_settings`).
 
@@ -622,6 +625,9 @@ def _openapi() -> dict[str, Any]:
         }
         for endpoint, taking, applied in _ENDPOINT_SETTINGS
     }
+    for values in defaults.values():
+        if "drop_nulls" in values:
+            values["drop_nulls"] = server.ts_drop_nulls
     # a parameter several endpoints take sets one setting, which each reports alike
     defaults["/api/settings"] = {
         field: value
