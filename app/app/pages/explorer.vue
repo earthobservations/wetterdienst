@@ -235,11 +235,11 @@ watch(() => ({ ...dataSettings.value }), (now, before) => {
  * Each of `reported` in place of a setting the user has not changed and the link does not name, or
  * names but `overLink` holds.
  */
-function seedSettings(reported: Partial<DataSettings>, overLink: ReadonlySet<keyof DataSettings> = new Set()) {
+function seedSettings(reported: Partial<DataSettings>, overLink?: ReadonlySet<keyof DataSettings>) {
   const settings: Record<keyof DataSettings, unknown> = dataSettings.value
   seeding = true
   for (const key of Object.keys(reported) as (keyof DataSettings)[]) {
-    if ((!(key in settingsFromLink) || overLink.has(key)) && !changedSettings.has(key))
+    if ((!(key in settingsFromLink) || overLink?.has(key)) && !changedSettings.has(key))
       settings[key] = reported[key]
   }
   seeding = false

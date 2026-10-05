@@ -34,11 +34,9 @@ Types of changes:
 
 - `[Explorer]` Switching the shape takes the backend's Drop nulls for the new shape. On a backend
   with `WD_TS_SHAPE=wide`, switching to long left Drop nulls unchecked, so the long result kept its
-  null rows. A Drop nulls the user changed stays, as does the current one on a backend that can't
-  report the new shape's (GH-2398)
-- `[Explorer]` A shape switch takes the new shape's Drop nulls where the page link names one too.
-  The explorer writes every setting into its link, so after a reload or on a copied link, Drop
-  nulls kept the old shape's value. The link's value still holds when the page loads (GH-2400)
+  null rows. A Drop nulls the page link names applies on load, and a switch replaces it too.
+  A Drop nulls the user changed stays, as does the current one on a backend
+  that can't report the new shape's (GH-2398, GH-2400)
 - `[Explorer]` Each Unit Targets select left at its default shows "Default (...)" with the unit,
   and the choice is offered again. Opening Unit Targets raised an error per unit type, every select
   showed nothing, and a type moved to another unit could not be put back to Default (GH-2391)
