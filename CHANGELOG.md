@@ -171,7 +171,10 @@ Types of changes:
   (GH-2336, GH-2362)
 - Locked dependencies refreshed to their latest compatible versions -- 22 packages, among them
   duckdb 1.5.6, fastapi 0.142.2, platformdirs 4.12.2, and SQLAlchemy 2.1.2 and xarray 2026.9 on
-  Python 3.11 and later; 3.10 keeps the release lines that still support it (GH-2403)
+  Python 3.11 and later; 3.10 keeps the release lines that still support it. With fastapi 0.142,
+  the REST API records OpenTelemetry traces, metrics and logs where the server has an OpenTelemetry
+  provider set up, or sets `OTEL_EXPORTER_OTLP_ENDPOINT` with the OpenTelemetry SDK installed;
+  without the SDK, that variable gets a warning at start. Otherwise nothing changes (GH-2403)
 
 ### Deprecated
 
