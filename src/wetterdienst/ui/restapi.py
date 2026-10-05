@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import sys
 from textwrap import dedent
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar
@@ -581,8 +582,8 @@ def _openapi() -> dict[str, Any]:
     A settings parameter a request to `/api/values`, `/api/interpolate`, `/api/summarize` or
     `/api/settings` leaves out takes the server's value, but the schema advertised wetterdienst's,
     which a client filling in the defaults then sent, hiding the server's. Each default is now the
-    one `/api/settings` reports for the endpoint without parameters: `_applied_settings` over
-    `Settings()`, so the two cannot disagree, and `drop_nulls` is the one in effect. A parameter
+    one `/api/settings` reports for the endpoint without parameters, worked out as it does it:
+    `_applied_settings` over `Settings()`, so `drop_nulls` is the one in effect. A parameter
     for `/api/settings` takes the value of the endpoint it applies to. The request models keep
     wetterdienst's defaults in Python, which the CLI builds its requests with, and FastAPI fills in
     for a parameter left out, which the endpoints do not pass on (`_request_settings`).
@@ -592,10 +593,11 @@ def _openapi() -> dict[str, Any]:
     leaving it out gets the server's already, and the server's whole dict, a unit for every
     quantity, would be sent back as a request's own were it the default; `/api/settings` reports it.
 
-    Built once per process, as FastAPI builds the schema, and kept: the MCP endpoint's tools are
-    built from it as the module is imported, so their defaults are the server's too. A `.env`
-    edited while the server runs reaches the requests, which read `Settings()` each time, but not
-    the schema, until the server is restarted.
+    Built once per process, as FastAPI builds the schema, and kept: with the `[mcp]` extra, as the
+    module is imported, by the MCP endpoint, whose tools' defaults are then the server's too, and
+    else on the first request for the schema. A `.env` edited after that reaches the requests and
+    `/api/settings`, which read `Settings()` each time, but not the schema, until the server is
+    restarted.
     """
     if app.openapi_schema is not None:
         return app.openapi_schema
@@ -609,11 +611,10 @@ def _openapi() -> dict[str, Any]:
         schema = FastAPI.openapi(app)
         app.openapi_schema = None
         return schema
-    # as `/api/settings` writes them: a value JSON has no number for as a string
     defaults = {
         f"/api/{endpoint}": {
             field: value
-            for field, value in json.loads(_applied_settings(applied, server).model_dump_json()).items()
+            for field, value in _applied_settings(applied, server).model_dump().items()
             if field in taking.model_fields
         }
         for endpoint, taking, applied in _ENDPOINT_SETTINGS
@@ -628,8 +629,15 @@ def _openapi() -> dict[str, Any]:
     schema = FastAPI.openapi(app)
     for path, values in defaults.items():
         for parameter in schema["paths"][path]["get"]["parameters"]:
-            if parameter["name"] in values and "default" in parameter["schema"]:
-                parameter["schema"]["default"] = values[parameter["name"]]
+            if parameter["name"] not in values or "default" not in parameter["schema"]:
+                continue
+            value = values[parameter["name"]]
+            if isinstance(value, float) and not math.isfinite(value):
+                # JSON has no number for it, and the string `/api/settings` writes is no default of a
+                # number: left out, as absent means the server's
+                del parameter["schema"]["default"]
+            else:
+                parameter["schema"]["default"] = value
     return schema
 
 

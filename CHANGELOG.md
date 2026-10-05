@@ -456,7 +456,7 @@ Types of changes:
   `/api/values`, `/api/interpolate`, `/api/summarize` and `/api/settings` the server's value as
   its default, as `/api/settings` reports it: with `WD_TS_SHAPE=wide`, `shape` is `wide` and
   `drop_nulls` `false`. They gave wetterdienst's, which a client filling in defaults sent, hiding
-  the server's. Read when the server starts; restart it after editing its `.env` (GH-2393)
+  the server's. Read once per server process: restart it after editing its `.env` (GH-2393)
 
 ## [0.139.0] - 2026-09-29
 

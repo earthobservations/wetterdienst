@@ -5575,3 +5575,24 @@ def test_mcp_tool_settings_defaults_are_the_servers(monkeypatch: pytest.MonkeyPa
     for tool in ("values", "interpolate", "summarize"):
         expected = _SCHEMA_SERVER_DEFAULTS[f"/api/{tool}"]
         assert {name: tools[tool][name]["default"] for name in expected} == expected
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_openapi_gives_an_infinite_server_setting_no_default(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A server setting JSON has no number for leaves its parameter without a schema default (GH-2393).
+
+    `/api/settings` writes it as the string "Infinity", which is no default of a number parameter.
+    """
+    monkeypatch.setenv("WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS", "inf")
+    monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "inf")
+
+    parameters = _schema_parameters(client, monkeypatch)
+
+    for path in ("/api/interpolate", "/api/summarize", "/api/settings"):
+        assert "default" not in parameters[path]["min_gain_of_value_pairs"]["schema"], path
+        assert parameters[path]["num_additional_stations"]["schema"]["default"] == 3
+    for path in ("/api/interpolate", "/api/settings"):
+        assert "default" not in parameters[path]["use_nearby_station_distance"]["schema"], path
