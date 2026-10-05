@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- NOAA GHCN hourly station GJBAKKI (`ICM00004919`) in southwestern Iceland, the one row listed at
+  -99.0 m, has a null `elevation`. `interpolate` and `summarize` given an elevation moved its air
+  temperatures and dew points from about 100 m below sea level; they now leave it out for those,
+  as other stations of unknown elevation. Real heights below sea level stay (GH-2377)
 - `wetterdienst stripes values` checks `--target`'s suffix against `--format`: `--format=jpg` now
   takes a `.jpeg` target, and a target merely ending in the format's letters, such as `stripespng`
   or `out.xpng`, is refused instead of written without the extension. The refusal names the
