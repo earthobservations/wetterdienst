@@ -452,6 +452,11 @@ Types of changes:
   out every station without a position, which it sorted first, ahead of the nearest; estimating
   at one by station id is refused with a `LocationOutOfRangeError`. The CLI prints that error in
   one line, also for a point beyond the latitudes UTM covers, where it was a traceback (GH-2380)
+- The REST API's OpenAPI schema, and the MCP tools built from it, give each settings parameter of
+  `/api/values`, `/api/interpolate`, `/api/summarize` and `/api/settings` the server's value as
+  its default, as `/api/settings` reports it: with `WD_TS_SHAPE=wide`, `shape` is `wide` and
+  `drop_nulls` `false`. They gave wetterdienst's, which a client filling in defaults sent, hiding
+  the server's. Read when the server starts; restart it after editing its `.env` (GH-2393)
 
 ## [0.139.0] - 2026-09-29
 

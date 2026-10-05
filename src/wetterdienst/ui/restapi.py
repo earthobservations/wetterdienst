@@ -575,6 +575,68 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
     return Response(content=content.model_dump_json(), media_type="application/json")
 
 
+def _openapi() -> dict[str, Any]:
+    """Build the OpenAPI schema, giving each settings query parameter the server's value as its default (GH-2393).
+
+    A settings parameter a request to `/api/values`, `/api/interpolate`, `/api/summarize` or
+    `/api/settings` leaves out takes the server's value, but the schema advertised wetterdienst's,
+    which a client filling in the defaults then sent, hiding the server's. Each default is now the
+    one `/api/settings` reports for the endpoint without parameters: `_applied_settings` over
+    `Settings()`, so the two cannot disagree, and `drop_nulls` is the one in effect. A parameter
+    for `/api/settings` takes the value of the endpoint it applies to. The request models keep
+    wetterdienst's defaults in Python, which the CLI builds its requests with, and FastAPI fills in
+    for a parameter left out, which the endpoints do not pass on (`_request_settings`).
+
+    A parameter the schema has no default for keeps none: the radii and the JSON-encoded dicts
+    (`unit_targets`, the station distances). A dict given is merged into the server's, so a client
+    leaving it out gets the server's already, and the server's whole dict, a unit for every
+    quantity, would be sent back as a request's own were it the default; `/api/settings` reports it.
+
+    Built once per process, as FastAPI builds the schema, and kept: the MCP endpoint's tools are
+    built from it as the module is imported, so their defaults are the server's too. A `.env`
+    edited while the server runs reaches the requests, which read `Settings()` each time, but not
+    the schema, until the server is restarted.
+    """
+    if app.openapi_schema is not None:
+        return app.openapi_schema
+    try:
+        server = Settings()
+    except Exception:  # noqa: BLE001
+        # malformed, which the server refuses to start for, naming each variable without its
+        # value (`_RefuseInvalidSettings`). Reached as the module is imported, by the MCP build,
+        # which would log the error with the values. Built with wetterdienst's defaults then,
+        # and not kept, so that a later call takes the server's
+        schema = FastAPI.openapi(app)
+        app.openapi_schema = None
+        return schema
+    # as `/api/settings` writes them: a value JSON has no number for as a string
+    defaults = {
+        f"/api/{endpoint}": {
+            field: value
+            for field, value in json.loads(_applied_settings(applied, server).model_dump_json()).items()
+            if field in taking.model_fields
+        }
+        for endpoint, taking, applied in _ENDPOINT_SETTINGS
+    }
+    # a parameter several endpoints take sets one setting, which each reports alike
+    defaults["/api/settings"] = {
+        field: value
+        for values in defaults.values()
+        for field, value in values.items()
+        if field in SettingsRequest.model_fields
+    }
+    schema = FastAPI.openapi(app)
+    for path, values in defaults.items():
+        for parameter in schema["paths"][path]["get"]["parameters"]:
+            if parameter["name"] in values and "default" in parameter["schema"]:
+                parameter["schema"]["default"] = values[parameter["name"]]
+    return schema
+
+
+# FastAPI's documented way to extend the schema, which the route serving it calls on the app
+app.openapi = _openapi  # ty: ignore[invalid-assignment]
+
+
 # OAuth discovery endpoints. The `/mcp` server is open (no auth), so MCP clients such as Claude
 # Desktop must receive a 404 here to conclude "no authorization server" and connect anonymously;
 # a 200 (e.g. from a catch-all serving HTML) makes them attempt -- and fail -- Dynamic Client
