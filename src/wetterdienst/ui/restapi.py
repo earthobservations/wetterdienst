@@ -306,7 +306,8 @@ def _applied_settings(model: type[_M], settings: Settings) -> _M:
     The unit targets and the resolution factors hold only the entries that depart from
     wetterdienst's, and are reported whole: the unit of every quantity and the factor of every
     resolution. The per-parameter radii are reported as given, as `Settings` dumps them, since a
-    parameter they leave out takes one of the two radii reported next to them.
+    parameter they leave out takes one of the two radii reported next to them. `drop_nulls` is
+    reported as in effect, which the wide shape turns off.
     """
 
     def unit_targets() -> dict[str, str]:
@@ -316,6 +317,7 @@ def _applied_settings(model: type[_M], settings: Settings) -> _M:
 
     reported: dict[str, Callable[[], object]] = {
         "ts_unit_targets": unit_targets,
+        "ts_drop_nulls": lambda: settings.ts_drop_nulls_effective,
         "ts_geo_station_distance": lambda: settings.model_dump(include={"ts_geo_station_distance"})[
             "ts_geo_station_distance"
         ],

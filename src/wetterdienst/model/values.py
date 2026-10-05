@@ -349,7 +349,7 @@ class TimeseriesValues(ABC):
         if self.sr.settings.ts_convert_units:
             df = self._convert_units(df, dataset)
         df = df.unique(subset=["resolution", "dataset", "parameter", "timestamp"], maintain_order=True)
-        if self.sr.settings.ts_drop_nulls:
+        if self.sr.settings.ts_drop_nulls_effective:
             df = df.drop_nulls(subset=["value"])
         return self._organize_df_columns(df, station_id, dataset)
 
