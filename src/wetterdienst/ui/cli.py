@@ -1189,7 +1189,9 @@ def history(
 
     Select the stations with exactly one of --all or --station.
     """
-    if target and not target.endswith(".json"):
+    # a local path, or a `file://` URI as `alerts` takes it; the `.json` check reads the path itself
+    path = target.removeprefix("file://") if target else None
+    if path is not None and not path.endswith(".json"):
         msg = "--target for history endpoint must end with .json"
         raise click.BadParameter(msg)
 
@@ -1243,9 +1245,9 @@ def history(
 
     output = json.dumps(data, indent=4 if pretty else None, default=lambda dt: dt.isoformat())
 
-    if target:
+    if path:
         try:
-            Path(target).write_text(output)
+            Path(path).write_text(output)
         except OSError as e:
             # a directory that does not exist or cannot be written, or a path naming a directory
             msg = f"Could not write --target: {e}"
