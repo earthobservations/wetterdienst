@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.140.0] - 2026-10-05
+
 ### Added
 
 - WSV Pegelonline and Eaufrance Hub'Eau stations name the vertical datum of their `gauge_zero` in
@@ -3741,7 +3743,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.139.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.140.0...HEAD
+[0.140.0]: https://github.com/earthobservations/wetterdienst/compare/v0.139.0...v0.140.0
 [0.139.0]: https://github.com/earthobservations/wetterdienst/compare/v0.138.0...v0.139.0
 [0.138.0]: https://github.com/earthobservations/wetterdienst/compare/v0.137.0...v0.138.0
 [0.137.0]: https://github.com/earthobservations/wetterdienst/compare/v0.136.0...v0.137.0
