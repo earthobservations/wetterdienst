@@ -2,10 +2,12 @@
 # Distributed under the MIT License. See LICENSE for more info.#
 """Tests for settings."""
 
+import atexit
 import copy
 import logging
 import os
 import re
+import shutil
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -1019,6 +1021,8 @@ def test_settings_fall_back_to_a_temporary_cache_dir_where_no_home_resolves(
 ) -> None:
     """`Settings()` no longer raises where platformdirs finds no home, cache disabled or not (GH-2408)."""
     monkeypatch.setattr(platformdirs, "user_cache_dir", _no_home)
+    at_exit = []
+    monkeypatch.setattr(atexit, "register", lambda *args, **kwargs: at_exit.append((args, kwargs)))
     caplog.set_level(logging.WARNING)
     settings = Settings(cache_disable=cache_disable)
     assert settings.cache_dir.parent == fresh_temporary_cache_dir
@@ -1026,6 +1030,8 @@ def test_settings_fall_back_to_a_temporary_cache_dir_where_no_home_resolves(
     assert settings.cache_dir.is_dir()
     # one directory per process, not one per `Settings()`
     assert Settings().cache_dir == settings.cache_dir
+    # and removed when the process exits
+    assert at_exit == [((shutil.rmtree, settings.cache_dir), {"ignore_errors": True})]
     warnings = [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
     assert len(warnings) == 1
     assert "WD_CACHE_DIR" in warnings[0]
