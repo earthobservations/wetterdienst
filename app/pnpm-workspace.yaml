@@ -11,17 +11,18 @@ minimumReleaseAgeExclude:
   - '@nuxt/kit@3.21.10'
   - '@nuxt/test-utils@4.1.0'
   - esbuild@0.28.1
-  - brace-expansion@5.0.8
 
 trustPolicy: no-downgrade
 dangerouslyAllowAllBuilds: true
 shellEmulator: true
 
 overrides:
-  # Security overrides: force patched versions of two transitive deps that intermediate
-  # packages pin below the fix -- brace-expansion (ReDoS) and esbuild (dev-server file
-  # read, GHSA-g7r4-m6w7-qqqr). `pnpm update` cannot move them because their parents pin
-  # the vulnerable range; the scoped ranges below leave other major lines untouched.
+  # Security overrides: floors at the patched versions of two transitive deps whose
+  # parents' ranges admit vulnerable versions -- brace-expansion (ReDoS and recursion DoS,
+  # fixed in 5.0.12; minimatch 10 asks for ^5.0.8) and esbuild (dev-server file read,
+  # GHSA-g7r4-m6w7-qqqr). The scoped ranges below leave other major lines untouched:
+  # brace-expansion's 1.x and 2.x copies are on their own patched backports (1.1.21, 2.1.7)
+  # without a floor.
   brace-expansion@>=4.0.0 <5.0.12: ^5.0.12
   esbuild@>=0.27.3 <0.28.1: ^0.28.1
   # Without this, pnpm's trustPolicy: no-downgrade rejects semver@6.3.1 (a
