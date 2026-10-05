@@ -4975,7 +4975,7 @@ def test_settings_and_a_values_request_leaving_the_shape_out_agree_under_a_wide_
     applied = client.get("/api/values", params=params).json()["settings"]
 
     (settings,) = taken
-    assert settings.ts_drop_nulls is False
+    assert settings.ts_drop_nulls_effective is False
     assert applied["drop_nulls"] is False
     assert reported["drop_nulls"] is False
     assert reported == applied

@@ -9,10 +9,11 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.provider.wsv.pegel import WsvPegelRequest
 from wetterdienst.provider.wsv.pegel.api import WsvPegelValues
+from wetterdienst.settings import Settings
 
 
 def test_cast_metadata_to_enum_uses_sorted_unique_categories() -> None:
@@ -753,3 +754,50 @@ def test_a_station_whose_datasets_all_start_after_the_window_is_not_downloaded(
     request.filter_by_station_id("00001").values.all()
 
     assert collected == []
+
+
+def _values_with_a_null(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    """Return a station's daily mean temperature over two days, the second of which is null."""
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    utc = ZoneInfo("UTC")
+    name = DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m.name_original
+
+    def collect(self, station_id: str, parameter_or_dataset) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(1990, 1, day, tzinfo=utc) for day in (1, 2)],
+                "parameter": [name] * 2,
+                "value": [1.0, None],
+                "quality": [1.0] * 2,
+                "resolution": ["daily"] * 2,
+                "dataset": ["climate_summary"] * 2,
+            },
+            schema_overrides={"value": pl.Float64},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start_date="1990-01-01",
+        end_date="1990-01-02",
+        settings=settings,
+    )
+    return request.filter_by_station_id("00001").values.all().df
+
+
+def test_values_drop_nulls_again_for_settings_once_wide_and_now_long(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A `Settings` reused for a long request after a wide one drops the null rows (GH-2388).
+
+    The wide request used to write False into the settings' `ts_drop_nulls`, which the long
+    request reusing them then read, and returned the null rows.
+    """
+    settings = Settings(ts_shape="long", ts_drop_nulls=True)
+    settings.ts_shape = "wide"
+    wide = _values_with_a_null(settings, monkeypatch)
+    # the wide shape drops no nulls
+    assert wide.get_column("temperature_air_mean_2m").to_list() == [1.0, None]
+
+    settings.ts_shape = "long"
+    long = _values_with_a_null(settings, monkeypatch)
+    assert long.get_column("value").to_list() == [1.0]
+    assert_frame_equal(long, _values_with_a_null(Settings(ts_shape="long", ts_drop_nulls=True), monkeypatch))
