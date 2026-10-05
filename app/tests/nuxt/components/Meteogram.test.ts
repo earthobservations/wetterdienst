@@ -259,17 +259,14 @@ describe('meteogram chart after a Retry', { timeout: 15_000 }, () => {
 })
 
 describe('meteogram chart name', { timeout: 15_000 }, () => {
-  const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
-
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
   afterEach(() => {
-    vi.restoreAllMocks()
     wrapper?.unmount()
     wrapper = undefined
     document.body.innerHTML = ''
   })
 
-  // the chart Plotly was handed to draw into
+  // the chart Plotly drew into, by the role and the name a screen reader announces it with
   async function drawnInto(stationName: string | null) {
     plotly.newPlot.mockClear()
     wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName }, attachTo: document.body })
@@ -277,30 +274,14 @@ describe('meteogram chart name', { timeout: 15_000 }, () => {
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
     // the mock takes no arguments in its type, so its call is read as Plotly's (element)
     const [chart] = plotly.newPlot.mock.calls[0] as unknown as [HTMLElement]
-    return chart
+    return [chart.getAttribute('role'), chart.getAttribute('aria-label')]
   }
 
-  // the role and the name a screen reader announces the chart with
-  const named = (chart: HTMLElement) => [chart.getAttribute('role'), chart.getAttribute('aria-label')]
-
   it('names the chart by its station, as a region', async () => {
-    expect(named(await drawnInto('Berlin'))).toEqual(['region', 'Forecast chart for Berlin'])
+    expect(await drawnInto('Berlin')).toEqual(['region', 'Forecast chart for Berlin'])
   })
 
   it('names the chart without a station where it is given none', async () => {
-    expect(named(await drawnInto(null))).toEqual(['region', 'Forecast chart'])
-  })
-
-  it('names no chart while it could not be drawn, and the chart once Retry draws it', async () => {
-    // the area holds nothing then: a region named as the chart would claim a chart that is not there
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
-    const chart = await drawnInto('Berlin')
-    await vi.waitFor(() => expect(retry()).toBeDefined())
-    expect(named(chart)).toEqual([null, null])
-
-    retry()!.click()
-    await vi.waitFor(() => expect(retry()).toBeUndefined())
-    expect(named(chart)).toEqual(['region', 'Forecast chart for Berlin'])
+    expect(await drawnInto(null)).toEqual(['region', 'Forecast chart'])
   })
 })

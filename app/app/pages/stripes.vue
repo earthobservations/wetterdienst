@@ -113,17 +113,13 @@ function plotTitle(data: StripesValuesResponse) {
   const station = data.metadata.station
   return t('stripes.plotTitle', { kind: kindLabel(kind.value), name: station.name, id: station.station_id })
 }
+// the stripes' accessible name, their title
+const plotLabel = computed(() => lastFetchedData.value ? plotTitle(lastFetchedData.value) : undefined)
 // The stripes' drawings, numbered as they start. Failed: the newest threw -- Plotly's import or its
 // drawing -- and the chart area says so; failures counted, so a Retry that fails too is told again
 let plotsStarted = 0
 const plotFailed = ref(false)
 const plotFailures = ref(0)
-// the stripes' name, their title, as a region rather than an image, so Plotly's own controls in it
-// stay reachable; none while there are no stripes or they could not be drawn, as the area then holds
-// nothing
-const plotRegion = computed(() => lastFetchedData.value && !plotFailed.value
-  ? { 'role': 'region', 'aria-label': plotTitle(lastFetchedData.value) }
-  : {})
 // a Retry that works hands its focus on to the stripes it drew
 const plotNotice = useTemplateRef<HTMLElement>('plotNotice')
 useFocusAfterRetry(() => hasPlot.value && plotFailed.value, plotNotice, plotContainer)
@@ -876,8 +872,9 @@ onMounted(() => {
           <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="lastFetchedData && plotStripes(lastFetchedData)" />
           <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
         </div>
+        <!-- a region, not an image: Plotly's own controls in it stay reachable -->
         <div
-          ref="plotContainer" tabindex="-1" v-bind="plotRegion" :class="{ hidden: !hasPlot }"
+          ref="plotContainer" tabindex="-1" role="region" :aria-label="plotLabel" :class="{ hidden: !hasPlot }"
           class="w-full overflow-hidden" style="min-height: 400px;"
         />
         <div v-if="hasPlot && !plotFailed" class="mt-4">
