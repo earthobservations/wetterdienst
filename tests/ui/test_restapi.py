@@ -3104,7 +3104,8 @@ def test_a_refusal_of_the_request_keeps_its_4xx(
 
     Each is refused before anything is downloaded, so these are real requests rather than stubs.
     The 404s from the geo endpoints are the status those answered with before; only failures that
-    are not a refusal of the request moved, to a 500.
+    are not a refusal of the request moved, to a 500. A point beyond the latitudes UTM covers is a
+    400 since GH-2385, as the other points the geo endpoints cannot answer at are.
     """
     response = client.get(endpoint, params=params)
 

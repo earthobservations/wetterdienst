@@ -1165,9 +1165,10 @@ def _geo_values(
 
     Both endpoints answered every failure with a 404, which reads as "no such thing" for a request
     that was understood and simply cannot be served as phrased -- an elevation no station in reach
-    can be placed against, a point beyond the latitudes UTM covers or a station without a position,
-    or a window that ends before it starts. Those are 400s, and a reader missing on the server is a
-    501; the same three in both places, so they are decided here rather than twice over.
+    can be placed against, a station without a position, a point an interpolation cannot place
+    beyond the latitudes UTM covers (a summary converts nothing to UTM), or a window that ends
+    before it starts. Those are 400s, and a reader missing on the server is a 501; the same
+    decisions in both places, so they are made here rather than twice over.
     """
     try:
         return get(api=api, request=request, settings=settings)
