@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-05
+
 ### Added
 
 - `[Explorer]` The settings start from the backend's, as its `GET /api/settings` reports them: its
@@ -1018,7 +1020,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.17.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.0...HEAD
+[0.18.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.17.0...app-v0.18.0
 [0.17.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.16.0...app-v0.17.0
 [0.16.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.15.0...app-v0.16.0
 [0.15.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.14.1...app-v0.15.0
