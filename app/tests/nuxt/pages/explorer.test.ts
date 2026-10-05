@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { UApp } from '#components'
 import { clearNuxtState, useNuxtApp, useRouter, useServerSettings, useToast } from '#imports'
+import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
@@ -1213,6 +1214,8 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
 
   // the requests /api/stations got
   let stationsAsked = 0
+  // the gates a test holds answers on, opened after it, before its page goes
+  const releases: (() => void)[] = []
 
   beforeEach(() => {
     stationsAsked = 0
@@ -1220,6 +1223,8 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
+    releases.splice(0).forEach(release => release())
     mounted.splice(0).forEach(wrapper => wrapper.unmount())
     endpoints.splice(0).forEach(remove => remove())
     useToast().clear()
@@ -1231,11 +1236,12 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
     const held = new Promise<void>((resolve) => {
       release = resolve
     })
+    releases.push(release)
     return { held, release }
   }
 
-  // Open the link in `mode`; `stations` answers /api/stations
-  async function open(stations: () => unknown, mode = 'interpolation') {
+  // Open the link in `mode`, with the elevation it names; `stations` answers /api/stations
+  async function open(stations: () => unknown, { mode = 'interpolation', elevation = '11' } = {}) {
     endpoints.push(registerEndpoint('/api/coverage', (event) => {
       if (getQuery(event).provider)
         return dailyClimateSummaryCoverage()
@@ -1245,7 +1251,7 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
       stationsAsked += 1
       return stations()
     }))
-    const wrapper = await mountSuspended(ExplorerWithApp, { attachTo: document.body, route: `/explorer?${LINK}&mode=${mode}` })
+    const wrapper = await mountSuspended(ExplorerWithApp, { attachTo: document.body, route: `/explorer?${LINK}&mode=${mode}&elevation=${elevation}` })
     mounted.push(wrapper)
     return { wrapper, vm: wrapper.findComponent(ExplorerPage).vm as any }
   }
@@ -1259,7 +1265,7 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
   }
 
   it.each(['interpolation', 'summary'])('restores the station as the point in %s mode, and keeps it in the link', async (mode) => {
-    const { vm } = await open(() => ({ stations: [HAMBURG] }), mode)
+    const { vm } = await open(() => ({ stations: [HAMBURG] }), { mode })
 
     await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.station?.station_id).toBe('01975'))
     expect(vm.stationSelectionState.interpolation).toMatchObject({ source: 'station', latitude: 53.6332, longitude: 9.9881, elevation: 11 })
@@ -1267,7 +1273,31 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
     expect((await written()).interpolationStation).toBe('01975')
   })
 
-  it('keeps the id in the link while the list is on its way', async () => {
+  it('keeps the elevation the link was copied with, typed over the station\'s', async () => {
+    const { vm } = await open(() => ({ stations: [HAMBURG] }), { elevation: '500' })
+
+    await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.station?.station_id).toBe('01975'))
+    expect(vm.stationSelectionState.interpolation).toMatchObject({ latitude: 53.6332, longitude: 9.9881, elevation: 500 })
+    expect(await written()).toMatchObject({ interpolationStation: '01975', elevation: '500' })
+  })
+
+  it('keeps an elevation typed while the list is on its way', async () => {
+    const { held, release } = gate()
+    const { wrapper, vm } = await open(async () => {
+      await held
+      return { stations: [HAMBURG] }
+    })
+    await vi.waitFor(() => expect(stationsAsked).toBe(1))
+    await wrapper.find('input[placeholder="e.g. 34"]').setValue('300')
+    await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.elevation).toBe(300))
+
+    release()
+    await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.station?.station_id).toBe('01975'))
+    expect(vm.stationSelectionState.interpolation.elevation).toBe(300)
+  })
+
+  it('keeps the id in the link while the list is on its way, and in every link written on the way', async () => {
+    const replace = vi.spyOn(useRouter(), 'replace')
     const { held, release } = gate()
     const { vm } = await open(async () => {
       await held
@@ -1281,6 +1311,10 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
     release()
     await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.station?.station_id).toBe('01975'))
     expect(query().interpolationStation).toBe('01975')
+    // the page's own: none, the one written as the station is restored included, went without it
+    const links = replace.mock.calls.map(([to]) => (to as { query?: Record<string, string> }).query).filter(q => q?.mode)
+    expect(links.length).toBeGreaterThan(1)
+    expect(links.map(q => q!.interpolationStation)).toEqual(links.map(() => '01975'))
   })
 
   it('keeps the id in the link when the list fails, and restores the station on Retry', async () => {
@@ -1338,29 +1372,36 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
     expect(vm.hasLocationSelection).toBe(false)
   })
 
-  it('does not restore the station over coordinates the user switched to before the list came', async () => {
+  it.each([
+    ['', false],
+    [', and back to a station', true],
+  ])('gives the station up when the user switches to coordinates before the list came%s', async (_, back) => {
     const { held, release } = gate()
     const { wrapper, vm } = await open(async () => {
       await held
       return { stations: [HAMBURG] }
     })
+    const source = (label: string) => wrapper.findAll('button').find(b => b.text() === label)!.trigger('click')
     await vi.waitFor(() => expect(stationsAsked).toBe(1))
-    await wrapper.findAll('button').find(b => b.text() === 'Manual coordinates')!.trigger('click')
+    await source('Manual coordinates')
     await vi.waitFor(() => expect(query().interpolationSource).toBe('manual'))
+    if (back) {
+      await source('From station')
+      await vi.waitFor(() => expect(query().interpolationSource).toBe('station'))
+      expect(query().interpolationStation).toBeUndefined()
+    }
 
     release()
-    await vi.waitFor(() => expect(vm.initialInterpolationStationId).toBeUndefined())
+    await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.source).toBe(back ? 'station' : 'manual'))
+    // the list has answered
+    await vi.waitFor(() => expect((wrapper.findComponent(InterpolationSummarySelection).vm as any).stationsStatus).toBe('success'))
     expect(vm.stationSelectionState.interpolation.station).toBeUndefined()
     expect(vm.stationSelectionState.interpolation.latitude).toBeUndefined()
-
-    // nor when the user goes back to a station: the link's has been given up
-    await wrapper.findAll('button').find(b => b.text() === 'From station')!.trigger('click')
-    await vi.waitFor(() => expect(query().interpolationSource).toBe('station'))
     expect(query().interpolationStation).toBeUndefined()
   })
 
   it('forgets the station when the dataset changes before the list came', async () => {
-    const { held, release } = gate()
+    const { held } = gate()
     const { vm } = await open(async () => {
       await held
       return { stations: [HAMBURG] }
@@ -1374,6 +1415,5 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
     vm.stationSelectionState.interpolation = { source: 'station' }
     await vi.waitFor(() => expect(query().interpolationSource).toBe('station'))
     expect(query().interpolationStation).toBeUndefined()
-    release()
   })
 })

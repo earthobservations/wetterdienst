@@ -116,9 +116,8 @@ function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelection
       q.interpolationStation = linkedStationId
     }
     // outside the branch: the box is shown for either source and sent for either, and an elevation
-    // the user typed over a station's is theirs rather than the station's. It survives the round
-    // trip only for a point given by coordinates: the station, restored from the link, names its own
-    // elevation, which is what choosing a station means
+    // the user typed over a station's is theirs rather than the station's, and the station restored
+    // from the link keeps it
     if (stationSel.interpolation.elevation !== undefined)
       q.elevation = stationSel.interpolation.elevation.toString()
   }
@@ -171,9 +170,9 @@ const stationSelectionState = ref<StationSelectionState>({
 const initialStationIds = ref<string[]>(stationIdsFromQuery(route.query))
 // The station the link names as the point (GH-2392). It has to be fetched before it can be
 // selected, which the picker does with its list, as `initialStationIds` is restored in station
-// mode; selecting it names its own position and elevation. Until the list has answered, and when it
-// fails, the id is kept in the link. A list without it, or with it but without a position, which
-// the picker does not offer, leaves the point unset, and the id leaves the link
+// mode; restored, it names its own position, and the elevation stays the link's. Until the list has
+// answered, and when it fails, the id is kept in the link. A list without it, or with it but without
+// a position, which the picker does not offer, leaves the point unset, and the id leaves the link
 const initialInterpolationStationId = ref<string | undefined>(
   route.query.interpolationSource === 'station' && typeof route.query.interpolationStation === 'string'
     ? route.query.interpolationStation || undefined
