@@ -951,6 +951,9 @@ describe('explorer Page Unit Targets selects (GH-2391)', () => {
   it('names the server\'s unit on each select left at Default, without an error', async () => {
     const { wrapper } = await mountWithUnitTargets([])
 
+    // the hint above them is the catalog's, read from it so the copy can change without this test
+    expect(wrapper.find('[data-testid="unit-targets"] p').text())
+      .toBe(useNuxtApp().$i18n.t('explorer.unitTargetsHint'))
     expect(unitTargetTriggers(wrapper).map(trigger => trigger.textContent?.trim())).toEqual([
       'Default (Degrees Fahrenheit (°F))',
       'Default (Knots (kn))',
