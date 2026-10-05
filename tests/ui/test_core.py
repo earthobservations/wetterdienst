@@ -573,3 +573,45 @@ def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
     df = _get_stripes_data(StripesValuesRequest(kind=kind, station="01048")).df
     assert df.get_column("timestamp").dt.year().to_list() == years
     assert df.get_column("value").to_list() == values
+
+
+def test_stripes_of_a_station_that_returns_no_rows_are_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a listed station whose values come back without rows is refused, not upsampled (GH-2369).
+
+    The values drop a station whose collected frame is empty, so one whose data file is missing left
+    an empty frame, and `upsample` raised `ComputeError` ("cannot determine upsample boundaries")
+    rather than the refusal a station with only null values gets. The station list and the
+    station's collected data are stubbed, so the values' own empty frame is what reaches the stripes.
+    """
+    from wetterdienst.exceptions import NotEnoughDataError  # noqa: PLC0415
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "annual",
+                "dataset": "climate_summary",
+                "station_id": "01048",
+                "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                "end_date": dt.datetime(2025, 12, 31, tzinfo=dt.timezone.utc),
+                "latitude": 51.1278,
+                "longitude": 13.7543,
+                "elevation": 228.0,
+                "name": "Dresden-Klotzsche",
+                "state": "Sachsen",
+            },
+        ],
+    )
+
+    def _all(self: DwdObservationRequest) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+
+    monkeypatch.setattr(DwdObservationRequest, "all", _all)
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_data", lambda *_args: pl.DataFrame())
+    with pytest.raises(
+        NotEnoughDataError,
+        match="At least two years with data are required to create climate stripes; station 01048 has data for no year",
+    ):
+        _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048"))
