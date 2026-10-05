@@ -302,6 +302,8 @@
     "openWidget": "Ouvrir comme widget intégrable",
     "chart": {
       "noData": "Aucune donnée disponible pour la requête sélectionnée",
+      "label": "Graphique de prévision pour {name}",
+      "labelNoStation": "Graphique de prévision",
       "panels": "Panneaux",
       "panelTemperature": "Température",
       "panelWind": "Vent",
@@ -562,6 +564,8 @@
     "fetchErrorToastTitle": "La requête de données a échoué",
     "dataTitle": "Données",
     "noChartData": "Aucune donnée disponible pour le graphique",
+    "chartLabel": "Graphique des valeurs",
+    "facetChartLabel": "Graphique de {parameter}",
     "rowsPerPage": "Lignes par page",
     "copied": "Copié",
     "copiedRows": "{count} lignes copiées dans le presse-papiers",

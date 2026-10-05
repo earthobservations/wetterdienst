@@ -5932,3 +5932,20 @@ def test_openapi_with_a_route_added_keeps_the_servers_defaults(monkeypatch: pyte
         parameter for parameter in schema["paths"]["/api/values"]["get"]["parameters"] if parameter["name"] == "shape"
     )
     assert shape["schema"]["default"] == "wide"
+
+
+@pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
+def test_stripes_a_station_that_returns_no_rows_is_a_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+) -> None:
+    """A listed station whose values come back without rows is the caller's 400, not a 500 (GH-2369)."""
+    _stub_stripes(monkeypatch, [{"station_id": "01048", "name": "Dresden-Klotzsche"}], {})
+
+    response = client.get(endpoint, params={"kind": "temperature", "station": "01048"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "At least two years with data are required to create climate stripes; station 01048 has data for no year"
+    )

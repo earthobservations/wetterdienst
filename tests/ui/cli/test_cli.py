@@ -16,6 +16,7 @@ from click.testing import CliRunner
 from pydantic import ValidationError
 
 from wetterdienst import Settings, Wetterdienst
+from wetterdienst.exceptions import InvalidEnumerationError, StationNotFoundError
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.ui.cli import cli, wetterdienst_help
 
@@ -442,19 +443,16 @@ def test_issues_dmo_passes_the_product_and_lead_time_through(monkeypatch: pytest
     assert asked == {"station_id": "01001", "dataset": "icon_eu", "lead_time": "long"}
 
 
-def test_issues_mosmix_says_the_dmo_options_do_not_apply(caplog: pytest.LogCaptureFixture) -> None:
+def test_issues_mosmix_says_the_dmo_options_do_not_apply() -> None:
     """Named rather than ignored: answering a different question than the one asked is the fault here."""
-    import logging  # noqa: PLC0415
-
     runner = CliRunner()
-    with caplog.at_level(logging.ERROR):
-        result = runner.invoke(
-            cli,
-            ["issues", "--provider=dwd", "--network=mosmix", "--station=10147", "--lead_time=long"],
-        )
+    result = runner.invoke(
+        cli,
+        ["issues", "--provider=dwd", "--network=mosmix", "--station=10147", "--lead_time=long"],
+    )
 
-    assert result.exit_code == 1
-    assert "lead_time applies to DWD DMO only" in caplog.text
+    assert result.exit_code == 2
+    assert "lead_time applies to DWD DMO only" in result.stderr
 
 
 def test_every_export_command_can_say_what_to_do_with_an_existing_target() -> None:
@@ -1063,14 +1061,59 @@ def test_issues_help_says_what_the_dmo_options_do(option: str) -> None:
 @pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])
 @pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
 def test_issues_refuses_the_dmo_options_for_mosmix_and_swsmos(
-    option: str, value: str, network: str, station: str, caplog: pytest.LogCaptureFixture
+    option: str, value: str, network: str, station: str
 ) -> None:
     """Test `issues` refuses --dataset and --lead_time for MOSMIX and SWSMOS, as its help says (GH-2347)."""
+    result = CliRunner().invoke(
+        cli, ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", f"--{option}={value}"]
+    )
+    assert result.exit_code == 2, result.output
+    assert f"{option} applies to DWD DMO only" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "refusal",
+    [
+        pytest.param(InvalidEnumerationError("lead_time applies to DWD DMO only (got DwdMosmixRequest)"), id="option"),
+        pytest.param(StationNotFoundError("no station 99999"), id="station"),
+    ],
+)
+def test_issues_tells_a_refusal_in_one_line(
+    refusal: Exception, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test `issues` reports a refusal the caller can rephrase as a usage error, not a traceback (GH-2368).
+
+    The refusals are read from the check `/api/issues` uses to tell a 400 from a 500: a DMO-only option
+    on MOSMIX is the one `get_issues` raises today, and a second member of the set stands for the rest.
+    """
+
+    def get_issues(**_kwargs: object) -> list[str]:
+        raise refusal
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_issues", get_issues)
+    result = CliRunner().invoke(cli, ["issues", "--provider=dwd", "--network=mosmix", "--station=10147"])
+
+    assert result.exit_code == 2, result.output
+    # click's usage header, then the refusal in one line
+    assert result.stderr.endswith(f"\n\nError: {refusal}\n")
+    assert "Traceback" not in caplog.text
+
+
+def test_issues_keeps_the_traceback_for_an_upstream_failure(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test `issues` logs an upstream failure with its traceback and exits 1, unlike a refusal (GH-2368)."""
     import logging  # noqa: PLC0415
 
+    def get_issues(**_kwargs: object) -> list[str]:
+        msg = "upstream listing unreachable"
+        raise FileNotFoundError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_issues", get_issues)
     with caplog.at_level(logging.ERROR):
-        result = CliRunner().invoke(
-            cli, ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", f"--{option}={value}"]
-        )
+        result = CliRunner().invoke(cli, ["issues", "--provider=dwd", "--network=mosmix", "--station=10147"])
+
     assert result.exit_code == 1, result.output
-    assert f"{option} applies to DWD DMO only" in caplog.text
+    assert "Failed to get issues." in caplog.text
+    assert "Traceback" in caplog.text
+    assert "FileNotFoundError: upstream listing unreachable" in caplog.text
