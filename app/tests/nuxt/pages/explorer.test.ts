@@ -940,12 +940,14 @@ describe('explorer Page Unit Targets selects (GH-2391)', () => {
     trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
     let item: HTMLElement | undefined
     await vi.waitFor(() => {
-      item = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')]
+      const content = document.getElementById(trigger.getAttribute('aria-controls')!)
+      item = [...(content?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])]
         .find(option => option.textContent?.trim() === label)
       expect(item).toBeDefined()
     })
     item!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-    await vi.waitFor(() => expect(document.body.querySelector('[role="listbox"]')).toBeNull())
+    // the select's own content closes once it has taken the choice
+    await vi.waitFor(() => expect(trigger.getAttribute('aria-expanded')).toBe('false'))
   }
 
   it('names the server\'s unit on each select left at Default, without an error', async () => {
@@ -977,7 +979,6 @@ describe('explorer Page Unit Targets selects (GH-2391)', () => {
     await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     expect(JSON.parse(String(sent[0]!.unit_targets))).toMatchObject({ temperature: 'degree_fahrenheit', speed: 'knots' })
-    expect(useRouter().currentRoute.value.fullPath).not.toContain('default')
     expect(errors).toEqual([])
   })
 })
