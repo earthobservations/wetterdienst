@@ -305,8 +305,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
         # 8191.0, undocumented, on rows such as the North Sea lightship GMMU0010434 ELBE NO. 1 and
         # DNEPRODZERJINSK, which the daily list puts at 148.0 m: placeholders, not heights. So is
         # -999.0, on rows such as BOGUS ALGERIAN, about 570 m below the lowest dry land (GH-2352), and
-        # -99.0, on GJBAKKI in western Iceland, the only row at it on 2026-10-05 (GH-2377). Real ones lie
-        # below sea level too, such as SALTON SEA NAAF at -68.9, so only these exact values are nulled
+        # -99.0, on GJBAKKI near Thingvellir in southwestern Iceland (GH-2377). Real stations also lie
+        # below sea level, such as SALTON SEA NAAF at -68.9, so only these exact values are nulled
         df = df.with_columns(
             pl.col("elevation").replace(["-999.9", "-999.0", "-99.0", "9999.0", "8191.0"], None),
         )

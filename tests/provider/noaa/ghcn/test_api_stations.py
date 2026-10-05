@@ -605,7 +605,7 @@ def test_noaa_ghcn_hourly_stations_minus_99_elevation(
     """The hourly list's -99.0 is a null elevation, while a real height below sea level stays (GH-2377).
 
     The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it (2026-10-05). GJBAKKI, in
-    western Iceland, is the only row listed at -99.0; SALTON SEA NAAF lies about 69 m below sea level.
+    southwestern Iceland, is the only row listed at -99.0; SALTON SEA NAAF lies about 69 m below sea level.
     """
     station_list = (
         "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
