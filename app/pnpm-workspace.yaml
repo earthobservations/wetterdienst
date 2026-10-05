@@ -18,12 +18,11 @@ shellEmulator: true
 
 overrides:
   # Security overrides: floors at the patched versions of two transitive deps whose
-  # parents' ranges admit vulnerable versions -- brace-expansion (ReDoS and recursion DoS,
-  # fixed in 5.0.12; minimatch 10 asks for ^5.0.8) and esbuild (dev-server file read,
-  # GHSA-g7r4-m6w7-qqqr). The scoped ranges below leave other major lines untouched.
-  # The brace-expansion floor is belt-and-braces: a plain `pnpm update` resolves 5.0.12
-  # without it, as it does the 1.x and 2.x copies' backports (1.1.21, 2.1.7), which have
-  # no floor here.
+  # parents' ranges admit vulnerable versions -- brace-expansion 5.x (ReDoS fixed in 5.0.8,
+  # recursion and quadratic-expansion DoS fixed in 5.0.10 to 5.0.12; minimatch 10 asks for
+  # ^5.0.8) and esbuild (dev-server file read, GHSA-g7r4-m6w7-qqqr). The scoped ranges below
+  # leave other major lines untouched; brace-expansion's 1.x and 2.x copies are locked at
+  # their patched backports (1.1.21, 2.1.7), with no floor.
   brace-expansion@>=4.0.0 <5.0.12: ^5.0.12
   esbuild@>=0.27.3 <0.28.1: ^0.28.1
   # Without this, pnpm's trustPolicy: no-downgrade rejects semver@6.3.1 (a
