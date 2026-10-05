@@ -500,16 +500,20 @@ class Settings(BaseSettings):
         """Return whether the time series is in tidy format."""
         return self.ts_shape == "long"
 
+    @property
+    def ts_drop_nulls_effective(self) -> bool:
+        """Return whether rows without a value are dropped, which they are in the long shape alone.
+
+        `ts_drop_nulls` keeps what the caller gave, and the wide shape does not turn it off: the
+        field used to be rewritten to False, for good, so a `Settings` once wide dropped no nulls
+        once it was long again (GH-2388). This is the value in effect.
+        """
+        return self.ts_drop_nulls and self.ts_tidy
+
     @model_validator(mode="after")
     def validate(self) -> Settings:
-        """Validate the settings.
-
-        Runs again on every assignment, so `ts_shape="wide"` assigned turns `ts_drop_nulls` off as
-        it does when given to the constructor. The field is written past validation, which would
-        otherwise run this validator again without end.
-        """
+        """Validate the settings."""
         if self.ts_shape != "long":
-            self.__dict__["ts_drop_nulls"] = False
             log.info(
                 "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and "
                 "is thus ignored in this request.",

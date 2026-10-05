@@ -924,16 +924,6 @@ def test_settings_assignment_takes_a_valid_value() -> None:
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_settings_assignment_turns_drop_nulls_off_for_wide_as_construction_does() -> None:
-    """A wide shape assigned turns `ts_drop_nulls` off, and keeps it off, as one given does (GH-2342)."""
-    settings = Settings()
-    settings.ts_shape = "wide"
-    assert settings.ts_drop_nulls is Settings(ts_shape="wide").ts_drop_nulls is False
-    settings.ts_drop_nulls = True
-    assert settings.ts_drop_nulls is Settings(ts_shape="wide", ts_drop_nulls=True).ts_drop_nulls is False
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
 def test_settings_assignment_rewrites_fields_as_construction_does() -> None:
     """The validators that rewrite a field give on assignment what they give on construction (GH-2342).
 
@@ -959,3 +949,32 @@ def test_settings_assignment_rewrites_fields_as_construction_does() -> None:
     assert assigned.ts_geo_station_distance["precipitation_duration"] == 11.0
     assert assigned.ts_geo_station_distance["precipitation_amount"] == 25.0
     assert assigned.model_dump()["ts_geo_station_distance"] == {"precipitation_amount": 25.0}
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_wide_shape_leaves_drop_nulls_as_given_and_turns_it_off_in_effect() -> None:
+    """The wide shape turns the dropping of nulls off in effect, not in the field (GH-2388)."""
+    assert Settings(ts_shape="wide").ts_drop_nulls is True
+    assert Settings(ts_shape="wide").ts_drop_nulls_effective is False
+    assert Settings(ts_shape="wide", ts_drop_nulls=False).ts_drop_nulls is False
+    assert Settings().ts_drop_nulls_effective is True
+    assert Settings(ts_drop_nulls=False).ts_drop_nulls_effective is False
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_drop_nulls_again_once_the_shape_assigned_is_long_again() -> None:
+    """A `Settings` once wide drops nulls again once long, as one never wide does (GH-2388).
+
+    The wide shape used to write False into `ts_drop_nulls`, for good, and since GH-2342 an
+    assignment did so too.
+    """
+    settings = Settings()
+    settings.ts_shape = "wide"
+    assert settings.ts_drop_nulls_effective is False
+    settings.ts_shape = "long"
+    assert settings.ts_drop_nulls is True
+    assert settings.ts_drop_nulls_effective is True
+
+    settings = Settings(ts_shape="wide", ts_drop_nulls=False)
+    settings.ts_shape = "long"
+    assert settings.ts_drop_nulls_effective is False
