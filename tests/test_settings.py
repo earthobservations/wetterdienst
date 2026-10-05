@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.#
 """Tests for settings."""
 
+import copy
 import logging
 import os
 import re
@@ -874,3 +875,87 @@ def test_settings_keyword_that_is_no_setting_is_still_refused() -> None:
     """Only `.env` is let off: a misspelt keyword to the constructor is still refused (GH-2349)."""
     with pytest.raises(ValidationError, match="cache_disabel\n  Extra inputs are not permitted"):
         Settings(cache_disabel=True)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        pytest.param("ts_skip_threshold", 5, "Input should be less than or equal to 1", id="bounded"),
+        pytest.param("ts_shape", "foo", "Input should be 'wide' or 'long'", id="literal"),
+        pytest.param(
+            "ts_geo_station_distance",
+            {"precipitation_heigt": 25.0},
+            "['precipitation_heigt'] not in the canonical parameters",
+            id="dict-keys",
+        ),
+        pytest.param(
+            "ts_unit_targets",
+            {"temperature": "furlong"},
+            "Unit furlong not supported for type temperature",
+            id="unit-targets",
+        ),
+    ],
+)
+def test_settings_assignment_is_validated(field: str, value: object, message: str) -> None:
+    """A field assigned after construction is refused as the constructor refuses it (GH-2342).
+
+    It used to be taken as it was: a skip threshold of 5 skipped every station, and a shape out of
+    its choices failed later, far from the assignment. A refused assignment leaves the field as it
+    was.
+    """
+    settings = Settings()
+    before = copy.copy(getattr(settings, field))
+    with pytest.raises(ValidationError, match=rf"{field}\n  [^\n]*{re.escape(message)}"):
+        setattr(settings, field, value)
+    assert getattr(settings, field) == before
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_assignment_takes_a_valid_value() -> None:
+    """A valid assignment is taken, and coerced to the field's type as the constructor does (GH-2342)."""
+    settings = Settings()
+    settings.ts_skip_threshold = 0.5
+    settings.ts_skip_criteria = "mean"
+    settings.cache_dir = "some/dir"
+    assert settings.ts_skip_threshold == 0.5
+    assert settings.ts_skip_criteria == "mean"
+    assert settings.cache_dir == Path("some/dir")
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_assignment_turns_drop_nulls_off_for_wide_as_construction_does() -> None:
+    """A wide shape assigned turns `ts_drop_nulls` off, and keeps it off, as one given does (GH-2342)."""
+    settings = Settings()
+    settings.ts_shape = "wide"
+    assert settings.ts_drop_nulls is Settings(ts_shape="wide").ts_drop_nulls is False
+    settings.ts_drop_nulls = True
+    assert settings.ts_drop_nulls is Settings(ts_shape="wide", ts_drop_nulls=True).ts_drop_nulls is False
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_assignment_rewrites_fields_as_construction_does() -> None:
+    """The validators that rewrite a field give on assignment what they give on construction (GH-2342).
+
+    The client kwargs are laid over the defaults, empty unit targets become an empty dict, and a
+    radius assigned reaches the per-parameter mapping at once, the overrides it was built with kept.
+    """
+    settings = Settings()
+    settings.fsspec_client_kwargs = {"trust_env": True}
+    assert settings.fsspec_client_kwargs == Settings(fsspec_client_kwargs={"trust_env": True}).fsspec_client_kwargs
+    settings.ts_unit_targets = None
+    assert settings.ts_unit_targets == Settings(ts_unit_targets=None).ts_unit_targets == {}
+
+    assigned = Settings(ts_geo_station_distance={"precipitation_amount": 25.0})
+    assigned.ts_geo_station_distance_homogeneous = 33.0
+    assigned.ts_geo_station_distance_heterogeneous = 11.0
+    constructed = Settings(
+        ts_geo_station_distance={"precipitation_amount": 25.0},
+        ts_geo_station_distance_homogeneous=33.0,
+        ts_geo_station_distance_heterogeneous=11.0,
+    )
+    assert assigned.ts_geo_station_distance == constructed.ts_geo_station_distance
+    assert assigned.ts_geo_station_distance["temperature_air_mean_2m"] == 33.0
+    assert assigned.ts_geo_station_distance["precipitation_duration"] == 11.0
+    assert assigned.ts_geo_station_distance["precipitation_amount"] == 25.0
+    assert assigned.model_dump()["ts_geo_station_distance"] == {"precipitation_amount": 25.0}
