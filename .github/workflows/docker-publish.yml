@@ -68,8 +68,23 @@ jobs:
       - name: Run tests
         run: |
           docker run wd:test wetterdienst info
-          # the bindings of the `bufr` extra find an ecCodes library to load (GH-2409)
-          docker run wd:test python -c "from wetterdienst.util.eccodes import bufr_is_available; assert bufr_is_available()"
+          # the bindings of the `bufr` extra find an ecCodes library and its definitions, and decode
+          # a BUFR message with them (GH-2409); pyproj is imported after eccodes, as a process that
+          # loaded eckitlib's bundled PROJ that way aborts at exit (ecmwf/eckit#354, GH-2441)
+          docker run -i wd:test python - <<'EOF'
+          import eccodes
+          import pyproj  # noqa: F401
+          from wetterdienst.util.eccodes import bufr_is_available
+
+          assert bufr_is_available()
+          sample = eccodes.codes_bufr_new_from_samples("BUFR4")
+          eccodes.codes_set_array(sample, "unexpandedDescriptors", [12101])  # airTemperature
+          eccodes.codes_set(sample, "airTemperature", 288.15)
+          eccodes.codes_set(sample, "pack", 1)
+          decoded = eccodes.codes_new_from_message(eccodes.codes_get_message(sample))
+          eccodes.codes_set(decoded, "unpack", 1)
+          assert abs(eccodes.codes_get(decoded, "airTemperature") - 288.15) < 1e-6
+          EOF
 
   # Build each platform natively and push it by digest (release/nightly/manual only).
   build:
