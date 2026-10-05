@@ -18,6 +18,9 @@ Types of changes:
 
 ### Fixed
 
+- `wetterdienst history --target file://history.json`, the form its docs show, writes
+  `history.json`. The `file://` prefix was kept, so the write went to `file:/history.json` and
+  failed with "No such file or directory". A plain path works as before (GH-2370)
 - The `bufr` and `eccodes` extras name `eccodeslib`, the compiled ecCodes library, on Linux
   x86_64/aarch64 and macOS for Python 3.11 to 3.14. uv.lock had left it out, so an install from the
   lock, the Docker image's included, read BUFR only where a system libeccodes was present. Where it
