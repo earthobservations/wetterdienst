@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- The JSON of `/api/stripes/values` and the MCP `stripes_values` tool name the unit of their
+  values in a new metadata field `unit`: `degree_fahrenheit` where the server's
+  `WD_TS_UNIT_TARGETS` converts temperatures to it, the source's unit with
+  `WD_TS_CONVERT_UNITS=false`, and `degree_celsius` or `millimeter` by default (GH-2372)
+
 ## [0.140.0] - 2026-10-05
 
 ### Added

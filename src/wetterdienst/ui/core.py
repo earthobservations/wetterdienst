@@ -28,7 +28,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.settings import Settings, SkipThreshold
 from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.ui import read_list
@@ -1319,6 +1319,9 @@ class StripesMetadata(BaseModel):
     resolution: str
     dataset: str
     parameter: str
+    # the unit `value` comes in, named as `/api/values` names one in its settings' `unit_targets`;
+    # the server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` set it (GH-2372)
+    unit: str
 
 
 class StripesData(BaseModel):
@@ -1535,11 +1538,26 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         dataset = "precipitation_more"
         parameter = "precipitation_amount"
 
+    # as the values were converted, by the settings the stripes request is built with: to the target
+    # of their quantity, or left in the unit the source publishes them in
+    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
+
+    parameter_model = DwdObservationMetadata[resolution][dataset][parameter]
+    settings = _get_stripes_settings()
+    unit_converter = UnitConverter()
+    unit_converter.update_targets(settings.ts_unit_targets)
+    unit = (
+        unit_converter.targets[parameter_model.unit_type]
+        if settings.ts_convert_units
+        else unit_converter.get_unit(parameter_model.unit, parameter_model.unit_type)
+    )
+
     metadata = StripesMetadata(
         station=station,
         resolution=resolution,
         dataset=dataset,
         parameter=parameter,
+        unit=unit.name,
     )
 
     return StripesData(metadata=metadata, df=df)

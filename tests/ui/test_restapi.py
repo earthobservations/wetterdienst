@@ -5932,3 +5932,138 @@ def test_openapi_with_a_route_added_keeps_the_servers_defaults(monkeypatch: pyte
         parameter for parameter in schema["paths"]["/api/values"]["get"]["parameters"] if parameter["name"] == "shape"
     )
     assert shape["schema"]["default"] == "wide"
+
+
+def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: list[float]) -> None:
+    """Answer the stripes of station 01048 offline: its listing, and one value a year from 2000."""
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    dataset, name_original = {
+        "temperature": ("climate_summary", "ja_tt"),
+        "precipitation": ("precipitation_more", "ja_rr"),
+    }[kind]
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "annual",
+                "dataset": dataset,
+                "station_id": "01048",
+                "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                "end_date": dt.datetime(2025, 12, 31, tzinfo=dt.timezone.utc),
+                "latitude": 51.1278,
+                "longitude": 13.7543,
+                "elevation": 228.0,
+                "name": "Dresden-Klotzsche",
+                "state": "Sachsen",
+            },
+        ],
+    )
+
+    def _all(self: DwdObservationRequest) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+
+    def _collect(
+        self: DwdObservationValues,  # noqa: ARG001
+        station_id: str,
+        parameter_or_dataset: object,  # noqa: ARG001
+    ) -> pl.DataFrame:
+        # as the source has them: named by its codes, in the unit it publishes
+        return pl.DataFrame(
+            [
+                {
+                    "station_id": station_id,
+                    "resolution": "annual",
+                    "dataset": dataset,
+                    "parameter": name_original,
+                    "timestamp": dt.datetime(2000 + offset, 1, 1, tzinfo=dt.timezone.utc),
+                    "value": value,
+                    "quality": 10.0,
+                }
+                for offset, value in enumerate(values)
+            ],
+            schema_overrides={"value": pl.Float64},
+        )
+
+    monkeypatch.setattr(DwdObservationRequest, "all", _all)
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", _collect)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("kind", "environment", "unit", "values"),
+    [
+        pytest.param("temperature", {}, "degree_celsius", [1.0, 2.0], id="temperature"),
+        pytest.param(
+            "temperature",
+            {"WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}'},
+            "degree_fahrenheit",
+            [33.8, 35.6],
+            id="temperature-fahrenheit",
+        ),
+        pytest.param(
+            "temperature",
+            {"WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}', "WD_TS_CONVERT_UNITS": "false"},
+            "degree_celsius",
+            [1.0, 2.0],
+            id="temperature-fahrenheit-unconverted",
+        ),
+        pytest.param("precipitation", {}, "millimeter", [1.0, 2.0], id="precipitation"),
+        pytest.param(
+            "precipitation",
+            {"WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}'},
+            "millimeter",
+            [1.0, 2.0],
+            id="precipitation-fahrenheit",
+        ),
+    ],
+)
+def test_stripes_values_name_the_unit_the_server_converts_to(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    kind: str,
+    environment: dict[str, str],
+    unit: str,
+    values: list[float],
+) -> None:
+    """The stripes metadata names the unit of their values, which the server's settings set (GH-2372).
+
+    The stripes read a station's values with the server's `WD_TS_CONVERT_UNITS` and
+    `WD_TS_UNIT_TARGETS`, so a station whose annual mean was 1.0 °C came back as 33.8 under a
+    Fahrenheit target, with nothing in the metadata saying so. The station's listing and download
+    are stubbed, so the conversion runs and nothing leaves the machine.
+    """
+    for name, setting in environment.items():
+        monkeypatch.setenv(name, setting)
+    _stub_stripes_station(monkeypatch, kind, [1.0, 2.0])
+
+    response = client.get("/api/stripes/values", params={"kind": kind, "station": "01048"})
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["metadata"]["unit"] == unit
+    assert [item["value"] for item in data["values"]] == values
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_mcp_stripes_values_name_the_unit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The MCP `stripes_values` tool passes on the unit the stripes metadata names (GH-2372)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+
+    async def _call() -> dict:
+        async with Client(build_mcp_server(restapi.app)) as mcp_client:
+            result = await mcp_client.call_tool("stripes_values", {"kind": "temperature", "station": "01048"})
+        return json.loads(result.content[0].text)
+
+    data = asyncio.run(_call())
+    assert data["metadata"]["unit"] == "degree_fahrenheit"
+    assert [item["value"] for item in data["values"]] == [33.8, 35.6]

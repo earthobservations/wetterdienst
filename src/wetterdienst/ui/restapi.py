@@ -1339,7 +1339,12 @@ def stripes_stations(
 def stripes_values(
     request: Annotated[StripesValuesRequest, Query()],
 ) -> Response:
-    """Get climate stripes data values with timestamps and metadata."""
+    """Get climate stripes data values with timestamps and metadata.
+
+    The JSON metadata names the unit of the values in `unit` (e.g. "degree_celsius"): the server's
+    unit settings set it, as for `/api/values`, whose settings report the unit of each quantity in
+    `unit_targets`.
+    """
     set_logging_level(debug=request.debug)
 
     # checked outside the handler below, as for `/api/stripes/stations`
