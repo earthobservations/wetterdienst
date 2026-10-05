@@ -238,15 +238,15 @@ def test_the_lock_carries_the_eccodes_library_wherever_the_extra_asks_for_it(ext
 
     eccodes' own wheel asks for `eccodeslib`, but uv.lock recorded eccodes without it, so the lock
     held bindings that load only where a system library is present. Naming it in the extra puts it
-    in the lock; this pins that, and that every Python and platform the marker admits has a wheel,
-    since eccodeslib publishes no sdist and a missing wheel fails the whole sync.
+    in the lock; this pins that. eccodeslib and its eckitlib publish wheels only, so a requirement
+    admitted where none fits fails the whole sync: for each Python the classifiers name and each
+    platform and architecture below, the marker admits it only where every locked package of the
+    library has a wheel for it. What no marker names (musl, the glibc version, free-threading) is
+    beyond this check.
     """
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf8"))
-    (requirement,) = [
-        Requirement(spec)
-        for spec in pyproject["project"]["optional-dependencies"][extra]
-        if Requirement(spec).name == "eccodeslib"
-    ]
+    requirements = [Requirement(spec) for spec in pyproject["project"]["optional-dependencies"][extra]]
+    (requirement,) = [requirement for requirement in requirements if requirement.name == "eccodeslib"]
     assert requirement.marker is not None
     lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf8"))
     packages = {package["name"]: package for package in lock["package"]}
@@ -254,24 +254,36 @@ def test_the_lock_carries_the_eccodes_library_wherever_the_extra_asks_for_it(ext
         dependency["name"] for dependency in packages["wetterdienst"]["optional-dependencies"][extra]
     }
 
-    wheels = [wheel["url"].rsplit("/", 1)[1] for wheel in packages["eccodeslib"]["wheels"]]
+    library = ["eccodeslib"]
+    for name in library:
+        library += [dependency["name"] for dependency in packages[name].get("dependencies", [])]
     pythons = [
         classifier.rsplit(" ", 1)[1]
         for classifier in pyproject["project"]["classifiers"]
         if re.fullmatch(r"Programming Language :: Python :: 3\.\d+", classifier)
     ]
     platforms = {
-        "Linux": [r"manylinux_\d+_\d+_x86_64", r"manylinux_\d+_\d+_aarch64"],
-        "Darwin": [r"macosx_\d+_\d+_arm64", r"macosx_\d+_\d+_x86_64"],
+        ("Linux", "x86_64"): r"manylinux_\d+_\d+_x86_64",
+        ("Linux", "aarch64"): r"manylinux_\d+_\d+_aarch64",
+        ("Linux", "ppc64le"): r"manylinux_\d+_\d+_ppc64le",
+        ("Linux", "s390x"): r"manylinux_\d+_\d+_s390x",
+        ("Linux", "armv7l"): r"manylinux_\d+_\d+_armv7l",
+        ("Darwin", "arm64"): r"macosx_\d+_\d+_arm64",
+        ("Darwin", "x86_64"): r"macosx_\d+_\d+_x86_64",
+        ("Windows", "AMD64"): r"win_amd64",
+        ("FreeBSD", "amd64"): r"freebsd_\w+_amd64",
     }
-    admitted = [
-        (python, tag)
-        for python in pythons
-        for system, tags in platforms.items()
-        for tag in tags
-        if requirement.marker.evaluate({"python_version": python, "platform_system": system})
-    ]
-    assert admitted
-    for python, tag in admitted:
+    admitted = 0
+    for python in pythons:
         abi = "cp" + python.replace(".", "")
-        assert any(re.search(rf"-{abi}-{abi}-{tag}\.whl$", wheel) for wheel in wheels), (python, tag)
+        for (system, machine), tag in platforms.items():
+            environment = {"python_version": python, "platform_system": system, "platform_machine": machine}
+            if not requirement.marker.evaluate(environment):
+                continue
+            admitted += 1
+            for name in library:
+                wheels = [wheel["url"].rsplit("/", 1)[1] for wheel in packages[name].get("wheels", [])]
+                assert "sdist" in packages[name] or any(
+                    re.search(rf"-{abi}-{abi}-{tag}\.whl$", wheel) for wheel in wheels
+                ), (name, python, system, machine)
+    assert admitted
