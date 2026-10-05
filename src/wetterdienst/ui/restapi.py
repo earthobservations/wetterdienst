@@ -599,8 +599,8 @@ def _openapi() -> dict[str, Any]:
     server's whole dict, a unit for every quantity, would be sent back as a request's own were it
     the default; `/api/settings` reports it.
 
-    Built once per process, and kept as FastAPI keeps the schema, which it builds again only for a
-    route added: with the `[mcp]` extra, as the module is imported, by the MCP endpoint, whose
+    Built once per process, and kept as FastAPI keeps the schema, which a recent FastAPI builds
+    again for a route added: with the `[mcp]` extra, as the module is imported, by the MCP endpoint, whose
     tools' defaults are then the server's too, and else on the first request for the schema. A
     `.env` edited after that reaches the requests and `/api/settings`, which read `Settings()` each
     time, but not the schema, until the server is restarted.

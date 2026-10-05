@@ -5628,6 +5628,10 @@ def test_openapi_drop_nulls_default_is_the_servers_as_set_whatever_its_shape(
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.skipif(
+    not hasattr(restapi.app.router, "_routes_version"),
+    reason="FastAPI keeps its schema whatever routes are added, before it counted them",
+)
 def test_openapi_with_a_route_added_keeps_the_servers_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     """A route added after the schema is built reaches it, which keeps the server's defaults (GH-2393).
 
