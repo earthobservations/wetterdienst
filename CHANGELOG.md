@@ -22,7 +22,9 @@ Types of changes:
   x86_64/aarch64 and macOS from Python 3.11. uv.lock had left it out, so an install from the lock,
   the Docker image's included, read BUFR only where a system libeccodes was present. Where it is
   installed, eccodes loads it before a system or conda library; set `FINDLIBS_DISABLE_PACKAGE=yes`
-  to keep using one of those (GH-2409)
+  to keep using one of those. On musl, glibc before 2.28 or a free-threaded Python, which have no
+  eccodeslib wheel, nothing meets the extra any more: install `eccodes` and `pdbufr` without it,
+  over a system libeccodes (GH-2409)
 
 ## [0.140.0] - 2026-10-05
 
