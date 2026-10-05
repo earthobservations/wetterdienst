@@ -197,6 +197,66 @@ export interface SummarizeQuery {
 }
 
 // ============================================================================
+// Settings API
+// ============================================================================
+
+/**
+ * A radius, factor or gain: the server writes one it holds as infinite or NaN as the string
+ * "Infinity" or "NaN", JSON having no number for it
+ */
+export type UnboundedNumber = number | 'Infinity' | 'NaN'
+
+/** The settings each of `/api/values`, `/api/interpolate` and `/api/summarize` reports */
+export interface AppliedSettings {
+  humanize: boolean
+  convert_units: boolean
+  /** The unit values of each quantity come in, for every quantity the server converts */
+  unit_targets: Record<string, string>
+  skip_empty: boolean
+  skip_threshold: number
+  skip_criteria: 'min' | 'mean' | 'max'
+  /** Off under the wide shape, the server's or the request's */
+  drop_nulls: boolean
+}
+
+export interface ValuesSettings extends AppliedSettings {
+  shape: 'long' | 'wide'
+}
+
+/** The settings `/api/interpolate` and `/api/summarize` share */
+export interface GeoSettings extends AppliedSettings {
+  min_gain_of_value_pairs: UnboundedNumber
+  num_additional_stations: number
+  /** The factor the heterogeneous radius is multiplied by, for every resolution */
+  station_distance_resolution_factors: Record<string, UnboundedNumber>
+}
+
+export interface InterpolationSettings extends GeoSettings {
+  use_nearby_station_distance: UnboundedNumber | null
+  /** Radii (km) set per parameter by name; any other parameter takes one of the two below */
+  interpolation_station_distance: Record<string, UnboundedNumber>
+  interpolation_station_distance_homogeneous: UnboundedNumber
+  interpolation_station_distance_heterogeneous: UnboundedNumber
+}
+
+export interface SummarySettings extends GeoSettings {
+  /** Radii (km) set per parameter by name; any other parameter takes one of the two below */
+  summary_station_distance: Record<string, UnboundedNumber>
+  summary_station_distance_homogeneous: UnboundedNumber
+  summary_station_distance_heterogeneous: UnboundedNumber
+}
+
+/**
+ * Response from GET /api/settings: what each endpoint takes for a setting a request leaves out,
+ * the server's `WD_TS_*` variables over wetterdienst's defaults
+ */
+export interface ServerSettings {
+  values: ValuesSettings
+  interpolate: InterpolationSettings
+  summarize: SummarySettings
+}
+
+// ============================================================================
 // Stripes API
 // ============================================================================
 
