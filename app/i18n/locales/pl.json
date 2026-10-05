@@ -436,7 +436,7 @@
     "humanize": "Humanizuj parametry",
     "convertUnits": "Konwertuj na jednostki SI",
     "unitTargets": "Jednostki docelowe",
-    "unitTargetsHint": "Zastąp domyślne jednostki docelowe dla określonych typów jednostek. Pozostaw puste, aby użyć wartości domyślnych.",
+    "unitTargetsHint": "Zastąp domyślną jednostkę docelową dla określonych typów jednostek. „Domyślne” przelicza na jednostkę podaną w nawiasie.",
     "unitDefault": "Domyślne ({unit})",
     "valuesOptions": "Opcje wartości",
     "shape": "Kształt",

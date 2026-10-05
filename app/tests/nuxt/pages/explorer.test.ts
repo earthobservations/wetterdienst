@@ -910,8 +910,6 @@ describe('explorer Page Unit Targets selects (GH-2391)', () => {
     useToast().clear()
   })
 
-  const HINT = 'Override default target units for specific unit types. Leave empty to use defaults.'
-
   // the explorer on a server converting temperatures to Fahrenheit and speeds to knots, with
   // Settings -> Unit Targets open
   async function mountWithUnitTargets(sent: Record<string, unknown>[]) {
@@ -926,14 +924,14 @@ describe('explorer Page Unit Targets selects (GH-2391)', () => {
     await wrapper.findAll('button').find(b => b.text() === 'Settings')!.trigger('click')
     await vi.waitFor(() => expect(wrapper.findAll('button').some(b => b.text() === 'Unit Targets')).toBe(true))
     await wrapper.findAll('button').find(b => b.text() === 'Unit Targets')!.trigger('click')
-    await vi.waitFor(() => expect(wrapper.text()).toContain(HINT))
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="unit-targets"]').exists()).toBe(true))
     return { wrapper, vm }
   }
 
   // the Unit Targets selects' triggers, one per type in the order listed
   function unitTargetTriggers(wrapper: Awaited<ReturnType<typeof mountWithSelection>>['wrapper']) {
-    const hint = wrapper.findAll('p').find(p => p.text() === HINT)!
-    return [...hint.element.parentElement!.querySelectorAll<HTMLButtonElement>('button[role="combobox"]')]
+    const unitTargets = wrapper.find('[data-testid="unit-targets"]')
+    return [...unitTargets.element.querySelectorAll<HTMLButtonElement>('button[role="combobox"]')]
   }
 
   // open a select and pick the item labelled `label`
@@ -954,6 +952,9 @@ describe('explorer Page Unit Targets selects (GH-2391)', () => {
   it('names the server\'s unit on each select left at Default, without an error', async () => {
     const { wrapper } = await mountWithUnitTargets([])
 
+    // the hint above them is the catalog's, read from it so the copy can change without this test
+    expect(wrapper.find('[data-testid="unit-targets"] p').text())
+      .toBe(useNuxtApp().$i18n.t('explorer.unitTargetsHint'))
     expect(unitTargetTriggers(wrapper).map(trigger => trigger.textContent?.trim())).toEqual([
       'Default (Degrees Fahrenheit (°F))',
       'Default (Knots (kn))',

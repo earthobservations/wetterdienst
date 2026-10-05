@@ -436,7 +436,7 @@
     "humanize": "Parameters humaniseren",
     "convertUnits": "Omrekenen naar SI-eenheden",
     "unitTargets": "Doeleenheden",
-    "unitTargetsHint": "Overschrijf de standaarddoeleenheden voor specifieke eenheidstypes. Laat leeg om de standaardwaarden te gebruiken.",
+    "unitTargetsHint": "Overschrijf de standaarddoeleenheid voor specifieke eenheidstypes. “Standaard” rekent om naar de eenheid tussen haakjes.",
     "unitDefault": "Standaard ({unit})",
     "valuesOptions": "Waardeopties",
     "shape": "Vorm",

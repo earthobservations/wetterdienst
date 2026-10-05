@@ -233,3 +233,17 @@ describe('glossary label parity', () => {
     }
   })
 })
+
+describe('the unit targets hint (GH-2395)', () => {
+  // Each Unit Targets select starts at, and can be put back to, a "Default (<unit>)" choice, so a
+  // hint telling the reader to leave a select empty describes a control that is never empty. The
+  // hint names that choice instead, in the words the choice itself shows, set in quotes.
+  const quotes = '"“”„«»'
+
+  it.each(locales)('names the select\'s Default choice in %s', (locale) => {
+    const explorer = load(locale).explorer as Record<string, string>
+    const choice = explorer.unitDefault!.replace(/\s*\(\{unit\}\)$/, '')
+    const escaped = choice.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    expect(explorer.unitTargetsHint).toMatch(new RegExp(`[${quotes}]\\s?${escaped}\\s?[${quotes}]`))
+  })
+})

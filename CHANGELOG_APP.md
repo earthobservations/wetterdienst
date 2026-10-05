@@ -18,6 +18,9 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer]` The Unit Targets hint no longer says to leave a select empty, which none of them
+  can be: it names the "Default" choice each select shows, which converts to the unit named in its
+  parentheses, in all eleven languages (GH-2395)
 - `[Explorer]` A link whose interpolation or summary point is a station opens with that station
   chosen as the point, with the elevation the link names, once the station list has loaded. Until
   then, and when the list fails, the link keeps the station; it used to drop it as the page loaded.
