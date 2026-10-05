@@ -434,7 +434,7 @@
     "humanize": "Humaniser parametre",
     "convertUnits": "Konvertér til SI-enheder",
     "unitTargets": "Målenheder",
-    "unitTargetsHint": "Tilsidesæt standardmålenhederne for bestemte enhedstyper. Lad stå tomt for at bruge standardværdierne.",
+    "unitTargetsHint": "Tilsidesæt standardmålenheden for bestemte enhedstyper. “Standard” beholder serverens enhed.",
     "unitDefault": "Standard ({unit})",
     "valuesOptions": "Værdimuligheder",
     "shape": "Form",

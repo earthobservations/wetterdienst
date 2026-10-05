@@ -754,7 +754,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                   size="xs"
                 />
                 <template #content>
-                  <div class="pt-3 space-y-2">
+                  <div class="pt-3 space-y-2" data-testid="unit-targets">
                     <p class="text-xs text-gray-500 mb-2">
                       {{ t('explorer.unitTargetsHint') }}
                     </p>
