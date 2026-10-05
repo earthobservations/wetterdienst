@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- NOAA GHCN hourly station GJBAKKI (`ICM00004919`) in western Iceland, the one row listed at
+  -99.0 m, has a null `elevation`. `interpolate` and `summarize` given an elevation took it for a
+  station about 100 m below sea level. Real heights below sea level stay (GH-2377)
+
 ## [0.140.0] - 2026-10-05
 
 ### Added
