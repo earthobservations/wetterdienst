@@ -40,10 +40,6 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends chromium curl libeccodes0 libeccodes-data && \
     rm -rf /var/lib/apt/lists/*
 
-# Load that library even if an eccodeslib wheel ever enters the lock: findlibs would prefer it, and
-# its bundled PROJ aborts a process that also imports pyproj (ecmwf/eckit#354, GH-2441)
-ENV FINDLIBS_DISABLE_PACKAGE=yes
-
 WORKDIR /app
 
 COPY uv.lock pyproject.toml ./
@@ -66,10 +62,6 @@ FROM python:3.14-slim-trixie
 RUN apt-get update && \
     apt-get install -y --no-install-recommends chromium curl libeccodes0 libeccodes-data && \
     rm -rf /var/lib/apt/lists/*
-
-# Load that library even if an eccodeslib wheel ever enters the lock: findlibs would prefer it, and
-# its bundled PROJ aborts a process that also imports pyproj (ecmwf/eckit#354, GH-2441)
-ENV FINDLIBS_DISABLE_PACKAGE=yes
 
 # Copy installed packages from build stage
 COPY --from=build /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
