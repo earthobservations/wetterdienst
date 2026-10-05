@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- REST API: `/api/interpolate` and `/api/summarize`, and the MCP tools of the same names, answer
+  a point there is no estimate at -- beyond the latitudes UTM covers (80°S to 84°N) on
+  interpolate, or a `station` without a position -- with a 400 rather than a 404, as they answer
+  an elevation no station can be placed against. The server logs it as an info line, not as an
+  error with its traceback (GH-2385)
 ### Fixed
 
 - `Settings` takes an all-digit `WD_AUTH__METNO_FROST` as the Frost client id it is, and refuses a
