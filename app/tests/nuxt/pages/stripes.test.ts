@@ -912,3 +912,38 @@ describe('stripes Page chart after a Retry', { timeout: 15_000 }, () => {
     expect(document.activeElement).toBe(button)
   })
 })
+
+describe('stripes Page chart name', { timeout: 15_000 }, () => {
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    useToast().clear()
+    document.body.innerHTML = ''
+  })
+
+  it('names the stripes by their kind and station, as a figure', async () => {
+    plotly.newPlot.mockClear()
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/stripes/values', () => ({
+      metadata: { station },
+      values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }],
+    }))
+    wrapper = await mountSuspended(defineComponent({
+      setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
+    }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    const vm = wrapper.findComponent(StripesPage).vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+
+    // the mock takes no arguments in its type, so its call is read as Plotly's (element)
+    const [chart] = plotly.newPlot.mock.calls[0] as unknown as [HTMLElement]
+    expect(chart.getAttribute('role')).toBe('figure')
+    expect(chart.getAttribute('aria-label')).toBe('Climate stripes (Precipitation) for Berlin-Tempelhof, Germany (1048)')
+  })
+})

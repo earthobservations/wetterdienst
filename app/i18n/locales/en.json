@@ -302,6 +302,8 @@
     "openWidget": "Open as embeddable widget",
     "chart": {
       "noData": "No data available for the selected query",
+      "label": "Forecast chart for {name}",
+      "labelNoStation": "Forecast chart",
       "panels": "Panels",
       "panelTemperature": "Temperature",
       "panelWind": "Wind",
@@ -562,6 +564,8 @@
     "fetchErrorToastTitle": "Data request failed",
     "dataTitle": "Data",
     "noChartData": "No data available for chart",
+    "chartLabel": "Chart of the values",
+    "facetChartLabel": "Chart of {parameter}",
     "rowsPerPage": "Rows per page",
     "copied": "Copied",
     "copiedRows": "{count} rows copied to clipboard",

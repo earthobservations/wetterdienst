@@ -22,7 +22,13 @@ const { latitudeInput, longitudeInput, elevationInput, fromStation, pointFromSta
 // For station selection
 const selectedStation = ref<Station | undefined>(modelValue.value.station)
 
-watch(selectedStation, fromStation)
+// a station chosen in the select names the point. Not one the model holds already, which the
+// watcher below has brought into the select: the model says the point itself then, e.g. a link's
+// station restored with the link's elevation
+watch(selectedStation, (station) => {
+  if (station !== modelValue.value.station)
+    fromStation(station)
+})
 
 // the parent replaces the whole model when the provider or dataset changes, which clears the
 // station -- and a select still holding the old one would write it back, coordinates, elevation and
@@ -68,6 +74,27 @@ const stationItems = computed(() =>
 // and not when it failed, which the Retry notice says.
 const noStationToOffer = computed(() => stationsStatus.value === 'success' && !stationItems.value.length)
 
+// The station a shared link names as the point (GH-2392), selected once the list has answered,
+// if the list offers it. Kept while the list is out or has failed, so a Retry that answers still
+// restores it; given up once the list has answered, and when the user switches to coordinates.
+// Nothing else can be picked before then, the select showing no list until one has answered. The
+// elevation stays the link's, which is the one the link was copied with: the station's own, or one
+// typed over it
+const initialStationId = defineModel<string | undefined>('initialStationId')
+
+watch(stationsStatus, (status) => {
+  const id = initialStationId.value
+  if (status !== 'success' || !id)
+    return
+  const station = stationItems.value.some(item => item.value === id)
+    ? allStations.value.find(s => s.station_id === id)
+    : undefined
+  // the point first, so the link is never written with neither the station nor its id
+  if (station)
+    modelValue.value = { ...modelValue.value, ...pointFromStation(station), elevation: modelValue.value.elevation }
+  initialStationId.value = undefined
+})
+
 // a Retry that works hands its focus on to the select, the list it brought being what it was for
 const stationSelect = useTemplateRef<{ triggerRef?: HTMLElement }>('stationSelect')
 const retryNotice = useTemplateRef<HTMLElement>('retryNotice')
@@ -105,6 +132,8 @@ function setSource(source: InterpolationSource) {
   // uncorrected, which at 1000 m is six degrees of air temperature
   if (source === modelValue.value.source)
     return
+  // coordinates in place of the link's station, which is not brought back over them
+  initialStationId.value = undefined
   // one assignment: a second write in the same tick spreads the model the first replaced, and the
   // source change was being undone by the elevation change that followed it
   modelValue.value = source === 'station'

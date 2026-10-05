@@ -302,6 +302,8 @@
     "openWidget": "Otwórz jako osadzalny widżet",
     "chart": {
       "noData": "Brak dostępnych danych dla wybranego zapytania",
+      "label": "Wykres prognozy dla {name}",
+      "labelNoStation": "Wykres prognozy",
       "panels": "Panele",
       "panelTemperature": "Temperatura",
       "panelWind": "Wiatr",
@@ -562,6 +564,8 @@
     "fetchErrorToastTitle": "Żądanie danych nie powiodło się",
     "dataTitle": "Dane",
     "noChartData": "Brak dostępnych danych do wykresu",
+    "chartLabel": "Wykres wartości",
+    "facetChartLabel": "Wykres: {parameter}",
     "rowsPerPage": "Wiersze na stronę",
     "copied": "Skopiowano",
     "copiedRows": "Skopiowano {count} wierszy do schowka",
