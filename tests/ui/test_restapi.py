@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the REST API."""
 
+import datetime as dt
 import io
 import json
 import logging
@@ -9,9 +10,11 @@ import os
 import pathlib
 import zipfile
 from collections.abc import Callable
+from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, get_args
 
+import polars as pl
 import pytest
 from dirty_equals import IsApprox, IsNumber, IsStr
 from starlette.testclient import TestClient
@@ -444,8 +447,9 @@ def test_stations_dwd_geo(client: TestClient) -> None:
 
 
 @pytest.mark.remote
-def test_stations_dwd_sql(client: TestClient) -> None:
+def test_stations_dwd_sql(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test SQL query."""
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     response = client.get(
         "/api/stations",
         params={
@@ -743,8 +747,9 @@ def test_values_dwd_no_valid_parameters(client: TestClient) -> None:
 
 @pytest.mark.remote
 @pytest.mark.sql
-def test_values_dwd_sql_tabular(client: TestClient) -> None:
+def test_values_dwd_sql_tabular(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test tabular format."""
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     response = client.get(
         "/api/values",
         params={
@@ -800,8 +805,9 @@ def test_values_dwd_sql_tabular(client: TestClient) -> None:
 
 @pytest.mark.remote
 @pytest.mark.sql
-def test_values_dwd_sql_long(client: TestClient) -> None:
+def test_values_dwd_sql_long(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test long format."""
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     response = client.get(
         "/api/values",
         params={
@@ -2718,6 +2724,172 @@ def test_ogc_feature_properties_schema_allows_provider_station_columns() -> None
     assert app.openapi()["components"]["schemas"]["_OgcFeatureProperties"].get("additionalProperties") is True
 
 
+@pytest.mark.sql
+def test_stations_sql_cannot_read_files(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A `sql` clause that reads a file on the server is refused, as the caller's error.
+
+    The clause ran on DuckDB's default connection, so `read_csv` in it read the server's files, and
+    which stations came back told the caller what they held.
+    """
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    # on a server that has SQL enabled, which is the only one the clause reaches
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+    station = {
+        "resolution": "daily",
+        "dataset": "climate_summary",
+        "station_id": "01048",
+        "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+        "end_date": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "latitude": 51.1278,
+        "longitude": 13.7543,
+        "elevation": 228.0,
+        "name": "Dresden-Klotzsche",
+        "region": "Sachsen",
+    }
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame([station]))
+    secret = tmp_path / "secret.csv"
+    secret.write_text("station_id\n01048\n")
+    params = {"provider": "dwd", "network": "observation", "parameters": "daily/kl"}
+
+    # the stations are in place, and an ordinary clause still selects from them
+    response = client.get("/api/stations", params={**params, "sql": "region = 'Sachsen'"})
+    assert response.status_code == 200
+    assert [s["station_id"] for s in response.json()["stations"]] == ["01048"]
+
+    # the injection is the point
+    sql = f"station_id IN (SELECT station_id FROM read_csv('{secret.as_posix()}', all_varchar = true))"  # noqa: S608
+    response = client.get("/api/stations", params={**params, "sql": sql})
+    assert response.status_code == 400
+    assert "Permission Error" in response.json()["detail"]
+
+    # nor can a statement appended to the clause answer in place of the stations
+    response = client.get("/api/stations", params={**params, "sql": "true; SELECT * FROM duckdb_settings()"})
+    assert response.status_code == 400
+    assert "Parser Error" in response.json()["detail"]
+
+    # and a clause building more than the filter's memory limit is the caller's to scale down; the
+    # limit is 1 GiB plus the frame's size, here made 64 MiB in all so the refusal comes cheap
+    monkeypatch.setattr(pl.DataFrame, "estimated_size", lambda _self, _unit="b": 64 * 2**20 - 2**30)
+    response = client.get(
+        "/api/stations", params={**params, "sql": "(SELECT len(list(i)) FROM range(20000000) t(i)) > 0"}
+    )
+    assert response.status_code == 400
+    assert "Out of Memory Error" in response.json()["detail"]
+
+
+# each REST endpoint and MCP tool taking a SQL clause, with the rest of a request it would serve
+_SQL_GATED = [
+    ("stations", "sql", {}),
+    ("values", "sql", {}),
+    ("values", "sql_values", {"station": "01048"}),
+    ("interpolate", "sql_values", {"station": "01048", "date": "2020-06-30"}),
+    ("summarize", "sql_values", {"station": "01048", "date": "2020-06-30"}),
+]
+
+
+def test_sql_gate_covers_every_route_taking_sql() -> None:
+    """Every route offering `sql` or `sql_values` is in the gate's tests, so a new one cannot slip by."""
+    offered = {
+        (path.removeprefix("/api/"), parameter["name"])
+        for path, operations in restapi.app.openapi()["paths"].items()
+        for operation in operations.values()
+        for parameter in operation.get("parameters", [])
+        if parameter["name"] in ("sql", "sql_values")
+    }
+    assert offered == {(endpoint, field) for endpoint, field, _ in _SQL_GATED}
+
+
+def _fail_to_fetch(*_args: object, **_kwargs: object) -> None:
+    """Stand in for the provider lookup, which a refused request must not reach."""
+    msg = "a request the SQL gate refuses reached the provider lookup"
+    raise AssertionError(msg)
+
+
+@pytest.mark.parametrize(("endpoint", "field", "query"), _SQL_GATED, ids=[f"{e}-{f}" for e, f, _ in _SQL_GATED])
+def test_sql_is_refused_unless_the_server_enables_it(
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    field: str,
+    query: dict[str, str],
+) -> None:
+    """Without `WD_RESTAPI_SQL=true` a SQL clause is refused with a 403, before anything is fetched."""
+    monkeypatch.delenv("WD_RESTAPI_SQL", raising=False)
+    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
+    params = {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/kl/temperature_air_mean_2m",
+        **query,
+        field: "true",
+    }
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(f"/api/{endpoint}", params=params)
+    assert response.status_code == 403
+    detail = response.json()["detail"]
+    assert "SQL filtering is disabled on this server" in detail
+    assert field in detail
+    assert "WD_RESTAPI_SQL=true" in detail
+
+
+@pytest.mark.parametrize(("tool", "field", "query"), _SQL_GATED, ids=[f"{t}-{f}" for t, f, _ in _SQL_GATED])
+def test_mcp_sql_is_refused_unless_the_server_enables_it(
+    monkeypatch: pytest.MonkeyPatch,
+    tool: str,
+    field: str,
+    query: dict[str, str],
+) -> None:
+    """The MCP tools are the REST API's routes, and refuse a SQL clause the same way."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.delenv("WD_RESTAPI_SQL", raising=False)
+    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
+    mcp = build_mcp_server(restapi.app)
+    arguments = {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/kl/temperature_air_mean_2m",
+        **query,
+        field: "true",
+    }
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(tool, arguments)
+
+    with pytest.raises(ToolError, match="SQL filtering is disabled on this server") as error:
+        asyncio.run(_call())
+    assert "WD_RESTAPI_SQL=true" in str(error.value)
+
+
+def test_sql_passes_where_the_server_enables_it(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With `WD_RESTAPI_SQL=true` an ordinary clause filters, and without a clause nothing is gated."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    stations = [
+        {"station_id": station_id, "name": name, "region": region}
+        for station_id, name, region in (("01048", "Dresden-Klotzsche", "Sachsen"), ("01975", "Hamburg", "Hamburg"))
+    ]
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame(stations))
+    params = {"provider": "dwd", "network": "observation", "parameters": "daily/kl"}
+
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+    response = client.get("/api/stations", params={**params, "sql": "region = 'Sachsen'"})
+    assert response.status_code == 200
+    assert [s["station_id"] for s in response.json()["stations"]] == ["01048"]
+
+    # the gate is on the clause, not on the endpoint
+    monkeypatch.delenv("WD_RESTAPI_SQL")
+    response = client.get("/api/stations", params={**params, "all": "true"})
+    assert response.status_code == 200
+    assert [s["station_id"] for s in response.json()["stations"]] == ["01048", "01975"]
+
+
 @pytest.mark.parametrize(
     ("endpoint", "entry_point"),
     [("/api/interpolate", "get_interpolate"), ("/api/summarize", "get_summarize")],
@@ -3102,7 +3274,7 @@ def test_values_a_duckdb_failure_that_is_not_about_the_statement_is_a_500(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """DuckDB running out of memory is the server's failure, however the caller's SQL reads (GH-2252)."""
+    """DuckDB running out of memory for a request without a SQL clause is the server's failure (GH-2252)."""
     import duckdb  # noqa: PLC0415
 
     msg = "Out of Memory Error: failed to allocate data of size 1.0 GiB"
@@ -3127,6 +3299,106 @@ def test_ogc_feature_schema_allows_a_null_geometry(schema_name: str) -> None:
     geometry = app.openapi()["components"]["schemas"][schema_name]["properties"]["geometry"]
     assert {"$ref": "#/components/schemas/_OgcFeatureGeometry"} in geometry["anyOf"]
     assert {"type": "null"} in geometry["anyOf"]
+
+
+@pytest.mark.sql
+@pytest.mark.parametrize(
+    ("clause", "error"),
+    [
+        ("station_id IN (SELECT station_id FROM read_csv('{secret}', all_varchar = true))", "Permission Error"),
+        ("true; SELECT * FROM duckdb_settings()", "Parser Error"),
+        ("(SELECT len(list(i)) FROM range(20000000) t(i)) > 0", "Out of Memory Error"),
+        # an extension DuckDB would install on the fly, refused with the bare `duckdb.Error`
+        ("station_id IN (SELECT 'a' FROM sqlite_scan('{secret}', 't'))", "extension"),
+        # a construct DuckDB does not implement
+        ("value IN (SELECT i FROM range(3) t(i) FULL JOIN df d2 ON i < df.value)", "Not implemented"),
+    ],
+    ids=["file", "statement", "memory", "extension", "not_implemented"],
+)
+def test_values_a_refused_sql_values_clause_is_a_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    clause: str,
+    error: str,
+) -> None:
+    """What the clause's connection refuses is the caller's to rephrase, on a server with SQL enabled."""
+    from wetterdienst.io.export import ExportMixin  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+    frame = pl.DataFrame({"station_id": ["01048"], "parameter": ["temperature_air_mean_2m"], "value": [1.0]})
+    stations = SimpleNamespace(values=SimpleNamespace(all=lambda: ExportMixin(df=frame)))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+    # the memory limit is 1 GiB plus the frame's size, here made 64 MiB in all so the refusal comes cheap
+    monkeypatch.setattr(pl.DataFrame, "estimated_size", lambda _self, _unit="b": 64 * 2**20 - 2**30)
+    secret = tmp_path / "secret.csv"
+    secret.write_text("station_id\n01048\n")
+
+    response = client.get(
+        "/api/values",
+        params={**_OBSERVATION, "station": "01048", "sql_values": clause.format(secret=secret.as_posix())},
+    )
+
+    assert response.status_code == 400
+    assert error in response.json()["detail"]
+
+
+@pytest.mark.sql
+@pytest.mark.parametrize("name", ["InternalException", "IOException"])
+def test_values_a_duckdb_failure_inside_duckdb_is_a_500_with_a_clause_too(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+) -> None:
+    """Only the bare `duckdb.Error` counts as the caller's, not every DuckDB error derived from it."""
+    import duckdb  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+    msg = f"{name}: failed inside DuckDB"
+
+    def fail() -> None:
+        raise getattr(duckdb, name)(msg)
+
+    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/values", params={**_OBSERVATION, "station": "01048", "sql_values": "value > 0"}
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == msg
+
+
+@pytest.mark.sql
+@pytest.mark.parametrize(("sql_values", "status"), [("value > 0", 400), (None, 500)], ids=["clause", "no_clause"])
+def test_values_the_bare_duckdb_error_is_the_callers_only_with_a_clause(
+    monkeypatch: pytest.MonkeyPatch,
+    sql_values: str | None,
+    status: int,
+) -> None:
+    """The bare `duckdb.Error`, which a refused extension install is raised as, is the clause's to rephrase.
+
+    Raised directly, so that the branch is held whether or not this machine has the extension the
+    clause above names installed already.
+    """
+    import duckdb  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+    msg = "An error occurred while trying to automatically install the required extension 'sqlite_scanner'"
+
+    def fail() -> None:
+        raise duckdb.Error(msg)
+
+    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+    params = {**_OBSERVATION, "station": "01048"}
+    if sql_values:
+        params["sql_values"] = sql_values
+
+    response = TestClient(restapi.app, raise_server_exceptions=False).get("/api/values", params=params)
+
+    assert response.status_code == status
+    assert response.json()["detail"] == msg
 
 
 def test_ogc_feature_properties_schema_allows_a_null_dataset() -> None:
@@ -3425,6 +3697,7 @@ def test_a_refusal_of_the_lookup_keeps_its_400(
 
 def test_stations_a_sql_refusal_keeps_its_400(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """A `sql` naming a column the stations do not have is still the caller's 400 (GH-2276)."""
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     monkeypatch.setattr("wetterdienst.ui.restapi.get_stations", _raise_sql_refusal)
 
     response = client.get("/api/stations", params={**_OBSERVATION, "sql": "foo = 1"})

@@ -101,7 +101,7 @@ http localhost:7890/api/stations provider==dwd network==observation parameters==
 # Filter by name with custom threshold (0–1, default 0.8).
 http localhost:7890/api/stations provider==dwd network==observation parameters==daily/kl periods==recent name==Darmstatt name_threshold==0.85
 
-# Query list of stations with SQL.
+# Query list of stations with SQL, on a server running with WD_RESTAPI_SQL=true.
 http localhost:7890/api/stations provider==dwd network==observation parameters==daily/kl periods==recent sql=="lower(name) LIKE lower('%dresden%');"
 
 # Acquire list of DWD DMO stations.
@@ -141,12 +141,27 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 # Observations for date range.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 date==2020-08-01/2020-08-05
 
-# Observations with SQL.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 shape=="wide" sql=="temperature_air_max_2m < 2.0;"
+# Observations with SQL, on a server running with WD_RESTAPI_SQL=true.
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 shape=="wide" sql_values=="temperature_air_max_2m < 2.0;"
 
 # Acquire ICON data.
 http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_mean_2m station==01001 date==2024-05-27
 ```
+
+### SQL filters
+
+`sql` (stations and values: which stations) and `sql_values` (values, interpolate and summarize:
+which rows of the result) take a SQL WHERE clause, run by DuckDB on the server. A server refuses
+both with a 403 unless it runs with the setting `restapi_sql` enabled (`WD_RESTAPI_SQL=true`); the
+MCP tools follow the same setting, and the library and the CLI are not gated.
+
+The clause is a single condition on the frame, called `df`: anything after it, a second statement,
+`ORDER BY` or `LIMIT`, is refused. It cannot read or list files, reach the network or load DuckDB
+extensions, and runs on one thread with DuckDB's memory limit at 1 GiB plus the size of the frame.
+What it can still do once enabled: read DuckDB's own settings, which name paths on the server; run
+for as long as it likes on that thread; and allocate memory DuckDB's limit does not count, such as
+one very long string. The limits hold per request, not for the server as a whole. Enable it only
+for clients you trust with that.
 
 ## MCP endpoint
 

@@ -266,6 +266,10 @@ class Settings(BaseSettings):
     # opt-in: parse DWD radar BUFR files into a polars DataFrame (RadarResult.df). Requires the
     # optional eccodes + pdbufr dependencies; off by default because parsing is expensive.
     read_bufr: bool = Field(default=False)
+    # opt-in: let REST API and MCP clients pass `sql` / `sql_values` clauses. Off by default because
+    # the clause runs in DuckDB on this host with only per-request limits (see `_filter_by_sql`);
+    # the library and the CLI, whose caller is the host's own user, are not gated
+    restapi_sql: bool = Field(default=False)
     ts_humanize: bool = True
     ts_shape: Literal["wide", "long"] = "long"
     ts_convert_units: bool = True

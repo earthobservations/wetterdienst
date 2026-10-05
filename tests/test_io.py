@@ -10,6 +10,7 @@ import math
 import re
 import sqlite3
 import sys
+import time
 from pathlib import Path
 from unittest import mock
 from zoneinfo import ZoneInfo
@@ -995,17 +996,15 @@ def test_filter_by_sql_names_a_renamed_parameter_column() -> None:
 
 @pytest.mark.sql
 def test_filter_by_sql_keeps_duckdbs_error_for_a_column_that_was_not_renamed() -> None:
-    """A column the frame has, missing only where the query looks for it, gets DuckDB's own error.
+    """A name that only looks renamed gets DuckDB's own error.
 
-    So does a name that only looks renamed: a current parameter ending in a renamed name's
-    successor is no dataset prefix, so its `_24h` variant was never a column of any frame.
+    A current parameter ending in a renamed name's successor is no dataset prefix, so its `_24h`
+    variant was never a column of any frame. (A column the frame has, missing only where the query
+    looked for it, was built with `UNION ALL`; the clause is a single condition now, and a name in
+    a subquery of it falls back to the frame's column, so DuckDB no longer reports one missing.)
     """
     import duckdb  # noqa: PLC0415
 
-    df = pl.DataFrame({"station_id": ["01048"], "value": [1.0]})
-    with pytest.raises(duckdb.BinderException, match='Referenced column "value" not found') as error:
-        ExportMixin(df=df).filter_by_sql("true UNION ALL SELECT * FROM (SELECT 'b' s) WHERE value > 0")
-    assert "renamed" not in str(error.value)
     df = pl.DataFrame({"count_days_multiday_wind_movement": [2.0]})
     with pytest.raises(duckdb.BinderException, match='Referenced column "count_days_multiday_wind_movement_24h"'):
         ExportMixin(df=df).filter_by_sql("count_days_multiday_wind_movement_24h > 0")
@@ -2656,6 +2655,170 @@ def test_timeseries_values_to_target_logs_the_target_without_its_password(caplog
     assert (
         "Exported data for station 01048 to influxdb2://acme:***@localhost/?database=dwd&table=weather." in caplog.text
     )
+
+
+@pytest.mark.sql
+@pytest.mark.parametrize(
+    ("clause", "match"),
+    [
+        # each clause would keep the one station, were DuckDB let to read what it names
+        ("elevation IN (SELECT elevation FROM read_csv('{d}/secret.csv'))", "read_csv|secret.csv"),
+        ("name = (SELECT content FROM read_text('{d}/secret.txt'))", "read_text|secret.txt"),
+        ("(SELECT count(*) FROM glob('{d}/*')) = 2", "glob|/\\*"),
+        ("elevation IN (SELECT elevation FROM '{d}/secret.csv')", "read_csv|secret.csv"),
+    ],
+    ids=["read_csv", "read_text", "glob", "replacement_scan"],
+)
+def test_filter_by_sql_cannot_read_files(
+    df_stations: pl.DataFrame,
+    tmp_path: Path,
+    clause: str,
+    match: str,
+) -> None:
+    """The caller's clause cannot read or list files on the host the filter runs on.
+
+    The REST API and MCP server pass `sql` and `sql_values` on from whoever can reach them, so a
+    clause that reached the file system read the server's files with the permissions of its process.
+    """
+    import duckdb  # noqa: PLC0415
+
+    tmp_path.joinpath("secret.csv").write_text("elevation\n645.0\n")
+    tmp_path.joinpath("secret.txt").write_text("Freyung vorm Wald")
+    with pytest.raises(duckdb.PermissionException, match=match):
+        ExportMixin(df=df_stations).filter_by_sql(clause.format(d=tmp_path.as_posix()))
+
+
+@pytest.mark.sql
+def test_filter_by_sql_cannot_reach_the_network(df_stations: pl.DataFrame) -> None:
+    """A clause naming a URL is refused before DuckDB loads `httpfs` to fetch it."""
+    import duckdb  # noqa: PLC0415
+
+    with pytest.raises(duckdb.PermissionException, match="disabled"):
+        ExportMixin(df=df_stations).filter_by_sql(
+            "elevation IN (SELECT elevation FROM read_csv('https://example.com/secret.csv'))"
+        )
+
+
+@pytest.mark.sql
+def test_filter_by_sql_on_values_keeps_the_time_zone(df_values: pl.DataFrame) -> None:
+    """A clause on the timestamps still filters, and the rows keep the zone they came with."""
+    df = ExportMixin(df=df_values).filter_by_sql("timestamp >= '2020-01-01' AND timestamp < '2022-01-01'")
+    assert df.schema["timestamp"] == pl.Datetime(time_zone="UTC")
+    assert df.get_column("timestamp").to_list() == [
+        dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2021, 1, 1, tzinfo=ZoneInfo("UTC")),
+    ]
+
+
+@pytest.mark.sql
+@pytest.mark.parametrize(
+    "clause",
+    [
+        # a statement after the condition returned its own rows in place of the filtered frame
+        "true; SELECT * FROM duckdb_settings()",
+        # or nothing at all, which surfaced as an AttributeError
+        "true; CREATE TABLE t AS SELECT 1",
+        "true; SET enable_external_access = true",
+        "true; LOAD httpfs",
+        # each of these DuckDB dropped from a filter expression in silence, on one release or other
+        "true ORDER BY elevation",
+        "true LIMIT 0",
+        "elevation > 1 WHERE false",
+        "elevation > 1 FROM range(3)",
+        "elevation > 1 AS x",
+    ],
+    ids=["select", "create", "set", "load", "order_by", "limit", "where", "from", "as"],
+)
+def test_filter_by_sql_takes_a_single_condition(df_stations: pl.DataFrame, clause: str) -> None:
+    """The clause is one condition on the frame; anything appended to it is refused, not run."""
+    import duckdb  # noqa: PLC0415
+
+    with pytest.raises(duckdb.ParserException):
+        ExportMixin(df=df_stations).filter_by_sql(clause)
+    # a trailing semicolon, as a clause copied from a statement has, is still taken, and so is a
+    # trailing comment
+    for taken in ("region = 'Bayern';", "region = 'Bayern' ; ; ", "region = 'Bayern' -- Freyung"):
+        assert ExportMixin(df=df_stations).filter_by_sql(taken).get_column("station_id").to_list() == ["01048"]
+
+
+@pytest.mark.sql
+def test_filter_by_sql_runs_within_limits(df_stations: pl.DataFrame) -> None:
+    """The clause gets one core, 1 GiB and no disk to spill to, on a configuration it cannot change."""
+    import duckdb  # noqa: PLC0415
+
+    # a list of 200 million integers needs 1.6 GB, and is refused where it would have been built
+    with pytest.raises(duckdb.OutOfMemoryException):
+        ExportMixin(df=df_stations).filter_by_sql("(SELECT len(list(i)) FROM range(200000000) t(i)) > 0")
+    # the clause reads its own connection's settings, so it can say which ones it runs under; the
+    # memory limit is left to the refusal above, as DuckDB words sizes as it likes ("1.0 GiB")
+    df = ExportMixin(df=df_stations).filter_by_sql(
+        "current_setting('threads') = 1"
+        " AND starts_with(current_setting('max_temp_directory_size'), '0 ')"
+        " AND current_setting('lock_configuration')"
+        " AND NOT current_setting('enable_external_access')"
+    )
+    assert df.get_column("station_id").to_list() == ["01048"]
+
+
+@pytest.mark.sql
+@pytest.mark.parametrize(
+    "clause",
+    [
+        "name = (SELECT content FROM read_text('.tmp/secret.txt'))",
+        "(SELECT count(*) FROM glob('.tmp/*')) = 1",
+    ],
+    ids=["read_text", "glob"],
+)
+def test_filter_by_sql_cannot_read_the_temp_directory(
+    df_stations: pl.DataFrame,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    clause: str,
+) -> None:
+    """Not even DuckDB's own temp directory, which it lets through with external access off."""
+    import duckdb  # noqa: PLC0415
+
+    monkeypatch.chdir(tmp_path)
+    tmp_path.joinpath(".tmp").mkdir()
+    tmp_path.joinpath(".tmp", "secret.txt").write_text("Freyung vorm Wald")
+    with pytest.raises(duckdb.PermissionException):
+        ExportMixin(df=df_stations).filter_by_sql(clause)
+
+
+@pytest.mark.sql
+def test_filter_by_sql_memory_limit_counts_the_frame(
+    df_stations: pl.DataFrame, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The limit is 1 GiB plus the frame's size, as a subquery over the frame builds in proportion to it."""
+    import duckdb  # noqa: PLC0415
+
+    # a list of 20 million integers needs 160 MB, which 1 GiB holds ...
+    clause = "(SELECT len(list(i)) FROM range(20000000) t(i)) > 0"
+    assert ExportMixin(df=df_stations).filter_by_sql(clause).get_column("station_id").to_list() == ["01048"]
+    # ... and 1 GiB plus a frame said to be 960 MiB smaller than nothing, 64 MiB in all, does not
+    monkeypatch.setattr(pl.DataFrame, "estimated_size", lambda _self, _unit="b": 64 * 2**20 - 2**30)
+    with pytest.raises(duckdb.OutOfMemoryException):
+        ExportMixin(df=df_stations).filter_by_sql(clause)
+
+
+@pytest.mark.sql
+def test_filter_by_sql_strips_a_long_clause_in_linear_time(df_stations: pl.DataFrame) -> None:
+    """A long run of whitespace inside a clause costs no more to strip than its length.
+
+    A regex stripping trailing whitespace and semicolons backtracked over every such run, 25 s for
+    one of 100,000 characters, and a REST or MCP client chooses the clause.
+    """
+    for clause in (
+        "region = 'Bayern'" + " " * 100_000 + "AND elevation > 0 ;",
+        # a long tail of both, alternating, which stripping one kind after the other copies anew
+        "region = 'Bayern'" + "; " * 50_000,
+    ):
+        start = time.perf_counter()
+        assert ExportMixin(df=df_stations).filter_by_sql(clause).get_column("station_id").to_list() == ["01048"]
+        assert time.perf_counter() - start < 5
+    # whitespace beyond ASCII, as a clause pasted from a web page ends with, goes too
+    for tail in (";" + chr(0x3000), ";" + chr(0xA0), " ;\t;\n", chr(0x2028)):
+        assert ExportMixin(df=df_stations).filter_by_sql(f"region = 'Bayern'{tail}").height == 1
 
 
 @pytest.mark.parametrize(

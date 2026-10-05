@@ -619,7 +619,11 @@ Querying data using SQL is provided by an in-memory DuckDB_ database.
 In order to explore what is possible, please have a look at the
 [DuckDB SQL introduction](https://duckdb.org/docs/sql/introduction).
 
-The result data is provided through a virtual table called ``data``.
+The result data is provided as a table called ``df``, and the filter takes a single condition on
+it, the part of a query after ``WHERE``: a second statement, ``ORDER BY`` or ``LIMIT`` is refused,
+so sort or slice the returned frame instead. The condition runs on a DuckDB connection of its
+own, which cannot read files, reach the network or load extensions, and holds nothing but the
+frame.
 
 ```{code-cell}
 ---

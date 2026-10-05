@@ -462,6 +462,25 @@ Types of changes:
   filling in defaults sent, hiding the server's. Read once per server process: restart it after
   editing its `.env` (GH-2393)
 
+### Security
+
+- **Breaking**: the `sql` and `sql_values` filters run on a DuckDB connection holding only the
+  frame, so they raise a `duckdb.Error` on a table of DuckDB's default connection, a file, a URL
+  or an extension; join or filter the returned frame with polars instead. The clause is a single
+  condition: a statement after `;`, `ORDER BY` or `LIMIT` raises `duckdb.ParserException`; sort or
+  slice the returned frame instead. It runs on one thread, with DuckDB's memory limit at 1 GiB
+  plus the frame's size and no disk to spill to (`duckdb.OutOfMemoryException`). The REST API
+  answers these as client errors. Any REST or MCP client could read the server's files, read
+  DuckDB's settings through an appended statement, or run a query on every core with most of the
+  memory (GHSA-rpwr-qmm5-m9wp)
+- **Breaking**: the REST API and MCP server refuse `sql` (stations, values) and `sql_values`
+  (values, interpolate, summarize) with a 403 unless they run with the new setting `restapi_sql`
+  enabled; set `WD_RESTAPI_SQL=true` to accept them as before. Enabled, the clause runs in DuckDB
+  on the server within the limits above, which hold per request: it can still read DuckDB's
+  settings, which name paths on the server, run for as long as it likes on one thread, and
+  allocate memory DuckDB's limit does not count. The library and the CLI are not gated
+  (GHSA-rpwr-qmm5-m9wp)
+
 ## [0.139.0] - 2026-09-29
 
 ### Changed

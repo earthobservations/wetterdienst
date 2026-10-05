@@ -37,6 +37,7 @@ The following settings are available:
 | fsspec_client_kwargs | pass arguments to fsspec, especially for querying data behind a proxy | User-Agent header, timeout 30      |
 | use_certifi          | use certifi certificate bundle instead of system certificates         | False                              |
 | read_bufr            | parse DWD radar BUFR products into `RadarResult.df` (needs the `bufr` extra) | False               |
+| restapi_sql          | let REST API and MCP clients filter with `sql` / `sql_values` (refused with a 403 otherwise); the clause runs in DuckDB on the server, see [REST API](restapi.md#sql-filters) | False |
 
 **Timeseries**
 

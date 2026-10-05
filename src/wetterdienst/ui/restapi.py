@@ -171,6 +171,32 @@ def _reader_missing_on_the_server(e: BufrReaderMissingError, what: str) -> HTTPE
     )
 
 
+def _refuse_sql_unless_enabled(
+    request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest,
+) -> None:
+    """Refuse a `sql` or `sql_values` clause unless whoever runs this server has enabled them.
+
+    The clause runs in DuckDB on this host. Its connection cannot read files, reach the network or
+    load extensions, but its limits are per request: it can still read DuckDB's settings, run for as
+    long as it likes on one core, and allocate outside DuckDB's memory limit. Whether to take that
+    from anyone who can reach the API is the operator's decision, so it is off until they set
+    `WD_RESTAPI_SQL=true`. A 403, as for the BUFR reader's 501: the request is well formed and this
+    deployment declines it, which a 400 would blame on the caller. Checked before anything is
+    fetched, so a refused request costs nothing. The MCP tools are this API's routes, so they are
+    gated with it; the library and the CLI are not.
+    """
+    given = [name for name in ("sql", "sql_values") if getattr(request, name, None)]
+    if given and not Settings().restapi_sql:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"SQL filtering is disabled on this server, so {' and '.join(given)} cannot be used. "
+                "Whoever runs this instance can enable it with the setting restapi_sql "
+                "(environment variable WD_RESTAPI_SQL=true); otherwise filter the response yourself."
+            ),
+        )
+
+
 # each output format by its media type; the rest are JSON. `image/{format}` named no registered type
 # for jpg or svg, and the stripes image sent `image/pdf` for a PDF (GH-2063)
 _MEDIA_TYPES = {
@@ -813,10 +839,12 @@ def stations(
     Requires provider, network and parameters (e.g. provider="dwd", network="observation",
     parameters="daily/kl"), and exactly one way of selecting stations: `name` for a place (e.g.
     name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `station` id(s),
-    lat/lon with `rank` or `distance`, a bounding box, `sql`, or all=true for the full list. Returns
-    station metadata including `station_id`, which you pass to `values`.
+    lat/lon with `rank` or `distance`, a bounding box, `sql` (where the server enables it), or
+    all=true for the full list. Returns station metadata including `station_id`, which you pass to
+    `values`.
     """
     set_logging_level(debug=request.debug)
+    _refuse_sql_unless_enabled(request)
 
     try:
         api = Wetterdienst(request.provider, request.network)
@@ -841,7 +869,7 @@ def stations(
         raise
     except Exception as e:
         log.exception("Failed to get stations.")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
+        raise HTTPException(status_code=400 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
 
     # A rank filter keeps all stations in the frame (rank is applied lazily during value collection);
     # for a plain listing return just the N closest the caller asked for instead of every station.
@@ -891,7 +919,7 @@ def issues(
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         log.exception("Failed to get issues.")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
+        raise HTTPException(status_code=400 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
 
     return JSONResponse(content={"issues": issue_list})
 
@@ -927,6 +955,7 @@ def values(
     resolution in the wide shape), so a station can have several. Do not re-request in other formats.
     """
     set_logging_level(debug=request.debug)
+    _refuse_sql_unless_enabled(request)
 
     try:
         api = Wetterdienst(request.provider, request.network)
@@ -1065,17 +1094,32 @@ _CALLER_REFUSALS = (
 )
 
 
-def _is_caller_refusal(e: Exception) -> bool:
+def _is_caller_refusal(e: Exception, request: BaseModel) -> bool:
     """Tell whether a failure is the request's own, which the caller can rephrase.
 
     The caller's own `sql` or `sql_values` is the only SQL run on the way, so a DuckDB error about
-    the statement -- its syntax, a column or function it names, a value it compares -- is theirs;
-    one running out of memory or failing inside DuckDB is not. DuckDB is optional, and an error of
+    the statement -- its syntax, a column or function it names, a value it compares -- is theirs.
+    So, where the request carries a clause, are the refusals of the connection the clause runs on
+    (`ExportMixin._filter_by_sql`): a file, URL or extension it may not touch
+    (`PermissionException`), more memory than the limit sized to the frame lets it build
+    (`OutOfMemoryException`), a construct DuckDB does not implement, such as an outer join on a
+    correlated column (`NotSupportedError`), and an extension DuckDB would install on the fly,
+    refused with the bare `duckdb.Error`. Every DuckDB error derives from that one, so only the exact class counts:
+    an `InternalException` or an `IOException` fails inside DuckDB and stays a 500, and so does
+    DuckDB running out of memory for a request without a clause. DuckDB is optional, and an error of
     its can only be raised once it has been imported.
     """
     duckdb = sys.modules.get("duckdb")
-    return isinstance(e, _CALLER_REFUSALS) or (
-        duckdb is not None and isinstance(e, (duckdb.ProgrammingError, duckdb.DataError))
+    if isinstance(e, _CALLER_REFUSALS):
+        return True
+    if duckdb is None:
+        return False
+    if isinstance(e, (duckdb.ProgrammingError, duckdb.DataError)):
+        return True
+    clause_given = any(getattr(request, name, None) for name in ("sql", "sql_values"))
+    return clause_given and (
+        isinstance(e, (duckdb.PermissionException, duckdb.OutOfMemoryException, duckdb.NotSupportedError))
+        or type(e) is duckdb.Error
     )
 
 
@@ -1107,7 +1151,7 @@ def _values(
         raise
     except Exception as e:
         log.exception("Failed to get values.")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
+        raise HTTPException(status_code=400 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
 
 
 def _geo_values(
@@ -1144,7 +1188,7 @@ def _geo_values(
         raise
     except Exception as e:
         log.exception(f"Failed to {what}")
-        raise HTTPException(status_code=404 if _is_caller_refusal(e) else 500, detail=str(e)) from e
+        raise HTTPException(status_code=404 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
 
 
 # response models for the different formats are
@@ -1171,6 +1215,7 @@ def interpolate(
     network, parameters and a `date`.
     """
     set_logging_level(debug=request.debug)
+    _refuse_sql_unless_enabled(request)
 
     try:
         api = Wetterdienst(request.provider, request.network)
@@ -1227,6 +1272,7 @@ def summarize(
     `date`.
     """
     set_logging_level(debug=request.debug)
+    _refuse_sql_unless_enabled(request)
     # dumped rather than read: reading a deprecated field warns of itself, a DeprecationWarning nobody sees
     if request.model_dump(include={"use_nearby_station_distance"})["use_nearby_station_distance"] is not None:
         log.warning(f"use_nearby_station_distance is deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}")
@@ -1305,7 +1351,7 @@ def stripes_values(
         raise
     except Exception as e:
         log.exception("Failed to get stripes data")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
+        raise HTTPException(status_code=400 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
 
     if request.format == "csv":
         content = stripes_data.df.write_csv()
@@ -1343,7 +1389,7 @@ def stripes_image(
         raise
     except Exception as e:
         log.exception("Failed to plot stripes")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
+        raise HTTPException(status_code=400 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
     return Response(
         content=fig.to_image(request.format, scale=request.dpi / 100),
         media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
@@ -1385,7 +1431,7 @@ def history(
         raise
     except Exception as e:
         log.exception("Failed to get stations for history.")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e) else 500, detail=str(e)) from e
+        raise HTTPException(status_code=400 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
 
     try:
         history_provider = stations_.history

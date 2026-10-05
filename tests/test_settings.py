@@ -23,6 +23,7 @@ WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR
 def test_default_settings(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test default settings."""
     monkeypatch.delenv("WD_CACHE_DIR", raising=False)
+    monkeypatch.delenv("WD_RESTAPI_SQL", raising=False)
     caplog.set_level(logging.INFO)
     default_settings = Settings()
     assert not default_settings.cache_disable
@@ -45,6 +46,8 @@ def test_default_settings(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.
     assert default_settings.ts_geo_use_nearby_station_distance == 1
     assert not default_settings.use_certifi
     assert not default_settings.read_bufr
+    # SQL from REST API and MCP clients stays off until the operator turns it on
+    assert not default_settings.restapi_sql
     assert re.match(WD_CACHE_ENABLED_PATTERN, caplog.messages[0])
 
 

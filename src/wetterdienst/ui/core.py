@@ -138,11 +138,17 @@ _RightField = Annotated[float | None, Field(ge=-180, le=180, description="Easter
 _TopField = Annotated[float | None, Field(ge=-90, le=90, description="Northern latitude of the bounding box.")]
 _SqlField = Annotated[
     str | None,
-    Field(description="SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\"."),
+    Field(
+        description="SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API "
+        "and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
+    ),
 ]
 _SqlValuesField = Annotated[
     str | None,
-    Field(description='SQL WHERE clause applied to the values, e.g. "temperature_air_max_2m < 2.0".'),
+    Field(
+        description='SQL WHERE clause applied to the values, e.g. "temperature_air_max_2m < 2.0". The REST API '
+        "and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
+    ),
 ]
 _WithMetadataField = Annotated[bool, Field(description="Include the provider-metadata block in the output.")]
 # of the values, interpolate and summarize requests, whose JSON formats report their settings with it
