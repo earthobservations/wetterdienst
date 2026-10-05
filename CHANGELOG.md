@@ -21,6 +21,18 @@ Types of changes:
 - `wetterdienst issues` reports a refused option, such as `--lead_time` on MOSMIX, as a one-line
   usage error with exit code 2 instead of a traceback with exit code 1. An upstream failure still
   logs its traceback and exits 1 (GH-2368)
+- The climate stripes refuse a station that returns no rows, such as one whose data file is
+  missing, with `NotEnoughDataError` ("has data for no year"): a 400 from `/api/stripes/values`
+  and `/api/stripes/image` and their MCP tools, and that message from `wetterdienst stripes`. They
+  raised polars' `ComputeError`, a 500 (GH-2369)
+- `wetterdienst history --target file://history.json`, the form its docs show, writes
+  `history.json`. The `file://` prefix was kept, so the write went to `file:/history.json` and
+  failed with "No such file or directory". A plain path works as before (GH-2370)
+- `Settings()` no longer fails where no home directory resolves (HOME unset and the uid missing
+  from the password database), which it did with platformdirs 4.12 even with
+  `cache_disable=True`. Without `WD_CACHE_DIR` the cache is then kept in a temporary directory, one
+  per process and removed at exit, with a warning to set `WD_CACHE_DIR` or `HOME`; a `~` directory
+  below the working directory is no longer created with older platformdirs either (GH-2408)
 
 ## [0.140.0] - 2026-10-05
 

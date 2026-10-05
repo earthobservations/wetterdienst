@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Explorer/Stripes/Meteogram/Widget]` A screen reader announces each chart as a figure with a
+  name: the data viewer's chart, or each facet by its parameter, the meteogram (also in the widget)
+  by its station and the stripes by their kind and station. The charts were unnamed, so reaching
+  one announced nothing useful (GH-2376)
+
 ## [0.18.0] - 2026-10-05
 
 ### Added
