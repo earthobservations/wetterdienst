@@ -20,6 +20,7 @@ from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
     InvalidTimeIntervalError,
+    LocationOutOfRangeError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
     StartDateEndDateError,
