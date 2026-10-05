@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `/api/interpolate` and `/api/summarize`, and the MCP tools of the same names, answer a point
+  there is no estimate at -- beyond the latitudes UTM covers (80°S to 84°N) on interpolate, or a
+  `station` without a position -- with a 400 and the reason, logged as an info line, where they
+  answered a 404 and logged the traceback as an error (GH-2385)
+
 ## [0.140.0] - 2026-10-05
 
 ### Added

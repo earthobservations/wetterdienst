@@ -1165,16 +1165,16 @@ def _geo_values(
 
     Both endpoints answered every failure with a 404, which reads as "no such thing" for a request
     that was understood and simply cannot be served as phrased -- an elevation no station in reach
-    can be placed against, or a window that ends before it starts. Those are 400s, and a reader
-    missing on the server is a 501; the same three in both places, so they are decided here rather
-    than twice over.
+    can be placed against, a point beyond the latitudes UTM covers or a station without a position,
+    or a window that ends before it starts. Those are 400s, and a reader missing on the server is a
+    501; the same three in both places, so they are decided here rather than twice over.
     """
     try:
         return get(api=api, request=request, settings=settings)
-    except (NoStationsWithElevationError, ParameterNotCarriedError) as e:
+    except (LocationOutOfRangeError, NoStationsWithElevationError, ParameterNotCarriedError) as e:
         # the message is the whole of it: which parameters lost their stations, and that asking
-        # without an elevation gets them back; or which parameters the run does not carry, and the
-        # lead time that does
+        # without an elevation gets them back; which parameters the run does not carry, and the
+        # lead time that does; or the latitudes UTM covers, or the station that has no position
         log.info(f"Failed to {what}: {e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
     except StartDateEndDateError as e:
