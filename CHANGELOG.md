@@ -18,6 +18,9 @@ Types of changes:
 
 ### Fixed
 
+- `wetterdienst history --target file://history.json`, the form its docs show, writes
+  `history.json`. The `file://` prefix was kept, so the write went to `file:/history.json` and
+  failed with "No such file or directory". A plain path works as before (GH-2370)
 - `Settings()` no longer fails where no home directory resolves (HOME unset and the uid missing
   from the password database), which it did with platformdirs 4.12 even with
   `cache_disable=True`. Without `WD_CACHE_DIR` the cache is then kept in a temporary directory, one
