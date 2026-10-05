@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Explorer]` A link whose interpolation or summary point is a station opens with that station
+  chosen as the point, once the station list has loaded. Until then, and when the list fails, the
+  link keeps the station; it used to drop it as the page loaded. A station the list does not have,
+  or has without a position, is left for the user to choose, and leaves the link (GH-2392)
+
 ## [0.18.0] - 2026-10-05
 
 ### Added

@@ -68,6 +68,25 @@ const stationItems = computed(() =>
 // and not when it failed, which the Retry notice says.
 const noStationToOffer = computed(() => stationsStatus.value === 'success' && !stationItems.value.length)
 
+// The station a shared link names as the point (GH-2392), selected once the list has answered:
+// only one the list offers, and only while the point is still to be given by a station: not over
+// coordinates the user switched to meanwhile. Given up then either way; kept while the list is out
+// or has failed, so a Retry that answers still restores it. Nothing else can be picked before then,
+// the select showing no list until one has answered
+const initialStationId = defineModel<string | undefined>('initialStationId')
+
+watch(stationsStatus, (status) => {
+  const id = initialStationId.value
+  if (status !== 'success' || !id)
+    return
+  initialStationId.value = undefined
+  if (modelValue.value.source !== 'station')
+    return
+  const station = allStations.value.find(s => s.station_id === id)
+  if (station && hasPosition(station))
+    selectedStation.value = station
+})
+
 // a Retry that works hands its focus on to the select, the list it brought being what it was for
 const stationSelect = useTemplateRef<{ triggerRef?: HTMLElement }>('stationSelect')
 const retryNotice = useTemplateRef<HTMLElement>('retryNotice')
