@@ -1492,7 +1492,10 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     df = stations.values.all().df.sort("timestamp")
     df = df.set_sorted("timestamp")
     df = df.select("timestamp", "value")
-    df = df.upsample("timestamp", every="1y")
+    # a station that returns no rows has no first and last year to upsample between (polars raises
+    # `ComputeError`); left empty, it is refused below as having data for no year (GH-2369)
+    if not df.is_empty():
+        df = df.upsample("timestamp", every="1y")
     recorded = df.filter(pl.col("value").is_not_null()).get_column("timestamp").dt.year()
     if start_year is not None:
         df = df.filter(pl.col("timestamp").dt.year().ge(start_year))
