@@ -19,9 +19,9 @@ Types of changes:
 ### Changed
 
 - The `restapi` extra now needs `fastapi>=0.142` (was `>=0.115`). The REST API turns off fastapi's
-  OpenTelemetry export from `OTEL_*` variables: wetterdienst sets up no exporter from them, while a
-  provider the operator sets up, e.g. with `opentelemetry-instrument`, still gets fastapi's spans,
-  metrics and logs (GH-2407)
+  OpenTelemetry export from `OTEL_*` variables: wetterdienst sets up no exporter from them. A
+  provider the operator sets up still gets fastapi's spans, metrics and logs, or, where the
+  `opentelemetry-instrumentation-fastapi` middleware runs, that instrumentation's (GH-2407)
 
 ## [0.140.0] - 2026-10-05
 
