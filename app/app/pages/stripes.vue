@@ -107,12 +107,14 @@ const plotContainer = ref<HTMLElement | null>(null)
 const isLoading = ref(false)
 const hasPlot = ref(false)
 const lastFetchedData = ref<StripesValuesResponse | null>(null)
-// the stripes' name, as their title gives it: the kind and the station of the values shown. A kind
-// changed clears them, so the kind chosen is theirs
-const plotLabel = computed(() => {
-  const station = lastFetchedData.value?.metadata.station
-  return station ? t('stripes.plotTitle', { kind: kindLabel(kind.value), name: station.name, id: station.station_id }) : undefined
-})
+// the stripes' title: the kind and the station of the values. A kind changed clears the stripes, so
+// the kind chosen is theirs
+function plotTitle(data: StripesValuesResponse) {
+  const station = data.metadata.station
+  return t('stripes.plotTitle', { kind: kindLabel(kind.value), name: station.name, id: station.station_id })
+}
+// the stripes' accessible name, their title
+const plotLabel = computed(() => lastFetchedData.value ? plotTitle(lastFetchedData.value) : undefined)
 // The stripes' drawings, numbered as they start. Failed: the newest threw -- Plotly's import or its
 // drawing -- and the chart area says so; failures counted, so a Retry that fails too is told again
 let plotsStarted = 0
@@ -400,11 +402,7 @@ async function drawStripes(data: StripesValuesResponse) {
     traces.push(trendlineTrace as Plotly.Data)
 
   // Layout configuration
-  const titleText = t('stripes.plotTitle', {
-    kind: kindLabel(kind.value),
-    name: data.metadata.station.name,
-    id: data.metadata.station.station_id,
-  })
+  const titleText = plotTitle(data)
   const containerWidth = plotContainer.value.clientWidth
 
   const layout: Partial<Plotly.Layout> = {
