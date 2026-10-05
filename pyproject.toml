@@ -222,7 +222,7 @@ radarplus = [
     "xradar>=0.2,<1",
 ]
 restapi = [
-    "fastapi>=0.115,<1",
+    "fastapi>=0.142,<1",
     "uvicorn[standard]>=0.30,<1",
 ]
 sql = [
