@@ -231,12 +231,15 @@ watch(() => ({ ...dataSettings.value }), (now, before) => {
     void reseedForShape(now.shape)
 }, { flush: 'sync' })
 
-/** Each of `reported` in place of a setting the link does not name and the user has not changed. */
-function seedSettings(reported: Partial<DataSettings>) {
+/**
+ * Each of `reported` in place of a setting the user has not changed and the link does not name, or
+ * names but `overLink` holds.
+ */
+function seedSettings(reported: Partial<DataSettings>, overLink: ReadonlySet<keyof DataSettings> = new Set()) {
   const settings: Record<keyof DataSettings, unknown> = dataSettings.value
   seeding = true
   for (const key of Object.keys(reported) as (keyof DataSettings)[]) {
-    if (!(key in settingsFromLink) && !changedSettings.has(key))
+    if ((!(key in settingsFromLink) || overLink.has(key)) && !changedSettings.has(key))
       settings[key] = reported[key]
   }
   seeding = false
@@ -256,20 +259,24 @@ const seededFromServer = useServerSettings().then((server) => {
   return true
 })
 
+// the settings whose value in effect the shape decides: the wide shape turns drop_nulls off
+const SHAPE_SETTINGS: ReadonlySet<keyof DataSettings> = new Set(['dropNulls'])
 let shapeAsked = 0
 
-// A shape the user switches to has its own server settings (GH-2398), as the wide shape turns
-// drop_nulls off: the server's, for that shape, take the place of the ones it reported for the shape
-// before, under the same rule as its first answer. They are asked after that answer, so they are
-// laid over it, and only of a backend that gave one. A backend that refuses the parameter, or fails,
-// leaves the settings as they are, as does the answer to a switch the user has made again since
+// A shape the user switches to has its own server settings (GH-2398): the server's, for that shape,
+// take the place of the ones it reported for the shape before, under the same rule as its first
+// answer, but for the settings the shape decides. The link's value of one of those was for the
+// link's shape, so the new shape's takes its place too, and only one the user changed stays
+// (GH-2400). They are asked after the first answer, so they are laid over it, and only of a
+// backend that gave one. A backend that refuses the parameter, or fails, leaves the settings as
+// they are, as does the answer to a switch the user has made again since
 async function reseedForShape(shape: DataSettings['shape']) {
   const asked = ++shapeAsked
   if (!await seededFromServer)
     return
   const server = await serverSettingsFor({ shape })
   if (asked === shapeAsked && server)
-    seedSettings(serverDataSettings(server))
+    seedSettings(serverDataSettings(server), SHAPE_SETTINGS)
 }
 
 // Track parameter distance entries with stable IDs
