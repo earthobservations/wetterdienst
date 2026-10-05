@@ -11,6 +11,7 @@ BUFR", which is the only question any caller has: use `bufr_is_available` for th
 """
 
 import logging
+import threading
 import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -24,6 +25,7 @@ log = logging.getLogger(__name__)
 #: the one they recommend (`gribapi/__init__.py`, 2.42.0 in eccodes 2.48 and 2.49). Matched from
 #: the start of the message, as `warnings` does, and on nothing else they might say
 _ECCODES_VERSION_ADVICE = r"ecCodes [0-9.]+ or higher is recommended"
+_ADVICE_LOCK = threading.Lock()
 
 
 @contextmanager
@@ -35,18 +37,15 @@ def _without_eccodes_version_advice() -> Iterator[None]:
     process that read BUFR as a warning nobody could act on (GH-2442). The library's version is
     logged at debug in its place. Any other warning out of the import still reaches the caller,
     and so does this one where the caller imports eccodes themselves before asking here.
+
+    `catch_warnings` swaps the process's filter list and puts back what it found, so two threads
+    inside it at once -- the REST API's first two BUFR requests, `lru_cache` running a body twice
+    when asked twice before it has an answer -- would put back each other's list and could leave
+    the filter in place for good. The lock keeps them one at a time.
     """
-    with warnings.catch_warnings():
+    with _ADVICE_LOCK, warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=_ECCODES_VERSION_ADVICE, category=UserWarning)
         yield
-
-
-@lru_cache
-def _log_eccodes_version() -> None:
-    """Say once at debug which ecCodes library loaded, in place of the advice silenced above."""
-    import eccodes  # noqa: PLC0415
-
-    log.debug(f"ecCodes library {eccodes.codes_get_api_version()}")
 
 
 @lru_cache
@@ -56,8 +55,7 @@ def ensure_eccodes() -> bool:
         with _without_eccodes_version_advice():
             import eccodes  # noqa: PLC0415
 
-        eccodes.eccodes.codes_get_api_version()
-        _log_eccodes_version()
+        log.debug(f"ecCodes library {eccodes.eccodes.codes_get_api_version()}")
     except ModuleNotFoundError as e:
         if e.name in (None, "eccodes"):
             # not installed -- or nothing to go on, in which case the quiet path is the one
@@ -93,11 +91,10 @@ def ensure_pdbufr() -> bool:
     BUFR, which is the whole of what this answers.
     """
     try:
-        # pdbufr imports eccodes, so the first import in a process may well be this one
+        # pdbufr imports eccodes, so where this is asked first the import of eccodes is this one.
+        # The version is left to `ensure_eccodes`, which `bufr_is_available` asks first
         with _without_eccodes_version_advice():
             import pdbufr  # noqa: F401, PLC0415
-
-        _log_eccodes_version()
     except ModuleNotFoundError as e:
         if e.name in (None, "pdbufr", "eccodes"):
             # pdbufr requires eccodes, so an absent eccodes surfaces from this import as well --

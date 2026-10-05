@@ -3,8 +3,10 @@
 """Tests for the BUFR reader availability helpers."""
 
 import builtins
+import importlib
 import logging
 import sys
+import threading
 import warnings
 from collections.abc import Iterator
 
@@ -270,35 +272,89 @@ def _a_first_import_of_a_stale_library(monkeypatch: pytest.MonkeyPatch) -> Itera
     before = {name: module for name, module in sys.modules.items() if forgotten(name)}
     for name in before:
         del sys.modules[name]
-    eccodes._log_eccodes_version.cache_clear()  # noqa: SLF001
     try:
         yield
     finally:
         for name in [name for name in sys.modules if forgotten(name)]:
             del sys.modules[name]
         sys.modules.update(before)
-        eccodes._log_eccodes_version.cache_clear()  # noqa: SLF001
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.usefixtures("_a_first_import_of_a_stale_library")
+def test_the_stale_library_does_provoke_the_advice() -> None:
+    """The control for the test below: imported plainly, the stand-in gets the bindings' advice.
+
+    Without it, the test below would pass just as well if the advice were reworded, raised from a
+    module the fixture keeps, or never raised at all.
+    """
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        importlib.import_module("eccodes")
+    said = [str(warning.message) for warning in seen]
+    assert "ecCodes 2.42.0 or higher is recommended. You are running version 2.34.1" in said
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.usefixtures("_a_first_import_of_a_stale_library")
 @pytest.mark.parametrize("probe", ["ensure_eccodes", "ensure_pdbufr"])
-def test_the_advice_to_upgrade_the_library_is_logged_rather_than_warned(
-    probe: str,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_the_advice_to_upgrade_the_library_is_not_warned(probe: str) -> None:
     """A distribution's ecCodes is older than the bindings recommend, and reads BUFR all the same.
 
     The bindings warned so on every first import -- Debian trixie ships 2.41 and Ubuntu 24.04 2.34,
     against a recommended 2.42 -- and a caller could neither act on it nor tell it was harmless
     (GH-2442). Either probe may be the first import in a process, pdbufr importing eccodes itself.
-    The library's version is logged at debug in its place, and nothing else the import says is
-    held back.
+    Nothing else the import says is held back.
     """
-    with warnings.catch_warnings(record=True) as seen, caplog.at_level(logging.DEBUG, logger=eccodes.__name__):
+    with warnings.catch_warnings(record=True) as seen:
         warnings.simplefilter("always")
         assert getattr(eccodes, probe)() is True
     said = [str(warning.message) for warning in seen]
     assert not [message for message in said if "or higher is recommended" in message]
     assert "something else the bindings say on import" in said
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.usefixtures("_a_first_import_of_a_stale_library")
+def test_the_library_version_is_logged_in_its_place(caplog: pytest.LogCaptureFixture) -> None:
+    """Which library loaded is still there to be read, at debug."""
+    with (
+        caplog.at_level(logging.DEBUG, logger=eccodes.__name__),
+        pytest.warns(UserWarning, match="something else the bindings say on import"),
+    ):
+        assert eccodes.ensure_eccodes() is True
     assert "ecCodes library 2.34.1" in caplog.text
+
+
+def test_two_threads_do_not_put_back_each_others_filters() -> None:
+    """`catch_warnings` puts back the filter list it found, which another thread may have changed.
+
+    The REST API answers in a thread pool, and `lru_cache` runs a body again for a second caller
+    that asks before the first has an answer. Interleaved, the second puts back the list holding
+    the first one's filter after the first has put back the original, and the advice stays
+    silenced for the rest of the process. Here the first waits inside while the second tries to
+    come in.
+    """
+    original = list(warnings.filters)
+    inside = threading.Event()
+    leave = threading.Event()
+
+    def first() -> None:
+        with eccodes._without_eccodes_version_advice():  # noqa: SLF001
+            inside.set()
+            leave.wait(5)
+
+    def second() -> None:
+        inside.wait(5)
+        with eccodes._without_eccodes_version_advice():  # noqa: SLF001
+            leave.set()
+
+    threads = [threading.Thread(target=first), threading.Thread(target=second)]
+    for thread in threads:
+        thread.start()
+    # without the lock, the second is in at once and lets the first go before this times out
+    assert not leave.wait(0.5)
+    leave.set()
+    for thread in threads:
+        thread.join(5)
+    assert warnings.filters == original
