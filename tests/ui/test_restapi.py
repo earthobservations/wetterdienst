@@ -4975,7 +4975,7 @@ def test_settings_and_a_values_request_leaving_the_shape_out_agree_under_a_wide_
     applied = client.get("/api/values", params=params).json()["settings"]
 
     (settings,) = taken
-    assert settings.ts_drop_nulls is False
+    assert settings.ts_drop_nulls_effective is False
     assert applied["drop_nulls"] is False
     assert reported["drop_nulls"] is False
     assert reported == applied
@@ -4991,7 +4991,7 @@ def test_geo_settings_report_the_drop_nulls_the_estimate_reads_with(
     """The estimating endpoints report the `drop_nulls` their stations' values are read with (GH-2359).
 
     They read the values in the long shape whatever the server's (`_for_estimating`), on a copy of
-    the settings that keeps the `drop_nulls` the server's wide shape turned off.
+    the settings that takes the `drop_nulls` in effect, which the server's wide shape turns off.
     """
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 

@@ -899,12 +899,15 @@ class TimeseriesRequest:
         matching no row at all, and `ts_shape="wide"` has no `value` column (GH-2331). So the
         values are read as long and humanized whatever the caller's settings say, on a copy, so
         that the caller's own request keeps them. `_as_asked` names the result the caller's way.
+        The copy drops nulls as the caller's settings do, which a wide shape does not.
         """
         settings = cast("Settings", self.settings)
         if settings.ts_shape == "long" and settings.ts_humanize:
             return self
         request = copy.copy(self)
-        request.settings = settings.model_copy(update={"ts_shape": "long", "ts_humanize": True})
+        request.settings = settings.model_copy(
+            update={"ts_shape": "long", "ts_humanize": True, "ts_drop_nulls": settings.ts_drop_nulls_effective},
+        )
         return request
 
     def _as_asked(self, df: pl.DataFrame) -> pl.DataFrame:
