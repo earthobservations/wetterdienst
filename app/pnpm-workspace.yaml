@@ -18,7 +18,7 @@ shellEmulator: true
 
 overrides:
   # Security overrides: floors at the patched versions of two transitive deps whose
-  # parents' ranges admit vulnerable versions -- brace-expansion 5.x (denial-of-service
+  # parents' ranges admit vulnerable versions -- brace-expansion 4.x-5.x (denial-of-service
   # advisories up to GHSA-q2hr-2g5m-vwhr, all fixed by 5.0.12; minimatch 10 asks for
   # ^5.0.8) and esbuild (dev-server file read, GHSA-g7r4-m6w7-qqqr). The scoped ranges below
   # leave other major lines untouched; brace-expansion's 1.x and 2.x copies are locked at
