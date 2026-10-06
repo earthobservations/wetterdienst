@@ -55,7 +55,9 @@ class GeosphereObservationValues(TimeseriesValues):
         parameter_or_dataset: ParameterModel,
     ) -> pl.DataFrame:
         start_date = self.sr.start_date or self._default_start_dates[parameter_or_dataset.dataset.resolution.value]
-        end_date = self.sr.end_date or datetime.now(ZoneInfo("UTC"))
+        # floored to the hour, so an open-ended request keeps one URL (and cache entry) for an hour; the
+        # one-day buffer below still reaches past now
+        end_date = self.sr.end_date or datetime.now(ZoneInfo("UTC")).replace(minute=0, second=0, microsecond=0)
         # add buffers
         start_date = start_date - timedelta(days=1)
         end_date = end_date + timedelta(days=1)

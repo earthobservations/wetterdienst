@@ -2,6 +2,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for geosphere observation API."""
 
+from __future__ import annotations
+
+import datetime as dt
 from datetime import datetime
 from io import BytesIO
 from urllib.parse import parse_qs, urlparse
@@ -71,6 +74,32 @@ def test_geosphere_observation_api_radiation(
     assert df.get_column("value").sum() == expected_sum
 
 
+_STATIONS = (
+    "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
+    "4821,Test,16.0,48.0,200,1992-05-20 00:00:00+00:00,2100-01-01 00:00:00+00:00,Wien,True,True\n"
+).encode()
+
+
+def _data_window(monkeypatch: pytest.MonkeyPatch, **dates: datetime) -> tuple[str, str]:
+    """Request one station's values offline and return the start and end the data URL carries."""
+    data_urls = []
+
+    def _download(url: str, **_kwargs: object) -> File:
+        if url.endswith("/metadata/stations"):
+            return File(url=url, content=BytesIO(_STATIONS), status=200)
+        data_urls.append(url)
+        return File(url=url, content=BytesIO(b'{"timestamps": [], "features": []}'), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)
+
+    request = GeosphereObservationRequest(parameters=[("10_minutes", "data", "humidity_relative")], **dates)
+    request.filter_by_station_id("4821").values.all()
+
+    assert len(data_urls) == 1
+    query = parse_qs(urlparse(data_urls[0]).query)
+    return query["start"][0], query["end"][0]
+
+
 def test_geosphere_observation_request_window_carries_the_minutes(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that the start and end sent upstream keep the request's minutes.
 
@@ -78,30 +107,32 @@ def test_geosphere_observation_request_window_carries_the_minutes(monkeypatch: p
     starting 13:37 in December sent ``13:12`` (GH-2436). The values are cut to the requested span
     locally, so this showed only in the URL, and with it the cache key.
     """
-    stations = (
-        "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
-        "4821,Test,16.0,48.0,200,1992-05-20 00:00:00+00:00,2100-01-01 00:00:00+00:00,Wien,True,True\n"
-    ).encode()
-    data_urls = []
-
-    def _download(**kwargs: object) -> File:
-        url = str(kwargs["url"])
-        if url.endswith("/metadata/stations"):
-            return File(url=url, content=BytesIO(stations), status=200)
-        data_urls.append(url)
-        return File(url=url, content=BytesIO(b'{"timestamps": [], "features": []}'), status=200)
-
-    monkeypatch.setattr(api, "download_file", _download)
-
-    request = GeosphereObservationRequest(
-        parameters=[("10_minutes", "data", "humidity_relative")],
+    start, end = _data_window(
+        monkeypatch,
         start_date=datetime(2020, 12, 2, 13, 37, tzinfo=ZoneInfo("UTC")),
         end_date=datetime(2020, 12, 3, 8, 45, tzinfo=ZoneInfo("UTC")),
     )
-    request.filter_by_station_id("4821").values.all()
-
-    assert len(data_urls) == 1
-    query = parse_qs(urlparse(data_urls[0]).query)
     # one day of buffer on either side of the requested window
-    assert query["start"] == ["2020-12-01T13:37"]
-    assert query["end"] == ["2020-12-04T08:45"]
+    assert start == "2020-12-01T13:37"
+    assert end == "2020-12-04T08:45"
+
+
+def test_geosphere_observation_open_ended_window_ends_on_the_hour(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a request without dates ends its window on the hour, not on the current minute.
+
+    Without dates the window ends a day after now. Sent to the minute, that URL, and so the cache
+    key, would change every minute and a repeat of the whole-record download within the cache's
+    five minutes would miss; floored to the hour it stays the same for the hour (GH-2436).
+    """
+
+    class _FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz: dt.tzinfo | None = None) -> _FrozenDatetime:
+            return cls(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")).astimezone(tz)
+
+    monkeypatch.setattr(api, "datetime", _FrozenDatetime)
+
+    start, end = _data_window(monkeypatch)
+    # the 10 minutes record's default start, less the one-day buffer
+    assert start == "1992-05-19T00:00"
+    assert end == "2020-12-03T13:00"
