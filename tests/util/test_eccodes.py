@@ -244,7 +244,9 @@ class _StaleLibrary:
     def grib_get_api_version(self) -> int:
         if not self._asked:
             self._asked = True
-            warnings.warn("something else the bindings say on import", UserWarning, stacklevel=1)
+            # attributed to the frame asking, gribapi/__init__.py, as the advice is: the filter's
+            # module matches it, so only the filter's message can let it through
+            warnings.warn("something else the bindings say on import", UserWarning, stacklevel=2)
         return self._version
 
     def __getattr__(self, name: str) -> object:
