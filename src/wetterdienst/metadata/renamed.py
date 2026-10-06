@@ -143,10 +143,12 @@ def refuse_renamed_arguments(owner: str, kwargs: Mapping[str, object]) -> None:
     Without this the old keyword fails with Python's bare "unexpected keyword argument", which does
     not say what it is called now.
     """
-    for old in kwargs:
-        if old in RENAMED_ARGUMENTS:
-            msg = f"{owner}() argument '{old}' was renamed to '{RENAMED_ARGUMENTS[old]}'"
-            raise TypeError(msg)
+    # all of them at once, so that a caller passing the old pair learns of both in one go
+    renamed = [f"'{old}' was renamed to '{RENAMED_ARGUMENTS[old]}'" for old in kwargs if old in RENAMED_ARGUMENTS]
+    if renamed:
+        noun = "argument" if len(renamed) == 1 else "arguments"
+        msg = f"{owner}() {noun} {', '.join(renamed)}"
+        raise TypeError(msg)
 
 
 def renamed_column(old: str, columns: Collection[str]) -> str | None:

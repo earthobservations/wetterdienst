@@ -655,6 +655,10 @@ class DwdRadarValues:  # noqa: PLW1641
                 yield RadarResult(data=BytesIO(gz_file.read()), timestamp=None, filename=gz_file.name or "")
 
 
+# help() and editors read the arguments off __init__ rather than the variadic refusal, as on TimeseriesRequest
+DwdRadarValues.__new__.__wrapped__ = DwdRadarValues.__init__  # ty: ignore[unresolved-attribute]
+
+
 class DwdRadarSites(OperaRadarSites):
     """API for DWD radar sites."""
 

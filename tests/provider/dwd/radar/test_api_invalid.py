@@ -159,3 +159,11 @@ def test_radar_request_refuses_a_renamed_argument_by_its_new_name(old: str, new:
     """Test the old window argument names the new one, as the timeseries requests do (GH-2437)."""
     with pytest.raises(TypeError, match=rf"^DwdRadarValues\(\) argument '{old}' was renamed to '{new}'$"):
         DwdRadarValues(parameter=DwdRadarParameter.RADOLAN_CDC, resolution="daily", **{old: "2020-01-01"})
+
+
+def test_radar_request_signature_names_the_window_arguments() -> None:
+    """Test help() and editors still see the radar request's arguments behind the refusing __new__ (GH-2437)."""
+    import inspect  # noqa: PLC0415
+
+    parameters = inspect.signature(DwdRadarValues).parameters
+    assert {"parameter", "start", "end", "settings"} <= set(parameters)

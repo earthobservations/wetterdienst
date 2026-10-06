@@ -990,3 +990,9 @@ class TimeseriesRequest:
             msg = f"station {station_id} has no position to interpolate or summarize at"
             raise LocationOutOfRangeError(msg)
         return lat, lon, elevation
+
+
+# inspect, and with it help() and editors, read a class's arguments off its __new__ where the class
+# defines one beside its __init__, and the variadic refusal above names none: point it at the
+# arguments __init__ takes, which a subclass that is no dataclass of its own inherits as they are
+TimeseriesRequest.__new__.__wrapped__ = TimeseriesRequest.__init__  # ty: ignore[unresolved-attribute]

@@ -3,6 +3,7 @@
 """Tests for DWD observation data API."""
 
 import datetime as dt
+import inspect
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -16,6 +17,7 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
     DwdObservationRequest,
 )
+from wetterdienst.provider.metno.frost import MetnoFrostRequest
 
 
 @pytest.fixture
@@ -525,7 +527,24 @@ def test_request_refuses_a_renamed_argument_by_its_new_name(
         request_class(parameters=[("daily", "kl")], **{old: "2020-01-01"})
 
 
-def test_request_keeps_the_window_under_its_new_names() -> None:
+def test_request_refuses_both_renamed_arguments_at_once() -> None:
+    """Test a caller passing the old pair learns of both renames from the one error (GH-2437)."""
+    with pytest.raises(
+        TypeError,
+        match=r"^DwdObservationRequest\(\) arguments 'start_date' was renamed to 'start', "
+        r"'end_date' was renamed to 'end'$",
+    ):
+        DwdObservationRequest(parameters=[("daily", "kl")], start_date="2020-01-01", end_date="2020-01-02")
+
+
+@pytest.mark.parametrize("request_class", [TimeseriesRequest, MetnoFrostRequest, DwdObservationRequest])
+def test_request_signature_names_the_window_arguments(request_class: type[TimeseriesRequest]) -> None:
+    """Test help() and editors still see a request's arguments behind the refusing __new__ (GH-2437).
+
+    MetnoFrostRequest is no dataclass of its own, so it inherits both __new__ and __init__.
+    """
+    parameters = inspect.signature(request_class).parameters
+    assert list(parameters)[:3] == ["parameters", "start", "end"]
     """Test start and end are taken by the request and read back from its stations result (GH-2437)."""
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
 
