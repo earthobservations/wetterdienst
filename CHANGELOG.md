@@ -38,6 +38,9 @@ Types of changes:
 
 ### Fixed
 
+- On Windows, DWD road values and DWD radar BUFR read with `Settings(read_bufr=True)` decode. Road
+  values raised `PermissionError`, and radar logged "Unable to read BUFR file." and left
+  `result.df` as `None` (GH-2446)
 - NOAA GHCN daily stations QOORNOQ and ARSUK on the coast of Greenland and SORFJORD_KRV and
   SKJOMEN_SLETTJORD by the fjords near Narvik, the four rows listed at -100.0 m, have a null
   `elevation` instead of one 100 m below sea level. Real heights below sea level, such as DEATH

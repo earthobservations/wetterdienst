@@ -10,7 +10,6 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from functools import reduce
-from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, ClassVar
 from urllib.parse import urljoin
 
@@ -26,7 +25,7 @@ from wetterdienst.model.metadata import (
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA
-from wetterdienst.util.eccodes import require_bufr
+from wetterdienst.util.eccodes import bufr_file, require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
 if TYPE_CHECKING:
@@ -1029,11 +1028,9 @@ class DwdRoadValues(TimeseriesValues):
         import pdbufr  # noqa: PLC0415
 
         parameter_names = [parameter.name_original for parameter in parameters]
-        with NamedTemporaryFile("w+b") as tf:
-            if isinstance(file.content, Exception):
-                raise file.content
-            tf.write(file.content.read())
-            tf.seek(0)
+        if isinstance(file.content, Exception):
+            raise file.content
+        with bufr_file(file.content.read()) as path:
             # pdbufr warns here that the file's subsets do not all carry the same keys, which for
             # this network is every file -- road stations are fitted differently, so one carries a
             # second sensor where the next does not. It warns about the column order it returns
@@ -1059,7 +1056,7 @@ class DwdRoadValues(TimeseriesValues):
             # and every data key rather than the fourteen: flat, a read that names its columns
             # returns the first rank of each and drops the rest, which is the sensor thrown away
             # before anything can choose between them
-            df = pdbufr.read_bufr(tf.name, "data", flat=True)
+            df = pdbufr.read_bufr(path, "data", flat=True)
         ranked = _columns_by_rank(df.columns, {*TIME_COLUMNS, "shortStationName", QUALITY_FLAG, *parameter_names})
         # a file whose messages decode to no subsets comes back with no columns at all, and one
         # that decodes to subsets carrying no station is as unreadable. Either is nothing to

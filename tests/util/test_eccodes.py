@@ -12,6 +12,7 @@ import sys
 import warnings
 from collections.abc import Iterator
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 
@@ -348,8 +349,7 @@ def test_a_radar_bufr_read_asked_directly_is_quiet_too() -> None:
     """`read_radar_bufr` imports pdbufr itself and can be called without asking either probe first.
 
     What it is handed here is not BUFR, so the read fails -- after the import, which is the part
-    this is about. How it fails is not: gribapi's error for bytes that are not BUFR, or on Windows
-    the temporary file it is written to not opening a second time.
+    this is about. How it fails is not: gribapi's error for bytes that are not BUFR.
     """
     from wetterdienst.provider.dwd.radar.api import _BUFR_VALUE_FIELD, read_radar_bufr  # noqa: PLC0415
 
@@ -479,3 +479,120 @@ def test_quieting_the_advice_cannot_make_a_probe_raise(probe: str, monkeypatch: 
     monkeypatch.delitem(sys.modules, "gribapi", raising=False)
     monkeypatch.setattr(importlib.util, "find_spec", broken)
     assert getattr(eccodes, probe)() is False
+
+
+def _bufr_message(descriptors: list[int], values: dict[str, object]) -> bytes:
+    """Encode one uncompressed single-subset BUFR message, as ecCodes writes it.
+
+    Built here rather than downloaded, so a read of real BUFR runs in the offline selection.
+    """
+    import eccodes as bindings  # noqa: PLC0415
+
+    handle = bindings.codes_bufr_new_from_samples("BUFR4")
+    try:
+        bindings.codes_set(handle, "numberOfSubsets", 1)
+        bindings.codes_set(handle, "compressedData", 0)
+        bindings.codes_set_array(handle, "unexpandedDescriptors", descriptors)
+        for key, value in values.items():
+            if isinstance(value, list):
+                bindings.codes_set_array(handle, key, value)
+            else:
+                bindings.codes_set(handle, key, value)
+        bindings.codes_set(handle, "pack", 1)
+        return bindings.codes_get_message(handle)
+    finally:
+        bindings.codes_release(handle)
+
+
+#: year, month, day, hour, minute
+_TIME_DESCRIPTORS = [4001, 4002, 4003, 4004, 4005]
+_TIME = {"year": 2026, "month": 9, "day": 13, "hour": 12, "minute": 0}
+
+
+@pytest.fixture
+def files_read(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
+    """Record the paths pdbufr is asked to read, on the way to the real reader."""
+    import pdbufr  # noqa: PLC0415
+
+    read_bufr = pdbufr.read_bufr
+    paths = []
+
+    def recording(path: Path, *args: object, **kwargs: object) -> object:
+        paths.append(Path(path))
+        return read_bufr(path, *args, **kwargs)
+
+    monkeypatch.setattr(pdbufr, "read_bufr", recording)
+    return paths
+
+
+def test_bufr_file_holds_the_bytes_and_goes_again_after_a_failed_read() -> None:
+    """The file is there to be opened by name while the read runs, and gone however the read ends."""
+    with pytest.raises(RuntimeError, match="the read failed"), eccodes.bufr_file(b"some bytes") as path:  # noqa: PT012
+        assert path.read_bytes() == b"some bytes"
+        msg = "the read failed"
+        raise RuntimeError(msg)
+    assert not path.exists()
+    assert not path.parent.exists()
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_a_road_file_decodes_through_the_reader(files_read: list[Path]) -> None:
+    """A road message is read by pdbufr from the file it is written to, on every platform.
+
+    The road tests around the parse stub pdbufr, and the ones reading published files are remote, so
+    nothing in the offline selection had pdbufr open a road file. On Windows it could not: the file
+    was a `NamedTemporaryFile` still held open, which Windows will not open a second time
+    (GH-2446).
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    message = _bufr_message(
+        # shortStationName, the time, airTemperature
+        [1018, *_TIME_DESCRIPTORS, 12101],
+        {"shortStationName": "A006", **_TIME, "airTemperature": 285.5},
+    )
+    parameters = list(api.DwdRoadRequest.metadata["15_minutes"]["data"])
+    file = File(url="a-road-file", content=BytesIO(message), status=200)
+    df = api.DwdRoadValues._DwdRoadValues__parse_dwd_road_weather_data(file, parameters)  # noqa: SLF001
+    assert df.drop_nulls("value").select("station_id", "parameter", "value").rows() == [
+        ("A006", "airTemperature", 285.5),
+    ]
+    # read from a file of its own, which is gone again
+    assert len(files_read) == 1
+    assert not files_read[0].exists()
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_a_radar_file_decodes_through_the_reader(files_read: list[Path]) -> None:
+    """A radar BUFR product is read by pdbufr from the file it is written to, on every platform.
+
+    On Windows that read failed for the reason the road read did, and `_attach_bufr` logged "Unable
+    to read BUFR file." and left the result's frame empty (GH-2446).
+    """
+    from wetterdienst.provider.dwd.radar.api import read_radar_bufr  # noqa: PLC0415
+    from wetterdienst.provider.dwd.radar.metadata import DwdRadarParameter  # noqa: PLC0415
+
+    message = _bufr_message(
+        # shortStationName, the time, latitude, longitude, heightOfStation, projectionType,
+        # pictureType, and three echoTops
+        [1018, *_TIME_DESCRIPTORS, 5001, 6001, 7001, 29001, 30031, 101003, 21021],
+        {
+            "shortStationName": "BOO",
+            **_TIME,
+            "latitude": 54.0,
+            "longitude": 10.0,
+            "heightOfStation": 125.0,
+            "projectionType": 0,
+            "pictureType": 2,
+            "echoTops": [1000.0, 2000.0, 3000.0],
+        },
+    )
+    data = BytesIO(message)
+    df = read_radar_bufr(data, DwdRadarParameter.PE_ECHO_TOP)
+    assert df.get_column("station_id").unique().to_list() == ["BOO"]
+    assert df.get_column("value").to_list() == [1000.0, 2000.0, 3000.0]
+    assert len(files_read) == 1
+    assert not files_read[0].exists()
+    # and the caller's bytes are still there to be read
+    assert data.read() == message

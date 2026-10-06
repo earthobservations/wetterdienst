@@ -14,7 +14,11 @@ import importlib.util
 import logging
 import sys
 import warnings
+from collections.abc import Iterator
+from contextlib import contextmanager
 from functools import lru_cache
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from wetterdienst.exceptions import BufrReaderMissingError
 
@@ -164,3 +168,25 @@ def require_bufr(what: str) -> None:
             f"comes from `apt install libeccodes-dev` or `brew install eccodes`."
         )
         raise BufrReaderMissingError(msg)
+
+
+@contextmanager
+def bufr_file(content: bytes) -> Iterator[Path]:
+    """Write BUFR bytes to a file of their own, for a reader that opens it by name.
+
+    pdbufr takes a path, never bytes, and opens it itself. The file is written and closed before the
+    path is handed over, in a directory that goes again on the way out: Windows refuses to open a
+    file a second time while a `NamedTemporaryFile` holds it open, so on Windows every read through
+    one failed with `PermissionError` (GH-2446).
+
+    Args:
+        content: the BUFR message(s), as published
+
+    Yields:
+        the path of the file holding them
+
+    """
+    with TemporaryDirectory(prefix="wetterdienst-bufr-") as directory:
+        path = Path(directory) / "message.bufr"
+        path.write_bytes(content)
+        yield path
