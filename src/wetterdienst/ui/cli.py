@@ -684,8 +684,8 @@ def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     """Raise a failure caught from a request as a usage error if it is the caller's own mistake.
 
     A refusal the caller can rephrase -- one the REST API answers with a 4xx -- is told in one line,
-    exit 2, as a mistyped option is (GH-2426). Anything else is left to the handler, which logs an
-    upstream failure or a defect with its traceback and exits 1.
+    exit 2, as a mistyped option is (GH-2426). Anything else -- an upstream failure or a defect -- is
+    left to the handler, and keeps its traceback and exit 1.
     """
     if _is_caller_refusal(e, request):
         raise click.UsageError(str(e)) from e
@@ -723,7 +723,7 @@ def _collect_or_exit(
     except Exception as e:
         _refuse_if_callers(e, request)
         if not isinstance(e, ValueError):
-            # left to click, which prints its traceback
+            # not caught here: click re-raises it, and Python prints its traceback and exits 1
             raise
         log.exception(f"Error during {what}")
         sys.exit(1)
