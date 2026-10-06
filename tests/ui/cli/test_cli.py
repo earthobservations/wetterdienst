@@ -224,7 +224,7 @@ def test_no_combination_of_provider_and_network() -> None:
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith(
         "\n\nError: No API available for provider dwd and network abc. "
-        "`wetterdienst about coverage` lists the available providers and networks.\n"
+        "`wetterdienst about coverage`, without --provider and --network, lists the available ones.\n"
     )
 
 

@@ -335,7 +335,7 @@ def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
     try:
         return Wetterdienst(provider, network)
     except ApiNotFoundError as e:
-        msg = f"{e} `wetterdienst about coverage` lists the available providers and networks."
+        msg = f"{e} `wetterdienst about coverage`, without --provider and --network, lists the available ones."
         raise click.UsageError(msg) from e
 
 
