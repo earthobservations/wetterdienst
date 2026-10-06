@@ -43,8 +43,8 @@ def test_parse_station_metadata() -> None:
             "latitude": 60.154,
             "longitude": -2.074,
             "elevation": 22.0,
-            "start_date": dt.datetime(1989, 1, 1, tzinfo=UTC),
-            "end_date": dt.datetime(2003, 12, 31, tzinfo=UTC),
+            "start_timestamp": dt.datetime(1989, 1, 1, tzinfo=UTC),
+            "end_timestamp": dt.datetime(2003, 12, 31, tzinfo=UTC),
         },
     ]
 

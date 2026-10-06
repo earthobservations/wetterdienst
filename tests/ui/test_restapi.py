@@ -407,8 +407,8 @@ def test_stations_dwd_basic(client: TestClient) -> None:
         "resolution": "daily",
         "dataset": "climate_summary",
         "station_id": "00011",
-        "start_date": "1980-09-01T00:00:00.000000+00:00",
-        "end_date": IsStr,
+        "start_timestamp": "1980-09-01T00:00:00.000000+00:00",
+        "end_timestamp": IsStr,
         "latitude": 47.9736,
         "longitude": 8.5205,
         "elevation": 680.0,
@@ -438,8 +438,8 @@ def test_stations_dwd_geo(client: TestClient) -> None:
         "resolution": "daily",
         "dataset": "climate_summary",
         "station_id": "03730",
-        "start_date": "1910-01-01T00:00:00.000000+00:00",
-        "end_date": IsStr,
+        "start_timestamp": "1910-01-01T00:00:00.000000+00:00",
+        "end_timestamp": IsStr,
         "latitude": 47.3984,
         "longitude": 10.2759,
         "elevation": 806.0,
@@ -469,8 +469,8 @@ def test_stations_dwd_sql(client: TestClient, monkeypatch: pytest.MonkeyPatch) -
         "resolution": "daily",
         "dataset": "climate_summary",
         "station_id": "01048",
-        "start_date": "1934-01-01T00:00:00.000000+00:00",
-        "end_date": IsStr,
+        "start_timestamp": "1934-01-01T00:00:00.000000+00:00",
+        "end_timestamp": IsStr,
         "latitude": 51.1278,
         "longitude": 13.7543,
         "elevation": 228.0,
@@ -1320,8 +1320,8 @@ def test_stations_missing_null(client: TestClient) -> None:
         "dataset": "small",
         "station_id": "01025",
         "icao_id": None,
-        "start_date": None,
-        "end_date": None,
+        "start_timestamp": None,
+        "end_timestamp": None,
         "latitude": 69.68,
         "longitude": 18.92,
         "elevation": 10.0,
@@ -2743,8 +2743,8 @@ def test_stations_sql_cannot_read_files(client: TestClient, monkeypatch: pytest.
         "resolution": "daily",
         "dataset": "climate_summary",
         "station_id": "01048",
-        "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-        "end_date": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
         "latitude": 51.1278,
         "longitude": 13.7543,
         "elevation": 228.0,
@@ -3435,8 +3435,8 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
     station = {
         "resolution": "daily",
         "station_id": "01048",
-        "start_date": None,
-        "end_date": None,
+        "start_timestamp": None,
+        "end_timestamp": None,
         "latitude": 51.1,
         "longitude": 13.8,
         "elevation": 228.0,
@@ -3449,8 +3449,8 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
             "resolution": pl.String,
             "dataset": pl.String,
             "station_id": pl.String,
-            "start_date": pl.Datetime(time_zone="UTC"),
-            "end_date": pl.Datetime(time_zone="UTC"),
+            "start_timestamp": pl.Datetime(time_zone="UTC"),
+            "end_timestamp": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
             "elevation": pl.Float64,
@@ -5985,8 +5985,8 @@ def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: li
                 "resolution": "annual",
                 "dataset": dataset,
                 "station_id": "01048",
-                "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-                "end_date": dt.datetime(2025, 12, 31, tzinfo=dt.timezone.utc),
+                "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                "end_timestamp": dt.datetime(2025, 12, 31, tzinfo=dt.timezone.utc),
                 "latitude": 51.1278,
                 "longitude": 13.7543,
                 "elevation": 228.0,
@@ -6118,8 +6118,8 @@ def _stub_a_station_without_position(monkeypatch: pytest.MonkeyPatch) -> None:
         "resolution": "daily",
         "dataset": "climate_summary",
         "station_id": "09999",
-        "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-        "end_date": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
         "latitude": None,
         "longitude": None,
         "elevation": 228.0,
@@ -6424,8 +6424,8 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
         "resolution": "annual",
         "dataset": "climate_summary",
         "station_id": "01048",
-        "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-        "end_date": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
         "latitude": 51.1278,
         "longitude": 13.7543,
         "elevation": 228.0,
@@ -6700,3 +6700,18 @@ def test_mcp_date_is_left_to_a_tool_without_timestamp(monkeypatch: pytest.Monkey
     with pytest.raises(ToolError, match="reached the provider lookup") as error:
         asyncio.run(_call())
     assert "renamed" not in str(error.value)
+
+
+@pytest.mark.parametrize("schema_name", ["_Station", "_OgcFeatureProperties"])
+def test_stations_output_schemas_name_the_span_as_the_frame_does(client: TestClient, schema_name: str) -> None:
+    """The station schemas name a station's span `start_timestamp` / `end_timestamp`, as its frame does (GH-2439).
+
+    The MCP `stations` tool validates every result against the schema built from these types, which
+    requires each of their fields, so a schema still naming `start_date` would refuse every station.
+    """
+    schema = client.get("/openapi.json").json()["components"]["schemas"][schema_name]
+    for field in ("start_timestamp", "end_timestamp"):
+        assert field in schema["required"]
+        branches = schema["properties"][field].get("anyOf", [schema["properties"][field]])
+        assert {branch.get("type") for branch in branches} == {"string", "null"}, f"{schema_name}.{field}"
+    assert not {"start_date", "end_date"} & set(schema["properties"])

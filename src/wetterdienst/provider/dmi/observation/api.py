@@ -273,12 +273,12 @@ class DmiObservationRequest(TimeseriesRequest):
             .struct.field("validFrom")
             .str.to_datetime("%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
             .dt.replace_time_zone("UTC")
-            .alias("start_date"),
+            .alias("start_timestamp"),
             pl.col("properties")
             .struct.field("validTo")
             .str.to_datetime("%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
             .dt.replace_time_zone("UTC")
-            .alias("end_date"),
+            .alias("end_timestamp"),
             pl.col("properties").struct.field("created").alias("created"),
         )
         # DMI lists a station once per validity period. Collapse to one row per station: keep
@@ -293,11 +293,11 @@ class DmiObservationRequest(TimeseriesRequest):
             pl.col("latitude").sort_by("created", descending=True).first().alias("latitude"),
             pl.col("longitude").sort_by("created", descending=True).first().alias("longitude"),
             pl.col("elevation").sort_by("created", descending=True).first().alias("elevation"),
-            pl.col("start_date").min(),
-            pl.when(pl.col("end_date").is_null().any())
+            pl.col("start_timestamp").min(),
+            pl.when(pl.col("end_timestamp").is_null().any())
             .then(None)
-            .otherwise(pl.col("end_date").max())
-            .alias("end_date"),
+            .otherwise(pl.col("end_timestamp").max())
+            .alias("end_timestamp"),
         )
         resolutions_and_datasets = {
             (parameter.dataset.resolution.name, parameter.dataset.name)

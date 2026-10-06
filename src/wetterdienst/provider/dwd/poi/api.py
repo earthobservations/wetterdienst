@@ -164,8 +164,8 @@ class DwdPoiRequest(TimeseriesRequest):
         "dataset",
         "station_id",
         "icao_id",
-        "start_date",
-        "end_date",
+        "start_timestamp",
+        "end_timestamp",
         "latitude",
         "longitude",
         "elevation",
@@ -191,8 +191,8 @@ class DwdPoiRequest(TimeseriesRequest):
         df = df.with_columns(
             pl.lit(resolution.name, pl.String).alias("resolution"),
             pl.lit(resolution.datasets[0].name, pl.String).alias("dataset"),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
             pl.lit(None, pl.String).alias("region"),
         )
         return df.select(self._base_columns).lazy()

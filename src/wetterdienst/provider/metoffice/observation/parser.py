@@ -20,8 +20,8 @@ _EMPTY_STATIONS_SCHEMA = {
     "latitude": pl.Float64,
     "longitude": pl.Float64,
     "elevation": pl.Float64,
-    "start_date": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "end_date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "start_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "end_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
 }
 
 _EMPTY_VALUES_SCHEMA = {
@@ -67,11 +67,11 @@ def parse_station_metadata(content: bytes) -> pl.DataFrame:
         pl.date(pl.col("first_year").cast(pl.Int32, strict=False), 1, 1)
         .cast(pl.Datetime(time_unit="us"))
         .dt.replace_time_zone("UTC")
-        .alias("start_date"),
+        .alias("start_timestamp"),
         pl.date(pl.col("last_year").cast(pl.Int32, strict=False), 12, 31)
         .cast(pl.Datetime(time_unit="us"))
         .dt.replace_time_zone("UTC")
-        .alias("end_date"),
+        .alias("end_timestamp"),
     )
 
 

@@ -817,7 +817,7 @@ class MetnoFrostRequest(TimeseriesRequest):
             pl.col("validFrom")
             .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
             .dt.replace_time_zone("UTC")
-            .alias("start_date"),
+            .alias("start_timestamp"),
             pl.when(pl.col("validTo").is_not_null())
             .then(
                 pl.col("validTo")
@@ -825,7 +825,7 @@ class MetnoFrostRequest(TimeseriesRequest):
                 .dt.replace_time_zone("UTC")
             )
             .otherwise(pl.lit(None, dtype=pl.Datetime(time_unit="us", time_zone="UTC")))
-            .alias("end_date"),
+            .alias("end_timestamp"),
         )
         df = df.rename({"id": "station_id", "name": "name", "county": "region", "countryCode": "country"})
         resolutions_and_datasets = {

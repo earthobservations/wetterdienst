@@ -122,8 +122,8 @@ class EcccObservationValues(TimeseriesValues):
             {"LOCAL_DATE": pl.String} | {f: (pl.String if f.endswith("FLAG") else pl.Float64) for f in fields}
         )
         data = []
-        start_year = self.sr.start.year if self.sr.start else station_meta["start_date"].year
-        end_year = self.sr.end.year if self.sr.end else station_meta["end_date"].year
+        start_year = self.sr.start.year if self.sr.start else station_meta["start_timestamp"].year
+        end_year = self.sr.end.year if self.sr.end else station_meta["end_timestamp"].year
         for year in range(start_year, end_year + 1):
             # shamefully (almost just) copied from meteostat/meteostat
             # source: https://github.com/meteostat/meteostat/blob/a5fd7970e41cd0e76a4cc5a1cb4e2cc2caea9c86/meteostat/providers/eccc/hourly.py#L58C1-L67C6
@@ -310,36 +310,36 @@ class EcccObservationRequest(TimeseriesRequest):
             pl.col("features").struct.field("properties").struct.field("LATITUDE").alias("latitude"),
             pl.col("features").struct.field("properties").struct.field("LONGITUDE").alias("longitude"),
             pl.col("features").struct.field("properties").struct.field("ELEVATION").alias("elevation"),
-            pl.col("features").struct.field("properties").struct.field("FIRST_DATE").alias("start_date"),
-            pl.col("features").struct.field("properties").struct.field("LAST_DATE").alias("end_date"),
+            pl.col("features").struct.field("properties").struct.field("FIRST_DATE").alias("start_timestamp"),
+            pl.col("features").struct.field("properties").struct.field("LAST_DATE").alias("end_timestamp"),
             pl.col("features").struct.field("properties").struct.field("TIMEZONE").alias("timezone"),
         )
         # Map timezone abbreviations to IANA timezone names
         df_raw = df_raw.with_columns(
             pl.col("timezone").replace_strict(self._timezone_mapping, default=pl.col("timezone")),
         )
-        # parse start_date and end_date to datetime with timezone from timezone column
+        # parse start_timestamp and end_timestamp to datetime with timezone from timezone column
         # First parse as naive datetime, then convert to proper timezone per row
         df_raw = df_raw.with_columns(
             pl.col("station_id").cast(pl.String),
-            pl.col("start_date").str.to_datetime("%Y-%m-%d %H:%M:%S"),
-            pl.col("end_date").str.to_datetime("%Y-%m-%d %H:%M:%S"),
+            pl.col("start_timestamp").str.to_datetime("%Y-%m-%d %H:%M:%S"),
+            pl.col("end_timestamp").str.to_datetime("%Y-%m-%d %H:%M:%S"),
             pl.col("elevation").cast(pl.Float64),
         )
         # Convert datetime to the timezone from the timezone column.
         df_raw = df_raw.with_columns(
-            pl.struct(["start_date", "timezone"])
+            pl.struct(["start_timestamp", "timezone"])
             .map_elements(
-                lambda row: _localize(row["start_date"], row["timezone"]),
+                lambda row: _localize(row["start_timestamp"], row["timezone"]),
                 return_dtype=pl.Datetime(time_zone="UTC"),
             )
-            .alias("start_date"),
-            pl.struct(["end_date", "timezone"])
+            .alias("start_timestamp"),
+            pl.struct(["end_timestamp", "timezone"])
             .map_elements(
-                lambda row: _localize(row["end_date"], row["timezone"]),
+                lambda row: _localize(row["end_timestamp"], row["timezone"]),
                 return_dtype=pl.Datetime(time_zone="UTC"),
             )
-            .alias("end_date"),
+            .alias("end_timestamp"),
         )
         df_raw = df_raw.with_columns(
             pl.col("latitude") / 10_000_000,

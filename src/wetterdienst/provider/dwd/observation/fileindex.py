@@ -84,7 +84,7 @@ def create_file_index_for_climate_observations(
             .list.first()
             .str.to_datetime("%Y%m%d")
             .dt.replace_time_zone("Europe/Berlin")
-            .alias("start_date"),
+            .alias("start_timestamp"),
             pl.col("date_range")
             .str.split("_")
             .list.last()
@@ -93,15 +93,15 @@ def create_file_index_for_climate_observations(
             .map_batches(
                 lambda dates: dates + dt.timedelta(days=1), return_dtype=pl.Datetime(time_zone="Europe/Berlin")
             )
-            .alias("end_date"),
+            .alias("end_timestamp"),
         )
         df_files = df_files.with_columns(
-            pl.when(pl.col("start_date") > pl.col("end_date"))
-            .then(pl.col("start_date").min())
-            .otherwise(pl.col("start_date")),
-            pl.when(pl.col("start_date") > pl.col("end_date"))
-            .then(pl.col("end_date").min())
-            .otherwise(pl.col("end_date")),
+            pl.when(pl.col("start_timestamp") > pl.col("end_timestamp"))
+            .then(pl.col("start_timestamp").min())
+            .otherwise(pl.col("start_timestamp")),
+            pl.when(pl.col("start_timestamp") > pl.col("end_timestamp"))
+            .then(pl.col("end_timestamp").min())
+            .otherwise(pl.col("end_timestamp")),
         )
     return df_files.sort(by=[pl.col("station_id"), pl.col("filename")])
 

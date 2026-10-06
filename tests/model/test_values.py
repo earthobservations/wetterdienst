@@ -499,8 +499,8 @@ def _stub_dwd_daily(
             "resolution": ["daily"] * len(rows),
             "dataset": [dataset for _, dataset in rows],
             "station_id": [station_id for station_id, _ in rows],
-            "start_date": [index_start or dt.datetime(1900, 1, 1, tzinfo=utc)] * len(rows),
-            "end_date": [index_end or dt.datetime(2030, 1, 1, tzinfo=utc)] * len(rows),
+            "start_timestamp": [index_start or dt.datetime(1900, 1, 1, tzinfo=utc)] * len(rows),
+            "end_timestamp": [index_end or dt.datetime(2030, 1, 1, tzinfo=utc)] * len(rows),
             # spread along a meridian so the distance ranking follows the list order
             "latitude": [50.0 + station_ids.index(station_id) / 10 for station_id, _ in rows],
             "longitude": [8.0] * len(rows),
@@ -643,10 +643,10 @@ def test_a_station_that_started_after_the_window_is_not_downloaded(monkeypatch: 
 
 
 def test_a_station_still_reporting_is_not_ruled_out_by_a_lagging_end_date(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Only the start of a record rules a window out; an `end_date` lags on a live station.
+    """Only the start of a record rules a window out; an `end_timestamp` lags on a live station.
 
     A station index is written before the day it describes is over, so a station that is still
-    reporting carries an `end_date` a little behind the readings it can already answer for.
+    reporting carries an `end_timestamp` a little behind the readings it can already answer for.
     """
     _stub_dwd_daily(
         station_ids=["00001"],
@@ -693,10 +693,10 @@ def test_convert_units_keeps_a_reading_a_much_larger_target_holds_little_of() ->
 
 
 def test_a_station_is_kept_when_one_dataset_leaves_its_start_date_out(monkeypatch: pytest.MonkeyPatch) -> None:
-    """An unpublished ``start_date`` for one dataset is not overruled by another dataset's bound.
+    """An unpublished ``start_timestamp`` for one dataset is not overruled by another dataset's bound.
 
     A station asked for two datasets has a row per dataset in the index. With one row lacking a
-    ``start_date`` and the other starting after the window, ``min()`` skipped the null, so the
+    ``start_timestamp`` and the other starting after the window, ``min()`` skipped the null, so the
     later bound decided for the whole station and the dataset that does cover the window was
     dropped with it (GH-2292).
     """
@@ -711,7 +711,7 @@ def test_a_station_is_kept_when_one_dataset_leaves_its_start_date_out(monkeypatc
         DwdObservationRequest,
         "_all",
         lambda self: stub_all(self).with_columns(
-            start_date=pl.when(pl.col("dataset") == "climate_summary")
+            start_timestamp=pl.when(pl.col("dataset") == "climate_summary")
             .then(pl.lit(None, dtype=pl.Datetime(time_zone="UTC")))
             .otherwise(pl.lit(dt.datetime(1990, 1, 1, tzinfo=ZoneInfo("UTC")))),
         ),

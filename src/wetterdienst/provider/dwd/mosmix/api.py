@@ -335,8 +335,8 @@ class DwdMosmixRequest(TimeseriesRequest):
         "dataset",
         "station_id",
         "icao_id",
-        "start_date",
-        "end_date",
+        "start_timestamp",
+        "end_timestamp",
         "latitude",
         "longitude",
         "elevation",
@@ -436,8 +436,8 @@ class DwdMosmixRequest(TimeseriesRequest):
         if df_raw.is_empty():
             return pl.LazyFrame()
         df_raw = df_raw.with_columns(
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
             pl.lit(None, pl.String).alias("region"),
         )
         # combinations of resolution and dataset

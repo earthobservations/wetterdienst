@@ -212,7 +212,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         data = [d for d in data if d.collect_schema().names()]
         if not data:
             return pl.LazyFrame()
-        # only the daily frame has start_date and end_date, from its inventory, and wmo_id, which the
+        # only the daily frame has start_timestamp and end_timestamp, from its inventory, and wmo_id, which the
         # hourly reader does not select; the hourly stations get nulls
         df = pl.concat(data, how="diagonal")
         # a request for one resolution has no pairs to settle
@@ -408,18 +408,18 @@ class NoaaGhcnRequest(TimeseriesRequest):
         inventory_df = pl.read_csv(inventory_file.content, has_header=False, truncate_ragged_lines=True)
         column_specs = ((0, 10), (36, 39), (41, 44))
         inventory_df = read_fwf_from_df(inventory_df, column_specs)
-        inventory_df.columns = ["station_id", "start_date", "end_date"]
+        inventory_df.columns = ["station_id", "start_timestamp", "end_timestamp"]
         inventory_df = inventory_df.with_columns(
-            pl.col("start_date").cast(pl.Int64),
-            pl.col("end_date").cast(pl.Int64),
+            pl.col("start_timestamp").cast(pl.Int64),
+            pl.col("end_timestamp").cast(pl.Int64),
         )
         inventory_df = inventory_df.group_by(["station_id"]).agg(
-            pl.col("start_date").min(),
-            pl.col("end_date").max(),
+            pl.col("start_timestamp").min(),
+            pl.col("end_timestamp").max(),
         )
         inventory_df = inventory_df.with_columns(
-            pl.col("start_date").cast(pl.String).str.to_datetime("%Y"),
-            pl.col("end_date").add(1).cast(pl.String).str.to_datetime("%Y").dt.offset_by("-1d"),
+            pl.col("start_timestamp").cast(pl.String).str.to_datetime("%Y"),
+            pl.col("end_timestamp").add(1).cast(pl.String).str.to_datetime("%Y").dt.offset_by("-1d"),
             # .map_batches(lambda s: s - dt.timedelta(days=1)),
         )
         df = df.join(other=inventory_df, how="left", on=["station_id"]).lazy()

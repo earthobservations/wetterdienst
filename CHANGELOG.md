@@ -35,8 +35,13 @@ Types of changes:
   `--start` / `--end` on the CLI. The old keywords and options fail with an error naming the new
   one; reading the old attributes, or passing them by keyword to
   `TimeseriesRequest.convert_timestamps`, is a plain Python error. Error messages that named the
-  pair name `start` / `end`. The station columns `start_date` / `end_date` keep their names
-  (GH-2437)
+  pair name `start` / `end` (GH-2437)
+- **Breaking**: the span a station has records for is `start_timestamp` / `end_timestamp`, no
+  longer `start_date` / `end_date`: in every provider's stations frame and its exports,
+  `/api/stations` and the MCP `stations` tool, the OGC feature properties, and the station rows of
+  `/api/interpolate`, `/api/summarize` and `/api/stripes/stations`. Read and filter the new names;
+  a `sql` filter on a station's old name fails naming the new one. The app reads the new names
+  from its next release, so upgrade the app with the backend (GH-2439)
 
 ## [0.141.0] - 2026-10-06
 

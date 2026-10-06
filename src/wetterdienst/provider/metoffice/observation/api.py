@@ -207,8 +207,8 @@ class MetOfficeObservationValues(TimeseriesValues):
         county, slug = located
 
         station_row = self.sr.df.filter(pl.col("station_id") == station_id)
-        start = self.sr.start or station_row.item(0, "start_date")
-        end = self.sr.end or station_row.item(0, "end_date")
+        start = self.sr.start or station_row.item(0, "start_timestamp")
+        end = self.sr.end or station_row.item(0, "end_timestamp")
         if start is None or end is None:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 

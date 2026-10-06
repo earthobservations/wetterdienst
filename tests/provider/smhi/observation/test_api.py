@@ -27,7 +27,9 @@ def test_smhi_observation_stations() -> None:
         parameters=[("hourly", "data", "temperature_air_mean_2m")],
     ).filter_by_station_id(ABISKO)
     df = request.df
-    assert df.select(pl.exclude("latitude", "longitude", "start_date", "end_date", "elevation")).to_dicts() == [
+    assert df.select(
+        pl.exclude("latitude", "longitude", "start_timestamp", "end_timestamp", "elevation")
+    ).to_dicts() == [
         {
             "resolution": "hourly",
             "dataset": "data",

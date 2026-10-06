@@ -820,13 +820,13 @@ class ImgwMeteorologyValues(TimeseriesValues):
                 )
             df_files = df_files.select(
                 pl.col("url"),
-                pl.col("date_range").arr.first().cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
-                pl.col("date_range").arr.last().cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
+                pl.col("date_range").arr.first().cast(pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
+                pl.col("date_range").arr.last().cast(pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
             )
             df_files = df_files.with_columns(
-                pl.struct(["start_date", "end_date"])
+                pl.struct(["start_timestamp", "end_timestamp"])
                 .map_elements(
-                    lambda dates: portion.closed(dates["start_date"], dates["end_date"]),
+                    lambda dates: portion.closed(dates["start_timestamp"], dates["end_timestamp"]),
                     return_dtype=pl.Object,
                 )
                 .alias("interval"),

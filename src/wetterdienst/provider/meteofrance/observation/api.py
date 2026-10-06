@@ -740,7 +740,7 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
 
 
 # Météo-France's canonical station metadata registry (~14.7k stations, ~2MB single CSV), built
-# from their internal API. Used for station identity/coordinates/start_date/end_date instead of
+# from their internal API. Used for station identity/coordinates/start_timestamp/end_timestamp instead of
 # scanning every department's climatological archive (up to ~300 files, tens of GB decompressed
 # in total) just to derive the same information -- this registry already publishes exact per
 # station start_date/end_date directly. It covers a broader set of stations than actually have
@@ -886,8 +886,14 @@ class MeteoFranceObservationRequest(TimeseriesRequest):
             pl.col("lat").cast(pl.Float64, strict=False).alias("latitude"),
             pl.col("lon").cast(pl.Float64, strict=False).alias("longitude"),
             pl.col("alt").cast(pl.Float64, strict=False).alias("elevation"),
-            pl.col("start_date").str.to_datetime("%Y-%m-%d", strict=False).dt.replace_time_zone("UTC"),
+            pl.col("start_date")
+            .str.to_datetime("%Y-%m-%d", strict=False)
+            .dt.replace_time_zone("UTC")
+            .alias("start_timestamp"),
             # nullable: still-open stations (the vast majority) have no end_date, matching how
-            # the app already treats a missing end_date as "still reporting"
-            pl.col("end_date").str.to_datetime("%Y-%m-%d", strict=False).dt.replace_time_zone("UTC"),
+            # the app already treats a missing end_timestamp as "still reporting"
+            pl.col("end_date")
+            .str.to_datetime("%Y-%m-%d", strict=False)
+            .dt.replace_time_zone("UTC")
+            .alias("end_timestamp"),
         )
