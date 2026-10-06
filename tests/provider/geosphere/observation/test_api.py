@@ -66,3 +66,45 @@ def test_geosphere_observation_api_radiation(
     assert df.get_column("value").is_not_null().sum() == expected_rows
     # the result is slightly different for each resolution
     assert df.get_column("value").sum() == expected_sum
+
+
+def test_geosphere_observation_request_window_carries_the_minutes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the start and end sent upstream keep the request's minutes.
+
+    The window was formatted with ``%H:%m``, so the minute position carried the month: a request
+    starting 13:37 in December sent ``13:12`` (GH-2436). The values are cut to the requested span
+    locally, so this showed only in the URL, and with it the cache key.
+    """
+    from io import BytesIO  # noqa: PLC0415
+    from urllib.parse import parse_qs, urlparse  # noqa: PLC0415
+
+    from wetterdienst.provider.geosphere.observation import api  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    stations = (
+        "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
+        "4821,Test,16.0,48.0,200,1992-05-20 00:00:00+00:00,2100-01-01 00:00:00+00:00,Wien,True,True\n"
+    ).encode()
+    data_urls = []
+
+    def _download(**kwargs: object) -> File:
+        url = str(kwargs["url"])
+        if url.endswith("/metadata/stations"):
+            return File(url=url, content=BytesIO(stations), status=200)
+        data_urls.append(url)
+        return File(url=url, content=BytesIO(b'{"timestamps": [], "features": []}'), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)
+
+    request = GeosphereObservationRequest(
+        parameters=[("10_minutes", "data", "humidity_relative")],
+        start_date=datetime(2020, 12, 2, 13, 37, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime(2020, 12, 3, 8, 45, tzinfo=ZoneInfo("UTC")),
+    )
+    request.filter_by_station_id("4821").values.all()
+
+    assert len(data_urls) == 1
+    query = parse_qs(urlparse(data_urls[0]).query)
+    # one day of buffer on either side of the requested window
+    assert query["start"] == ["2020-12-01T13:37"]
+    assert query["end"] == ["2020-12-04T08:45"]

@@ -63,8 +63,8 @@ class GeosphereObservationValues(TimeseriesValues):
             station_id=station_id,
             parameter=parameter_or_dataset.name_original,
             dataset=parameter_or_dataset.dataset.name_original,
-            start_date=start_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%m"),
-            end_date=end_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%m"),
+            start_date=start_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M"),
+            end_date=end_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M"),
         )
         from typing import cast  # noqa: PLC0415
 
