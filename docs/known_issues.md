@@ -61,8 +61,8 @@ python -c "import pyproj; import eccodes"; echo $?   # 0
 
 wetterdienst loads `eccodes` when you ask for DWD road values (as soon as `.values` is built,
 before any data is read) and when it parses DWD radar BUFR data with the `read_bufr` setting. The
-crash comes after your code has finished, so output is already written, but the non-zero exit
-status fails scripts and CI jobs. This is the upstream bug
+crash comes after your code has finished, so files it wrote and closed are complete, but the
+non-zero exit status fails scripts and CI jobs. This is the upstream bug
 [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
 [#2441](https://github.com/earthobservations/wetterdienst/issues/2441). The Docker image does not
 install the `eccodeslib` wheel and is not affected.
