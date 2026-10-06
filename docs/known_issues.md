@@ -60,7 +60,7 @@ python -c "import pyproj; import eccodes"; echo $?   # 0
 ```
 
 wetterdienst loads `eccodes` when you ask for DWD road values (as soon as `.values` is built,
-before any data is read) and when it parses DWD radar BUFR data with the `read_bufr` setting. The
+before any data is read) and when it fetches DWD radar BUFR data with the `read_bufr` setting. The
 crash comes after your code has finished, so files it wrote and closed are complete, but the
 non-zero exit status fails scripts and CI jobs. This is the upstream bug
 [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
