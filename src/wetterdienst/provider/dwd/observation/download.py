@@ -36,7 +36,11 @@ def download_climate_observations_data(
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
     )
-    # filter out exceptions
+    # a 404 is a file that is not there, and is dropped; any other failure -- a timeout, a 5xx after
+    # the retries -- is an outage, which dropped would read as a station without data (GH-2430)
+    for file in files:
+        if file.status != 404:
+            file.raise_if_exception()
     files = [file for file in files if isinstance(file.content, BytesIO)]
     # unpack the files
     return [_unpack_climate_observations_data(file) for file in files]

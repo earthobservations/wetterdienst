@@ -35,6 +35,11 @@ Types of changes:
   interpolate, or a `station` without a position -- with a 400 rather than a 404, as they answer
   an elevation no station can be placed against. The server logs it as an info line, not as an
   error with its traceback (GH-2385)
+- Values of `dwd/observation`, `dwd/derived`, `imgw/hydrology` and `imgw/meteorology` raise a
+  download that timed out, where they used to drop it as a missing file and return no data for
+  the station: the REST API answers a 500 and the CLI fails, and so do interpolate and summarize
+  where a station they read times out. A 5xx after the retries is raised the same way only with
+  the cache off (`WD_CACHE_DISABLE=true`); with it on, a 5xx still reads as a missing file (GH-2430)
 - CLI: `values`, `interpolate`, `summarize`, `issues`, `stripes values` and the station lookup of
   `history` report a request the caller can rephrase -- such as a parameter the network does not
   have, a network without an issue listing, or a point there is no estimate at -- as a one-line

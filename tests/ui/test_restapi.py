@@ -6225,6 +6225,60 @@ def test_stripes_a_station_that_returns_no_rows_is_a_400(
     )
 
 
+def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An upstream outage answers a 5xx, where it used to read as a station without data (GH-2430)."""
+    from aiohttp import ClientResponseError, RequestInfo  # noqa: PLC0415
+    from multidict import CIMultiDict, CIMultiDictProxy  # noqa: PLC0415
+    from yarl import URL  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import api as dwd_observation_api  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import download as dwd_observation_download  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    station = {
+        "resolution": "annual",
+        "dataset": "climate_summary",
+        "station_id": "01048",
+        "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+        "end_date": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "latitude": 51.1278,
+        "longitude": 13.7543,
+        "elevation": 228.0,
+        "name": "Dresden-Klotzsche",
+        "region": "Sachsen",
+    }
+    url = "https://example.invalid/jahreswerte_KL_01048_19340101_20231231_hist.zip"
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame([station]))
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "create_file_list_for_climate_observations",
+        lambda *_args, **_kwargs: pl.Series([url]),
+    )
+    # what `download_file` hands back for a 5xx that outlasted its retries
+    request_info = RequestInfo(URL(url), "GET", CIMultiDictProxy(CIMultiDict()), URL(url))
+    error = ClientResponseError(request_info, (), status=503, message="Service Unavailable")
+    failed = File(url=url, content=error, status=503)
+    monkeypatch.setattr(dwd_observation_download, "download_files", lambda **_kwargs: [failed])
+
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "annual/climate_summary",
+            "periods": "historical",
+            "station": "01048",
+        },
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == f"503, message='Service Unavailable', url='{url}'"
+
+
 _GEO_REFUSALS = [
     pytest.param(
         "interpolate",
