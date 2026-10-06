@@ -26,6 +26,7 @@ from wetterdienst.settings import (
     _STATION_DISTANCE_RESOLUTION_FACTORS,
     Auth,
     Settings,
+    _describe_settings_error,
     _remove_unless_forked,
     _temporary_cache_dir,
     check_settings,
@@ -1306,3 +1307,17 @@ def test_settings_auth_does_not_repeat_a_refused_credential_from_the_environment
     with pytest.raises(ValidationError) as excinfo:
         Settings()
     assert "TOPSECRET" not in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    ("loc", "variable"),
+    [
+        (("auth", "ceda", 1), "WD_AUTH__CEDA[1]"),
+        (("setting", 0, "key"), "WD_SETTING[0]__KEY"),
+        ((), "WD_*"),
+    ],
+)
+def test_describe_settings_error_names_an_element_where_it_stands(loc: tuple, variable: str) -> None:
+    """An index in a problem's location is told where it stands, after the name holding it (GH-2434)."""
+    error = ValidationError.from_exception_data("Settings", [{"type": "missing", "loc": loc, "input": None}])
+    assert _describe_settings_error(error) == [f"{variable} is invalid: Field required"]

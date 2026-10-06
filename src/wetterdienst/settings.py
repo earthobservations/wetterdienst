@@ -59,8 +59,9 @@ def _as_given(value: object) -> object:
     A secret is passed through as it is: ``str()`` of a ``SecretStr`` is its mask, so a pair that
     has already been validated once -- which is what a ``model_dump()`` round-trip hands back --
     would come back as ten asterisks and fail at the provider later with nothing to say why. An
-    ``int`` is the text it was decoded from, as the environment decodes a pair as JSON where it
-    parses. Anything else -- ``null``, ``true``, a float, an object -- is left for the field to
+    ``int`` is taken as its decimal text: the environment decodes a pair as JSON where it parses,
+    so an all-digit id arrives as one (JSON has no number with a leading zero, so such an id must
+    be quoted in a pair). Anything else -- ``null``, ``true``, a float, an object -- is left for the field to
     refuse, which names the element; ``str()`` took the text of its repr, ``'None'`` or ``'True'``,
     for the credential (GH-2434).
     """
@@ -134,8 +135,7 @@ class Auth(BaseModel):
         """
         if value is None:
             return None
-        if isinstance(value, int) and not isinstance(value, bool):
-            value = str(value)
+        value = _as_given(value)
         if isinstance(value, (str, SecretStr)):
             return value, ""
         if isinstance(value, Mapping) or not isinstance(value, Iterable):
@@ -640,11 +640,12 @@ def _describe_settings_error(error: ValidationError | SettingsError) -> list[str
     builds them. Neither hands on a key that is no setting (GH-2349), so every problem is a
     setting's.
 
-    pydantic's own account names the field rather than the variable an operator set, and repeats
-    the value given -- which for `WD_AUTH__*` is a credential, and for `WD_FSSPEC_CLIENT_KWARGS`
-    may hold request headers. Here each problem is the variable and pydantic's message, without
-    the input it echoes (GH-2335). A validator's own message may still name what it refuses -- a
-    unit or a parameter name -- which none of those on the credentials or the headers does.
+    pydantic's own account names the field rather than the variable an operator set, and each of
+    its `errors()` holds the value given -- which for `WD_AUTH__*` is a credential, and for
+    `WD_FSSPEC_CLIENT_KWARGS` may hold request headers. Here each problem is the variable and
+    pydantic's message, without that input (GH-2335), which the settings leave out of the error's
+    text as well (GH-2435). A validator's own message may still name what it refuses -- a unit or a
+    parameter name -- which none of those on the credentials or the headers does.
     """
     if isinstance(error, SettingsError):
         # a dict, a pair or a nested setting is read as JSON, and pydantic-settings says which field
@@ -655,11 +656,14 @@ def _describe_settings_error(error: ValidationError | SettingsError) -> list[str
         return [str(error)]
     lines = []
     for problem in error.errors(include_url=False):
-        names = [str(part) for part in problem["loc"] if isinstance(part, str)]
-        variable = "WD_" + "__".join(names).upper() if names else "WD_*"
-        # an element of a pair, such as the secret in `WD_AUTH__METNO_FROST`, is told by its index
-        # after the variable that holds it, which is no variable of its own (GH-2434)
-        variable += "".join(f"[{part}]" for part in problem["loc"] if isinstance(part, int))
+        # an element of a pair, such as the secret in `WD_AUTH__METNO_FROST`, is no variable of its
+        # own, and is told by its index after the name that holds it: `WD_AUTH__METNO_FROST[1]`
+        variable = "WD_" if problem["loc"] else "WD_*"
+        for part in problem["loc"]:
+            if isinstance(part, int):
+                variable += f"[{part}]"
+            else:
+                variable += ("" if variable == "WD_" else "__") + str(part).upper()
         lines.append(f"{variable} is invalid: {problem['msg'].removeprefix('Value error, ')}")
     return lines
 

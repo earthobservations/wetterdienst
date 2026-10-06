@@ -44,7 +44,6 @@ Types of changes:
   message). Such an element was taken as the text of its repr, `None` or `True` (GH-2434)
 - A `ValidationError` from `Settings` or `Auth` no longer repeats the value it refuses as its
   `input_value`, which for `auth` is a credential; `errors()` still holds it (GH-2435)
-
 - NOAA GHCN daily stations QOORNOQ and ARSUK on the coast of Greenland and SORFJORD_KRV and
   SKJOMEN_SLETTJORD by the fjords near Narvik, the four rows listed at -100.0 m, have a null
   `elevation` instead of one 100 m below sea level. Real heights below sea level, such as DEATH
