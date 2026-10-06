@@ -149,7 +149,7 @@ export interface ValuesQuery {
   network: string
   parameters: string // format: "resolution/dataset/parameter,..."
   station: string // comma-separated station IDs
-  date?: string // format: "start" or "start/end"
+  timestamp?: string // format: "start" or "start/end"
   humanize?: boolean
   convert_units?: boolean
 }
@@ -170,7 +170,7 @@ export interface InterpolateQuery {
   longitude: number
   /** Metres above sea level; the readings are brought to it before being used. */
   elevation?: number
-  date?: string
+  timestamp?: string
   humanize?: boolean
   convert_units?: boolean
 }
@@ -191,7 +191,7 @@ export interface SummarizeQuery {
   longitude: number
   /** Metres above sea level; the readings are brought to it before being used. */
   elevation?: number
-  date?: string
+  timestamp?: string
   humanize?: boolean
   convert_units?: boolean
 }
