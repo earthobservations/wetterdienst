@@ -744,6 +744,19 @@ def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: 
         sys.exit(1)
 
 
+def _refuse_non_file_target(target: str | None, command: str) -> None:
+    """Refuse a --target with a scheme other than `file://`, for a command that writes plain text.
+
+    `alerts` and `history` write their output with `Path.write_text`, not the timeseries commands'
+    `to_target()`, so only a local path or a `file://` URI is a target they can write. Called before
+    the fetch, so that `s3://...` or `duckdb://...` is a usage error at once, rather than a write to
+    the path read off the URI (`s3:/bucket/...`) that fails once the whole fetch has run.
+    """
+    if target and "://" in target and not target.startswith("file://"):
+        msg = f"--target only supports a local path or a file:// URI for {command}."
+        raise click.BadParameter(msg)
+
+
 class _Cli(click.Group):
     """The command group, telling a malformed `WD_*` setting by its variable (GH-2335).
 
@@ -1198,6 +1211,7 @@ def history(
 
     Select the stations with exactly one of --all or --station.
     """
+    _refuse_non_file_target(target, "history")
     # a local path, or a `file://` URI with its prefix removed as `alerts` removes it; the `.json` check reads the rest
     path = target.removeprefix("file://") if target else None
     if path is not None and not path.endswith(".json"):
@@ -1880,12 +1894,7 @@ def alerts(
 
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
-    # Validate the target up front (before the network fetch): alerts output is plain text, so only a
-    # local path / file:// URI is supported (unlike the timeseries commands' to_target()); reject
-    # other schemes instead of writing a file literally named e.g. "duckdb://...".
-    if target and "://" in target and not target.startswith("file://"):
-        msg = "--target only supports a local path or a file:// URI for alerts."
-        raise click.BadParameter(msg)
+    _refuse_non_file_target(target, "alerts")
 
     # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
     # variable is a `ValueError`, and not the command line's to fix
