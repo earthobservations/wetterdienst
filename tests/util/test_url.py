@@ -258,3 +258,21 @@ def test_connectionstring_reads_a_file_target_as_a_path() -> None:
     """A DuckDB target is read as `urlparse` reads it, into the fields a server target fills."""
     cs = ConnectionString("duckdb:///dwd.duckdb?table=stations")
     assert (cs.protocol, cs.database, cs.table, cs.password) == ("duckdb", "dwd.duckdb", "stations", None)
+
+
+@pytest.mark.parametrize(
+    ("url", "path"),
+    [
+        pytest.param("file://data.csv", "data.csv", id="relative"),
+        pytest.param("file://out/data.csv", "out/data.csv", id="relative-with-directory"),
+        pytest.param("file://./out/data.csv", "./out/data.csv", id="dot-relative-with-directory"),
+        pytest.param("file:///abs/data.csv", "/abs/data.csv", id="absolute"),
+        pytest.param("file://C:/data/obs.csv", "C:/data/obs.csv", id="windows-drive-letter"),
+    ],
+)
+def test_connectionstring_file_target_path_is_everything_after_the_scheme(url: str, path: str) -> None:
+    """A file target's path is the text after `file://`, as `alerts` and `history` read it.
+
+    `urlparse` reads the first segment of `file://out/data.csv` as a host, which left `/data.csv`.
+    """
+    assert ConnectionString(url).path == path
