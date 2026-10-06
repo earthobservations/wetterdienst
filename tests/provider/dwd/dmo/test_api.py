@@ -1572,8 +1572,10 @@ def test_dmo_a_refused_parameter_reaches_the_caller_as_a_message(
         cli,
         ["values", "--provider=dwd", "--network=dmo", f"--parameters={parameter}", "--station=10382"],
     )
-    assert result.exit_code == 1
-    assert [(record.getMessage().endswith(expected), record.exc_info) for record in caplog.records] == [(True, None)]
+    # a usage error, as the REST API's 400 (GH-2426)
+    assert result.exit_code == 2, result.output
+    assert expected in result.stderr
+    assert not caplog.records
 
 
 @pytest.mark.parametrize(

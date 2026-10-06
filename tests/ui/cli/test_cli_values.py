@@ -17,6 +17,13 @@ from click.testing import CliRunner, Result
 from dirty_equals import IsInstance, IsStr
 
 from tests.conftest import IS_WINDOWS, is_html_document
+from wetterdienst.exceptions import (
+    LocationOutOfRangeError,
+    NoParametersFoundError,
+    NoStationsWithElevationError,
+    ParameterNotCarriedError,
+    StationNotFoundError,
+)
 from wetterdienst.ui.cli import cli
 
 SETTINGS_VALUES = (
@@ -1075,3 +1082,67 @@ def test_cli_values_image_wide() -> None:
     assert is_html_document(result.output)
     assert "temperature_air_mean_2m (°C)" in result.output
     assert "precipitation_amount (mm)" in result.output
+
+
+@pytest.mark.parametrize(
+    "refusal",
+    [
+        pytest.param(ParameterNotCarriedError("precipitation_amount is not carried by lead_time short"), id="carried"),
+        pytest.param(NoStationsWithElevationError("no station in reach reports an elevation"), id="elevation"),
+        pytest.param(LocationOutOfRangeError("latitude 85.0 is beyond the latitudes UTM covers"), id="location"),
+        pytest.param(NoParametersFoundError("No valid parameters could be parsed"), id="parameters"),
+        pytest.param(StationNotFoundError("no station 99999"), id="station"),
+    ],
+)
+def test_cli_values_tells_a_refusal_in_one_line(
+    refusal: Exception, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test `values` reports a request the caller can rephrase as a usage error, exit 2 (GH-2426).
+
+    The REST API answers each with a 4xx: the three `values` named itself, a refusal it logged with a
+    traceback (a `ValueError`) and one it let escape (a `StationNotFoundError`).
+    """
+
+    def refuse(**_kwargs: object) -> None:
+        raise refusal
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_values", refuse)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli, ["values", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--station=01048"]
+        )
+
+    assert result.exit_code == 2, result.output
+    # click's usage header, then the refusal in one line
+    assert result.stderr.endswith(f"\n\nError: {refusal}\n")
+    assert not caplog.records
+
+
+def test_cli_values_unknown_parameter_is_a_usage_error() -> None:
+    """Test a parameter the network does not have is a one-line usage error, not a traceback (GH-2426)."""
+    result = CliRunner().invoke(
+        cli,
+        ["values", "--provider=dwd", "--network=observation", "--parameters=daily/nonexistent", "--station=01048"],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(
+        "\n\nError: No valid parameters could be parsed from ['daily/nonexistent'] for DwdObservationRequest\n"
+    )
+
+
+def test_cli_values_leaves_an_upstream_failure_its_traceback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a failure that is not the caller's is not told as a usage error, and still exits 1 (GH-2426)."""
+
+    def fail(**_kwargs: object) -> None:
+        msg = "upstream file unreachable"
+        raise FileNotFoundError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_values", fail)
+    result = CliRunner().invoke(
+        cli, ["values", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--station=01048"]
+    )
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, FileNotFoundError)
+    assert "Usage:" not in result.output

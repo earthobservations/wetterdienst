@@ -20,10 +20,10 @@ from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
     InvalidTimeIntervalError,
-    LocationOutOfRangeError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
     StartDateEndDateError,
+    StationNotFoundError,
 )
 from wetterdienst.metadata.resolution import Resolution
 
@@ -1083,7 +1083,8 @@ def _values(
         log.info(f"Failed to get values: {e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
     except StartDateEndDateError as e:
-        log.exception("Failed to get values.")
+        # a window the caller wrote the wrong way round: theirs to fix, and no traceback of ours
+        log.info(f"Failed to get values: {e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
     except BufrReaderMissingError as e:
         raise _reader_missing_on_the_server(e, "get values") from e
@@ -1108,20 +1109,20 @@ def _geo_values(
     Both endpoints answered every failure with a 404, which reads as "no such thing" for a request
     that was understood and simply cannot be served as phrased -- an elevation no station in reach
     can be placed against, a station without a position, a point an interpolation cannot place
-    beyond the latitudes UTM covers (a summary converts nothing to UTM), or a window that ends
-    before it starts. Those are 400s, and a reader missing on the server is a 501; the same
+    beyond the latitudes UTM covers (a summary converts nothing to UTM), a window that ends before
+    it starts, a date or an issue that does not parse. Those are 400s, as `/api/values` answers
+    them, and each is logged here as an info line: the caller's to fix, so no traceback of ours. A
+    station the lookup does not know keeps its 404, "no such station"; an issue the source does not
+    list is a 400, as `/api/values` answers it. A reader missing on the server is a 501; the same
     decisions in both places, so they are made here rather than twice over.
     """
     try:
         return get(api=api, request=request, settings=settings)
-    except (LocationOutOfRangeError, NoStationsWithElevationError, ParameterNotCarriedError) as e:
+    except (NoStationsWithElevationError, ParameterNotCarriedError) as e:
         # the message is the whole of it: which parameters lost their stations, and that asking
-        # without an elevation gets them back; which parameters the run does not carry, and the
-        # lead time that does; or the latitudes UTM covers, or the station that has no position
+        # without an elevation gets them back; or which parameters the run does not carry, and the
+        # lead time that does
         log.info(f"Failed to {what}: {e}")
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except StartDateEndDateError as e:
-        log.exception(f"Failed to {what}")
         raise HTTPException(status_code=400, detail=str(e)) from e
     except BufrReaderMissingError as e:
         raise _reader_missing_on_the_server(e, what) from e
@@ -1130,8 +1131,12 @@ def _geo_values(
         # as a 500, not the caller's to fix
         raise
     except Exception as e:
-        log.exception(f"Failed to {what}")
-        raise HTTPException(status_code=404 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
+        if not _is_caller_refusal(e, request):
+            log.exception(f"Failed to {what}")
+            raise HTTPException(status_code=500, detail=str(e)) from e
+        log.info(f"Failed to {what}: {e}")
+        status_code = 404 if isinstance(e, StationNotFoundError) else 400
+        raise HTTPException(status_code=status_code, detail=str(e)) from e
 
 
 # response models for the different formats are
