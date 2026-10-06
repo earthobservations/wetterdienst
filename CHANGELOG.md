@@ -89,6 +89,9 @@ Types of changes:
   24.04's 2.34; the version is logged at debug instead. Under `-W error` this advice no longer
   gets BUFR reported as not installed either. To see the advice, import eccodes before wetterdienst
   does. Other warnings still show (GH-2442)
+- `wetterdienst history` refuses a `--target` with a scheme other than `file://`, such as
+  `s3://bucket/history.json`, as `alerts` does: a usage error with exit code 2 before anything is
+  fetched. It ran the whole fetch first and then failed to write the file (GH-2425)
 
 ## [0.140.0] - 2026-10-05
 
