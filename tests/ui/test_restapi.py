@@ -6233,7 +6233,9 @@ def telemetry(monkeypatch: pytest.MonkeyPatch) -> tuple["InMemorySpanExporter", 
     """Set up global OpenTelemetry tracer and meter providers that keep what they record in memory.
 
     FastAPI reports to the global providers once they are set. OpenTelemetry sets each only once per
-    process, so this swaps the module attributes that hold them, and puts them back afterwards.
+    process, so this swaps the module attributes that hold them, and puts them back afterwards. A
+    proxy tracer resolved meanwhile keeps the swapped-in provider, which then records into an
+    exporter no later test reads.
     """
     from opentelemetry import trace  # noqa: PLC0415
     from opentelemetry.metrics import _internal as metrics_internal  # noqa: PLC0415
@@ -6252,20 +6254,14 @@ def telemetry(monkeypatch: pytest.MonkeyPatch) -> tuple["InMemorySpanExporter", 
     return spans, metrics
 
 
-def _span_names(spans: "InMemorySpanExporter", *, server: bool = False) -> list[str]:
-    """Name the finished spans, or only the server spans fastapi records one of per request.
-
-    FastMCP records its MCP requests as server spans too, under its own instrumentation scope.
-    """
+def _server_spans(spans: "InMemorySpanExporter", library: str) -> list[str]:
+    """Name the server spans one instrumentation library recorded, `fastapi` one per request it saw."""
     from opentelemetry.trace import SpanKind  # noqa: PLC0415
 
     return [
         span.name
         for span in spans.get_finished_spans()
-        if not server
-        or (
-            span.kind is SpanKind.SERVER and span.instrumentation_scope and span.instrumentation_scope.name == "fastapi"
-        )
+        if span.kind is SpanKind.SERVER and span.instrumentation_scope and span.instrumentation_scope.name == library
     ]
 
 
@@ -6307,23 +6303,23 @@ def test_mcp_tool_call_in_process_request_is_left_out_of_fastapi_telemetry(
 
     asyncio.run(_call())
 
-    assert "tools/call glossary" in _span_names(spans)
-    assert _span_names(spans, server=True) == []
+    assert "tools/call glossary" in _server_spans(spans, "fastmcp")
+    assert _server_spans(spans, "fastapi") == []
     assert _request_durations(metrics) == {}
 
 
-@pytest.mark.parametrize("headers", [{}, {"host": "wetterdienst.local"}])
+@pytest.mark.parametrize("base_url", ["http://testserver", "http://wetterdienst.local"])
 def test_rest_request_is_recorded_by_fastapi_telemetry(
     telemetry: tuple["InMemorySpanExporter", "InMemoryMetricReader"],
-    headers: dict[str, str],
+    base_url: str,
 ) -> None:
-    """A request to the REST API keeps its fastapi span and metric, whatever host it names (GH-2432)."""
+    """A request to the REST API keeps its fastapi span and metric, even one to the tools' host (GH-2432)."""
     spans, metrics = telemetry
 
-    response = TestClient(restapi.app).get("/api/glossary", params={"limit": 1}, headers=headers)
+    response = TestClient(restapi.app, base_url=base_url).get("/api/glossary", params={"limit": 1})
 
     assert response.status_code == 200
-    assert _span_names(spans, server=True) == ["GET /api/glossary"]
+    assert _server_spans(spans, "fastapi") == ["GET /api/glossary"]
     assert _request_durations(metrics) == {"/api/glossary": 1}
 
 
@@ -6351,5 +6347,5 @@ def test_mcp_request_is_recorded_by_fastapi_telemetry(
         response = client.post("/mcp", json=body, headers={"Accept": "application/json, text/event-stream"})
 
     assert response.status_code == 200
-    assert _span_names(spans, server=True) == ["POST /mcp"]
+    assert _server_spans(spans, "fastapi") == ["POST /mcp"]
     assert _request_durations(metrics) == {"/mcp": 1}

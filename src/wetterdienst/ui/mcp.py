@@ -30,21 +30,29 @@ if TYPE_CHECKING:
 
     from fastapi import FastAPI
     from fastmcp import FastMCP
+    from starlette.types import ASGIApp, Receive, Scope, Send
 
 # Internal ASGI base URL for the in-process httpx2 client that backs the tools.
-_ASGI_HOST = "wetterdienst.local"
-_ASGI_BASE_URL = f"http://{_ASGI_HOST}"
+_ASGI_BASE_URL = "http://wetterdienst.local"
+
+# The ASGI scope key that marks a tool's in-process request to the REST app. A scope key, not the
+# Host header or `server`, because no client of a server can set one.
+_TOOL_REQUEST_SCOPE_KEY = "wetterdienst.mcp_tool_request"
 
 
 def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
-    """Tell whether an ASGI request is a tool's in-process request to the REST app.
+    """Tell whether an ASGI request is an MCP tool's in-process request to the REST app."""
+    return scope.get(_TOOL_REQUEST_SCOPE_KEY) is True
 
-    httpx2's ``ASGITransport`` puts the host of the client's base URL into the scope's ``server``.
-    A server such as uvicorn puts the address of its socket there, which a client cannot choose
-    the way it can choose the ``Host`` header.
-    """
-    server = scope.get("server")
-    return server is not None and server[0] == _ASGI_HOST
+
+def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
+    """Wrap the REST app so each request the tools send it carries the scope key `is_tool_request` checks."""
+
+    async def marked(scope: Scope, receive: Receive, send: Send) -> None:
+        scope[_TOOL_REQUEST_SCOPE_KEY] = True
+        await app(scope, receive, send)
+
+    return marked
 
 
 INSTRUCTIONS = """\
@@ -167,8 +175,12 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
 
     route_maps = [RouteMap(pattern=pattern, mcp_type=MCPType.EXCLUDE) for pattern in _EXCLUDE_PATTERNS]
     # httpx2, not httpx: FastMCP 4 types ``OpenAPIProvider.client`` as ``httpx2.AsyncClient`` and
-    # drives it directly, so the two clients are not interchangeable here.
-    client = httpx2.AsyncClient(transport=httpx2.ASGITransport(app=rest_app), base_url=_ASGI_BASE_URL)
+    # drives it directly, so the two clients are not interchangeable here. The requests are marked so
+    # the REST app leaves them out of fastapi's telemetry (GH-2432)
+    client = httpx2.AsyncClient(
+        transport=httpx2.ASGITransport(app=_mark_tool_requests(rest_app)),
+        base_url=_ASGI_BASE_URL,
+    )
     provider = OpenAPIProvider(
         openapi_spec=rest_app.openapi(),
         client=client,
