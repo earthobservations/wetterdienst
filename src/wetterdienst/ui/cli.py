@@ -491,7 +491,7 @@ def _require_one_of(**given: bool) -> None:
         raise click.UsageError(msg, ctx)
 
 
-def _resolve_date(timestamp: str | None, start_date: str | None, end_date: str | None) -> str | None:
+def _resolve_timestamp(timestamp: str | None, start_date: str | None, end_date: str | None) -> str | None:
     """Resolve the timestamp from either --timestamp or the --start-date/--end-date pair.
 
     If only --end-date is given, it is treated as a single-point date (start == end).
@@ -1427,7 +1427,7 @@ def values(
     Select the stations with exactly one of --all, --station, --name, --latitude/--longitude with
     --rank or --distance, --left/--bottom/--right/--top, or --sql.
     """
-    timestamp_resolved = _resolve_date(timestamp, start_date, end_date)
+    timestamp_resolved = _resolve_timestamp(timestamp, start_date, end_date)
     request = _validate_request(
         ValuesRequest,
         {
@@ -1573,7 +1573,7 @@ def interpolate(
 
     Give the point as exactly one of --station or --latitude/--longitude.
     """
-    timestamp_resolved = _resolve_date(timestamp, start_date, end_date)
+    timestamp_resolved = _resolve_timestamp(timestamp, start_date, end_date)
     if not timestamp_resolved:
         msg = "Provide either --timestamp or --start-date."
         raise click.UsageError(msg)
@@ -1718,7 +1718,7 @@ def summarize(
 
     Give the point as exactly one of --station or --latitude/--longitude.
     """
-    timestamp_resolved = _resolve_date(timestamp, start_date, end_date)
+    timestamp_resolved = _resolve_timestamp(timestamp, start_date, end_date)
     if not timestamp_resolved:
         msg = "Provide either --timestamp or --start-date."
         raise click.UsageError(msg)
