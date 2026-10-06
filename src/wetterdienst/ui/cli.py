@@ -111,7 +111,7 @@ periods_opt = click.option(
     "--periods",
     type=click.STRING,
     help=(
-        "Dataset periods, comma-separated. Inferred from the date when one is given, else every "
+        "Dataset periods, comma-separated. Inferred from the timestamp when one is given, else every "
         "period the requested datasets publish; one they are not published under is rejected. "
         "Examples: historical, recent, now"
     ),

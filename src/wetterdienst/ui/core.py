@@ -78,8 +78,8 @@ _PeriodsField = Annotated[
     list[str] | None,
     Field(
         description="Dataset periods: 'historical', 'recent', 'now' and/or 'future'. A period the "
-        "requested datasets are not published under is rejected. Inferred from the date when "
-        "omitted, else every period those datasets publish.",
+        "requested datasets are not published under is rejected. When omitted, inferred from the "
+        "timestamp where one is given, else every period those datasets publish.",
     ),
 ]
 # named like the station column the default is read from; `height` in these models is the image option
