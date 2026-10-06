@@ -42,12 +42,13 @@ _TOOL_REQUEST_SCOPE_KEY = "wetterdienst.mcp_tool_request"
 def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
     """Tell whether an ASGI request is an MCP tool's in-process request to the REST app.
 
-    The REST app's fastapi telemetry gives these no server span and no `http.server.*` metrics
-    (GH-2432): their spans would start a trace of their own, cut off from the tool call's, and the
-    metrics would count each tool call twice. A tool called over `/mcp` runs in that request's
-    context, so fastapi records the tool request's operation spans with that request's telemetry,
-    beneath the tool call's span. The middleware of `opentelemetry-instrumentation-fastapi`, where it runs,
-    does not read fastapi's `exclude` and still records them.
+    The REST app's fastapi telemetry gives these no server span, no `http.server.*` metrics and no
+    exception log of their own (GH-2432): their spans would start a trace of their own, cut off from
+    the tool call's, and the metrics would count each tool call twice. A tool called over `/mcp`
+    runs in that request's context, so fastapi records the tool request's operation spans, its
+    telemetry data and a validation failure of its parameters as the `/mcp` request's, the spans
+    beneath the tool call's span. The middleware of `opentelemetry-instrumentation-fastapi`, where
+    it runs, does not read fastapi's `exclude` and still records them.
 
     A scope key, not the Host header or `server`, tells them apart, because a client sets its own
     Host header, some ASGI servers build `server` from it, and no client can set a scope key.
