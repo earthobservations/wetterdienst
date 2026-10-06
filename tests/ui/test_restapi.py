@@ -6230,6 +6230,10 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An upstream outage answers a 5xx, where it used to read as a station without data (GH-2430)."""
+    from aiohttp import ClientResponseError, RequestInfo  # noqa: PLC0415
+    from multidict import CIMultiDict, CIMultiDictProxy  # noqa: PLC0415
+    from yarl import URL  # noqa: PLC0415
+
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.observation import api as dwd_observation_api  # noqa: PLC0415
     from wetterdienst.provider.dwd.observation import download as dwd_observation_download  # noqa: PLC0415
@@ -6254,7 +6258,10 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
         "create_file_list_for_climate_observations",
         lambda *_args, **_kwargs: pl.Series([url]),
     )
-    failed = File(url=url, content=ConnectionError("503 Service Unavailable"), status=503)
+    # what `download_file` hands back for a 5xx that outlasted its retries
+    request_info = RequestInfo(URL(url), "GET", CIMultiDictProxy(CIMultiDict()), URL(url))
+    error = ClientResponseError(request_info, (), status=503, message="Service Unavailable")
+    failed = File(url=url, content=error, status=503)
     monkeypatch.setattr(dwd_observation_download, "download_files", lambda **_kwargs: [failed])
 
     response = client.get(
@@ -6269,4 +6276,4 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
     )
 
     assert response.status_code == 500
-    assert response.json()["detail"] == "503 Service Unavailable"
+    assert response.json()["detail"] == f"503, message='Service Unavailable', url='{url}'"
