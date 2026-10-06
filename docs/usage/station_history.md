@@ -64,6 +64,8 @@ wetterdienst history --provider dwd --network observation --parameters daily/kl 
 ```
 
 Available `--sections` are `name`, `parameter`, `device`, `geography` and `missing_data`.
+Each record in a section gives the span it held for as `valid_from` and `valid_to`; `valid_to` is
+null for a station or operator name still in use.
 Each history also gives its station's `station_id` and the `resolution` and `dataset` it belongs
 to, whichever sections are asked for. DWD observation publishes station metadata per dataset, so a
 request for several datasets answers up to one history per station and dataset.
