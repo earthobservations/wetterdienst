@@ -3,12 +3,15 @@
 """Tests for geosphere observation API."""
 
 from datetime import datetime
+from io import BytesIO
+from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
 import pytest
 from dirty_equals import IsNumeric
 
-from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
+from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest, api
+from wetterdienst.util.network import File
 
 
 @pytest.mark.remote
@@ -75,12 +78,6 @@ def test_geosphere_observation_request_window_carries_the_minutes(monkeypatch: p
     starting 13:37 in December sent ``13:12`` (GH-2436). The values are cut to the requested span
     locally, so this showed only in the URL, and with it the cache key.
     """
-    from io import BytesIO  # noqa: PLC0415
-    from urllib.parse import parse_qs, urlparse  # noqa: PLC0415
-
-    from wetterdienst.provider.geosphere.observation import api  # noqa: PLC0415
-    from wetterdienst.util.network import File  # noqa: PLC0415
-
     stations = (
         "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
         "4821,Test,16.0,48.0,200,1992-05-20 00:00:00+00:00,2100-01-01 00:00:00+00:00,Wien,True,True\n"
