@@ -323,8 +323,12 @@ def test_the_advice_to_upgrade_the_library_is_not_warned(probe: str) -> None:
     against a recommended 2.42 -- and a caller could neither act on it nor tell it was harmless
     (GH-2442). Either probe may be the first import in a process, pdbufr importing eccodes itself.
     Nothing else the import says is held back.
+
+    "always" here and below, so the run's own filters (`-W error`, `-W ignore`) do not decide what
+    is seen; the filter under test goes ahead of it.
     """
     with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
         assert getattr(eccodes, probe)() is True
     said = [str(warning.message) for warning in seen]
     assert not [message for message in said if "or higher is recommended" in message]
@@ -335,6 +339,7 @@ def test_the_advice_to_upgrade_the_library_is_not_warned(probe: str) -> None:
 def test_the_library_version_is_logged_in_its_place(stale_library: str, caplog: pytest.LogCaptureFixture) -> None:
     """Which library loaded is still there to be read, at debug."""
     with caplog.at_level(logging.DEBUG, logger=eccodes.__name__), warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
         assert eccodes.ensure_eccodes() is True
     assert f"ecCodes library {stale_library}" in caplog.text
 
@@ -351,8 +356,10 @@ def test_a_radar_bufr_read_asked_directly_is_quiet_too() -> None:
 
     # taken from where it is loaded rather than imported, which would import gribapi before the read
     unreadable = sys.modules["gribapi.errors"].GribInternalError
-    with warnings.catch_warnings(record=True) as seen, pytest.raises(unreadable):
-        read_radar_bufr(BytesIO(b"not BUFR"), next(iter(_BUFR_VALUE_FIELD)))
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        with pytest.raises(unreadable):
+            read_radar_bufr(BytesIO(b"not BUFR"), next(iter(_BUFR_VALUE_FIELD)))
     said = [str(warning.message) for warning in seen]
     assert not [message for message in said if "or higher is recommended" in message]
     assert "something else the bindings say on import" in said
@@ -392,5 +399,6 @@ def test_warnings_as_errors_do_not_make_the_reader_look_missing() -> None:
     stand-in's other warning is not one too.
     """
     with warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
         warnings.filterwarnings("error", message=eccodes._ECCODES_VERSION_ADVICE)  # noqa: SLF001
         assert eccodes.ensure_eccodes() is True
