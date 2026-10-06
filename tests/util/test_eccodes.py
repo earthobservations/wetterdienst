@@ -322,9 +322,7 @@ def test_the_advice_to_upgrade_the_library_is_not_warned(probe: str) -> None:
     The bindings warned so on every first import -- Debian trixie ships 2.41 and Ubuntu 24.04 2.34,
     against a recommended 2.42 -- and a caller could neither act on it nor tell it was harmless
     (GH-2442). Either probe may be the first import in a process, pdbufr importing eccodes itself.
-    Nothing else the import says is held back. No `simplefilter("always")` here or below: put first,
-    it would decide before the filter under test, which is appended -- Python's default shows each
-    of these once, and each is new.
+    Nothing else the import says is held back.
     """
     with warnings.catch_warnings(record=True) as seen:
         assert getattr(eccodes, probe)() is True
@@ -336,7 +334,6 @@ def test_the_advice_to_upgrade_the_library_is_not_warned(probe: str) -> None:
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_the_library_version_is_logged_in_its_place(stale_library: str, caplog: pytest.LogCaptureFixture) -> None:
     """Which library loaded is still there to be read, at debug."""
-    # recorded rather than `pytest.warns`, which puts "always" first and shows the advice anyway
     with caplog.at_level(logging.DEBUG, logger=eccodes.__name__), warnings.catch_warnings(record=True):
         assert eccodes.ensure_eccodes() is True
     assert f"ecCodes library {stale_library}" in caplog.text
@@ -367,26 +364,33 @@ def test_the_advice_is_ignored_only_from_the_bindings() -> None:
     The same words from anywhere else -- here, this test module -- are not the bindings' import-time
     advice, and are still shown.
     """
+    advice = "ecCodes 2.42.0 or higher is recommended. You are running version 2.34.1"
     eccodes.quiet_eccodes_version_advice.cache_clear()
     with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
         eccodes.quiet_eccodes_version_advice()
-        warnings.warn("ecCodes 2.42.0 or higher is recommended. You are running version 2.34.1", stacklevel=1)
+        warnings.warn(advice, stacklevel=1)
+        # a module whose name only starts like the bindings' is somewhere else too
+        warnings.warn_explicit(advice, UserWarning, "gribapi_tools.py", 1, module="gribapi_tools")
+        # and the bindings' own submodules are not
+        warnings.warn_explicit(advice, UserWarning, "gribapi/gribapi.py", 1, module="gribapi.gribapi")
     eccodes.quiet_eccodes_version_advice.cache_clear()
-    assert [str(warning.message) for warning in seen] == [
-        "ecCodes 2.42.0 or higher is recommended. You are running version 2.34.1"
+    assert [(str(warning.message), warning.filename) for warning in seen] == [
+        (advice, __file__),
+        (advice, "gribapi_tools.py"),
     ]
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.usefixtures("stale_library")
-def test_a_filter_of_the_callers_own_for_the_advice_still_decides() -> None:
-    """The filter is appended, so one the caller set first is matched first.
+def test_warnings_as_errors_do_not_make_the_reader_look_missing() -> None:
+    """Under `-W error` the advice was raised inside `import eccodes`, and read as no reader at all.
 
-    Someone running with `-W error::UserWarning:gribapi` -- or, as here, asking to always see it --
-    wants to know their library is older than recommended, and gets told.
+    `ensure_eccodes` answers any failure of the import as absence, so a caller running with warnings
+    as errors -- a test suite's `filterwarnings = error` -- was told to install what they have. The
+    filter goes ahead of theirs. Here it is an error filter for the advice alone, so that the
+    stand-in's other warning is not one too.
     """
-    with warnings.catch_warnings(record=True) as seen:
-        warnings.filterwarnings("always", message=eccodes._ECCODES_VERSION_ADVICE, module="gribapi")  # noqa: SLF001
+    with warnings.catch_warnings(record=True):
+        warnings.filterwarnings("error", message=eccodes._ECCODES_VERSION_ADVICE)  # noqa: SLF001
         assert eccodes.ensure_eccodes() is True
-    said = [str(warning.message) for warning in seen]
-    assert [message for message in said if "or higher is recommended" in message]

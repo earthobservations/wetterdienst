@@ -1042,7 +1042,8 @@ class DwdRoadValues(TimeseriesValues):
             # and suppressing it means a filter in the process's global warning filters, which
             # would go on suppressing the same warning for anything else reading BUFR alongside it.
             # The eccodes version advice is filtered because it is given once, on import, and a
-            # filter left after that hides nothing else; see `quiet_eccodes_version_advice`
+            # filter left after that hides nothing else unless gribapi is imported afresh; see
+            # `quiet_eccodes_version_advice`
             #
             # "data", so the read returns the message's values and not its header too: the
             # twenty-one header keys of a road file are read, converted and dropped again, being

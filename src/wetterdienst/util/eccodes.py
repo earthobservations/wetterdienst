@@ -36,15 +36,16 @@ def quiet_eccodes_version_advice() -> None:
     One filter, installed once and left in place, scoped to the message and to the bindings'
     `gribapi` modules, which give it: any other warning, and this message from anywhere else, still
     reaches the caller. The bindings give the advice once, as `gribapi` is first imported, so a
-    filter left after that hides nothing further -- and a caller who imported eccodes before this
-    ran has seen it already. The subsets warning `dwd/road` leaves alone is the other case: pdbufr
-    gives it on every read it applies to, so a filter left for it would go on hiding it from
-    anything else reading BUFR.
+    filter left after that hides nothing further, unless `gribapi` is imported afresh -- and a
+    caller who imported eccodes before this ran has seen it already. The subsets warning `dwd/road`
+    leaves alone is the other case: pdbufr gives it on every read it applies to, so a filter left
+    for it would go on hiding it from anything else reading BUFR.
 
-    Appended, not put first: any filter of the caller's that matches the advice is matched before
-    this one and still decides -- `-W error::UserWarning:gribapi` to catch a stale library, and the
-    broad ones too: `-W error`, `-W default` and `-X dev` show or raise it as they would have
-    without this. What changes is only the default, where nothing was asked for.
+    Put first, ahead of the caller's filters. Appended, it lost to any broad one: `-X dev` and
+    `-W default` showed the advice as before, and `-W error` -- or a test suite's `filterwarnings =
+    error` -- raised it inside `import eccodes`, which `ensure_eccodes` reads as a reader that did
+    not load, so the caller was told to install what they have. A caller who wants the advice gets
+    it by importing eccodes before this runs.
 
     Called by both probes, and by `read_radar_bufr`, the one reader that can run without asking
     them first; cached, so the filter list is changed once.
@@ -53,8 +54,8 @@ def quiet_eccodes_version_advice() -> None:
         "ignore",
         message=_ECCODES_VERSION_ADVICE,
         category=UserWarning,
-        module="gribapi",
-        append=True,
+        # the package and its submodules, and not a module whose name merely starts the same
+        module=r"gribapi(\.|$)",
     )
 
 
