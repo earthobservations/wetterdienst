@@ -41,11 +41,11 @@ def test_radar_request_radolan_cdc_hourly_alignment_1(default_settings: Settings
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=DwdRadarResolution.HOURLY,
         period=DwdRadarPeriod.HISTORICAL,
-        start_date="2019-08-08 00:53:53",
+        start="2019-08-08 00:53:53",
         settings=default_settings,
     )
 
-    assert request.start_date == dt.datetime(
+    assert request.start == dt.datetime(
         year=2019,
         month=8,
         day=8,
@@ -65,11 +65,11 @@ def test_radar_request_radolan_cdc_hourly_alignment_2(default_settings: Settings
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=DwdRadarResolution.HOURLY,
         period=DwdRadarPeriod.HISTORICAL,
-        start_date="2019-08-08 00:42:42",
+        start="2019-08-08 00:42:42",
         settings=default_settings,
     )
 
-    assert request.start_date == dt.datetime(
+    assert request.start == dt.datetime(
         year=2019,
         month=8,
         day=7,
@@ -88,7 +88,7 @@ def test_radar_request_radolan_cdc_historic_hourly_data(default_settings: Settin
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=DwdRadarResolution.HOURLY,
         period=DwdRadarPeriod.HISTORICAL,
-        start_date=timestamp,
+        start=timestamp,
         settings=default_settings,
     )
 
@@ -136,7 +136,7 @@ def test_radar_request_radolan_cdc_historic_daily_data(default_settings: Setting
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=DwdRadarResolution.DAILY,
         period=DwdRadarPeriod.HISTORICAL,
-        start_date=timestamp,
+        start=timestamp,
         settings=default_settings,
     )
 
@@ -190,7 +190,7 @@ def test_radar_request_composite_historic_hg_yesterday(
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.HG_REFLECTIVITY,
-        start_date=timestamp,
+        start=timestamp,
         settings=default_settings,
     )
 
@@ -243,8 +243,8 @@ def test_radar_request_composite_historic_hg_timerange(default_settings: Setting
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.HG_REFLECTIVITY,
-        start_date=timestamp,
-        end_date=dt.timedelta(minutes=10),
+        start=timestamp,
+        end=dt.timedelta(minutes=10),
         settings=default_settings,
     )
 
@@ -258,9 +258,7 @@ def test_radar_request_composite_historic_hg_timerange(default_settings: Setting
     assert len(results) == 2
 
     # Verify all timestamps are properly propagated from the tarfile.
-    assert all(
-        request.start_date == result.timestamp or request.start_date + dt.timedelta(minutes=5) for result in results
-    )
+    assert all(request.start == result.timestamp or request.start + dt.timedelta(minutes=5) for result in results)
 
 
 @pytest.mark.xfail(reason="UnicodeDecodeError: invalid start byte")
@@ -274,7 +272,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday(
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RW_REFLECTIVITY,
-        start_date=timestamp,
+        start=timestamp,
         settings=default_settings,
     )
 
@@ -324,8 +322,8 @@ def test_radar_request_composite_historic_radolan_rw_timerange(
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RW_REFLECTIVITY,
-        start_date=timestamp,
-        end_date=dt.timedelta(hours=3),
+        start=timestamp,
+        end=dt.timedelta(hours=3),
         settings=default_settings,
     )
     results = list(request.query())
@@ -369,7 +367,7 @@ def test_radar_request_site_historic_dx_yesterday(default_settings: Settings) ->
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.DX_REFLECTIVITY,
-        start_date=timestamp,
+        start=timestamp,
         site=DwdRadarSite.BOO,
         settings=default_settings,
     )
@@ -411,8 +409,8 @@ def test_radar_request_site_historic_dx_timerange(default_settings: Settings) ->
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.DX_REFLECTIVITY,
-        start_date=timestamp,
-        end_date=dt.timedelta(hours=0.5),
+        start=timestamp,
+        end=dt.timedelta(hours=0.5),
         site=DwdRadarSite.BOO,
         settings=default_settings,
     )
@@ -461,7 +459,7 @@ def test_radar_request_site_historic_pe_binary_yesterday(default_settings: Setti
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PE_ECHO_TOP,
-        start_date=timestamp,
+        start=timestamp,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.BINARY,
         settings=default_settings,
@@ -478,8 +476,8 @@ def test_radar_request_site_historic_pe_binary_yesterday(default_settings: Setti
     # Verify data.
     requested_header = wrl.io.read_radolan_header(buffer)
 
-    date_time = request.start_date.strftime("%d%H")
-    month_year = request.start_date.strftime("%m%y")
+    date_time = request.start.strftime("%d%H")
+    month_year = request.start.strftime("%m%y")
     header = (
         f"PE{date_time}..10132{month_year}BY ....?VS 1LV12  1.0  2.0  3.0  4.0  5.0  "
         f"6.0  7.0  8.0  9.0 10.0 11.0 12.0CO0CD0CS0ET 5.0FL....MS"
@@ -499,7 +497,7 @@ def test_radar_request_site_historic_pe_bufr(default_settings: Settings) -> None
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PE_ECHO_TOP,
-        start_date=timestamp,
+        start=timestamp,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.BUFR,
         settings=default_settings,
@@ -545,7 +543,7 @@ def test_radar_request_site_historic_pe_bufr_dataframe() -> None:
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PE_ECHO_TOP,
-        start_date=timestamp,
+        start=timestamp,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.BUFR,
         settings=Settings(cache_disable=True, read_bufr=True),
@@ -598,14 +596,14 @@ def test_radar_request_site_historic_pe_timerange(default_settings: Settings, fm
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PE_ECHO_TOP,
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
         site=DwdRadarSite.BOO,
         fmt=fmt,
         settings=default_settings,
     )
 
-    assert request.start_date.minute % 5 == 0
+    assert request.start.minute % 5 == 0
 
     # Verify number of elements.
     results = list(request.query())
@@ -621,7 +619,7 @@ def test_radar_request_site_historic_pe_timerange(default_settings: Settings, fm
         payload = buffer.getvalue()
         # from the requested date, not from now: the request is for yesterday, so on the first of
         # a month the two are in different months and the header would never match
-        month_year = request.start_date.strftime("%m%y")
+        month_year = request.start.strftime("%m%y")
         header = (
             f"PE......10132{month_year}BY ....VS 1LV12  "
             "1.0  2.0  3.0  4.0  5.0  6.0  7.0  8.0  9.0 10.0 11.0 12.0"
@@ -637,7 +635,7 @@ def test_radar_request_site_historic_px250_bufr_yesterday(default_settings: Sett
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PX250_REFLECTIVITY,
-        start_date=timestamp,
+        start=timestamp,
         site=DwdRadarSite.BOO,
         settings=default_settings,
         fmt=DwdRadarDataFormat.BUFR,
@@ -684,8 +682,8 @@ def test_radar_request_site_historic_px250_bufr_timerange(default_settings: Sett
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PX250_REFLECTIVITY,
-        start_date=timestamp,
-        end_date=dt.timedelta(hours=1),
+        start=timestamp,
+        end=dt.timedelta(hours=1),
         site=DwdRadarSite.BOO,
         settings=default_settings,
         fmt=DwdRadarDataFormat.BUFR,
@@ -710,7 +708,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday(default_settings
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=timestamp,
+        start=timestamp,
         site=DwdRadarSite.ASB,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -731,7 +729,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday(default_settings
     assert hdf["/how"].attrs.get("scan_count") == 10
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    timestamp = round_minutes(request.start_date, 5)
+    timestamp = round_minutes(request.start, 5)
     assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
     assert hdf["/what"].attrs.get("time").startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
 
@@ -746,7 +744,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday(default_settings
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=timestamp,
+        start=timestamp,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -782,7 +780,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday(default_settings
 
     assert hdf["/dataset1/data1/data"].shape in ((360, 600), (359, 600), (358, 600), (357, 600))
 
-    timestamp = round_minutes(request.start_date, 5)
+    timestamp = round_minutes(request.start, 5)
     assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
     assert hdf["/what"].attrs.get("time").startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
 
@@ -797,8 +795,8 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange(default_settings
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=timestamp,
-        end_date=dt.timedelta(hours=1),
+        start=timestamp,
+        end=dt.timedelta(hours=1),
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -821,7 +819,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange(default_settings
     assert hdf["/how"].attrs.get("scan_count") == 1
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    timestamp = round_minutes(request.start_date, 5)
+    timestamp = round_minutes(request.start, 5)
     assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
     assert hdf["/what"].attrs.get("time").startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
 
@@ -836,8 +834,8 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange(default_settings
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=timestamp,
-        end_date=dt.timedelta(hours=0.5),
+        start=timestamp,
+        end=dt.timedelta(hours=0.5),
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -858,7 +856,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange(default_settings
     assert hdf["/how"].attrs.get("scan_count") == 10
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    timestamp = round_minutes(request.start_date, 5)
+    timestamp = round_minutes(request.start, 5)
     assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")
     assert hdf["/what"].attrs.get("time").startswith(bytes(timestamp.strftime("%H%M"), encoding="ascii"))
 
@@ -875,7 +873,7 @@ def test_radar_request_radvor_re_yesterday(default_settings: Settings, prefixed_
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RE_REFLECTIVITY,
-        start_date=timestamp,
+        start=timestamp,
         settings=default_settings,
     )
 
@@ -896,7 +894,7 @@ def test_radar_request_radvor_re_yesterday(default_settings: Settings, prefixed_
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": request.start_date.replace(tzinfo=None),
+            "datetime": request.start.replace(tzinfo=None),
             "formatversion": 5,
             "intervalseconds": 3600,
             "maxrange": "100 km",
@@ -934,8 +932,8 @@ def test_radar_request_radvor_re_timerange(
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RE_REFLECTIVITY,
-        start_date=timestamp,
-        end_date=dt.timedelta(minutes=3 * 5),
+        start=timestamp,
+        end=dt.timedelta(minutes=3 * 5),
         settings=default_settings,
     )
 
@@ -950,7 +948,7 @@ def test_radar_request_radvor_re_timerange(
 
     buffer = results[0].data
     requested_header = wrl.io.read_radolan_header(buffer)
-    month_year = request.start_date.strftime("%m%y")
+    month_year = request.start.strftime("%m%y")
 
     pattern = (
         f"RE......10000{month_year}BY   162....VS 5SW  P4[0-9.]+HPR E-03INT  60GP 900x 900VV 000MF 00000008QN 016MS"
@@ -971,7 +969,7 @@ def test_radar_request_radvor_rq_yesterday(default_settings: Settings, radar_loc
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RQ_REFLECTIVITY,
-        start_date=timestamp,
+        start=timestamp,
         settings=default_settings,
     )
 
@@ -992,7 +990,7 @@ def test_radar_request_radvor_rq_yesterday(default_settings: Settings, radar_loc
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": request.start_date.replace(tzinfo=None),
+            "datetime": request.start.replace(tzinfo=None),
             "formatversion": 5,
             "intervalseconds": 3600,
             "maxrange": "100 km",
@@ -1027,8 +1025,8 @@ def test_radar_request_radvor_rq_timerange(
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RQ_REFLECTIVITY,
-        start_date=timestamp,
-        end_date=dt.timedelta(minutes=3 * 15),
+        start=timestamp,
+        end=dt.timedelta(minutes=3 * 15),
         settings=default_settings,
     )
 
@@ -1047,7 +1045,7 @@ def test_radar_request_radvor_rq_timerange(
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": request.start_date.replace(tzinfo=None),
+            "datetime": request.start.replace(tzinfo=None),
             "formatversion": 5,
             "intervalseconds": 3600,
             "maxrange": "100 km",

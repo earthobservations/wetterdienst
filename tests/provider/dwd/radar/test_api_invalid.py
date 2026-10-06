@@ -24,7 +24,7 @@ def test_radar_request_site_historic_pe_wrong_parameters(default_settings: Setti
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PE_ECHO_TOP,
         site=DwdRadarSite.BOO,
-        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
+        start=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
         settings=default_settings,
     )
     with pytest.raises(ValueError, match="Argument 'format' is missing"):
@@ -44,7 +44,7 @@ def test_radar_request_site_historic_pe_future(
         parameter=DwdRadarParameter.PE_ECHO_TOP,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.BUFR,
-        start_date="2099-01-01 00:00:00",
+        start="2099-01-01 00:00:00",
         settings=default_settings,
     )
     results = list(request.query())
@@ -61,7 +61,7 @@ def test_radar_request_site_latest_sweep_pcp_v_hdf5(default_settings: Settings) 
             parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
             site=DwdRadarSite.BOO,
             fmt=DwdRadarDataFormat.HDF5,
-            start_date=DwdRadarDate.LATEST,
+            start=DwdRadarDate.LATEST,
             settings=default_settings,
         )
 
@@ -71,7 +71,7 @@ def test_radar_request_site_latest_sweep_pcp_v_hdf5_wrong_parameters(default_set
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
         site=DwdRadarSite.BOO,
-        start_date=DwdRadarDate.CURRENT,
+        start=DwdRadarDate.CURRENT,
         settings=default_settings,
     )
     with pytest.raises(ValueError, match="Argument 'format' is missing"):
@@ -82,7 +82,7 @@ def test_radar_request_site_without_site(default_settings: Settings) -> None:
     """Verify requesting site data without site croaks."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=DwdRadarDate.LATEST,
+        start=DwdRadarDate.LATEST,
         settings=default_settings,
     )
     with pytest.raises(ValueError, match="Argument 'site' is missing"):
@@ -95,7 +95,7 @@ def test_radar_request_hdf5_without_subset(default_settings: Settings) -> None:
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
-        start_date=DwdRadarDate.MOST_RECENT,
+        start=DwdRadarDate.MOST_RECENT,
         settings=default_settings,
     )
     with pytest.raises(ValueError, match="Argument 'subset' is missing"):
@@ -116,7 +116,7 @@ def test_radar_request_radolan_cdc_latest(time_resolution: DwdRadarResolution, d
         DwdRadarValues(
             parameter=DwdRadarParameter.RADOLAN_CDC,
             resolution=time_resolution,
-            start_date=DwdRadarDate.LATEST,
+            start=DwdRadarDate.LATEST,
             settings=default_settings,
         )
 
@@ -128,7 +128,7 @@ def test_radar_request_radolan_cdc_invalid_time_resolution(default_settings: Set
             parameter=DwdRadarParameter.RADOLAN_CDC,
             resolution="minute_1",
             period=DwdRadarPeriod.RECENT,
-            start_date="2019-08-08 00:50:00",
+            start="2019-08-08 00:50:00",
             settings=default_settings,
         )
 
@@ -143,7 +143,7 @@ def test_radar_request_radolan_cdc_future(default_settings: Settings, caplog: py
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution="daily",
         period=DwdRadarPeriod.RECENT,
-        start_date="2099-01-01 00:50:00",
+        start="2099-01-01 00:50:00",
         settings=default_settings,
     )
 
@@ -152,3 +152,10 @@ def test_radar_request_radolan_cdc_future(default_settings: Settings, caplog: py
 
     assert "WARNING" in caplog.text
     assert "No radar file found" in caplog.text
+
+
+@pytest.mark.parametrize(("old", "new"), [("start_date", "start"), ("end_date", "end")])
+def test_radar_request_refuses_a_renamed_argument_by_its_new_name(old: str, new: str) -> None:
+    """Test the old window argument names the new one, as the timeseries requests do (GH-2437)."""
+    with pytest.raises(TypeError, match=rf"^DwdRadarValues\(\) argument '{old}' was renamed to '{new}'$"):
+        DwdRadarValues(parameter=DwdRadarParameter.RADOLAN_CDC, resolution="daily", **{old: "2020-01-01"})

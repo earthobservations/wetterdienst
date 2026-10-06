@@ -25,8 +25,8 @@ def dwd_road_weather_example() -> None:
     start_date = end_date - dt.timedelta(days=1)
     drw_request = DwdRoadRequest(
         parameters=[("15_minutes", "data", "airTemperature")],
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     ).filter_by_station_id("A006")
     print(drw_request.df)
     df_drw = drw_request.values.all().df.drop_nulls(subset="value")
@@ -34,8 +34,8 @@ def dwd_road_weather_example() -> None:
 
     dobs_request = DwdObservationRequest(
         parameters=[("10_minutes", "temperature_air", "temperature_air_mean_2m")],
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     ).summarize(latlon=(54.8892, 8.9087))
     print(dobs_request.stations)
     df_dobs = dobs_request.df.drop_nulls(subset="value")

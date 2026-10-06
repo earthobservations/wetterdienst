@@ -205,7 +205,7 @@ def test_periods_from_dates() -> None:
     parameters = [("annual", "annual_common_hazel")]
     assert DwdPhenologyRequest(parameters=parameters).periods == {Period.HISTORICAL, Period.RECENT}
     assert DwdPhenologyRequest(parameters=parameters, periods="recent").periods == {Period.RECENT}
-    old = DwdPhenologyRequest(parameters=parameters, start_date="1950-01-01", end_date="1960-12-31")
+    old = DwdPhenologyRequest(parameters=parameters, start="1950-01-01", end="1960-12-31")
     assert old.periods == {Period.HISTORICAL}
 
 
@@ -222,8 +222,8 @@ def test_single_period_dataset_reads_the_period_it_is_published_under() -> None:
     """
     request = DwdPhenologyRequest(
         parameters=[("annual", "annual_beet")],
-        start_date="2021-01-01",
-        end_date="2021-12-31",
+        start="2021-01-01",
+        end="2021-12-31",
     )
     dataset = DwdPhenologyMetadata["annual"]["annual_beet"]
     assert dataset.periods == [Period.RECENT]
@@ -311,8 +311,8 @@ def test_phenology_values_historical_reaches_back() -> None:
     """A historical request returns a multi-decade series of plausible days of the year."""
     request = DwdPhenologyRequest(
         parameters=[("annual", "annual_european_beech", "phenology_leaf_unfolding_beginning")],
-        start_date="1960-01-01",
-        end_date="2000-12-31",
+        start="1960-01-01",
+        end="2000-12-31",
     )
     df = next(request.filter_by_station_id("07521").values.query()).df
     assert df.height > 10

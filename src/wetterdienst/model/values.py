@@ -248,13 +248,13 @@ class TimeseriesValues(ABC):
         if another dataset begins after the window. ``min()`` skips nulls, so asking it alone let
         the published bound speak for the unpublished one.
         """
-        if not self.sr.end_date or "start_date" not in df_station_meta.columns:
+        if not self.sr.end or "start_date" not in df_station_meta.columns:
             return False
         start_dates = df_station_meta.get_column("start_date")
         if start_dates.null_count():
             return False
         # null-free and never empty, as `group_by` yields no empty group, so `min()` has a value
-        return cast("dt.datetime", start_dates.min()) > self.sr.end_date
+        return cast("dt.datetime", start_dates.min()) > self.sr.end
 
     def _filter_by_window(self, df: pl.DataFrame) -> pl.DataFrame:
         """Cut a station's frame down to the window the request asked for, if it named one.
@@ -262,12 +262,12 @@ class TimeseriesValues(ABC):
         A frame with nothing in it is handed back untouched: a station that delivered no data at
         all comes back as a bare frame with no ``timestamp`` column to filter on.
         """
-        if not self.sr.start_date or df.is_empty():
+        if not self.sr.start or df.is_empty():
             return df
         return df.filter(
             pl.col("timestamp").is_between(
-                self.sr.start_date,
-                self.sr.end_date,
+                self.sr.start,
+                self.sr.end,
                 closed="both",
             ),
         )
@@ -547,7 +547,7 @@ class TimeseriesValues(ABC):
                 # counts a parameter that is present as missing and skips the station over it
                 pl.col("parameter").str.to_lowercase().eq(parameter.name_original.lower()),
             )
-            start_date, end_date = self.sr.start_date, self.sr.end_date
+            start_date, end_date = self.sr.start, self.sr.end
             if (start_date is None or end_date is None) and not df_dataset.is_empty():
                 dates = df_dataset.get_column("timestamp")
                 start_date, end_date = cast("dt.datetime", dates.min()), cast("dt.datetime", dates.max())

@@ -101,7 +101,7 @@ def _moments(start_date: dt.datetime, end_date: dt.datetime, resolution: Resolut
     # it (the over-fetched pre-start file is trimmed by the framework's [start, end] filter).
     # Hourly/daily filenames truncate to the hour/day and are left unfloored here: flooring
     # them would date the value before an unaligned start_date and drop the first period. When
-    # the whole request is a single resolution, __post_init__ has already floored start_date so
+    # the whole request is a single resolution, __post_init__ has already floored start so
     # the moments are aligned; a mixed request keeps the (harmless) unaligned label.
     current = _floor(start_date, resolution) if resolution == Resolution.MINUTE_10 else start_date
     while current <= end_date:
@@ -216,8 +216,8 @@ class KnmiObservationValues(TimeseriesValues):
             return self._empty_df()
 
         settings = cast("Settings", self.sr.stations.settings)
-        start_date = self.sr.start_date
-        end_date = self.sr.end_date
+        start_date = self.sr.start
+        end_date = self.sr.end
         if not start_date or not end_date or not settings.auth.knmi:
             return self._empty_df()
 
@@ -293,16 +293,16 @@ class KnmiObservationRequest(TimeseriesRequest):
         # KNMI's files are keyed by UTC (filenames encode the UTC date/hour/minute). The base
         # convert_timestamps only tags *naive* inputs as UTC -- a tz-aware non-UTC datetime is
         # kept as-is -- so normalize to UTC here before any flooring or filename formatting,
-        # otherwise a start_date like 10:00 Europe/Amsterdam (08:00 UTC) would fetch the 10:00
+        # otherwise a start like 10:00 Europe/Amsterdam (08:00 UTC) would fetch the 10:00
         # UTC file. Mirrors AEMET's UTC normalization.
-        if self.start_date:
-            self.start_date = cast("dt.datetime", self.start_date).astimezone(dt.timezone.utc)
-        if self.end_date:
-            self.end_date = cast("dt.datetime", self.end_date).astimezone(dt.timezone.utc)
-        # When the whole request targets a single hourly/daily resolution, snap start_date down
+        if self.start:
+            self.start = cast("dt.datetime", self.start).astimezone(dt.timezone.utc)
+        if self.end:
+            self.end = cast("dt.datetime", self.end).astimezone(dt.timezone.utc)
+        # When the whole request targets a single hourly/daily resolution, snap start down
         # to that resolution's interval boundary. Those are period aggregates labelled at the
         # period start, so a query beginning mid-period should include that period; flooring
-        # start_date here (the one filter the framework shares across resolutions) keeps value
+        # start here (the one filter the framework shares across resolutions) keeps value
         # dates on the true boundary AND keeps the start-containing period in range -- correct
         # timestamps with no dropped period. 10-minute is excluded: its values are end-labelled
         # sub-hour intervals, so an unaligned start correctly excludes the pre-start interval
@@ -313,8 +313,8 @@ class KnmiObservationRequest(TimeseriesRequest):
             for parameter_or_dataset in self.parameters
             if isinstance(parameter_or_dataset, (ParameterModel, DatasetModel))
         }
-        if self.start_date and resolutions in ({Resolution.HOURLY}, {Resolution.DAILY}):
-            self.start_date = _floor(cast("dt.datetime", self.start_date), next(iter(resolutions)))
+        if self.start and resolutions in ({Resolution.HOURLY}, {Resolution.DAILY}):
+            self.start = _floor(cast("dt.datetime", self.start), next(iter(resolutions)))
 
     def _all(self) -> pl.LazyFrame:
         """Enumerate stations per requested resolution.

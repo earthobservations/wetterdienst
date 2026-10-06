@@ -18,8 +18,8 @@ def stations_filter_by_examples() -> None:
     request = DwdObservationRequest(
         parameters=("hourly", "temperature_air"),
         periods="recent",
-        start_date=datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime(2020, 1, 20, tzinfo=ZoneInfo("UTC")),
+        start=datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2020, 1, 20, tzinfo=ZoneInfo("UTC")),
     )
 
     print("All stations")

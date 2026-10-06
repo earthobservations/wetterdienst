@@ -199,8 +199,8 @@ def _hourly_values(start_date: dt.datetime, end_date: dt.datetime) -> Timeseries
     """Build an hourly DWD values object over the given window, without touching the network."""
     request = DwdObservationRequest(
         parameters=[("hourly", "temperature_air", "temperature_air_mean_2m")],
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     )
     return DwdObservationValues(
         sr=StationsResult(
@@ -323,8 +323,8 @@ def test_actual_percentage_is_zero_for_a_parameter_that_came_back_with_nothing()
             ("hourly", "temperature_air", "temperature_air_mean_2m"),
             ("hourly", "temperature_air", "humidity_relative"),  # never arrives
         ],
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     )
     values = DwdObservationValues(
         sr=StationsResult(
@@ -447,8 +447,8 @@ def test_actual_percentage_matches_a_parameter_name_in_the_provider_own_casing()
     end_date = dt.datetime(2026, 1, 1, 1, tzinfo=ZoneInfo("UTC"))
     request = WsvPegelRequest(
         parameters=[("15_minutes", "data", "stage")],
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     )
     values = WsvPegelValues(
         sr=StationsResult(
@@ -545,8 +545,8 @@ def test_rank_is_not_spent_on_a_station_whose_data_misses_the_window(monkeypatch
     )
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date="1930-01-01",
-        end_date="1930-12-31",
+        start="1930-01-01",
+        end="1930-12-31",
     )
 
     values = request.filter_by_rank(latlon=(50.0, 8.0), rank=2).values
@@ -566,8 +566,8 @@ def test_a_request_that_collects_nothing_keeps_its_schema(monkeypatch: pytest.Mo
     )
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date="1930-01-01",
-        end_date="1930-12-31",
+        start="1930-01-01",
+        end="1930-12-31",
     )
 
     df = request.filter_by_station_id("00001").values.all().df
@@ -595,13 +595,13 @@ def test_wide_empty_result_matches_the_shape_of_a_populated_one(monkeypatch: pyt
     settings = {"ts_shape": "wide"}
 
     empty = (
-        DwdObservationRequest(parameters=parameters, start_date="1930-01-01", end_date="1930-12-31", settings=settings)
+        DwdObservationRequest(parameters=parameters, start="1930-01-01", end="1930-12-31", settings=settings)
         .filter_by_station_id("00001")
         .values.all()
         .df
     )
     populated = (
-        DwdObservationRequest(parameters=parameters, start_date="1990-01-01", end_date="1990-12-31", settings=settings)
+        DwdObservationRequest(parameters=parameters, start="1990-01-01", end="1990-12-31", settings=settings)
         .filter_by_station_id("00001")
         .values.all()
         .df
@@ -632,8 +632,8 @@ def test_a_station_that_started_after_the_window_is_not_downloaded(monkeypatch: 
     )
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date="1930-01-01",
-        end_date="1930-12-31",
+        start="1930-01-01",
+        end="1930-12-31",
     )
 
     request.filter_by_rank(latlon=(50.0, 8.0), rank=5).values.all()
@@ -657,8 +657,8 @@ def test_a_station_still_reporting_is_not_ruled_out_by_a_lagging_end_date(monkey
     )
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date="2020-01-01",
-        end_date="2020-12-31",
+        start="2020-01-01",
+        end="2020-12-31",
     )
 
     df = request.filter_by_station_id("00001").values.all().df
@@ -718,8 +718,8 @@ def test_a_station_is_kept_when_one_dataset_leaves_its_start_date_out(monkeypatc
     )
     request = DwdObservationRequest(
         parameters=["daily/kl/temperature_air_mean_2m", "daily/more_precip/precipitation_amount"],
-        start_date="1930-01-01",
-        end_date="1930-12-31",
+        start="1930-01-01",
+        end="1930-12-31",
     )
 
     df = request.filter_by_station_id("00001").values.all().df
@@ -747,8 +747,8 @@ def test_a_station_whose_datasets_all_start_after_the_window_is_not_downloaded(
     )
     request = DwdObservationRequest(
         parameters=["daily/kl/temperature_air_mean_2m", "daily/more_precip/precipitation_amount"],
-        start_date="1930-01-01",
-        end_date="1930-12-31",
+        start="1930-01-01",
+        end="1930-12-31",
     )
 
     request.filter_by_station_id("00001").values.all()
@@ -778,8 +778,8 @@ def _values_with_a_null(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date="1990-01-01",
-        end_date="1990-01-02",
+        start="1990-01-01",
+        end="1990-01-02",
         settings=settings,
     )
     return request.filter_by_station_id("00001").values.all().df

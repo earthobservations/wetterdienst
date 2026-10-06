@@ -196,8 +196,8 @@ def test_dmi_observation_values_daily() -> None:
     """Daily values include both range boundaries (the local/UTC offset must not drop them)."""
     request = dmi_api.DmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
-        end_date=dt.datetime(2023, 6, 5, tzinfo=UTC),
+        start=dt.datetime(2023, 6, 1, tzinfo=UTC),
+        end=dt.datetime(2023, 6, 5, tzinfo=UTC),
     ).filter_by_station_id([COPENHAGEN_LANDBOHOJSKOLEN])
     values = request.values.all().df
     dates = values.get_column("timestamp").sort().to_list()
@@ -212,8 +212,8 @@ def test_dmi_observation_values_hourly_utc() -> None:
     """Hourly values are UTC-aligned to the start of each hour."""
     request = dmi_api.DmiObservationRequest(
         parameters=[("hourly", "data", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
-        end_date=dt.datetime(2023, 6, 1, 6, tzinfo=UTC),
+        start=dt.datetime(2023, 6, 1, tzinfo=UTC),
+        end=dt.datetime(2023, 6, 1, 6, tzinfo=UTC),
     ).filter_by_station_id([COPENHAGEN_LANDBOHOJSKOLEN])
     values = request.values.all().df
     first_date = values.get_column("timestamp").min()
@@ -227,8 +227,8 @@ def test_dmi_observation_values_empty_for_unknown_station() -> None:
     settings = Settings(cache_disable=True)
     request = dmi_api.DmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
-        end_date=dt.datetime(2023, 6, 5, tzinfo=UTC),
+        start=dt.datetime(2023, 6, 1, tzinfo=UTC),
+        end=dt.datetime(2023, 6, 5, tzinfo=UTC),
         settings=settings,
     ).filter_by_station_id(["00000"])
     values = request.values.all().df

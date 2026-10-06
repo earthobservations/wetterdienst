@@ -114,8 +114,8 @@ def _values(resolution: str, start: dt.datetime, end: dt.datetime) -> pl.DataFra
     return (
         ChmiObservationRequest(
             parameters=[(resolution, "data")],
-            start_date=start,
-            end_date=end,
+            start=start,
+            end=end,
         )
         .filter_by_station_id(CHEB)
         .values.all()

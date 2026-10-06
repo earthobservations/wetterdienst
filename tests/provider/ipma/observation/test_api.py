@@ -146,8 +146,8 @@ def test_ipma_observation_values() -> None:
     """A station returns recent hourly values with sane ranges and 45°-quantised wind direction."""
     request = IpmaObservationRequest(
         parameters=[("hourly", "data")],
-        start_date=dt.datetime.now(UTC) - dt.timedelta(hours=24),
-        end_date=dt.datetime.now(UTC),
+        start=dt.datetime.now(UTC) - dt.timedelta(hours=24),
+        end=dt.datetime.now(UTC),
     )
     station_id = request.all().df["station_id"][0]
     df = request.filter_by_station_id(station_id).values.all().df

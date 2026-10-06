@@ -60,8 +60,8 @@ def request_weather_data(
     """Request weather data for a location."""
     stations = DwdObservationRequest(
         parameters=parameters,
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     )
 
     # request the nearest weather stations

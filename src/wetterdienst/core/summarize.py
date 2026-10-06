@@ -228,8 +228,8 @@ def apply_station_values_per_parameter(
             param_dict,
             param_key,
             dataset.resolution.value,
-            cast("dt.datetime | None", stations_ranked.stations.start_date),
-            cast("dt.datetime | None", stations_ranked.stations.end_date),
+            cast("dt.datetime | None", stations_ranked.stations.start),
+            cast("dt.datetime | None", stations_ranked.stations.end),
             decimals=decimals_for(parameter, unit_converter, convert_units=settings.ts_convert_units),
         )
         if param_data is None:

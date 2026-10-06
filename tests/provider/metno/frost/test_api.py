@@ -25,8 +25,8 @@ def test_metno_frost_stations() -> None:
     """Station metadata for Oslo/Blindern matches the Frost registry."""
     request = MetnoFrostRequest(
         parameters=[("hourly", "data", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
-        end_date=dt.datetime(2020, 1, 2, tzinfo=UTC),
+        start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+        end=dt.datetime(2020, 1, 2, tzinfo=UTC),
     ).filter_by_station_id(OSLO_BLINDERN)
     expected = pl.DataFrame(
         [
@@ -66,8 +66,8 @@ def test_metno_frost_values_hourly() -> None:
     df = (
         MetnoFrostRequest(
             parameters=[("hourly", "data", "temperature_air_mean_2m")],
-            start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
-            end_date=dt.datetime(2020, 1, 2, tzinfo=UTC),
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 1, 2, tzinfo=UTC),
         )
         .filter_by_station_id(OSLO_BLINDERN)
         .values.all()
@@ -88,8 +88,8 @@ def test_metno_frost_values_daily() -> None:
     df = (
         MetnoFrostRequest(
             parameters=[("daily", "data", "temperature_air_mean_2m")],
-            start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
-            end_date=dt.datetime(2020, 1, 31, tzinfo=UTC),
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 1, 31, tzinfo=UTC),
         )
         .filter_by_station_id(OSLO_BLINDERN)
         .values.all()
@@ -108,8 +108,8 @@ def test_metno_frost_values_monthly() -> None:
     df = (
         MetnoFrostRequest(
             parameters=[("monthly", "data", "temperature_air_mean_2m")],
-            start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
-            end_date=dt.datetime(2020, 12, 31, tzinfo=UTC),
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 12, 31, tzinfo=UTC),
         )
         .filter_by_station_id(OSLO_BLINDERN)
         .values.all()
@@ -139,8 +139,8 @@ def test_metno_frost_values_hourly_multi_parameter_batched(caplog: pytest.LogCap
                     ("hourly", "data", "humidity_relative"),
                     ("hourly", "data", "wind_speed"),
                 ],
-                start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
-                end_date=dt.datetime(2020, 1, 2, tzinfo=UTC),
+                start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+                end=dt.datetime(2020, 1, 2, tzinfo=UTC),
             )
             .filter_by_station_id(OSLO_BLINDERN)
             .values.all()
@@ -167,8 +167,8 @@ def test_metno_frost_values_6hour_fallback() -> None:
     df = (
         MetnoFrostRequest(
             parameters=[("6_hour", "data", "precipitation_amount")],
-            start_date=dt.datetime(2005, 9, 1, tzinfo=UTC),
-            end_date=dt.datetime(2006, 1, 1, tzinfo=UTC),
+            start=dt.datetime(2005, 9, 1, tzinfo=UTC),
+            end=dt.datetime(2006, 1, 1, tzinfo=UTC),
         )
         .filter_by_station_id(OSLO_BLINDERN)
         .values.all()

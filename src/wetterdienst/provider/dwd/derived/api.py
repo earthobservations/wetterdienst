@@ -195,15 +195,15 @@ class DwdDerivedValues(TimeseriesValues):
         :param parameter: Parameter name, determining default values for start dates
         :return: List of dates for which data should be fetched
         """
-        if self.sr.start_date is None:
+        if self.sr.start is None:
             start_date_of_range = self._default_start_dates[parameter.dataset.resolution.value].replace(day=1)
         else:
-            start_date_of_range = self.sr.start_date.replace(day=1)
+            start_date_of_range = self.sr.start.replace(day=1)
 
-        if self.sr.end_date is None:
+        if self.sr.end is None:
             end_date_of_range = datetime.now(ZoneInfo("UTC")).replace(day=1)
         else:
-            end_date_of_range = self.sr.end_date.replace(day=1)
+            end_date_of_range = self.sr.end.replace(day=1)
 
         return pl.datetime_range(
             start_date_of_range,

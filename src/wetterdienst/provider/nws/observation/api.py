@@ -147,12 +147,12 @@ class NwsObservationValues(TimeseriesValues):
         the REST API but not in the Python API, and without them there is no window to name.
         """
         url = self._endpoint.format(station_id=station_id)
-        if not self.sr.start_date or not self.sr.end_date:
+        if not self.sr.start or not self.sr.end:
             return url
         query = urlencode(
             {
-                "start": self.sr.start_date.astimezone(dt.timezone.utc).strftime(self._date_format),
-                "end": self.sr.end_date.astimezone(dt.timezone.utc).strftime(self._date_format),
+                "start": self.sr.start.astimezone(dt.timezone.utc).strftime(self._date_format),
+                "end": self.sr.end.astimezone(dt.timezone.utc).strftime(self._date_format),
             },
         )
         return f"{url}?{query}"

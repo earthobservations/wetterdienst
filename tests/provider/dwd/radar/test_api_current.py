@@ -28,7 +28,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5(default_settings: Settings)
     """
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=DwdRadarDate.CURRENT,
+        start=DwdRadarDate.CURRENT,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -72,7 +72,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full(default_settings: Sett
     """
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=DwdRadarDate.CURRENT,
+        start=DwdRadarDate.CURRENT,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -116,7 +116,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Se
     """
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=DwdRadarDate.CURRENT,
+        start=DwdRadarDate.CURRENT,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -157,7 +157,7 @@ def test_radar_request_radolan_cdc_current(default_settings: Settings, resolutio
     """
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
-        start_date=DwdRadarDate.CURRENT,
+        start=DwdRadarDate.CURRENT,
         resolution=resolution,
         period=DwdRadarPeriod.RECENT,
         settings=default_settings,
@@ -179,6 +179,6 @@ def test_radar_request_radolan_cdc_current_5min(default_settings: Settings) -> N
         DwdRadarValues(
             parameter=DwdRadarParameter.RADOLAN_CDC,
             resolution=DwdRadarResolution.MINUTE_5,
-            start_date=DwdRadarDate.CURRENT,
+            start=DwdRadarDate.CURRENT,
             settings=default_settings,
         )

@@ -94,8 +94,8 @@ def test_dwd_derived_data_empty_out_of_range_dates(
         ],
         periods=period,
         settings=default_settings,
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     ).filter_by_station_id(station_id="00044")
 
     fetched_df = request.values.all().df
@@ -174,8 +174,8 @@ def test_dwd_recent_data_result_long_single_parameter(
             "heating_degree_day",
         ),
         settings=default_settings,
-        start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+        start=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        end=datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
             "historical",
         ],
@@ -239,8 +239,8 @@ def test_dwd_recent_data_result_wide_single_parameter(
             "heating_degree_day",
         ),
         settings=default_settings,
-        start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+        start=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        end=datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
             "historical",
         ],
@@ -301,8 +301,8 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
             "heating_degree_day",
         ),
         settings=default_settings,
-        start_date=datetime.datetime(year=2023, month=3, day=1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime.datetime(year=2023, month=5, day=1, tzinfo=ZoneInfo("UTC")),
+        start=datetime.datetime(year=2023, month=3, day=1, tzinfo=ZoneInfo("UTC")),
+        end=datetime.datetime(year=2023, month=5, day=1, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id(station_id="00044")
     given_df = request.values.all().df
     assert given_df.columns == [
@@ -360,8 +360,8 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
             "cooling_degree_hour",
         ),
         settings=default_settings,
-        start_date=datetime.datetime(year=2014, month=6, day=1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
+        start=datetime.datetime(year=2014, month=6, day=1, tzinfo=ZoneInfo("UTC")),
+        end=datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id(station_id="00044")
     given_df = request.values.all().df
     assert given_df.columns == [
@@ -421,8 +421,8 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
             ),
         ],
         settings=default_settings,
-        start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        start=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        end=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
             "historical",
         ],
@@ -501,8 +501,8 @@ def test_dwd_recent_data_result_long_single_dataset(
             "heating_degreedays",
         ),
         settings=default_settings,
-        start_date=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+        start=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        end=datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
             "historical",
         ],
@@ -598,8 +598,8 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
             ),
         ],
         settings=default_settings,
-        start_date=datetime.datetime(year=2019, month=9, day=1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime.datetime(year=2020, month=3, day=1, tzinfo=ZoneInfo("UTC")),
+        start=datetime.datetime(year=2019, month=9, day=1, tzinfo=ZoneInfo("UTC")),
+        end=datetime.datetime(year=2020, month=3, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
             "recent",
         ],
@@ -665,8 +665,8 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
     request = DwdDerivedRequest(
         parameters=[DwdDerivedMetadata.monthly.soil.thawing_thickness_bare_ground_max_month],
         settings=default_settings,
-        start_date=datetime.datetime(year=2024, month=5, day=1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime.datetime(year=2024, month=7, day=1, tzinfo=ZoneInfo("UTC")),
+        start=datetime.datetime(year=2024, month=5, day=1, tzinfo=ZoneInfo("UTC")),
+        end=datetime.datetime(year=2024, month=7, day=1, tzinfo=ZoneInfo("UTC")),
         periods=["historical"],
     ).filter_by_station_id(station_id="00150")
 
@@ -710,8 +710,8 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
     request = DwdDerivedRequest(
         parameters=[DwdDerivedMetadata.hourly.radiation_global.radiation_global],
         settings=default_settings,
-        start_date=datetime.datetime(year=2024, month=5, day=5, hour=8, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime.datetime(year=2024, month=5, day=5, hour=13, tzinfo=ZoneInfo("UTC")),
+        start=datetime.datetime(year=2024, month=5, day=5, hour=8, tzinfo=ZoneInfo("UTC")),
+        end=datetime.datetime(year=2024, month=5, day=5, hour=13, tzinfo=ZoneInfo("UTC")),
         periods=["historical"],
     ).filter_by_station_id(station_id="18001")
 
@@ -840,8 +840,8 @@ def test_get_first_day_of_months_to_fetch(
             ("monthly", "heating_degreedays"),
         ],
         settings=default_settings,
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     )
 
     values = _values_of(request)
@@ -858,8 +858,8 @@ def test_get_first_day_of_months_to_fetch_neither_start_nor_end_date_given(
             ("monthly", "heating_degreedays"),
         ],
         settings=default_settings,
-        start_date=None,
-        end_date=None,
+        start=None,
+        end=None,
     )
 
     values = _values_of(request)

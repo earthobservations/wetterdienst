@@ -662,8 +662,8 @@ def test_api_dmi_observation(default_settings: Settings) -> None:
     """Test dmi observation API."""
     request = DmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
-        start_date=datetime(2023, 6, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
-        end_date=datetime(2023, 6, 5, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        start=datetime(2023, 6, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        end=datetime(2023, 6, 5, tzinfo=zoneinfo.ZoneInfo("UTC")),
         settings=default_settings,
     ).filter_by_station_id(["06180"])
     assert not request.df.is_empty()
@@ -685,8 +685,8 @@ def test_api_rmi_observation(default_settings: Settings) -> None:
     """Test rmi observation API."""
     request = RmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
-        start_date=datetime(2023, 6, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
-        end_date=datetime(2023, 6, 5, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        start=datetime(2023, 6, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        end=datetime(2023, 6, 5, tzinfo=zoneinfo.ZoneInfo("UTC")),
         settings=default_settings,
     ).filter_by_station_id(["6447"])
     assert not request.df.is_empty()
@@ -895,8 +895,8 @@ def test_api_metno_frost(default_settings: Settings) -> None:
     """Test metno frost API."""
     request = MetnoFrostRequest(
         parameters=[("hourly", "data", "temperature_air_mean_2m")],
-        start_date="2020-01-01",
-        end_date="2020-01-02",
+        start="2020-01-01",
+        end="2020-01-02",
         settings=default_settings,
     ).filter_by_station_id("SN18700")
     assert not request.df.is_empty()
@@ -939,8 +939,8 @@ def test_api_meteofrance_synop(default_settings: Settings) -> None:
     # parsing every yearly archive since 1996, which is unnecessarily slow for a smoke test
     request = MeteoFranceSynopRequest(
         parameters=[("subdaily", "data", "temperature_air_mean_2m")],
-        start_date=datetime(2024, 1, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
-        end_date=datetime(2024, 1, 3, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        start=datetime(2024, 1, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        end=datetime(2024, 1, 3, tzinfo=zoneinfo.ZoneInfo("UTC")),
         settings=default_settings,
     ).filter_by_station_id("07005")
     assert not request.df.is_empty()
@@ -963,8 +963,8 @@ def test_api_meteofrance_observation(default_settings: Settings) -> None:
     # archive for the station's department (up to multi-decade, 100+ MB decompressed each)
     request = MeteoFranceObservationRequest(
         parameters=[("monthly", "data", "precipitation_amount")],
-        start_date=datetime(2023, 1, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
-        end_date=datetime(2023, 6, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        start=datetime(2023, 1, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        end=datetime(2023, 6, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
         settings=default_settings,
     ).filter_by_station_id("31069001")
     assert not request.df.is_empty()
@@ -1012,8 +1012,8 @@ def test_api_aemet_observation(default_settings: Settings) -> None:
     """Test AEMET observation API."""
     request = AemetObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
-        start_date="2020-01-01",
-        end_date="2020-01-02",
+        start="2020-01-01",
+        end="2020-01-02",
         settings=default_settings,
     ).filter_by_station_id("3195")
     assert not request.df.is_empty()
@@ -1036,8 +1036,8 @@ def test_api_chmi_observation(default_settings: Settings) -> None:
     """Test CHMI observation API."""
     request = ChmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
-        start_date="2020-01-01",
-        end_date="2020-01-02",
+        start="2020-01-01",
+        end="2020-01-02",
         settings=default_settings,
     ).filter_by_station_id("0-20000-0-11406")  # Cheb
     assert not request.df.is_empty()
@@ -1060,8 +1060,8 @@ def test_api_smhi_observation(default_settings: Settings) -> None:
     """Test SMHI observation API."""
     request = SmhiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
-        start_date="2020-01-01",
-        end_date="2020-01-02",
+        start="2020-01-01",
+        end="2020-01-02",
         settings=default_settings,
     ).filter_by_station_id("188790")
     assert not request.df.is_empty()
@@ -1083,8 +1083,8 @@ def test_api_fmi_observation(default_settings: Settings) -> None:
     """Test FMI observation API."""
     request = FmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
-        start_date="2024-01-01",
-        end_date="2024-01-02",
+        start="2024-01-01",
+        end="2024-01-02",
         settings=default_settings,
     ).filter_by_station_id("100971")  # Helsinki Kaisaniemi
     assert not request.df.is_empty()
@@ -1111,8 +1111,8 @@ def test_api_knmi_observation(default_settings: Settings) -> None:
     """Test KNMI observation API."""
     request = KnmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
-        start_date="2020-01-01",
-        end_date="2020-01-01",
+        start="2020-01-01",
+        end="2020-01-01",
         settings=default_settings,
     ).filter_by_station_id("06260")  # De Bilt (WMO station number, from WSI 0-20000-0-06260)
     assert not request.df.is_empty()

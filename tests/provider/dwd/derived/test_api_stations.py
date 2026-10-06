@@ -49,8 +49,8 @@ def test_dwd_derived_soil_stations_filter(default_settings: Settings) -> None:
     """Test to check station ID filter."""
     request = DwdDerivedRequest(
         parameters=["monthly", "soil"],
-        start_date="2024-05-05",
-        end_date="2026-03-05",
+        start="2024-05-05",
+        end="2026-03-05",
         settings=default_settings,
     )
     stations = request.filter_by_station_id(station_id=("01001", "00150"))
@@ -88,8 +88,8 @@ def test_dwd_derived_radiation_stations_filter(default_settings: Settings) -> No
     """Test to check station ID filter."""
     request = DwdDerivedRequest(
         parameters=["hourly", "radiation_global"],
-        start_date="2024-05-05",
-        end_date="2025-03-05",
+        start="2024-05-05",
+        end="2025-03-05",
         settings=default_settings,
     )
     stations = request.filter_by_station_id(station_id=("18000", "18575"))

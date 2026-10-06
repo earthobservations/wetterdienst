@@ -26,8 +26,8 @@ def test_meteofrance_synop_api_values() -> None:
     """Test subdaily (3-hourly synop) values, including unit conversion from source Kelvin."""
     request = MeteoFranceSynopRequest(
         parameters=[("subdaily", "data", "temperature_air_mean_2m")],
-        start_date=datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime(2024, 1, 2, tzinfo=ZoneInfo("UTC")),
+        start=datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2024, 1, 2, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("07005")
     df = next(request.values.query()).df
     values = df.get_column("value")
@@ -52,8 +52,8 @@ def test_meteofrance_synop_api_parameters(parameter: str) -> None:
     """Test that core parameters can be requested and yield data for a well-covered station."""
     request = MeteoFranceSynopRequest(
         parameters=[("subdaily", "data", parameter)],
-        start_date=datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime(2024, 1, 3, tzinfo=ZoneInfo("UTC")),
+        start=datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2024, 1, 3, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("07690")
     df = next(request.values.query()).df
     assert df.get_column("value").is_not_null().sum() > 0

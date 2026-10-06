@@ -301,8 +301,8 @@ class AemetObservationValues(TimeseriesValues):
     def _collect_daily(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         settings = cast("Settings", self.sr.stations.settings)
         api_key = settings.auth.aemet
-        start_date = self.sr.start_date
-        end_date = self.sr.end_date
+        start_date = self.sr.start
+        end_date = self.sr.end
         if not start_date or not end_date or not api_key:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # convert_timestamps() only tags naive datetimes as UTC, it doesn't convert an
@@ -367,8 +367,8 @@ class AemetObservationValues(TimeseriesValues):
         """
         settings = cast("Settings", self.sr.stations.settings)
         api_key = settings.auth.aemet
-        start_date = self.sr.start_date
-        end_date = self.sr.end_date
+        start_date = self.sr.start
+        end_date = self.sr.end
         if not start_date or not end_date or not api_key:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # convert_timestamps() only tags naive datetimes as UTC, it doesn't convert an

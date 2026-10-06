@@ -28,7 +28,7 @@ def test_imgw_meteorology_api_daily() -> None:
     """Test fetching of meteorological data."""
     request = ImgwMeteorologyRequest(
         parameters=[("daily", "klimat")],
-        start_date="2010-08-01",
+        start="2010-08-01",
     ).filter_by_station_id("253160090")
     df_expected_station = pl.DataFrame(
         [
@@ -166,7 +166,7 @@ def test_imgw_meteorology_api_monthly() -> None:
     """Test fetching of meteorological data."""
     request = ImgwMeteorologyRequest(
         parameters=[("monthly", "synop")],
-        start_date="2010-08-01",
+        start="2010-08-01",
     ).filter_by_station_id("349190600")
     df_expected_station = pl.DataFrame(
         [
@@ -398,8 +398,8 @@ def test_imgw_meteorology_api_daily_synop() -> None:
     """
     request = ImgwMeteorologyRequest(
         parameters=[("daily", "synop")],
-        start_date="2024-01-01",
-        end_date="2024-01-01",
+        start="2024-01-01",
+        end="2024-01-01",
     ).filter_by_station_id("354150100")
     values = request.values.all()
     df_expected_values = pl.DataFrame(
@@ -707,8 +707,8 @@ def test_imgw_meteorology_brak_zjawiska_is_a_zero_even_when_the_cell_is_empty(
     values = (
         ImgwMeteorologyRequest(
             parameters=[("daily", dataset, parameter)],
-            start_date=start_date,
-            end_date=start_date,
+            start=start_date,
+            end=start_date,
         )
         .filter_by_station_id(station_id)
         .values.all()
@@ -834,8 +834,8 @@ def test_imgw_meteorology_values_match_the_upstream_column(
     values = (
         ImgwMeteorologyRequest(
             parameters=[(resolution, dataset)],
-            start_date="2010-01-01" if dataset != "synop" else "2010-08-01",
-            end_date="2010-01-31" if dataset != "synop" else "2010-08-31",
+            start="2010-01-01" if dataset != "synop" else "2010-08-01",
+            end="2010-01-31" if dataset != "synop" else "2010-08-31",
         )
         .filter_by_station_id(station_id)
         .values.all()
@@ -883,8 +883,8 @@ def test_imgw_meteorology_values_read_the_status_column(
     values = (
         ImgwMeteorologyRequest(
             parameters=[(resolution, dataset, parameter)],
-            start_date=start_date,
-            end_date=start_date,
+            start=start_date,
+            end=start_date,
         )
         .filter_by_station_id(station_id)
         .values.all()
@@ -920,8 +920,8 @@ def test_imgw_meteorology_daily_synop_returns_the_columns_it_reads(parameter: st
     values = (
         ImgwMeteorologyRequest(
             parameters=[("daily", "synop", parameter)],
-            start_date="2010-01-15",
-            end_date="2010-01-15",
+            start="2010-01-15",
+            end="2010-01-15",
         )
         .filter_by_station_id("349190600")
         .values.all()
@@ -1024,8 +1024,8 @@ def test_imgw_meteorology_daily_precipitation_returns_a_dry_day_the_file_leaves_
     values = (
         ImgwMeteorologyRequest(
             parameters=[("daily", "precipitation", "precipitation_amount")],
-            start_date="2010-02-16",
-            end_date="2010-02-16",
+            start="2010-02-16",
+            end="2010-02-16",
         )
         .filter_by_station_id("249180020")
         .values.all()

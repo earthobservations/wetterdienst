@@ -23,8 +23,8 @@ def test_radar_request_site_recent_sweep_pcp_v_hdf5(default_settings: Settings) 
     """Example for testing radar sites SWEEP_PCP with timerange."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=1),
-        end_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
+        start=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(hours=1),
+        end=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -66,8 +66,8 @@ def test_radar_request_site_recent_sweep_vol_v_hdf5(default_settings: Settings) 
     """Example for testing radar sites SWEEP_VOL with timerange."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=20),
-        end_date=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
+        start=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=20),
+        end=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,

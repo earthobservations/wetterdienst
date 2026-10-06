@@ -592,13 +592,13 @@ class DwdObservationRequest(TimeseriesRequest):
     @property
     def interval(self) -> Interval | None:
         """Interval of the request."""
-        if self.start_date:
+        if self.start:
             from typing import cast  # noqa: PLC0415
 
             # cut of hours, seconds,...
             return portion.closed(
-                cast("dt.datetime", self.start_date).astimezone(ZoneInfo(self.metadata.timezone)),
-                cast("dt.datetime", self.end_date).astimezone(ZoneInfo(self.metadata.timezone)),
+                cast("dt.datetime", self.start).astimezone(ZoneInfo(self.metadata.timezone)),
+                cast("dt.datetime", self.end).astimezone(ZoneInfo(self.metadata.timezone)),
             )
         return None
 

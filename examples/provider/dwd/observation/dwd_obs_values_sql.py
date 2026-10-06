@@ -24,8 +24,8 @@ def values_sql_example() -> None:
 
     request = DwdObservationRequest(
         parameters=("hourly", "temperature_air"),
-        start_date="2019-01-01",
-        end_date="2020-01-01",
+        start="2019-01-01",
+        end="2020-01-01",
         settings=settings,
     )
 

@@ -30,7 +30,7 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings: Setti
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=DwdRadarDate.MOST_RECENT,
+        start=DwdRadarDate.MOST_RECENT,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -77,7 +77,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings: Setti
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-        start_date=DwdRadarDate.MOST_RECENT,
+        start=DwdRadarDate.MOST_RECENT,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -129,7 +129,7 @@ def test_radar_request_radolan_cdc_most_recent(default_settings: Settings, radar
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=DwdRadarResolution.DAILY,
         period=DwdRadarPeriod.RECENT,
-        start_date=DwdRadarDate.MOST_RECENT,
+        start=DwdRadarDate.MOST_RECENT,
         settings=default_settings,
     )
 
@@ -149,7 +149,7 @@ def test_radar_request_radolan_cdc_most_recent(default_settings: Settings, radar
     attrs = IsDict(
         {
             "datasize": 1620000,
-            "datetime": request.start_date.replace(tzinfo=None),
+            "datetime": request.start.replace(tzinfo=None),
             "formatversion": 3,
             "intervalseconds": 86400,
             "maxrange": "150 km",

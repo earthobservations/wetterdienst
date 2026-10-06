@@ -179,8 +179,8 @@ def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings
     """Test that the interpolation works with hourly data."""
     request = DwdObservationRequest(
         parameters=[("hourly", "temperature_air", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     result = request.interpolate(latlon=(50.0, 8.9))
@@ -210,8 +210,8 @@ def test_interpolation_temperature_air_mean_2m_daily_by_station_id(default_setti
     """Test that the interpolation works with daily data."""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=dt.datetime(1986, 10, 31, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(1986, 11, 1, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(1986, 10, 31, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(1986, 11, 1, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     expected_df = pl.DataFrame(
@@ -287,8 +287,8 @@ def test_search_radius_reaches_the_request(
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _record)
     request = DwdObservationRequest(
         parameters=[(resolution, dataset, "precipitation_amount")],
-        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
     )
     with pytest.raises(_StopError):
         getattr(request, method)(latlon=(50.0, 8.9))
@@ -300,8 +300,8 @@ def test_interpolation_precipitation_amount_minute_10(default_settings: Settings
     """Test that the interpolation works with precipitation."""
     request = DwdObservationRequest(
         parameters=[("minute_10", "precipitation", "precipitation_amount")],
-        start_date=dt.datetime(2021, 10, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2021, 10, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     result = request.interpolate(latlon=(50.0, 8.9))
@@ -331,8 +331,8 @@ def test_interpolation_sunshine_duration_daily(default_settings: Settings) -> No
     """Test that sunshine_duration can be interpolated (issue #1651)."""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "sunshine_duration")],
-        start_date=dt.datetime(2021, 6, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2021, 6, 10, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2021, 6, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2021, 6, 10, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     result = request.interpolate(latlon=(50.0, 8.9))
@@ -348,8 +348,8 @@ def test_interpolation_snow_depth_new_daily(default_settings: Settings) -> None:
     """
     request = DwdObservationRequest(
         parameters=[("daily", "precipitation_more", "snow_depth_new")],
-        start_date=dt.datetime(2021, 2, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2021, 2, 10, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2021, 2, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2021, 2, 10, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     result = request.interpolate(latlon=(50.0, 8.9))
@@ -633,8 +633,8 @@ def test_not_interpolatable_parameter(default_settings: Settings, df_interpolate
     """Test that a parameter that cannot be interpolated is handled correctly."""
     request = DwdObservationRequest(
         parameters=[("hourly", "wind", "wind_direction")],
-        start_date=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     given_df = request.interpolate(latlon=(50.0, 8.9)).df
@@ -651,8 +651,8 @@ def test_not_interpolatable_dataset(default_settings: Settings, df_interpolated_
     """Test that a dataset that cannot be interpolated is handled correctly."""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "precipitation_form")],
-        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     given_df = request.interpolate(latlon=(50.0, 8.9)).df
@@ -669,8 +669,8 @@ def test_provider_dwd_mosmix(default_settings: Settings) -> None:
     """Test a MOSMIX request with date filter."""
     request = DwdMosmixRequest(
         parameters=[("hourly", "small", "temperature_air_mean_2m")],
-        start_date=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=1),
-        end_date=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=8),
+        start=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=1),
+        end=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=8),
         settings=default_settings,
     )
     given_df = request.interpolate(latlon=(50.0, 8.9)).df
@@ -681,8 +681,8 @@ def test_interpolation_temperature_air_mean_2m_daily_three_floats(default_settin
     """Test that the interpolation works with three floats."""
     stations = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     with pytest.raises(ValueError, match="too many values to unpack"):
@@ -693,8 +693,8 @@ def test_interpolation_temperature_air_mean_2m_daily_one_floats(default_settings
     """Test that an error is raised when not enough values are provided."""
     stations = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     with pytest.raises(ValueError, match="not enough values to unpack"):
@@ -706,8 +706,8 @@ def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_se
     """Test that an error is raised when no station is found."""
     stations = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     with pytest.raises(StationNotFoundError, match="no station found for 00000"):
@@ -720,8 +720,8 @@ def test_interpolation_increased_station_distance() -> None:
     settings = Settings(ts_geo_station_distance={"precipitation_amount": 25})
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_amount")],
-        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=settings,
     )
     values = request.interpolate(latlon=(52.8, 12.9))
@@ -738,8 +738,8 @@ def test_interpolation_at_an_elevation(default_settings: Settings) -> None:
     """
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     valley = request.interpolate(latlon=(47.48, 11.06), elevation=200.0).df.get_column("value")
@@ -786,8 +786,8 @@ def test_interpolation_at_an_elevation_none_of_the_stations_can_answer(
     """
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     _blank_station_elevations(monkeypatch, pl.lit(value=False))
@@ -826,8 +826,8 @@ def test_interpolation_at_an_elevation_names_the_parameter_it_lost(
     """
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "temperature_air_mean_2m"), ("daily", "kl", "precipitation_amount")],
-        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     _blank_station_elevations(monkeypatch, pl.lit(value=False))
@@ -844,7 +844,7 @@ def test_interpolation_error_no_start_date() -> None:
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_amount")],
     )
-    with pytest.raises(ValueError, match="start_date and end_date are required for interpolation"):
+    with pytest.raises(ValueError, match="start and end are required for interpolation"):
         request.interpolate(latlon=(52.8, 12.9))
 
 
@@ -863,8 +863,8 @@ def test_interpolation_at_an_elevation_too_few_stations_left_to_interpolate(
     settings = Settings(ts_geo_use_nearby_station_distance=0.0)
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
         settings=settings,
     )
     _blank_station_elevations(monkeypatch, pl.int_range(pl.len()) < 2)
@@ -979,8 +979,8 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
     monkeypatch.setattr(DwdObservationValues, "query", _query)
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "snow_depth"), ("daily", "climate_summary", "cloud_cover_total")],
-        start_date=timestamps[0],
-        end_date=timestamps[-1],
+        start=timestamps[0],
+        end=timestamps[-1],
         settings=Settings(ts_unit_targets={"length_short": "mile"}),
     )
     get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
@@ -1092,8 +1092,8 @@ def test_interpolate_and_summarize_keep_a_reading_in_a_small_source_unit_when_un
     monkeypatch.setattr(road_api.DwdRoadValues, "query", _query)
     request = DwdRoadRequest(
         parameters=[("15_minutes", "data", "precipitation_intensity")],
-        start_date=min(readings),
-        end_date=max(readings),
+        start=min(readings),
+        end=max(readings),
         settings=Settings(ts_convert_units=False),
     )
     get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
@@ -1183,8 +1183,8 @@ def test_interpolation_places_stations_across_a_utm_zone_boundary_in_the_point_s
     monkeypatch.setattr(DwdObservationValues, "query", _query)
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=timestamp,
-        end_date=timestamp,
+        start=timestamp,
+        end=timestamp,
     )
     df = get_interpolated_df(request, latitude, longitude)
     assert df.height == 1
@@ -1267,8 +1267,8 @@ def test_interpolation_leaves_out_a_station_beyond_what_utm_covers(
     monkeypatch.setattr(DwdObservationValues, "query", _query)
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=timestamp,
-        end_date=timestamp,
+        start=timestamp,
+        end=timestamp,
     )
     with caplog.at_level(logging.INFO, logger="wetterdienst.core.interpolate"):
         df = get_interpolated_df(request, latitude, longitude)
@@ -1363,8 +1363,8 @@ def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_settings
             ("daily", "climate_summary", "temperature_air_mean_2m"),
             ("daily", "climate_summary", "temperature_air_max_2m"),
         ],
-        start_date=timestamps[0],
-        end_date=timestamps[-1],
+        start=timestamps[0],
+        end=timestamps[-1],
         settings=Settings(**settings),
     )
     df = getattr(request, method)(latlon=(latitude, longitude)).df
@@ -1470,8 +1470,8 @@ def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station
     monkeypatch.setattr(DwdObservationValues, "query", _query)
     request = DwdObservationRequest(
         parameters=[(resolution, dataset, "temperature_air_mean_2m") for resolution, dataset, _ in datasets],
-        start_date=timestamp,
-        end_date=timestamp,
+        start=timestamp,
+        end=timestamp,
     )
     get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
     df = get_df(request, latitude, longitude, 100.0)

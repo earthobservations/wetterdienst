@@ -757,7 +757,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
     def _get_urls(self, dataset: DatasetModel, station_id: str) -> list[str]:
         """Get URLs for the given dataset."""
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
-        interval = portion.closed(self.sr.start_date, self.sr.end_date) if self.sr.start_date else None
+        interval = portion.closed(self.sr.start, self.sr.end) if self.sr.start else None
         files = list_files_for_interval(url, self.sr.settings, interval)
         df_files = pl.DataFrame({"url": files})
         df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))

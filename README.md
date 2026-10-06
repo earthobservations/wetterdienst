@@ -71,7 +71,7 @@ anything built on them. It also lists every dataset and parameter per provider.
 
 - Stations, values and station history (metadata changes) through one request model
 - Find stations by name, id, distance from a point, bounding box or rank
-- Request by `parameters`, `periods`, `start_date`, `end_date`; tune the rest through `Settings`
+- Request by `parameters`, `periods`, `start`, `end`; tune the rest through `Settings`
 - Unit conversion, interpolation and summarization for a point between stations
 - DWD weather alerts (CAP warnings) with GeoJSON geometry, by community or district
 - SQL queries over results, export to CSV/JSON/Excel/Parquet/Zarr and to SQLite, PostgreSQL,
@@ -118,8 +118,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=[("daily", "climate_summary", "precipitation_amount")],
-    start_date="2002-08-11",
-    end_date="2002-08-13",
+    start="2002-08-11",
+    end="2002-08-13",
 ).filter_by_station_id(station_id=(5779,))
 
 stations = request.df

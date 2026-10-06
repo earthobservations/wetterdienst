@@ -167,8 +167,8 @@ class ChmiObservationValues(TimeseriesValues):
             frames = []
             # the month files are named by UTC calendar month; normalise so a tz-aware, non-UTC
             # request date near a month boundary still selects the correct file
-            start = cast("dt.datetime", self.sr.start_date).astimezone(_UTC)
-            end = cast("dt.datetime", self.sr.end_date).astimezone(_UTC)
+            start = cast("dt.datetime", self.sr.start).astimezone(_UTC)
+            end = cast("dt.datetime", self.sr.end).astimezone(_UTC)
             for year, month in _months(start, end):
                 url = (
                     f"{_BASE_URL}/data/{config['path']}/{category}/{year}/"
@@ -213,7 +213,7 @@ class ChmiObservationValues(TimeseriesValues):
         settings = cast("Settings", self.sr.stations.settings)
         config = _RESOLUTION_CONFIG[dataset.resolution.value]
         # the sub-daily files are partitioned by month, so a date range is required to address them
-        if config["layout"] == "subdaily" and (not self.sr.start_date or not self.sr.end_date):
+        if config["layout"] == "subdaily" and (not self.sr.start or not self.sr.end):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         frames: list[pl.DataFrame] = []

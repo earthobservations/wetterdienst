@@ -50,7 +50,7 @@ def radar_hdf5_example() -> None:
     log.info("Acquiring radar sweep data in HDF5")
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=DwdRadarDate.MOST_RECENT,
+        start=DwdRadarDate.MOST_RECENT,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,

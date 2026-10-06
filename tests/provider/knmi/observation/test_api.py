@@ -146,8 +146,8 @@ def test_knmi_moments_daily_does_not_floor_unaligned_start() -> None:
 def _request(parameters: list, start: dt.datetime, end: dt.datetime) -> KnmiObservationRequest:
     return KnmiObservationRequest(
         parameters=parameters,
-        start_date=start,
-        end_date=end,
+        start=start,
+        end=end,
         settings=Settings(auth={"knmi": "dummy-key-for-test"}),
     )
 
@@ -163,7 +163,7 @@ def test_knmi_single_daily_request_floors_start_date_to_midnight() -> None:
         dt.datetime(2020, 1, 1, 6, 30, tzinfo=UTC),
         dt.datetime(2020, 1, 3, tzinfo=UTC),
     )
-    assert request.start_date == dt.datetime(2020, 1, 1, 0, 0, tzinfo=UTC)
+    assert request.start == dt.datetime(2020, 1, 1, 0, 0, tzinfo=UTC)
 
 
 def test_knmi_single_hourly_request_floors_start_date_to_hour() -> None:
@@ -173,7 +173,7 @@ def test_knmi_single_hourly_request_floors_start_date_to_hour() -> None:
         dt.datetime(2020, 1, 1, 10, 30, tzinfo=UTC),
         dt.datetime(2020, 1, 1, 12, tzinfo=UTC),
     )
-    assert request.start_date == dt.datetime(2020, 1, 1, 10, 0, tzinfo=UTC)
+    assert request.start == dt.datetime(2020, 1, 1, 10, 0, tzinfo=UTC)
 
 
 def test_knmi_single_10_minutes_request_does_not_floor_start_date() -> None:
@@ -188,7 +188,7 @@ def test_knmi_single_10_minutes_request_does_not_floor_start_date() -> None:
         dt.datetime(2020, 1, 1, 10, 37, tzinfo=UTC),
         dt.datetime(2020, 1, 1, 11, tzinfo=UTC),
     )
-    assert request.start_date == dt.datetime(2020, 1, 1, 10, 37, tzinfo=UTC)
+    assert request.start == dt.datetime(2020, 1, 1, 10, 37, tzinfo=UTC)
 
 
 def test_knmi_mixed_resolution_request_does_not_floor_start_date() -> None:
@@ -201,7 +201,7 @@ def test_knmi_mixed_resolution_request_does_not_floor_start_date() -> None:
         dt.datetime(2020, 1, 1, 6, 30, tzinfo=UTC),
         dt.datetime(2020, 1, 3, tzinfo=UTC),
     )
-    assert request.start_date == dt.datetime(2020, 1, 1, 6, 30, tzinfo=UTC)
+    assert request.start == dt.datetime(2020, 1, 1, 6, 30, tzinfo=UTC)
 
 
 def test_knmi_non_utc_start_end_normalized_to_utc() -> None:
@@ -217,8 +217,8 @@ def test_knmi_non_utc_start_end_normalized_to_utc() -> None:
         dt.datetime(2020, 6, 1, 10, 7, tzinfo=ams),  # 10:07 CEST == 08:07 UTC
         dt.datetime(2020, 6, 1, 11, 0, tzinfo=ams),  # 11:00 CEST == 09:00 UTC
     )
-    assert request.start_date == dt.datetime(2020, 6, 1, 8, 7, tzinfo=UTC)
-    assert request.end_date == dt.datetime(2020, 6, 1, 9, 0, tzinfo=UTC)
+    assert request.start == dt.datetime(2020, 6, 1, 8, 7, tzinfo=UTC)
+    assert request.end == dt.datetime(2020, 6, 1, 9, 0, tzinfo=UTC)
 
 
 def test_knmi_moments_10_minutes_floors_unaligned_start() -> None:
@@ -415,8 +415,8 @@ def test_knmi_observation_values_daily() -> None:
     df = (
         KnmiObservationRequest(
             parameters=[("daily", "data")],
-            start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
-            end_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 1, 1, tzinfo=UTC),
         )
         .filter_by_station_id(DE_BILT)
         .values.all()
@@ -449,8 +449,8 @@ def test_knmi_observation_values_10_minutes() -> None:
     df = (
         KnmiObservationRequest(
             parameters=[("10_minutes", "data")],
-            start_date=dt.datetime(2020, 6, 1, 12, 7, tzinfo=UTC),
-            end_date=dt.datetime(2020, 6, 1, 12, 10, tzinfo=UTC),
+            start=dt.datetime(2020, 6, 1, 12, 7, tzinfo=UTC),
+            end=dt.datetime(2020, 6, 1, 12, 10, tzinfo=UTC),
         )
         .filter_by_station_id(DE_BILT)
         .values.all()

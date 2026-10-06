@@ -66,7 +66,7 @@ def radolan_rw_example() -> None:
     log.info("Acquiring RADOLAN RW composite data")
     radolan = DwdRadarValues(
         parameter=DwdRadarParameter.RW_REFLECTIVITY,
-        start_date=DwdRadarDate.LATEST,
+        start=DwdRadarDate.LATEST,
     )
 
     for item in radolan.query():

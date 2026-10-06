@@ -52,7 +52,7 @@ def radar_dx_example() -> None:
     log.info("Acquiring radar DX data")
     request = DwdRadarValues(
         parameter=DwdRadarParameter.DX_REFLECTIVITY,
-        start_date=DwdRadarDate.LATEST,
+        start=DwdRadarDate.LATEST,
         site=DwdRadarSite.BOO,
     )
 

@@ -115,8 +115,8 @@ class FmiObservationValues(TimeseriesValues):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         settings = cast("Settings", self.sr.stations.settings)
-        start_date = self.sr.start_date
-        end_date = self.sr.end_date
+        start_date = self.sr.start
+        end_date = self.sr.end
         if not start_date or not end_date:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 

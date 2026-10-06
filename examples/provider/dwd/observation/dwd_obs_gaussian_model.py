@@ -49,8 +49,8 @@ def station_example(
     """Retrieve stations of DWD that measure temperature."""
     stations = DwdObservationRequest(
         parameters=("daily", "climate_summary", "temperature_air_mean_2m"),
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
         settings=Settings(ts_convert_units=False),
     )
     return stations.filter_by_name(name=name)

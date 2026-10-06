@@ -193,8 +193,8 @@ radar data available at different locations within the DWD data repository:
 For ``RADOLAN_CDC``-data, the time resolution parameter (either hourly or daily)
 must be specified.
 
-The ``date_times`` (list of datetimes or strings) or a ``start_date``
-and ``end_date`` parameters can optionally be specified to obtain data
+The ``date_times`` (list of datetimes or strings) or a ``start``
+and ``end`` parameters can optionally be specified to obtain data
 from specific points in time.
 
 For ``RADOLAN_CDC``-data, datetimes are rounded to ``HH:50min``, as the
@@ -217,8 +217,8 @@ import wradlib as wrl
 radar = DwdRadarValues(
     parameter=DwdRadarParameter.RADOLAN_CDC,
     resolution=DwdRadarResolution.DAILY,
-    start_date="2020-09-04T12:00:00",
-    end_date="2020-09-04T12:00:00"
+    start="2020-09-04T12:00:00",
+    end="2020-09-04T12:00:00"
 )
 
 for item in radar.query():

@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the request window is `start` / `end`, no longer `start_date` / `end_date`: write
+  `DwdObservationRequest(..., start=..., end=...)` for every provider's request and
+  `DwdRadarValues`, read `StationsResult.start` / `.end`, and pass `--start` / `--end` on the CLI.
+  The old keywords and options fail with an error naming the new one. The station columns
+  `start_date` / `end_date` keep their names (GH-2437)
+
 ## [0.141.0] - 2026-10-06
 
 ### Added

@@ -27,8 +27,8 @@ def test_meteoswiss_observation_api_daily() -> None:
     """Test daily values, spanning both the historical and recent data files."""
     request = MeteoswissObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
-        start_date=datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime(2020, 1, 3, tzinfo=ZoneInfo("UTC")),
+        start=datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2020, 1, 3, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("ABO")
     df = next(request.values.query()).df
     assert df.get_column("value").is_not_null().sum() == 3
@@ -53,8 +53,8 @@ def test_meteoswiss_observation_api_resolutions(resolution: str) -> None:
     """
     request = MeteoswissObservationRequest(
         parameters=[(resolution, "data", "temperature_air_mean_2m")],
-        start_date=datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime(2022, 12, 31, tzinfo=ZoneInfo("UTC")),
+        start=datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2022, 12, 31, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("ABO")
     df = next(request.values.query()).df
     assert df.get_column("value").is_not_null().sum() > 0

@@ -1,8 +1,8 @@
 # 10_minutes
 
 10-minute in-situ observations. Each value is dated to the end of its 10-minute interval.
-A `start_date` off a 10-minute boundary is floored to one so the underlying file resolves;
-values outside the requested `[start_date, end_date]` range are then trimmed as usual.
+A `start` off a 10-minute boundary is floored to one so the underlying file resolves;
+values outside the requested `[start, end]` range are then trimmed as usual.
 
 ## metadata
 

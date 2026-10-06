@@ -355,14 +355,14 @@ class ImgwHydrologyValues(TimeseriesValues):
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         interval = None
         folder_interval = None
-        if self.sr.start_date:
-            interval = portion.closed(self.sr.start_date, self.sr.end_date)
+        if self.sr.start:
+            interval = portion.closed(self.sr.start, self.sr.end)
             # widen by 2 months on each side when pruning folders: IMGW files use "hydrological years"
             # (shifted by 2 months, see __parse_file below) internally, so e.g. a file living in the "2023"
             # folder can contain data as early as 2022-11. The exact per-file filtering below is unaffected.
             folder_interval = portion.closed(
-                self.sr.start_date - relativedelta(months=2),
-                self.sr.end_date + relativedelta(months=2),
+                self.sr.start - relativedelta(months=2),
+                self.sr.end + relativedelta(months=2),
             )
         files = list_files_for_interval(url, self.sr.settings, folder_interval)
         df_files = pl.DataFrame({"url": files})

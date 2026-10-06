@@ -50,7 +50,7 @@ def test_imgw_hydrology_api_daily() -> None:
     """Test fetching of daily hydrology data."""
     request = ImgwHydrologyRequest(
         parameters=[("daily", "hydrology")],
-        start_date="2010-08-01",
+        start="2010-08-01",
     ).filter_by_station_id("150190130")
     assert_frame_equal(request.df, _expected_station("daily"))
     values = request.values.all()
@@ -94,7 +94,7 @@ def test_imgw_hydrology_api_monthly() -> None:
     """Test fetching of monthly hydrology data."""
     request = ImgwHydrologyRequest(
         parameters=[("monthly", "hydrology")],
-        start_date="2010-06-01",
+        start="2010-06-01",
     ).filter_by_station_id("150190130")
     assert_frame_equal(request.df, _expected_station("monthly"))
     values = request.values.all()
@@ -181,8 +181,8 @@ def test_imgw_hydrology_api_daily_consolidated_yearly_file() -> None:
     """
     request = ImgwHydrologyRequest(
         parameters=[("daily", "hydrology")],
-        start_date="2023-11-01",
-        end_date="2023-11-01",
+        start="2023-11-01",
+        end="2023-11-01",
     ).filter_by_station_id("149180020")
     values = request.values.all()
     df_expected = pl.DataFrame(
@@ -229,7 +229,7 @@ def test_imgw_hydrology_api_monthly_recent_export_formats() -> None:
     ]:
         request = ImgwHydrologyRequest(
             parameters=[("monthly", "hydrology")],
-            start_date=start_date,
+            start=start_date,
         ).filter_by_station_id("149180020")
         values = request.values.all()
         discharge = values.df.filter(pl.col("parameter").cast(pl.String).str.starts_with("discharge")).sort("parameter")

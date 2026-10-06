@@ -26,8 +26,8 @@ def test_summary_by_station_id_answers_at_the_station_altitude(default_settings:
     """
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 3, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 3, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     elevation = request.all().df.filter(pl.col("station_id").eq("01050")).get_column("elevation").item()
@@ -42,8 +42,8 @@ def test_summary_temperature_air_mean_2m_daily(default_settings: Settings) -> No
     """Test summarization of temperature_air_mean_2m."""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(1965, 12, 31, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(1965, 12, 31, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     selected_dates = [
@@ -97,8 +97,8 @@ def test_not_summarizable_parameter(default_settings: Settings) -> None:
     """Test that a parameter that cannot be summarized is handled correctly."""
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "precipitation_form")],
-        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     result = request.summarize(latlon=(50.0, 8.9))
@@ -128,8 +128,8 @@ def test_provider_dwd_mosmix(default_settings: Settings) -> None:
     """Test a MOSMIX request with date filter."""
     request = DwdMosmixRequest(
         parameters=[("hourly", "small", "temperature_air_mean_2m")],
-        start_date=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=1),
-        end_date=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=8),
+        start=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=1),
+        end=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=8),
         settings=default_settings,
     )
     given_df = request.summarize(latlon=(50.0, 8.9)).df
@@ -141,7 +141,7 @@ def test_summary_error_no_start_date() -> None:
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_amount")],
     )
-    with pytest.raises(ValueError, match="start_date and end_date are required for summarization"):
+    with pytest.raises(ValueError, match="start and end are required for summarization"):
         request.summarize(latlon=(52.8, 12.9))
 
 
@@ -159,8 +159,8 @@ def test_summary_at_an_elevation_none_of_the_stations_can_answer(
     """
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     original = DwdObservationRequest.filter_by_distance

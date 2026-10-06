@@ -49,7 +49,7 @@ def radar_scan_precip() -> None:
     """Retrieve radar sweep scan of precipitation provided by DWD."""
     request_velocity = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-        start_date=DwdRadarDate.MOST_RECENT,
+        start=DwdRadarDate.MOST_RECENT,
         site=DwdRadarSite.ESS,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.POLARIMETRIC,
@@ -57,14 +57,14 @@ def radar_scan_precip() -> None:
     )
     request_reflectivity = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
-        start_date=DwdRadarDate.MOST_RECENT,
+        start=DwdRadarDate.MOST_RECENT,
         site=DwdRadarSite.ESS,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.POLARIMETRIC,
         settings=Settings(cache_disable=True),
     )
 
-    log.info(f"Acquiring radar SWEEP_PCP data for {DwdRadarSite.ESS} at {request_velocity.start_date}")
+    log.info(f"Acquiring radar SWEEP_PCP data for {DwdRadarSite.ESS} at {request_velocity.start}")
 
     # Submit requests.
     results = chain(request_velocity.query(), request_reflectivity.query())

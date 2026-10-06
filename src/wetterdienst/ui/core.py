@@ -1190,8 +1190,8 @@ def _get_stations_request(
 
     kwargs: dict[str, Any] = {
         "parameters": parameters,
-        "start_date": start_date,
-        "end_date": end_date,
+        "start": start_date,
+        "end": end_date,
         # every request takes periods and validates them against what its datasets publish, so pass
         # them through rather than deciding here which provider is allowed to hear about them
         "periods": getattr(request, "periods", None),

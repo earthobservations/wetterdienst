@@ -70,8 +70,8 @@ def radolan_grid_example() -> None:
         parameter=DwdRadarParameter.RADOLAN_CDC,
         resolution=DwdRadarResolution.DAILY,
         period=DwdRadarPeriod.HISTORICAL,
-        start_date="2020-09-04T12:00:00",
-        end_date="2020-09-04T12:00:00",
+        start="2020-09-04T12:00:00",
+        end="2020-09-04T12:00:00",
     )
 
     for item in radolan.query():
