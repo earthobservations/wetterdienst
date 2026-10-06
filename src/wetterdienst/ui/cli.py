@@ -127,12 +127,24 @@ issue_opt = click.option(
     type=click.STRING,
     help="DWD MOSMIX/DMO/SWSMOS model run (ISO 8601); list them with: wetterdienst issues. Default: the latest",
 )
-date_opt = click.option("--date", type=click.STRING, help=_DATE_HELP)
+timestamp_opt = click.option("--timestamp", type=click.STRING, help=_DATE_HELP)
+
+
+def _refuse_date(ctx: click.Context, _param: click.Parameter, value: str | None) -> None:
+    """Refuse --date, naming --timestamp, the name it was given (GH-2438)."""
+    if value is not None:
+        msg = "--date was renamed to --timestamp."
+        raise click.UsageError(msg, ctx)
+
+
+# --date, the old name of --timestamp, hidden and refused by naming the new one, where click would
+# only say that it knows no such option
+renamed_date_opt = click.option("--date", hidden=True, expose_value=False, callback=_refuse_date)
 start_date_opt = click.option(
     "--start-date",
     "start_date",
     type=click.STRING,
-    help="Start of a date range, instead of --date. Given alone, it is a single date.",
+    help="Start of a date range, instead of --timestamp. Given alone, it is a single date.",
 )
 end_date_opt = click.option(
     "--end-date",
@@ -479,20 +491,20 @@ def _require_one_of(**given: bool) -> None:
         raise click.UsageError(msg, ctx)
 
 
-def _resolve_date(date: str | None, start_date: str | None, end_date: str | None) -> str | None:
-    """Resolve --date from either --date or the --start-date/--end-date pair.
+def _resolve_date(timestamp: str | None, start_date: str | None, end_date: str | None) -> str | None:
+    """Resolve the timestamp from either --timestamp or the --start-date/--end-date pair.
 
     If only --end-date is given, it is treated as a single-point date (start == end).
     Raises click.UsageError when conflicting options are supplied.
     """
-    if date and (start_date or end_date):
-        msg = "Use either --date or --start-date / --end-date, not both."
+    if timestamp and (start_date or end_date):
+        msg = "Use either --timestamp or --start-date / --end-date, not both."
         raise click.UsageError(msg)
     if start_date or end_date:
         start = start_date or end_date
         end = end_date or start_date
         return f"{start}/{end}" if start != end else start
-    return date
+    return timestamp
 
 
 # the top-level help is an overview and nothing more: each command's options are in its own help,
@@ -506,7 +518,7 @@ A typical session finds a provider's network, then a station, then reads its dat
 \b
     wetterdienst about coverage
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --name=Dresden-Klotzsche
-    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --station=01048 --date=2020-05
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --station=01048 --timestamp=2020-05
 
 Run `wetterdienst COMMAND --help` for a command's options and examples.
 """
@@ -569,20 +581,20 @@ VALUES_EXAMPLES = r"""
         --name=Dresden-Hosterwitz
 
     # a date covers everything it names: a day, a month, a year
-    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --date=2020-05-01 --station=1048
-    wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl --date=2020-05 --station=1048
-    wetterdienst values --provider=dwd --network=observation --parameters=annual/kl --date=2019 --station=1048,4411
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --timestamp=2020-05-01 --station=1048
+    wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl --timestamp=2020-05 --station=1048
+    wetterdienst values --provider=dwd --network=observation --parameters=annual/kl --timestamp=2019 --station=1048,4411
 
     # a range, as an ISO 8601 interval or as --start-date/--end-date; historical and recent data are joined
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
-        --date=1969-01-01/2020-06-11 --station=1048
+        --timestamp=1969-01-01/2020-06-11 --station=1048
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
         --start-date=2020-05-01 --end-date=2020-05-05 --station=1048
 
     # two parameters from different datasets, hourly, one column each
     wetterdienst values --provider=dwd --network=observation \
         --parameters=hourly/precipitation/precipitation_amount,hourly/air_temperature/temperature_air_mean_2m \
-        --date=2020-06-15T12/2020-06-16T12 --station=1048,4411 --shape=wide
+        --timestamp=2020-06-15T12/2020-06-16T12 --station=1048,4411 --shape=wide
 
     # the days with a wind gust above 20 m/s, one row per value or, filtering on the column, one per day
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
@@ -592,7 +604,7 @@ VALUES_EXAMPLES = r"""
 
     # the five stations closest to a point that have data for the date
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
-        --latitude=49.9195 --longitude=8.9671 --rank=5 --date=2020-06-30
+        --latitude=49.9195 --longitude=8.9671 --rank=5 --timestamp=2020-06-30
 
     # MOSMIX and DMO forecasts
     wetterdienst values --provider=dwd --network=mosmix --parameters=hourly/large/ttt,hourly/large/ff --station=65510
@@ -608,21 +620,23 @@ VALUES_EXAMPLES = r"""
 INTERPOLATE_EXAMPLES = r"""
     # daily precipitation where a station stands, from the stations around it
     wetterdienst interpolate --provider=dwd --network=observation \
-        --parameters=daily/climate_summary/precipitation_amount --date=2020-06-30 --station=01048
+        --parameters=daily/climate_summary/precipitation_amount --timestamp=2020-06-30 --station=01048
 
     # the same for a point
     wetterdienst interpolate --provider=dwd --network=observation \
-        --parameters=daily/climate_summary/precipitation_amount --date=2020-06-30 --latitude=49.9195 --longitude=8.9671
+        --parameters=daily/climate_summary/precipitation_amount --timestamp=2020-06-30 \
+        --latitude=49.9195 --longitude=8.9671
 """
 
 SUMMARIZE_EXAMPLES = r"""
     # daily precipitation where a station stands, from the nearest station with a value
     wetterdienst summarize --provider=dwd --network=observation \
-        --parameters=daily/climate_summary/precipitation_amount --date=2020-06-30 --station=01048
+        --parameters=daily/climate_summary/precipitation_amount --timestamp=2020-06-30 --station=01048
 
     # the same for a point
     wetterdienst summarize --provider=dwd --network=observation \
-        --parameters=daily/climate_summary/precipitation_amount --date=2020-06-30 --latitude=49.9195 --longitude=8.9671
+        --parameters=daily/climate_summary/precipitation_amount --timestamp=2020-06-30 \
+        --latitude=49.9195 --longitude=8.9671
 """
 
 COVERAGE_EXAMPLES = r"""
@@ -660,7 +674,7 @@ ALERTS_EXAMPLES = r"""
 
     # the warnings active at a past time: replace YYYY-MM-DDTHH:MM with one within the last
     # ~48 hours, all DWD keeps
-    wetterdienst alerts --granularity=district --date=YYYY-MM-DDTHH:MM
+    wetterdienst alerts --granularity=district --timestamp=YYYY-MM-DDTHH:MM
 
     # to a GeoJSON file
     wetterdienst alerts --format=geojson --target=file://alerts.geojson
@@ -1078,7 +1092,7 @@ def stations(
     stations_ = get_stations(
         api=api,
         request=request,
-        date=None,
+        timestamp=None,
         settings=Settings(),
     )
 
@@ -1253,7 +1267,7 @@ def history(
     # built outside the catch-all below, so that a malformed `WD_*` setting is told by its variable
     settings = Settings()
     try:
-        stations_ = get_stations(api=api, request=request, date=None, settings=settings)
+        stations_ = get_stations(api=api, request=request, timestamp=None, settings=settings)
     except Exception as e:
         # a parameter or station the caller can rephrase is told in one line, as `/api/history`
         # answers it with a 400; an upstream failure keeps its traceback
@@ -1302,7 +1316,8 @@ def history(
 @network_opt
 @parameters_opt
 @periods_opt
-@date_opt
+@timestamp_opt
+@renamed_date_opt
 @start_date_opt
 @end_date_opt
 @lead_time_opt
@@ -1373,7 +1388,7 @@ def values(
     parameters: list[str],
     periods: list[str],
     lead_time: Literal["short", "long"],
-    date: str,
+    timestamp: str,
     start_date: str,
     end_date: str,
     issue: str,
@@ -1412,7 +1427,7 @@ def values(
     Select the stations with exactly one of --all, --station, --name, --latitude/--longitude with
     --rank or --distance, --left/--bottom/--right/--top, or --sql.
     """
-    date_resolved = _resolve_date(date, start_date, end_date)
+    timestamp_resolved = _resolve_date(timestamp, start_date, end_date)
     request = _validate_request(
         ValuesRequest,
         {
@@ -1421,7 +1436,7 @@ def values(
             "parameters": parameters,
             "periods": periods,
             "lead_time": lead_time,
-            "date": date_resolved,
+            "timestamp": timestamp_resolved,
             "issue": issue,
             "all": all_,
             "station": station,
@@ -1501,7 +1516,8 @@ def values(
 @network_opt
 @parameters_opt
 @periods_opt
-@date_opt
+@timestamp_opt
+@renamed_date_opt
 @start_date_opt
 @end_date_opt
 @lead_time_opt
@@ -1533,7 +1549,7 @@ def interpolate(
     interpolation_station_distance_homogeneous: float | None,
     interpolation_station_distance_heterogeneous: float | None,
     use_nearby_station_distance: float,
-    date: str,
+    timestamp: str,
     start_date: str,
     end_date: str,
     issue: str,
@@ -1557,9 +1573,9 @@ def interpolate(
 
     Give the point as exactly one of --station or --latitude/--longitude.
     """
-    date_resolved = _resolve_date(date, start_date, end_date)
-    if not date_resolved:
-        msg = "Provide either --date or --start-date."
+    timestamp_resolved = _resolve_date(timestamp, start_date, end_date)
+    if not timestamp_resolved:
+        msg = "Provide either --timestamp or --start-date."
         raise click.UsageError(msg)
     request = _validate_request(
         InterpolationRequest,
@@ -1573,7 +1589,7 @@ def interpolate(
             "interpolation_station_distance_homogeneous": interpolation_station_distance_homogeneous,
             "interpolation_station_distance_heterogeneous": interpolation_station_distance_heterogeneous,
             "use_nearby_station_distance": use_nearby_station_distance,
-            "date": date_resolved,
+            "timestamp": timestamp_resolved,
             "issue": issue,
             "station": station,
             "latitude": latitude,
@@ -1645,7 +1661,8 @@ def interpolate(
 @network_opt
 @parameters_opt
 @periods_opt
-@date_opt
+@timestamp_opt
+@renamed_date_opt
 @start_date_opt
 @end_date_opt
 @lead_time_opt
@@ -1677,7 +1694,7 @@ def summarize(
     summary_station_distance_homogeneous: float | None,
     summary_station_distance_heterogeneous: float | None,
     use_nearby_station_distance: float,
-    date: str,
+    timestamp: str,
     start_date: str,
     end_date: str,
     issue: str,
@@ -1701,9 +1718,9 @@ def summarize(
 
     Give the point as exactly one of --station or --latitude/--longitude.
     """
-    date_resolved = _resolve_date(date, start_date, end_date)
-    if not date_resolved:
-        msg = "Provide either --date or --start-date."
+    timestamp_resolved = _resolve_date(timestamp, start_date, end_date)
+    if not timestamp_resolved:
+        msg = "Provide either --timestamp or --start-date."
         raise click.UsageError(msg)
     request = _validate_request(
         SummaryRequest,
@@ -1717,7 +1734,7 @@ def summarize(
             "summary_station_distance_homogeneous": summary_station_distance_homogeneous,
             "summary_station_distance_heterogeneous": summary_station_distance_heterogeneous,
             "use_nearby_station_distance": use_nearby_station_distance,
-            "date": date_resolved,
+            "timestamp": timestamp_resolved,
             "issue": issue,
             "station": station,
             "latitude": latitude,
@@ -1864,7 +1881,7 @@ def radar(
     help="Language of the warning texts. Default: en",
 )
 @click.option(
-    "--date",
+    "--timestamp",
     type=click.STRING,
     default=None,
     help=(
@@ -1872,6 +1889,7 @@ def radar(
         "Defaults to the latest snapshot. Must fall within DWD's rolling ~48-hour window."
     ),
 )
+@renamed_date_opt
 @click.option(
     "--format",
     "fmt",
@@ -1894,7 +1912,7 @@ def radar(
 def alerts(
     granularity: str,
     language: str,
-    date: str,
+    timestamp: str,
     fmt: str,
     target: str,
     pretty: bool,  # noqa: FBT001
@@ -1914,19 +1932,21 @@ def alerts(
     # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
     # variable is a `ValueError`, and not the command line's to fix
     settings = Settings()
-    # granularity, language and format are click choices, so only the date reaches this refusal: one
-    # that does not parse, or one an offset carries out of what a datetime holds
+    # granularity, language and format are click choices, so only the timestamp reaches this refusal:
+    # one that does not parse, or one an offset carries out of what a datetime holds
     try:
-        request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=settings)
+        request = DwdWeatherAlertRequest(
+            granularity=granularity, language=language, timestamp=timestamp, settings=settings
+        )
     except (ValueError, OverflowError) as e:
-        raise click.BadParameter(str(e), param_hint="--date") from e
+        raise click.BadParameter(str(e), param_hint="--timestamp") from e
 
     try:
         result = request.query()
     except InvalidTimeIntervalError as e:
         # a date before DWD's rolling window, the one refusal of the request's own `query` raises;
         # any other `ValueError` comes from DWD's feed (a timestamp, polygon or filename it cannot read)
-        raise click.BadParameter(str(e), param_hint="--date") from e
+        raise click.BadParameter(str(e), param_hint="--timestamp") from e
     except Exception as e:
         log.exception("Failed to acquire weather alerts")
         raise click.ClickException(str(e)) from e

@@ -30,6 +30,8 @@ if TYPE_CHECKING:
 
     from fastapi import FastAPI
     from fastmcp import FastMCP
+    from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
+    from fastmcp.tools import ToolResult
     from starlette.types import ASGIApp, Receive, Scope, Send
 
 # Internal ASGI base URL for the in-process httpx2 client that backs the tools.
@@ -126,9 +128,10 @@ resolution, dataset and parameter, in timestamp order within each group. A param
 timestamp is the LAST item of its group, not the last item of the array.
 - Responses are compact by default (just the `values`). Keep them small (and answer in fewer calls) \
 by querying a single "resolution/dataset/parameter" and -- if you only need one day -- a \
-`date` (e.g. date="2026-07-25"; a station's most recent day is its `end_date` from `stations`). A \
-date covers everything it names, so a day of hourly data is that day's 24 readings, "2026-07" is \
-the month and "2026" the year; name the hour (date="2026-07-25T12") for a single reading.
+`timestamp` (e.g. timestamp="2026-07-25"; a station's most recent day is its `end_date` from \
+`stations`). A date covers everything it names, so a day of hourly data is that day's 24 readings, \
+"2026-07" is the month and "2026" the year; name the hour (timestamp="2026-07-25T12") for a single \
+reading.
 - The default JSON is already machine-readable — do NOT re-request the same data in a different \
 format (csv/wide/pretty) or with unrelated flags; that just wastes calls.
 
@@ -165,6 +168,38 @@ _TOOL_NAMES = {
     "stripes_values_api_stripes_values_get": "stripes_values",
     "stripes_image_api_stripes_image_get": "stripes_image",
 }
+
+
+def _refuse_renamed_arguments() -> Middleware:
+    """Build the middleware that refuses a tool argument given by its old name, naming the new one.
+
+    A tool's arguments are its REST endpoint's query parameters, and FastMCP sends the endpoint
+    only the ones the tool's schema names: an argument by a name since renamed would be dropped,
+    and the call answered as if it had not been given -- a dated `values` call as an undated one.
+    A tool taking the new name refuses the old one, as its endpoint does (GH-2438).
+    """
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+    from fastmcp.server.middleware import Middleware  # noqa: PLC0415
+
+    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS  # noqa: PLC0415
+
+    class RefuseRenamedArguments(Middleware):
+        async def on_call_tool(
+            self,
+            context: MiddlewareContext[Any],
+            call_next: CallNext[Any, ToolResult],
+        ) -> ToolResult:
+            arguments = context.message.arguments or {}
+            renamed = {old: new for old, new in RENAMED_REQUEST_PARAMETERS.items() if old in arguments}
+            if renamed and context.fastmcp_context is not None:
+                tool = await context.fastmcp_context.fastmcp.get_tool(context.message.name)
+                taken = tool.parameters.get("properties", {}) if tool is not None else {}
+                refused = [f"{old} was renamed to {new}" for old, new in renamed.items() if new in taken]
+                if refused:
+                    raise ToolError("; ".join(refused))
+            return await call_next(context)
+
+    return RefuseRenamedArguments()
 
 
 def build_mcp_server(rest_app: FastAPI) -> FastMCP:
@@ -216,4 +251,5 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         instructions=INSTRUCTIONS,
         providers=[provider],
         lifespan=lifespan,
+        middleware=[_refuse_renamed_arguments()],
     )

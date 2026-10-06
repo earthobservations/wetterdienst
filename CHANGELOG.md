@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the single date or interval a request names is `timestamp`, no longer `date`:
+  `/api/values`, `/api/interpolate`, `/api/summarize`, `/api/alerts` and their MCP tools,
+  `--timestamp` of the CLI's `values`, `interpolate`, `summarize` and `alerts`, and
+  `DwdWeatherAlertRequest(timestamp=...)` with its attribute `.timestamp`. Write
+  `timestamp=2020-05-01` where you wrote `date=2020-05-01`; the old name is refused with an error
+  naming the new one (GH-2438)
+
 ## [0.141.0] - 2026-10-06
 
 ### Added

@@ -1606,7 +1606,7 @@ def test_dmo_a_refused_parameter_is_a_400_from_the_geo_endpoints_too(
             "network": "dmo",
             "parameters": "hourly/icon/precipitation_amount_last_3h",
             "station": "10382",
-            "date": "2026-10-01",
+            "timestamp": "2026-10-01",
         },
     )
     assert response.status_code == 400, response.text

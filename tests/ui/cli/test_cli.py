@@ -554,11 +554,11 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo_
         ),
         (["history", *_DWD_KL], "Error: Missing option: one of '--all' or '--station'.\n"),
         (
-            ["interpolate", *_DWD_KL, "--date=2020-06-30", "--station=01048", "--latitude=51", "--longitude=13.7"],
+            ["interpolate", *_DWD_KL, "--timestamp=2020-06-30", "--station=01048", "--latitude=51", "--longitude=13.7"],
             "Error: Options '--station' and '--latitude' cannot be used together.\n",
         ),
         (
-            ["summarize", *_DWD_KL, "--date=2020-06-30"],
+            ["summarize", *_DWD_KL, "--timestamp=2020-06-30"],
             "Error: Missing option: one of '--station' or ('--latitude' and '--longitude').\n",
         ),
         (["radar"], f"Error: {_RADAR_ONE_OF}\n"),
@@ -652,7 +652,7 @@ _POINT_ARGS = [
     "--network=observation",
     "--parameters=daily/kl/temperature_air_mean_2m",
     "--station=00071",
-    "--date=1986-10-31",
+    "--timestamp=1986-10-31",
 ]
 
 
@@ -910,8 +910,8 @@ def test_cli_values_refuses_an_option_beside_a_malformed_variable_another_option
     "args",
     [
         pytest.param(["values", *_DWD_KL, "--station=01048"], id="values"),
-        pytest.param(["interpolate", *_DWD_KL, "--station=01048", "--date=2020-06-30"], id="interpolate"),
-        pytest.param(["summarize", *_DWD_KL, "--station=01048", "--date=2020-06-30"], id="summarize"),
+        pytest.param(["interpolate", *_DWD_KL, "--station=01048", "--timestamp=2020-06-30"], id="interpolate"),
+        pytest.param(["summarize", *_DWD_KL, "--station=01048", "--timestamp=2020-06-30"], id="summarize"),
     ],
 )
 def test_cli_refuses_unknown_unit_targets_unit(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
@@ -1137,3 +1137,23 @@ def test_cli_tells_a_numeric_auth_setting_by_its_variable(monkeypatch: pytest.Mo
     assert result.exit_code == 1, result.output
     assert "Error: WD_AUTH__CEDA is invalid: Input should be a valid tuple" in result.output.splitlines()
     assert "Traceback" not in result.output
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(["values", *_DWD_KL, "--station=01048"], id="values"),
+        pytest.param(["interpolate", *_DWD_KL, "--station=01048"], id="interpolate"),
+        pytest.param(["summarize", *_DWD_KL, "--station=01048"], id="summarize"),
+        pytest.param(["alerts"], id="alerts"),
+    ],
+)
+def test_cli_date_is_refused_naming_timestamp(args: list[str]) -> None:
+    """Test --date, renamed to --timestamp, is refused by naming it, where click knew no such option (GH-2438)."""
+    result = CliRunner().invoke(cli, [*args, "--date=2020-06-30"])
+    assert result.exit_code == 2, result.output
+    assert "Error: --date was renamed to --timestamp." in result.output
+    # the old name is no option to offer
+    help_ = CliRunner().invoke(cli, [args[0], "--help"])
+    assert "--timestamp" in help_.output
+    assert "--date " not in help_.output

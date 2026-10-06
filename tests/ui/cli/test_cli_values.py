@@ -30,7 +30,7 @@ SETTINGS_VALUES = (
     (
         "dwd",
         "observation",
-        ["--parameters=daily/kl", "--date=2020-06-30"],
+        ["--parameters=daily/kl", "--timestamp=2020-06-30"],
         "01048",
         "Dresden-Klotzsche",
     ),
@@ -39,7 +39,7 @@ SETTINGS_VALUES = (
         "mosmix",
         [
             "--parameters=hourly/large",
-            f"--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo('UTC')) + dt.timedelta(days=2), '%Y-%m-%d')}",
+            f"--timestamp={dt.datetime.strftime(dt.datetime.now(ZoneInfo('UTC')) + dt.timedelta(days=2), '%Y-%m-%d')}",
         ],
         "10488",
         "DRESDEN",
@@ -49,7 +49,7 @@ SETTINGS_VALUES = (
         "dmo",
         [
             "--parameters=hourly/icon",
-            f"--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo('UTC')) + dt.timedelta(days=2), '%Y-%m-%d')}",
+            f"--timestamp={dt.datetime.strftime(dt.datetime.now(ZoneInfo('UTC')) + dt.timedelta(days=2), '%Y-%m-%d')}",
         ],
         "10488",
         "DRESDEN",
@@ -60,7 +60,7 @@ SETTINGS_VALUES = (
         [
             "--parameters=hourly/icon",
             "--lead_time=long",
-            f"--date={dt.datetime.strftime(dt.datetime.now(ZoneInfo('UTC')) + dt.timedelta(days=5), '%Y-%m-%d')}",
+            f"--timestamp={dt.datetime.strftime(dt.datetime.now(ZoneInfo('UTC')) + dt.timedelta(days=5), '%Y-%m-%d')}",
         ],
         "10488",
         "DRESDEN",
@@ -217,7 +217,7 @@ def test_cli_values_json_multiple_datasets() -> None:
         network="observation",
         setting=[
             "--parameters=daily/kl,daily/more_precip",
-            "--date=2020-06-30",
+            "--timestamp=2020-06-30",
         ],
         station="01048",
         fmt="json",
@@ -504,7 +504,7 @@ def test_cli_values_excel(
     if IS_WINDOWS:
         filename.unlink(missing_ok=True)
     assert "station_id" in df.columns
-    # every row is this station's: MOSMIX and DMO are hourly, and `--date` names a day, so the
+    # every row is this station's: MOSMIX and DMO are hourly, and `--timestamp` names a day, so the
     # export holds that day's readings rather than the single one at midnight
     assert df.get_column("station_id").unique().to_list() == [station_id]
 
@@ -558,7 +558,7 @@ def test_cli_values_custom_units() -> None:
         network="observation",
         setting=[
             "--parameters=daily/kl/temperature_air_mean_2m",
-            "--date=2022-01-01",
+            "--timestamp=2022-01-01",
         ],
         station="01048",
         fmt="json",
@@ -594,7 +594,7 @@ def test_cli_values_image(fmt: str) -> None:
         network="observation",
         setting=[
             "--parameters=daily/kl",
-            "--date=2020-06-30",
+            "--timestamp=2020-06-30",
         ],
         station="01048",
         fmt=fmt,
@@ -610,7 +610,7 @@ def test_cli_values_image_html() -> None:
         network="observation",
         setting=[
             "--parameters=daily/kl",
-            "--date=2020-06-30",
+            "--timestamp=2020-06-30",
         ],
         station="01048",
         fmt="html",
@@ -627,7 +627,7 @@ def test_cli_values_image_pdf() -> None:
         network="observation",
         setting=[
             "--parameters=daily/kl",
-            "--date=2020-06-30",
+            "--timestamp=2020-06-30",
         ],
         station="01048",
         fmt="pdf",
@@ -637,7 +637,7 @@ def test_cli_values_image_pdf() -> None:
 
 @pytest.mark.remote
 def test_cli_values_start_date_end_date() -> None:
-    """Test --start-date/--end-date as alternative to --date interval."""
+    """Test --start-date/--end-date as alternative to --timestamp interval."""
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
@@ -704,7 +704,7 @@ def test_cli_values_name_filter() -> None:
             "--network=observation",
             "--parameters=daily/kl",
             "--name=Dresden-Klotzsche",
-            "--date=2020-06-30",
+            "--timestamp=2020-06-30",
             "--format=json",
         ],
     )
@@ -715,7 +715,7 @@ def test_cli_values_name_filter() -> None:
 
 
 def test_cli_values_date_and_start_date_conflict() -> None:
-    """Test that --date and --start-date together raise an error."""
+    """Test that --timestamp and --start-date together raise an error."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -725,16 +725,16 @@ def test_cli_values_date_and_start_date_conflict() -> None:
             "--network=observation",
             "--parameters=daily/kl",
             "--station=01048",
-            "--date=2020-06-30",
+            "--timestamp=2020-06-30",
             "--start-date=2020-06-30",
         ],
     )
     assert result.exit_code != 0
-    assert "Use either --date or --start-date" in result.output
+    assert "Use either --timestamp or --start-date" in result.output
 
 
 def test_cli_values_date_and_end_date_conflict() -> None:
-    """Test that --date and --end-date together raise an error."""
+    """Test that --timestamp and --end-date together raise an error."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -744,12 +744,12 @@ def test_cli_values_date_and_end_date_conflict() -> None:
             "--network=observation",
             "--parameters=daily/kl",
             "--station=01048",
-            "--date=2020-06-30",
+            "--timestamp=2020-06-30",
             "--end-date=2020-06-30",
         ],
     )
     assert result.exit_code != 0
-    assert "Use either --date or --start-date" in result.output
+    assert "Use either --timestamp or --start-date" in result.output
 
 
 def test_cli_values_without_the_bufr_reader_says_what_to_install(
@@ -824,7 +824,7 @@ def test_cli_values_reports_an_empty_window_once(
                 "--network=observation",
                 "--parameters=daily/kl",
                 "--station=01048",
-                "--date=2020-06-30",
+                "--timestamp=2020-06-30",
             ],
         )
 
@@ -1012,7 +1012,7 @@ def test_cli_values_a_value_error_from_the_values_exits_1(
                 "--network=observation",
                 "--parameters=daily/kl",
                 "--station=01048",
-                "--date=2020-06-30",
+                "--timestamp=2020-06-30",
                 *given,
             ],
         )
@@ -1073,7 +1073,7 @@ def test_cli_values_image_wide() -> None:
         network="observation",
         setting=[
             "--parameters=daily/kl/temperature_air_mean_2m,daily/more_precip/precipitation_amount",
-            "--date=2020-01-01/2020-01-05",
+            "--timestamp=2020-01-01/2020-01-05",
         ],
         station="01048",
         fmt="html",

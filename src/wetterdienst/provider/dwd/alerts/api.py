@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 import polars as pl
+from typing_extensions import Never
 
 from wetterdienst.exceptions import InvalidTimeIntervalError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -179,38 +180,50 @@ class DwdWeatherAlertRequest:
 
     Fetches a DWD warning snapshot (all warnings active at a point in time) for a given granularity
     and language and parses it into a :class:`DwdWeatherAlertResult`. By default the latest snapshot
-    is used; a ``date`` selects a historical snapshot from DWD's rolling ~48-hour archive instead.
+    is used; a ``timestamp`` selects a historical snapshot from DWD's rolling ~48-hour archive instead.
     """
 
     def __init__(
         self,
         granularity: str | DwdWeatherAlertGranularity = DwdWeatherAlertGranularity.COMMUNITY,
         language: str | DwdWeatherAlertLanguage = DwdWeatherAlertLanguage.ENGLISH,
-        date: str | dt.datetime | None = None,
+        timestamp: str | dt.datetime | None = None,
         settings: Settings | None = None,
+        **kwargs: Never,
     ) -> None:
         """Initialize the request.
 
         Args:
             granularity: ``community`` (per Gemeinde, default) or ``district`` (per Landkreis).
             language: one of ``de``, ``en`` (default), ``es``, ``fr``, ``mul``.
-            date: point in time to select the active-warnings snapshot for. ``None`` (default) uses
-                the latest snapshot. Otherwise the newest snapshot produced at or before ``date`` is
+            timestamp: point in time to select the active-warnings snapshot for. ``None`` (default)
+                uses the latest snapshot. Otherwise the newest snapshot produced at or before it is
                 used; it must fall within DWD's rolling ~48-hour window. A naive datetime or ISO
                 string is interpreted as UTC.
             settings: settings for the request.
+            kwargs: none is taken; ``date``, the old name of ``timestamp`` (GH-2438), is refused
+                with an error naming it.
 
         """
+        if kwargs:
+            name = next(iter(kwargs))
+            msg = (
+                "date was renamed to timestamp"
+                if name == "date"
+                else f"{type(self).__name__}() got an unexpected keyword argument {name!r}"
+            )
+            raise TypeError(msg)
         self.granularity = self._parse_granularity(granularity)
         self.language = self._parse_language(language)
-        self.date = self._parse_date(date)
+        self.timestamp = self._parse_timestamp(timestamp)
         self.settings = settings or Settings()
 
     def __repr__(self) -> str:
         """Return a string representation of the request."""
         return (
             f"DwdWeatherAlertRequest(granularity={self.granularity.value}, "
-            f"language={self.language.value}, date={self.date.isoformat() if self.date else None})"
+            f"language={self.language.value}, "
+            f"timestamp={self.timestamp.isoformat() if self.timestamp else None})"
         )
 
     @staticmethod
@@ -245,18 +258,18 @@ class DwdWeatherAlertRequest:
             raise ValueError(msg) from e
 
     @staticmethod
-    def _parse_date(date: str | dt.datetime | None) -> dt.datetime | None:
-        if date is None:
+    def _parse_timestamp(timestamp: str | dt.datetime | None) -> dt.datetime | None:
+        if timestamp is None:
             return None
-        if isinstance(date, str):
-            # An empty/whitespace date (e.g. from an omitted-but-present ``?date=`` query param)
-            # means "latest", not an invalid timestamp.
-            date = date.strip()
-            if not date:
+        if isinstance(timestamp, str):
+            # An empty/whitespace timestamp (e.g. from an omitted-but-present ``?timestamp=`` query
+            # param) means "latest", not an invalid timestamp.
+            timestamp = timestamp.strip()
+            if not timestamp:
                 return None
-            parsed = dt.datetime.fromisoformat(date)
+            parsed = dt.datetime.fromisoformat(timestamp)
         else:
-            parsed = date
+            parsed = timestamp
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=ZoneInfo("UTC"))
         return parsed.astimezone(ZoneInfo("UTC"))
@@ -283,13 +296,13 @@ class DwdWeatherAlertRequest:
         """Resolve the request to a concrete snapshot ``(url, production_time)``.
 
         For a dateless request this is the ``LATEST`` alias (production time unknown -> ``None``).
-        For a dated request the newest snapshot produced at or before ``date`` is selected from the
-        directory listing; the filename timestamps are UTC. Raises ``InvalidTimeIntervalError`` (a
-        ``ValueError``) if ``date`` falls before DWD's rolling window (no snapshot at or before it is
-        available), and ``FileNotFoundError`` if the listing holds no snapshot at all, which is no
-        date's doing.
+        For a dated request the newest snapshot produced at or before ``timestamp`` is selected from
+        the directory listing; the filename timestamps are UTC. Raises ``InvalidTimeIntervalError``
+        (a ``ValueError``) if ``timestamp`` falls before DWD's rolling window (no snapshot at or
+        before it is available), and ``FileNotFoundError`` if the listing holds no snapshot at all,
+        which is no date's doing.
         """
-        if self.date is None:
+        if self.timestamp is None:
             return self.url, None
 
         pattern = self._filename_pattern
@@ -304,11 +317,11 @@ class DwdWeatherAlertRequest:
             msg = f"no weather-alerts snapshot listed at {self._directory_url}"
             raise FileNotFoundError(msg)
 
-        candidates = [(timestamp, name) for timestamp, name in snapshots if timestamp <= self.date]
+        candidates = [(timestamp, name) for timestamp, name in snapshots if timestamp <= self.timestamp]
         if not candidates:
             earliest = min(timestamp for timestamp, _ in snapshots)
             msg = (
-                f"no weather-alerts snapshot available at or before {self.date.isoformat()} "
+                f"no weather-alerts snapshot available at or before {self.timestamp.isoformat()} "
                 f"(DWD only keeps a rolling ~48-hour window). earliest available is {earliest.isoformat()}."
             )
             raise InvalidTimeIntervalError(msg)

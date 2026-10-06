@@ -62,17 +62,17 @@ def test_dateless_request_resolves_to_latest() -> None:
 
 def test_date_parsing_assumes_utc() -> None:
     """Verify naive date input is interpreted as UTC and tz-aware input is converted to UTC."""
-    naive = DwdWeatherAlertRequest(date="2026-07-26T10:00:00")
-    assert naive.date == dt.datetime(2026, 7, 26, 10, 0, tzinfo=UTC)
-    aware = DwdWeatherAlertRequest(date="2026-07-26T12:00:00+02:00")
-    assert aware.date == dt.datetime(2026, 7, 26, 10, 0, tzinfo=UTC)
+    naive = DwdWeatherAlertRequest(timestamp="2026-07-26T10:00:00")
+    assert naive.timestamp == dt.datetime(2026, 7, 26, 10, 0, tzinfo=UTC)
+    aware = DwdWeatherAlertRequest(timestamp="2026-07-26T12:00:00+02:00")
+    assert aware.timestamp == dt.datetime(2026, 7, 26, 10, 0, tzinfo=UTC)
 
 
 @pytest.mark.parametrize("value", ["", "   "])
 def test_empty_date_means_latest(value: str) -> None:
     """Verify an empty/whitespace date string is treated as 'latest' (None), not an invalid date."""
-    request = DwdWeatherAlertRequest(date=value)
-    assert request.date is None
+    request = DwdWeatherAlertRequest(timestamp=value)
+    assert request.timestamp is None
     url, snapshot = request._resolve_snapshot()  # noqa: SLF001
     assert url.endswith("_COMMUNEUNION_EN.zip")
     assert snapshot is None
@@ -96,7 +96,7 @@ def test_resolve_snapshot_selects_newest_at_or_before_date(monkeypatch: pytest.M
     listing = _fake_listing("20260726100000", "20260726103220", "20260726110000")
     monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.list_remote_directory_fsspec", lambda *_a, **_k: listing)
 
-    request = DwdWeatherAlertRequest(date="2026-07-26T10:45:00")
+    request = DwdWeatherAlertRequest(timestamp="2026-07-26T10:45:00")
     url, snapshot = request._resolve_snapshot()  # noqa: SLF001
     assert snapshot == dt.datetime(2026, 7, 26, 10, 32, 20, tzinfo=UTC)
     assert url.endswith("Z_CAP_C_EDZW_20260726103220_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_EN.zip")
@@ -107,7 +107,7 @@ def test_resolve_snapshot_before_window_raises(monkeypatch: pytest.MonkeyPatch) 
     listing = _fake_listing("20260726100000", "20260726110000")
     monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.list_remote_directory_fsspec", lambda *_a, **_k: listing)
 
-    request = DwdWeatherAlertRequest(date="2026-07-01T00:00:00")
+    request = DwdWeatherAlertRequest(timestamp="2026-07-01T00:00:00")
     with pytest.raises(ValueError, match="rolling ~48-hour window"):
         request._resolve_snapshot()  # noqa: SLF001
 
@@ -264,7 +264,7 @@ def test_query_live_snapshot(granularity: str) -> None:
 def test_query_live_timestamped_snapshot() -> None:
     """Verify selecting a snapshot from the rolling window returns a snapshot at or before the date."""
     target = dt.datetime.now(UTC) - dt.timedelta(hours=6)
-    result = DwdWeatherAlertRequest(granularity="district", date=target).query()
+    result = DwdWeatherAlertRequest(granularity="district", timestamp=target).query()
     assert result.df.schema == pl.Schema(_SCHEMA)
     assert result.snapshot is not None
     assert result.snapshot <= target
@@ -274,7 +274,7 @@ def test_query_live_timestamped_snapshot() -> None:
 def test_query_live_date_before_window_raises() -> None:
     """Verify a date older than the rolling window raises a helpful error against the live listing."""
     with pytest.raises(ValueError, match="rolling ~48-hour window"):
-        DwdWeatherAlertRequest(date="2000-01-01T00:00:00").query()
+        DwdWeatherAlertRequest(timestamp="2000-01-01T00:00:00").query()
 
 
 def test_resolve_snapshot_before_window_is_the_dates(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -282,7 +282,7 @@ def test_resolve_snapshot_before_window_is_the_dates(monkeypatch: pytest.MonkeyP
     listing = _fake_listing("20260726100000", "20260726110000")
     monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.list_remote_directory_fsspec", lambda *_a, **_k: listing)
 
-    request = DwdWeatherAlertRequest(date="2026-07-01T00:00:00")
+    request = DwdWeatherAlertRequest(timestamp="2026-07-01T00:00:00")
     with pytest.raises(InvalidTimeIntervalError, match="earliest available is 2026-07-26T10:00:00"):
         request._resolve_snapshot()  # noqa: SLF001
 
@@ -291,6 +291,18 @@ def test_resolve_snapshot_an_empty_listing_is_not_the_dates(monkeypatch: pytest.
     """A listing without snapshots is no date's doing, so not a refusal of it (GH-2294)."""
     monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.list_remote_directory_fsspec", lambda *_a, **_k: [])
 
-    request = DwdWeatherAlertRequest(date="2026-07-01T00:00:00")
+    request = DwdWeatherAlertRequest(timestamp="2026-07-01T00:00:00")
     with pytest.raises(FileNotFoundError, match="no weather-alerts snapshot listed at"):
         request._resolve_snapshot()  # noqa: SLF001
+
+
+def test_date_is_refused_naming_timestamp() -> None:
+    """`date` was renamed to `timestamp`, and is refused by naming it (GH-2438)."""
+    with pytest.raises(TypeError, match=r"^date was renamed to timestamp$"):
+        DwdWeatherAlertRequest(date="2026-07-26T10:00:00")
+
+
+def test_an_unknown_keyword_is_refused_as_python_refuses_it() -> None:
+    """A keyword that was never taken is refused as Python refuses one, the old name of none (GH-2438)."""
+    with pytest.raises(TypeError, match=r"^DwdWeatherAlertRequest\(\) got an unexpected keyword argument 'bogus'$"):
+        DwdWeatherAlertRequest(bogus=1)
