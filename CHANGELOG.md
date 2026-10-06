@@ -35,11 +35,12 @@ Types of changes:
   interpolate, or a `station` without a position -- with a 400 rather than a 404, as they answer
   an elevation no station can be placed against. The server logs it as an info line, not as an
   error with its traceback (GH-2385)
-- CLI: a request the caller can rephrase -- such as a parameter the network does not have, a
-  network without an issue listing, or a point there is no estimate at -- is a one-line usage
-  error with exit code 2 in `values`, `interpolate`, `summarize`, `history`, `issues` and
-  `stripes values`, and so is an unknown provider or network in any command. Scripts checking for
-  exit 1 on such a mistake now see 2; an upstream failure still exits 1 with its traceback (GH-2426)
+- CLI: `values`, `interpolate`, `summarize`, `issues`, `stripes values` and the station lookup of
+  `history` report a request the caller can rephrase -- such as a parameter the network does not
+  have, a network without an issue listing, or a point there is no estimate at -- as a one-line
+  usage error with exit code 2, and so does every command for an unknown provider or network.
+  Scripts checking for exit 1 on such a mistake now see 2; an upstream failure still exits 1 with
+  its traceback (GH-2426)
 
 ### Fixed
 
