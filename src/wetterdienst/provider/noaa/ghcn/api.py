@@ -385,7 +385,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         # see GH-2362. -100.0 is a placeholder too, on QOORNOQ and ARSUK on the coast of Greenland and on
         # SORFJORD_KRV and SKJOMEN_SLETTJORD by the fjords near Narvik, where no land lies 100 m below
         # sea level (GH-2418). Real stations also lie below sea level, such as SALTON SEA NAAF at -68.9,
-        # so only these exact values are nulled
+        # so -100.0 is matched exactly rather than every height below sea level being nulled
         df = df.with_columns(
             pl.when(pl.col("station_id").str.starts_with("BR0") & pl.col("elevation").eq("0.0"))
             .then(None)
