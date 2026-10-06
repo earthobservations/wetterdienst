@@ -953,17 +953,22 @@ describe('stripes Page station span', () => {
   const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01T00:00:00.000000+00:00', end_timestamp: '2020-12-31T00:00:00.000000+00:00' }
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  let removeEndpoint: (() => void) | undefined
   afterEach(() => {
     wrapper?.unmount()
     wrapper = undefined
+    // so that its station answers no later test
+    removeEndpoint?.()
+    removeEndpoint = undefined
   })
 
   it('shows the years a chosen station has records for', async () => {
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    removeEndpoint = registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
-    vm.selectedStation = station
+    // the station as the page fetched it
+    vm.selectedStation = vm.stations[0]
     await nextTick()
 
     expect(wrapper.text().replace(/\s+/g, ' ')).toContain('Available: 1950 - 2020')
