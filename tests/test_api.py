@@ -14,7 +14,7 @@ import pytest
 from fsspec.exceptions import FSTimeoutError
 from pydantic import ValidationError
 
-from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_WINDOWS, skip_if_upstream_unavailable
+from tests.conftest import BUFR_AVAILABLE, skip_if_upstream_unavailable
 from wetterdienst import Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
@@ -630,7 +630,6 @@ def test_api_dwd_dmo_icon_eu_all_stations(default_settings: Settings) -> None:
 
 
 @pytest.mark.remote
-@pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_api_dwd_road(default_settings: Settings) -> None:
     """Test dwd road API."""

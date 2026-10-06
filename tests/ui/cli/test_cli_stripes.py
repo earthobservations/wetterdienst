@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for CLI stripes command."""
 
+import logging
 from pathlib import Path
 from textwrap import dedent
 
@@ -9,6 +10,7 @@ import pytest
 from click.testing import CliRunner
 
 from tests.conftest import IS_WINDOWS
+from wetterdienst.exceptions import NotEnoughDataError, StationNotFoundError
 from wetterdienst.ui.cli import cli
 
 
@@ -238,3 +240,46 @@ def test_stripes_values_target_without_the_format_suffix_is_refused(
     assert result.exit_code == 1
     assert f"Error: 'target' must have extension {expected}\n" in result.output
     assert not target.exists()
+
+
+@pytest.mark.parametrize(
+    "refusal",
+    [
+        pytest.param(StationNotFoundError("No station with a station_id similar to '99999' found"), id="station"),
+        pytest.param(NotEnoughDataError("At least two years with data are required"), id="years"),
+    ],
+)
+def test_stripes_values_tells_a_refusal_in_one_line(
+    refusal: Exception, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test `stripes values` reports a request the caller can rephrase as a usage error, exit 2 (GH-2426)."""
+
+    def plot(_request: object) -> None:
+        raise refusal
+
+    monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", plot)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(cli, ["stripes", "values", "--kind=temperature", "--station=99999"])
+
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(f"\n\nError: {refusal}\n")
+    assert not caplog.records
+
+
+def test_stripes_values_keeps_the_traceback_for_an_upstream_failure(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test an upstream failure is logged with its traceback and exits 1, unlike a refusal (GH-2426)."""
+
+    def plot(_request: object) -> None:
+        msg = "upstream file unreachable"
+        raise FileNotFoundError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", plot)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(cli, ["stripes", "values", "--kind=temperature", "--station=1048"])
+
+    assert result.exit_code == 1, result.output
+    assert "Usage:" not in result.output
+    assert "Error: upstream file unreachable" in result.output
+    assert "FileNotFoundError: upstream file unreachable" in caplog.text

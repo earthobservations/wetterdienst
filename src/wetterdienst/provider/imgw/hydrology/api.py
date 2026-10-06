@@ -232,6 +232,11 @@ class ImgwHydrologyValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a 404 is a file that is not there, and is dropped; any other failure -- a timeout, a 5xx
+        # after the retries -- is an outage, which dropped would read as a station without data
+        for file in files:
+            if file.status != 404:
+                file.raise_if_exception()
         files = [file for file in files if isinstance(file.content, BytesIO)]
         data = []
         file_schema = self._file_schema[parameter_or_dataset.resolution.value][parameter_or_dataset.name]

@@ -5,6 +5,7 @@
 import atexit
 import collections
 import copy
+import json
 import logging
 import os
 import re
@@ -23,7 +24,9 @@ from pydantic_settings import SettingsError
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import (
     _STATION_DISTANCE_RESOLUTION_FACTORS,
+    Auth,
     Settings,
+    _describe_settings_error,
     _remove_unless_forked,
     _temporary_cache_dir,
     check_settings,
@@ -1219,3 +1222,102 @@ def test_settings_make_one_temporary_cache_dir_for_threads_that_miss_at_once(
     assert len(made) == 1
     assert second == [first]
     assert first.parent == fresh_temporary_cache_dir
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("secret", [None, ""], ids=["null", "empty"])
+def test_settings_auth_metno_frost_takes_a_null_secret_as_an_empty_one(
+    monkeypatch: pytest.MonkeyPatch, secret: str | None
+) -> None:
+    """A Frost client id paired with `null` is one with no secret, as a lone client id is (GH-2434)."""
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", json.dumps(["DUMMY-FROST-ID", secret]))
+    assert tuple(reveal(part) for part in Settings().auth.metno_frost) == ("DUMMY-FROST-ID", "")
+    pair = Settings(auth={"metno_frost": ["DUMMY-FROST-ID", secret]}).auth.metno_frost
+    assert tuple(reveal(part) for part in pair) == ("DUMMY-FROST-ID", "")
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("field", ["ceda", "metno_frost"])
+def test_settings_auth_takes_all_digit_elements_of_a_pair_as_text(monkeypatch: pytest.MonkeyPatch, field: str) -> None:
+    """An all-digit element of a pair, which the environment decodes as a number, is its text (GH-2434)."""
+    monkeypatch.setenv(f"WD_AUTH__{field.upper()}", "[12345, 67890]")
+    assert tuple(reveal(part) for part in getattr(Settings().auth, field)) == ("12345", "67890")
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("field", "pair", "index"),
+    [
+        ("metno_frost", [None, "DUMMY-FROST-SECRET"], 0),
+        ("metno_frost", ["DUMMY-FROST-ID", True], 1),
+        ("metno_frost", ["DUMMY-FROST-ID", 1.5], 1),
+        ("metno_frost", ["DUMMY-FROST-ID", {"secret": "x"}], 1),
+        ("ceda", [None, "DUMMY-CEDA-PASSWORD"], 0),
+        ("ceda", ["DUMMY-CEDA-USER", None], 1),
+        ("ceda", ["DUMMY-CEDA-USER", True], 1),
+        ("ceda", [False, "DUMMY-CEDA-PASSWORD"], 0),
+        ("ceda", [["DUMMY-CEDA-USER"], "DUMMY-CEDA-PASSWORD"], 0),
+    ],
+)
+def test_settings_auth_refuses_an_element_of_a_pair_that_is_no_credential(
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    pair: list,
+    index: int,
+) -> None:
+    """An element of a pair that is neither text nor a number is refused by its index (GH-2434).
+
+    It was taken as the text of its repr, `'None'` or `'True'`, and sent to the provider as the credential.
+    """
+    with pytest.raises(ValidationError) as excinfo:
+        Settings(auth={field: pair})
+    assert [error["loc"] for error in excinfo.value.errors()] == [("auth", field, index)]
+
+    variable = f"WD_AUTH__{field.upper()}"
+    monkeypatch.setenv(variable, json.dumps(pair))
+    assert check_settings() == [f"{variable}[{index}] is invalid: Input should be a valid string"]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "build",
+    [
+        pytest.param(lambda: Settings(auth={"ceda": "DUMMY-USER;TOPSECRET"}), id="ceda-text"),
+        pytest.param(lambda: Settings(auth={"ceda": ("DUMMY-USER", {"password": "TOPSECRET"})}), id="ceda-element"),
+        pytest.param(lambda: Settings(auth={"metno_frost": ("TOPSECRET", "*" * 10)}), id="metno-frost-mask"),
+        pytest.param(lambda: Settings(auth="TOPSECRET"), id="auth-whole"),
+        pytest.param(lambda: Auth(ceda="DUMMY-USER;TOPSECRET"), id="auth-model"),
+        pytest.param(lambda: setattr(Settings(), "auth", {"ceda": "DUMMY-USER;TOPSECRET"}), id="assign-auth"),
+        pytest.param(lambda: setattr(Settings().auth, "ceda", "DUMMY-USER;TOPSECRET"), id="assign-ceda"),
+    ],
+)
+def test_settings_auth_does_not_repeat_a_refused_credential(build: Callable[[], object]) -> None:
+    """A credential refused is not repeated in the error, which pydantic echoes as its input (GH-2435)."""
+    with pytest.raises(ValidationError) as excinfo:
+        build()
+    assert "TOPSECRET" not in str(excinfo.value)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_does_not_repeat_a_refused_credential_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A credential refused from the environment is not repeated in the error either (GH-2435)."""
+    monkeypatch.setenv("WD_AUTH__CEDA", "DUMMY-USER;TOPSECRET")
+    with pytest.raises(ValidationError) as excinfo:
+        Settings()
+    assert "TOPSECRET" not in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    ("loc", "variable"),
+    [
+        (("auth", "ceda", 1), "WD_AUTH__CEDA[1]"),
+        (("setting", 0, "key"), "WD_SETTING[0]__KEY"),
+        ((), "WD_*"),
+    ],
+)
+def test_describe_settings_error_names_an_element_where_it_stands(loc: tuple, variable: str) -> None:
+    """An index in a problem's location is told where it stands, after the name holding it (GH-2434)."""
+    error = ValidationError.from_exception_data("Settings", [{"type": "missing", "loc": loc, "input": None}])
+    assert _describe_settings_error(error) == [f"{variable} is invalid: Field required"]

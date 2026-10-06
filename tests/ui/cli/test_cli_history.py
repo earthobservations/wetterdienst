@@ -1,6 +1,7 @@
 """Tests for the CLI history command."""
 
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -277,3 +278,64 @@ def test_history_target_file_uri_without_json_suffix(monkeypatch: pytest.MonkeyP
     assert result.exit_code == 2
     assert "--target for history endpoint must end with .json" in result.output
     assert list(tmp_path.iterdir()) == []
+
+
+def test_history_unknown_parameter_is_a_usage_error() -> None:
+    """Test a parameter the network does not have is a one-line usage error, not a traceback (GH-2426)."""
+    result = CliRunner().invoke(
+        cli,
+        ["history", "--provider=dwd", "--network=observation", "--parameters=daily/nonexistent", "--station=01048"],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(
+        "\n\nError: No valid parameters could be parsed from ['daily/nonexistent'] for DwdObservationRequest\n"
+    )
+
+
+def test_history_keeps_the_traceback_for_an_upstream_failure(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test a station lookup failing upstream is logged with its traceback and exits 1, unlike a refusal (GH-2426)."""
+
+    def get_stations(**_kwargs: object) -> None:
+        msg = "upstream station list unreachable"
+        raise FileNotFoundError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", get_stations)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli, ["history", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--station=01048"]
+        )
+
+    assert result.exit_code == 1, result.output
+    assert "Usage:" not in result.output
+    assert "Failed to get stations for history." in caplog.text
+    assert "FileNotFoundError: upstream station list unreachable" in caplog.text
+
+
+@pytest.mark.parametrize("target", ["s3://bucket/history.json", "duckdb:///history.json"])
+def test_history_target_with_other_scheme_is_refused_before_the_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+    target: str,
+) -> None:
+    """Test a --target with a scheme other than `file://` is a usage error before any station is fetched."""
+
+    def _no_fetch(**_kwargs: object) -> None:
+        msg = "history fetched its stations before refusing the target"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", _no_fetch)
+    result = CliRunner().invoke(
+        cli,
+        [
+            "history",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary",
+            "--all",
+            f"--target={target}",
+        ],
+    )
+    assert result.exit_code == 2, result.output
+    assert "--target only supports a local path or a file:// URI for history." in result.output
