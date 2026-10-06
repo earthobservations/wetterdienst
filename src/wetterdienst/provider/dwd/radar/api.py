@@ -42,7 +42,7 @@ from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_stri
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import _parse_datetime_from_formats, raster_minutes, round_minutes
-from wetterdienst.util.eccodes import bufr_is_available
+from wetterdienst.util.eccodes import bufr_is_available, quiet_eccodes_version_advice
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
 
@@ -112,6 +112,7 @@ def read_radar_bufr(data: BytesIO, parameter: DwdRadarParameter) -> pl.DataFrame
     pixel ``value``. Missing pixels are null. ``parameter`` selects which BUFR data descriptor
     carries the values (echo tops vs reflectivity) -- see ``_BUFR_VALUE_FIELD``.
     """
+    quiet_eccodes_version_advice()
     import pdbufr  # noqa: PLC0415
 
     value_field = _BUFR_VALUE_FIELD[parameter]

@@ -3,10 +3,19 @@
 """Tests for the BUFR reader availability helpers."""
 
 import builtins
+import contextlib
+import importlib
+import importlib.util
 import logging
+import re
+import sys
+import warnings
+from collections.abc import Iterator
+from io import BytesIO
 
 import pytest
 
+from tests.conftest import BUFR_AVAILABLE
 from wetterdienst.util import eccodes
 
 
@@ -219,3 +228,254 @@ def test_a_broken_eccodes_seen_through_pdbufr_is_not_read_as_absence(
     with caplog.at_level(logging.WARNING):
         assert eccodes.ensure_pdbufr() is False
     assert "eccodes.eccodes" in caplog.text
+
+
+class _StaleLibrary:
+    """The loaded library, reporting itself as an older one.
+
+    A stand-in for gribapi's `lib` rather than a patch of it: the compiled library takes no
+    attributes. Its first answer comes with another warning of the same category, to show the
+    filter lets through what it does not name -- and the first answer is the one the import asks for.
+    """
+
+    def __init__(self, lib: object, version: int) -> None:
+        self._lib = lib
+        self._version = version
+        self._asked = False
+
+    def grib_get_api_version(self) -> int:
+        if not self._asked:
+            self._asked = True
+            # attributed to the frame asking, gribapi/__init__.py, as the advice is: the filter's
+            # module matches it, so only the filter's message can let it through
+            warnings.warn("something else the bindings say on import", UserWarning, stacklevel=2)
+        return self._version
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._lib, name)
+
+
+@pytest.fixture
+def stale_library(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
+    """Import eccodes and pdbufr afresh, over a library older than the bindings recommend.
+
+    The suite has imported both already -- `BUFR_AVAILABLE` asks while collecting -- and the advice
+    is given once, by `gribapi/__init__.py` as it is first imported. So that module and the chain
+    importing it is forgotten for the test, and put back after it. `gribapi.gribapi`, the bindings
+    and `eccodes.highlevel` stay, so the library is not loaded a second time nor declared to cffi
+    again, which it refuses; the advice reads the version from `gribapi.gribapi.lib`, which is
+    where the stale one is put.
+
+    The stale one is a minor release below what the installed bindings recommend, which moves
+    with them -- 2.42.0 in eccodes 2.48, 2.31.0 in 1.7.1, the floor the minimum-versions job
+    installs. Its version is what the fixture gives the test.
+    """
+    import gribapi  # noqa: PLC0415
+    import gribapi.gribapi  # noqa: PLC0415
+
+    stale = gribapi.min_recommended_version_int - 100
+    version = f"{stale // 10000}.{stale // 100 % 100}.{stale % 100}"
+    monkeypatch.setattr(gribapi.gribapi, "lib", _StaleLibrary(gribapi.gribapi.lib, stale))
+    # read once from the library as gribapi.gribapi was first imported, and named in the advice
+    monkeypatch.setattr(gribapi.gribapi, "__version__", version)
+
+    def forgotten(name: str) -> bool:
+        return name in {"gribapi", "eccodes", "eccodes.eccodes"} or name.split(".", maxsplit=1)[0] == "pdbufr"
+
+    before = {name: module for name, module in sys.modules.items() if forgotten(name)}
+    for name in before:
+        del sys.modules[name]
+    try:
+        yield version
+    finally:
+        for name in [name for name in sys.modules if forgotten(name)]:
+            del sys.modules[name]
+        sys.modules.update(before)
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_the_stale_library_does_provoke_the_advice(stale_library: str) -> None:
+    """The control for the test below: imported plainly, the stand-in gets the bindings' advice.
+
+    Without it, the test below would pass just as well if the advice were reworded, raised from a
+    module the fixture keeps, or never raised at all.
+    """
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        importlib.import_module("eccodes")
+    said = [str(warning.message) for warning in seen]
+    # whichever version the installed bindings recommend, matched by the pattern the filter uses,
+    # so this also says the filter's pattern fits the advice as given
+    advice = eccodes._ECCODES_VERSION_ADVICE  # noqa: SLF001
+    running = re.escape(stale_library)
+    assert [message for message in said if re.fullmatch(rf"{advice}\. You are running version {running}", message)]
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.usefixtures("stale_library")
+@pytest.mark.parametrize("probe", ["ensure_eccodes", "ensure_pdbufr"])
+def test_the_advice_to_upgrade_the_library_is_not_warned(probe: str) -> None:
+    """A distribution's ecCodes is older than the bindings recommend, and reads BUFR all the same.
+
+    The bindings warned so on every first import -- Debian trixie ships 2.41 and Ubuntu 24.04 2.34,
+    against a recommended 2.42 -- and a caller could neither act on it nor tell it was harmless
+    (GH-2442). Either probe may be the first import in a process, pdbufr importing eccodes itself.
+    Nothing else the import says is held back.
+
+    "always" here and below, so the run's own filters (`-W error`, `-W ignore`) do not decide what
+    is seen; the filter under test goes ahead of it.
+    """
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        assert getattr(eccodes, probe)() is True
+    said = [str(warning.message) for warning in seen]
+    assert not [message for message in said if "or higher is recommended" in message]
+    assert "something else the bindings say on import" in said
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_the_library_version_is_logged_in_its_place(stale_library: str, caplog: pytest.LogCaptureFixture) -> None:
+    """Which library loaded is still there to be read, at debug."""
+    with caplog.at_level(logging.DEBUG, logger=eccodes.__name__), warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
+        assert eccodes.ensure_eccodes() is True
+    assert f"ecCodes library {stale_library}" in caplog.text
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.usefixtures("stale_library")
+def test_a_radar_bufr_read_asked_directly_is_quiet_too() -> None:
+    """`read_radar_bufr` imports pdbufr itself and can be called without asking either probe first.
+
+    What it is handed here is not BUFR, so the read fails -- after the import, which is the part
+    this is about. How it fails is not: gribapi's error for bytes that are not BUFR, or on Windows
+    the temporary file it is written to not opening a second time.
+    """
+    from wetterdienst.provider.dwd.radar.api import _BUFR_VALUE_FIELD, read_radar_bufr  # noqa: PLC0415
+
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        with contextlib.suppress(Exception):
+            read_radar_bufr(BytesIO(b"not BUFR"), next(iter(_BUFR_VALUE_FIELD)))
+    # the read got as far as importing the reader, so the advice had its chance
+    assert "pdbufr" in sys.modules
+    said = [str(warning.message) for warning in seen]
+    assert not [message for message in said if "or higher is recommended" in message]
+    assert "something else the bindings say on import" in said
+
+
+#: the filter is installed only where the bindings are, and these tests watch it being installed
+needs_the_bindings = pytest.mark.skipif(importlib.util.find_spec("gribapi") is None, reason="eccodes required")
+#: Python 3.14's context-aware warnings keep `catch_warnings`' list apart from `warnings.filters`,
+#: which these tests read
+reads_the_filter_list = pytest.mark.skipif(
+    bool(getattr(sys.flags, "context_aware_warnings", False)), reason="filters are context-local"
+)
+
+
+@needs_the_bindings
+def test_the_advice_is_ignored_only_from_the_bindings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The filter is left in place, so it is scoped to the module that gives the advice.
+
+    The same words from anywhere else -- here, this test module -- are not the bindings' import-time
+    advice, and are still shown.
+    """
+    advice = "ecCodes 2.42.0 or higher is recommended. You are running version 2.34.1"
+    # as before the bindings' first import, the only time the filter is installed
+    monkeypatch.delitem(sys.modules, "gribapi", raising=False)
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        eccodes.quiet_eccodes_version_advice()
+        warnings.warn(advice, stacklevel=1)
+        # a module whose name only starts like the bindings' is somewhere else too
+        warnings.warn_explicit(advice, UserWarning, "gribapi_tools.py", 1, module="gribapi_tools")
+        # and the bindings' own submodules are not
+        warnings.warn_explicit(advice, UserWarning, "gribapi/gribapi.py", 1, module="gribapi.gribapi")
+    assert [(str(warning.message), warning.filename) for warning in seen] == [
+        (advice, __file__),
+        (advice, "gribapi_tools.py"),
+    ]
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.usefixtures("stale_library")
+def test_warnings_as_errors_do_not_make_the_reader_look_missing() -> None:
+    """Under `-W error` the advice was raised inside `import eccodes`, and read as no reader at all.
+
+    `ensure_eccodes` answers any failure of the import as absence, so a caller running with warnings
+    as errors -- a test suite's `filterwarnings = error` -- was told to install what they have. The
+    filter goes ahead of theirs. Here it is an error filter for the advice alone, so that the
+    stand-in's other warning is not one too.
+    """
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
+        warnings.filterwarnings("error", message=eccodes._ECCODES_VERSION_ADVICE)  # noqa: SLF001
+        assert eccodes.ensure_eccodes() is True
+
+
+@reads_the_filter_list
+def test_the_filters_are_left_alone_once_the_bindings_are_imported(monkeypatch: pytest.MonkeyPatch) -> None:
+    """After the bindings' first import the advice has been given or not, and a filter does nothing.
+
+    Changing the filters anyway would make Python forget which warnings it has shown once, and show
+    them again.
+    """
+    monkeypatch.setitem(sys.modules, "gribapi", sys.modules.get("gribapi", object()))
+    with warnings.catch_warnings():
+        before = list(warnings.filters)
+        eccodes.quiet_eccodes_version_advice()
+        assert warnings.filters == before
+
+
+@needs_the_bindings
+@reads_the_filter_list
+def test_a_filter_dropped_before_the_import_is_put_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Asked again before the bindings' first import, the filter is there again if it was lost.
+
+    A `catch_warnings` open when it was first installed -- a test's, another thread's -- puts back a
+    list without it on the way out.
+    """
+    monkeypatch.delitem(sys.modules, "gribapi", raising=False)
+
+    def installed() -> bool:
+        return any(f[0] == "ignore" and f[1] is not None and "recommended" in f[1].pattern for f in warnings.filters)
+
+    # from no filters at all, whatever the run had installed before
+    with warnings.catch_warnings():
+        warnings.resetwarnings()
+        with warnings.catch_warnings():
+            eccodes.quiet_eccodes_version_advice()
+            assert installed()
+        # dropped as the block put back the list it found
+        assert not installed()
+        eccodes.quiet_eccodes_version_advice()
+        assert installed()
+
+
+@reads_the_filter_list
+def test_the_filters_are_left_alone_where_the_bindings_are_not_installed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without the `bufr` extra there is no advice to quiet, and no reason to touch the filters."""
+    monkeypatch.delitem(sys.modules, "gribapi", raising=False)
+    monkeypatch.setattr(importlib.util, "find_spec", lambda *_: None)
+    with warnings.catch_warnings():
+        before = list(warnings.filters)
+        eccodes.quiet_eccodes_version_advice()
+        assert warnings.filters == before
+
+
+@pytest.mark.parametrize("probe", ["ensure_eccodes", "ensure_pdbufr"])
+def test_quieting_the_advice_cannot_make_a_probe_raise(probe: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Asking whether BUFR can be read is answered, not raised, whatever fails on the way.
+
+    `find_spec` runs import hooks of its own -- a broken one raises -- and two callers cannot take a
+    raise: `_attach_bufr`, which logs and carries on, and `BUFR_AVAILABLE`, computed while the suite
+    collects.
+    """
+
+    def broken(*_: object) -> None:
+        msg = "an import hook that does not work"
+        raise RuntimeError(msg)
+
+    monkeypatch.delitem(sys.modules, "gribapi", raising=False)
+    monkeypatch.setattr(importlib.util, "find_spec", broken)
+    assert getattr(eccodes, probe)() is False

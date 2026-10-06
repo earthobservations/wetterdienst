@@ -10,21 +10,75 @@ BUFR", which is the only question any caller has: use `bufr_is_available` for th
 `require_bufr` where the answer has to be no further than the first line of a method.
 """
 
+import importlib.util
 import logging
+import sys
+import warnings
 from functools import lru_cache
 
 from wetterdienst.exceptions import BufrReaderMissingError
 
 log = logging.getLogger(__name__)
 
+#: what the eccodes bindings warn on their first import wherever the library they load is older than
+#: the one they recommend (`gribapi/__init__.py`, 2.42.0 in eccodes 2.48 and 2.49). Matched from
+#: the start of the message, as `warnings` does, and on nothing else they might say
+_ECCODES_VERSION_ADVICE = r"ecCodes [0-9.]+ or higher is recommended"
+
+
+def quiet_eccodes_version_advice() -> None:
+    """Ignore the eccodes bindings' advice to upgrade the library, and only that.
+
+    Distribution libraries are older than the bindings recommend -- Debian trixie ships 2.41, Ubuntu
+    24.04 2.34 -- and decode the BUFR this package reads all the same, so the advice reached every
+    process that read BUFR as a warning nobody could act on (GH-2442). `ensure_eccodes` logs the
+    library's version at debug in its place.
+
+    One filter, installed once and left in place, scoped to the message and to the bindings'
+    `gribapi` modules, which give it: any other warning, and this message from anywhere else, still
+    reaches the caller. The bindings give the advice once, as `gribapi` is first imported, so a
+    filter left after that hides nothing further, unless `gribapi` is imported afresh -- and a
+    caller who imported eccodes before this ran has seen it already. The subsets warning `dwd/road`
+    leaves alone is the other case: pdbufr gives it on every read it applies to, so a filter left
+    for it would go on hiding it from anything else reading BUFR.
+
+    Put first, ahead of the caller's filters. Appended, it lost to any broad one: `-X dev` and
+    `-W default` showed the advice as before, and `-W error` -- or a test suite's `filterwarnings =
+    error` -- raised it inside `import eccodes`, which `ensure_eccodes` reads as a reader that did
+    not load, so the caller was told to install what they have. A caller who wants the advice gets
+    it by importing eccodes before this runs.
+
+    Called by both probes, and by `read_radar_bufr`, the one reader that can run without asking
+    them first. Once `gribapi` is imported the advice has been given or not, and this does nothing:
+    every change to the filters makes Python forget which warnings it has shown once, so it should
+    not change them for nothing. Until then it is not cached, but asked each time -- a
+    `catch_warnings` that was open when it ran, a test's or another thread's, puts back a list
+    without it on the way out, and a cache would go on saying it is there. Where the bindings are not
+    installed at all -- no `bufr` extra -- there is nothing to quiet, and the filters are left alone
+    too.
+    """
+    if "gribapi" in sys.modules or importlib.util.find_spec("gribapi") is None:
+        return
+    warnings.filterwarnings(
+        "ignore",
+        message=_ECCODES_VERSION_ADVICE,
+        category=UserWarning,
+        # the package and its submodules, and not a module whose name merely starts the same
+        module=r"gribapi(\.|$)",
+    )
+
 
 @lru_cache
 def ensure_eccodes() -> bool:
     """Ensure that eccodes is loaded."""
     try:
+        # inside, as everything on the way to the import is: this question is answered, not raised
+        quiet_eccodes_version_advice()
         import eccodes  # noqa: PLC0415
 
-        eccodes.eccodes.codes_get_api_version()
+        # asking the library its version is the check that it loaded, not only what is logged
+        version = eccodes.eccodes.codes_get_api_version()
+        log.debug(f"ecCodes library {version}")
     except ModuleNotFoundError as e:
         if e.name in (None, "eccodes"):
             # not installed -- or nothing to go on, in which case the quiet path is the one
@@ -60,6 +114,9 @@ def ensure_pdbufr() -> bool:
     BUFR, which is the whole of what this answers.
     """
     try:
+        # pdbufr imports eccodes, so where this is asked first the import of eccodes is this one.
+        # The version is left to `ensure_eccodes`, which `bufr_is_available` asks first
+        quiet_eccodes_version_advice()
         import pdbufr  # noqa: F401, PLC0415
     except ModuleNotFoundError as e:
         if e.name in (None, "pdbufr", "eccodes"):
