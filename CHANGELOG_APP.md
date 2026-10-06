@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-10-06
+
 ### Fixed
 
 - `[Explorer]` The Unit Targets hint no longer says to leave a select empty, which none of them
@@ -1035,7 +1037,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.1...HEAD
+[0.18.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.0...app-v0.18.1
 [0.18.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.17.0...app-v0.18.0
 [0.17.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.16.0...app-v0.17.0
 [0.16.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.15.0...app-v0.16.0
