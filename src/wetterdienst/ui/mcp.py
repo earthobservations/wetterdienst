@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastmcp import FastMCP
     from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
+    from fastmcp.server.providers.openapi import OpenAPIProvider
     from fastmcp.tools import ToolResult
     from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -170,13 +171,13 @@ _TOOL_NAMES = {
 }
 
 
-def _refuse_renamed_arguments() -> Middleware:
+def _refuse_renamed_arguments(provider: OpenAPIProvider) -> Middleware:
     """Build the middleware that refuses a tool argument given by its old name, naming the new one.
 
     A tool's arguments are its REST endpoint's query parameters, and FastMCP sends the endpoint
     only the ones the tool's schema names: an argument by a name since renamed would be dropped,
     and the call answered as if it had not been given -- a dated `values` call as an undated one.
-    A tool taking the new name refuses the old one, as its endpoint does (GH-2438).
+    A tool of `provider` taking the new name refuses the old one, as its endpoint does (GH-2438).
     """
     from fastmcp.exceptions import ToolError  # noqa: PLC0415
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
@@ -191,8 +192,8 @@ def _refuse_renamed_arguments() -> Middleware:
         ) -> ToolResult:
             arguments = context.message.arguments or {}
             renamed = {old: new for old, new in RENAMED_REQUEST_PARAMETERS.items() if old in arguments}
-            if renamed and context.fastmcp_context is not None:
-                tool = await context.fastmcp_context.fastmcp.get_tool(context.message.name)
+            if renamed:
+                tool = await provider.get_tool(context.message.name)
                 taken = tool.parameters.get("properties", {}) if tool is not None else {}
                 refused = [f"{old} was renamed to {new}" for old, new in renamed.items() if new in taken]
                 if refused:
@@ -251,5 +252,5 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         instructions=INSTRUCTIONS,
         providers=[provider],
         lifespan=lifespan,
-        middleware=[_refuse_renamed_arguments()],
+        middleware=[_refuse_renamed_arguments(provider)],
     )

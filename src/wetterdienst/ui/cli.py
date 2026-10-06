@@ -69,7 +69,7 @@ log = logging.getLogger(__name__)
 
 # `values`, `interpolate` and `summarize` all take the same date, so they say the same thing about
 # it: a date covers everything it names, which is what tells `2020-05` from `2020-05-01`
-_DATE_HELP = (
+_TIMESTAMP_HELP = (
     "Single date or interval in ISO 8601 format, covering everything it names: 2020-05-01 is that "
     "whole day, 2020-05 the month and 2020 the year, while a date carrying a time (2020-05-01T12) "
     "is that one instant. Examples: 2020-05-01, 2020-05, 2020-05-01/2020-05-05"
@@ -127,7 +127,7 @@ issue_opt = click.option(
     type=click.STRING,
     help="DWD MOSMIX/DMO/SWSMOS model run (ISO 8601); list them with: wetterdienst issues. Default: the latest",
 )
-timestamp_opt = click.option("--timestamp", type=click.STRING, help=_DATE_HELP)
+timestamp_opt = click.option("--timestamp", type=click.STRING, help=_TIMESTAMP_HELP)
 
 
 def _refuse_date(ctx: click.Context, _param: click.Parameter, value: str | None) -> None:
