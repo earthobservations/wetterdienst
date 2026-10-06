@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- NOAA GHCN daily stations QOORNOQ and ARSUK on the coast of Greenland and SORFJORD_KRV and
+  SKJOMEN_SLETTJORD by the fjords near Narvik, the four rows listed at -100.0 m, have a null
+  `elevation` instead of one 100 m below sea level. Real heights below sea level, such as DEATH
+  VALLEY NP's, stay (GH-2418)
 - NOAA GHCN hourly station GJBAKKI (`ICM00004919`) in southwestern Iceland, the one row listed at
   -99.0 m, has a null `elevation`. `interpolate` and `summarize` given an elevation moved its air
   temperatures and dew points from about 100 m below sea level; they now leave it out for those,
