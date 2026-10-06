@@ -65,8 +65,9 @@ crash comes after your code has finished, so files it wrote and closed are compl
 non-zero exit status fails scripts and CI jobs. This is the upstream bug
 [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
 [#2441](https://github.com/earthobservations/wetterdienst/issues/2441). The Docker image does not
-install the `eccodeslib` wheel and is not affected. If `pip show eckitlib` finds no package, your
-installation is not affected either.
+install the `eccodeslib` wheel and is not affected. To check your own installation, run
+`python -c "import importlib.metadata as m; print(m.version('eckitlib'))"` with the Python that runs
+wetterdienst: if it raises `PackageNotFoundError`, you are not affected.
 
 Until it is fixed, install your distribution's ecCodes library and set
 `FINDLIBS_DISABLE_PACKAGE=yes` in the environment of the process that runs wetterdienst (the shell,
