@@ -420,8 +420,17 @@ def test_a_filter_dropped_before_the_import_is_put_back(monkeypatch: pytest.Monk
     list without it on the way out.
     """
     monkeypatch.delitem(sys.modules, "gribapi", raising=False)
+
+    def installed() -> bool:
+        return any(f[0] == "ignore" and f[1] is not None and "recommended" in f[1].pattern for f in warnings.filters)
+
+    # from no filters at all, whatever the run had installed before
     with warnings.catch_warnings():
+        warnings.resetwarnings()
+        with warnings.catch_warnings():
+            eccodes.quiet_eccodes_version_advice()
+            assert installed()
+        # dropped as the block put back the list it found
+        assert not installed()
         eccodes.quiet_eccodes_version_advice()
-    with warnings.catch_warnings():
-        eccodes.quiet_eccodes_version_advice()
-        assert [f for f in warnings.filters if f[0] == "ignore" and f[1] and "recommended" in f[1].pattern]
+        assert installed()
