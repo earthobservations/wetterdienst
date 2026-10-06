@@ -47,12 +47,12 @@ For more information, see the [settings documentation](usage/settings.md).
 
 ## Crash at exit with ecCodes and pyproj on Linux
 
-Installed with pip on Linux, `eccodes` (from the `bufr` or `eccodes` extra) pulls in the
-`eccodeslib` and `eckitlib` wheels, and `eckitlib` bundles its own copy of PROJ. `pyproj` bundles
-another, and comes with the `radarplus` extra (through wradlib and xradar) as well as with libraries
-such as geopandas or cartopy. A process that loads `eccodes` and then imports `pyproj` crashes at
-interpreter exit (`double free or corruption`, `free(): invalid pointer` or a segmentation fault,
-exit status 134 or 139):
+On Linux, installing `eccodes` (from the `bufr` or `eccodes` extra) with pip, `uv pip` or another
+installer that reads its wheel's dependencies pulls in the `eccodeslib` and `eckitlib` wheels, and
+`eckitlib` bundles its own copy of PROJ. `pyproj` bundles another, and comes with the `radarplus`
+extra (through wradlib and xradar) as well as with libraries such as geopandas or cartopy. A process
+that loads `eccodes` and then imports `pyproj` crashes at interpreter exit (`double free or
+corruption`, `free(): invalid pointer` or a segmentation fault, exit status 134 or 139):
 
 ```bash
 python -c "import eccodes; import pyproj"; echo $?   # 134
