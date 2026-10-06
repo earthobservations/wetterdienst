@@ -263,6 +263,8 @@ dev = [
     "h5py>=3.11",
     "lmfit>=1.3.4",
     "matplotlib>=3.10,<4",
+    # in-memory span and metric readers for the tests of the REST API's OpenTelemetry
+    "opentelemetry-sdk>=1.45",
     "pybufrkit>=0.2.25",
     "pytest>=9.1",
     "pytest-cov>=7.1",
