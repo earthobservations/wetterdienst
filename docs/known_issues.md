@@ -59,9 +59,10 @@ python -c "import eccodes; import pyproj"; echo $?   # 134
 python -c "import pyproj; import eccodes"; echo $?   # 0
 ```
 
-wetterdienst loads `eccodes` when it first reads BUFR: DWD road data, or DWD radar data with the
-`read_bufr` setting. The crash comes after your code has finished, so output is already written,
-but the non-zero exit status fails scripts and CI jobs. This is the upstream bug
+wetterdienst loads `eccodes` when you ask for DWD road values (as soon as `.values` is built,
+before any data is read) and when it parses DWD radar BUFR data with the `read_bufr` setting. The
+crash comes after your code has finished, so output is already written, but the non-zero exit
+status fails scripts and CI jobs. This is the upstream bug
 [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
 [#2441](https://github.com/earthobservations/wetterdienst/issues/2441). The Docker image does not
 install the `eccodeslib` wheel and is not affected.
@@ -72,7 +73,7 @@ the CI job, the service unit), so that `findlibs` loads that library instead of 
 Debian 13:
 
 ```bash
-sudo apt-get install libeccodes0
+sudo apt-get install libeccodes0 libeccodes-data
 FINDLIBS_DISABLE_PACKAGE=yes python my_script.py
 ```
 
@@ -80,7 +81,7 @@ Both are needed: with only the variable set and no system library, `eccodes` can
 The variable applies to every library `findlibs` looks up in that process, not only ecCodes, so
 another package that relies on `findlibs` to find a library in its wheel will no longer find it.
 
-Alternatively, import `pyproj` (or wradlib, xradar) before the first BUFR read.
+Alternatively, import `pyproj` (or wradlib, xradar) before wetterdienst loads `eccodes`.
 
 ## Raspberry Pi / Linux ARM
 
