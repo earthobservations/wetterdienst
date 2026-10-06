@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- The `restapi` extra now needs `fastapi>=0.142` (was `>=0.115`), which brings `opentelemetry-api`;
+  upgrade fastapi where it is pinned lower. The REST API turns off fastapi's OpenTelemetry export
+  from `OTEL_*` variables: to export, set up a provider yourself, e.g. with
+  `opentelemetry-instrument`. Such a provider now gets fastapi's spans, metrics and logs, or, where
+  the `opentelemetry-instrumentation-fastapi` middleware runs, that instrumentation's (GH-2407)
+
 ### Fixed
 
 - NOAA GHCN daily stations QOORNOQ and ARSUK on the coast of Greenland and SORFJORD_KRV and
@@ -63,6 +71,10 @@ Types of changes:
 - `wetterdienst history --target file://history.json`, the form its docs show, writes
   `history.json`. The `file://` prefix was kept, so the write went to `file:/history.json` and
   failed with "No such file or directory". A plain path works as before (GH-2370)
+- The Docker image reads BUFR: DWD road weather data, and radar BUFR with `read_bufr`. It had the
+  eccodes bindings but no ecCodes library behind them; it now installs Debian's, which adds about
+  55 MiB. That library is 2.41.0, so the bindings warn on import that 2.42.0 is recommended
+  (GH-2409)
 - `Settings()` no longer fails where no home directory resolves (HOME unset and the uid missing
   from the password database), which it did with platformdirs 4.12 even with
   `cache_disable=True`. Without `WD_CACHE_DIR` the cache is then kept in a temporary directory, one
