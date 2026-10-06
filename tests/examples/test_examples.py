@@ -85,7 +85,6 @@ def test_examples_failing_describe_fields() -> None:
 
 
 @pytest.mark.remote
-@pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="problem with storage on Windows in CI")
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_pdbufr_examples() -> None:
     """Test DWD observation PDBUFR examples."""

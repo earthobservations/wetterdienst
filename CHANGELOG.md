@@ -51,6 +51,9 @@ Types of changes:
 
 ### Fixed
 
+- On Windows, DWD road values and DWD radar BUFR read with `Settings(read_bufr=True)` decode. Road
+  values raised `PermissionError`, and radar logged "Unable to read BUFR file." and left
+  `result.df` as `None` (GH-2446)
 - `Settings` reads a `null` Frost secret in a `WD_AUTH__METNO_FROST` pair as no secret, and refuses
   any other `null`, `true`, float or object in a `WD_AUTH__METNO_FROST` / `WD_AUTH__CEDA` pair with
   a `ValidationError` naming the element (`auth.ceda.1`; `WD_AUTH__CEDA[1]` in the CLI's

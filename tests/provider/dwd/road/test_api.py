@@ -12,7 +12,7 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_WINDOWS
+from tests.conftest import BUFR_AVAILABLE
 from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.result import StationsFilter, StationsResult
@@ -28,7 +28,6 @@ _PARSED_SCHEMA_FOR_TEST = {
 }
 
 
-@pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.remote
 def test_dwd_road_weather() -> None:
@@ -1409,7 +1408,6 @@ def test_dwd_road_weather_keeps_the_station_that_was_asked_for(monkeypatch: pyte
     assert readings == [("A006", "airTemperature", 12.0)]
 
 
-@pytest.mark.skipif(IS_CI and IS_WINDOWS, reason="permission with storage in CI on Windows")
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 @pytest.mark.remote
 def test_dwd_road_weather_a_real_file_decodes() -> None:
