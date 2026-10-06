@@ -386,8 +386,8 @@ class DwdObservationHistory(TimeseriesHistory):
                 {
                     "station_id": parts[0].strip().zfill(5),
                     "station_name": parts[1].strip(),
-                    "start_date": dt.datetime.strptime(parts[2].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
-                    "end_date": (
+                    "valid_from": dt.datetime.strptime(parts[2].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
+                    "valid_to": (
                         dt.datetime.strptime(parts[3].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC"))
                         if parts[3].strip()
                         else None
@@ -401,8 +401,8 @@ class DwdObservationHistory(TimeseriesHistory):
                 {
                     "station_id": parts[0].strip().zfill(5),
                     "operator_name": parts[1].strip(),
-                    "start_date": dt.datetime.strptime(parts[2].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
-                    "end_date": (
+                    "valid_from": dt.datetime.strptime(parts[2].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
+                    "valid_to": (
                         dt.datetime.strptime(parts[3].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC"))
                         if parts[3].strip()
                         else None
@@ -436,8 +436,8 @@ class DwdObservationHistory(TimeseriesHistory):
                 continue
             record = {
                 "station_id": parts[0].strip().zfill(5),
-                "start_date": dt.datetime.strptime(parts[1].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
-                "end_date": dt.datetime.strptime(parts[2].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
+                "valid_from": dt.datetime.strptime(parts[1].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
+                "valid_to": dt.datetime.strptime(parts[2].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
                 "station_name": parts[3].strip(),
                 "parameter": parts[4].strip(),
                 "description": parts[5].strip(),
@@ -476,8 +476,8 @@ class DwdObservationHistory(TimeseriesHistory):
                     "latitude": parts[3].strip() or None,
                     "station_elevation": parts[4].strip() or None,
                     "device_height": parts[5].strip() or None,
-                    "start_date": dt.datetime.strptime(parts[6].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
-                    "end_date": dt.datetime.strptime(parts[7].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
+                    "valid_from": dt.datetime.strptime(parts[6].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
+                    "valid_to": dt.datetime.strptime(parts[7].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
                     "device_type": parts[8].strip(),
                     "method": parts[9].strip(),
                 }
@@ -506,8 +506,8 @@ class DwdObservationHistory(TimeseriesHistory):
                     "station_elevation": float(parts[1].strip()),
                     "latitude": float(parts[2].strip()),
                     "longitude": float(parts[3].strip()),
-                    "start_date": dt.datetime.strptime(parts[4].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
-                    "end_date": dt.datetime.strptime(parts[5].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC"))
+                    "valid_from": dt.datetime.strptime(parts[4].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
+                    "valid_to": dt.datetime.strptime(parts[5].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC"))
                     if parts[5].strip()
                     else dt.datetime.now(tz=ZoneInfo("UTC")),
                     "station_name": parts[6].strip(),
@@ -553,8 +553,8 @@ class DwdObservationHistory(TimeseriesHistory):
                 "station_id": parts[0].strip().zfill(5),
                 "station_name": parts[1],
                 "parameter": parts[2],
-                "start_date": dt.datetime.strptime(parts[3], "%d.%m.%Y").replace(tzinfo=ZoneInfo("UTC")),
-                "end_date": dt.datetime.strptime(parts[4], "%d.%m.%Y").replace(tzinfo=ZoneInfo("UTC")),
+                "valid_from": dt.datetime.strptime(parts[3], "%d.%m.%Y").replace(tzinfo=ZoneInfo("UTC")),
+                "valid_to": dt.datetime.strptime(parts[4], "%d.%m.%Y").replace(tzinfo=ZoneInfo("UTC")),
                 "missing_count": int(parts[5]) if parts[5] else None,
                 "description": parts[6],
             }
@@ -567,8 +567,8 @@ class DwdObservationHistory(TimeseriesHistory):
                 "station_id": parts[0].strip().zfill(5),
                 "station_name": parts[1],
                 "parameter": parts[2],
-                "start_date": dt.datetime.strptime(parts[3], date_format).replace(tzinfo=ZoneInfo("UTC")),
-                "end_date": dt.datetime.strptime(parts[4], date_format).replace(tzinfo=ZoneInfo("UTC")),
+                "valid_from": dt.datetime.strptime(parts[3], date_format).replace(tzinfo=ZoneInfo("UTC")),
+                "valid_to": dt.datetime.strptime(parts[4], date_format).replace(tzinfo=ZoneInfo("UTC")),
                 "missing_count": int(parts[5]) if parts[5] else None,
                 "description": parts[6],
             }

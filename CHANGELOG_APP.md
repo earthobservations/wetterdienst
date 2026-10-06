@@ -18,6 +18,10 @@ Types of changes:
 
 ### Changed
 
+- `[History]` The page reads each record's span from `valid_from` and `valid_to`, as the backend now
+  returns it, where it read `start_date` and `end_date`, so it needs a backend that sends the new
+  names: against an older one the start and end columns show "-", and a card can be named by a
+  station name that is no longer the current one (GH-2440)
 - `[Explorer/API]` The explorer sends its date range to the backend as `timestamp`, the new name
   of the backend's `date` parameter, and the API page's examples and parameter table name it so.
   It needs a backend that takes `timestamp`, the release after 0.141.0: 0.141.0 and older refuse a

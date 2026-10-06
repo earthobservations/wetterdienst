@@ -318,21 +318,21 @@ export interface StripesValuesQuery {
 export interface HistoryStationName {
   station_id: string
   station_name: string
-  start_date: string
-  end_date: string | null
+  valid_from: string
+  valid_to: string | null
 }
 
 export interface HistoryOperatorName {
   station_id: string
   operator_name: string
-  start_date: string
-  end_date: string | null
+  valid_from: string
+  valid_to: string | null
 }
 
 export interface HistoryParameter {
   station_id: string
-  start_date: string
-  end_date: string
+  valid_from: string
+  valid_to: string
   station_name: string
   parameter: string
   description: string | null
@@ -351,8 +351,8 @@ export interface HistoryDevice {
   latitude: number | null
   station_elevation: number | null
   device_height: number | null
-  start_date: string
-  end_date: string
+  valid_from: string
+  valid_to: string
   method: string | null
 }
 
@@ -361,8 +361,8 @@ export interface HistoryGeography {
   station_elevation: number | null
   latitude: number | null
   longitude: number | null
-  start_date: string
-  end_date: string | null
+  valid_from: string
+  valid_to: string | null
   station_name: string | null
 }
 
@@ -371,8 +371,8 @@ export interface HistoryMissingData {
   station_id: string
   station_name: string | null
   parameter: string
-  start_date: string
-  end_date: string
+  valid_from: string
+  valid_to: string
   missing_count: number | null
   description: string | null
 }

@@ -36,8 +36,8 @@ class _StationName(BaseModel):
 
     station_id: str
     station_name: str
-    start_date: dt.datetime
-    end_date: dt.datetime | None
+    valid_from: dt.datetime
+    valid_to: dt.datetime | None
 
 
 class _OperatorName(BaseModel):
@@ -45,8 +45,8 @@ class _OperatorName(BaseModel):
 
     station_id: str
     operator_name: str
-    start_date: dt.datetime
-    end_date: dt.datetime | None
+    valid_from: dt.datetime
+    valid_to: dt.datetime | None
 
 
 class _NameHistory(BaseModel):
@@ -61,8 +61,8 @@ class _ParameterHistory(BaseModel):
     """Model for parameter history."""
 
     station_id: str
-    start_date: dt.datetime
-    end_date: dt.datetime
+    valid_from: dt.datetime
+    valid_to: dt.datetime
     station_name: str
     parameter: str
     description: str | None = None
@@ -83,8 +83,8 @@ class _DeviceHistory(BaseModel):
     latitude: float | None = None
     station_elevation: float | None = None
     device_height: float | None = None
-    start_date: dt.datetime
-    end_date: dt.datetime
+    valid_from: dt.datetime
+    valid_to: dt.datetime
     method: str | None = None
 
 
@@ -95,8 +95,8 @@ class _GeographyHistory(BaseModel):
     station_elevation: float | None = None
     latitude: float | None = None
     longitude: float | None = None
-    start_date: dt.datetime
-    end_date: dt.datetime | None = None
+    valid_from: dt.datetime
+    valid_to: dt.datetime | None = None
     station_name: str | None = None
 
 
@@ -106,8 +106,8 @@ class _MissingSummary(BaseModel):
     station_id: str
     station_name: str | None = None
     parameter: str
-    start_date: dt.datetime
-    end_date: dt.datetime
+    valid_from: dt.datetime
+    valid_to: dt.datetime
     missing_count: int | None = None
     description: str | None = None
 
@@ -118,8 +118,8 @@ class _MissingPeriod(BaseModel):
     station_id: str
     station_name: str | None = None
     parameter: str
-    start_date: dt.datetime
-    end_date: dt.datetime
+    valid_from: dt.datetime
+    valid_to: dt.datetime
     missing_count: int | None = None
     description: str | None = None
 
