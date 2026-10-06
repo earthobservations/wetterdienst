@@ -130,30 +130,6 @@ issue_opt = click.option(
 timestamp_opt = click.option("--timestamp", type=click.STRING, help=_TIMESTAMP_HELP)
 
 
-def _refuse_date(ctx: click.Context, _param: click.Parameter, value: str | None) -> None:
-    """Refuse --date, naming --timestamp, the name it was given (GH-2438)."""
-    if value is not None:
-        msg = "--date was renamed to --timestamp."
-        raise click.UsageError(msg, ctx)
-
-
-# --date, the old name of --timestamp, hidden and refused by naming the new one, where click would
-# only say that it knows no such option. Its value is optional, so a bare --date is refused the same
-renamed_date_opt = click.option(
-    "--date", hidden=True, expose_value=False, is_flag=False, flag_value="", callback=_refuse_date
-)
-start_opt = click.option(
-    "--start",
-    type=click.STRING,
-    help="Start of a date range, instead of --timestamp. Given alone, it is a single date.",
-)
-end_opt = click.option(
-    "--end",
-    type=click.STRING,
-    help="End of a date range. Given alone, it is a single date.",
-)
-
-
 def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
     """Refuse an option renamed for 1.0 by naming the new one, where click would only say it has none."""
 
@@ -162,12 +138,24 @@ def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
             msg = f"{old} was renamed to {new}."
             raise click.UsageError(msg, ctx)
 
-    # a value is optional, so that the option alone is refused by its new name too, not as missing its value
+    # hidden, and its value is optional, so that the option alone is refused by its new name too
     return click.option(
         old, type=click.STRING, is_flag=False, flag_value="", hidden=True, expose_value=False, callback=refuse
     )
 
 
+# GH-2438: --date, the old name of --timestamp
+renamed_date_opt = _renamed_opt("--date", "--timestamp")
+start_opt = click.option(
+    "--start",
+    type=click.STRING,
+    help="Start of a time window, instead of --timestamp. Given alone, it is read as --timestamp.",
+)
+end_opt = click.option(
+    "--end",
+    type=click.STRING,
+    help="End of a time window. Given alone, it is read as --timestamp.",
+)
 # GH-2437: the window is a pair of UTC timestamps, not of dates
 start_date_renamed_opt = _renamed_opt("--start-date", "--start")
 end_date_renamed_opt = _renamed_opt("--end-date", "--end")
