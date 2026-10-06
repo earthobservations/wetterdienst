@@ -83,7 +83,7 @@ def test_extract_exception_text() -> None:
     assert extract_exception_text(empty) is None
 
 
-def test_parse_fmi_stations_active_station_end_date_null() -> None:
+def test_parse_fmi_stations_active_station_end_timestamp_null() -> None:
     """A trailing concrete endPosition does not override an active station's null end_timestamp."""
     content = b"""<?xml version="1.0" encoding="UTF-8"?>
     <wfs:FeatureCollection
