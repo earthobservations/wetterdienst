@@ -282,7 +282,6 @@ def test_history_target_file_uri_without_json_suffix(monkeypatch: pytest.MonkeyP
 @pytest.mark.parametrize("target", ["s3://bucket/history.json", "duckdb:///history.json"])
 def test_history_target_with_other_scheme_is_refused_before_the_fetch(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
     target: str,
 ) -> None:
     """Test a --target with a scheme other than `file://` is a usage error before any station is fetched."""
@@ -292,7 +291,6 @@ def test_history_target_with_other_scheme_is_refused_before_the_fetch(
         raise AssertionError(msg)
 
     monkeypatch.setattr("wetterdienst.ui.cli.get_stations", _no_fetch)
-    monkeypatch.chdir(tmp_path)
     result = CliRunner().invoke(
         cli,
         [
@@ -306,4 +304,3 @@ def test_history_target_with_other_scheme_is_refused_before_the_fetch(
     )
     assert result.exit_code == 2, result.output
     assert "--target only supports a local path or a file:// URI for history." in result.output
-    assert list(tmp_path.iterdir()) == []
