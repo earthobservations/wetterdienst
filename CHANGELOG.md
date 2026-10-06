@@ -22,6 +22,13 @@ Types of changes:
   geography, missing data -- give their span as `valid_from` and `valid_to`, where they gave
   `start_date` and `end_date`: in Python's `History`, `/api/history`, the MCP `history` tool and
   the CLI `history` command. Read the new names (GH-2440)
+- **Breaking**: the single date or interval a request names is `timestamp`, no longer `date`:
+  `/api/values`, `/api/interpolate`, `/api/summarize`, `/api/alerts` and their MCP tools,
+  `--timestamp` of the CLI's `values`, `interpolate`, `summarize` and `alerts`, and
+  `DwdWeatherAlertRequest(timestamp=...)` with its attribute `.timestamp`. Write
+  `timestamp=2020-05-01` where you wrote `date=2020-05-01`; the old name is refused with an error
+  naming the new one. The app sends `timestamp` from its next release; 0.18.1 and older send
+  `date`, so upgrade the app with the backend (GH-2438)
 
 ## [0.141.0] - 2026-10-06
 

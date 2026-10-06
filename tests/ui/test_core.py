@@ -214,7 +214,7 @@ def test_reference_point(
     errors: list | None,
 ) -> None:
     """Test an interpolation or summary is made for exactly one of a station or a point."""
-    values = {**_BASE, "date": "2020-06-30", **reference}
+    values = {**_BASE, "timestamp": "2020-06-30", **reference}
     if errors is None:
         model.model_validate(values)
         return
@@ -397,7 +397,7 @@ def test_point_on_the_equator_is_a_point(
     """
     recorder = _Recorder()
     monkeypatch.setattr(core, "_get_stations_request", lambda **_: recorder)
-    request = model.model_validate({**_BASE, "date": "2020-06-30", "latitude": 0.0, "longitude": 8.97})
+    request = model.model_validate({**_BASE, "timestamp": "2020-06-30", "latitude": 0.0, "longitude": 8.97})
     get(api=None, request=request, settings=None)
     assert recorder.calls == [("point", (0.0, 8.97))]
 
@@ -441,7 +441,7 @@ def test_swsmos_issue_is_forwarded(model: type[StationsRequest | ValuesRequest])
     stations_request = core._get_stations_request(  # noqa: SLF001
         api=DwdSwsmosRequest,
         request=request,
-        date=None,
+        timestamp=None,
         settings=Settings(),
     )
     assert stations_request.issue == dt.datetime(2026, 10, 1, 11, tzinfo=dt.timezone.utc)
@@ -459,7 +459,7 @@ def test_swsmos_without_issue_reads_the_latest_run() -> None:
     stations_request = core._get_stations_request(  # noqa: SLF001
         api=DwdSwsmosRequest,
         request=request,
-        date=None,
+        timestamp=None,
         settings=Settings(),
     )
     assert stations_request.issue is DwdForecastDate.LATEST
@@ -627,3 +627,19 @@ def test_stripes_of_a_station_that_returns_no_rows_are_refused(monkeypatch: pyte
         match="At least two years with data are required to create climate stripes; station 01048 has data for no year",
     ):
         _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048"))
+
+
+@pytest.mark.parametrize("model", [ValuesRequest, InterpolationRequest, SummaryRequest])
+def test_date_is_refused_naming_timestamp(model: type[ValuesRequest | InterpolationRequest | SummaryRequest]) -> None:
+    """Test `date`, renamed to `timestamp`, is refused by naming it, not as an extra input (GH-2438)."""
+    with pytest.raises(ValidationError) as error:
+        model.model_validate({**_BASE, "station": "01048", "date": "2020-06-30"})
+    assert error.value.errors(include_url=False) == [
+        {
+            "type": "renamed",
+            "loc": ("date",),
+            "msg": "date was renamed to timestamp",
+            "input": "2020-06-30",
+            "ctx": {"renamed_to": "timestamp"},
+        }
+    ]

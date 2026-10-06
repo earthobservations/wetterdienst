@@ -276,7 +276,7 @@
       "network": "Rete di dati (es. observation, forecast)",
       "parameters": "Percorso del parametro (es. daily/kl/temperature_air_mean_2m)",
       "station": "ID della/e stazione/i, separati da virgola",
-      "date": "Data o intervallo di date (es. 2020-01-01/2020-12-31)",
+      "timestamp": "Data o intervallo di date (es. 2020-01-01/2020-12-31)",
       "format": "Formato di output (json, csv, geojson, html)"
     }
   },

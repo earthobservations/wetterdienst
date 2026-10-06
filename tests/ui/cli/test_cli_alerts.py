@@ -63,7 +63,9 @@ def test_cli_alerts_date_snapshot() -> None:
 
     target = dt.datetime.now(ZoneInfo("UTC")) - dt.timedelta(hours=6)
     runner = CliRunner()
-    result = runner.invoke(cli, ["alerts", "--granularity=district", f"--date={target.strftime('%Y-%m-%dT%H:%M:%S')}"])
+    result = runner.invoke(
+        cli, ["alerts", "--granularity=district", f"--timestamp={target.strftime('%Y-%m-%dT%H:%M:%S')}"]
+    )
     assert result.exit_code == 0
     assert "alerts" in json.loads(result.output)
 
@@ -72,7 +74,7 @@ def test_cli_alerts_date_snapshot() -> None:
 def test_cli_alerts_date_before_window() -> None:
     """Test the alerts command rejects a date older than the rolling window."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["alerts", "--date=2000-01-01T00:00:00"])
+    result = runner.invoke(cli, ["alerts", "--timestamp=2000-01-01T00:00:00"])
     assert result.exit_code != 0
 
 
@@ -91,7 +93,7 @@ def test_cli_alerts_target_file(tmp_path) -> None:  # noqa: ANN001
 
 
 def test_cli_alerts_date_before_window_is_a_date_usage_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a date before DWD's rolling window is reported as an invalid --date, with exit status 2."""
+    """Test a date before DWD's rolling window is reported as an invalid --timestamp, with exit status 2."""
     from wetterdienst.exceptions import InvalidTimeIntervalError  # noqa: PLC0415
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
@@ -101,10 +103,10 @@ def test_cli_alerts_date_before_window_is_a_date_usage_error(monkeypatch: pytest
 
     monkeypatch.setattr(DwdWeatherAlertRequest, "query", query)
     runner = CliRunner()
-    result = runner.invoke(cli, ["alerts", "--date=2000-01-01T00:00:00"])
+    result = runner.invoke(cli, ["alerts", "--timestamp=2000-01-01T00:00:00"])
     assert result.exit_code == 2
     assert "Usage:" in result.output
-    assert "Invalid value for --date: no weather-alerts snapshot available" in result.output
+    assert "Invalid value for --timestamp: no weather-alerts snapshot available" in result.output
 
 
 def test_cli_alerts_unreadable_feed_is_not_a_usage_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -133,23 +135,23 @@ def test_cli_alerts_unreadable_feed_is_not_a_usage_error(monkeypatch: pytest.Mon
     ],
 )
 def test_cli_alerts_bad_date_is_a_date_usage_error(date: str, message: str) -> None:
-    """Test a date that does not parse, or that leaves a datetime's range, is reported as an invalid --date."""
+    """Test a date that does not parse, or that leaves a datetime's range, is reported as an invalid --timestamp."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["alerts", f"--date={date}"])
+    result = runner.invoke(cli, ["alerts", f"--timestamp={date}"])
     assert result.exit_code == 2
     assert "Usage:" in result.output
-    assert f"Invalid value for --date: {message}" in result.output
+    assert f"Invalid value for --timestamp: {message}" in result.output
 
 
 def test_cli_alerts_does_not_blame_the_command_line_for_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a WD_* environment variable Settings refuses is not told as an invalid option of the command."""
     monkeypatch.setenv("WD_CACHE_DISABLE", "notabool")
     runner = CliRunner()
-    result = runner.invoke(cli, ["alerts", "--date=2000-01-01T00:00:00"])
+    result = runner.invoke(cli, ["alerts", "--timestamp=2000-01-01T00:00:00"])
     assert result.exit_code == 1, result.output
     assert "Error: WD_CACHE_DISABLE is invalid: " in result.output
     assert "Usage:" not in result.output
-    assert "--date" not in result.output
+    assert "--timestamp" not in result.output
 
 
 def test_cli_alerts_unwritable_target_is_a_readable_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

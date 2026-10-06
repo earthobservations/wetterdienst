@@ -11,6 +11,7 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar
 
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, WithJsonSchema
 from typing_extensions import NotRequired
@@ -137,8 +138,8 @@ REQUEST_EXAMPLES = {
     "dwd_observation_daily_climate_stations": "api/stations?provider=dwd&network=observation&parameters=daily/kl&periods=recent&all=true",  # noqa:E501
     "dwd_observation_daily_climate_values": "api/values?provider=dwd&network=observation&parameters=daily/kl&periods=recent&station=00011",  # noqa:E501
     "dwd_observation_daily_climate_history": "api/history?provider=dwd&network=observation&parameters=daily/kl&station=00011",  # noqa:E501
-    "dwd_observation_daily_climate_interpolation": "api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01",  # noqa:E501
-    "dwd_observation_daily_climate_summary": "api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01",  # noqa:E501
+    "dwd_observation_daily_climate_interpolation": "api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01",  # noqa:E501
+    "dwd_observation_daily_climate_summary": "api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01",  # noqa:E501
     "dwd_observation_daily_climate_stripes_stations": "api/stripes/stations?kind=temperature",
     "dwd_observation_daily_climate_stripes_values": "api/stripes/values?kind=temperature&station=1048",
     "dwd_observation_daily_climate_stripes_image": "api/stripes/image?kind=temperature&station=1048",
@@ -860,7 +861,7 @@ def stations(
         stations_ = get_stations(
             api=api,
             request=request,
-            date=None,
+            timestamp=None,
             settings=settings,
         )
     except AssertionError:
@@ -1162,7 +1163,7 @@ def interpolate(
     when `stations` -> `values` genuinely finds no station with data near the location. It blends up
     to four surrounding stations for a `latitude`/`longitude` (or reference `station`) that has no
     station of its own, so the result is a modelled estimate, not a measurement. Requires provider,
-    network, parameters and a `date`.
+    network, parameters and a `timestamp`.
     """
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
@@ -1219,7 +1220,7 @@ def summarize(
     station with data near the location. Per parameter and date it takes the value of the closest
     station that reported it (the result names the `taken_station_id` and its `distance`), so the
     result may stitch together different stations. Requires provider, network, parameters and a
-    `date`.
+    `timestamp`.
     """
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
@@ -1359,7 +1360,7 @@ def history(
 
     Provides the record of a station's name, position, sensors/devices and data-gap sections across
     its lifetime, for auditing station changes. This is NOT weather or measurement history: for past
-    measurements use the stations -> values workflow with a `date` or interval. Requires provider,
+    measurements use the stations -> values workflow with a `timestamp` or interval. Requires provider,
     network, parameters and either `station` id(s) or all=true.
     """
     set_logging_level(debug=request.debug)
@@ -1377,7 +1378,7 @@ def history(
         stations_ = get_stations(
             api=api,
             request=request,
-            date=None,
+            timestamp=None,
             settings=settings,
         )
     except AssertionError:
@@ -1424,9 +1425,10 @@ def history(
 
 @app.get("/api/alerts")
 def alerts(
+    http_request: Request,
     granularity: Annotated[Literal["community", "district"], Query()] = "community",
     language: Annotated[Literal["de", "en", "es", "fr", "mul"], Query()] = "en",
-    date: Annotated[str | None, Query()] = None,
+    timestamp: Annotated[str | None, Query()] = None,
     fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
     pretty: Annotated[bool, Query()] = False,  # noqa: FBT002
     debug: Annotated[bool, Query()] = False,  # noqa: FBT002
@@ -1434,7 +1436,7 @@ def alerts(
     """Provide DWD weather alerts (CAP warnings) via restapi.
 
     Returns all warnings active at the selected time, one entry per alert, with a GeoJSON
-    MultiPolygon geometry. ``date`` (ISO 8601, UTC if no offset) selects a historical snapshot from
+    MultiPolygon geometry. ``timestamp`` (ISO 8601, UTC if no offset) selects a historical snapshot from
     DWD's rolling ~48-hour window; omit it for the latest snapshot. An empty result simply means
     there were no active warnings.
     """
@@ -1442,10 +1444,27 @@ def alerts(
 
     set_logging_level(debug=debug)
 
+    # these query parameters are no model forbidding others, so FastAPI would pass over a `date`
+    # without a word and answer the latest snapshot: refused as the values request refuses it
+    if "date" in http_request.query_params:
+        raise RequestValidationError(
+            [
+                {
+                    "type": "renamed",
+                    "loc": ("query", "date"),
+                    "msg": "date was renamed to timestamp",
+                    "input": http_request.query_params["date"],
+                    "ctx": {"renamed_to": "timestamp"},
+                }
+            ]
+        )
+
     # outside the handlers below, as for `/api/stations`: a `ValidationError` is a `ValueError`
     settings = Settings()
     try:
-        request = DwdWeatherAlertRequest(granularity=granularity, language=language, date=date, settings=settings)
+        request = DwdWeatherAlertRequest(
+            granularity=granularity, language=language, timestamp=timestamp, settings=settings
+        )
     except (ValueError, OverflowError) as e:
         # a date that does not parse, or one an offset carries out of what a datetime holds
         raise HTTPException(status_code=400, detail=str(e)) from e

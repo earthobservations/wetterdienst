@@ -276,7 +276,7 @@
       "network": "Data network (e.g., observation, forecast)",
       "parameters": "Parameter path (e.g., daily/kl/temperature_air_mean_2m)",
       "station": "Station ID(s), comma-separated",
-      "date": "Date or date range (e.g., 2020-01-01/2020-12-31)",
+      "timestamp": "Date or date range (e.g., 2020-01-01/2020-12-31)",
       "format": "Output format (json, csv, geojson, html)"
     }
   },

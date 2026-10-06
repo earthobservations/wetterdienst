@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from collections.abc import Mapping, Sequence  # noqa: TC003
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
 import polars as pl
@@ -78,8 +78,8 @@ _PeriodsField = Annotated[
     list[str] | None,
     Field(
         description="Dataset periods: 'historical', 'recent', 'now' and/or 'future'. A period the "
-        "requested datasets are not published under is rejected. Inferred from the date when "
-        "omitted, else every period those datasets publish.",
+        "requested datasets are not published under is rejected. When omitted, inferred from the "
+        "timestamp where one is given, else every period those datasets publish.",
     ),
 ]
 # named like the station column the default is read from; `height` in these models is the image option
@@ -174,13 +174,13 @@ _DebugField = Annotated[bool, Field(description="Enable debug logging.")]
 _WidthField = Annotated[int | None, Field(gt=0, description="Width of the rendered chart image in pixels.")]
 _HeightField = Annotated[int | None, Field(gt=0, description="Height of the rendered chart image in pixels.")]
 _ScaleField = Annotated[float | None, Field(gt=0, description="Scale factor of the rendered chart image.")]
-_DATE_DESCRIPTION = (
+_TIMESTAMP_DESCRIPTION = (
     "Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'. A date "
     "covers everything it names: '2020-05' is the month of May and '2020' the year, and a day is "
     "all of its readings rather than the one at midnight."
 )
-_DateField = Annotated[str, Field(description=_DATE_DESCRIPTION)]
-_DateOptField = Annotated[str | None, Field(description=_DATE_DESCRIPTION)]
+_TimestampField = Annotated[str, Field(description=_TIMESTAMP_DESCRIPTION)]
+_TimestampOptField = Annotated[str | None, Field(description=_TIMESTAMP_DESCRIPTION)]
 _ShapeField = Annotated[
     Literal["long", "wide"],
     Field(
@@ -369,6 +369,30 @@ def _raise_rule_errors(request: BaseModel, errors: list[InitErrorDetails]) -> No
     """Raise the errors of a model's rules as a ValidationError, which pydantic passes on as it is."""
     if errors:
         raise ValidationError.from_exception_data(type(request).__name__, errors)
+
+
+#: query parameters renamed on the way to 1.0, old name to new. The values, interpolation and
+#: summary requests, and each MCP tool taking the new name, refuse the old one with an error naming
+#: the new one, rather than one about a parameter they do not know (GH-2438)
+RENAMED_REQUEST_PARAMETERS: dict[str, str] = {"date": "timestamp"}
+
+
+class _RefusesRenamedParameters(BaseModel):
+    """A request model that refuses a parameter given by its old name, naming the new one."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def refuse_renamed_parameters(cls, data: Any) -> Any:  # noqa: ANN401
+        """Refuse a parameter of `RENAMED_REQUEST_PARAMETERS` given by its old name."""
+        if isinstance(data, Mapping):
+            errors = [
+                _rule_error("renamed", f"{old} was renamed to {new}", (old,), data[old], renamed_to=new)
+                for old, new in RENAMED_REQUEST_PARAMETERS.items()
+                if old in data
+            ]
+            if errors:
+                raise ValidationError.from_exception_data(cls.__name__, errors)
+        return data
 
 
 def _is_set(request: BaseModel, field: str) -> bool:
@@ -595,7 +619,7 @@ class HistoryRequest(BaseModel):
         return self
 
 
-class ValuesRequest(BaseModel):
+class ValuesRequest(_RefusesRenamedParameters):
     """Values request with validated parameters."""
 
     model_config = {"extra": "forbid"}
@@ -681,7 +705,7 @@ class ValuesRequest(BaseModel):
     scale: _ScaleField = None
 
     # values
-    date: _DateOptField = None
+    timestamp: _TimestampOptField = None
     sql_values: _SqlValuesField = None
     humanize: _HumanizeField = True
     shape: _ShapeField = "long"
@@ -709,7 +733,7 @@ class ValuesRequest(BaseModel):
         return self
 
 
-class InterpolationRequest(BaseModel):
+class InterpolationRequest(_RefusesRenamedParameters):
     """Interpolation request with validated parameters."""
 
     model_config = {"extra": "forbid"}
@@ -750,7 +774,7 @@ class InterpolationRequest(BaseModel):
                 periods.append(item)
         return periods
 
-    date: _DateField
+    timestamp: _TimestampField
 
     # DWD forecasts: issue for MOSMIX/DMO/SWSMOS, lead_time for DMO
     lead_time: _LeadTimeField = None
@@ -815,7 +839,7 @@ class InterpolationRequest(BaseModel):
         return self
 
 
-class SummaryRequest(BaseModel):
+class SummaryRequest(_RefusesRenamedParameters):
     """Summary request with validated parameters."""
 
     model_config = {"extra": "forbid"}
@@ -856,7 +880,7 @@ class SummaryRequest(BaseModel):
                 periods.append(item)
         return periods
 
-    date: _DateField
+    timestamp: _TimestampField
 
     # DWD forecasts: issue for MOSMIX/DMO/SWSMOS, lead_time for DMO
     lead_time: _LeadTimeField = None
@@ -1154,7 +1178,7 @@ def get_issues(
 def _get_stations_request(
     api: type[TimeseriesRequest],
     request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest,
-    date: str | None,
+    timestamp: str | None,
     settings: Settings,
 ) -> TimeseriesRequest:
     """Create a request object for stations."""
@@ -1164,17 +1188,17 @@ def _get_stations_request(
 
     # TODO: move this into Request core
     start_date, end_date = None, None
-    if date:
-        if "/" in date:
-            if date.count("/") >= 2:
+    if timestamp:
+        if "/" in timestamp:
+            if timestamp.count("/") >= 2:
                 msg = "Invalid ISO 8601 time interval"
                 raise InvalidTimeIntervalError(msg)
-            start_string, end_string = date.split("/")
+            start_string, end_string = timestamp.split("/")
             # the window opens with the span the first half names and closes with the second's
             start_date, _ = parse_date_window(start_string)
             _, end_date = parse_date_window(end_string)
         else:
-            start_date, end_date = parse_date_window(date)
+            start_date, end_date = parse_date_window(timestamp)
 
     parameters = parse_parameters(request.parameters, api.metadata)
     if not parameters:
@@ -1211,11 +1235,11 @@ def _get_stations_request(
 def get_stations(
     api: type[TimeseriesRequest],
     request: StationsRequest | ValuesRequest | HistoryRequest,
-    date: str | None,
+    timestamp: str | None,
     settings: Settings,
 ) -> StationsResult:
     """Get stations based on request, by the one selection its model lets it make."""
-    r = _get_stations_request(api=api, request=request, date=date, settings=settings)
+    r = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings)
 
     if getattr(request, "all", False):
         return r.all()
@@ -1302,7 +1326,7 @@ def get_values(
     stations_ = get_stations(
         api=api,
         request=request,
-        date=request.date,
+        timestamp=request.timestamp,
         settings=settings,
     )
 
@@ -1331,7 +1355,7 @@ def get_interpolate(
     settings: Settings,
 ) -> InterpolatedValuesResult:
     """Get interpolated values based on request."""
-    r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
+    r = _get_stations_request(api=api, request=request, timestamp=request.timestamp, settings=settings)
 
     if request.latitude is not None and request.longitude is not None:
         values_ = r.interpolate((request.latitude, request.longitude), elevation=request.elevation)
@@ -1355,7 +1379,7 @@ def get_summarize(
     settings: Settings,
 ) -> SummarizedValuesResult:
     """Get summarized values based on request."""
-    r = _get_stations_request(api=api, request=request, date=request.date, settings=settings)
+    r = _get_stations_request(api=api, request=request, timestamp=request.timestamp, settings=settings)
 
     if request.latitude is not None and request.longitude is not None:
         values_ = r.summarize((request.latitude, request.longitude), elevation=request.elevation)
