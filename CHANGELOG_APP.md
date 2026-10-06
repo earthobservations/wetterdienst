@@ -27,6 +27,12 @@ Types of changes:
   It needs a backend that takes `timestamp`, the release after 0.141.0: 0.141.0 and older refuse a
   request with a date range. The explorer's own links keep `startDate`/`endDate`, and open as
   before (GH-2438)
+- `[Explorer/Stripes]` The span a station has records for is read from `start_timestamp` and
+  `end_timestamp`, the backend's new names for `start_date` and `end_date`, so the app needs a
+  backend that sends them, the release after 0.141.0: against 0.141.0 or older the station table's
+  start and end show "-", the stripes page's available years are blank, and a required date range
+  is filled from the selected stations with today as its end but no start. Links open as before
+  (GH-2439)
 
 ## [0.18.1] - 2026-10-06
 

@@ -21,8 +21,8 @@ const stationTableColumns = computed<TableColumn<Station>[]>(() => [
   { accessorKey: 'region', header: t('stationTable.region') },
   { accessorKey: 'latitude', header: t('stationTable.latitude') },
   { accessorKey: 'longitude', header: t('stationTable.longitude') },
-  { accessorKey: 'start_date', header: t('stationTable.startDate') },
-  { accessorKey: 'end_date', header: t('stationTable.endDate') },
+  { accessorKey: 'start_timestamp', header: t('stationTable.startDate') },
+  { accessorKey: 'end_timestamp', header: t('stationTable.endDate') },
 ])
 
 const route = useRoute()
@@ -414,7 +414,7 @@ const dateRangeRequired = computed(() =>
   || parameterSelectionState.value.selection.dateRequired === true,
 )
 
-// When dates are required and stations are selected, auto-fill from min(start_date) / max(end_date).
+// When dates are required and stations are selected, auto-fill from min(start_timestamp) / max(end_timestamp).
 watch(
   [
     () => stationSelectionState.value.selection.stations,
@@ -425,9 +425,9 @@ watch(
       return
     const today = new Date().toISOString().slice(0, 10)
     const toDate = (iso: string | undefined | null) => iso ? iso.slice(0, 10) : null
-    const starts = (stations as Station[]).map(s => toDate(s.start_date)).filter(Boolean) as string[]
-    // Active stations have no end_date — treat them as ending today
-    const ends = (stations as Station[]).map(s => toDate(s.end_date) ?? today)
+    const starts = (stations as Station[]).map(s => toDate(s.start_timestamp)).filter(Boolean) as string[]
+    // Active stations have no end_timestamp — treat them as ending today
+    const ends = (stations as Station[]).map(s => toDate(s.end_timestamp) ?? today)
     if (starts.length)
       stationSelectionState.value.dateRange.startDate = starts.reduce((a, b) => a < b ? a : b)
     if (ends.length)
@@ -1103,11 +1103,11 @@ function handleUnitTargetChange(unitType: string, value: string) {
             <template #longitude-cell="{ row }">
               {{ row.original.longitude?.toFixed(4) ?? '-' }}
             </template>
-            <template #start_date-cell="{ row }">
-              {{ row.original.start_date?.slice(0, 10) ?? '-' }}
+            <template #start_timestamp-cell="{ row }">
+              {{ row.original.start_timestamp?.slice(0, 10) ?? '-' }}
             </template>
-            <template #end_date-cell="{ row }">
-              {{ row.original.end_date?.slice(0, 10) ?? '-' }}
+            <template #end_timestamp-cell="{ row }">
+              {{ row.original.end_timestamp?.slice(0, 10) ?? '-' }}
             </template>
           </UTable>
         </div>

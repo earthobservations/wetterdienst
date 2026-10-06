@@ -109,7 +109,7 @@ describe('stripes Page', () => {
   })
 
   it('clicking Show plots the stripes, and clicking Reset clears the plot', async () => {
-    const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', start_date: '1950-01-01', end_date: '2020-01-01' }
+    const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
       metadata: { station },
@@ -143,8 +143,8 @@ describe('stripes Page', () => {
 })
 
 describe('stripes Page station map', () => {
-  const tempelhof = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
-  const potsdam = { station_id: '3987', name: 'Potsdam', region: 'Brandenburg', latitude: 52.38, longitude: 13.06, start_date: '1893-01-01', end_date: '2020-01-01' }
+  const tempelhof = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
+  const potsdam = { station_id: '3987', name: 'Potsdam', region: 'Brandenburg', latitude: 52.38, longitude: 13.06, start_timestamp: '1893-01-01', end_timestamp: '2020-01-01' }
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
 
@@ -186,7 +186,7 @@ describe('stripes Page station map', () => {
 })
 
 describe('stripes Page years', () => {
-  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
 
   // a browser five hours west of UTC, where the first moment of a year in UTC is still the year before
   let zone: string | undefined
@@ -238,7 +238,7 @@ describe('stripes Page years', () => {
 
 // a failing Plotly load can take seconds on a busy runner, past the default test timeout
 describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () => {
-  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
 
   // the chart area's Retry button, and the alert beside it, not a toast's
   const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
@@ -406,8 +406,8 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
 })
 
 describe('stripes Page values that could not be fetched', () => {
-  const tempelhof = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
-  const potsdam = { station_id: '3987', name: 'Potsdam', region: 'Brandenburg', latitude: 52.38, longitude: 13.06, start_date: '1893-01-01', end_date: '2020-01-01' }
+  const tempelhof = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
+  const potsdam = { station_id: '3987', name: 'Potsdam', region: 'Brandenburg', latitude: 52.38, longitude: 13.06, start_timestamp: '1893-01-01', end_timestamp: '2020-01-01' }
   const values = (station: typeof tempelhof) => ({
     metadata: { station },
     values: [
@@ -651,7 +651,7 @@ describe('stripes Page values that could not be fetched', () => {
 describe('stripes Page chart whose Plotly chunk a redeploy replaced', { timeout: 15_000 }, () => {
   // A redeploy replaces Plotly's hashed chunk under an open tab: every Retry asks for the gone chunk
   // again and fails, and only reloading the page loads the new one
-  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
   const button = (label: string) => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === label)
   const note = () => button('Retry')?.parentElement?.querySelector('[role="alert"]')?.textContent?.trim()
   const hint = 'If trying again does not help, reload the page.'
@@ -716,7 +716,7 @@ describe('stripes Page chart whose Plotly chunk a redeploy replaced', { timeout:
 })
 
 describe('stripes Page requests answered with a 500', () => {
-  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
   // disposers of the endpoints these tests register, so none answers a later test
@@ -776,7 +776,7 @@ describe('stripes Page requests answered with a 500', () => {
 })
 
 describe('stripes Page requests answered with a 503 once', () => {
-  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
   // disposers of the endpoints these tests register, so none answers a later test
@@ -834,7 +834,7 @@ describe('stripes Page requests answered with a 503 once', () => {
 })
 
 describe('stripes Page chart after a Retry', { timeout: 15_000 }, () => {
-  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
   // the focus Retry held fell to the page's body once a Retry that worked took the note away
   const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
 
@@ -914,7 +914,7 @@ describe('stripes Page chart after a Retry', { timeout: 15_000 }, () => {
 })
 
 describe('stripes Page chart name', { timeout: 15_000 }, () => {
-  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_date: '1950-01-01', end_date: '2020-01-01' }
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
   afterEach(() => {
@@ -945,5 +945,27 @@ describe('stripes Page chart name', { timeout: 15_000 }, () => {
     const [chart] = plotly.newPlot.mock.calls[0] as unknown as [HTMLElement]
     expect(chart.getAttribute('role')).toBe('figure')
     expect(chart.getAttribute('aria-label')).toBe('Climate stripes (Precipitation) for Berlin-Tempelhof, Germany (1048)')
+  })
+})
+
+describe('stripes Page station span', () => {
+  // as the backend sends a station's span since GH-2439
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01T00:00:00.000000+00:00', end_timestamp: '2020-12-31T00:00:00.000000+00:00' }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+  })
+
+  it('shows the years a chosen station has records for', async () => {
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+
+    expect(wrapper.text().replace(/\s+/g, ' ')).toContain('Available: 1950 - 2020')
   })
 })
