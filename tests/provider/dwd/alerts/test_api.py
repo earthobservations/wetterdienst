@@ -303,7 +303,7 @@ def test_date_is_refused_naming_timestamp() -> None:
 
 
 def test_an_unknown_keyword_is_refused_as_python_refuses_it() -> None:
-    """A keyword that was never taken is refused as Python 3.11 refuses one, not as a rename (GH-2438)."""
+    """A keyword that was never taken is refused in Python's own words, not as a rename (GH-2438)."""
     with pytest.raises(
         TypeError, match=r"^DwdWeatherAlertRequest\.__init__\(\) got an unexpected keyword argument 'bogus'$"
     ):

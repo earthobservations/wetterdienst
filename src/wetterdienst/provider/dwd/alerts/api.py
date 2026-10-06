@@ -210,7 +210,7 @@ class DwdWeatherAlertRequest:
             msg = (
                 "date was renamed to timestamp"
                 if name == "date"
-                # Python's own words, as 3.11 and later put them
+                # in Python's own words
                 else f"{DwdWeatherAlertRequest.__init__.__qualname__}() got an unexpected keyword argument {name!r}"
             )
             raise TypeError(msg)
