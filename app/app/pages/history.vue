@@ -95,18 +95,18 @@ watch(
   { deep: true },
 )
 
-// The name a section's records give the station now: that of the record still open (no end date), or
+// The name a section's records give the station now: that of the record still open (no `valid_to`), or
 // else of the one that ended last, of those the one begun last; none where that record has none. A
 // section's records aren't in date order: the parameter and device sections list theirs per parameter
 // or device, and an answer can join the records of two archives.
 function currentStationName(
-  records: Array<{ station_name: string | null, start_date: string, end_date: string | null }> = [],
+  records: Array<{ station_name: string | null, valid_from: string, valid_to: string | null }> = [],
 ): string | null {
-  const ended = (record: { end_date: string | null }) =>
-    record.end_date === null ? Number.POSITIVE_INFINITY : Date.parse(record.end_date)
+  const ended = (record: { valid_to: string | null }) =>
+    record.valid_to === null ? Number.POSITIVE_INFINITY : Date.parse(record.valid_to)
   // two open records end alike, where Infinity - Infinity is NaN: their start decides
   const current = [...records]
-    .sort((a, b) => (ended(a) - ended(b)) || (Date.parse(a.start_date) - Date.parse(b.start_date)))
+    .sort((a, b) => (ended(a) - ended(b)) || (Date.parse(a.valid_from) - Date.parse(b.valid_from)))
     .at(-1)
   return current?.station_name || null
 }
@@ -412,10 +412,10 @@ function clear() {
                               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                                 <tr v-for="(entry, i) in history.name.station" :key="i">
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.start_date || '-' }}
+                                    {{ entry.valid_from || '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.end_date || '-' }}
+                                    {{ entry.valid_to || '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
                                     {{ entry.station_name || '-' }}
@@ -449,10 +449,10 @@ function clear() {
                               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                                 <tr v-for="(entry, i) in history.name.operator" :key="i">
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.start_date || '-' }}
+                                    {{ entry.valid_from || '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.end_date || '-' }}
+                                    {{ entry.valid_to || '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
                                     {{ entry.operator_name || '-' }}
@@ -501,10 +501,10 @@ function clear() {
                             <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                               <tr v-for="(entry, i) in history.parameter" :key="i">
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.start_date || '-' }}
+                                  {{ entry.valid_from || '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.end_date || '-' }}
+                                  {{ entry.valid_to || '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
                                   {{ entry.parameter || '-' }}
@@ -558,10 +558,10 @@ function clear() {
                             <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                               <tr v-for="(entry, i) in history.device" :key="i">
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.start_date || '-' }}
+                                  {{ entry.valid_from || '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.end_date || '-' }}
+                                  {{ entry.valid_to || '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
                                   {{ entry.device_type || '-' }}
@@ -615,10 +615,10 @@ function clear() {
                             <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                               <tr v-for="(entry, i) in history.geography" :key="i">
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.start_date || '-' }}
+                                  {{ entry.valid_from || '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.end_date || '-' }}
+                                  {{ entry.valid_to || '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
                                   {{ entry.latitude ?? '-' }}
@@ -676,10 +676,10 @@ function clear() {
                               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                                 <tr v-for="(entry, i) in history.missing_data.summary" :key="i">
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.start_date || '-' }}
+                                    {{ entry.valid_from || '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.end_date || '-' }}
+                                    {{ entry.valid_to || '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
                                     {{ entry.parameter || '-' }}
@@ -719,10 +719,10 @@ function clear() {
                               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                                 <tr v-for="(entry, i) in history.missing_data.periods" :key="i">
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.start_date || '-' }}
+                                    {{ entry.valid_from || '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.end_date || '-' }}
+                                    {{ entry.valid_to || '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
                                     {{ entry.parameter || '-' }}

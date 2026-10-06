@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[History]` The page reads each record's span from `valid_from` and `valid_to`, as the backend now
+  returns it, where it read `start_date` and `end_date`, so it needs a backend that sends the new
+  names: against an older one the start and end columns show "-" (GH-2440)
+
 ## [0.18.1] - 2026-10-06
 
 ### Fixed
