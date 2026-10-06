@@ -545,6 +545,9 @@ def test_request_signature_names_the_window_arguments(request_class: type[Timese
     """
     parameters = inspect.signature(request_class).parameters
     assert list(parameters)[:3] == ["parameters", "start", "end"]
+
+
+def test_request_keeps_the_window_under_its_new_names() -> None:
     """Test start and end are taken by the request and read back from its stations result (GH-2437)."""
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
 
