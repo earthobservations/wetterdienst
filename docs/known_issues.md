@@ -45,6 +45,34 @@ export WD_USE_CERTIFI=true
 This uses Mozilla's curated collection of root certificates instead of your system certificates.
 For more information, see the [settings documentation](usage/settings.md).
 
+## Crash at exit with the `bufr` and `radarplus` extras on Linux
+
+On Linux, `eccodes` (from the `bufr` or `eccodes` extra) pulls in the `eccodeslib` and `eckitlib`
+wheels, and `eckitlib` bundles its own copy of PROJ. The `radarplus` extra brings in `pyproj`, which
+bundles another. A process that imports `eccodes` before `pyproj` then crashes at interpreter exit
+(`double free or corruption` or `free(): invalid pointer`, usually exit status 134):
+
+```bash
+python -c "import eccodes; import pyproj"; echo $?   # 134
+python -c "import pyproj; import eccodes"; echo $?   # 0
+```
+
+The crash comes after your code has finished, so output is already written, but the non-zero exit
+status fails scripts and CI jobs. This is the upstream bug
+[ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
+[#2441](https://github.com/earthobservations/wetterdienst/issues/2441).
+
+Until it is fixed, install your distribution's ecCodes library and tell `findlibs` to use it instead
+of the one from the wheel (Debian/Ubuntu shown):
+
+```bash
+sudo apt-get install libeccodes0
+export FINDLIBS_DISABLE_PACKAGE=yes
+```
+
+Both steps are needed: with only `FINDLIBS_DISABLE_PACKAGE` set and no system library,
+`eccodes` cannot load at all. Importing `pyproj` before `eccodes` avoids the crash as well.
+
 ## Raspberry Pi / Linux ARM
 
 On a Raspberry Pi, **numpy** and **lxml** have to be in place before wetterdienst is installed:
