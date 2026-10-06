@@ -539,7 +539,7 @@ def test_request_refuses_both_renamed_arguments_at_once() -> None:
 
 @pytest.mark.parametrize("request_class", [TimeseriesRequest, MetnoFrostRequest, DwdObservationRequest])
 def test_request_signature_names_the_window_arguments(request_class: type[TimeseriesRequest]) -> None:
-    """Test help() and editors still see a request's arguments behind the refusing __new__ (GH-2437).
+    """Test help() and IPython still see a request's arguments behind the refusing __new__ (GH-2437).
 
     MetnoFrostRequest is no dataclass of its own, so it inherits both __new__ and __init__.
     """

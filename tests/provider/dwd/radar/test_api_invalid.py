@@ -162,7 +162,7 @@ def test_radar_request_refuses_a_renamed_argument_by_its_new_name(old: str, new:
 
 
 def test_radar_request_signature_names_the_window_arguments() -> None:
-    """Test help() and editors still see the radar request's arguments behind the refusing __new__ (GH-2437)."""
+    """Test help() and IPython still see the radar request's arguments behind the refusing __new__ (GH-2437)."""
     import inspect  # noqa: PLC0415
 
     parameters = inspect.signature(DwdRadarValues).parameters
