@@ -7,7 +7,9 @@ import contextlib
 import importlib
 import importlib.util
 import logging
+import os
 import re
+import shutil
 import sys
 import warnings
 from collections.abc import Iterator
@@ -596,3 +598,26 @@ def test_a_radar_file_decodes_through_the_reader(files_read: list[Path]) -> None
     assert not files_read[0].exists()
     # and the caller's bytes are still there to be read
     assert data.read() == message
+
+
+def test_bufr_file_a_file_that_will_not_go_does_not_fail_the_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A file the OS will not let go of yet is left behind, not raised after a read that worked.
+
+    On Windows a file still open elsewhere -- a virus scanner reading what was just written -- cannot
+    be removed, and the removal runs the moment the read returns.
+    """
+    unlink = os.unlink
+
+    def refusing(path: str | os.PathLike, *args: object, **kwargs: object) -> None:
+        if os.fspath(path).endswith("message.bufr"):
+            msg = "[WinError 32] The process cannot access the file because it is being used"
+            raise PermissionError(msg)
+        unlink(path, *args, **kwargs)
+
+    with eccodes.bufr_file(b"some bytes") as path:
+        monkeypatch.setattr(os, "unlink", refusing)
+    monkeypatch.undo()
+    try:
+        assert path.read_bytes() == b"some bytes"
+    finally:
+        shutil.rmtree(path.parent)

@@ -8,6 +8,8 @@ so a working install has both -- but the binding imports happily with no library
 only says so when asked for a version. Neither half alone answers "can this environment read
 BUFR", which is the only question any caller has: use `bufr_is_available` for that, or
 `require_bufr` where the answer has to be no further than the first line of a method.
+
+pdbufr reads from a path, so the bytes a reader downloads go through `bufr_file` on their way to it.
 """
 
 import importlib.util
@@ -186,7 +188,9 @@ def bufr_file(content: bytes) -> Iterator[Path]:
         the path of the file holding them
 
     """
-    with TemporaryDirectory(prefix="wetterdienst-bufr-") as directory:
+    # a file Windows will not yet let go of -- a virus scanner reading what was just written -- is
+    # left behind rather than turned into an error after a read that worked
+    with TemporaryDirectory(prefix="wetterdienst-bufr-", ignore_cleanup_errors=True) as directory:
         path = Path(directory) / "message.bufr"
         path.write_bytes(content)
         yield path
