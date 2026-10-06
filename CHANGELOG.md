@@ -36,11 +36,10 @@ Types of changes:
   an elevation no station can be placed against. The server logs it as an info line, not as an
   error with its traceback (GH-2385)
 - Values of `dwd/observation`, `dwd/derived`, `imgw/hydrology` and `imgw/meteorology` raise a
-  download that failed other than with a 404 -- a timeout, or a 5xx after the retries -- where
-  they used to drop it as a missing file and return no data for the station. The REST API answers
-  a 500 and the CLI fails, and so do interpolate and summarize where a station they read fails. A
-  404 is still a missing file, and a connection that cannot be made at all still gives no data
-  (GH-2430)
+  download that timed out, where they used to drop it as a missing file and return no data for
+  the station: the REST API answers a 500 and the CLI fails, and so do interpolate and summarize
+  where a station they read times out. A 5xx after the retries is raised the same way only with
+  the cache off (`WD_CACHE_DISABLE=true`); with it on, a 5xx still reads as a missing file (GH-2430)
 
 ### Fixed
 
