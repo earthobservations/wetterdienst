@@ -41,8 +41,10 @@ def quiet_eccodes_version_advice() -> None:
     gives it on every read it applies to, so a filter left for it would go on hiding it from
     anything else reading BUFR.
 
-    Appended, not put first: a caller's own filter for the advice -- `-W error::UserWarning:gribapi`
-    to catch a stale library, say -- is matched before this one and still decides.
+    Appended, not put first: any filter of the caller's that matches the advice is matched before
+    this one and still decides -- `-W error::UserWarning:gribapi` to catch a stale library, and the
+    broad ones too: `-W error`, `-W default` and `-X dev` show or raise it as they would have
+    without this. What changes is only the default, where nothing was asked for.
 
     Called by both probes, and by `read_radar_bufr`, the one reader that can run without asking
     them first; cached, so the filter list is changed once.
