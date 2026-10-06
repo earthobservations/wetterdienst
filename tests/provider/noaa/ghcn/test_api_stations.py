@@ -619,3 +619,31 @@ def test_noaa_ghcn_hourly_stations_minus_99_elevation(
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
     df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df
     assert df.select("station_id", "elevation").rows() == [("ICM00004919", None), ("USW00093118", -68.9)]
+
+
+def test_noaa_ghcn_daily_stations_minus_100_elevation(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """The daily list's -100.0 is a null elevation, while a real height below sea level stays (GH-2418).
+
+    The rows are copied from `ghcnd-stations.txt` and `ghcnd-inventory.txt` as NOAA publishes them
+    (2026-10-06). SKJOMEN_SLETTJORD, by a fjord near Narvik, is one of the four rows listed at -100.0;
+    DEATH VALLEY NP lies about 59 m below sea level.
+    """
+    contents = {
+        "ghcnd-stations.txt": (
+            "SWE00140942  68.2900   17.3097 -100.0    SKJOMEN_SLETTJORD                           \n"
+            "USC00042319  36.4625 -116.8672  -59.1 CA DEATH VALLEY NP                    HCN      \n"
+        ),
+        "ghcnd-inventory.txt": (
+            "SWE00140942  68.2900   17.3097 PRCP 1971 2011\nUSC00042319  36.4625 -116.8672 PRCP 1961 2026\n"
+        ),
+    }
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        content = contents[url.rsplit("/", 1)[-1]]
+        return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    assert df.select("station_id", "elevation").rows() == [("SWE00140942", None), ("USC00042319", -59.1)]

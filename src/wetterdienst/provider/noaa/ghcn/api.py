@@ -382,11 +382,14 @@ class NoaaGhcnRequest(TimeseriesRequest):
         # the readme marks a missing elevation as -999.9. The Brazilian network (BR0...) also lists 912
         # stations at 0.0, inland ones on the plateau among them, such as ALFENAS at about 880 m: a
         # placeholder there, while a 0.0 elsewhere, on a coast or in the Netherlands, is a height,
-        # see GH-2362
+        # see GH-2362. -100.0 is a placeholder too, on QOORNOQ and ARSUK on the coast of Greenland and on
+        # SORFJORD_KRV and SKJOMEN_SLETTJORD by the fjords near Narvik, where no land lies 100 m below
+        # sea level (GH-2418). Real stations also lie below sea level, such as SALTON SEA NAAF at -68.9,
+        # so -100.0 is matched exactly rather than every height below sea level being nulled
         df = df.with_columns(
             pl.when(pl.col("station_id").str.starts_with("BR0") & pl.col("elevation").eq("0.0"))
             .then(None)
-            .otherwise(pl.col("elevation").replace("-999.9", None))
+            .otherwise(pl.col("elevation").replace(["-999.9", "-100.0"], None))
             .alias("elevation"),
         )
 
