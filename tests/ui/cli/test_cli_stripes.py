@@ -118,7 +118,7 @@ def test_stripes_values_target_not_matching_format(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"])
     assert result.exit_code == 1
-    assert "Error: 'target' must have extension 'png'" in result.stderr
+    assert "Error: 'target' must have extension '.png'" in result.stderr
 
 
 @pytest.mark.remote
@@ -168,3 +168,73 @@ def test_stripes_values_target_naming_a_directory_is_a_usage_error(
     assert result.exit_code == 2
     assert "Invalid value for '--target'" in result.output
     assert "is a directory" in result.output
+
+
+class _StubFigure:
+    def to_image(self, fmt: str, scale: float) -> bytes:  # noqa: ARG002
+        return fmt.encode()
+
+
+@pytest.mark.parametrize(
+    ("fmt", "name"),
+    [
+        pytest.param("png", "stripes.png", id="png"),
+        pytest.param("png", "stripes.PNG", id="png-upper"),
+        pytest.param("jpg", "stripes.jpg", id="jpg"),
+        pytest.param("jpg", "stripes.jpeg", id="jpeg"),
+        pytest.param("JPG", "stripes.JPEG", id="jpeg-upper"),
+        pytest.param("svg", "stripes.svg", id="svg"),
+        pytest.param("pdf", "stripes.pdf", id="pdf"),
+    ],
+)
+def test_stripes_values_target_with_the_format_suffix_is_written(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    fmt: str,
+    name: str,
+) -> None:
+    """Test a --target whose suffix names --format, `.jpeg` included for jpg, is written."""
+    monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", lambda _request: _StubFigure())
+    target = tmp_path / name
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["stripes", "values", "--kind=precipitation", "--station=1048", f"--format={fmt}", f"--target={target}"],
+    )
+    assert result.exit_code == 0, result.output
+    assert target.read_bytes() == fmt.lower().encode()
+
+
+@pytest.mark.parametrize(
+    ("fmt", "name", "expected"),
+    [
+        pytest.param("png", "stripespng", "'.png'", id="no-dot"),
+        pytest.param("png", "stripes.xpng", "'.png'", id="longer-suffix"),
+        pytest.param("png", "stripes", "'.png'", id="no-suffix"),
+        pytest.param("png", "stripes.jpg", "'.png'", id="other-format"),
+        pytest.param("jpg", "stripes.xjpeg", "'.jpg' or '.jpeg'", id="longer-jpeg-suffix"),
+        pytest.param("svg", "stripes.svg.png", "'.svg'", id="last-suffix-counts"),
+    ],
+)
+def test_stripes_values_target_without_the_format_suffix_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    fmt: str,
+    name: str,
+    expected: str,
+) -> None:
+    """Test a --target whose suffix is not the dot plus --format is refused, naming the suffixes, before plotting."""
+
+    def _plot_stripes(_request: object) -> None:
+        pytest.fail("plotted although --target has the wrong suffix")
+
+    monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", _plot_stripes)
+    target = tmp_path / name
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["stripes", "values", "--kind=precipitation", "--station=1048", f"--format={fmt}", f"--target={target}"],
+    )
+    assert result.exit_code == 1
+    assert f"Error: 'target' must have extension {expected}\n" in result.output
+    assert not target.exists()

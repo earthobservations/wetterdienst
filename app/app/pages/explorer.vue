@@ -84,7 +84,7 @@ function fromQuery(q: Record<string, any>): ParameterSelectionState {
   }
 }
 
-function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelectionState): Record<string, string> {
+function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelectionState, linkedStationId?: string): Record<string, string> {
   const q: Record<string, string> = {}
   if (paramSel.selection.provider)
     q.provider = paramSel.selection.provider
@@ -111,10 +111,13 @@ function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelection
     else if (stationSel.interpolation.station) {
       q.interpolationStation = stationSel.interpolation.station.station_id
     }
+    // the link's station, not yet restored: written as it came rather than dropped (GH-2392)
+    else if (linkedStationId) {
+      q.interpolationStation = linkedStationId
+    }
     // outside the branch: the box is shown for either source and sent for either, and an elevation
-    // the user typed over a station's is theirs rather than the station's. It survives the round
-    // trip only for a point given by coordinates: picking the station again names its own elevation,
-    // which is what choosing a station means
+    // the user typed over a station's is theirs rather than the station's, and the station restored
+    // from the link keeps it
     if (stationSel.interpolation.elevation !== undefined)
       q.elevation = stationSel.interpolation.elevation.toString()
   }
@@ -153,9 +156,8 @@ const stationSelectionState = ref<StationSelectionState>({
   interpolation: {
     source: (route.query.interpolationSource as 'manual' | 'station') || 'manual',
     // read back what `toQuery` writes for a point given by coordinates, so a shared link
-    // reproduces the answer it was copied from. A point given by a station is written as an id
-    // and not restored -- the station itself has to be fetched before it can be selected, which
-    // `initialStationIds` does for station mode and nothing does for this one yet
+    // reproduces the answer it was copied from. A point given by a station is written as an id,
+    // which the picker restores (see `initialInterpolationStationId`)
     latitude: numberFromQuery(route.query.lat),
     longitude: numberFromQuery(route.query.lon),
     elevation: numberFromQuery(route.query.elevation),
@@ -166,6 +168,16 @@ const stationSelectionState = ref<StationSelectionState>({
   },
 })
 const initialStationIds = ref<string[]>(stationIdsFromQuery(route.query))
+// The station the link names as the point (GH-2392). It has to be fetched before it can be
+// selected, which the picker does with its list, as `initialStationIds` is restored in station
+// mode; restored, it names its own position, and the elevation stays the link's. Until the list has
+// answered, and when it fails, the id is kept in the link. A list without it, or with it but without
+// a position, which the picker does not offer, leaves the point unset, and the id leaves the link
+const initialInterpolationStationId = ref<string | undefined>(
+  route.query.interpolationSource === 'station' && typeof route.query.interpolationStation === 'string'
+    ? route.query.interpolationStation || undefined
+    : undefined,
+)
 
 // DWD DMO's `icon` is published as two runs, and which one is read is the request's `lead_time`
 // (GH-2227): the short run (the backend's default) carries the 1-hourly precipitation, radiation and
@@ -335,6 +347,7 @@ watch(
       dateRange: {},
     }
     initialStationIds.value = []
+    initialInterpolationStationId.value = undefined
     // a run chosen for one product is not carried over to the next one that offers the choice
     leadTime.value = 'short'
   },
@@ -346,6 +359,7 @@ watch(
     parameterSelectionState,
     () => stationSelectionState.value.selection.stations,
     () => stationSelectionState.value.interpolation,
+    initialInterpolationStationId,
     () => dataSettings.value.humanize,
     () => dataSettings.value.convertUnits,
     () => dataSettings.value.shape,
@@ -357,7 +371,7 @@ watch(
   // this one resolves) would otherwise be an unhandled promise rejection.
   () => router.replace({
     query: {
-      ...toQuery(parameterSelectionState.value, stationSelectionState.value),
+      ...toQuery(parameterSelectionState.value, stationSelectionState.value, initialInterpolationStationId.value),
       ...dataSettingsToQuery(dataSettings.value),
       // the default run is left out: unlike the data settings, it is no server setting, so a link
       // without it reads back the same run on any server
@@ -754,7 +768,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                   size="xs"
                 />
                 <template #content>
-                  <div class="pt-3 space-y-2">
+                  <div class="pt-3 space-y-2" data-testid="unit-targets">
                     <p class="text-xs text-gray-500 mb-2">
                       {{ t('explorer.unitTargetsHint') }}
                     </p>
@@ -1037,6 +1051,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
         <InterpolationSummarySelection
           v-else
           v-model="stationSelectionState.interpolation"
+          v-model:initial-station-id="initialInterpolationStationId"
           :parameter-selection="parameterSelectionState.selection"
         />
 
