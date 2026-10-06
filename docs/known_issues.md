@@ -80,10 +80,12 @@ FINDLIBS_DISABLE_PACKAGE=yes python my_script.py
 ```
 
 Both are needed: with only the variable set and no system library, `eccodes` cannot load at all.
-The variable applies to every library `findlibs` looks up in that process, not only ecCodes, so
-another package that relies on `findlibs` to find a library in its wheel will no longer find it.
+The variable applies to every library `findlibs` looks up, not only ecCodes, and in every process
+that inherits it, so another package that relies on `findlibs` to find a library in its wheel will
+no longer find it. Scope it to the one command, as above, where you can.
 
-Alternatively, import `pyproj` (or wradlib, xradar) before wetterdienst loads `eccodes`.
+Alternatively, import `pyproj` (or wradlib, which imports it) before `eccodes` is first loaded, by
+wetterdienst or by anything else.
 
 ## Raspberry Pi / Linux ARM
 
