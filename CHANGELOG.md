@@ -40,8 +40,8 @@ Types of changes:
 
 - MCP: fastapi's own telemetry leaves out an MCP tool's in-process request to the REST API. It
   started a trace of its own, cut off from the tool call's, and counted each tool call a second
-  time in the `http.server.*` metrics. An error in it stays on the tool call's span. The middleware
-  of `opentelemetry-instrumentation-fastapi`, where it runs, still records the request (GH-2432)
+  time in the `http.server.*` metrics. The middleware of `opentelemetry-instrumentation-fastapi`,
+  where it runs, still records the request (GH-2432)
 - NOAA GHCN daily stations QOORNOQ and ARSUK on the coast of Greenland and SORFJORD_KRV and
   SKJOMEN_SLETTJORD by the fjords near Narvik, the four rows listed at -100.0 m, have a null
   `elevation` instead of one 100 m below sea level. Real heights below sea level, such as DEATH

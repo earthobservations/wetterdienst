@@ -35,13 +35,21 @@ if TYPE_CHECKING:
 # Internal ASGI base URL for the in-process httpx2 client that backs the tools.
 _ASGI_BASE_URL = "http://wetterdienst.local"
 
-# The ASGI scope key that marks a tool's in-process request to the REST app. A scope key, not the
-# Host header or `server`, because no client of a server can set one.
+# The ASGI scope key that marks a tool's in-process request to the REST app.
 _TOOL_REQUEST_SCOPE_KEY = "wetterdienst.mcp_tool_request"
 
 
 def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
-    """Tell whether an ASGI request is an MCP tool's in-process request to the REST app."""
+    """Tell whether an ASGI request is an MCP tool's in-process request to the REST app.
+
+    The REST app leaves these out of fastapi's spans, metrics and logs (GH-2432): their spans would
+    start a trace of their own, cut off from the tool call's, and the server metrics would count
+    each tool call twice. The middleware of `opentelemetry-instrumentation-fastapi`, where it runs,
+    does not read fastapi's `exclude` and still records them.
+
+    A scope key, not the Host header or `server`, tells them apart, because a client sets its own
+    Host header, some ASGI servers build `server` from it, and no client can set a scope key.
+    """
     return scope.get(_TOOL_REQUEST_SCOPE_KEY) is True
 
 
