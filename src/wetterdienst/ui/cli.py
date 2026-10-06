@@ -23,7 +23,6 @@ from wetterdienst.exceptions import (
     BufrReaderMissingError,
     ExportRefusedError,
     InvalidTimeIntervalError,
-    LocationOutOfRangeError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
 )
@@ -330,13 +329,14 @@ def station_distance_opts(kind: str) -> Callable[[_CommandT], _CommandT]:
 def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
     """Get API for provider and network.
 
-    If non found click.Abort() is casted with the error message
+    A provider or network that does not exist is the command line's mistake, so it is a usage error
+    naming where the existing ones are listed, as the REST API answers it with a 404 and that hint.
     """
     try:
         return Wetterdienst(provider, network)
-    except ApiNotFoundError:
-        log.exception("No API found.")
-        sys.exit(1)
+    except ApiNotFoundError as e:
+        msg = f"{e} `wetterdienst about coverage`, without --provider and --network, lists the available ones."
+        raise click.UsageError(msg) from e
 
 
 def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _RequestT:
@@ -680,6 +680,17 @@ STRIPES_EXAMPLES = r"""
 """
 
 
+def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
+    """Raise a failure caught from a request as a usage error if it is the caller's own mistake.
+
+    A refusal the caller can rephrase -- one the REST API answers with a 4xx -- is told in one line,
+    exit 2, as a mistyped option is (GH-2426). Anything else -- an upstream failure or a defect -- is
+    left to the handler, and keeps its traceback and exit 1.
+    """
+    if _is_caller_refusal(e, request):
+        raise click.UsageError(str(e)) from e
+
+
 def _collect_or_exit(
     get: Callable[..., Any],
     *,
@@ -690,28 +701,30 @@ def _collect_or_exit(
 ) -> Any:  # noqa: ANN401
     """Run one of the values getters, reporting the failures a caller can do something about.
 
-    Four of them can be acted on rather than debugged: an optional reader that is not installed,
-    a request this provider cannot serve as phrased, a point an estimate cannot be made at (beyond
-    the latitudes UTM covers, or a station without a position), and a window that holds no
-    readings. Each is a sentence the caller needs and a traceback buries, so each is printed and
-    nothing else.
+    Three kinds can be acted on rather than debugged: an optional reader that is not installed, a
+    request the caller can rephrase, and a window that holds no readings. Each is a sentence the
+    caller needs and a traceback buries, so each is printed and nothing else. A request to rephrase
+    -- one this provider cannot serve as phrased, a point an estimate cannot be made at (beyond the
+    latitudes UTM covers, or a station without a position), or any refusal the REST API answers
+    with a 4xx -- is the command line's mistake, so it is a usage error, exit 2 (GH-2426).
     """
     try:
         values_ = get(api=api, request=request, settings=settings)
-    except (
-        BufrReaderMissingError,
-        LocationOutOfRangeError,
-        NoStationsWithElevationError,
-        ParameterNotCarriedError,
-    ) as e:
-        # the message names what to install, or what to ask instead: the whole of what is to be
-        # done about it. All are narrow on purpose -- a bare `ImportError` would swallow a cycle
-        # or a typo inside a provider module, which is a defect and wants its traceback, not an
-        # instruction. LocationOutOfRangeError, NoStationsWithElevationError and
-        # ParameterNotCarriedError subclass ValueError, so they are caught here or not at all
+    except BufrReaderMissingError as e:
+        # the message names what to install: the whole of what is to be done about it. Narrow on
+        # purpose -- a bare `ImportError` would swallow a cycle or a typo inside a provider module,
+        # which is a defect and wants its traceback, not an instruction. The command line was right,
+        # the environment lacks the reader, so this is exit 1 rather than a usage error
         log.error(str(e))  # noqa: TRY400
         sys.exit(1)
-    except ValueError:
+    except (NoStationsWithElevationError, ParameterNotCarriedError) as e:
+        # the message names what to ask instead; the REST API answers these with a 400 of their own
+        raise click.UsageError(str(e)) from e
+    except Exception as e:
+        _refuse_if_callers(e, request)
+        if not isinstance(e, ValueError):
+            # not caught here: click re-raises it, and Python prints its traceback and exits 1
+            raise
         log.exception(f"Error during {what}")
         sys.exit(1)
     if values_.df.is_empty():
@@ -1150,14 +1163,13 @@ def issues_cmd(
     settings = Settings()
     try:
         issue_list = get_issues(api=api, request=request, settings=settings)
-    except NotImplementedError:
-        log.exception("Issues not available for the given request.")
-        sys.exit(1)
+    except NotImplementedError as e:
+        # a network without an issue listing, which the message names: `/api/issues` answers a 400
+        raise click.UsageError(str(e)) from e
     except Exception as e:
         # a request the caller can rephrase, such as a DMO-only option on MOSMIX, is told in one
         # line, as `/api/issues` answers it with a 400; an upstream failure keeps its traceback
-        if _is_caller_refusal(e, request):
-            raise click.UsageError(str(e)) from e
+        _refuse_if_callers(e, request)
         log.exception("Failed to get issues.")
         sys.exit(1)
 
@@ -1242,7 +1254,10 @@ def history(
     settings = Settings()
     try:
         stations_ = get_stations(api=api, request=request, date=None, settings=settings)
-    except Exception:
+    except Exception as e:
+        # a parameter or station the caller can rephrase is told in one line, as `/api/history`
+        # answers it with a 400; an upstream failure keeps its traceback
+        _refuse_if_callers(e, request)
         log.exception("Failed to get stations for history.")
         sys.exit(1)
 
@@ -2044,6 +2059,9 @@ def stripes_values(
     try:
         fig = _plot_stripes(request)
     except Exception as e:
+        # a station that is not found, or years holding too little data, is told in one line, as
+        # `/api/stripes/image` answers it with a 400; an upstream failure keeps its traceback
+        _refuse_if_callers(e, request)
         log.exception("Error while plotting warming stripes")
         raise click.ClickException(str(e)) from e
 
