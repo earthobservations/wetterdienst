@@ -277,3 +277,30 @@ def test_history_target_file_uri_without_json_suffix(monkeypatch: pytest.MonkeyP
     assert result.exit_code == 2
     assert "--target for history endpoint must end with .json" in result.output
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("target", ["s3://bucket/history.json", "duckdb:///history.json"])
+def test_history_target_with_other_scheme_is_refused_before_the_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+    target: str,
+) -> None:
+    """Test a --target with a scheme other than `file://` is a usage error before any station is fetched."""
+
+    def _no_fetch(**_kwargs: object) -> None:
+        msg = "history fetched its stations before refusing the target"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", _no_fetch)
+    result = CliRunner().invoke(
+        cli,
+        [
+            "history",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary",
+            "--all",
+            f"--target={target}",
+        ],
+    )
+    assert result.exit_code == 2, result.output
+    assert "--target only supports a local path or a file:// URI for history." in result.output
