@@ -23,7 +23,8 @@ Types of changes:
   `--timestamp` of the CLI's `values`, `interpolate`, `summarize` and `alerts`, and
   `DwdWeatherAlertRequest(timestamp=...)` with its attribute `.timestamp`. Write
   `timestamp=2020-05-01` where you wrote `date=2020-05-01`; the old name is refused with an error
-  naming the new one (GH-2438)
+  naming the new one. The app sends `timestamp` from its next release; 0.18.1 and older send
+  `date`, so upgrade the app with the backend (GH-2438)
 
 ## [0.141.0] - 2026-10-06
 

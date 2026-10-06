@@ -205,13 +205,14 @@ class DwdWeatherAlertRequest:
                 with an error naming it.
 
         """
+        if "date" in kwargs:
+            msg = "date was renamed to timestamp"
+            raise TypeError(msg)
         if kwargs:
-            name = next(iter(kwargs))
+            # in Python's own words
             msg = (
-                "date was renamed to timestamp"
-                if name == "date"
-                # in Python's own words
-                else f"{DwdWeatherAlertRequest.__init__.__qualname__}() got an unexpected keyword argument {name!r}"
+                f"{DwdWeatherAlertRequest.__init__.__qualname__}() got an unexpected keyword argument "
+                f"{next(iter(kwargs))!r}"
             )
             raise TypeError(msg)
         self.granularity = self._parse_granularity(granularity)

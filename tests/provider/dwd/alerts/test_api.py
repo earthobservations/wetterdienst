@@ -296,10 +296,17 @@ def test_resolve_snapshot_an_empty_listing_is_not_the_dates(monkeypatch: pytest.
         request._resolve_snapshot()  # noqa: SLF001
 
 
-def test_date_is_refused_naming_timestamp() -> None:
-    """`date` was renamed to `timestamp`, and is refused by naming it (GH-2438)."""
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        pytest.param({"date": "2026-07-26T10:00:00"}, id="date"),
+        pytest.param({"bogus": 1, "date": "2026-07-26T10:00:00"}, id="after-an-unknown-keyword"),
+    ],
+)
+def test_date_is_refused_naming_timestamp(kwargs: dict[str, object]) -> None:
+    """`date` was renamed to `timestamp`, and is refused by naming it, whatever else is given (GH-2438)."""
     with pytest.raises(TypeError, match=r"^date was renamed to timestamp$"):
-        DwdWeatherAlertRequest(date="2026-07-26T10:00:00")
+        DwdWeatherAlertRequest(**kwargs)
 
 
 def test_an_unknown_keyword_is_refused_as_python_refuses_it() -> None:
