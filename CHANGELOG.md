@@ -35,6 +35,19 @@ Types of changes:
   interpolate, or a `station` without a position -- with a 400 rather than a 404, as they answer
   an elevation no station can be placed against. The server logs it as an info line, not as an
   error with its traceback (GH-2385)
+- CLI: `values`, `interpolate`, `summarize`, `issues`, `stripes values` and the station lookup of
+  `history` report a request the caller can rephrase -- such as a parameter the network does not
+  have, a network without an issue listing, or a point there is no estimate at -- as a one-line
+  usage error with exit code 2, and so does every command for an unknown provider or network.
+  Scripts checking for exit 1 on such a mistake now see 2; an upstream failure still exits 1 with
+  its traceback (GH-2426)
+- REST API: `/api/interpolate` and `/api/summarize`, and their MCP tools, answer the other
+  requests they refuse as phrased -- an empty or unparseable `date` or one as late as 9999-12-31, an
+  unparseable `issue` or one the source does not list, an unknown parameter or unit target, a
+  `sql_values` clause DuckDB refuses -- with a 400 rather than a 404, the status `/api/values`
+  gives them. An unknown `station` stays a 404. The server logs these, and a window that ends
+  before it starts on any of the three, as an info line, not as an error with its traceback
+  (GH-2429)
 
 ### Fixed
 
@@ -44,6 +57,11 @@ Types of changes:
   message). Such an element was taken as the text of its repr, `None` or `True` (GH-2434)
 - A `ValidationError` from `Settings` or `Auth` no longer repeats the value it refuses as its
   `input_value`, which for `auth` is a credential; `errors()` still holds it (GH-2435)
+- A `file://` target of `to_target`, and of `--target` on `stations`, `values`, `interpolate` and
+  `summarize`, reads everything after `file://` as its path, as `alerts` and `history` do:
+  `file://out/data.csv` writes `./out/data.csv`, where it wrote `/data.csv` with `out` read as a
+  host. `file:///abs/data.csv` is still absolute; a host is now read as a directory, so write
+  `file://localhost/abs/data.csv` as `file:///abs/data.csv` (GH-2424)
 - NOAA GHCN daily stations QOORNOQ and ARSUK on the coast of Greenland and SORFJORD_KRV and
   SKJOMEN_SLETTJORD by the fjords near Narvik, the four rows listed at -100.0 m, have a null
   `elevation` instead of one 100 m below sea level. Real heights below sea level, such as DEATH
@@ -88,6 +106,9 @@ Types of changes:
   24.04's 2.34; the version is logged at debug instead. Under `-W error` this advice no longer
   gets BUFR reported as not installed either. To see the advice, import eccodes before wetterdienst
   does. Other warnings still show (GH-2442)
+- `wetterdienst history` refuses a `--target` with a scheme other than `file://`, such as
+  `s3://bucket/history.json`, as `alerts` does: a usage error with exit code 2 before anything is
+  fetched. It ran the whole fetch first and then failed to write the file (GH-2425)
 
 ## [0.140.0] - 2026-10-05
 

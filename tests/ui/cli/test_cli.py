@@ -208,10 +208,10 @@ def test_cli_about_fields_applies_debug(monkeypatch: pytest.MonkeyPatch) -> None
     assert levels == [True]
 
 
-def test_no_combination_of_provider_and_network(caplog: pytest.CaptureFixture) -> None:
-    """Test cli coverage of dwd parameters."""
+def test_no_combination_of_provider_and_network() -> None:
+    """Test an unknown provider/network is a usage error naming where the available ones are listed (GH-2426)."""
     runner = CliRunner()
-    runner.invoke(
+    result = runner.invoke(
         cli,
         [
             "stations",
@@ -221,7 +221,11 @@ def test_no_combination_of_provider_and_network(caplog: pytest.CaptureFixture) -
             "--all",
         ],
     )
-    assert "No API available for provider dwd and network abc." in caplog.text
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(
+        "\n\nError: No API available for provider dwd and network abc. "
+        "`wetterdienst about coverage`, without --provider and --network, lists the available ones.\n"
+    )
 
 
 def test_coverage() -> None:
@@ -353,10 +357,13 @@ def test_issues_dwd_dmo() -> None:
 
 
 def test_issues_unsupported_provider() -> None:
-    """Test issues command exits with error for unsupported providers."""
+    """Test issues for a network without an issue listing is a one-line usage error (GH-2426)."""
     runner = CliRunner()
     result = runner.invoke(cli, ["issues", "--provider=dwd", "--network=observation", "--station=00011"])
-    assert result.exit_code == 1
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(
+        "\n\nError: Issue listing is only supported for DWD MOSMIX, DMO and SWSMOS (got DwdObservationRequest)\n"
+    )
 
 
 def test_cli_glossary() -> None:
