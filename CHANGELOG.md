@@ -36,11 +36,12 @@ Types of changes:
   an elevation no station can be placed against. The server logs it as an info line, not as an
   error with its traceback (GH-2385)
 - REST API: `/api/interpolate` and `/api/summarize`, and their MCP tools, answer the other
-  requests they refuse as phrased -- a window that ends before it starts, an empty or unparseable
-  `date`, an unparseable `issue`, an unknown parameter or unit target, a `sql_values` clause
-  DuckDB refuses -- with a 400 rather than a 404, as `/api/values` does. An unknown `station` stays
-  a 404. The server logs these, and `/api/values` a window the wrong way round, as an info line,
-  not as an error with its traceback (GH-2429)
+  requests they refuse as phrased -- an empty or unparseable `date` or one as late as 9999-12-31, an
+  unparseable `issue` or one the source does not list, an unknown parameter or unit target, a
+  `sql_values` clause DuckDB refuses -- with a 400 rather than a 404, the status `/api/values`
+  gives them. An unknown `station` stays a 404. The server logs these, and a window that ends
+  before it starts on any of the three, as an info line, not as an error with its traceback
+  (GH-2429)
 
 ### Fixed
 

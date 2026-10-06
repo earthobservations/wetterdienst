@@ -6337,3 +6337,27 @@ def test_mcp_a_refusal_of_the_request_keeps_the_rest_apis_status(
     with pytest.raises(ToolError, match=f"HTTP error {status}") as error:
         asyncio.run(_call())
     assert detail in str(error.value)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point"), [("interpolate", "get_interpolate"), ("summarize", "get_summarize")]
+)
+def test_geo_an_issue_the_source_does_not_list_is_a_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    entry_point: str,
+) -> None:
+    """A forecast run the listing does not hold is a 400, as `/api/values` answers it (GH-2429)."""
+    from wetterdienst.exceptions import IssueNotFoundError  # noqa: PLC0415
+
+    msg = "Unable to find 2020-01-01 00:00:00 file within https://example.com/kmz"
+
+    def refuse(**_kwargs: object) -> None:
+        raise IssueNotFoundError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
+    response = client.get(f"/api/{endpoint}", params={**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == msg

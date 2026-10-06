@@ -1112,9 +1112,9 @@ def _geo_values(
     beyond the latitudes UTM covers (a summary converts nothing to UTM), a window that ends before
     it starts, a date or an issue that does not parse. Those are 400s, as `/api/values` answers
     them, and each is logged here as an info line: the caller's to fix, so no traceback of ours. A
-    station the lookup does not know is the one "no such thing", and stays a 404. A reader missing
-    on the server is a 501; the same decisions in both places, so they are made here rather than
-    twice over.
+    station the lookup does not know keeps its 404, "no such station"; an issue the source does not
+    list is a 400, as `/api/values` answers it. A reader missing on the server is a 501; the same
+    decisions in both places, so they are made here rather than twice over.
     """
     try:
         return get(api=api, request=request, settings=settings)
