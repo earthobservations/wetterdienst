@@ -247,11 +247,11 @@ class TimeseriesValues(ABC):
         """
         if not self.sr.end or "start_timestamp" not in df_station_meta.columns:
             return False
-        start_dates = df_station_meta.get_column("start_timestamp")
-        if start_dates.null_count():
+        start_timestamps = df_station_meta.get_column("start_timestamp")
+        if start_timestamps.null_count():
             return False
         # null-free and never empty, as `group_by` yields no empty group, so `min()` has a value
-        return cast("dt.datetime", start_dates.min()) > self.sr.end
+        return cast("dt.datetime", start_timestamps.min()) > self.sr.end
 
     def _filter_by_window(self, df: pl.DataFrame) -> pl.DataFrame:
         """Cut a station's frame down to the window the request asked for, if it named one.

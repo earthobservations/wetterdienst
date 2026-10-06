@@ -39,9 +39,10 @@ Types of changes:
 - **Breaking**: the span a station has records for is `start_timestamp` / `end_timestamp`, no
   longer `start_date` / `end_date`: in every provider's stations frame and its exports,
   `/api/stations` and the MCP `stations` tool, the OGC feature properties, and the station rows of
-  `/api/interpolate`, `/api/summarize` and `/api/stripes/stations`. Read and filter the new names;
-  a `sql` filter on a station's old name fails naming the new one. The app reads the new names
-  from its next release, so upgrade the app with the backend (GH-2439)
+  `/api/interpolate`, `/api/summarize` and `/api/stripes/stations`. Read and filter the new names,
+  and rename the columns of a database table you append stations to; a `sql` filter on a station's
+  old name fails naming the new one. The app reads the new names from its next release, so upgrade
+  the app with the backend (GH-2439)
 
 ## [0.141.0] - 2026-10-06
 
