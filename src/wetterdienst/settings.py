@@ -47,24 +47,26 @@ _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 #: what pydantic renders a secret as, and so what a credential looks like after a JSON round-trip
 _MASK = "*" * 10
 
-#: what a credential may arrive as: the text of one, or one that has already been validated once
-_Secretish = str | SecretStr
-
 #: the share of readings a station must cover not to be skipped: a threshold above 1 skips every
 #: station, one of 0 or below none, so neither is one. The REST request model takes it too, so the
 #: two cannot drift apart (GH-2334)
 SkipThreshold = Annotated[float, Field(gt=0, le=1)]
 
 
-def _as_given(value: object) -> _Secretish:
-    """Pass a secret through as it is, and anything else on as text for the field to wrap.
+def _as_given(value: object) -> object:
+    """Pass an element of a credential pair on for the field to wrap, an all-digit one as its text.
 
-    ``str()`` of a ``SecretStr`` is its mask, so a pair that has already been validated once --
-    which is what a ``model_dump()`` round-trip hands back -- would come back as ten asterisks and
-    fail at the provider later with nothing to say why. The single-valued fields never had this to
-    worry about: pydantic passes an existing secret straight through.
+    A secret is passed through as it is: ``str()`` of a ``SecretStr`` is its mask, so a pair that
+    has already been validated once -- which is what a ``model_dump()`` round-trip hands back --
+    would come back as ten asterisks and fail at the provider later with nothing to say why. An
+    ``int`` is the text it was decoded from, as the environment decodes a pair as JSON where it
+    parses. Anything else -- ``null``, ``true``, a float, an object -- is left for the field to
+    refuse, which names the element; ``str()`` took the text of its repr, ``'None'`` or ``'True'``,
+    for the credential (GH-2434).
     """
-    return value if isinstance(value, SecretStr) else str(value)
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    return value
 
 
 def reveal(secret: SecretStr | None) -> str | None:
@@ -140,7 +142,9 @@ class Auth(BaseModel):
         if len(as_tuple) != 2:
             msg = f"metno_frost must be a (client_id, secret) pair, got {len(as_tuple)} element(s)"
             raise ValueError(msg)
-        return _as_given(as_tuple[0]), _as_given(as_tuple[1])
+        client_id, secret = as_tuple
+        # a client id with no secret, as a lone client id gives (GH-2434)
+        return _as_given(client_id), "" if secret is None else _as_given(secret)
 
     @field_validator("ceda", mode="before")
     @classmethod
@@ -645,7 +649,11 @@ def _describe_settings_error(error: ValidationError | SettingsError) -> list[str
         return [str(error)]
     lines = []
     for problem in error.errors(include_url=False):
-        variable = "WD_" + "__".join(str(part) for part in problem["loc"]).upper() if problem["loc"] else "WD_*"
+        names = [str(part) for part in problem["loc"] if isinstance(part, str)]
+        variable = "WD_" + "__".join(names).upper() if names else "WD_*"
+        # an element of a pair, such as the secret in `WD_AUTH__METNO_FROST`, is told by its index
+        # after the variable that holds it, which is no variable of its own (GH-2434)
+        variable += "".join(f"[{part}]" for part in problem["loc"] if isinstance(part, int))
         lines.append(f"{variable} is invalid: {problem['msg'].removeprefix('Value error, ')}")
     return lines
 
