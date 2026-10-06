@@ -371,9 +371,9 @@ def _raise_rule_errors(request: BaseModel, errors: list[InitErrorDetails]) -> No
         raise ValidationError.from_exception_data(type(request).__name__, errors)
 
 
-#: parameters of the values, interpolation and summary requests renamed on the way to 1.0, old name
-#: to new. A request giving one by its old name is refused with an error naming the new one, rather
-#: than one about a parameter the request does not know (GH-2438)
+#: query parameters renamed on the way to 1.0, old name to new. The values, interpolation and
+#: summary requests, and each MCP tool taking the new name, refuse the old one with an error naming
+#: the new one, rather than one about a parameter they do not know (GH-2438)
 RENAMED_REQUEST_PARAMETERS: dict[str, str] = {"date": "timestamp"}
 
 
