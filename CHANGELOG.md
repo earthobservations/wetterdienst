@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: a station history's records -- station and operator names, parameters, devices,
+  geography, missing data -- give their span as `valid_from` and `valid_to`, where they gave
+  `start_date` and `end_date`: in Python's `History`, `/api/history`, the MCP `history` tool and
+  the CLI `history` command. Read the new names (GH-2440)
+
 ## [0.141.0] - 2026-10-06
 
 ### Added
