@@ -312,3 +312,30 @@ def test_history_keeps_the_traceback_for_an_upstream_failure(
     assert "Usage:" not in result.output
     assert "Failed to get stations for history." in caplog.text
     assert "FileNotFoundError: upstream station list unreachable" in caplog.text
+
+
+@pytest.mark.parametrize("target", ["s3://bucket/history.json", "duckdb:///history.json"])
+def test_history_target_with_other_scheme_is_refused_before_the_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+    target: str,
+) -> None:
+    """Test a --target with a scheme other than `file://` is a usage error before any station is fetched."""
+
+    def _no_fetch(**_kwargs: object) -> None:
+        msg = "history fetched its stations before refusing the target"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", _no_fetch)
+    result = CliRunner().invoke(
+        cli,
+        [
+            "history",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/climate_summary",
+            "--all",
+            f"--target={target}",
+        ],
+    )
+    assert result.exit_code == 2, result.output
+    assert "--target only supports a local path or a file:// URI for history." in result.output
