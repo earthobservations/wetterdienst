@@ -7,9 +7,9 @@ import importlib
 import logging
 import re
 import sys
-import threading
 import warnings
 from collections.abc import Iterator
+from io import BytesIO
 
 import pytest
 
@@ -281,12 +281,16 @@ def stale_library(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
     before = {name: module for name, module in sys.modules.items() if forgotten(name)}
     for name in before:
         del sys.modules[name]
+    # pytest puts back the filters it found after every test, so a filter installed in an earlier
+    # one is gone while the cache still says it is there
+    eccodes.quiet_eccodes_version_advice.cache_clear()
     try:
         yield version
     finally:
         for name in [name for name in sys.modules if forgotten(name)]:
             del sys.modules[name]
         sys.modules.update(before)
+        eccodes.quiet_eccodes_version_advice.cache_clear()
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -337,46 +341,39 @@ def test_the_library_version_is_logged_in_its_place(stale_library: str, caplog: 
     assert f"ecCodes library {stale_library}" in caplog.text
 
 
-def test_two_threads_do_not_put_back_each_others_filters() -> None:
-    """`catch_warnings` puts back the filter list it found, which another thread may have changed.
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.usefixtures("stale_library")
+def test_a_radar_bufr_read_asked_directly_is_quiet_too() -> None:
+    """`read_radar_bufr` imports pdbufr itself and can be called without asking either probe first.
 
-    The REST API answers in a thread pool, and `lru_cache` runs a body again for a second caller
-    that asks before the first has an answer. Interleaved, the second puts back the list holding
-    the first one's filter after the first has put back the original, and the advice stays
-    silenced for the rest of the process. That is the order staged here: the first leaves once the
-    second is in, or after half a second, and the second leaves after the first. With the lock the
-    second is not in until the first has left, so the half second runs out and nothing leaks.
+    What it is handed here is not BUFR, so the read fails -- after the import, which is the part
+    this is about.
     """
-    first_in = threading.Event()
-    second_in = threading.Event()
-    first_out = threading.Event()
-    # each thread says it has been in and out, so one that raised on the way is not read as a pass
-    through = []
+    from wetterdienst.provider.dwd.radar.api import _BUFR_VALUE_FIELD, read_radar_bufr  # noqa: PLC0415
 
-    def first() -> None:
-        with eccodes._without_eccodes_version_advice():  # noqa: SLF001
-            first_in.set()
-            second_in.wait(0.5)
-        first_out.set()
-        through.append("first")
+    # taken from where it is loaded rather than imported, which would import gribapi before the read
+    unreadable = sys.modules["gribapi.errors"].GribInternalError
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        with pytest.raises(unreadable):
+            read_radar_bufr(BytesIO(b"not BUFR"), next(iter(_BUFR_VALUE_FIELD)))
+    said = [str(warning.message) for warning in seen]
+    assert not [message for message in said if "or higher is recommended" in message]
+    assert "something else the bindings say on import" in said
 
-    def second() -> None:
-        with eccodes._without_eccodes_version_advice():  # noqa: SLF001
-            second_in.set()
-            first_out.wait(5)
-        through.append("second")
 
-    # and put back whatever a failure here leaves, so it does not reach the tests after
-    with warnings.catch_warnings():
-        original = list(warnings.filters)
-        threads = [threading.Thread(target=first), threading.Thread(target=second)]
-        threads[0].start()
-        # the first is in before the second starts; without the lock the second follows at once
-        assert first_in.wait(5)
-        threads[1].start()
-        for thread in threads:
-            thread.join(5)
-            # one still inside would hold the lock, and every later probe in this worker would hang
-            assert not thread.is_alive()
-        assert sorted(through) == ["first", "second"]
-        assert warnings.filters == original
+def test_the_advice_is_ignored_only_from_the_bindings() -> None:
+    """The filter is left in place, so it is scoped to the module that gives the advice.
+
+    The same words from anywhere else -- here, this test module -- are not the bindings' import-time
+    advice, and are still shown.
+    """
+    eccodes.quiet_eccodes_version_advice.cache_clear()
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        eccodes.quiet_eccodes_version_advice()
+        warnings.warn("ecCodes 2.42.0 or higher is recommended. You are running version 2.34.1", stacklevel=1)
+    eccodes.quiet_eccodes_version_advice.cache_clear()
+    assert [str(warning.message) for warning in seen] == [
+        "ecCodes 2.42.0 or higher is recommended. You are running version 2.34.1"
+    ]

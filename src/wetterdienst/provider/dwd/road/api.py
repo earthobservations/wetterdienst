@@ -26,7 +26,7 @@ from wetterdienst.model.metadata import (
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA
-from wetterdienst.util.eccodes import require_bufr
+from wetterdienst.util.eccodes import quiet_eccodes_version_advice, require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
 if TYPE_CHECKING:
@@ -1026,6 +1026,7 @@ class DwdRoadValues(TimeseriesValues):
         the same number arriving again, which decides nothing and loses nothing. Each is named in
         the log. Keeping the ones that differ would want an axis this frame has not got, GH-1908.
         """
+        quiet_eccodes_version_advice()
         import pdbufr  # noqa: PLC0415
 
         parameter_names = [parameter.name_original for parameter in parameters]
