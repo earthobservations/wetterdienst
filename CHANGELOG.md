@@ -38,8 +38,9 @@ Types of changes:
 - Values of `dwd/observation`, `dwd/derived`, `imgw/hydrology` and `imgw/meteorology` raise a
   download that failed other than with a 404 -- a timeout, or a 5xx after the retries -- instead
   of dropping it as a missing file, so an upstream outage no longer reads as a station without
-  data: the REST API answers a 500 and the CLI fails. A 404 is still a file that is not there, and
-  no connection at all still gives an empty result (GH-2430)
+  data: the REST API answers a 500 and the CLI fails. So do interpolate and summarize where one
+  station in reach fails to download, rather than leaving that station out. A 404 is still a file
+  that is not there, and no connection at all still gives an empty result (GH-2430)
 
 ### Fixed
 
