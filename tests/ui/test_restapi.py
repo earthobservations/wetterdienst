@@ -6245,10 +6245,10 @@ def telemetry(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple["InMemorySpanEx
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: PLC0415
 
     spans = InMemorySpanExporter()
-    tracer_provider = TracerProvider()
+    tracer_provider = TracerProvider(shutdown_on_exit=False)
     tracer_provider.add_span_processor(SimpleSpanProcessor(spans))
     metrics = InMemoryMetricReader()
-    meter_provider = MeterProvider(metric_readers=[metrics])
+    meter_provider = MeterProvider(metric_readers=[metrics], shutdown_on_exit=False)
     monkeypatch.setattr(trace, "_TRACER_PROVIDER", tracer_provider)
     monkeypatch.setattr(metrics_internal, "_METER_PROVIDER", meter_provider)
     yield spans, metrics
@@ -6342,14 +6342,27 @@ def test_rest_request_is_recorded_by_fastapi_telemetry(
     assert _request_durations(metrics) == {"/api/glossary": 1}
 
 
-def test_mcp_request_is_recorded_by_fastapi_telemetry(
+def test_mcp_tool_call_over_mcp_is_recorded_as_the_mcp_request_only(
     telemetry: tuple["InMemorySpanExporter", "InMemoryMetricReader"],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A request to `/mcp` keeps its fastapi span and metric (GH-2432)."""
+    """A tool call over `/mcp` records the `/mcp` requests, not the tool's REST request (GH-2432).
+
+    The tool's request runs in the context of the `/mcp` request, so fastapi's operation spans for it
+    sit beneath the tool call's span.
+    """
     pytest.importorskip("fastmcp")
-    assert restapi.mcp_enabled
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    # a fresh MCP server in place of the one mounted at import, which closes its client to the REST
+    # app as a lifespan ends, as an earlier test's may have
+    mcp_app = build_mcp_server(restapi.app).http_app(path="/mcp")
+    routes = [route for route in restapi.app.router.routes if getattr(route, "path", None) != "/mcp"]
+    monkeypatch.setattr(restapi.app.router, "routes", [*routes, *mcp_app.router.routes])
+    monkeypatch.setattr(restapi.app.router, "lifespan_context", mcp_app.router.lifespan_context)
     spans, metrics = telemetry
-    body = {
+    headers = {"Accept": "application/json, text/event-stream"}
+    initialize = {
         "jsonrpc": "2.0",
         "id": 1,
         "method": "initialize",
@@ -6359,11 +6372,25 @@ def test_mcp_request_is_recorded_by_fastapi_telemetry(
             "clientInfo": {"name": "test", "version": "1"},
         },
     }
+    initialized = {"jsonrpc": "2.0", "method": "notifications/initialized"}
+    call = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {"name": "glossary", "arguments": {"parameter": "temperature_air_mean_2m"}},
+    }
 
     # the session manager runs in the app lifespan, so drive the client as a context manager
     with TestClient(restapi.app) as client:
-        response = client.post("/mcp", json=body, headers={"Accept": "application/json, text/event-stream"})
+        response = client.post("/mcp", json=initialize, headers=headers)
+        headers["mcp-session-id"] = response.headers["mcp-session-id"]
+        client.post("/mcp", json=initialized, headers=headers)
+        response = client.post("/mcp", json=call, headers=headers)
 
-    assert response.status_code == 200
-    assert _span_names(spans, "fastapi", server=True) == ["POST /mcp"]
-    assert _request_durations(metrics) == {"/mcp": 1}
+    assert '"isError":false' in response.text
+    assert _span_names(spans, "fastapi", server=True) == ["POST /mcp"] * 3
+    assert _request_durations(metrics) == {"/mcp": 3}
+    (tool_call,) = [span for span in spans.get_finished_spans() if span.name == "tools/call glossary"]
+    operations = [span for span in spans.get_finished_spans() if span.name.startswith("fastapi.")]
+    assert {span.name for span in operations} == {"fastapi.dependencies", "fastapi.endpoint", "fastapi.serialization"}
+    assert {span.parent.span_id for span in operations if span.parent} == {tool_call.context.span_id}
