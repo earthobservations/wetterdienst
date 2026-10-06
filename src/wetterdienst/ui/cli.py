@@ -23,7 +23,6 @@ from wetterdienst.exceptions import (
     BufrReaderMissingError,
     ExportRefusedError,
     InvalidTimeIntervalError,
-    LocationOutOfRangeError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
 )
@@ -702,28 +701,30 @@ def _collect_or_exit(
 ) -> Any:  # noqa: ANN401
     """Run one of the values getters, reporting the failures a caller can do something about.
 
-    Four of them can be acted on rather than debugged: an optional reader that is not installed,
-    a request this provider cannot serve as phrased, a point an estimate cannot be made at (beyond
-    the latitudes UTM covers, or a station without a position), and a window that holds no
-    readings. Each is a sentence the caller needs and a traceback buries, so each is printed and
-    nothing else.
+    Three kinds can be acted on rather than debugged: an optional reader that is not installed, a
+    request the caller can rephrase, and a window that holds no readings. Each is a sentence the
+    caller needs and a traceback buries, so each is printed and nothing else. A request to rephrase
+    -- one this provider cannot serve as phrased, a point an estimate cannot be made at (beyond the
+    latitudes UTM covers, or a station without a position), or any refusal the REST API answers
+    with a 4xx -- is the command line's mistake, so it is a usage error, exit 2 (GH-2426).
     """
     try:
         values_ = get(api=api, request=request, settings=settings)
-    except (
-        BufrReaderMissingError,
-        LocationOutOfRangeError,
-        NoStationsWithElevationError,
-        ParameterNotCarriedError,
-    ) as e:
-        # the message names what to install, or what to ask instead: the whole of what is to be
-        # done about it. All are narrow on purpose -- a bare `ImportError` would swallow a cycle
-        # or a typo inside a provider module, which is a defect and wants its traceback, not an
-        # instruction. LocationOutOfRangeError, NoStationsWithElevationError and
-        # ParameterNotCarriedError subclass ValueError, so they are caught here or not at all
+    except BufrReaderMissingError as e:
+        # the message names what to install: the whole of what is to be done about it. Narrow on
+        # purpose -- a bare `ImportError` would swallow a cycle or a typo inside a provider module,
+        # which is a defect and wants its traceback, not an instruction. The command line was right,
+        # the environment lacks the reader, so this is exit 1 rather than a usage error
         log.error(str(e))  # noqa: TRY400
         sys.exit(1)
-    except ValueError:
+    except (NoStationsWithElevationError, ParameterNotCarriedError) as e:
+        # the message names what to ask instead; the REST API answers these with a 400 of their own
+        raise click.UsageError(str(e)) from e
+    except Exception as e:
+        _refuse_if_callers(e, request)
+        if not isinstance(e, ValueError):
+            # left to click, which prints its traceback
+            raise
         log.exception(f"Error during {what}")
         sys.exit(1)
     if values_.df.is_empty():
