@@ -459,3 +459,21 @@ def test_the_filters_are_left_alone_where_the_bindings_are_not_installed(monkeyp
         before = list(warnings.filters)
         eccodes.quiet_eccodes_version_advice()
         assert warnings.filters == before
+
+
+@pytest.mark.parametrize("probe", ["ensure_eccodes", "ensure_pdbufr"])
+def test_quieting_the_advice_cannot_make_a_probe_raise(probe: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Asking whether BUFR can be read is answered, not raised, whatever fails on the way.
+
+    `find_spec` runs import hooks of its own -- a broken one raises -- and two callers cannot take a
+    raise: `_attach_bufr`, which logs and carries on, and `BUFR_AVAILABLE`, computed while the suite
+    collects.
+    """
+
+    def broken(*_: object) -> None:
+        msg = "an import hook that does not work"
+        raise RuntimeError(msg)
+
+    monkeypatch.delitem(sys.modules, "gribapi", raising=False)
+    monkeypatch.setattr(importlib.util, "find_spec", broken)
+    assert getattr(eccodes, probe)() is False

@@ -71,8 +71,9 @@ def quiet_eccodes_version_advice() -> None:
 @lru_cache
 def ensure_eccodes() -> bool:
     """Ensure that eccodes is loaded."""
-    quiet_eccodes_version_advice()
     try:
+        # inside, as everything on the way to the import is: this question is answered, not raised
+        quiet_eccodes_version_advice()
         import eccodes  # noqa: PLC0415
 
         # asking the library its version is the check that it loaded, not only what is logged
@@ -112,10 +113,10 @@ def ensure_pdbufr() -> bool:
     skipping the tests that need a reader. Whatever went wrong, it went wrong on the way to reading
     BUFR, which is the whole of what this answers.
     """
-    # pdbufr imports eccodes, so where this is asked first the import of eccodes is this one. The
-    # version is left to `ensure_eccodes`, which `bufr_is_available` asks first
-    quiet_eccodes_version_advice()
     try:
+        # pdbufr imports eccodes, so where this is asked first the import of eccodes is this one.
+        # The version is left to `ensure_eccodes`, which `bufr_is_available` asks first
+        quiet_eccodes_version_advice()
         import pdbufr  # noqa: F401, PLC0415
     except ModuleNotFoundError as e:
         if e.name in (None, "pdbufr", "eccodes"):
