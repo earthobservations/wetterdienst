@@ -25,11 +25,27 @@ from typing import TYPE_CHECKING
 from wetterdienst import __version__
 
 if TYPE_CHECKING:
+    from collections.abc import MutableMapping
+    from typing import Any
+
     from fastapi import FastAPI
     from fastmcp import FastMCP
 
 # Internal ASGI base URL for the in-process httpx2 client that backs the tools.
-_ASGI_BASE_URL = "http://wetterdienst.local"
+_ASGI_HOST = "wetterdienst.local"
+_ASGI_BASE_URL = f"http://{_ASGI_HOST}"
+
+
+def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
+    """Tell whether an ASGI request is a tool's in-process request to the REST app.
+
+    httpx2's ``ASGITransport`` puts the host of the client's base URL into the scope's ``server``.
+    A server such as uvicorn puts the address of its socket there, which a client cannot choose
+    the way it can choose the ``Host`` header.
+    """
+    server = scope.get("server")
+    return server is not None and server[0] == _ASGI_HOST
+
 
 INSTRUCTIONS = """\
 Wetterdienst provides weather & climate data from national weather services (Germany's DWD by \

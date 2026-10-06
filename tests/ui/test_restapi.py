@@ -26,6 +26,9 @@ from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
 
 if TYPE_CHECKING:
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
     from wetterdienst.model.result import ValuesResult
 
 # the media type each image format is registered as, spelled out rather than read from the REST API's
@@ -6223,3 +6226,130 @@ def test_stripes_a_station_that_returns_no_rows_is_a_400(
     assert response.json()["detail"] == (
         "At least two years with data are required to create climate stripes; station 01048 has data for no year"
     )
+
+
+@pytest.fixture
+def telemetry(monkeypatch: pytest.MonkeyPatch) -> tuple["InMemorySpanExporter", "InMemoryMetricReader"]:
+    """Set up global OpenTelemetry tracer and meter providers that keep what they record in memory.
+
+    FastAPI reports to the global providers once they are set. OpenTelemetry sets each only once per
+    process, so this swaps the module attributes that hold them, and puts them back afterwards.
+    """
+    from opentelemetry import trace  # noqa: PLC0415
+    from opentelemetry.metrics import _internal as metrics_internal  # noqa: PLC0415
+    from opentelemetry.sdk.metrics import MeterProvider  # noqa: PLC0415
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader  # noqa: PLC0415
+    from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor  # noqa: PLC0415
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: PLC0415
+
+    spans = InMemorySpanExporter()
+    tracer_provider = TracerProvider()
+    tracer_provider.add_span_processor(SimpleSpanProcessor(spans))
+    metrics = InMemoryMetricReader()
+    monkeypatch.setattr(trace, "_TRACER_PROVIDER", tracer_provider)
+    monkeypatch.setattr(metrics_internal, "_METER_PROVIDER", MeterProvider(metric_readers=[metrics]))
+    return spans, metrics
+
+
+def _span_names(spans: "InMemorySpanExporter", *, server: bool = False) -> list[str]:
+    """Name the finished spans, or only the server spans fastapi records one of per request.
+
+    FastMCP records its MCP requests as server spans too, under its own instrumentation scope.
+    """
+    from opentelemetry.trace import SpanKind  # noqa: PLC0415
+
+    return [
+        span.name
+        for span in spans.get_finished_spans()
+        if not server
+        or (
+            span.kind is SpanKind.SERVER and span.instrumentation_scope and span.instrumentation_scope.name == "fastapi"
+        )
+    ]
+
+
+def _request_durations(metrics: "InMemoryMetricReader") -> dict[str, int]:
+    """Count the requests in fastapi's `http.server.request.duration` histogram, by route."""
+    counts: dict[str, int] = {}
+    data = metrics.get_metrics_data()
+    for resource in data.resource_metrics if data else []:
+        for scope in resource.scope_metrics:
+            for metric in scope.metrics:
+                if metric.name == "http.server.request.duration":
+                    for point in metric.data.data_points:
+                        route = str(point.attributes.get("http.route"))
+                        counts[route] = counts.get(route, 0) + point.count
+    return counts
+
+
+def test_mcp_tool_call_in_process_request_is_left_out_of_fastapi_telemetry(
+    telemetry: tuple["InMemorySpanExporter", "InMemoryMetricReader"],
+) -> None:
+    """A tool call's in-process request to the REST app records no fastapi span or metric (GH-2432).
+
+    Its spans would start a trace of their own, cut off from the tool call's, and the server metrics
+    would count each tool call a second time. The tool call's own span stays.
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    spans, metrics = telemetry
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool("glossary", {"parameter": "temperature_air_mean_2m"})
+
+    asyncio.run(_call())
+
+    assert "tools/call glossary" in _span_names(spans)
+    assert _span_names(spans, server=True) == []
+    assert _request_durations(metrics) == {}
+
+
+@pytest.mark.parametrize("headers", [{}, {"host": "wetterdienst.local"}])
+def test_rest_request_is_recorded_by_fastapi_telemetry(
+    telemetry: tuple["InMemorySpanExporter", "InMemoryMetricReader"],
+    headers: dict[str, str],
+) -> None:
+    """A request to the REST API keeps its fastapi span and metric, whatever host it names (GH-2432)."""
+    spans, metrics = telemetry
+
+    response = TestClient(restapi.app).get("/api/glossary", params={"limit": 1}, headers=headers)
+
+    assert response.status_code == 200
+    assert _span_names(spans, server=True) == ["GET /api/glossary"]
+    assert _request_durations(metrics) == {"/api/glossary": 1}
+
+
+def test_mcp_request_is_recorded_by_fastapi_telemetry(
+    telemetry: tuple["InMemorySpanExporter", "InMemoryMetricReader"],
+) -> None:
+    """A request to `/mcp` keeps its fastapi span and metric (GH-2432)."""
+    pytest.importorskip("fastmcp")
+    if not restapi.mcp_enabled:
+        pytest.skip("fastmcp not installed")
+    spans, metrics = telemetry
+    body = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "test", "version": "1"},
+        },
+    }
+
+    # the session manager runs in the app lifespan, so drive the client as a context manager
+    with TestClient(restapi.app) as client:
+        response = client.post("/mcp", json=body, headers={"Accept": "application/json, text/event-stream"})
+
+    assert response.status_code == 200
+    assert _span_names(spans, server=True) == ["POST /mcp"]
+    assert _request_durations(metrics) == {"/mcp": 1}
