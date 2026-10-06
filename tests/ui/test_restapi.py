@@ -2954,14 +2954,14 @@ def _year_10000_message() -> str:
         pytest.param(
             "/api/interpolate",
             {**_OBSERVATION, "station": "01048", "date": "foo"},
-            404,
+            400,
             "date_string foo could not be parsed",
             id="interpolate-unparseable-date",
         ),
         pytest.param(
             "/api/summarize",
             {**_OBSERVATION, "station": "01048", "date": "foo"},
-            404,
+            400,
             "date_string foo could not be parsed",
             id="summarize-unparseable-date",
         ),
@@ -2982,7 +2982,7 @@ def _year_10000_message() -> str:
         pytest.param(
             "/api/interpolate",
             {**_OBSERVATION, "parameters": "daily/abc", "station": "01048", "date": "2020-06-30"},
-            404,
+            400,
             "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
             id="interpolate-unknown-parameter",
         ),
@@ -3025,21 +3025,21 @@ def _year_10000_message() -> str:
                 "issue": "foo",
                 "date": "2026-10-01",
             },
-            404,
+            400,
             "Invalid isoformat string: 'foo'",
             id="interpolate-dmo-unparseable-issue",
         ),
         pytest.param(
             "/api/interpolate",
             {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": ""},
-            404,
+            400,
             "start_date and end_date are required for interpolation",
             id="interpolate-empty-date",
         ),
         pytest.param(
             "/api/summarize",
             {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": ""},
-            404,
+            400,
             "start_date and end_date are required for summarization",
             id="summarize-empty-date",
         ),
@@ -3053,7 +3053,7 @@ def _year_10000_message() -> str:
         pytest.param(
             "/api/interpolate",
             {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": "9999-12-31"},
-            404,
+            400,
             "date value out of range",
             id="interpolate-date-past-the-last-day",
         ),
@@ -3103,9 +3103,8 @@ def test_a_refusal_of_the_request_keeps_its_4xx(
     """A request refused for what it asks is still the caller's to fix, and answers with a 4xx (GH-2252).
 
     Each is refused before anything is downloaded, so these are real requests rather than stubs.
-    The 404s from the geo endpoints are the status those answered with before GH-2252; only failures
-    that are not a refusal of the request moved, to a 500. A point beyond the latitudes UTM covers
-    is a 400 since GH-2385, as the other points the geo endpoints cannot answer at are.
+    The geo endpoints answered these with a 404 until GH-2429, and answer them with the 400
+    `/api/values` gives since.
     """
     response = client.get(endpoint, params=params)
 
@@ -3149,7 +3148,7 @@ def _raise_station_not_found(**_kwargs: object) -> None:
             "/api/interpolate",
             "get_interpolate",
             _raise_unit_target_refusal,
-            404,
+            400,
             "Unit foo not supported for type temperature",
             id="interpolate-unknown-unit-target",
         ),
@@ -3160,7 +3159,7 @@ def _raise_station_not_found(**_kwargs: object) -> None:
             "/api/summarize",
             "get_summarize",
             _raise_sql_refusal,
-            404,
+            400,
             'Referenced column "foo" not found',
             id="summarize-sql",
         ),
@@ -3191,10 +3190,11 @@ def test_a_refusal_raised_past_the_station_lookup_keeps_its_4xx(
     status: int,
     detail: str,
 ) -> None:
-    """A refusal raised once stations are known still answers as it did (GH-2252).
+    """A refusal raised once stations are known still answers with a 4xx (GH-2252).
 
     The refusal is raised by the code that raises it on the real path -- the unit converter, the SQL
-    filter -- from a stub at the point the network would otherwise be needed to reach it.
+    filter -- from a stub at the point the network would otherwise be needed to reach it. The geo
+    endpoints answer it with a 400 since GH-2429, and a station the lookup does not know with a 404.
     """
     if entry_point is None:
         stations = SimpleNamespace(values=SimpleNamespace(all=refuse))
@@ -6277,3 +6277,141 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
 
     assert response.status_code == 500
     assert response.json()["detail"] == f"503, message='Service Unavailable', url='{url}'"
+
+
+_GEO_REFUSALS = [
+    pytest.param(
+        "interpolate",
+        {"latitude": 50.0, "longitude": 10.0, "date": "2020-06-30/2020-06-01"},
+        400,
+        "Error: 'start_date' must be smaller or equal to 'end_date'.",
+        id="interpolate-window-the-wrong-way-round",
+    ),
+    pytest.param(
+        "summarize",
+        {"latitude": 50.0, "longitude": 10.0, "date": "2020-06-30/2020-06-01"},
+        400,
+        "Error: 'start_date' must be smaller or equal to 'end_date'.",
+        id="summarize-window-the-wrong-way-round",
+    ),
+    pytest.param(
+        "interpolate",
+        {"latitude": 50.0, "longitude": 10.0, "date": "9999-12-31"},
+        400,
+        "date value out of range",
+        id="interpolate-date-past-the-last-day",
+    ),
+    pytest.param(
+        "interpolate",
+        {"station": "00001", "date": "2020-06-30"},
+        404,
+        "no station found for 00001",
+        id="interpolate-unknown-station",
+    ),
+    pytest.param(
+        "summarize",
+        {"station": "00001", "date": "2020-06-30"},
+        404,
+        "no station found for 00001",
+        id="summarize-unknown-station",
+    ),
+]
+
+
+@pytest.mark.parametrize(("endpoint", "point", "status", "detail"), _GEO_REFUSALS)
+def test_geo_a_refusal_of_the_request_is_logged_as_info(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    point: dict[str, object],
+    status: int,
+    detail: str,
+) -> None:
+    """A request refused for what it asks is a 400 and an info line; an unknown station a 404 (GH-2429).
+
+    The geo endpoints answered most refusals with a 404 and logged their traceback as an error. A
+    station the lookup does not know is the one refusal that means "no such thing".
+    """
+    _stub_a_station_without_position(monkeypatch)
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get(f"/api/{endpoint}", params={**_OBSERVATION, **point})
+    assert response.status_code == status
+    assert response.json()["detail"] == detail
+    records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [
+        (logging.INFO, f"Failed to {endpoint}: {detail}")
+    ]
+    assert not any(record.exc_info for record in records)
+
+
+def test_values_a_window_the_wrong_way_round_is_logged_as_info(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A window that ends before it starts is the caller's 400, logged without a traceback (GH-2429)."""
+    detail = "Error: 'start_date' must be smaller or equal to 'end_date'."
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get(
+            "/api/values", params={**_OBSERVATION, "station": "01048", "date": "2020-06-30/2020-06-01"}
+        )
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+    records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [
+        (logging.INFO, f"Failed to get values: {detail}")
+    ]
+    assert not any(record.exc_info for record in records)
+
+
+@pytest.mark.parametrize(("tool", "point", "status", "detail"), _GEO_REFUSALS)
+def test_mcp_a_refusal_of_the_request_keeps_the_rest_apis_status(
+    monkeypatch: pytest.MonkeyPatch,
+    tool: str,
+    point: dict[str, object],
+    status: int,
+    detail: str,
+) -> None:
+    """The MCP tools are the REST API's routes, and answer a refusal with the same status (GH-2429)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    _stub_a_station_without_position(monkeypatch)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(tool, {**_OBSERVATION, **point})
+
+    with pytest.raises(ToolError, match=f"HTTP error {status}") as error:
+        asyncio.run(_call())
+    assert detail in str(error.value)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point"), [("interpolate", "get_interpolate"), ("summarize", "get_summarize")]
+)
+def test_geo_an_issue_the_source_does_not_list_is_a_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    entry_point: str,
+) -> None:
+    """A forecast run the listing does not hold is a 400, as `/api/values` answers it (GH-2429)."""
+    from wetterdienst.exceptions import IssueNotFoundError  # noqa: PLC0415
+
+    msg = "Unable to find 2020-01-01 00:00:00 file within https://example.com/kmz"
+
+    def refuse(**_kwargs: object) -> None:
+        raise IssueNotFoundError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
+    response = client.get(f"/api/{endpoint}", params={**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == msg
