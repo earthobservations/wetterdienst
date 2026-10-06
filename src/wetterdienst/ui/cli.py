@@ -330,13 +330,14 @@ def station_distance_opts(kind: str) -> Callable[[_CommandT], _CommandT]:
 def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
     """Get API for provider and network.
 
-    If non found click.Abort() is casted with the error message
+    A provider or network that does not exist is the command line's mistake, so it is a usage error
+    naming where the existing ones are listed, as the REST API answers it with a 404 and that hint.
     """
     try:
         return Wetterdienst(provider, network)
-    except ApiNotFoundError:
-        log.exception("No API found.")
-        sys.exit(1)
+    except ApiNotFoundError as e:
+        msg = f"{e} `wetterdienst about coverage` lists the available providers and networks."
+        raise click.UsageError(msg) from e
 
 
 def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _RequestT:
@@ -678,6 +679,17 @@ STRIPES_EXAMPLES = r"""
     # precipitation stripes, to a file
     wetterdienst stripes values --kind=precipitation --station=1048 --target=precipitation_stripes.png
 """
+
+
+def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
+    """Raise a failure caught from a request as a usage error if it is the caller's own mistake.
+
+    A refusal the caller can rephrase -- one the REST API answers with a 4xx -- is told in one line,
+    exit 2, as a mistyped option is (GH-2426). Anything else is left to the handler, which logs an
+    upstream failure or a defect with its traceback and exits 1.
+    """
+    if _is_caller_refusal(e, request):
+        raise click.UsageError(str(e)) from e
 
 
 def _collect_or_exit(
@@ -1137,14 +1149,13 @@ def issues_cmd(
     settings = Settings()
     try:
         issue_list = get_issues(api=api, request=request, settings=settings)
-    except NotImplementedError:
-        log.exception("Issues not available for the given request.")
-        sys.exit(1)
+    except NotImplementedError as e:
+        # a network without an issue listing, which the message names: `/api/issues` answers a 400
+        raise click.UsageError(str(e)) from e
     except Exception as e:
         # a request the caller can rephrase, such as a DMO-only option on MOSMIX, is told in one
         # line, as `/api/issues` answers it with a 400; an upstream failure keeps its traceback
-        if _is_caller_refusal(e, request):
-            raise click.UsageError(str(e)) from e
+        _refuse_if_callers(e, request)
         log.exception("Failed to get issues.")
         sys.exit(1)
 
@@ -1228,7 +1239,10 @@ def history(
     settings = Settings()
     try:
         stations_ = get_stations(api=api, request=request, date=None, settings=settings)
-    except Exception:
+    except Exception as e:
+        # a parameter or station the caller can rephrase is told in one line, as `/api/history`
+        # answers it with a 400; an upstream failure keeps its traceback
+        _refuse_if_callers(e, request)
         log.exception("Failed to get stations for history.")
         sys.exit(1)
 
@@ -2035,6 +2049,9 @@ def stripes_values(
     try:
         fig = _plot_stripes(request)
     except Exception as e:
+        # a station that is not found, or years holding too little data, is told in one line, as
+        # `/api/stripes/image` answers it with a 400; an upstream failure keeps its traceback
+        _refuse_if_callers(e, request)
         log.exception("Error while plotting warming stripes")
         raise click.ClickException(str(e)) from e
 
