@@ -36,8 +36,8 @@ const examples = [
   { nameKey: 'api.examples.stationsDwd', path: '/api/stations?provider=dwd&network=observation&parameters=daily/kl&periods=recent&all=true' },
   { nameKey: 'api.examples.historyDwd', path: '/api/history?provider=dwd&network=observation&parameters=daily/kl&station=00011' },
   { nameKey: 'api.examples.valuesDwd', path: '/api/values?provider=dwd&network=observation&parameters=daily/kl&periods=recent&station=00011' },
-  { nameKey: 'api.examples.interpolateDwd', path: '/api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01' },
-  { nameKey: 'api.examples.summarizeDwd', path: '/api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&date=1986-10-31/1986-11-01' },
+  { nameKey: 'api.examples.interpolateDwd', path: '/api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01' },
+  { nameKey: 'api.examples.summarizeDwd', path: '/api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01' },
   { nameKey: 'api.examples.stripesStations', path: '/api/stripes/stations?kind=temperature' },
   { nameKey: 'api.examples.stripesValues', path: '/api/stripes/values?kind=temperature&station=1048' },
   { nameKey: 'api.examples.stripesImage', path: '/api/stripes/image?kind=temperature&station=1048' },
@@ -217,10 +217,10 @@ const examples = [
             </tr>
             <tr class="border-b dark:border-gray-700">
               <td class="py-2 pr-4">
-                <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">date</code>
+                <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">timestamp</code>
               </td>
               <td class="py-2">
-                {{ t('api.params.date') }}
+                {{ t('api.params.timestamp') }}
               </td>
             </tr>
             <tr>

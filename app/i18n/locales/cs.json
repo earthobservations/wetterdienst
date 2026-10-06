@@ -276,7 +276,7 @@
       "network": "Síť dat (např. observation, forecast)",
       "parameters": "Cesta parametru (např. daily/kl/temperature_air_mean_2m)",
       "station": "ID stanice (oddělená čárkami)",
-      "date": "Datum nebo rozsah dat (např. 2020-01-01/2020-12-31)",
+      "timestamp": "Datum nebo rozsah dat (např. 2020-01-01/2020-12-31)",
       "format": "Výstupní formát (json, csv, geojson, html)"
     }
   },

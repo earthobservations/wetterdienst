@@ -160,9 +160,9 @@ const apiQuery = computed(() => {
 
   // Add date range if provided
   if (ss.dateRange?.startDate) {
-    base.date = ss.dateRange.startDate
+    base.timestamp = ss.dateRange.startDate
     if (ss.dateRange.endDate) {
-      base.date = `${ss.dateRange.startDate}/${ss.dateRange.endDate}`
+      base.timestamp = `${ss.dateRange.startDate}/${ss.dateRange.endDate}`
     }
   }
 

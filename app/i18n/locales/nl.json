@@ -276,7 +276,7 @@
       "network": "Gegevensnetwerk (bijv. observation, forecast)",
       "parameters": "Parameterpad (bijv. daily/kl/temperature_air_mean_2m)",
       "station": "Station-id('s), gescheiden door komma's",
-      "date": "Datum of datumbereik (bijv. 2020-01-01/2020-12-31)",
+      "timestamp": "Datum of datumbereik (bijv. 2020-01-01/2020-12-31)",
       "format": "Uitvoerformaat (json, csv, geojson, html)"
     }
   },
