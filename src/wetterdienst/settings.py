@@ -93,7 +93,9 @@ class Auth(BaseModel):
     # a credential assigned after construction (`settings.auth.knmi = ...`) is wrapped, split and
     # checked as one given to the constructor is; without it a plain `str` was kept, which `reveal()`
     # could not read and which printed as it was (GH-2387)
-    model_config = ConfigDict(validate_assignment=True)
+    # a credential refused is not repeated in the error, which pydantic otherwise echoes as its
+    # `input_value` -- and a malformed credential is the one whose traceback gets pasted (GH-2435)
+    model_config = ConfigDict(validate_assignment=True, hide_input_in_errors=True)
 
     aemet: SecretStr | None = Field(default=None)
     knmi: SecretStr | None = Field(default=None)
@@ -346,6 +348,10 @@ class Settings(BaseSettings):
         # model validators below run again; without it a value out of bounds or outside its choices
         # was taken as it was and failed later, far from the assignment (GH-2342)
         validate_assignment=True,
+        # the error does not repeat the value refused: `Auth`'s own setting hides it only in an error
+        # raised by `Auth` itself, not in one raised through the settings, and a value given for
+        # `auth` as a whole, or for `fsspec_client_kwargs` with its headers, is echoed here (GH-2435)
+        hide_input_in_errors=True,
     )
 
     cache_disable: bool = Field(default=False)

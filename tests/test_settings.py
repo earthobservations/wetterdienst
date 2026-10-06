@@ -24,6 +24,7 @@ from pydantic_settings import SettingsError
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import (
     _STATION_DISTANCE_RESOLUTION_FACTORS,
+    Auth,
     Settings,
     _remove_unless_forked,
     _temporary_cache_dir,
@@ -1274,3 +1275,34 @@ def test_settings_auth_refuses_an_element_of_a_pair_that_is_no_credential(
     variable = f"WD_AUTH__{field.upper()}"
     monkeypatch.setenv(variable, json.dumps(pair))
     assert check_settings() == [f"{variable}[{index}] is invalid: Input should be a valid string"]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "build",
+    [
+        pytest.param(lambda: Settings(auth={"ceda": "DUMMY-USER;TOPSECRET"}), id="ceda-text"),
+        pytest.param(lambda: Settings(auth={"ceda": ("TOPSECRET", None)}), id="ceda-element"),
+        pytest.param(lambda: Settings(auth={"metno_frost": ("TOPSECRET", "*" * 10)}), id="metno-frost-mask"),
+        pytest.param(lambda: Settings(auth="TOPSECRET"), id="auth-whole"),
+        pytest.param(lambda: Auth(ceda="DUMMY-USER;TOPSECRET"), id="auth-model"),
+        pytest.param(lambda: setattr(Settings(), "auth", {"ceda": "DUMMY-USER;TOPSECRET"}), id="assign-auth"),
+        pytest.param(lambda: setattr(Settings().auth, "ceda", "DUMMY-USER;TOPSECRET"), id="assign-ceda"),
+    ],
+)
+def test_settings_auth_does_not_repeat_a_refused_credential(build: Callable[[], object]) -> None:
+    """A credential refused is not repeated in the error, which pydantic echoes as its input (GH-2435)."""
+    with pytest.raises(ValidationError) as excinfo:
+        build()
+    assert "TOPSECRET" not in str(excinfo.value)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_does_not_repeat_a_refused_credential_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A credential refused from the environment is not repeated in the error either (GH-2435)."""
+    monkeypatch.setenv("WD_AUTH__CEDA", "DUMMY-USER;TOPSECRET")
+    with pytest.raises(ValidationError) as excinfo:
+        Settings()
+    assert "TOPSECRET" not in str(excinfo.value)

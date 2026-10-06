@@ -42,6 +42,8 @@ Types of changes:
   any other `null`, `true`, float or object in a `WD_AUTH__METNO_FROST` / `WD_AUTH__CEDA` pair with
   a `ValidationError` naming the element (`auth.ceda.1`; `WD_AUTH__CEDA[1]` in the CLI's
   message). Such an element was taken as the text of its repr, `None` or `True` (GH-2434)
+- A `ValidationError` from `Settings` or `Auth` no longer repeats the value it refuses as its
+  `input_value`, which for `auth` is a credential; `errors()` still holds it (GH-2435)
 
 - NOAA GHCN daily stations QOORNOQ and ARSUK on the coast of Greenland and SORFJORD_KRV and
   SKJOMEN_SLETTJORD by the fjords near Narvik, the four rows listed at -100.0 m, have a null
