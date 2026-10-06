@@ -1282,7 +1282,7 @@ def test_settings_auth_refuses_an_element_of_a_pair_that_is_no_credential(
     "build",
     [
         pytest.param(lambda: Settings(auth={"ceda": "DUMMY-USER;TOPSECRET"}), id="ceda-text"),
-        pytest.param(lambda: Settings(auth={"ceda": ("TOPSECRET", None)}), id="ceda-element"),
+        pytest.param(lambda: Settings(auth={"ceda": ("DUMMY-USER", {"password": "TOPSECRET"})}), id="ceda-element"),
         pytest.param(lambda: Settings(auth={"metno_frost": ("TOPSECRET", "*" * 10)}), id="metno-frost-mask"),
         pytest.param(lambda: Settings(auth="TOPSECRET"), id="auth-whole"),
         pytest.param(lambda: Auth(ceda="DUMMY-USER;TOPSECRET"), id="auth-model"),
