@@ -531,8 +531,7 @@ def test_request_refuses_both_renamed_arguments_at_once() -> None:
     """Test a caller passing the old pair learns of both renames from the one error (GH-2437)."""
     with pytest.raises(
         TypeError,
-        match=r"^DwdObservationRequest\(\) arguments 'start_date' was renamed to 'start', "
-        r"'end_date' was renamed to 'end'$",
+        match=r"^DwdObservationRequest\(\) arguments 'start_date' and 'end_date' were renamed to 'start' and 'end'$",
     ):
         DwdObservationRequest(parameters=[("daily", "kl")], start_date="2020-01-01", end_date="2020-01-02")
 
@@ -547,11 +546,13 @@ def test_request_signature_names_the_window_arguments(request_class: type[Timese
     assert list(parameters)[:3] == ["parameters", "start", "end"]
 
 
-def test_request_keeps_the_window_under_its_new_names() -> None:
+def test_request_keeps_the_window_under_its_new_names(default_settings: Settings) -> None:
     """Test start and end are taken by the request and read back from its stations result (GH-2437)."""
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
 
-    request = DwdObservationRequest(parameters=[("daily", "kl")], start="2020-01-01", end="2020-01-02T12:00")
+    request = DwdObservationRequest(
+        parameters=[("daily", "kl")], start="2020-01-01", end="2020-01-02T12:00", settings=default_settings
+    )
     assert request.start == dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))
     assert request.end == dt.datetime(2020, 1, 2, 12, tzinfo=ZoneInfo("UTC"))
     stations = StationsResult(

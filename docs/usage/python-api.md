@@ -163,7 +163,7 @@ Period.HISTORICAL
 "historical" or "HISTORICAL"
 ```
 
-The period argument typically can be used as replacement for the start and end
+The periods argument typically can be used as replacement for the start and end
 arguments. In case both arguments are given they are used as a filter for the data. Left out, the
 periods are derived from ``start``/``end`` where the provider publishes on a release
 schedule that says which period holds which years -- DWD observation and DWD phenology do -- and
@@ -429,7 +429,7 @@ df
 
 This gives us the most options to work with the data, getting multiple parameters at
 once, parsed nicely into column structure with improved parameter names. Instead of
-``start`` and ``end`` you may as well want to use ``period`` to update your
+``start`` and ``end`` you may as well want to use ``periods`` to update your
 database once in a while with a fixed set of records.
 
 A result can be cut down after the fact with ``values.filter_by_date("2020-08")``, which takes the

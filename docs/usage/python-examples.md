@@ -193,9 +193,8 @@ radar data available at different locations within the DWD data repository:
 For ``RADOLAN_CDC``-data, the time resolution parameter (either hourly or daily)
 must be specified.
 
-The ``date_times`` (list of datetimes or strings) or a ``start``
-and ``end`` parameters can optionally be specified to obtain data
-from specific points in time.
+The ``start`` and ``end`` parameters (datetimes or strings) can optionally be specified to
+obtain data from specific points in time.
 
 For ``RADOLAN_CDC``-data, datetimes are rounded to ``HH:50min``, as the
 data is packaged for this minute step.

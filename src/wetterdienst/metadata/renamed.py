@@ -144,10 +144,14 @@ def refuse_renamed_arguments(owner: str, kwargs: Mapping[str, object]) -> None:
     not say what it is called now.
     """
     # all of them at once, so that a caller passing the old pair learns of both in one go
-    renamed = [f"'{old}' was renamed to '{RENAMED_ARGUMENTS[old]}'" for old in kwargs if old in RENAMED_ARGUMENTS]
+    renamed = [old for old in kwargs if old in RENAMED_ARGUMENTS]
+    if len(renamed) == 1:
+        msg = f"{owner}() argument '{renamed[0]}' was renamed to '{RENAMED_ARGUMENTS[renamed[0]]}'"
+        raise TypeError(msg)
     if renamed:
-        noun = "argument" if len(renamed) == 1 else "arguments"
-        msg = f"{owner}() {noun} {', '.join(renamed)}"
+        olds = " and ".join(f"'{old}'" for old in renamed)
+        news = " and ".join(f"'{RENAMED_ARGUMENTS[old]}'" for old in renamed)
+        msg = f"{owner}() arguments {olds} were renamed to {news}"
         raise TypeError(msg)
 
 
