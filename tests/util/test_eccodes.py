@@ -4,6 +4,7 @@
 
 import builtins
 import importlib
+import importlib.util
 import logging
 import re
 import sys
@@ -361,6 +362,16 @@ def test_a_radar_bufr_read_asked_directly_is_quiet_too() -> None:
     assert "something else the bindings say on import" in said
 
 
+#: the filter is installed only where the bindings are, and these tests watch it being installed
+needs_the_bindings = pytest.mark.skipif(importlib.util.find_spec("gribapi") is None, reason="eccodes required")
+#: Python 3.14's context-aware warnings keep `catch_warnings`' list apart from `warnings.filters`,
+#: which these tests read
+reads_the_filter_list = pytest.mark.skipif(
+    bool(getattr(sys.flags, "context_aware_warnings", False)), reason="filters are context-local"
+)
+
+
+@needs_the_bindings
 def test_the_advice_is_ignored_only_from_the_bindings(monkeypatch: pytest.MonkeyPatch) -> None:
     """The filter is left in place, so it is scoped to the module that gives the advice.
 
@@ -400,6 +411,7 @@ def test_warnings_as_errors_do_not_make_the_reader_look_missing() -> None:
         assert eccodes.ensure_eccodes() is True
 
 
+@reads_the_filter_list
 def test_the_filters_are_left_alone_once_the_bindings_are_imported(monkeypatch: pytest.MonkeyPatch) -> None:
     """After the bindings' first import the advice has been given or not, and a filter does nothing.
 
@@ -413,6 +425,8 @@ def test_the_filters_are_left_alone_once_the_bindings_are_imported(monkeypatch: 
         assert warnings.filters == before
 
 
+@needs_the_bindings
+@reads_the_filter_list
 def test_a_filter_dropped_before_the_import_is_put_back(monkeypatch: pytest.MonkeyPatch) -> None:
     """Asked again before the bindings' first import, the filter is there again if it was lost.
 
@@ -434,3 +448,14 @@ def test_a_filter_dropped_before_the_import_is_put_back(monkeypatch: pytest.Monk
         assert not installed()
         eccodes.quiet_eccodes_version_advice()
         assert installed()
+
+
+@reads_the_filter_list
+def test_the_filters_are_left_alone_where_the_bindings_are_not_installed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without the `bufr` extra there is no advice to quiet, and no reason to touch the filters."""
+    monkeypatch.delitem(sys.modules, "gribapi", raising=False)
+    monkeypatch.setattr(importlib.util, "find_spec", lambda *_: None)
+    with warnings.catch_warnings():
+        before = list(warnings.filters)
+        eccodes.quiet_eccodes_version_advice()
+        assert warnings.filters == before

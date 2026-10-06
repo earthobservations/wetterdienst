@@ -10,6 +10,7 @@ BUFR", which is the only question any caller has: use `bufr_is_available` for th
 `require_bufr` where the answer has to be no further than the first line of a method.
 """
 
+import importlib.util
 import logging
 import sys
 import warnings
@@ -52,9 +53,11 @@ def quiet_eccodes_version_advice() -> None:
     every change to the filters makes Python forget which warnings it has shown once, so it should
     not change them for nothing. Until then it is not cached, but asked each time -- a
     `catch_warnings` that was open when it ran, a test's or another thread's, puts back a list
-    without it on the way out, and a cache would go on saying it is there.
+    without it on the way out, and a cache would go on saying it is there. Where the bindings are not
+    installed at all -- no `bufr` extra -- there is nothing to quiet, and the filters are left alone
+    too.
     """
-    if "gribapi" in sys.modules:
+    if "gribapi" in sys.modules or importlib.util.find_spec("gribapi") is None:
         return
     warnings.filterwarnings(
         "ignore",
