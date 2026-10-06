@@ -3,6 +3,7 @@
 """Tests for the BUFR reader availability helpers."""
 
 import builtins
+import contextlib
 import importlib
 import importlib.util
 import logging
@@ -347,16 +348,17 @@ def test_a_radar_bufr_read_asked_directly_is_quiet_too() -> None:
     """`read_radar_bufr` imports pdbufr itself and can be called without asking either probe first.
 
     What it is handed here is not BUFR, so the read fails -- after the import, which is the part
-    this is about.
+    this is about. How it fails is not: gribapi's error for bytes that are not BUFR, or on Windows
+    the temporary file it is written to not opening a second time.
     """
     from wetterdienst.provider.dwd.radar.api import _BUFR_VALUE_FIELD, read_radar_bufr  # noqa: PLC0415
 
-    # taken from where it is loaded rather than imported, which would import gribapi before the read
-    unreadable = sys.modules["gribapi.errors"].GribInternalError
     with warnings.catch_warnings(record=True) as seen:
         warnings.simplefilter("always")
-        with pytest.raises(unreadable):
+        with contextlib.suppress(Exception):
             read_radar_bufr(BytesIO(b"not BUFR"), next(iter(_BUFR_VALUE_FIELD)))
+    # the read got as far as importing the reader, so the advice had its chance
+    assert "pdbufr" in sys.modules
     said = [str(warning.message) for warning in seen]
     assert not [message for message in said if "or higher is recommended" in message]
     assert "something else the bindings say on import" in said
