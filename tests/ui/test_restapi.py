@@ -5935,6 +5935,27 @@ def test_openapi_with_a_route_added_keeps_the_servers_defaults(monkeypatch: pyte
     assert shape["schema"]["default"] == "wide"
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_does_not_configure_opentelemetry_export_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An `OTEL_EXPORTER_OTLP_ENDPOINT` leaves the server's start alone (GH-2407).
+
+    FastAPI 0.142 adds OTLP exporters from the `OTEL_*` variables as an app starts; the REST API
+    turns that off. The gRPC protocol, which fastapi refuses before it looks for the OpenTelemetry
+    SDK, makes it warn whether the SDK is installed or not, so the warning tells it ran.
+    """
+    for name in list(os.environ):
+        if name.startswith("OTEL_"):
+            monkeypatch.delenv(name)
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:4317")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
+
+    assert _start_lifespan(caplog)
+    assert not [record for record in caplog.records if record.name.startswith("fastapi")]
+
+
 def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: list[float]) -> None:
     """Answer the stripes of station 01048 offline: its listing, and one value a year from 2000."""
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415

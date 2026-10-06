@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- The `restapi` extra now needs `fastapi>=0.142` (was `>=0.115`), which brings `opentelemetry-api`;
+  upgrade fastapi where it is pinned lower. The REST API turns off fastapi's OpenTelemetry export
+  from `OTEL_*` variables: to export, set up a provider yourself, e.g. with
+  `opentelemetry-instrument`. Such a provider now gets fastapi's spans, metrics and logs, or, where
+  the `opentelemetry-instrumentation-fastapi` middleware runs, that instrumentation's (GH-2407)
+
 ### Fixed
 
 - NOAA GHCN hourly station GJBAKKI (`ICM00004919`) in southwestern Iceland, the one row listed at
