@@ -110,8 +110,8 @@ export interface Station {
   longitude: number | null
   /** Null where the provider reports no elevation for the station, which for several is every one. */
   elevation: number | null
-  start_timestamp?: string
-  end_timestamp?: string
+  start_timestamp?: string | null
+  end_timestamp?: string | null
 }
 
 export interface StationsResponse {
@@ -268,8 +268,8 @@ export interface StripesStation {
   region: string
   latitude: number
   longitude: number
-  start_timestamp: string
-  end_timestamp: string
+  start_timestamp: string | null
+  end_timestamp: string | null
 }
 
 export interface StripesStationsResponse {
