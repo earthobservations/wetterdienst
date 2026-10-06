@@ -268,6 +268,7 @@ def test_connectionstring_reads_a_file_target_as_a_path() -> None:
         pytest.param("file://./out/data.csv", "./out/data.csv", id="dot-relative-with-directory"),
         pytest.param("file:///abs/data.csv", "/abs/data.csv", id="absolute"),
         pytest.param("file://C:/data/obs.csv", "C:/data/obs.csv", id="windows-drive-letter"),
+        pytest.param("file://localhost/abs/data.csv", "localhost/abs/data.csv", id="host-read-as-directory"),
     ],
 )
 def test_connectionstring_file_target_path_is_everything_after_the_scheme(url: str, path: str) -> None:
@@ -275,4 +276,5 @@ def test_connectionstring_file_target_path_is_everything_after_the_scheme(url: s
 
     `urlparse` reads the first segment of `file://out/data.csv` as a host, which left `/data.csv`.
     """
-    assert ConnectionString(url).path == path
+    cs = ConnectionString(url)
+    assert (cs.protocol, cs.path, cs.host) == ("file", path, None)

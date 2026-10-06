@@ -104,15 +104,19 @@ class ConnectionString:
         """
         self.url_raw = url
         if url.startswith(_FILE_PREFIXES):
+            self._host = self._port = self._username = self._password = None
+            if url.startswith("file://"):
+                # everything after `file://` is the path, as `alerts` and `history` read it:
+                # `urlparse` takes the first segment of `file://out/data.csv` as a host and leaves
+                # `/data.csv`, so the relative path would land at the root
+                self._name, self._database, self._query = "file", None, ""
+                self._path = url.removeprefix("file://")
+                return
             parsed = urlparse(url)
             self._name = parsed.scheme
-            self._host = self._port = self._username = self._password = None
             self._database = parsed.path[1:] if parsed.path.startswith("/") else None
             self._query = parsed.query
-            # a file target's path is everything after `file://`, as `alerts` and `history` read
-            # it: `urlparse` takes the first segment of `file://out/data.csv` as a host and leaves
-            # `/data.csv`, so the relative path would land at the root
-            self._path = url.removeprefix("file://") if url.startswith("file://") else parsed.path or parsed.netloc
+            self._path = parsed.path or parsed.netloc
             return
         match = _URL_PATTERN.match(url)
         if match is None:

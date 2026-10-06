@@ -41,7 +41,8 @@ Types of changes:
 - A `file://` target of `to_target`, and of `--target` on `stations`, `values`, `interpolate` and
   `summarize`, reads everything after `file://` as its path, as `alerts` and `history` do:
   `file://out/data.csv` writes `./out/data.csv`, where it wrote `/data.csv` with `out` read as a
-  host. `file:///abs/data.csv` is still absolute (GH-2424)
+  host. `file:///abs/data.csv` is still absolute; a host is now read as a directory, so write
+  `file://localhost/abs/data.csv` as `file:///abs/data.csv` (GH-2424)
 - NOAA GHCN daily stations QOORNOQ and ARSUK on the coast of Greenland and SORFJORD_KRV and
   SKJOMEN_SLETTJORD by the fjords near Narvik, the four rows listed at -100.0 m, have a null
   `elevation` instead of one 100 m below sea level. Real heights below sea level, such as DEATH
