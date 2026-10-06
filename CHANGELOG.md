@@ -18,6 +18,10 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: a station history's records -- station and operator names, parameters, devices,
+  geography, missing data -- give their span as `valid_from` and `valid_to`, where they gave
+  `start_date` and `end_date`: in Python's `History`, `/api/history`, the MCP `history` tool and
+  the CLI `history` command. Read the new names (GH-2440)
 - **Breaking**: the request window is `start` / `end`, no longer `start_date` / `end_date`: write
   `DwdObservationRequest(..., start=..., end=...)` for every provider's request and
   `DwdRadarValues`, read `.start` / `.end` off a request or a `StationsResult`, and pass

@@ -25,7 +25,7 @@ async function mountHistory(options?: Record<string, unknown>) {
 
 const HISTORY = {
   histories: [
-    { station_id: '00001', parameter: [{ station_id: '00001', station_name: 'Foo Station', start_date: '2000-01-01', end_date: null, parameter: 'temperature_air_mean_2m', description: 'Air temp', unit: '°C' }] },
+    { station_id: '00001', parameter: [{ station_id: '00001', station_name: 'Foo Station', valid_from: '2000-01-01', valid_to: null, parameter: 'temperature_air_mean_2m', description: 'Air temp', unit: '°C' }] },
   ],
 }
 
@@ -142,8 +142,8 @@ describe('history Page', () => {
       histories: [
         {
           station_id: '00001',
-          parameter: [{ station_id: '00001', station_name: 'Foo Station', start_date: '2000-01-01', end_date: null, parameter: 'temperature_air_mean_2m', description: 'Air temp', unit: '°C' }],
-          name: { station: [{ start_date: '2000-01-01', end_date: null, station_name: 'Foo Station' }] },
+          parameter: [{ station_id: '00001', station_name: 'Foo Station', valid_from: '2000-01-01', valid_to: null, parameter: 'temperature_air_mean_2m', description: 'Air temp', unit: '°C' }],
+          name: { station: [{ valid_from: '2000-01-01', valid_to: null, station_name: 'Foo Station' }] },
         },
       ],
     })))
@@ -305,12 +305,12 @@ describe('history Page', () => {
       histories: [{
         station_id: '00001',
         name: {
-          station: [{ station_id: '00001', station_name: 'Foo Station', start_date: '1926-05-01T00:00:00+00:00', end_date: null }],
+          station: [{ station_id: '00001', station_name: 'Foo Station', valid_from: '1926-05-01T00:00:00+00:00', valid_to: null }],
           operator: [],
         },
         geography: [
-          { station_id: '00001', station_name: 'Foo Station', latitude: 51.0883, longitude: 13.7601, station_elevation: 152, start_date: '1926-05-01T00:00:00+00:00', end_date: '1935-07-10T00:00:00+00:00' },
-          { station_id: '00001', station_name: 'Foo Station', latitude: 51.1278, longitude: 13.7543, station_elevation: 227.57, start_date: '2019-08-14T00:00:00+00:00', end_date: '2026-09-30T00:00:00+00:00' },
+          { station_id: '00001', station_name: 'Foo Station', latitude: 51.0883, longitude: 13.7601, station_elevation: 152, valid_from: '1926-05-01T00:00:00+00:00', valid_to: '1935-07-10T00:00:00+00:00' },
+          { station_id: '00001', station_name: 'Foo Station', latitude: 51.1278, longitude: 13.7543, station_elevation: 227.57, valid_from: '2019-08-14T00:00:00+00:00', valid_to: '2026-09-30T00:00:00+00:00' },
         ],
       }],
     }))
@@ -370,7 +370,7 @@ describe('history Page results', () => {
   })
 
   it('shows a number of 0 as 0, and one the backend has no value for as -', async () => {
-    const period = { station_id: '00001', station_name: 'Foo Station', start_date: '2000-01-01T00:00:00+00:00', end_date: '2001-01-01T00:00:00+00:00' }
+    const period = { station_id: '00001', station_name: 'Foo Station', valid_from: '2000-01-01T00:00:00+00:00', valid_to: '2001-01-01T00:00:00+00:00' }
     // each table a row with its numbers at 0, and one with them null, as the backend sends a field it has no value for
     const { wrapper, showButton } = await mountWithSelection(() => ({
       histories: [{
@@ -417,14 +417,14 @@ describe('history Page results', () => {
   })
 
   // a station name record, as the backend's name section has them
-  const named = (station_name: string, start_date: string, end_date: string | null) =>
-    ({ station_id: '00001', station_name, start_date, end_date })
+  const named = (station_name: string, valid_from: string, valid_to: string | null) =>
+    ({ station_id: '00001', station_name, valid_from, valid_to })
   // a geography record, with the station's name at the time
-  const placed = (station_name: string, start_date: string, end_date: string) =>
-    ({ station_id: '00001', station_name, latitude: 51.1, longitude: 13.8, station_elevation: 227, start_date, end_date })
+  const placed = (station_name: string, valid_from: string, valid_to: string) =>
+    ({ station_id: '00001', station_name, latitude: 51.1, longitude: 13.8, station_elevation: 227, valid_from, valid_to })
   // a parameter record of `parameter`, with the station's name at the time
-  const measured = (parameter: string, station_name: string, start_date: string, end_date: string) =>
-    ({ station_id: '00001', station_name, parameter, start_date, end_date, description: null, unit: null, data_source: null, extra_info: null, special: null, literature: null })
+  const measured = (parameter: string, station_name: string, valid_from: string, valid_to: string) =>
+    ({ station_id: '00001', station_name, parameter, valid_from, valid_to, description: null, unit: null, data_source: null, extra_info: null, special: null, literature: null })
 
   // the station card's header, after Show has answered with `history` of station 00001
   async function cardHeader(history: Record<string, unknown>) {
@@ -524,8 +524,8 @@ describe('history Page results', () => {
   })
 
   it('names the card from the missing data section where no other section names it', async () => {
-    const missing = (station_name: string, end_date: string) =>
-      ({ station_id: '00001', station_name, parameter: 'TMK', start_date: '1926-05-01T00:00:00+00:00', end_date, missing_count: 3, description: null })
+    const missing = (station_name: string, valid_to: string) =>
+      ({ station_id: '00001', station_name, parameter: 'TMK', valid_from: '1926-05-01T00:00:00+00:00', valid_to, missing_count: 3, description: null })
     const { header } = await cardHeader({
       // a section before it whose record has no name
       device: [{ ...placed('', '1926-05-01T00:00:00+00:00', '2026-09-30T00:00:00+00:00'), station_name: null, device_type: null, device_height: null, method: null }],
@@ -579,7 +579,7 @@ describe('history Page station card id', () => {
     // a record whose id is spelt otherwise than the history's, so the header tells which it reads
     const header = await cardHeader({
       station_id: '01048',
-      parameter: [{ station_id: '1048', station_name: 'Dresden-Klotzsche', parameter: 'TMK', start_date: '1934-01-01T00:00:00+00:00', end_date: '2026-09-30T00:00:00+00:00', description: null, unit: null, data_source: null, extra_info: null, special: null, literature: null }],
+      parameter: [{ station_id: '1048', station_name: 'Dresden-Klotzsche', parameter: 'TMK', valid_from: '1934-01-01T00:00:00+00:00', valid_to: '2026-09-30T00:00:00+00:00', description: null, unit: null, data_source: null, extra_info: null, special: null, literature: null }],
     })
 
     expect(header).toBe('Station ID: 01048 Dresden-Klotzsche')
