@@ -234,3 +234,25 @@ def test_imgw_hydrology_api_monthly_recent_export_formats() -> None:
         values = request.values.all()
         discharge = values.df.filter(pl.col("parameter").cast(pl.String).str.starts_with("discharge")).sort("parameter")
         assert discharge.get_column("value").to_list() == [expected_max, expected_mean, expected_min]
+
+
+def test_imgw_hydrology_raises_a_failed_download_and_drops_a_missing_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A download that failed for any reason but a 404 is raised, not dropped as a missing file (GH-2430)."""
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api  # noqa: PLC0415
+    from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyMetadata, ImgwHydrologyValues  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    missing = File(url="https://example.invalid/missing.zip", content=FileNotFoundError("missing.zip"), status=404)
+    failed = File(url="https://example.invalid/a.zip", content=ConnectionError("503"), status=503)
+    values = ImgwHydrologyValues.__new__(ImgwHydrologyValues)
+    values.sr = SimpleNamespace(stations=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
+    monkeypatch.setattr(values, "_get_urls", lambda _dataset: ["unused"])
+    dataset = ImgwHydrologyMetadata.daily.hydrology
+    monkeypatch.setattr(imgw_hydrology_api, "download_files", lambda **_kwargs: [missing, failed])
+    with pytest.raises(ConnectionError):
+        values._collect_station_parameter_or_dataset("149180020", dataset)  # noqa: SLF001
+    monkeypatch.setattr(imgw_hydrology_api, "download_files", lambda **_kwargs: [missing])
+    assert values._collect_station_parameter_or_dataset("149180020", dataset).is_empty()  # noqa: SLF001
