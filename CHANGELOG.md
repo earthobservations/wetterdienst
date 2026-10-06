@@ -36,11 +36,11 @@ Types of changes:
   an elevation no station can be placed against. The server logs it as an info line, not as an
   error with its traceback (GH-2385)
 - Values of `dwd/observation`, `dwd/derived`, `imgw/hydrology` and `imgw/meteorology` raise a
-  download that failed other than with a 404 -- a timeout, or a 5xx after the retries -- instead
-  of dropping it as a missing file, so an upstream outage no longer reads as a station without
-  data: the REST API answers a 500 and the CLI fails. So do interpolate and summarize where a
-  station they read fails to download, rather than leaving that station out. A 404 is still a file
-  that is not there, and no connection at all still gives an empty result (GH-2430)
+  download that failed other than with a 404 -- a timeout, or a 5xx after the retries -- where
+  they used to drop it as a missing file and return no data for the station. The REST API answers
+  a 500 and the CLI fails, and so do interpolate and summarize where a station they read fails. A
+  404 is still a missing file, and a connection that cannot be made at all still gives no data
+  (GH-2430)
 
 ### Fixed
 
