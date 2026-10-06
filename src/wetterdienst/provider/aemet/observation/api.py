@@ -264,7 +264,7 @@ class AemetObservationValues(TimeseriesValues):
         Unlike the climatological endpoints, this one takes no date range at all — AEMET
         always returns whatever rolling window of recent hourly observations (typically
         the last ~24h) it currently holds for the station. Filtering to a user-requested
-        start_date/end_date (if any) happens generically afterward in TimeseriesValues.query().
+        start/end (if any) happens generically afterward in TimeseriesValues.query().
         """
         settings = cast("Settings", self.sr.stations.settings)
         api_key = settings.auth.aemet
