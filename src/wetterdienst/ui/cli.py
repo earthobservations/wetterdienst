@@ -138,8 +138,10 @@ def _refuse_date(ctx: click.Context, _param: click.Parameter, value: str | None)
 
 
 # --date, the old name of --timestamp, hidden and refused by naming the new one, where click would
-# only say that it knows no such option
-renamed_date_opt = click.option("--date", hidden=True, expose_value=False, callback=_refuse_date)
+# only say that it knows no such option. Its value is optional, so a bare --date is refused the same
+renamed_date_opt = click.option(
+    "--date", hidden=True, expose_value=False, is_flag=False, flag_value="", callback=_refuse_date
+)
 start_date_opt = click.option(
     "--start-date",
     "start_date",

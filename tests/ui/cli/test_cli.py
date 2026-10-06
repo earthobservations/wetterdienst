@@ -1150,9 +1150,10 @@ def test_cli_tells_a_numeric_auth_setting_by_its_variable(monkeypatch: pytest.Mo
 )
 def test_cli_date_is_refused_naming_timestamp(args: list[str]) -> None:
     """Test --date, renamed to --timestamp, is refused by naming it, where click knew no such option (GH-2438)."""
-    result = CliRunner().invoke(cli, [*args, "--date=2020-06-30"])
-    assert result.exit_code == 2, result.output
-    assert "Error: --date was renamed to --timestamp." in result.output
+    for date in ("--date=2020-06-30", "--date"):
+        result = CliRunner().invoke(cli, [*args, date])
+        assert result.exit_code == 2, result.output
+        assert "Error: --date was renamed to --timestamp." in result.output
     # the old name is no option to offer
     help_ = CliRunner().invoke(cli, [args[0], "--help"])
     assert "--timestamp" in help_.output
