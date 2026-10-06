@@ -123,7 +123,7 @@ http localhost:7890/api/issues provider==dwd network==swsmos station==A006
 
 ### Values
 
-`date` covers everything it names: `2020-08-01` is that whole day -- all 24 readings of it for
+`timestamp` covers everything it names: `2020-08-01` is that whole day -- all 24 readings of it for
 hourly data -- `2020-08` the month and `2020` the year. An interval runs from the start of the
 span its first half names to the end of the span its second, so `2020-08/2020-09` ends with
 September. A date carrying a time, `2020-08-01T12`, names that one instant.
@@ -133,19 +133,19 @@ September. A date carrying a time, `2020-08-01T12`, names that one instant.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411
 
 # Observations for specific date.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 date==2020-08-01
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 timestamp==2020-08-01
 
 # Observations for a whole month, since a date covers everything it names.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 date==2020-08
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 timestamp==2020-08
 
 # Observations for date range.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 date==2020-08-01/2020-08-05
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 timestamp==2020-08-01/2020-08-05
 
 # Observations with SQL, on a server running with WD_RESTAPI_SQL=true.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 shape=="wide" sql_values=="temperature_air_max_2m < 2.0;"
 
 # Acquire ICON data.
-http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_mean_2m station==01001 date==2024-05-27
+http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_mean_2m station==01001 timestamp==2024-05-27
 ```
 
 ### SQL filters

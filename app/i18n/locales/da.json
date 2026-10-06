@@ -276,7 +276,7 @@
       "network": "Datanetværk (f.eks. observation, forecast)",
       "parameters": "Parametersti (f.eks. daily/kl/temperature_air_mean_2m)",
       "station": "Stations-id'er, adskilt af kommaer",
-      "date": "Dato eller datointerval (f.eks. 2020-01-01/2020-12-31)",
+      "timestamp": "Dato eller datointerval (f.eks. 2020-01-01/2020-12-31)",
       "format": "Outputformat (json, csv, geojson, html)"
     }
   },

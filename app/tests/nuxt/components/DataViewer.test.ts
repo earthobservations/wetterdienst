@@ -2433,3 +2433,23 @@ describe('dataViewer chart names', () => {
     ])
   })
 })
+
+describe('dataViewer date range', () => {
+  // the backend's single-span parameter is `timestamp`, and it refuses `date`, its old name (GH-2438)
+  it.each([
+    ['/api/values', byStation('01048')],
+    ['/api/interpolate', atPoint('interpolation')],
+    ['/api/summarize', atPoint('summary')],
+  ] as const)('asks %s for the date range as timestamp', async (endpoint, selection) => {
+    const asked: Record<string, unknown>[] = []
+    registerEndpoint(endpoint, (event) => {
+      asked.push(getQuery(event))
+      return { values: [] }
+    })
+    const { viewer } = await mountDataViewer(ref({ ...selection, dateRange: { startDate: '2020-01-01', endDate: '2020-01-31' } }))
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(asked).toHaveLength(1))
+    expect(asked[0]!.timestamp).toBe('2020-01-01/2020-01-31')
+    expect(asked[0]).not.toHaveProperty('date')
+  })
+})

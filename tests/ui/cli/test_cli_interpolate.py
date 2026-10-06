@@ -27,7 +27,7 @@ def test_cli_interpolate_no_metadata_no_stations() -> None:
             "--network=observation",
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31/1986-11-01",
+            "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
             "--with_metadata=false",
             "--with_stations=false",
@@ -73,7 +73,7 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
             "--network=observation",
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31/1986-11-01",
+            "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
             "--with_metadata=true",
             "--with_stations=true",
@@ -160,7 +160,7 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
             "--network=observation",
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31/1986-11-01",
+            "--timestamp=1986-10-31/1986-11-01",
             "--format=geojson",
             "--with_metadata=true",
         ],
@@ -278,7 +278,7 @@ def test_cli_interpolate_interpolation_station_distance() -> None:
             "--network=observation",
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31/1986-11-01",
+            "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
             '--interpolation_station_distance={"temperature_air_mean_2m": 10}',
             "--with_metadata=false",
@@ -325,7 +325,7 @@ def test_cli_interpolate_dont_use_nearby_station() -> None:
             "--network=observation",
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31/1986-11-01",
+            "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
             "--use_nearby_station_distance=0",
             "--with_metadata=false",
@@ -372,7 +372,7 @@ def test_cli_interpolate_custom_units() -> None:
             "--network=observation",
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31/1986-11-01",
+            "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
             """--unit_targets={"temperature": "degree_fahrenheit"}""",
             "--with_metadata=false",
@@ -428,7 +428,7 @@ def test_cli_interpolate_image(fmt: str) -> None:
             "--network=observation",
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31/1986-11-01",
+            "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
             f"--format={fmt}",
         ],
@@ -447,7 +447,7 @@ def test_cli_interpolate_image_html() -> None:
             "--provider=dwd",
             "--network=observation",
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
-            "--date=2020-06-30",
+            "--timestamp=2020-06-30",
             "--station=01048",
             "--format=html",
         ],
@@ -467,7 +467,7 @@ def test_cli_interpolate_image_pdf() -> None:
             "--provider=dwd",
             "--network=observation",
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
-            "--date=2020-06-30",
+            "--timestamp=2020-06-30",
             "--station=01048",
             "--format=pdf",
         ],
@@ -477,7 +477,7 @@ def test_cli_interpolate_image_pdf() -> None:
 
 @pytest.mark.remote
 def test_cli_interpolate_start_date_end_date() -> None:
-    """Test --start/--end as alternative to --date interval in interpolate."""
+    """Test --start/--end as alternative to --timestamp interval in interpolate."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -537,7 +537,7 @@ def test_cli_interpolate_negative_radius() -> None:
             "--network=observation",
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31",
+            "--timestamp=1986-10-31",
             "--interpolation_station_distance_homogeneous=-1",
         ],
     )
@@ -559,7 +559,7 @@ def test_cli_interpolate_unknown_station_distance_parameter() -> None:
             "--network=observation",
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31",
+            "--timestamp=1986-10-31",
             '--interpolation_station_distance={"temperature_air_mean": 10}',
         ],
     )
@@ -581,11 +581,11 @@ def test_cli_interpolate_missing_date() -> None:
         ],
     )
     assert result.exit_code != 0
-    assert "Provide either --date or --start" in result.output
+    assert "Provide either --timestamp or --start" in result.output
 
 
 def test_cli_interpolate_date_and_start_date_conflict() -> None:
-    """Test that --date and --start together raise an error in interpolate."""
+    """Test that --timestamp and --start together raise an error in interpolate."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -595,12 +595,12 @@ def test_cli_interpolate_date_and_start_date_conflict() -> None:
             "--network=observation",
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31",
+            "--timestamp=1986-10-31",
             "--start=1986-10-31",
         ],
     )
     assert result.exit_code != 0
-    assert "Use either --date or --start" in result.output
+    assert "Use either --timestamp or --start" in result.output
 
 
 @pytest.mark.parametrize("command", ["interpolate", "summarize"])
@@ -630,7 +630,7 @@ def test_cli_estimate_at_a_station_without_position(
                 "--network=ghcn",
                 "--parameters=hourly/data/temperature_air_mean_2m",
                 "--station=AUM00011158",
-                "--date=1938-01-02",
+                "--timestamp=1938-01-02",
             ],
         )
     # a usage error, as the REST API answers it with a 4xx (GH-2426)

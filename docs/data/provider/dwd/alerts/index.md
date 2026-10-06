@@ -22,15 +22,16 @@ warnings. The data faithfully follows the official
 ## Historical snapshots
 
 DWD keeps a rolling **~48-hour** window of timestamped snapshots (there is no long-term archive).
-Pass a `date` to select the warnings that were active at a point in time — the newest snapshot
-produced at or before that moment is used. A naive datetime or ISO string is interpreted as UTC. A
-`date` outside the rolling window raises an error. Omit `date` for the current (latest) snapshot.
+Pass a `timestamp` to select the warnings that were active at a point in time — the newest
+snapshot produced at or before that moment is used. A naive datetime or ISO string is interpreted
+as UTC. A `timestamp` outside the rolling window raises an error. Omit `timestamp` for the current
+(latest) snapshot.
 
 ```python
 from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
 
 # warnings that were active ~6 hours ago
-request = DwdWeatherAlertRequest(granularity="district", date="2026-07-26T10:00:00")
+request = DwdWeatherAlertRequest(granularity="district", timestamp="2026-07-26T10:00:00")
 result = request.query()
 print(result.snapshot)  # UTC production time of the selected snapshot
 ```
@@ -73,7 +74,7 @@ wetterdienst alerts
 wetterdienst alerts --granularity=district --language=de --format=geojson
 
 # warnings active at a past point in time (within the rolling ~48h window)
-wetterdienst alerts --granularity=district --date=2026-07-26T10:00:00
+wetterdienst alerts --granularity=district --timestamp=2026-07-26T10:00:00
 
 # write current warnings to a GeoJSON file
 wetterdienst alerts --format=geojson --target=file://alerts.geojson

@@ -23,7 +23,7 @@ def test_cli_summarize_no_metadata_no_stations() -> None:
             "--network=observation",
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31/1986-11-01",
+            "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
             "--with_metadata=false",
             "--with_stations=false",
@@ -69,7 +69,7 @@ def test_cli_summarize_geojson(metadata: dict) -> None:
             "--network=observation",
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31/1986-11-01",
+            "--timestamp=1986-10-31/1986-11-01",
             "--format=geojson",
             # with_metadata now defaults to false; request it explicitly to test the metadata block
             "--with_metadata=true",
@@ -152,7 +152,7 @@ def test_cli_summarize_custom_units() -> None:
             "--network=observation",
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31/1986-11-01",
+            "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
             '--unit_targets={"temperature": "degree_fahrenheit"}',
             "--with_metadata=false",
@@ -208,7 +208,7 @@ def test_cli_summarize_image(fmt: str) -> None:
             "--network=observation",
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31/1986-11-01",
+            "--timestamp=1986-10-31/1986-11-01",
             f"--format={fmt}",
         ],
     )
@@ -226,7 +226,7 @@ def test_cli_summarize_image_html() -> None:
             "--provider=dwd",
             "--network=observation",
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
-            "--date=2020-06-30",
+            "--timestamp=2020-06-30",
             "--station=01048",
             "--format=html",
         ],
@@ -246,7 +246,7 @@ def test_cli_summarize_image_pdf() -> None:
             "--provider=dwd",
             "--network=observation",
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
-            "--date=2020-06-30",
+            "--timestamp=2020-06-30",
             "--station=01048",
             "--format=pdf",
         ],
@@ -256,7 +256,7 @@ def test_cli_summarize_image_pdf() -> None:
 
 @pytest.mark.remote
 def test_cli_summarize_start_date_end_date() -> None:
-    """Test --start/--end as alternative to --date interval in summarize."""
+    """Test --start/--end as alternative to --timestamp interval in summarize."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -319,11 +319,11 @@ def test_cli_summarize_missing_date() -> None:
         ],
     )
     assert result.exit_code != 0
-    assert "Provide either --date or --start" in result.output
+    assert "Provide either --timestamp or --start" in result.output
 
 
 def test_cli_summarize_date_and_start_date_conflict() -> None:
-    """Test that --date and --start together raise an error in summarize."""
+    """Test that --timestamp and --start together raise an error in summarize."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -333,9 +333,9 @@ def test_cli_summarize_date_and_start_date_conflict() -> None:
             "--network=observation",
             "--parameters=daily/climate_summary/temperature_air_mean_2m",
             "--station=00071",
-            "--date=1986-10-31",
+            "--timestamp=1986-10-31",
             "--start=1986-10-31",
         ],
     )
     assert result.exit_code != 0
-    assert "Use either --date or --start" in result.output
+    assert "Use either --timestamp or --start" in result.output

@@ -594,7 +594,7 @@ def test_values_dwd_success(client: TestClient) -> None:
             "station": "01359",
             "parameters": "daily/kl/wind_gust_max",
             "periods": "historical",
-            "date": "1982-01-01",
+            "timestamp": "1982-01-01",
         },
     )
     assert response.status_code == 200
@@ -705,8 +705,8 @@ def test_two_station_selections_refused(client: TestClient, endpoint: str) -> No
     [
         ("/api/stations", "get_stations", {"all": "true"}),
         ("/api/values", "get_values", {"station": "01048"}),
-        ("/api/interpolate", "get_interpolate", {"station": "01048", "date": "2020-06-30"}),
-        ("/api/summarize", "get_summarize", {"station": "01048", "date": "2020-06-30"}),
+        ("/api/interpolate", "get_interpolate", {"station": "01048", "timestamp": "2020-06-30"}),
+        ("/api/summarize", "get_summarize", {"station": "01048", "timestamp": "2020-06-30"}),
         ("/api/history", "get_stations", {"station": "01048"}),
     ],
 )
@@ -761,7 +761,7 @@ def test_values_dwd_sql_tabular(client: TestClient, monkeypatch: pytest.MonkeyPa
             "station": "01048,4411",
             "parameters": "daily/kl",
             "periods": "historical",
-            "date": "2020/2021",
+            "timestamp": "2020/2021",
             "sql_values": "temperature_air_max_2m < 2.0",
             "shape": "wide",
         },
@@ -818,7 +818,7 @@ def test_values_dwd_sql_long(client: TestClient, monkeypatch: pytest.MonkeyPatch
             "network": "observation",
             "station": "01048,4411",
             "parameters": "daily/kl",
-            "date": "2019-12-01/2019-12-31",
+            "timestamp": "2019-12-01/2019-12-31",
             "sql_values": "parameter='temperature_air_max_2m' AND value < 1.5",
         },
     )
@@ -845,7 +845,7 @@ def test_interpolate_dwd(client: TestClient) -> None:
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31/1986-11-01",
+            "timestamp": "1986-10-31/1986-11-01",
         },
     )
     assert response.status_code == 200
@@ -883,7 +883,7 @@ def test_interpolate_dwd_lower_interpolation_distance(client: TestClient) -> Non
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31/1986-11-01",
+            "timestamp": "1986-10-31/1986-11-01",
             "interpolation_station_distance": '{"temperature_air_mean_2m": 10.0}',
         },
     )
@@ -922,7 +922,7 @@ def test_interpolate_dwd_dont_use_nearby_station(client: TestClient) -> None:
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31/1986-11-01",
+            "timestamp": "1986-10-31/1986-11-01",
             "use_nearby_station_distance": 0,
         },
     )
@@ -964,7 +964,7 @@ def test_interpolate_dwd_custom_unit(client: TestClient) -> None:
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31/1986-11-01",
+            "timestamp": "1986-10-31/1986-11-01",
             "unit_targets": json.dumps(unit_targets),
         },
     )
@@ -1012,7 +1012,7 @@ def test_interpolate_dwd_image(client: TestClient, fmt: str) -> None:
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31/1986-11-01",
+            "timestamp": "1986-10-31/1986-11-01",
             "format": fmt,
         },
     )
@@ -1031,7 +1031,7 @@ def test_interpolate_dwd_image_html(client: TestClient) -> None:
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31/1986-11-01",
+            "timestamp": "1986-10-31/1986-11-01",
             "format": "html",
         },
     )
@@ -1050,7 +1050,7 @@ def test_interpolate_dwd_image_pdf(client: TestClient) -> None:
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31/1986-11-01",
+            "timestamp": "1986-10-31/1986-11-01",
             "format": "pdf",
         },
     )
@@ -1073,7 +1073,7 @@ def test_geo_settings_radii_reach_the_settings() -> None:
             "provider": "dwd",
             "network": "observation",
             "parameters": ["daily/kl/temperature_air_mean_2m"],
-            "date": "1986-10-31",
+            "timestamp": "1986-10-31",
             "station": "00071",
             "interpolation_station_distance_homogeneous": 60.0,
             "interpolation_station_distance": {"precipitation_amount": 25.0},
@@ -1095,7 +1095,7 @@ def test_interpolate_negative_radius_rejected(client: TestClient) -> None:
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31",
+            "timestamp": "1986-10-31",
             "interpolation_station_distance_homogeneous": -1,
         },
     )
@@ -1114,7 +1114,7 @@ def test_interpolate_unknown_station_distance_parameter(client: TestClient) -> N
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31",
+            "timestamp": "1986-10-31",
             "interpolation_station_distance": '{"temperature_air_mean": 10}',
         },
     )
@@ -1132,7 +1132,7 @@ def test_summarize_dwd(client: TestClient) -> None:
             "network": "observation",
             "parameters": "daily/climate_summary/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31/1986-11-01",
+            "timestamp": "1986-10-31/1986-11-01",
         },
     )
     assert response.status_code == 200
@@ -1173,7 +1173,7 @@ def test_summarize_dwd_custom_unit(client: TestClient) -> None:
             "network": "observation",
             "parameters": "daily/climate_summary/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31/1986-11-01",
+            "timestamp": "1986-10-31/1986-11-01",
             "unit_targets": json.dumps(unit_targets),
         },
     )
@@ -1221,7 +1221,7 @@ def test_summarize_dwd_image(client: TestClient, fmt: str) -> None:
             "network": "observation",
             "parameters": "daily/climate_summary/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31/1986-11-01",
+            "timestamp": "1986-10-31/1986-11-01",
             "format": fmt,
         },
     )
@@ -1240,7 +1240,7 @@ def test_summarize_dwd_image_html(client: TestClient) -> None:
             "network": "observation",
             "parameters": "daily/climate_summary/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31/1986-11-01",
+            "timestamp": "1986-10-31/1986-11-01",
             "format": "html",
         },
     )
@@ -1259,7 +1259,7 @@ def test_summarize_dwd_image_pdf(client: TestClient) -> None:
             "network": "observation",
             "parameters": "daily/climate_summary/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31/1986-11-01",
+            "timestamp": "1986-10-31/1986-11-01",
             "format": "pdf",
         },
     )
@@ -1354,7 +1354,7 @@ def test_get_stations_request_mosmix_issue_is_forwarded() -> None:
         station=["10147"],
         issue="2026-06-27T09:00:00",
     )
-    stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
+    stations_request = _get_stations_request(api=api, request=request, timestamp=None, settings=settings)
 
     # issue must be resolved to the specific datetime, not LATEST
     issue = stations_request.issue
@@ -1378,7 +1378,7 @@ def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
         parameters=["hourly/large/ttt"],
         station=["10147"],
     )
-    stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
+    stations_request = _get_stations_request(api=api, request=request, timestamp=None, settings=settings)
 
     assert stations_request.issue is DwdForecastDate.LATEST
 
@@ -1399,16 +1399,17 @@ def test_get_stations_request_date_required_dataset_does_not_raise_for_stations_
     request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"], all=True)
 
     # Must not raise StartDateEndDateError despite hourly/data having date_required=True
-    stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
+    stations_request = _get_stations_request(api=api, request=request, timestamp=None, settings=settings)
     assert stations_request is not None
 
 
 def test_get_stations_request_date_covers_the_span_it_names() -> None:
-    """A `date` names a span, and the request window has to cover all of it.
+    """A `timestamp` names a span, and the request window has to cover all of it.
 
-    `date=2019-12` asked for December and got a window of one instant, the 1st at 00:00 -- one
-    daily reading, and for anything hourly the one at midnight. An interval fared the same at its
-    end: `2019-12/2020-01` stopped at the 1st of January rather than covering the month.
+    `date=2019-12`, as the parameter was then called, asked for December and got a window of one
+    instant, the 1st at 00:00 -- one daily reading, and for anything hourly the one at midnight. An
+    interval fared the same at its end: `2019-12/2020-01` stopped at the 1st of January rather than
+    covering the month.
     """
     import datetime as dt  # noqa: PLC0415
     from zoneinfo import ZoneInfo  # noqa: PLC0415
@@ -1420,14 +1421,14 @@ def test_get_stations_request_date_covers_the_span_it_names() -> None:
     api = Wetterdienst("dwd", "observation")
     settings = Settings()
 
-    def window(date: str) -> tuple[dt.datetime, dt.datetime]:
+    def window(timestamp: str) -> tuple[dt.datetime, dt.datetime]:
         request = ValuesRequest(
             provider="dwd",
             network="observation",
             parameters=["daily/kl"],
             station="00011",
         )
-        stations_request = _get_stations_request(api=api, request=request, date=date, settings=settings)
+        stations_request = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings)
         return stations_request.start, stations_request.end
 
     last_moment = dt.timedelta(microseconds=1)
@@ -1469,7 +1470,7 @@ def test_get_stations_request_passes_periods_to_every_provider() -> None:
     settings = Settings(auth={"metno_frost": "fake-client-id"})
     request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"], periods="recent", all=True)
 
-    stations_request = _get_stations_request(api=api, request=request, date=None, settings=settings)
+    stations_request = _get_stations_request(api=api, request=request, timestamp=None, settings=settings)
     assert isinstance(stations_request, MetnoFrostRequest)
     assert stations_request.periods == {Period.RECENT}
 
@@ -1495,7 +1496,7 @@ def test_get_stations_request_periods_on_a_single_period_dataset() -> None:
         periods="recent",
         all=True,
     )
-    assert _get_stations_request(api=api, request=request, date=None, settings=settings).periods == {Period.RECENT}
+    assert _get_stations_request(api=api, request=request, timestamp=None, settings=settings).periods == {Period.RECENT}
 
     request = StationsRequest(
         provider="dwd",
@@ -1505,7 +1506,7 @@ def test_get_stations_request_periods_on_a_single_period_dataset() -> None:
         all=True,
     )
     with pytest.raises(NoPeriodsFoundError, match="Available periods: recent"):
-        _get_stations_request(api=api, request=request, date=None, settings=settings)
+        _get_stations_request(api=api, request=request, timestamp=None, settings=settings)
 
 
 @pytest.mark.parametrize("schema_name", ["_Station", "_OgcFeatureProperties"])
@@ -1591,7 +1592,7 @@ def test_values_dwd_observation_climate_summary_custom_units(client: TestClient)
             "network": "observation",
             "station": "1048",
             "parameters": "daily/kl/temperature_air_mean_2m",
-            "date": "2022-01-01",
+            "timestamp": "2022-01-01",
             "unit_targets": json.dumps(unit_targets),
         },
     )
@@ -1627,7 +1628,7 @@ def test_values_dwd_observation_climate_summary_image(client: TestClient, fmt: s
             "network": "observation",
             "station": "1048",
             "parameters": "daily/kl/temperature_air_mean_2m",
-            "date": "2022-01-01",
+            "timestamp": "2022-01-01",
             "format": fmt,
         },
     )
@@ -1646,7 +1647,7 @@ def test_values_dwd_observation_climate_summary_image_html(client: TestClient) -
             "network": "observation",
             "station": "1048",
             "parameters": "daily/kl/temperature_air_mean_2m",
-            "date": "2022-01-01",
+            "timestamp": "2022-01-01",
             "format": "html",
         },
     )
@@ -1665,7 +1666,7 @@ def test_values_dwd_observation_climate_summary_image_pdf(client: TestClient) ->
             "network": "observation",
             "station": "1048",
             "parameters": "daily/kl/temperature_air_mean_2m",
-            "date": "2022-01-01",
+            "timestamp": "2022-01-01",
             "format": "pdf",
         },
     )
@@ -2241,7 +2242,7 @@ def test_alerts_date_snapshot(client: TestClient) -> None:
     target = dt.datetime.now(ZoneInfo("UTC")) - dt.timedelta(hours=6)
     response = client.get(
         "/api/alerts",
-        params={"granularity": "district", "date": target.strftime("%Y-%m-%dT%H:%M:%S")},
+        params={"granularity": "district", "timestamp": target.strftime("%Y-%m-%dT%H:%M:%S")},
     )
     assert response.status_code == 200
     assert "alerts" in response.json()
@@ -2250,7 +2251,7 @@ def test_alerts_date_snapshot(client: TestClient) -> None:
 @pytest.mark.remote
 def test_alerts_date_before_window(client: TestClient) -> None:
     """Test /api/alerts returns 400 for a date older than the rolling window."""
-    response = client.get("/api/alerts", params={"date": "2000-01-01T00:00:00"})
+    response = client.get("/api/alerts", params={"timestamp": "2000-01-01T00:00:00"})
     assert response.status_code == 400
 
 
@@ -2492,7 +2493,7 @@ def test_mcp_interpolate_tool_returns_data() -> None:
                     "network": "observation",
                     "parameters": "daily/climate_summary/temperature_air_mean_2m",
                     "station": "00071",
-                    "date": "1986-10-31/1986-11-01",
+                    "timestamp": "1986-10-31/1986-11-01",
                 },
             )
             return result.data
@@ -2535,7 +2536,7 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "station": "00071",
-            "date": "1986-10-31",
+            "timestamp": "1986-10-31",
             "elevation": 200.0,
         },
     )
@@ -2554,7 +2555,7 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
                 "network": "road",
                 "parameters": "15_minutes/data/temperature_air_mean_2m",
                 "station": "A006",
-                "date": "2024-01-01/2024-01-02",
+                "timestamp": "2024-01-01/2024-01-02",
             },
         ),
         (
@@ -2565,7 +2566,7 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
                 "network": "road",
                 "parameters": "15_minutes/data/temperature_air_mean_2m",
                 "station": "A006",
-                "date": "2024-01-01",
+                "timestamp": "2024-01-01",
             },
         ),
         (
@@ -2576,7 +2577,7 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
                 "network": "road",
                 "parameters": "15_minutes/data/temperature_air_mean_2m",
                 "station": "A006",
-                "date": "2024-01-01",
+                "timestamp": "2024-01-01",
             },
         ),
     ],
@@ -2649,7 +2650,7 @@ def test_values_a_value_error_from_the_values_is_a_500(
             "network": "observation",
             "parameters": "daily/kl",
             "station": "01048",
-            "date": "2020-06-30",
+            "timestamp": "2020-06-30",
         },
     )
 
@@ -2786,8 +2787,8 @@ _SQL_GATED = [
     ("stations", "sql", {}),
     ("values", "sql", {}),
     ("values", "sql_values", {"station": "01048"}),
-    ("interpolate", "sql_values", {"station": "01048", "date": "2020-06-30"}),
-    ("summarize", "sql_values", {"station": "01048", "date": "2020-06-30"}),
+    ("interpolate", "sql_values", {"station": "01048", "timestamp": "2020-06-30"}),
+    ("summarize", "sql_values", {"station": "01048", "timestamp": "2020-06-30"}),
 ]
 
 
@@ -2921,7 +2922,7 @@ def test_geo_a_failure_that_is_not_a_refusal_is_a_500(
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "station": "01048",
-            "date": "2020-06-30",
+            "timestamp": "2020-06-30",
         },
     )
 
@@ -2949,28 +2950,28 @@ def _year_10000_message() -> str:
     [
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "station": "01048", "date": "foo"},
+            {**_OBSERVATION, "station": "01048", "timestamp": "foo"},
             400,
             "date_string foo could not be parsed",
             id="values-unparseable-date",
         ),
         pytest.param(
             "/api/interpolate",
-            {**_OBSERVATION, "station": "01048", "date": "foo"},
+            {**_OBSERVATION, "station": "01048", "timestamp": "foo"},
             400,
             "date_string foo could not be parsed",
             id="interpolate-unparseable-date",
         ),
         pytest.param(
             "/api/summarize",
-            {**_OBSERVATION, "station": "01048", "date": "foo"},
+            {**_OBSERVATION, "station": "01048", "timestamp": "foo"},
             400,
             "date_string foo could not be parsed",
             id="summarize-unparseable-date",
         ),
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "station": "01048", "date": "2020/2021/2022"},
+            {**_OBSERVATION, "station": "01048", "timestamp": "2020/2021/2022"},
             400,
             "Invalid ISO 8601 time interval",
             id="values-three-part-interval",
@@ -2984,7 +2985,7 @@ def _year_10000_message() -> str:
         ),
         pytest.param(
             "/api/interpolate",
-            {**_OBSERVATION, "parameters": "daily/abc", "station": "01048", "date": "2020-06-30"},
+            {**_OBSERVATION, "parameters": "daily/abc", "station": "01048", "timestamp": "2020-06-30"},
             400,
             "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
             id="interpolate-unknown-parameter",
@@ -3026,7 +3027,7 @@ def _year_10000_message() -> str:
                 "parameters": "hourly/icon/temperature_air_mean_2m",
                 "station": "10382",
                 "issue": "foo",
-                "date": "2026-10-01",
+                "timestamp": "2026-10-01",
             },
             400,
             "Invalid isoformat string: 'foo'",
@@ -3034,49 +3035,49 @@ def _year_10000_message() -> str:
         ),
         pytest.param(
             "/api/interpolate",
-            {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": ""},
+            {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "timestamp": ""},
             400,
             "start and end are required for interpolation",
             id="interpolate-empty-date",
         ),
         pytest.param(
             "/api/summarize",
-            {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": ""},
+            {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "timestamp": ""},
             400,
             "start and end are required for summarization",
             id="summarize-empty-date",
         ),
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "station": "01048", "date": "9999"},
+            {**_OBSERVATION, "station": "01048", "timestamp": "9999"},
             400,
             _year_10000_message(),
             id="values-date-past-the-last-year",
         ),
         pytest.param(
             "/api/interpolate",
-            {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": "9999-12-31"},
+            {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "timestamp": "9999-12-31"},
             400,
             "date value out of range",
             id="interpolate-date-past-the-last-day",
         ),
         pytest.param(
             "/api/interpolate",
-            {**_OBSERVATION, "latitude": 85.0, "longitude": 10.0, "date": "2020-06-30"},
+            {**_OBSERVATION, "latitude": 85.0, "longitude": 10.0, "timestamp": "2020-06-30"},
             400,
             "latitude out of range (must be between 80 deg S and 84 deg N)",
             id="interpolate-point-beyond-utm",
         ),
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "station": "01048", "date": "9999-12-31T23:00-05:00"},
+            {**_OBSERVATION, "station": "01048", "timestamp": "9999-12-31T23:00-05:00"},
             400,
             "date value out of range",
             id="values-instant-past-the-last-day-in-utc",
         ),
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "station": "01048", "date": "9999-12-31T23:00Z"},
+            {**_OBSERVATION, "station": "01048", "timestamp": "9999-12-31T23:00Z"},
             400,
             "date value out of range",
             id="values-instant-past-the-last-day-in-the-providers-zone",
@@ -3205,7 +3206,7 @@ def test_a_refusal_raised_past_the_station_lookup_keeps_its_4xx(
     else:
         monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
 
-    response = client.get(endpoint, params={**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+    response = client.get(endpoint, params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
 
     assert response.status_code == status
     assert detail in response.json()["detail"]
@@ -3289,7 +3290,7 @@ def test_values_a_duckdb_failure_that_is_not_about_the_statement_is_a_500(
     stations = SimpleNamespace(values=SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
 
-    response = client.get("/api/values", params={**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+    response = client.get("/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
 
     assert response.status_code == 500
     assert response.json()["detail"] == msg
@@ -3971,14 +3972,16 @@ def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
         pytest.param("/api/stations", {**_OBSERVATION, "station": "01048"}, id="stations"),
         pytest.param("/api/history", {**_OBSERVATION, "station": "01048"}, id="history"),
         pytest.param("/api/issues", {"provider": "dwd", "network": "mosmix", "station": "10147"}, id="issues"),
-        pytest.param("/api/interpolate", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}, id="interpolate"),
-        pytest.param("/api/summarize", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}, id="summarize"),
+        pytest.param(
+            "/api/interpolate", {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"}, id="interpolate"
+        ),
+        pytest.param("/api/summarize", {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"}, id="summarize"),
         pytest.param(
             "/api/interpolate",
             {
                 **_OBSERVATION,
                 "station": "01048",
-                "date": "2020-06-30",
+                "timestamp": "2020-06-30",
                 "interpolation_station_distance": '{"temperature_air_mean": 10}',
             },
             id="interpolate-beside-a-refusal",
@@ -4018,7 +4021,12 @@ def test_geo_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient, 
     """A unit target for a quantity the converter does not know stays the caller's 400 (GH-2297)."""
     response = client.get(
         endpoint,
-        params={**_OBSERVATION, "station": "01048", "date": "2020-06-30", "unit_targets": json.dumps({"foo": "bar"})},
+        params={
+            **_OBSERVATION,
+            "station": "01048",
+            "timestamp": "2020-06-30",
+            "unit_targets": json.dumps({"foo": "bar"}),
+        },
     )
 
     assert response.status_code == 400
@@ -4059,7 +4067,7 @@ def test_alerts_a_date_before_the_window_is_the_callers(client: TestClient, monk
         lambda *_args, **_kwargs: _ALERTS_LISTING,
     )
 
-    response = client.get("/api/alerts", params={"date": "2026-07-01T00:00:00"})
+    response = client.get("/api/alerts", params={"timestamp": "2026-07-01T00:00:00"})
 
     assert response.status_code == 400
     assert "rolling ~48-hour window" in response.json()["detail"]
@@ -4067,7 +4075,7 @@ def test_alerts_a_date_before_the_window_is_the_callers(client: TestClient, monk
 
 def test_alerts_a_date_that_does_not_parse_is_the_callers(client: TestClient) -> None:
     """A date that does not parse is the caller's 400, refused before anything is listed (GH-2294)."""
-    response = client.get("/api/alerts", params={"date": "yesterday"})
+    response = client.get("/api/alerts", params={"timestamp": "yesterday"})
 
     assert response.status_code == 400
     assert "yesterday" in response.json()["detail"]
@@ -4119,7 +4127,7 @@ def test_alerts_a_feed_that_cannot_be_read_is_a_500(
             "wetterdienst.provider.dwd.alerts.api.list_remote_directory_fsspec",
             lambda *_args, **_kwargs: listing,
         )
-        params["date"] = "2026-07-26T10:30:00"
+        params["timestamp"] = "2026-07-26T10:30:00"
     if download is not None:
         monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.download_file", download)
 
@@ -4131,7 +4139,7 @@ def test_alerts_a_feed_that_cannot_be_read_is_a_500(
 
 def test_alerts_a_date_an_offset_carries_out_of_range_is_the_callers(client: TestClient) -> None:
     """A date its offset carries past what a datetime holds is the caller's 400, not a bare 500 (GH-2294)."""
-    response = client.get("/api/alerts", params={"date": "0001-01-01T00:00:00+01:00"})
+    response = client.get("/api/alerts", params={"timestamp": "0001-01-01T00:00:00+01:00"})
 
     assert response.status_code == 400
     assert response.json()["detail"] == "date value out of range"
@@ -4164,7 +4172,7 @@ def test_geo_a_dict_setting_the_server_got_wrong_is_not_the_callers(
     monkeypatch.chdir(tmp_path)
     client = TestClient(app, raise_server_exceptions=False)
 
-    response = client.get(endpoint, params={**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+    response = client.get(endpoint, params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
 
     assert response.status_code == 500
     assert response.text == "Internal Server Error"
@@ -4312,8 +4320,10 @@ def test_swsmos_issue_reaches_the_request(client: TestClient, endpoint: str) -> 
     ("endpoint", "params"),
     [
         pytest.param("/api/values", {**_OBSERVATION, "station": "01048"}, id="values"),
-        pytest.param("/api/interpolate", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}, id="interpolate"),
-        pytest.param("/api/summarize", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}, id="summarize"),
+        pytest.param(
+            "/api/interpolate", {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"}, id="interpolate"
+        ),
+        pytest.param("/api/summarize", {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"}, id="summarize"),
     ],
 )
 def test_a_unit_target_for_an_unknown_unit_is_a_400(
@@ -4439,7 +4449,7 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
     # from, so that neither the shell nor the working directory of whoever runs the tests decides it
     monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "3")
     monkeypatch.chdir(tmp_path)
-    params = {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}
+    params = {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"}
     # each answered by the stub's failure, a 500, so each reached the entry point with its settings
     with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
         response = client.get("/api/summarize", params={**params, "use_nearby_station_distance": 0.5})
@@ -4569,7 +4579,7 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
     }
     for name, value in env.items():
         monkeypatch.setenv(name, value)
-    params = {**_OBSERVATION, "station": "01048", "date": "2020-06-30"}
+    params = {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"}
 
     settings = _settings_of(monkeypatch, endpoint, params)
     assert settings.ts_humanize is False
@@ -4616,7 +4626,7 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
         ),
         pytest.param(
             "/api/summarize",
-            {"station": "01048", "date": "2020-06-30", "unit_targets": '{"foo": "bar"}'},
+            {"station": "01048", "timestamp": "2020-06-30", "unit_targets": '{"foo": "bar"}'},
             "Invalid value for 'unit_targets': Invalid unit targets: quantities not supported: foo. ",
             id="summarize-unit-targets",
         ),
@@ -4624,7 +4634,7 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
             "/api/interpolate",
             {
                 "station": "01048",
-                "date": "2020-06-30",
+                "timestamp": "2020-06-30",
                 "interpolation_station_distance": '{"temperature_air_mean": 10}',
             },
             "Invalid value for 'interpolation_station_distance': Invalid parameters in ts_geo_station_distance: "
@@ -5027,7 +5037,7 @@ def test_data_endpoints_report_the_settings_they_used(
     taken = _stub_result(monkeypatch, endpoint)
     params = {**_OBSERVATION, "station": "01048", "format": fmt, "with_metadata": "true", "humanize": "false"}
     if endpoint != "/api/values":
-        params["date"] = "2026-01-01"
+        params["timestamp"] = "2026-01-01"
 
     response = client.get(endpoint, params=params)
 
@@ -5062,7 +5072,7 @@ def test_data_endpoints_report_no_settings_without_metadata(
     _stub_result(monkeypatch, endpoint)
     params = {**_OBSERVATION, "station": "01048"}
     if endpoint != "/api/values":
-        params["date"] = "2026-01-01"
+        params["timestamp"] = "2026-01-01"
 
     payload = client.get(endpoint, params=params).json()
 
@@ -5094,7 +5104,7 @@ def test_no_credential_or_cache_setting_is_reported(
         _stub_result(monkeypatch, endpoint)
         params = {**_OBSERVATION, "station": "01048", "with_metadata": "true"}
         if endpoint != "/api/values":
-            params["date"] = "2026-01-01"
+            params["timestamp"] = "2026-01-01"
 
     response = client.get(endpoint, params=params)
 
@@ -5223,7 +5233,7 @@ def test_data_endpoints_write_the_rest_as_without_the_settings(
         "with_stations": "true",
     }
     if endpoint != "/api/values":
-        params["date"] = "2026-01-01"
+        params["timestamp"] = "2026-01-01"
 
     response = client.get(endpoint, params=params)
 
@@ -5274,7 +5284,7 @@ def test_geo_settings_report_the_drop_nulls_the_estimate_reads_with(
 
     monkeypatch.setenv("WD_TS_SHAPE", "wide")
     taken = _stub_result(monkeypatch, endpoint)
-    params = {**_OBSERVATION, "station": "01048", "date": "2026-01-01", "with_metadata": "true"}
+    params = {**_OBSERVATION, "station": "01048", "timestamp": "2026-01-01", "with_metadata": "true"}
     reported = client.get(endpoint, params=params).json()["settings"]["drop_nulls"]
 
     (settings,) = taken
@@ -5328,7 +5338,7 @@ def test_an_infinite_radius_is_reported_as_valid_json(
     schema_name = "ServerSettings"
     if endpoint != "/api/settings":
         _stub_result(monkeypatch, endpoint)
-        params = {**_OBSERVATION, "station": "01048", "date": "2026-01-01", "with_metadata": "true"}
+        params = {**_OBSERVATION, "station": "01048", "timestamp": "2026-01-01", "with_metadata": "true"}
         schema_name = (
             "_InterpolatedValuesWithSettingsDict"
             if endpoint == "/api/interpolate"
@@ -5473,7 +5483,7 @@ def _data_request(endpoint: str, **params: str) -> dict[str, str]:
     """Give the query of a data request to `endpoint` that is valid but for `params`."""
     query = {**_OBSERVATION, "station": "01048", **params}
     if endpoint != "/api/values":
-        query["date"] = "2026-01-01"
+        query["timestamp"] = "2026-01-01"
     return query
 
 
@@ -6162,7 +6172,7 @@ def test_geo_a_location_out_of_range_is_a_400(
         "provider": "dwd",
         "network": "observation",
         "parameters": "daily/kl/temperature_air_mean_2m",
-        "date": "2020-01-01",
+        "timestamp": "2020-01-01",
         **point,
     }
     with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
@@ -6198,7 +6208,7 @@ def test_mcp_a_location_out_of_range_is_a_400(
         "provider": "dwd",
         "network": "observation",
         "parameters": "daily/kl/temperature_air_mean_2m",
-        "date": "2020-01-01",
+        "timestamp": "2020-01-01",
         **point,
     }
 
@@ -6453,35 +6463,35 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
 _GEO_REFUSALS = [
     pytest.param(
         "interpolate",
-        {"latitude": 50.0, "longitude": 10.0, "date": "2020-06-30/2020-06-01"},
+        {"latitude": 50.0, "longitude": 10.0, "timestamp": "2020-06-30/2020-06-01"},
         400,
         "Error: 'start' must be smaller or equal to 'end'.",
         id="interpolate-window-the-wrong-way-round",
     ),
     pytest.param(
         "summarize",
-        {"latitude": 50.0, "longitude": 10.0, "date": "2020-06-30/2020-06-01"},
+        {"latitude": 50.0, "longitude": 10.0, "timestamp": "2020-06-30/2020-06-01"},
         400,
         "Error: 'start' must be smaller or equal to 'end'.",
         id="summarize-window-the-wrong-way-round",
     ),
     pytest.param(
         "interpolate",
-        {"latitude": 50.0, "longitude": 10.0, "date": "9999-12-31"},
+        {"latitude": 50.0, "longitude": 10.0, "timestamp": "9999-12-31"},
         400,
         "date value out of range",
         id="interpolate-date-past-the-last-day",
     ),
     pytest.param(
         "interpolate",
-        {"station": "00001", "date": "2020-06-30"},
+        {"station": "00001", "timestamp": "2020-06-30"},
         404,
         "no station found for 00001",
         id="interpolate-unknown-station",
     ),
     pytest.param(
         "summarize",
-        {"station": "00001", "date": "2020-06-30"},
+        {"station": "00001", "timestamp": "2020-06-30"},
         404,
         "no station found for 00001",
         id="summarize-unknown-station",
@@ -6524,7 +6534,7 @@ def test_values_a_window_the_wrong_way_round_is_logged_as_info(
     detail = "Error: 'start' must be smaller or equal to 'end'."
     with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
         response = client.get(
-            "/api/values", params={**_OBSERVATION, "station": "01048", "date": "2020-06-30/2020-06-01"}
+            "/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30/2020-06-01"}
         )
     assert response.status_code == 400
     assert response.json()["detail"] == detail
@@ -6582,7 +6592,111 @@ def test_geo_an_issue_the_source_does_not_list_is_a_400(
         raise IssueNotFoundError(msg)
 
     monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
-    response = client.get(f"/api/{endpoint}", params={**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+    response = client.get(f"/api/{endpoint}", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
 
     assert response.status_code == 400
     assert response.json()["detail"] == msg
+
+
+# each endpoint taking `timestamp`, and its MCP tool, with a request it would otherwise serve (GH-2438)
+_TIMESTAMP_ENDPOINTS = [
+    pytest.param("values", {**_OBSERVATION, "station": "01048"}, id="values"),
+    pytest.param("interpolate", {**_OBSERVATION, "station": "01048"}, id="interpolate"),
+    pytest.param("summarize", {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0}, id="summarize"),
+    pytest.param("alerts", {}, id="alerts"),
+]
+
+
+def _refuse_to_fetch_alerts(*_args: object, **_kwargs: object) -> None:
+    """Stand in for the alerts request, which a refused request must not reach."""
+    msg = "a refused alerts request reached the alerts request"
+    raise AssertionError(msg)
+
+
+@pytest.mark.parametrize(("endpoint", "query"), _TIMESTAMP_ENDPOINTS)
+def test_date_is_refused_naming_timestamp(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    query: dict[str, object],
+) -> None:
+    """`date` was renamed to `timestamp`, and is refused by naming it, before anything is fetched (GH-2438).
+
+    `/api/alerts` takes loose query parameters, of which FastAPI refuses none it does not know:
+    without its own refusal a dated request there was answered with the latest snapshot.
+    """
+    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _refuse_to_fetch_alerts)
+
+    response = client.get(f"/api/{endpoint}", params={**query, "date": "2020-06-30"})
+
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == [
+        {
+            "type": "renamed",
+            "loc": ["query", "date"],
+            "msg": "date was renamed to timestamp",
+            "input": "2020-06-30",
+            "ctx": {"renamed_to": "timestamp"},
+        }
+    ]
+
+
+@pytest.mark.parametrize(("tool", "arguments"), _TIMESTAMP_ENDPOINTS)
+def test_mcp_date_is_refused_naming_timestamp(
+    monkeypatch: pytest.MonkeyPatch,
+    tool: str,
+    arguments: dict[str, object],
+) -> None:
+    """A tool taking `timestamp` refuses `date` by naming it (GH-2438).
+
+    FastMCP sends the endpoint only the arguments the tool's schema names, so the endpoint's own
+    refusal never sees a `date`: without the tools' refusal it was dropped, and a dated call
+    answered as an undated one.
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _refuse_to_fetch_alerts)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(tool, {**arguments, "date": "2020-06-30"})
+
+    with pytest.raises(ToolError, match=r"^date was renamed to timestamp$"):
+        asyncio.run(_call())
+
+
+def test_mcp_date_is_left_to_a_tool_without_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A tool not taking `timestamp` is not told `date` was renamed to it: it took neither (GH-2438)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.exceptions import ApiNotFoundError  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    def no_such_api(*_args: object, **_kwargs: object) -> None:
+        msg = "reached the provider lookup"
+        raise ApiNotFoundError(msg)
+
+    monkeypatch.setattr(restapi, "Wetterdienst", no_such_api)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool("stations", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+
+    # the stations tool goes on to the provider lookup, which the stub answers with a 404
+    with pytest.raises(ToolError, match="reached the provider lookup") as error:
+        asyncio.run(_call())
+    assert "renamed" not in str(error.value)

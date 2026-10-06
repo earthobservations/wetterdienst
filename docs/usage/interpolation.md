@@ -491,14 +491,14 @@ http localhost:7890/api/interpolate \
   provider==dwd network==observation \
   parameters==hourly/temperature_air/temperature_air_mean_2m \
   latitude==50.0 longitude==8.9 \
-  date==2022-01-01/2022-01-20
+  timestamp==2022-01-01/2022-01-20
 
 # Summarize around a reference station.
 http localhost:7890/api/summarize \
   provider==dwd network==observation \
   parameters==hourly/temperature_air/temperature_air_mean_2m \
   station==02480 \
-  date==2022-01-01/2022-01-20
+  timestamp==2022-01-01/2022-01-20
 ```
 
 The radii are query parameters of their own, again per request rather than per server:
@@ -508,7 +508,7 @@ http localhost:7890/api/interpolate \
   provider==dwd network==observation \
   parameters==hourly/precipitation/precipitation_amount \
   latitude==52.8 longitude==12.9 \
-  date==2022-01-01/2022-01-20 \
+  timestamp==2022-01-01/2022-01-20 \
   interpolation_station_distance_heterogeneous==30 \
   interpolation_station_distance=='{"precipitation_amount": 25}'
 ```
