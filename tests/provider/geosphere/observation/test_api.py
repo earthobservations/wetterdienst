@@ -2,9 +2,6 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for geosphere observation API."""
 
-from __future__ import annotations
-
-import datetime as dt
 from datetime import datetime
 from io import BytesIO
 from urllib.parse import parse_qs, urlparse
@@ -12,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from dirty_equals import IsNumeric
+from freezegun import freeze_time
 
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest, api
 from wetterdienst.util.network import File
@@ -117,21 +115,15 @@ def test_geosphere_observation_request_window_carries_the_minutes(monkeypatch: p
     assert end == "2020-12-04T08:45"
 
 
+@freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
 def test_geosphere_observation_open_ended_window_ends_on_the_hour(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a request without dates ends its window on the hour, not on the current minute.
 
     Without dates the window ends a day after now. Sent to the minute, that URL, and so the cache
     key, would change every minute and a repeat of the whole-record download within the cache's
-    five minutes would miss; floored to the hour it stays the same for the hour (GH-2436).
+    five minutes would miss; floored to the hour, a repeat builds the same URL unless an hour
+    boundary falls between them (GH-2436).
     """
-
-    class _FrozenDatetime(datetime):
-        @classmethod
-        def now(cls, tz: dt.tzinfo | None = None) -> _FrozenDatetime:
-            return cls(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")).astimezone(tz)
-
-    monkeypatch.setattr(api, "datetime", _FrozenDatetime)
-
     start, end = _data_window(monkeypatch)
     # the 10 minutes record's default start, less the one-day buffer
     assert start == "1992-05-19T00:00"

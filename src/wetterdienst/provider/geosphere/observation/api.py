@@ -19,6 +19,7 @@ from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.geosphere.observation.metadata import GeosphereObservationMetadata
+from wetterdienst.util.datetime import round_minutes
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -55,9 +56,9 @@ class GeosphereObservationValues(TimeseriesValues):
         parameter_or_dataset: ParameterModel,
     ) -> pl.DataFrame:
         start_date = self.sr.start_date or self._default_start_dates[parameter_or_dataset.dataset.resolution.value]
-        # floored to the hour, so an open-ended request keeps one URL (and cache entry) for an hour; the
-        # one-day buffer below still reaches past now
-        end_date = self.sr.end_date or datetime.now(ZoneInfo("UTC")).replace(minute=0, second=0, microsecond=0)
+        # floored to the hour, so a repeat of an open-ended request builds the same URL (the cache key)
+        # unless an hour boundary falls between them; the one-day buffer below still reaches past now
+        end_date = self.sr.end_date or round_minutes(datetime.now(ZoneInfo("UTC")), 60)
         # add buffers
         start_date = start_date - timedelta(days=1)
         end_date = end_date + timedelta(days=1)
