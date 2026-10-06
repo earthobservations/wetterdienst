@@ -47,9 +47,6 @@ class TimeseriesValues(ABC):
     stations_collected: list[str] = field(default_factory=list)
     unit_converter: UnitConverter = field(default_factory=UnitConverter)
 
-    # Fields for date coercion
-    _date_fields: ClassVar = ["timestamp", "start_timestamp", "end_timestamp"]
-
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
         self.unit_converter.update_targets(self.sr.settings.ts_unit_targets)
