@@ -23,8 +23,8 @@ def get_interpolated_df(
     """Get interpolated data for a location."""
     stations = DwdObservationRequest(
         parameters=parameters,
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     )
     return stations.interpolate(latlon=(50.0, 8.9)).df
 
@@ -38,8 +38,8 @@ def get_regular_df(
     """Get regular data for a station."""
     stations = DwdObservationRequest(
         parameters=parameters,
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     )
     request = stations.filter_by_distance(latlon=(50.0, 8.9), distance=30)
     df = request.values.all().df.drop_nulls()

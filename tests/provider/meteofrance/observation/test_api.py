@@ -69,8 +69,8 @@ def test_meteofrance_observation_api_daily(dataset: str, parameter: str) -> None
     """
     request = MeteoFranceObservationRequest(
         parameters=[("daily", dataset, parameter)],
-        start_date=datetime(2023, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime(2023, 1, 31, tzinfo=ZoneInfo("UTC")),
+        start=datetime(2023, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2023, 1, 31, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("31069001")
     df = next(request.values.query()).df
     assert df.get_column("value").is_not_null().sum() > 0
@@ -90,8 +90,8 @@ def test_meteofrance_observation_api_monthly(parameter: str) -> None:
     """Test monthly climatological values ("Données climatologiques de base - mensuelles")."""
     request = MeteoFranceObservationRequest(
         parameters=[("monthly", "data", parameter)],
-        start_date=datetime(2023, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime(2023, 6, 1, tzinfo=ZoneInfo("UTC")),
+        start=datetime(2023, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2023, 6, 1, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("31069001")
     df = next(request.values.query()).df
     assert df.get_column("value").is_not_null().sum() > 0
@@ -116,8 +116,8 @@ def test_meteofrance_observation_api_hourly(dataset: str, parameter: str) -> Non
     """
     request = MeteoFranceObservationRequest(
         parameters=[("hourly", dataset, parameter)],
-        start_date=datetime(2025, 6, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime(2025, 6, 7, tzinfo=ZoneInfo("UTC")),
+        start=datetime(2025, 6, 1, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2025, 6, 7, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("31069001")
     df = next(request.values.query()).df
     assert df.get_column("value").is_not_null().sum() > 0
@@ -131,8 +131,8 @@ def test_meteofrance_observation_api_6_minutes() -> None:
     """
     request = MeteoFranceObservationRequest(
         parameters=[("6_minutes", "data", "precipitation_amount")],
-        start_date=datetime(2025, 6, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime(2025, 6, 2, tzinfo=ZoneInfo("UTC")),
+        start=datetime(2025, 6, 1, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2025, 6, 2, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("31069001")
     df = next(request.values.query()).df
     assert not df.is_empty()

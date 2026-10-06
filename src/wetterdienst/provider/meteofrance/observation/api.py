@@ -791,11 +791,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         matches = _match_department_resources(resources, prefix, suffix)
         # a department's period buckets can each decompress to 100+ MB; skip any that clearly
         # fall outside the requested date range instead of downloading/parsing them regardless
-        matches = [
-            resource
-            for resource in matches
-            if _resource_overlaps_request(resource, self.sr.start_date, self.sr.end_date)
-        ]
+        matches = [resource for resource in matches if _resource_overlaps_request(resource, self.sr.start, self.sr.end)]
         if not matches:
             return pl.DataFrame()
         schema = _CLIMATE_SCHEMAS[resolution_name, dataset.name]

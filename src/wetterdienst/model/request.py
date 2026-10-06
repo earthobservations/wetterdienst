@@ -18,6 +18,7 @@ from measurement.measures import Distance
 from measurement.utils import guess
 from rapidfuzz import fuzz, process
 from rapidfuzz import utils as fuzz_utils
+from typing_extensions import Self
 
 from wetterdienst.exceptions import (
     InvalidBoundingBoxError,
@@ -31,6 +32,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.metadata.parameter_table import INTERPOLATABLE_PARAMETERS
 from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import (
     DatasetModel,
@@ -100,14 +102,23 @@ class TimeseriesRequest:
     _history: TimeseriesHistory = field(init=False, repr=False, default=None)  # ty: ignore[invalid-assignment]
     # actual parameters
     parameters: _PARAMETER_TYPE  # ty: ignore[dataclass-field-order]
-    start_date: _DATETIME_TYPE = None
-    end_date: _DATETIME_TYPE = None
+    start: _DATETIME_TYPE = None
+    end: _DATETIME_TYPE = None
     settings: Settings | dict = field(default_factory=Settings)
     # The periods to read. Every provider publishes its datasets under one or more of them, so this
     # is accepted everywhere and resolved in __post_init__ to the set actually served -- see
     # `_resolve_periods`. A dataset published under a single period has nothing to choose between;
     # asking for another one is an error rather than a silently widened request.
     periods: _PERIODS_TYPE = None
+
+    def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
+        """Refuse a renamed argument before the dataclass __init__ rejects it without naming the new one.
+
+        Here rather than in __post_init__, which an unknown keyword never reaches, and rather than
+        in every provider's __init__, which the dataclass decorator generates.
+        """
+        refuse_renamed_arguments(cls.__name__, kwargs)
+        return super().__new__(cls)
 
     def __post_init__(self) -> None:
         """Post init method to validate the settings and convert the timestamps."""
@@ -120,7 +131,7 @@ class TimeseriesRequest:
         # Convert settings to a validated model
         self.settings = Settings.model_validate(self.settings)
         # Convert timestamps
-        self.start_date, self.end_date = self.convert_timestamps(self.start_date, self.end_date)
+        self.start, self.end = self.convert_timestamps(self.start, self.end)
         # Parse parameters
         requested = self.parameters
         if isinstance(requested, Iterator):
@@ -218,7 +229,7 @@ class TimeseriesRequest:
                     f"datasets publish ({_format_periods(published)}) is read.",
                 )
             return served
-        if self.start_date is not None:
+        if self.start is not None:
             derived = self._get_periods()
             if derived is not None:
                 if not derived:
@@ -251,50 +262,50 @@ class TimeseriesRequest:
 
     @staticmethod
     def convert_timestamps(  # noqa: C901
-        start_date: _DATETIME_TYPE,
-        end_date: _DATETIME_TYPE,
+        start: _DATETIME_TYPE,
+        end: _DATETIME_TYPE,
     ) -> tuple[None, None] | tuple[dt.datetime, dt.datetime]:
         """Convert timestamps to datetime objects.
 
         Args:
-            start_date: Start date of the request.
-            end_date: End date of the request.
+            start: Start of the request.
+            end: End of the request.
 
         Returns:
-            tuple[None, None] | tuple[dt.datetime, dt.datetime]: Start and end date of the request.
+            tuple[None, None] | tuple[dt.datetime, dt.datetime]: Start and end of the request.
 
         """
-        if start_date is None and end_date is None:
+        if start is None and end is None:
             return None, None
 
-        if start_date:
-            if isinstance(start_date, str):
-                start_date = dt.datetime.fromisoformat(start_date)
-            if not start_date.tzinfo:
-                start_date = start_date.replace(tzinfo=ZoneInfo("UTC"))
+        if start:
+            if isinstance(start, str):
+                start = dt.datetime.fromisoformat(start)
+            if not start.tzinfo:
+                start = start.replace(tzinfo=ZoneInfo("UTC"))
 
-        if end_date:
-            if isinstance(end_date, str):
-                end_date = dt.datetime.fromisoformat(end_date)
-            if not end_date.tzinfo:
-                end_date = end_date.replace(tzinfo=ZoneInfo("UTC"))
+        if end:
+            if isinstance(end, str):
+                end = dt.datetime.fromisoformat(end)
+            if not end.tzinfo:
+                end = end.replace(tzinfo=ZoneInfo("UTC"))
 
         # If only one date given, set the other one to equal.
-        if not start_date:
-            start_date = end_date
+        if not start:
+            start = end
 
-        if not end_date:
-            end_date = start_date
+        if not end:
+            end = start
 
         # TODO: replace this with a response + logging
-        if not isinstance(start_date, dt.datetime) or not isinstance(end_date, dt.datetime):
-            msg = "start_date and end_date must be datetime objects at this point"
+        if not isinstance(start, dt.datetime) or not isinstance(end, dt.datetime):
+            msg = "start and end must be datetime objects at this point"
             raise TypeError(msg)
-        if not start_date <= end_date:
-            msg = "Error: 'start_date' must be smaller or equal to 'end_date'."
+        if not start <= end:
+            msg = "Error: 'start' must be smaller or equal to 'end'."
             raise StartDateEndDateError(msg)
 
-        return start_date, end_date
+        return start, end
 
     @classmethod
     def is_configured(cls) -> bool:
@@ -719,8 +730,8 @@ class TimeseriesRequest:
             msg = missing_dependency_message("Interpolation", e.name, extra="interpolation")
             raise ImportError(msg) from e
 
-        if not self.start_date:
-            msg = "start_date and end_date are required for interpolation"
+        if not self.start:
+            msg = "start and end are required for interpolation"
             raise InvalidTimeIntervalError(msg)
 
         resolutions = {
@@ -819,8 +830,8 @@ class TimeseriesRequest:
         """
         from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
 
-        if not self.start_date:
-            msg = "start_date and end_date are required for summarization"
+        if not self.start:
+            msg = "start and end are required for summarization"
             raise InvalidTimeIntervalError(msg)
 
         resolutions = {
@@ -979,3 +990,11 @@ class TimeseriesRequest:
             msg = f"station {station_id} has no position to interpolate or summarize at"
             raise LocationOutOfRangeError(msg)
         return lat, lon, elevation
+
+
+# inspect, and with it help() and IPython, read a class's arguments off its __new__ where the class
+# defines one beside its __init__, and the variadic refusal above names none: point it at the
+# arguments __init__ takes, which a direct subclass that is no dataclass of its own inherits as they
+# are. Python 3.10's inspect prefers an inherited __new__ to a nearer __init__, so there a plain
+# subclass of a provider's request shows these base arguments rather than the provider's own
+TimeseriesRequest.__new__.__wrapped__ = TimeseriesRequest.__init__  # ty: ignore[unresolved-attribute]

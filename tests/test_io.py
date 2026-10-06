@@ -1150,8 +1150,8 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
     # 1. Request data and save to .xlsx file.
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date="2019-01-01",
-        end_date="2020-01-01",
+        start="2019-01-01",
+        end="2020-01-01",
         settings=settings_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
@@ -1282,8 +1282,8 @@ def test_export_parquet(
     # Request data.
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date="2019-01-01",
-        end_date="2020-01-01",
+        start="2019-01-01",
+        end="2020-01-01",
         settings=settings_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
@@ -1318,8 +1318,8 @@ def test_export_zarr(
     # Request data.
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date="2019-01-01",
-        end_date="2020-01-01",
+        start="2019-01-01",
+        end="2020-01-01",
         settings=settings_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
@@ -1376,8 +1376,8 @@ def test_export_zarr_two_datasets(
     zarr = pytest.importorskip("zarr")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")],
-        start_date="2019-01-01",
-        end_date="2019-01-05",
+        start="2019-01-01",
+        end="2019-01-05",
         settings=settings_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
@@ -1407,8 +1407,8 @@ def test_export_feather(
     # Request data
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date="2019-01-01",
-        end_date="2020-01-01",
+        start="2019-01-01",
+        end="2020-01-01",
         settings=settings_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
@@ -1438,8 +1438,8 @@ def test_export_sqlite(settings_convert_units_false_wide_shape: Settings, tmp_pa
     """Test export of DataFrame to sqlite db."""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date="2019-01-01",
-        end_date="2020-01-01",
+        start="2019-01-01",
+        end="2020-01-01",
         settings=settings_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
@@ -1601,7 +1601,7 @@ def test_export_influxdb1_wide(settings_convert_units_false_wide_shape: Settings
     pytest.importorskip("influxdb")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date="2019-01-01",
+        start="2019-01-01",
         settings=settings_convert_units_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1673,7 +1673,7 @@ def test_export_influxdb1_tidy(settings_convert_units_false: Settings) -> None:
     pytest.importorskip("influxdb")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date="2019-01-01",
+        start="2019-01-01",
         settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1720,7 +1720,7 @@ def test_export_influxdb2_wide(settings_convert_units_false_wide_shape: Settings
     pytest.importorskip("influxdb_client")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date="2019-01-01",
+        start="2019-01-01",
         settings=settings_convert_units_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1784,7 +1784,7 @@ def test_export_influxdb2_tidy(settings_convert_units_false: Settings) -> None:
     pytest.importorskip("influxdb_client")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date="2019-01-01",
+        start="2019-01-01",
         settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1823,7 +1823,7 @@ def test_export_influxdb3_wide(settings_convert_units_false_wide_shape: Settings
     pytest.importorskip("influxdb_client_3")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date="2019-01-01",
+        start="2019-01-01",
         settings=settings_convert_units_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
@@ -1887,7 +1887,7 @@ def test_export_influxdb3_tidy(settings_convert_units_false: Settings) -> None:
     pytest.importorskip("influxdb_client_3")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date="2019-01-01",
+        start="2019-01-01",
         settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()

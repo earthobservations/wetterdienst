@@ -297,8 +297,8 @@ def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(defaul
     end_date = dt.datetime.now(ZoneInfo("UTC"))
     request = HubeauRequest(
         parameters=[("15_minutes", "data", "stage")],
-        start_date=end_date - dt.timedelta(days=30),
-        end_date=end_date,
+        start=end_date - dt.timedelta(days=30),
+        end=end_date,
         settings=default_settings,
     )
     station_id = request.all().df.get_column("station_id")[0]

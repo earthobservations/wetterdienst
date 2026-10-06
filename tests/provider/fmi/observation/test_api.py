@@ -147,8 +147,8 @@ def test_fmi_observation_values_hourly() -> None:
     df = (
         FmiObservationRequest(
             parameters=[("hourly", "data")],
-            start_date=dt.datetime(2024, 1, 1, tzinfo=UTC),
-            end_date=dt.datetime(2024, 1, 1, tzinfo=UTC),
+            start=dt.datetime(2024, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2024, 1, 1, tzinfo=UTC),
         )
         .filter_by_station_id(HELSINKI_KAISANIEMI)
         .values.all()
@@ -180,8 +180,8 @@ def test_fmi_observation_values_daily() -> None:
     df = (
         FmiObservationRequest(
             parameters=[("daily", "data")],
-            start_date=dt.datetime(2024, 1, 1, tzinfo=UTC),
-            end_date=dt.datetime(2024, 1, 1, tzinfo=UTC),
+            start=dt.datetime(2024, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2024, 1, 1, tzinfo=UTC),
         )
         .filter_by_station_id(HELSINKI_KAISANIEMI)
         .values.all()

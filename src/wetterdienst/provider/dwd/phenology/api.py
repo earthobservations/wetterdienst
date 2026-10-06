@@ -296,12 +296,12 @@ class DwdPhenologyRequest(TimeseriesRequest):
     @property
     def interval(self) -> Interval | None:
         """Interval of the request, in the timezone of the provider."""
-        if not self.start_date:
+        if not self.start:
             return None
         timezone = ZoneInfo(self.metadata.timezone)
         return portion.closed(
-            cast("dt.datetime", self.start_date).astimezone(timezone),
-            cast("dt.datetime", self.end_date).astimezone(timezone),
+            cast("dt.datetime", self.start).astimezone(timezone),
+            cast("dt.datetime", self.end).astimezone(timezone),
         )
 
     def _get_periods(self) -> set[Period] | None:

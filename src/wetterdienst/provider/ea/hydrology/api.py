@@ -157,10 +157,10 @@ class EAHydrologyValues(TimeseriesValues):
     def _readings_url(self, measure_url: str, parameter: ParameterModel) -> str:
         """Give the readings URL of a measure, bounded by the window the request asks for."""
         url = f"{measure_url}/readings.json"
-        if not self.sr.start_date or not self.sr.end_date:
+        if not self.sr.start or not self.sr.end:
             return url
-        start_date = self.sr.start_date - _READINGS_MARGIN
-        end_date = self.sr.end_date + _READINGS_MARGIN
+        start_date = self.sr.start - _READINGS_MARGIN
+        end_date = self.sr.end + _READINGS_MARGIN
         query: dict[str, str | int] = {
             "mineq-dateTime": start_date.strftime(_READINGS_DATETIME_FORMAT),
             "maxeq-dateTime": end_date.strftime(_READINGS_DATETIME_FORMAT),

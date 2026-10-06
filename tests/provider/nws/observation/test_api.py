@@ -41,8 +41,8 @@ def _request(settings: Settings | None = None, **kwargs: object) -> NwsObservati
     """Build a request over a two-day window, which is what the endpoint is asked for."""
     return NwsObservationRequest(
         parameters=[("hourly", "data", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2026, 8, 20, tzinfo=UTC),
-        end_date=dt.datetime(2026, 8, 21, tzinfo=UTC),
+        start=dt.datetime(2026, 8, 20, tzinfo=UTC),
+        end=dt.datetime(2026, 8, 21, tzinfo=UTC),
         settings=settings or Settings(),
         **kwargs,
     )
@@ -155,8 +155,8 @@ def test_nws_values_returns_the_requested_window_only() -> None:
     start_date = end_date - dt.timedelta(days=2)
     request = NwsObservationRequest(
         parameters=[("hourly", "data", "temperature_air_mean_2m")],
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     )
 
     df = request.filter_by_station_id([DENVER]).values.all().df

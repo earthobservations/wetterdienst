@@ -253,7 +253,7 @@ class MeteoswissObservationValues(TimeseriesValues):
 
     def _asset_overlaps_request(self, asset_name: str) -> bool:
         """Check whether a decade-chunked historical asset overlaps the requested date range."""
-        start_date, end_date = self.sr.start_date, self.sr.end_date
+        start_date, end_date = self.sr.start, self.sr.end
         if not start_date or not end_date:
             return True
         decade_match = self._decade_pattern.search(asset_name)

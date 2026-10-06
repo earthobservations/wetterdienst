@@ -35,8 +35,8 @@ def test_api_skip_empty_stations(
     )
     request = DwdObservationRequest(
         parameters=[("daily", "kl"), ("daily", "solar")],
-        start_date="2021-01-01",
-        end_date="2021-12-31",
+        start="2021-01-01",
+        end="2021-12-31",
         settings=settings,
     ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=2)
     values = request.values.all()
@@ -58,8 +58,8 @@ def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(
         return (
             DwdObservationRequest(
                 parameters=[("daily", "climate_summary", "sunshine_duration")],
-                start_date="1990-01-01",
-                end_date="2021-12-31",
+                start="1990-01-01",
+                end="2021-12-31",
                 settings=settings,
             )
             .filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=1)
@@ -93,8 +93,8 @@ def test_api_drop_nulls(default_settings: Settings) -> None:
             ("minute_10", "temperature_air"),
             ("minute_10", "precipitation"),
         ],
-        start_date="2021-01-01",
-        end_date="2021-12-31",
+        start="2021-01-01",
+        end="2021-12-31",
         settings=default_settings,
     ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=20)
     values = next(request.values.query())

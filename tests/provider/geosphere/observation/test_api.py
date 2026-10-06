@@ -23,8 +23,8 @@ def test_geosphere_observation_api() -> None:
     """
     stations_at = GeosphereObservationRequest(
         parameters=[("hourly", "data", "wind_speed")],
-        start_date=datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime(2022, 6, 2, tzinfo=ZoneInfo("UTC")),
+        start=datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2022, 6, 2, tzinfo=ZoneInfo("UTC")),
     )
     station_at = stations_at.filter_by_station_id("4821")
     df = station_at.values.all().df
@@ -62,8 +62,8 @@ def test_geosphere_observation_api_radiation(
     """
     stations_at = GeosphereObservationRequest(
         parameters=[(resolution, "data", parameter)],
-        start_date=datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime(2022, 6, 2, hour=23, minute=50, tzinfo=ZoneInfo("UTC")),
+        start=datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2022, 6, 2, hour=23, minute=50, tzinfo=ZoneInfo("UTC")),
     )
     station_at = stations_at.filter_by_station_id("4821")
     df = station_at.values.all().df
@@ -107,8 +107,8 @@ def test_geosphere_observation_request_window_carries_the_minutes(monkeypatch: p
     """
     start, end = _data_window(
         monkeypatch,
-        start_date=datetime(2020, 12, 2, 13, 37, tzinfo=ZoneInfo("UTC")),
-        end_date=datetime(2020, 12, 3, 8, 45, tzinfo=ZoneInfo("UTC")),
+        start=datetime(2020, 12, 2, 13, 37, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2020, 12, 3, 8, 45, tzinfo=ZoneInfo("UTC")),
     )
     # one day of buffer on either side of the requested window
     assert start == "2020-12-01T13:37"

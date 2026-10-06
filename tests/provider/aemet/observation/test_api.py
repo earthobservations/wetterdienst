@@ -98,8 +98,8 @@ def test_aemet_observation_values_daily() -> None:
     df = (
         AemetObservationRequest(
             parameters=[("daily", "data")],
-            start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
-            end_date=dt.datetime(2020, 1, 5, tzinfo=UTC),
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 1, 5, tzinfo=UTC),
         )
         .filter_by_station_id(MADRID_RETIRO)
         .values.all()
@@ -142,8 +142,8 @@ def test_aemet_observation_values_monthly() -> None:
     df = (
         AemetObservationRequest(
             parameters=[("monthly", "data")],
-            start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
-            end_date=dt.datetime(2020, 1, 31, tzinfo=UTC),
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 1, 31, tzinfo=UTC),
         )
         .filter_by_station_id(MADRID_RETIRO)
         .values.all()
@@ -183,8 +183,8 @@ def test_aemet_observation_values_annual() -> None:
     df = (
         AemetObservationRequest(
             parameters=[("annual", "data")],
-            start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
-            end_date=dt.datetime(2020, 12, 31, tzinfo=UTC),
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 12, 31, tzinfo=UTC),
         )
         .filter_by_station_id(MADRID_RETIRO)
         .values.all()
@@ -312,8 +312,8 @@ def test_aemet_observation_daily_normalizes_non_utc_start_end_date_to_utc(monkey
         # deliberately fails after capturing the URL -- only the URL matters here.
         AemetObservationRequest(
             parameters=[("daily", "data")],
-            start_date=dt.datetime(2020, 1, 1, 0, 30, tzinfo=madrid),
-            end_date=dt.datetime(2020, 1, 1, 0, 30, tzinfo=madrid),
+            start=dt.datetime(2020, 1, 1, 0, 30, tzinfo=madrid),
+            end=dt.datetime(2020, 1, 1, 0, 30, tzinfo=madrid),
             settings=Settings(auth={"aemet": "dummy-key-for-test"}),
         ).filter_by_station_id(MADRID_RETIRO).values.all()
 

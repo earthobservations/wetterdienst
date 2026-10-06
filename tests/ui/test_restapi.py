@@ -1429,7 +1429,7 @@ def test_get_stations_request_date_covers_the_span_it_names() -> None:
             station="00011",
         )
         stations_request = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings)
-        return stations_request.start_date, stations_request.end_date
+        return stations_request.start, stations_request.end
 
     last_moment = dt.timedelta(microseconds=1)
     assert window("2019-12") == (
@@ -3037,14 +3037,14 @@ def _year_10000_message() -> str:
             "/api/interpolate",
             {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "timestamp": ""},
             400,
-            "start_date and end_date are required for interpolation",
+            "start and end are required for interpolation",
             id="interpolate-empty-date",
         ),
         pytest.param(
             "/api/summarize",
             {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "timestamp": ""},
             400,
-            "start_date and end_date are required for summarization",
+            "start and end are required for summarization",
             id="summarize-empty-date",
         ),
         pytest.param(
@@ -6465,14 +6465,14 @@ _GEO_REFUSALS = [
         "interpolate",
         {"latitude": 50.0, "longitude": 10.0, "timestamp": "2020-06-30/2020-06-01"},
         400,
-        "Error: 'start_date' must be smaller or equal to 'end_date'.",
+        "Error: 'start' must be smaller or equal to 'end'.",
         id="interpolate-window-the-wrong-way-round",
     ),
     pytest.param(
         "summarize",
         {"latitude": 50.0, "longitude": 10.0, "timestamp": "2020-06-30/2020-06-01"},
         400,
-        "Error: 'start_date' must be smaller or equal to 'end_date'.",
+        "Error: 'start' must be smaller or equal to 'end'.",
         id="summarize-window-the-wrong-way-round",
     ),
     pytest.param(
@@ -6531,7 +6531,7 @@ def test_values_a_window_the_wrong_way_round_is_logged_as_info(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A window that ends before it starts is the caller's 400, logged without a traceback (GH-2429)."""
-    detail = "Error: 'start_date' must be smaller or equal to 'end_date'."
+    detail = "Error: 'start' must be smaller or equal to 'end'."
     with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
         response = client.get(
             "/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30/2020-06-01"}

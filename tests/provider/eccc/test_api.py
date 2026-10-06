@@ -20,8 +20,8 @@ def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
     """Test fetching of ECCC stations."""
     request = EcccObservationRequest(
         parameters=[("daily", "data")],
-        start_date="1990-01-01",
-        end_date="1990-01-02",
+        start="1990-01-01",
+        end="1990-01-02",
         settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=(14,))
     given_df = request.df
@@ -51,8 +51,8 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
     """Test fetching of ECCC data."""
     request = EcccObservationRequest(
         parameters=[("daily", "data")],
-        start_date="1979-11-02",
-        end_date="1979-11-03",
+        start="1979-11-02",
+        end="1979-11-03",
         settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=("2",))
     given_df = request.values.all().df
@@ -167,8 +167,8 @@ def test_eccc_degree_days_are_degree_days_not_day_counts(settings_convert_units_
     """
     request = EcccObservationRequest(
         parameters=[("daily", "data")],
-        start_date="1979-11-02",
-        end_date="1979-11-03",
+        start="1979-11-02",
+        end="1979-11-03",
         settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=("2",))
     df = request.values.all().df
@@ -189,8 +189,8 @@ def test_eccc_hourly_returns_data(settings_convert_units_false: Settings) -> Non
     """
     request = EcccObservationRequest(
         parameters=[("hourly", "data")],
-        start_date="1972-06-01",
-        end_date="1972-06-30",
+        start="1972-06-01",
+        end="1972-06-30",
         settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=("4055",))
     df = request.values.all().df
@@ -218,8 +218,8 @@ def test_eccc_monthly_returns_data(settings_convert_units_false: Settings) -> No
     """
     request = EcccObservationRequest(
         parameters=[("monthly", "data")],
-        start_date="2015-01-01",
-        end_date="2016-12-31",
+        start="2015-01-01",
+        end="2016-12-31",
         settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=("26",))
     df = request.values.all().df

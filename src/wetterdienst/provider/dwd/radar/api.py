@@ -17,10 +17,12 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 from fsspec.implementations.tar import TarFileSystem
+from typing_extensions import Self
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radar,
@@ -156,6 +158,11 @@ class DwdRadarValues:  # noqa: PLW1641
     - https://opendata.dwd.de/climate_environment/CDC/grids_germany/5_minutes/radolan/
     """
 
+    def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
+        """Refuse a renamed argument by naming the new one, as `TimeseriesRequest` does."""
+        refuse_renamed_arguments(cls.__name__, kwargs)
+        return super().__new__(cls)
+
     def __init__(  # noqa: C901
         self,
         parameter: str | DwdRadarParameter,
@@ -163,8 +170,8 @@ class DwdRadarValues:  # noqa: PLW1641
         fmt: DwdRadarDataFormat | None = None,
         subset: DwdRadarDataSubset | None = None,
         elevation: int | None = None,
-        start_date: str | dt.datetime | DwdRadarDate | None = None,
-        end_date: str | dt.datetime | dt.timedelta | None = None,
+        start: str | dt.datetime | DwdRadarDate | None = None,
+        end: str | dt.datetime | dt.timedelta | None = None,
         resolution: str | Resolution | DwdRadarResolution | None = None,
         period: str | Period | DwdRadarPeriod | None = None,
         settings: Settings | None = None,
@@ -177,8 +184,8 @@ class DwdRadarValues:  # noqa: PLW1641
             fmt: requested format (e.g. BINARY)
             subset: requested subset (e.g. RADOLAN)
             elevation: requested elevation (e.g. 10)
-            start_date: start date of the requested data
-            end_date: end date of the requested data
+            start: start of the requested data
+            end: end of the requested data
             resolution: requested resolution (e.g. MINUTE_5)
             period: requested period (e.g. RECENT)
             settings: settings for the request
@@ -209,7 +216,7 @@ class DwdRadarValues:  # noqa: PLW1641
             msg = f"Argument 'elevation' only valid for parameter={elevation_parameters}"
             raise ValueError(msg)
 
-        if start_date == DwdRadarDate.LATEST:
+        if start == DwdRadarDate.LATEST:
             # HDF5 folders do not have "-latest-" files.
             if self.parameter == DwdRadarParameter.RADOLAN_CDC:
                 msg = "RADOLAN_CDC data has no '-latest-' files"
@@ -220,10 +227,10 @@ class DwdRadarValues:  # noqa: PLW1641
                 msg = "HDF5 data has no '-latest-' files"
                 raise ValueError(msg)
 
-        if start_date == DwdRadarDate.CURRENT and not self.period:
+        if start == DwdRadarDate.CURRENT and not self.period:
             self.period = Period.RECENT
 
-        # Evaluate "RadarDate.MOST_RECENT" for "start_date".
+        # Evaluate "RadarDate.MOST_RECENT" for "start".
         #
         # HDF5 folders do not have "-latest-" files, so we will have to synthesize them
         # appropriately by going back to the second last volume of 5 minute intervals.
@@ -238,39 +245,39 @@ class DwdRadarValues:  # noqa: PLW1641
         # volume by addressing the **previous** volume. So, when requesting data at
         # 15:03, it will retrieve 14:55:00-14:59:59.
         #
-        if fmt == DwdRadarDataFormat.HDF5 and start_date == DwdRadarDate.MOST_RECENT:
-            start_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=5)
-            end_date = None
+        if fmt == DwdRadarDataFormat.HDF5 and start == DwdRadarDate.MOST_RECENT:
+            start = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=5)
+            end = None
 
-        if start_date == DwdRadarDate.MOST_RECENT and parameter == DwdRadarParameter.RADOLAN_CDC:
-            start_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=50)
-            end_date = None
+        if start == DwdRadarDate.MOST_RECENT and parameter == DwdRadarParameter.RADOLAN_CDC:
+            start = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=50)
+            end = None
 
-        # Evaluate "RadarDate.CURRENT" for "start_date".
-        if start_date == DwdRadarDate.CURRENT:
-            start_date = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
-            if parameter == DwdRadarParameter.RADOLAN_CDC and start_date.minute < 20:
-                start_date = start_date - dt.timedelta(hours=1)
-            end_date = None
+        # Evaluate "RadarDate.CURRENT" for "start".
+        if start == DwdRadarDate.CURRENT:
+            start = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
+            if parameter == DwdRadarParameter.RADOLAN_CDC and start.minute < 20:
+                start = start - dt.timedelta(hours=1)
+            end = None
 
-        # Evaluate "RadarDate.LATEST" for "start_date".
-        if start_date == DwdRadarDate.LATEST:
-            self.start_date = start_date
-            self.end_date = None
+        # Evaluate "RadarDate.LATEST" for "start".
+        if start == DwdRadarDate.LATEST:
+            self.start = start
+            self.end = None
 
-        # Evaluate any datetime for "start_date".
+        # Evaluate any datetime for "start".
         else:
-            if isinstance(start_date, str):
-                start_date = dt.datetime.fromisoformat(start_date)
-            if end_date and isinstance(end_date, str):
-                end_date = dt.datetime.fromisoformat(end_date)
+            if isinstance(start, str):
+                start = dt.datetime.fromisoformat(start)
+            if end and isinstance(end, str):
+                end = dt.datetime.fromisoformat(end)
             # set timezone if not set
-            if isinstance(start_date, dt.datetime) and start_date.tzinfo is None:
-                start_date = start_date.replace(tzinfo=ZoneInfo("UTC"))
-            if end_date and isinstance(end_date, dt.datetime) and end_date.tzinfo is None:
-                end_date = end_date.replace(tzinfo=ZoneInfo("UTC"))
-            self.start_date = start_date
-            self.end_date = end_date
+            if isinstance(start, dt.datetime) and start.tzinfo is None:
+                start = start.replace(tzinfo=ZoneInfo("UTC"))
+            if end and isinstance(end, dt.datetime) and end.tzinfo is None:
+                end = end.replace(tzinfo=ZoneInfo("UTC"))
+            self.start = start
+            self.end = end
             self.adjust_datetimes()
 
         self.settings = settings or Settings()
@@ -283,7 +290,7 @@ class DwdRadarValues:  # noqa: PLW1641
             f"site={self.site}, "
             f"format={self.format}, "
             f"resolution={self.resolution},"
-            f"date={self.start_date}/{self.end_date})"
+            f"date={self.start}/{self.end})"
         )
 
     def __eq__(self, other: object) -> bool:
@@ -295,14 +302,14 @@ class DwdRadarValues:  # noqa: PLW1641
             and self.site == other.site
             and self.format == other.format
             and self.subset == other.subset
-            and self.start_date == other.start_date
-            and self.end_date == other.end_date
+            and self.start == other.start
+            and self.end == other.end
             and self.resolution == other.resolution
             and self.period == other.period
         )
 
     def adjust_datetimes(self) -> None:  # noqa: C901
-        """Adjust ``start_date`` and ``end_date`` attributes to match minute marks for RadarParameter.
+        """Adjust ``start`` and ``end`` attributes to match minute marks for RadarParameter.
 
         - RADOLAN_CDC is always published at HH:50.
           https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/recent/bin/
@@ -318,55 +325,55 @@ class DwdRadarValues:  # noqa: PLW1641
           https://opendata.dwd.de/weather/radar/sites/dx/boo/
 
         """
-        if not isinstance(self.start_date, dt.datetime):
+        if not isinstance(self.start, dt.datetime):
             return
         if self.parameter in (DwdRadarParameter.RADOLAN_CDC, DwdRadarParameter.SF_REFLECTIVITY):
-            # Align "start_date" to the most recent 50 minute mark available.
-            self.start_date = raster_minutes(self.start_date, 50)
+            # Align "start" to the most recent 50 minute mark available.
+            self.start = raster_minutes(self.start, 50)
 
-            # When "end_date" is given as timedelta, resolve it.
-            if isinstance(self.end_date, dt.timedelta):
-                self.end_date = self.start_date + self.end_date
+            # When "end" is given as timedelta, resolve it.
+            if isinstance(self.end, dt.timedelta):
+                self.end = self.start + self.end
 
-            # Use "end_date = start_date" to make the machinery
+            # Use "end = start" to make the machinery
             # pick a single file from the fileindex.
-            if not self.end_date:
-                self.end_date = self.start_date + dt.timedelta(microseconds=1)
+            if not self.end:
+                self.end = self.start + dt.timedelta(microseconds=1)
 
         elif self.parameter == DwdRadarParameter.RQ_REFLECTIVITY:
-            # Align "start_date" to the 15 minute mark before tm.
-            self.start_date = round_minutes(self.start_date, 15)
+            # Align "start" to the 15 minute mark before tm.
+            self.start = round_minutes(self.start, 15)
 
-            # When "end_date" is given as timedelta, resolve it.
-            if isinstance(self.end_date, dt.timedelta):
-                self.end_date = self.start_date + self.end_date - dt.timedelta(seconds=1)
+            # When "end" is given as timedelta, resolve it.
+            if isinstance(self.end, dt.timedelta):
+                self.end = self.start + self.end - dt.timedelta(seconds=1)
 
-            # Expand "end_date" to the end of the 15 minute mark.
-            if self.end_date is None:
-                self.end_date = self.start_date + dt.timedelta(minutes=15) - dt.timedelta(seconds=1)
+            # Expand "end" to the end of the 15 minute mark.
+            if self.end is None:
+                self.end = self.start + dt.timedelta(minutes=15) - dt.timedelta(seconds=1)
 
         elif self.parameter == DwdRadarParameter.RW_REFLECTIVITY:
-            # Align "start_date" to the 5 minute mark before tm.
-            self.start_date = round_minutes(self.start_date, 10)
+            # Align "start" to the 5 minute mark before tm.
+            self.start = round_minutes(self.start, 10)
 
-            # When "end_date" is given as timedelta, resolve it.
-            if isinstance(self.end_date, dt.timedelta):
-                self.end_date = self.start_date + self.end_date - dt.timedelta(seconds=1)
+            # When "end" is given as timedelta, resolve it.
+            if isinstance(self.end, dt.timedelta):
+                self.end = self.start + self.end - dt.timedelta(seconds=1)
 
-            # Expand "end_date" to the end of the 10 minute mark.
-            if self.end_date is None:
-                self.end_date = self.start_date + dt.timedelta(minutes=10) - dt.timedelta(seconds=1)
+            # Expand "end" to the end of the 10 minute mark.
+            if self.end is None:
+                self.end = self.start + dt.timedelta(minutes=10) - dt.timedelta(seconds=1)
         else:
-            # Align "start_date" to the 5 minute mark before tm.
-            self.start_date = round_minutes(self.start_date, 5)
+            # Align "start" to the 5 minute mark before tm.
+            self.start = round_minutes(self.start, 5)
 
-            # When "end_date" is given as timedelta, resolve it.
-            if isinstance(self.end_date, dt.timedelta):
-                self.end_date = self.start_date + self.end_date - dt.timedelta(seconds=1)
+            # When "end" is given as timedelta, resolve it.
+            if isinstance(self.end, dt.timedelta):
+                self.end = self.start + self.end - dt.timedelta(seconds=1)
 
-            # Expand "end_date" to the end of the 5 minute mark.
-            if self.end_date is None:
-                self.end_date = self.start_date + dt.timedelta(minutes=5) - dt.timedelta(seconds=1)
+            # Expand "end" to the end of the 5 minute mark.
+            if self.end is None:
+                self.end = self.start + dt.timedelta(minutes=5) - dt.timedelta(seconds=1)
 
     def _attach_bufr(self, result: RadarResult) -> None:
         """Attach the parsed BUFR contents to ``result.df`` when ``read_bufr`` is enabled.
@@ -392,7 +399,7 @@ class DwdRadarValues:  # noqa: PLW1641
         """Query radar data from the DWD server."""
         log.info(f"acquiring radar data for {self!s}")
         # Find latest file.
-        if self.start_date == DwdRadarDate.LATEST:
+        if self.start == DwdRadarDate.LATEST:
             file_index = create_fileindex_radar(
                 parameter=self.parameter,
                 site=self.site,
@@ -424,15 +431,15 @@ class DwdRadarValues:  # noqa: PLW1641
                     settings=self.settings,
                 )
 
-                # Filter for dates range if start_date and end_date are defined.
+                # Filter for dates range if start and end are defined.
                 if period == Period.RECENT:
                     file_index = file_index.filter(
-                        pl.col("datetime").is_between(self.start_date, self.end_date, closed="both"),  # ty: ignore[invalid-argument-type]
+                        pl.col("datetime").is_between(self.start, self.end, closed="both"),  # ty: ignore[invalid-argument-type]
                     )
 
                 # This is for matching historical data, e.g. "RW-200509.tar.gz".
                 else:
-                    start_date_dt = cast("dt.datetime", self.start_date)
+                    start_date_dt = cast("dt.datetime", self.start)
                     file_index = file_index.filter(
                         pl.col("datetime").dt.year().eq(start_date_dt.year)
                         & pl.col("datetime").dt.month().eq(start_date_dt.month),
@@ -452,8 +459,8 @@ class DwdRadarValues:  # noqa: PLW1641
                 url = row["filename"]
                 yield from self._download_radolan_data(
                     url,
-                    cast("dt.datetime", self.start_date),
-                    cast("dt.datetime", self.end_date),
+                    cast("dt.datetime", self.start),
+                    cast("dt.datetime", self.end),
                 )
 
         else:
@@ -466,9 +473,9 @@ class DwdRadarValues:  # noqa: PLW1641
                 settings=self.settings,
             )
 
-            # Filter for dates range if start_date and end_date are defined.
+            # Filter for dates range if start and end are defined.
             file_index = file_index.filter(
-                pl.col("datetime").is_between(self.start_date, self.end_date, closed="both"),  # ty: ignore[invalid-argument-type]
+                pl.col("datetime").is_between(self.start, self.end, closed="both"),  # ty: ignore[invalid-argument-type]
             )
 
             # Filter SWEEP_VOL_VELOCITY_H and SWEEP_VOL_REFLECTIVITY_H by elevation.
@@ -646,6 +653,10 @@ class DwdRadarValues:  # noqa: PLW1641
             archive_in_bytes.seek(0)
             with gzip.GzipFile(fileobj=archive_in_bytes, mode="rb") as gz_file:
                 yield RadarResult(data=BytesIO(gz_file.read()), timestamp=None, filename=gz_file.name or "")
+
+
+# help() and IPython read the arguments off __init__ rather than the variadic refusal, as on TimeseriesRequest
+DwdRadarValues.__new__.__wrapped__ = DwdRadarValues.__init__  # ty: ignore[unresolved-attribute]
 
 
 class DwdRadarSites(OperaRadarSites):

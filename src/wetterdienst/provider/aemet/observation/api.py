@@ -264,7 +264,7 @@ class AemetObservationValues(TimeseriesValues):
         Unlike the climatological endpoints, this one takes no date range at all — AEMET
         always returns whatever rolling window of recent hourly observations (typically
         the last ~24h) it currently holds for the station. Filtering to a user-requested
-        start_date/end_date (if any) happens generically afterward in TimeseriesValues.query().
+        start/end (if any) happens generically afterward in TimeseriesValues.query().
         """
         settings = cast("Settings", self.sr.stations.settings)
         api_key = settings.auth.aemet
@@ -301,8 +301,8 @@ class AemetObservationValues(TimeseriesValues):
     def _collect_daily(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         settings = cast("Settings", self.sr.stations.settings)
         api_key = settings.auth.aemet
-        start_date = self.sr.start_date
-        end_date = self.sr.end_date
+        start_date = self.sr.start
+        end_date = self.sr.end
         if not start_date or not end_date or not api_key:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # convert_timestamps() only tags naive datetimes as UTC, it doesn't convert an
@@ -367,8 +367,8 @@ class AemetObservationValues(TimeseriesValues):
         """
         settings = cast("Settings", self.sr.stations.settings)
         api_key = settings.auth.aemet
-        start_date = self.sr.start_date
-        end_date = self.sr.end_date
+        start_date = self.sr.start
+        end_date = self.sr.end
         if not start_date or not end_date or not api_key:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # convert_timestamps() only tags naive datetimes as UTC, it doesn't convert an

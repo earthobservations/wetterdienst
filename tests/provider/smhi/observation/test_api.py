@@ -49,8 +49,8 @@ def test_smhi_observation_values_daily() -> None:
     df = (
         SmhiObservationRequest(
             parameters=[("daily", "data")],
-            start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
-            end_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 1, 1, tzinfo=UTC),
         )
         .filter_by_station_id(ABISKO)
         .values.all()
@@ -76,8 +76,8 @@ def test_smhi_observation_values_hourly() -> None:
     df = (
         SmhiObservationRequest(
             parameters=[("hourly", "data")],
-            start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
-            end_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 1, 1, tzinfo=UTC),
         )
         .filter_by_station_id(ABISKO)
         .values.all()
@@ -109,8 +109,8 @@ def test_smhi_observation_values_monthly() -> None:
     df = (
         SmhiObservationRequest(
             parameters=[("monthly", "data")],
-            start_date=dt.datetime(2020, 1, 1, tzinfo=UTC),
-            end_date=dt.datetime(2020, 1, 31, tzinfo=UTC),
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 1, 31, tzinfo=UTC),
         )
         .filter_by_station_id(ABISKO)
         .values.all()

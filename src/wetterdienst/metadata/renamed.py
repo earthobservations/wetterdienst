@@ -4,7 +4,7 @@ None of these is accepted in place of its replacement. A caller still writing th
 error that says what it is called now, instead of the not-found a name that never existed gets.
 """
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 
 from wetterdienst.metadata.parameter_table import PARAMETERS
 
@@ -128,6 +128,31 @@ RENAMED_PARAMETERS: dict[str, str] = {
     # GH-1977: DWD's NL is low cloud, below 2 km, which the name put at 1000 ft
     "cloud_cover_below_1000ft": "cloud_cover_below_2km",
 }
+
+#: request arguments, old name to new
+RENAMED_ARGUMENTS: dict[str, str] = {
+    # GH-2437: the window is a pair of UTC timestamps, not of dates
+    "start_date": "start",
+    "end_date": "end",
+}
+
+
+def refuse_renamed_arguments(owner: str, kwargs: Mapping[str, object]) -> None:
+    """Fail on a keyword argument renamed for 1.0, naming the one to write instead.
+
+    Without this the old keyword fails with Python's bare "unexpected keyword argument", which does
+    not say what it is called now.
+    """
+    # all of them at once, so that a caller passing the old pair learns of both in one go
+    renamed = [old for old in kwargs if old in RENAMED_ARGUMENTS]
+    if len(renamed) == 1:
+        msg = f"{owner}() argument '{renamed[0]}' was renamed to '{RENAMED_ARGUMENTS[renamed[0]]}'"
+        raise TypeError(msg)
+    if renamed:
+        olds = " and ".join(f"'{old}'" for old in renamed)
+        news = " and ".join(f"'{RENAMED_ARGUMENTS[old]}'" for old in renamed)
+        msg = f"{owner}() arguments {olds} were renamed to {news}"
+        raise TypeError(msg)
 
 
 def renamed_column(old: str, columns: Collection[str]) -> str | None:

@@ -49,8 +49,8 @@ Wetterdienst(provider="dwd", network="observation")
 A request is typically defined by three arguments:
 
 - ``parameters``
-- ``start_date``
-- ``end_date``
+- ``start``
+- ``end``
 
 Parameters can be requested in different ways e.g.
 
@@ -163,9 +163,9 @@ Period.HISTORICAL
 "historical" or "HISTORICAL"
 ```
 
-The period argument typically can be used as replacement for the start_date and end_date
+The periods argument typically can be used as replacement for the start and end
 arguments. In case both arguments are given they are used as a filter for the data. Left out, the
-periods are derived from ``start_date``/``end_date`` where the provider publishes on a release
+periods are derived from ``start``/``end`` where the provider publishes on a release
 schedule that says which period holds which years -- DWD observation and DWD phenology do -- and
 are otherwise every period the requested datasets publish.
 
@@ -174,7 +174,7 @@ Regarding the definition of requested parameters:
 ## Data
 
 In case of the DWD, requests can be defined by either of period or
-``start_date`` and ``end_date``. Use ``DwdObservationRequest.discover()``
+``start`` and ``end``. Use ``DwdObservationRequest.discover()``
 to discover available parameters based on the given filter arguments.
 
 ### Stations
@@ -194,8 +194,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("daily", "precipitation_more"),
-    start_date=dt.datetime(2020, 1, 1),
-    end_date=dt.datetime(2020, 1, 20)
+    start=dt.datetime(2020, 1, 1),
+    end=dt.datetime(2020, 1, 20)
 )
 stations = request.all()
 df = stations.df
@@ -216,8 +216,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("daily", "precipitation_more"),
-    start_date=dt.datetime(2020, 1, 1),
-    end_date=dt.datetime(2020, 1, 20)
+    start=dt.datetime(2020, 1, 1),
+    end=dt.datetime(2020, 1, 20)
 )
 stations = request.filter_by_station_id(station_id=("01048", ))
 df = stations.df
@@ -241,8 +241,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("daily", "precipitation_more"),
-    start_date=dt.datetime(2020, 1, 1),
-    end_date=dt.datetime(2020, 1, 20)
+    start=dt.datetime(2020, 1, 1),
+    end=dt.datetime(2020, 1, 20)
 )
 stations = request.filter_by_name(name="Dresden-Klotzsche")
 df = stations.df
@@ -269,8 +269,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("daily", "precipitation_more"),
-    start_date=dt.datetime(2020, 1, 1),
-    end_date=dt.datetime(2020, 1, 20)
+    start=dt.datetime(2020, 1, 1),
+    end=dt.datetime(2020, 1, 20)
 )
 # case-insensitive, typo-tolerant, returns up to 3 matches
 stations = request.filter_by_name(name="dresden", rank=3, threshold=0.8)
@@ -293,8 +293,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 hamburg = (53.551086, 9.993682)
 request = DwdObservationRequest(
     parameters=("hourly", "temperature_air"),
-    start_date=dt.datetime(2020, 1, 1),
-    end_date=dt.datetime(2020, 1, 20)
+    start=dt.datetime(2020, 1, 1),
+    end=dt.datetime(2020, 1, 20)
 )
 stations = request.filter_by_distance(latlon=hamburg, distance=30, unit="km")
 df = stations.df
@@ -314,8 +314,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 hamburg = (53.551086, 9.993682)
 request = DwdObservationRequest(
     parameters=("hourly", "temperature_air"),
-    start_date=dt.datetime(2020, 1, 1),
-    end_date=dt.datetime(2020, 1, 20)
+    start=dt.datetime(2020, 1, 1),
+    end=dt.datetime(2020, 1, 20)
 )
 stations = request.filter_by_distance(latlon=hamburg, distance=30, unit="mi")
 df = stations.df
@@ -335,8 +335,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 hamburg = (53.551086, 9.993682)
 request = DwdObservationRequest(
     parameters=("hourly", "temperature_air"),
-    start_date=dt.datetime(2020, 1, 1),
-    end_date=dt.datetime(2020, 1, 20)
+    start=dt.datetime(2020, 1, 1),
+    end=dt.datetime(2020, 1, 20)
 )
 stations = request.filter_by_rank(latlon=hamburg, rank=5)
 df = stations.df
@@ -366,8 +366,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 bbox = (8.9, 50.0, 8.91, 50.01)
 request = DwdObservationRequest(
     parameters=("hourly", "temperature_air"),
-    start_date=dt.datetime(2020, 1, 1),
-    end_date=dt.datetime(2020, 1, 20)
+    start=dt.datetime(2020, 1, 1),
+    end=dt.datetime(2020, 1, 20)
 )
 stations = request.filter_by_bbox(*bbox)
 df = stations.df
@@ -391,8 +391,8 @@ from wetterdienst import Settings
 # Settings(ts_shape="long", ts_humanize=True, ts_convert_units=True)
 request = DwdObservationRequest(
     parameters=[("daily", "kl"), ("daily", "solar")],
-    start_date="1990-01-01",
-    end_date="2020-01-01",
+    start="1990-01-01",
+    end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=("00003", "01048"))
 
@@ -419,8 +419,8 @@ from wetterdienst import Settings
 # Settings(ts_shape="long", ts_humanize=True, ts_convert_units=True)
 request = DwdObservationRequest(
     parameters=[("daily", "kl"), ("daily", "solar")],
-    start_date="1990-01-01",
-    end_date="2020-01-01",
+    start="1990-01-01",
+    end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=("00003", "01048"))
 df = stations.values.all().df.drop_nulls()
@@ -429,7 +429,7 @@ df
 
 This gives us the most options to work with the data, getting multiple parameters at
 once, parsed nicely into column structure with improved parameter names. Instead of
-``start_date`` and ``end_date`` you may as well want to use ``period`` to update your
+``start`` and ``end`` you may as well want to use ``periods`` to update your
 database once in a while with a fixed set of records.
 
 A result can be cut down after the fact with ``values.filter_by_date("2020-08")``, which takes the
@@ -498,8 +498,8 @@ settings = Settings(ts_skip_empty=True, ts_skip_criteria="min", ts_skip_threshol
 karlsruhe = (49.19780976647141, 8.135207205143768)
 request = DwdObservationRequest(
   parameters=[("daily", "kl")],
-  start_date="2021-01-01",
-  end_date="2021-12-31",
+  start="2021-01-01",
+  end="2021-12-31",
   settings=settings,
 )
 stations = request.filter_by_rank(latlon=karlsruhe, rank=2)
@@ -529,8 +529,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("daily", "kl", "temperature_air_mean_2m"),
-    start_date="2020-01-01",
-    end_date="2020-01-02"
+    start="2020-01-01",
+    end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
 values = stations.values.all()
@@ -548,8 +548,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("daily", "kl", "temperature_air_mean_2m"),
-    start_date="2020-01-01",
-    end_date="2020-01-02"
+    start="2020-01-01",
+    end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
 values = stations.values.all()
@@ -567,8 +567,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("daily", "kl", "temperature_air_mean_2m"),
-    start_date="2020-01-01",
-    end_date="2020-01-02"
+    start="2020-01-01",
+    end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
 values = stations.values.all()
@@ -586,8 +586,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("daily", "kl", "temperature_air_mean_2m"),
-    start_date="2020-01-01",
-    end_date="2020-01-02"
+    start="2020-01-01",
+    end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
 values = stations.values.all()
@@ -605,8 +605,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("daily", "kl", "temperature_air_mean_2m"),
-    start_date="2020-01-01",
-    end_date="2020-01-02"
+    start="2020-01-01",
+    end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
 values = stations.values.all()
@@ -636,8 +636,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 settings = Settings(ts_shape="long", ts_humanize=True, ts_convert_units=True)  # defaults
 request = DwdObservationRequest(
   parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-  start_date="2019-01-01",
-  end_date="2020-01-01",
+  start="2019-01-01",
+  end="2020-01-01",
   settings=settings
 )
 stations = request.filter_by_station_id(station_id=[1048])
@@ -660,8 +660,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=[("daily", "kl", "temperature_air_mean_2m")],
-    start_date="2022-01-01",
-    end_date="2022-01-05",
+    start="2022-01-01",
+    end="2022-01-05",
 )
 request.interpolate(latlon=(47.48, 11.06), elevation=1500)   # on the mountain
 request.interpolate(latlon=(47.48, 11.06), elevation=200)    # in the valley
@@ -719,8 +719,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("hourly", "temperature_air"),
-    start_date="2019-01-01",
-    end_date="2020-01-01",
+    start="2019-01-01",
+    end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
 stations.values.to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
@@ -738,8 +738,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("hourly", "temperature_air"),
-    start_date="2019-01-01",
-    end_date="2020-01-01",
+    start="2019-01-01",
+    end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
 stations.values.all().to_target("influxdb://localhost/?database=dwd&table=weather")
@@ -753,8 +753,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("hourly", "temperature_air"),
-    start_date="2019-01-01",
-    end_date="2020-01-01",
+    start="2019-01-01",
+    end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
 for station in stations.values.query():

@@ -941,9 +941,9 @@ class DwdRoadValues(TimeseriesValues):
     ) -> pl.DataFrame:
         """Read every file the group published for the window."""
         df_files = self._create_file_index_for_dwd_road_weather_station(road_weather_station_group)
-        if self.sr.start_date:
+        if self.sr.start:
             df_files = df_files.filter(
-                pl.col("timestamp").is_between(self.sr.start_date, self.sr.end_date),
+                pl.col("timestamp").is_between(self.sr.start, self.sr.end),
             )
         remote_files = df_files.get_column("filename").to_list()
         files = download_files(

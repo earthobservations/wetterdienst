@@ -29,6 +29,14 @@ Types of changes:
   `timestamp=2020-05-01` where you wrote `date=2020-05-01`; the old name is refused with an error
   naming the new one. The app sends `timestamp` from its next release; 0.18.1 and older send
   `date`, so upgrade the app with the backend (GH-2438)
+- **Breaking**: the request window is `start` / `end`, no longer `start_date` / `end_date`: write
+  `DwdObservationRequest(..., start=..., end=...)` for every provider's request and
+  `DwdRadarValues`, read `.start` / `.end` off a request or a `StationsResult`, and pass
+  `--start` / `--end` on the CLI. The old keywords and options fail with an error naming the new
+  one; reading the old attributes, or passing them by keyword to
+  `TimeseriesRequest.convert_timestamps`, is a plain Python error. Error messages that named the
+  pair name `start` / `end`. The station columns `start_date` / `end_date` keep their names
+  (GH-2437)
 
 ## [0.141.0] - 2026-10-06
 

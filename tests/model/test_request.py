@@ -3,6 +3,7 @@
 """Tests for DWD observation data API."""
 
 import datetime as dt
+import inspect
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -16,6 +17,7 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
     DwdObservationRequest,
 )
+from wetterdienst.provider.metno.frost import MetnoFrostRequest
 
 
 @pytest.fixture
@@ -82,8 +84,8 @@ def default_request(default_settings: Settings) -> TimeseriesRequest:
     return DwdObservationRequest(
         parameters=[("hourly", "temperature_air")],
         periods="historical",
-        start_date=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2020, 1, 20, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2020, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
 
@@ -99,8 +101,8 @@ def test_dwd_observation_data_api_singe_parameter(default_settings: Settings) ->
     assert request == DwdObservationRequest(
         parameters=[DwdObservationMetadata.daily.kl.precipitation_amount],
         periods={Period.HISTORICAL, Period.RECENT},
-        start_date=None,
-        end_date=None,
+        start=None,
+        end=None,
     )
 
 
@@ -134,8 +136,8 @@ def test_dwd_observation_wrong_start_date_end_date(default_settings: Settings) -
     with pytest.raises(StartDateEndDateError):
         DwdObservationRequest(
             parameters=[("daily", "kl", "precipitation_amount")],
-            start_date="1971-01-01",
-            end_date="1951-01-01",
+            start="1971-01-01",
+            end="1951-01-01",
             settings=default_settings,
         )
 
@@ -144,11 +146,11 @@ def test_dwd_observation_data_dates(default_settings: Settings) -> None:
     """Test for dates."""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
-        start_date="1971-01-01",
+        start="1971-01-01",
         settings=default_settings,
     )
-    assert request.start_date == dt.datetime(1971, 1, 1, tzinfo=ZoneInfo("UTC"))
-    assert request.end_date == dt.datetime(1971, 1, 1, tzinfo=ZoneInfo("UTC"))
+    assert request.start == dt.datetime(1971, 1, 1, tzinfo=ZoneInfo("UTC"))
+    assert request.end == dt.datetime(1971, 1, 1, tzinfo=ZoneInfo("UTC"))
     assert request.periods == {Period.HISTORICAL}
 
 
@@ -278,8 +280,8 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "temperature_air_mean_2m"), ("hourly", "precipitation", "precipitation_amount")],
         settings=default_settings,
-        start_date=dt.datetime(1900, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(1900, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id(("02315", "01050", "19140"))
     assert request.parameters == [
         DwdObservationMetadata.daily.kl.temperature_air_mean_2m,
@@ -440,8 +442,8 @@ def test_periods_derived_from_dates_stay_within_what_is_published(default_settin
     now = dt.datetime.now(tz=ZoneInfo("UTC"))
     request = DwdObservationRequest(
         parameters=["daily/kl"],
-        start_date=now,
-        end_date=now,
+        start=now,
+        end=now,
         settings=default_settings,
     )
     assert request.periods == {Period.RECENT}
@@ -507,3 +509,56 @@ def test_position_by_station_id_takes_an_elevation_any_resolution_knows(
     assert (latitude, longitude) == (rows[order[0]]["latitude"], rows[order[0]]["longitude"])
     with pytest.raises(StationNotFoundError, match="no station found for CAN00000000"):
         request._get_position_by_station_id("CAN00000000")  # noqa: SLF001
+
+
+@pytest.mark.parametrize(("old", "new"), [("start_date", "start"), ("end_date", "end")])
+@pytest.mark.parametrize("request_class", [TimeseriesRequest, DwdObservationRequest])
+def test_request_refuses_a_renamed_argument_by_its_new_name(
+    request_class: type[TimeseriesRequest],
+    old: str,
+    new: str,
+) -> None:
+    """Test the old window argument names the new one, on the base request and on a provider's (GH-2437).
+
+    The base class has no metadata and fails in __post_init__, so its refusal shows that the check
+    runs before the dataclass __init__, not in a provider.
+    """
+    with pytest.raises(TypeError, match=rf"^{request_class.__name__}\(\) argument '{old}' was renamed to '{new}'$"):
+        request_class(parameters=[("daily", "kl")], **{old: "2020-01-01"})
+
+
+def test_request_refuses_both_renamed_arguments_at_once() -> None:
+    """Test a caller passing the old pair learns of both renames from the one error (GH-2437)."""
+    with pytest.raises(
+        TypeError,
+        match=r"^DwdObservationRequest\(\) arguments 'start_date' and 'end_date' were renamed to 'start' and 'end'$",
+    ):
+        DwdObservationRequest(parameters=[("daily", "kl")], start_date="2020-01-01", end_date="2020-01-02")
+
+
+@pytest.mark.parametrize("request_class", [TimeseriesRequest, MetnoFrostRequest, DwdObservationRequest])
+def test_request_signature_names_the_window_arguments(request_class: type[TimeseriesRequest]) -> None:
+    """Test help() and IPython still see a request's arguments behind the refusing __new__ (GH-2437).
+
+    MetnoFrostRequest is no dataclass of its own, so it inherits both __new__ and __init__.
+    """
+    parameters = inspect.signature(request_class).parameters
+    assert list(parameters)[:3] == ["parameters", "start", "end"]
+
+
+def test_request_keeps_the_window_under_its_new_names(default_settings: Settings) -> None:
+    """Test start and end are taken by the request and read back from its stations result (GH-2437)."""
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+
+    request = DwdObservationRequest(
+        parameters=[("daily", "kl")], start="2020-01-01", end="2020-01-02T12:00", settings=default_settings
+    )
+    assert request.start == dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))
+    assert request.end == dt.datetime(2020, 1, 2, 12, tzinfo=ZoneInfo("UTC"))
+    stations = StationsResult(
+        stations=request,
+        df=pl.DataFrame(),
+        df_all=pl.DataFrame(),
+        stations_filter=StationsFilter.ALL,
+    )
+    assert (stations.start, stations.end) == (request.start, request.end)

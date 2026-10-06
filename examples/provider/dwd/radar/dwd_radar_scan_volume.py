@@ -59,8 +59,8 @@ def radar_scan_volume() -> None:  # noqa: C901
     for el in elevations:
         request_velocity = DwdRadarValues(
             parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-            start_date=start_date,
-            end_date=end_date,
+            start=start_date,
+            end=end_date,
             elevation=el,
             site=DwdRadarSite.ESS,
             fmt=DwdRadarDataFormat.HDF5,
@@ -69,8 +69,8 @@ def radar_scan_volume() -> None:  # noqa: C901
         )
         request_reflectivity = DwdRadarValues(
             parameter=DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
-            start_date=start_date,
-            end_date=end_date,
+            start=start_date,
+            end=end_date,
             elevation=el,
             site=DwdRadarSite.ESS,
             fmt=DwdRadarDataFormat.HDF5,

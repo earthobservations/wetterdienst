@@ -318,8 +318,8 @@ def test_metoffice_observation_values_daily_rain() -> None:
     df = (
         MetOfficeObservationRequest(
             parameters=[("daily", "rain", "precipitation_amount")],
-            start_date=dt.datetime(2023, 7, 1, tzinfo=UTC),
-            end_date=dt.datetime(2023, 7, 10, tzinfo=UTC),
+            start=dt.datetime(2023, 7, 1, tzinfo=UTC),
+            end=dt.datetime(2023, 7, 10, tzinfo=UTC),
         )
         .filter_by_station_id(LERWICK)
         .values.all()
@@ -341,8 +341,8 @@ def test_metoffice_observation_values_daily_temperature_one_row_per_day() -> Non
     df = (
         MetOfficeObservationRequest(
             parameters=[("daily", "temperature")],
-            start_date=dt.datetime(2023, 7, 1, tzinfo=UTC),
-            end_date=dt.datetime(2023, 7, 5, tzinfo=UTC),
+            start=dt.datetime(2023, 7, 1, tzinfo=UTC),
+            end=dt.datetime(2023, 7, 5, tzinfo=UTC),
         )
         .filter_by_station_id(LERWICK)
         .values.all()

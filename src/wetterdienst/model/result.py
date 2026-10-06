@@ -184,14 +184,14 @@ class StationsResult(ExportMixin):
         return self.stations._history.from_stations(self)  # noqa: SLF001
 
     @property
-    def start_date(self) -> datetime | None:
-        """Get start date from the request."""
-        return cast("datetime | None", self.stations.start_date)
+    def start(self) -> datetime | None:
+        """Get the start of the requested window."""
+        return cast("datetime | None", self.stations.start)
 
     @property
-    def end_date(self) -> datetime | None:
-        """Get end date from the request."""
-        return cast("datetime | None", self.stations.end_date)
+    def end(self) -> datetime | None:
+        """Get the end of the requested window."""
+        return cast("datetime | None", self.stations.end)
 
     @property
     def station_id(self) -> pl.Series:

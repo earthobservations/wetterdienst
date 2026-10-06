@@ -194,8 +194,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=[("hourly", "solar", "true_local_time_offset")],
-    start_date="2023-11-10",
-    end_date="2023-11-10 06:00",
+    start="2023-11-10",
+    end="2023-11-10 06:00",
 ).filter_by_station_id("00183")
 ```
 

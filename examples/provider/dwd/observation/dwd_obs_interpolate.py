@@ -15,8 +15,8 @@ def interpolate_example() -> None:
     """Retrieve temperature data by DWD and filter by sql statement."""
     request = DwdObservationRequest(
         parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-        start_date="2019-01-01",
-        end_date="2020-01-01",
+        start="2019-01-01",
+        end="2020-01-01",
     )
 
     frankfurt = (50.11, 8.68)

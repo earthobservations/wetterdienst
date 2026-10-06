@@ -73,12 +73,12 @@ class LhmtObservationValues(TimeseriesValues):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         # the per-day endpoint requires a date range to address the days to fetch
-        if not self.sr.start_date or not self.sr.end_date:
+        if not self.sr.start or not self.sr.end:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         settings = cast("Settings", self.sr.stations.settings)
         frames = []
-        for day in _days(self.sr.start_date, self.sr.end_date):
+        for day in _days(self.sr.start, self.sr.end):
             content = self._download_day(station_id, day, settings)
             if content is None:
                 continue

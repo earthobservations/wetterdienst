@@ -166,8 +166,8 @@ def test_lhmt_observation_values() -> None:
     df = (
         LhmtObservationRequest(
             parameters=[("hourly", "data")],
-            start_date=dt.datetime(2020, 7, 1, tzinfo=UTC),
-            end_date=dt.datetime(2020, 7, 1, 23, tzinfo=UTC),
+            start=dt.datetime(2020, 7, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 7, 1, 23, tzinfo=UTC),
         )
         .filter_by_station_id(VILNIUS)
         .values.all()

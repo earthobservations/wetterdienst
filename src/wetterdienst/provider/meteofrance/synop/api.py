@@ -119,14 +119,14 @@ class MeteoFranceSynopValues(TimeseriesValues):
     ) -> pl.DataFrame:
         dataset = cast("DatasetModel", parameter_or_dataset)
         current_year = datetime.now(tz=ZoneInfo("UTC")).year
-        start_date = self.sr.start_date or datetime(_SYNOP_ARCHIVE_START_YEAR, 1, 1, tzinfo=ZoneInfo("UTC"))
-        end_date = self.sr.end_date or datetime.now(tz=ZoneInfo("UTC"))
+        start_date = self.sr.start or datetime(_SYNOP_ARCHIVE_START_YEAR, 1, 1, tzinfo=ZoneInfo("UTC"))
+        end_date = self.sr.end or datetime.now(tz=ZoneInfo("UTC"))
         settings = cast("Settings", self.sr.stations.settings)
         parameter_columns = [parameter.name_original for parameter in dataset]
         read_columns = ["geo_id_wmo", "validity_time", *parameter_columns]
         dfs = []
         # clamp to the years actually covered by the archive: station opening dates (used as a
-        # fallback start_date by e.g. the app) can predate 1996, and requesting a year
+        # request start by e.g. the app) can predate 1996, and requesting a year
         # outside [1996, current_year] would 404
         first_year = max(start_date.year, _SYNOP_ARCHIVE_START_YEAR)
         last_year = min(end_date.year, current_year)

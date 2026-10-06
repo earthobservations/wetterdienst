@@ -17,8 +17,8 @@ def get_summarized_df(start_date: dt.datetime, end_date: dt.datetime, lat: float
     """Get summarized data for a location."""
     stations = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     )
     return stations.summarize(latlon=(lat, lon)).df
 
@@ -27,8 +27,8 @@ def get_regular_df(start_date: dt.datetime, end_date: dt.datetime, station_id: s
     """Get regular data for a station."""
     stations = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
-        start_date=start_date,
-        end_date=end_date,
+        start=start_date,
+        end=end_date,
     )
     request = stations.filter_by_station_id(station_id)
     return request.values.all().df

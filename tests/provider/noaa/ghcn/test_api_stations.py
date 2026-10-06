@@ -494,8 +494,8 @@ def test_noaa_ghcn_hourly_stations_without_position_fetched_by_id(
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file_without_position)
     request = NoaaGhcnRequest(
         parameters=[NoaaGhcnMetadata.hourly.data.temperature_air_mean_2m],
-        start_date=dt.datetime(1938, 1, 1, tzinfo=ZoneInfo("UTC")),
-        end_date=dt.datetime(1938, 1, 31, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(1938, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(1938, 1, 31, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     )
     stations = request.filter_by_station_id(station_id)

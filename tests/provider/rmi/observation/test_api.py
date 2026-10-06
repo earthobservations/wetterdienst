@@ -230,8 +230,8 @@ def test_collect_reshapes_wide_features_to_long_utc_values() -> None:
     values = object.__new__(rmi_api.RmiObservationValues)
     values.sr = SimpleNamespace(
         stations=SimpleNamespace(settings=Settings(cache_disable=True)),
-        start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
-        end_date=dt.datetime(2023, 6, 1, 1, tzinfo=UTC),
+        start=dt.datetime(2023, 6, 1, tzinfo=UTC),
+        end=dt.datetime(2023, 6, 1, 1, tzinfo=UTC),
     )
     # bypass the network: feed the reshape a single wide page
     values._iter_value_pages = lambda *_args, **_kwargs: iter([wide])  # noqa: SLF001
@@ -272,8 +272,8 @@ def test_rmi_observation_values_hourly_utc() -> None:
     """Hourly values include both range boundaries and are UTC-aligned to the start of the hour."""
     request = rmi_api.RmiObservationRequest(
         parameters=[("hourly", "data", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
-        end_date=dt.datetime(2023, 6, 1, 5, tzinfo=UTC),
+        start=dt.datetime(2023, 6, 1, tzinfo=UTC),
+        end=dt.datetime(2023, 6, 1, 5, tzinfo=UTC),
     ).filter_by_station_id([UCCLE])
     values = request.values.all().df
     dates = values.get_column("timestamp").sort().to_list()
@@ -288,8 +288,8 @@ def test_rmi_observation_values_daily() -> None:
     """Daily values are labelled at UTC midnight and include both range boundaries."""
     request = rmi_api.RmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
-        end_date=dt.datetime(2023, 6, 5, tzinfo=UTC),
+        start=dt.datetime(2023, 6, 1, tzinfo=UTC),
+        end=dt.datetime(2023, 6, 5, tzinfo=UTC),
     ).filter_by_station_id([UCCLE])
     values = request.values.all().df
     dates = values.get_column("timestamp").sort().to_list()
@@ -304,8 +304,8 @@ def test_rmi_observation_values_10_minutes() -> None:
     """10-minute values are UTC-aligned to the start of each interval."""
     request = rmi_api.RmiObservationRequest(
         parameters=[("10_minutes", "data", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
-        end_date=dt.datetime(2023, 6, 1, 0, 50, tzinfo=UTC),
+        start=dt.datetime(2023, 6, 1, tzinfo=UTC),
+        end=dt.datetime(2023, 6, 1, 0, 50, tzinfo=UTC),
     ).filter_by_station_id([UCCLE])
     values = request.values.all().df
     assert values.get_column("timestamp").min() == dt.datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
@@ -318,8 +318,8 @@ def test_rmi_observation_values_empty_for_unknown_station() -> None:
     settings = Settings(cache_disable=True)
     request = rmi_api.RmiObservationRequest(
         parameters=[("hourly", "data", "temperature_air_mean_2m")],
-        start_date=dt.datetime(2023, 6, 1, tzinfo=UTC),
-        end_date=dt.datetime(2023, 6, 1, 5, tzinfo=UTC),
+        start=dt.datetime(2023, 6, 1, tzinfo=UTC),
+        end=dt.datetime(2023, 6, 1, 5, tzinfo=UTC),
         settings=settings,
     ).filter_by_station_id(["99999"])
     values = request.values.all().df

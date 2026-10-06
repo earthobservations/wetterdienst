@@ -253,8 +253,8 @@ def test_mosmix_date_filter(settings_drop_nulls_false: Settings) -> None:
     now = dt.datetime.now(tz=ZoneInfo("UTC"))
     request = DwdMosmixRequest(
         parameters=[("hourly", "small")],
-        start_date=now - dt.timedelta(hours=1),
-        end_date=now,
+        start=now - dt.timedelta(hours=1),
+        end=now,
         issue=now - dt.timedelta(hours=5),
         settings=settings_drop_nulls_false,
     ).filter_by_rank(latlon=(52.122050, 11.619845), rank=1)

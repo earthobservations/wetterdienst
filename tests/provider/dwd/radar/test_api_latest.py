@@ -23,7 +23,7 @@ def test_radar_request_composite_latest_rv_reflectivity(
     """Example for testing radar COMPOSITES latest."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RV_REFLECTIVITY,
-        start_date=DwdRadarDate.LATEST,
+        start=DwdRadarDate.LATEST,
         settings=default_settings,
     )
 
@@ -46,7 +46,7 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings: Settin
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RW_REFLECTIVITY,
-        start_date=DwdRadarDate.LATEST,
+        start=DwdRadarDate.LATEST,
         settings=default_settings,
     )
 
@@ -92,7 +92,7 @@ def test_radar_request_site_latest_dx_reflectivity(default_settings: Settings) -
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.DX_REFLECTIVITY,
-        start_date=DwdRadarDate.LATEST,
+        start=DwdRadarDate.LATEST,
         site=DwdRadarSite.BOO,
         settings=default_settings,
     )

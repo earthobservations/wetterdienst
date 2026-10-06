@@ -122,8 +122,8 @@ class EcccObservationValues(TimeseriesValues):
             {"LOCAL_DATE": pl.String} | {f: (pl.String if f.endswith("FLAG") else pl.Float64) for f in fields}
         )
         data = []
-        start_year = self.sr.start_date.year if self.sr.start_date else station_meta["start_date"].year
-        end_year = self.sr.end_date.year if self.sr.end_date else station_meta["end_date"].year
+        start_year = self.sr.start.year if self.sr.start else station_meta["start_date"].year
+        end_year = self.sr.end.year if self.sr.end else station_meta["end_date"].year
         for year in range(start_year, end_year + 1):
             # shamefully (almost just) copied from meteostat/meteostat
             # source: https://github.com/meteostat/meteostat/blob/a5fd7970e41cd0e76a4cc5a1cb4e2cc2caea9c86/meteostat/providers/eccc/hourly.py#L58C1-L67C6
