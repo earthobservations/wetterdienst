@@ -633,8 +633,7 @@ def test_cli_estimate_at_a_station_without_position(
                 "--date=1938-01-02",
             ],
         )
-    assert result.exit_code == 1
-    assert [record.message for record in caplog.records] == [
-        "station AUM00011158 has no position to interpolate or summarize at",
-    ]
-    assert all(record.exc_info is None for record in caplog.records)
+    # a usage error, as the REST API answers it with a 4xx (GH-2426)
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith("\n\nError: station AUM00011158 has no position to interpolate or summarize at\n")
+    assert not caplog.records

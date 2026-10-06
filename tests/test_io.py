@@ -3550,3 +3550,11 @@ def test_values_plot_of_an_empty_wide_frame_is_an_empty_figure() -> None:
     )
     df = stations.values._widen_df(pl.DataFrame(schema=TimeseriesValues._long_fields))  # noqa: SLF001
     assert ValuesResult(stations=stations, values=stations.values, df=df).to_plot().data == ()
+
+
+def test_export_file_relative_target_with_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`file://out/data.csv` writes `./out/data.csv`, not `/data.csv` with `out` read as a host."""
+    monkeypatch.chdir(tmp_path)
+    tmp_path.joinpath("out").mkdir()
+    _one_row().to_target("file://out/data.csv")
+    assert pl.read_csv(tmp_path / "out" / "data.csv").height == 1

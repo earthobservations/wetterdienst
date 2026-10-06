@@ -50,8 +50,9 @@ Three properties of the CLI matter for a scheduler:
 - **A database path is relative unless you give it four slashes.** `duckdb:///obs.duckdb` names a
   file in the working directory, because the connection string's leading `/` separates the host
   from the path. For an absolute one, write `duckdb:////var/lib/wetterdienst/obs.duckdb`, or set
-  `WorkingDirectory=` in the unit. `file://` targets are not affected — those are read as the
-  absolute path they look like.
+  `WorkingDirectory=` in the unit. A `file://` target is read differently: everything after
+  `file://` is the path, so `file:///var/lib/wetterdienst/kl.csv` is absolute and
+  `file://kl.csv` names a file in the working directory.
 
 ## systemd timer (Linux)
 

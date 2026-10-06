@@ -67,8 +67,8 @@ _URL_PATTERN = re.compile(
     re.VERBOSE,
 )
 
-# a file sink is addressed by a path, which is read as `urlparse` reads it: a Windows path
-# such as `duckdb:///C:\data\dwd.duckdb` would give SQLAlchemy's pattern a host `C`
+# a file sink is addressed by a path, not read with SQLAlchemy's pattern: a Windows path
+# such as `duckdb:///C:\data\dwd.duckdb` would give it a host `C`
 _FILE_PREFIXES = ("file://", "duckdb://")
 
 
@@ -79,7 +79,9 @@ class ConnectionString:
     CrateDB read it with `urlparse` before, which ends the host part at the first `/`, `?` or
     `#`, so a password holding one was split and its pieces became the port and database, and
     from there a log line. The username, password and database are percent-decoded, as
-    SQLAlchemy decodes them. A file or DuckDB target is a path, and is read with `urlparse`.
+    SQLAlchemy decodes them. A DuckDB target is a path, and is read with `urlparse`; a file
+    target's path is everything after `file://`, so `file://out/data.csv` is relative and
+    `file:///data/out.csv` absolute.
 
     Raises:
         ExportRefusedError: The target is not a URL, names a port that is not a number, or its
@@ -102,9 +104,16 @@ class ConnectionString:
         """
         self.url_raw = url
         if url.startswith(_FILE_PREFIXES):
+            self._host = self._port = self._username = self._password = None
+            if url.startswith("file://"):
+                # everything after `file://` is the path, as `alerts` and `history` read it:
+                # `urlparse` takes the first segment of `file://out/data.csv` as a host and leaves
+                # `/data.csv`, so the relative path would land at the root
+                self._name, self._database, self._query = "file", None, ""
+                self._path = url.removeprefix("file://")
+                return
             parsed = urlparse(url)
             self._name = parsed.scheme
-            self._host = self._port = self._username = self._password = None
             self._database = parsed.path[1:] if parsed.path.startswith("/") else None
             self._query = parsed.query
             self._path = parsed.path or parsed.netloc
