@@ -56,6 +56,11 @@ Types of changes:
 
 ### Fixed
 
+- MCP: an MCP tool's in-process request to the REST API gets no fastapi server span and no
+  `http.server.*` metrics of its own. It started a trace of its own, cut off from the tool call's,
+  and counted each tool call a second time. Over `/mcp`, fastapi's operation spans for it now sit
+  beneath the tool call's span. The middleware of `opentelemetry-instrumentation-fastapi`, where it
+  runs, still records the request (GH-2432)
 - On Windows, DWD road values and DWD radar BUFR read with `Settings(read_bufr=True)` decode. Road
   values raised `PermissionError`, and radar logged "Unable to read BUFR file." and left
   `result.df` as `None` (GH-2446)

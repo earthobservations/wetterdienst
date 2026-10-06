@@ -67,6 +67,7 @@ from wetterdienst.ui.core import (
     select_history_sections,
     set_logging_level,
 )
+from wetterdienst.ui.mcp import is_tool_request
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.ui import read_list
 
@@ -84,8 +85,9 @@ info = Info()
 # export from `OTEL_EXPORTER_OTLP_*` is off: it would set up providers where the OpenTelemetry SDK
 # is installed and none is, add a second exporter to one the operator set up, and where it cannot
 # export (no SDK, gRPC) warn on fastapi 0.142.2 and refuse to start on 0.142.0 and 0.142.1. To
-# export, set up the provider, e.g. with `opentelemetry-instrument` (GH-2407)
-app = FastAPI(debug=False, telemetry={"auto_configure": False})
+# export, set up the provider, e.g. with `opentelemetry-instrument` (GH-2407). An MCP tool's
+# in-process request to this app is left out, see `is_tool_request` (GH-2432)
+app = FastAPI(debug=False, telemetry={"auto_configure": False, "exclude": is_tool_request})
 
 
 class _RefuseInvalidSettings:

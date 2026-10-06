@@ -25,11 +25,46 @@ from typing import TYPE_CHECKING
 from wetterdienst import __version__
 
 if TYPE_CHECKING:
+    from collections.abc import MutableMapping
+    from typing import Any
+
     from fastapi import FastAPI
     from fastmcp import FastMCP
+    from starlette.types import ASGIApp, Receive, Scope, Send
 
 # Internal ASGI base URL for the in-process httpx2 client that backs the tools.
 _ASGI_BASE_URL = "http://wetterdienst.local"
+
+# The ASGI scope key that marks a tool's in-process request to the REST app.
+_TOOL_REQUEST_SCOPE_KEY = "wetterdienst.mcp_tool_request"
+
+
+def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
+    """Tell whether an ASGI request is an MCP tool's in-process request to the REST app.
+
+    The REST app's fastapi telemetry gives these no server span, no `http.server.*` metrics and no
+    exception log of their own (GH-2432): their spans would start a trace of their own, cut off from
+    the tool call's, and the metrics would count each tool call twice. A tool called over `/mcp`
+    runs in that request's context, so fastapi records the tool request's operation spans, its
+    telemetry data and a validation failure of its parameters as the `/mcp` request's, the spans
+    beneath the tool call's span. The middleware of `opentelemetry-instrumentation-fastapi`, where
+    it runs, does not read fastapi's `exclude` and still records them.
+
+    A scope key, not the Host header or `server`, tells them apart, because a client sets its own
+    Host header, some ASGI servers build `server` from it, and no client can set a scope key.
+    """
+    return scope.get(_TOOL_REQUEST_SCOPE_KEY) is True
+
+
+def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
+    """Wrap the REST app so each request the tools send it carries the scope key `is_tool_request` checks."""
+
+    async def marked(scope: Scope, receive: Receive, send: Send) -> None:
+        scope[_TOOL_REQUEST_SCOPE_KEY] = True
+        await app(scope, receive, send)
+
+    return marked
+
 
 INSTRUCTIONS = """\
 Wetterdienst provides weather & climate data from national weather services (Germany's DWD by \
@@ -151,8 +186,12 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
 
     route_maps = [RouteMap(pattern=pattern, mcp_type=MCPType.EXCLUDE) for pattern in _EXCLUDE_PATTERNS]
     # httpx2, not httpx: FastMCP 4 types ``OpenAPIProvider.client`` as ``httpx2.AsyncClient`` and
-    # drives it directly, so the two clients are not interchangeable here.
-    client = httpx2.AsyncClient(transport=httpx2.ASGITransport(app=rest_app), base_url=_ASGI_BASE_URL)
+    # drives it directly, so the two clients are not interchangeable here. The requests are marked so
+    # the REST app leaves them out of fastapi's telemetry (GH-2432)
+    client = httpx2.AsyncClient(
+        transport=httpx2.ASGITransport(app=_mark_tool_requests(rest_app)),
+        base_url=_ASGI_BASE_URL,
+    )
     provider = OpenAPIProvider(
         openapi_spec=rest_app.openapi(),
         client=client,
