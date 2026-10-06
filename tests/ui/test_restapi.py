@@ -3060,7 +3060,7 @@ def _year_10000_message() -> str:
         pytest.param(
             "/api/interpolate",
             {**_OBSERVATION, "latitude": 85.0, "longitude": 10.0, "date": "2020-06-30"},
-            404,
+            400,
             "latitude out of range (must be between 80 deg S and 84 deg N)",
             id="interpolate-point-beyond-utm",
         ),
@@ -3100,11 +3100,12 @@ def test_a_refusal_of_the_request_keeps_its_4xx(
     status: int,
     detail: str,
 ) -> None:
-    """A request refused for what it asks is still the caller's to fix, and answers as it did (GH-2252).
+    """A request refused for what it asks is still the caller's to fix, and answers with a 4xx (GH-2252).
 
     Each is refused before anything is downloaded, so these are real requests rather than stubs.
-    The 404s from the geo endpoints are the status those answered with before; only failures that
-    are not a refusal of the request moved, to a 500.
+    The 404s from the geo endpoints are the status those answered with before GH-2252; only failures
+    that are not a refusal of the request moved, to a 500. A point beyond the latitudes UTM covers
+    is a 400 since GH-2385, as the other points the geo endpoints cannot answer at are.
     """
     response = client.get(endpoint, params=params)
 
@@ -5932,6 +5933,279 @@ def test_openapi_with_a_route_added_keeps_the_servers_defaults(monkeypatch: pyte
         parameter for parameter in schema["paths"]["/api/values"]["get"]["parameters"] if parameter["name"] == "shape"
     )
     assert shape["schema"]["default"] == "wide"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_does_not_configure_opentelemetry_export_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An `OTEL_EXPORTER_OTLP_ENDPOINT` leaves the server's start alone (GH-2407).
+
+    FastAPI 0.142 adds OTLP exporters from the `OTEL_*` variables as an app starts; the REST API
+    turns that off. The gRPC protocol, which fastapi refuses before it looks for the OpenTelemetry
+    SDK, makes it warn whether the SDK is installed or not, so the warning tells it ran.
+    """
+    for name in list(os.environ):
+        if name.startswith("OTEL_"):
+            monkeypatch.delenv(name)
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:4317")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
+
+    assert _start_lifespan(caplog)
+    assert not [record for record in caplog.records if record.name.startswith("fastapi")]
+
+
+def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: list[float]) -> None:
+    """Answer the stripes of station 01048 offline: its listing, and one value a year from 2000."""
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    dataset, name_original = {
+        "temperature": ("climate_summary", "ja_tt"),
+        "precipitation": ("precipitation_more", "ja_rr"),
+    }[kind]
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "annual",
+                "dataset": dataset,
+                "station_id": "01048",
+                "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+                "end_date": dt.datetime(2025, 12, 31, tzinfo=dt.timezone.utc),
+                "latitude": 51.1278,
+                "longitude": 13.7543,
+                "elevation": 228.0,
+                "name": "Dresden-Klotzsche",
+                "state": "Sachsen",
+            },
+        ],
+    )
+
+    def _all(self: DwdObservationRequest) -> StationsResult:
+        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+
+    def _collect(
+        self: DwdObservationValues,  # noqa: ARG001
+        station_id: str,
+        parameter_or_dataset: object,  # noqa: ARG001
+    ) -> pl.DataFrame:
+        # as the source has them: named by its codes, in the unit it publishes
+        return pl.DataFrame(
+            [
+                {
+                    "station_id": station_id,
+                    "resolution": "annual",
+                    "dataset": dataset,
+                    "parameter": name_original,
+                    "timestamp": dt.datetime(2000 + offset, 1, 1, tzinfo=dt.timezone.utc),
+                    "value": value,
+                    "quality": 10.0,
+                }
+                for offset, value in enumerate(values)
+            ],
+            schema_overrides={"value": pl.Float64},
+        )
+
+    monkeypatch.setattr(DwdObservationRequest, "all", _all)
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", _collect)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("kind", "environment", "unit", "expected"),
+    [
+        pytest.param("temperature", {}, "degree_celsius", [1.0, 2.0], id="temperature"),
+        pytest.param(
+            "temperature",
+            {"WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}'},
+            "degree_fahrenheit",
+            [33.8, 35.6],
+            id="temperature-fahrenheit",
+        ),
+        pytest.param(
+            "temperature",
+            {"WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}', "WD_TS_CONVERT_UNITS": "false"},
+            "degree_celsius",
+            [1.0, 2.0],
+            id="temperature-fahrenheit-unconverted",
+        ),
+        pytest.param("precipitation", {}, "millimeter", [1.0, 2.0], id="precipitation"),
+        pytest.param(
+            "precipitation",
+            {"WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}'},
+            "millimeter",
+            [1.0, 2.0],
+            id="precipitation-fahrenheit",
+        ),
+    ],
+)
+def test_stripes_values_name_the_unit_the_server_converts_to(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    kind: str,
+    environment: dict[str, str],
+    unit: str,
+    expected: list[float],
+) -> None:
+    """The stripes metadata names the unit of their values, which the server's settings set (GH-2372).
+
+    The stripes read a station's values with the server's `WD_TS_CONVERT_UNITS` and
+    `WD_TS_UNIT_TARGETS`, so a station whose annual mean was 1.0 °C came back as 33.8 under a
+    Fahrenheit target, with nothing in the metadata saying so. The station's listing and download
+    are stubbed, so the conversion runs and nothing leaves the machine. The station's record is
+    1.0 and 2.0 in the source's unit; `expected` is what comes back.
+    """
+    for name, setting in environment.items():
+        monkeypatch.setenv(name, setting)
+    _stub_stripes_station(monkeypatch, kind, [1.0, 2.0])
+
+    response = client.get("/api/stripes/values", params={"kind": kind, "station": "01048"})
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["metadata"]["unit"] == unit
+    assert [item["value"] for item in data["values"]] == expected
+    # named by the parameter the unit is taken from
+    assert (data["metadata"]["resolution"], data["metadata"]["dataset"], data["metadata"]["parameter"]) == {
+        "temperature": ("annual", "climate_summary", "temperature_air_mean_2m"),
+        "precipitation": ("annual", "precipitation_more", "precipitation_amount"),
+    }[kind]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_mcp_stripes_values_name_the_unit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The MCP `stripes_values` tool passes on the unit the stripes metadata names (GH-2372)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+
+    async def _call() -> dict:
+        async with Client(build_mcp_server(restapi.app)) as mcp_client:
+            result = await mcp_client.call_tool("stripes_values", {"kind": "temperature", "station": "01048"})
+        return json.loads(result.content[0].text)
+
+    data = asyncio.run(_call())
+    assert data["metadata"]["unit"] == "degree_fahrenheit"
+    assert [item["value"] for item in data["values"]] == [33.8, 35.6]
+
+
+def _stub_a_station_without_position(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand in for the DWD station list with a station that has no position (GH-2385)."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    station = {
+        "resolution": "daily",
+        "dataset": "climate_summary",
+        "station_id": "09999",
+        "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+        "end_date": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "latitude": None,
+        "longitude": None,
+        "elevation": 228.0,
+        "name": "Nowhere",
+        "region": "Sachsen",
+    }
+    frame = pl.LazyFrame([station], schema_overrides={"latitude": pl.Float64, "longitude": pl.Float64})
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: frame)
+
+
+_LOCATION_OUT_OF_RANGE = [
+    pytest.param(
+        "interpolate",
+        {"latitude": 85, "longitude": 10},
+        "latitude out of range (must be between 80 deg S and 84 deg N)",
+        id="interpolate-beyond-utm",
+    ),
+    pytest.param(
+        "interpolate",
+        {"station": "09999"},
+        "station 09999 has no position to interpolate or summarize at",
+        id="interpolate-station-without-position",
+    ),
+    pytest.param(
+        "summarize",
+        {"station": "09999"},
+        "station 09999 has no position to interpolate or summarize at",
+        id="summarize-station-without-position",
+    ),
+]
+
+
+@pytest.mark.parametrize(("endpoint", "point", "detail"), _LOCATION_OUT_OF_RANGE)
+def test_geo_a_location_out_of_range_is_a_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    point: dict[str, object],
+    detail: str,
+) -> None:
+    """A point there is no estimate at is the caller's to move: a 400 and an info line (GH-2385).
+
+    It was answered with a 404 and its traceback logged as an error, where the other refusals of a
+    request that was understood get a 400. A point beyond the latitudes UTM covers reaches it on
+    interpolate only, as a summary converts nothing to UTM.
+    """
+    _stub_a_station_without_position(monkeypatch)
+    params = {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/kl/temperature_air_mean_2m",
+        "date": "2020-01-01",
+        **point,
+    }
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get(f"/api/{endpoint}", params=params)
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+    records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [
+        (logging.INFO, f"Failed to {endpoint}: {detail}")
+    ]
+    assert not any(record.exc_info for record in records)
+
+
+@pytest.mark.parametrize(("tool", "point", "detail"), _LOCATION_OUT_OF_RANGE)
+def test_mcp_a_location_out_of_range_is_a_400(
+    monkeypatch: pytest.MonkeyPatch,
+    tool: str,
+    point: dict[str, object],
+    detail: str,
+) -> None:
+    """The MCP tools are the REST API's routes, and answer such a point with the same 400 (GH-2385)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    _stub_a_station_without_position(monkeypatch)
+    mcp = build_mcp_server(restapi.app)
+    arguments = {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/kl/temperature_air_mean_2m",
+        "date": "2020-01-01",
+        **point,
+    }
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(tool, arguments)
+
+    with pytest.raises(ToolError, match="HTTP error 400") as error:
+        asyncio.run(_call())
+    assert detail in str(error.value)
 
 
 @pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])

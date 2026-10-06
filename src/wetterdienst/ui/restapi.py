@@ -20,6 +20,7 @@ from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
     InvalidTimeIntervalError,
+    LocationOutOfRangeError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
     StartDateEndDateError,
@@ -79,7 +80,12 @@ if TYPE_CHECKING:
 
 info = Info()
 
-app = FastAPI(debug=False)
+# FastAPI's OpenTelemetry stays on, so it reports to a provider the operator sets up. Its startup
+# export from `OTEL_EXPORTER_OTLP_*` is off: it would set up providers where the OpenTelemetry SDK
+# is installed and none is, add a second exporter to one the operator set up, and where it cannot
+# export (no SDK, gRPC) warn on fastapi 0.142.2 and refuse to start on 0.142.0 and 0.142.1. To
+# export, set up the provider, e.g. with `opentelemetry-instrument` (GH-2407)
+app = FastAPI(debug=False, telemetry={"auto_configure": False})
 
 
 class _RefuseInvalidSettings:
@@ -1101,16 +1107,17 @@ def _geo_values(
 
     Both endpoints answered every failure with a 404, which reads as "no such thing" for a request
     that was understood and simply cannot be served as phrased -- an elevation no station in reach
-    can be placed against, or a window that ends before it starts. Those are 400s, and a reader
-    missing on the server is a 501; the same three in both places, so they are decided here rather
-    than twice over.
+    can be placed against, a station without a position, a point an interpolation cannot place
+    beyond the latitudes UTM covers (a summary converts nothing to UTM), or a window that ends
+    before it starts. Those are 400s, and a reader missing on the server is a 501; the same
+    decisions in both places, so they are made here rather than twice over.
     """
     try:
         return get(api=api, request=request, settings=settings)
-    except (NoStationsWithElevationError, ParameterNotCarriedError) as e:
+    except (LocationOutOfRangeError, NoStationsWithElevationError, ParameterNotCarriedError) as e:
         # the message is the whole of it: which parameters lost their stations, and that asking
-        # without an elevation gets them back; or which parameters the run does not carry, and the
-        # lead time that does
+        # without an elevation gets them back; which parameters the run does not carry, and the
+        # lead time that does; or the latitudes UTM covers, or the station that has no position
         log.info(f"Failed to {what}: {e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
     except StartDateEndDateError as e:
@@ -1275,7 +1282,12 @@ def stripes_stations(
 def stripes_values(
     request: Annotated[StripesValuesRequest, Query()],
 ) -> Response:
-    """Get climate stripes data values with timestamps and metadata."""
+    """Get climate stripes data values with timestamps and metadata.
+
+    The JSON metadata names the unit of the values in `unit`, e.g. "degree_celsius". The server's
+    WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter
+    for: the target of the quantity where the values are converted, the source's unit where not.
+    """
     set_logging_level(debug=request.debug)
 
     # checked outside the handler below, as for `/api/stripes/stations`

@@ -3,13 +3,14 @@
 """Tests for settings."""
 
 import atexit
+import collections
 import copy
 import logging
 import os
 import re
 import tempfile
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from unittest import mock
 
@@ -995,6 +996,109 @@ def test_settings_drop_nulls_again_once_the_shape_assigned_is_long_again() -> No
     settings = Settings(ts_shape="wide", ts_drop_nulls=False)
     settings.ts_shape = "long"
     assert settings.ts_drop_nulls_effective is False
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("value", ["12345", "-12345", "123456789012345678901234567890"])
+def test_settings_auth_metno_frost_takes_an_all_digit_client_id_as_one(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    """An all-digit Frost client id, which the environment decodes as a number, is still an id (GH-2379)."""
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", value)
+    assert tuple(reveal(part) for part in Settings().auth.metno_frost) == (value, "")
+    assert tuple(reveal(part) for part in Settings(auth={"metno_frost": int(value)}).auth.metno_frost) == (value, "")
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("WD_AUTH__CEDA", "5"),
+        ("WD_AUTH__CEDA", "true"),
+        ("WD_AUTH__CEDA", '{"user": "x", "password": "y"}'),
+        ("WD_AUTH__METNO_FROST", "true"),
+        ("WD_AUTH__METNO_FROST", "1.5"),
+        ("WD_AUTH__METNO_FROST", '{"id": "x", "secret": "y"}'),
+    ],
+)
+def test_check_settings_names_an_auth_variable_that_is_no_credential(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    value: str,
+) -> None:
+    """A credential the environment decodes as something other than text or a pair is told by its variable.
+
+    Reading it as a pair used to fail with a bare `TypeError` that named nothing, which the check did
+    not catch; a JSON object was taken apart into its keys (GH-2379).
+    """
+    monkeypatch.setenv(name, value)
+    assert check_settings() == [f"{name} is invalid: Input should be a valid tuple"]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("auth", "field"),
+    [
+        ({"ceda": 5}, "ceda"),
+        ({"ceda": True}, "ceda"),
+        ({"metno_frost": 1.5}, "metno_frost"),
+        ({"metno_frost": {"id": "x", "secret": "y"}}, "metno_frost"),
+    ],
+)
+def test_settings_auth_refuses_a_value_that_is_no_credential_by_its_field(auth: dict, field: str) -> None:
+    """A credential given as something other than text or a pair is refused by its field (GH-2379)."""
+    with pytest.raises(ValidationError) as excinfo:
+        Settings(auth=auth)
+    assert [error["loc"] for error in excinfo.value.errors()] == [("auth", field)]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_validates_an_assigned_credential() -> None:
+    """A credential assigned after construction is held as one given to the constructor is (GH-2387)."""
+    settings = Settings()
+    settings.auth.knmi = "DUMMY-KNMI-KEY"
+    settings.auth.ceda = "DUMMY-CEDA-USER:DUMMY-CEDA-PASSWORD"
+    settings.auth.metno_frost = "DUMMY-FROST-ID"
+
+    assert isinstance(settings.auth.knmi, SecretStr)
+    assert reveal(settings.auth.knmi) == "DUMMY-KNMI-KEY"
+    assert all(isinstance(part, SecretStr) for part in settings.auth.ceda)
+    assert tuple(reveal(part) for part in settings.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
+    assert tuple(reveal(part) for part in settings.auth.metno_frost) == ("DUMMY-FROST-ID", "")
+    assert "DUMMY" not in repr(settings)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("aemet", "*" * 10),
+        ("ceda", ("*" * 10, "*" * 10)),
+        ("metno_frost", ("DUMMY-FROST-ID", "*" * 10)),
+    ],
+)
+def test_settings_auth_refuses_a_masked_value_assigned_as_a_credential(field: str, value: object) -> None:
+    """The mask a JSON dump leaves behind is refused on assignment as in the constructor (GH-2387)."""
+    settings = Settings()
+    with pytest.raises(ValidationError, match="mask"):
+        setattr(settings.auth, field, value)
+    assert getattr(settings.auth, field) is None
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("field", ["ceda", "metno_frost"])
+@pytest.mark.parametrize("container", [collections.deque, iter], ids=["deque", "iterator"])
+def test_settings_auth_reads_a_pair_from_another_iterable(field: str, container: Callable) -> None:
+    """A pair given as another iterable than a tuple or list is read as one, and its mask refused (GH-2379).
+
+    Leaving every value but a tuple or list for the field passed these on unread, and the mask in them
+    went unseen.
+    """
+    pair = Settings(auth={field: container(["DUMMY-ID", "DUMMY-SECRET"])}).auth
+    assert tuple(reveal(part) for part in getattr(pair, field)) == ("DUMMY-ID", "DUMMY-SECRET")
+    with pytest.raises(ValidationError, match="mask"):
+        Settings(auth={field: container(["DUMMY-ID", "*" * 10])})
 
 
 def _no_home(appname: str) -> str:

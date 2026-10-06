@@ -222,7 +222,8 @@ radarplus = [
     "xradar>=0.2,<1",
 ]
 restapi = [
-    "fastapi>=0.115,<1",
+    # >=0.142: ui/restapi.py passes `FastAPI(telemetry=...)`, which 0.142 added
+    "fastapi>=0.142,<1",
     "uvicorn[standard]>=0.30,<1",
 ]
 sql = [

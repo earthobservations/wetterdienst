@@ -15,13 +15,14 @@ import shutil
 import tempfile
 import threading
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Annotated, Literal
 
 import platformdirs
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Field,
     PrivateAttr,
     SecretStr,
@@ -87,6 +88,11 @@ class Auth(BaseModel):
     `reveal()` takes a value back out, and is the only thing that should.
     """
 
+    # a credential assigned after construction (`settings.auth.knmi = ...`) is wrapped, split and
+    # checked as one given to the constructor is; without it a plain `str` was kept, which `reveal()`
+    # could not read and which printed as it was (GH-2387)
+    model_config = ConfigDict(validate_assignment=True)
+
     aemet: SecretStr | None = Field(default=None)
     knmi: SecretStr | None = Field(default=None)
     metno_frost: tuple[SecretStr, SecretStr] | None = Field(default=None)
@@ -113,13 +119,23 @@ class Auth(BaseModel):
     @classmethod
     def validate_metno_frost(
         cls,
-        value: tuple[_Secretish, _Secretish] | _Secretish | None,
-    ) -> tuple[_Secretish, _Secretish] | None:
-        """Parse the Frost (client_id, secret) pair, a lone client id counting as one with no secret."""
+        value: object,
+    ) -> object:
+        """Parse the Frost (client_id, secret) pair, a lone client id counting as one with no secret.
+
+        An all-digit client id arrives as an `int`, as the environment decodes a nested value as JSON
+        where it parses, and is still an id. A mapping, or any other value that is not iterable -- a
+        float, `true`, a JSON object -- is left for the field to refuse, which names it, where reading
+        it as a pair failed with a bare `TypeError` or took the object's keys (GH-2379).
+        """
         if value is None:
             return None
+        if isinstance(value, int) and not isinstance(value, bool):
+            value = str(value)
         if isinstance(value, (str, SecretStr)):
             return value, ""
+        if isinstance(value, Mapping) or not isinstance(value, Iterable):
+            return value
         as_tuple = tuple(value)
         if len(as_tuple) != 2:
             msg = f"metno_frost must be a (client_id, secret) pair, got {len(as_tuple)} element(s)"
@@ -130,9 +146,15 @@ class Auth(BaseModel):
     @classmethod
     def validate_ceda(
         cls,
-        value: tuple[_Secretish, _Secretish] | _Secretish | None,
-    ) -> tuple[_Secretish, _Secretish] | None:
-        """Parse the CEDA (username, password) pair, e.g. from ``WD_AUTH__CEDA=username:password``."""
+        value: object,
+    ) -> object:
+        """Parse the CEDA (username, password) pair, e.g. from ``WD_AUTH__CEDA=username:password``.
+
+        A mapping, or a value that is neither that text nor iterable -- a number, `true` or a JSON
+        object, which the environment decodes as JSON -- is left for the field to refuse, which names
+        it, where reading it as a pair failed with a bare `TypeError` or took the object's keys
+        (GH-2379).
+        """
         if value is None:
             return None
         if isinstance(value, SecretStr):
@@ -145,6 +167,8 @@ class Auth(BaseModel):
                 msg = "ceda must be given as 'username:password'"
                 raise ValueError(msg)
             return username, password
+        if isinstance(value, Mapping) or not isinstance(value, Iterable):
+            return value
         as_tuple = tuple(value)
         if len(as_tuple) != 2:
             msg = f"ceda must be a (username, password) pair, got {len(as_tuple)} element(s)"

@@ -597,3 +597,53 @@ def test_noaa_ghcn_rank_without_any_position_says_so(
         ranked = request.filter_by_rank(latlon=(47.117, 13.733), rank=1)
     assert ranked.df.is_empty()
     assert "None of the stations has a position to be ranked by" in caplog.text
+
+
+def test_noaa_ghcn_hourly_stations_minus_99_elevation(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """The hourly list's -99.0 is a null elevation, while a real height below sea level stays (GH-2377).
+
+    The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it (2026-10-05). GJBAKKI, in
+    southwestern Iceland, is the only row listed at -99.0; SALTON SEA NAAF lies about 69 m below sea level.
+    """
+    station_list = (
+        "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        "ICM00004919,64.2481,-21.023,-99.0,,GJBAKKI,,,04919,,IS\n"
+        "USW00093118,33.2,-115.8333,-68.9,CA,SALTON SEA NAAF,,,,,US\n"
+    )
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        return File(url=url, content=BytesIO(station_list.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df
+    assert df.select("station_id", "elevation").rows() == [("ICM00004919", None), ("USW00093118", -68.9)]
+
+
+def test_noaa_ghcn_daily_stations_minus_100_elevation(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """The daily list's -100.0 is a null elevation, while a real height below sea level stays (GH-2418).
+
+    The rows are copied from `ghcnd-stations.txt` and `ghcnd-inventory.txt` as NOAA publishes them
+    (2026-10-06). SKJOMEN_SLETTJORD, by a fjord near Narvik, is one of the four rows listed at -100.0;
+    DEATH VALLEY NP lies about 59 m below sea level.
+    """
+    contents = {
+        "ghcnd-stations.txt": (
+            "SWE00140942  68.2900   17.3097 -100.0    SKJOMEN_SLETTJORD                           \n"
+            "USC00042319  36.4625 -116.8672  -59.1 CA DEATH VALLEY NP                    HCN      \n"
+        ),
+        "ghcnd-inventory.txt": (
+            "SWE00140942  68.2900   17.3097 PRCP 1971 2011\nUSC00042319  36.4625 -116.8672 PRCP 1961 2026\n"
+        ),
+    }
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        content = contents[url.rsplit("/", 1)[-1]]
+        return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    assert df.select("station_id", "elevation").rows() == [("SWE00140942", None), ("USC00042319", -59.1)]

@@ -16,8 +16,51 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- The `restapi` extra now needs `fastapi>=0.142` (was `>=0.115`), which brings `opentelemetry-api`;
+  upgrade fastapi where it is pinned lower. The REST API turns off fastapi's OpenTelemetry export
+  from `OTEL_*` variables: to export, set up a provider yourself, e.g. with
+  `opentelemetry-instrument`. Such a provider now gets fastapi's spans, metrics and logs, or, where
+  the `opentelemetry-instrumentation-fastapi` middleware runs, that instrumentation's (GH-2407)
+
 ### Fixed
 
+- NOAA GHCN daily stations QOORNOQ and ARSUK on the coast of Greenland and SORFJORD_KRV and
+  SKJOMEN_SLETTJORD by the fjords near Narvik, the four rows listed at -100.0 m, have a null
+  `elevation` instead of one 100 m below sea level. Real heights below sea level, such as DEATH
+  VALLEY NP's, stay (GH-2418)
+- NOAA GHCN hourly station GJBAKKI (`ICM00004919`) in southwestern Iceland, the one row listed at
+  -99.0 m, has a null `elevation`. `interpolate` and `summarize` given an elevation moved its air
+  temperatures and dew points from about 100 m below sea level; they now leave it out for those,
+  as other stations of unknown elevation. Real heights below sea level stay (GH-2377)
+- `wetterdienst stripes values` checks `--target`'s suffix against `--format`: `--format=jpg` now
+  takes a `.jpeg` target, and a target merely ending in the format's letters, such as `stripespng`
+  or `out.xpng`, is refused instead of written without the extension. The refusal names the
+  suffixes it takes, `'.png'` where it said `'png'` (GH-2371)
+### Added
+
+- The JSON of `/api/stripes/values` and the MCP `stripes_values` tool name the unit of their
+  values in a new metadata field `unit`: `degree_fahrenheit` where the server's
+  `WD_TS_UNIT_TARGETS` converts temperatures to it, the source's unit with
+  `WD_TS_CONVERT_UNITS=false`, and `degree_celsius` or `millimeter` by default (GH-2372)
+### Changed
+
+- REST API: `/api/interpolate` and `/api/summarize`, and the MCP tools of the same names, answer
+  a point there is no estimate at -- beyond the latitudes UTM covers (80°S to 84°N) on
+  interpolate, or a `station` without a position -- with a 400 rather than a 404, as they answer
+  an elevation no station can be placed against. The server logs it as an info line, not as an
+  error with its traceback (GH-2385)
+### Fixed
+
+- `Settings` takes an all-digit `WD_AUTH__METNO_FROST` as the Frost client id it is, and refuses a
+  `WD_AUTH__CEDA` or `WD_AUTH__METNO_FROST` that is neither text nor a pair, such as `5`, `true` or
+  a JSON object, with a `ValidationError` naming `auth.ceda` / `auth.metno_frost`. It raised a
+  bare `TypeError` that named nothing, or took a JSON object's keys as the pair (GH-2379)
+- A credential assigned to `settings.auth` after construction, such as `settings.auth.knmi = "key"`,
+  is held as a secret and checked as one given to the constructor is: a `username:password` text
+  for `ceda` is split, and the mask a JSON dump leaves behind is refused. It was kept as plain
+  text, which `reveal()` and the providers failed on (GH-2387)
 - `wetterdienst issues` reports a refused option, such as `--lead_time` on MOSMIX, as a one-line
   usage error with exit code 2 instead of a traceback with exit code 1. An upstream failure still
   logs its traceback and exits 1 (GH-2368)
@@ -28,6 +71,10 @@ Types of changes:
 - `wetterdienst history --target file://history.json`, the form its docs show, writes
   `history.json`. The `file://` prefix was kept, so the write went to `file:/history.json` and
   failed with "No such file or directory". A plain path works as before (GH-2370)
+- The Docker image reads BUFR: DWD road weather data, and radar BUFR with `read_bufr`. It had the
+  eccodes bindings but no ecCodes library behind them; it now installs Debian's, which adds about
+  55 MiB. That library is 2.41.0, so the bindings warn on import that 2.42.0 is recommended
+  (GH-2409)
 - `Settings()` no longer fails where no home directory resolves (HOME unset and the uid missing
   from the password database), which it did with platformdirs 4.12 even with
   `cache_disable=True`. Without `WD_CACHE_DIR` the cache is then kept in a temporary directory, one

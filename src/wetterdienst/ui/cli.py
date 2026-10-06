@@ -2021,8 +2021,10 @@ def stripes_values(
             "debug": debug,
         },
     )
-    if target and not target.name.lower().endswith(fmt):
-        msg = f"'target' must have extension '{fmt}'"
+    # the suffix, dot included, so `stripespng` is refused; `.jpeg` is as usual for JPEG as `.jpg`
+    suffixes = (".jpg", ".jpeg") if fmt == "jpg" else (f".{fmt}",)
+    if target and target.suffix.lower() not in suffixes:
+        msg = f"'target' must have extension {' or '.join(f'{suffix!r}' for suffix in suffixes)}"
         raise click.ClickException(msg)
 
     set_logging_level(debug=debug)

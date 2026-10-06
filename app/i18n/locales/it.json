@@ -436,7 +436,7 @@
     "humanize": "Umanizza i parametri",
     "convertUnits": "Converti in unità SI",
     "unitTargets": "Unità di destinazione",
-    "unitTargetsHint": "Sostituisci le unità di destinazione predefinite per tipi di unità specifici. Lascia vuoto per usare i valori predefiniti.",
+    "unitTargetsHint": "Sostituisci l'unità di destinazione predefinita per tipi di unità specifici. «Predefinito» converte nell'unità indicata tra parentesi.",
     "unitDefault": "Predefinito ({unit})",
     "valuesOptions": "Opzioni dei valori",
     "shape": "Forma",
