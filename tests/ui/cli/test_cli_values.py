@@ -1148,13 +1148,25 @@ def test_cli_values_leaves_an_upstream_failure_its_traceback(monkeypatch: pytest
     assert "Usage:" not in result.output
 
 
+@pytest.mark.parametrize("given", ["{old}=2020", "{old} 2020", "{old}"])
 @pytest.mark.parametrize(("old", "new"), [("--start-date", "--start"), ("--end-date", "--end")])
 @pytest.mark.parametrize("command", ["values", "interpolate", "summarize"])
-def test_cli_refuses_a_renamed_window_option_by_its_new_name(command: str, old: str, new: str) -> None:
-    """Test the old window options name the new one rather than click's bare no-such-option (GH-2437)."""
+def test_cli_refuses_a_renamed_window_option_by_its_new_name(command: str, old: str, new: str, given: str) -> None:
+    """Test the old window options name the new one rather than click's bare no-such-option (GH-2437).
+
+    Given with or without a value: alone, it is not refused for the value it lacks.
+    """
     result = CliRunner().invoke(
         cli,
-        [command, "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--station=01048", f"{old}=2020"],
+        [
+            command,
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl",
+            "--station=01048",
+            # last, so that alone it has nothing to take for a value
+            *given.format(old=old).split(),
+        ],
     )
 
     assert result.exit_code == 2, result.output

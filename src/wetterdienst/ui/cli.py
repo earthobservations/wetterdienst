@@ -148,7 +148,10 @@ def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
             msg = f"Option {old} was renamed to {new}."
             raise click.UsageError(msg, ctx)
 
-    return click.option(old, type=click.STRING, hidden=True, expose_value=False, callback=refuse)
+    # a value is optional, so that the option alone is refused by its new name too, not as missing its value
+    return click.option(
+        old, type=click.STRING, is_flag=False, flag_value="", hidden=True, expose_value=False, callback=refuse
+    )
 
 
 # GH-2437: the window is a pair of UTC timestamps, not of dates
@@ -1577,7 +1580,7 @@ def interpolate(
     """
     date_resolved = _resolve_date(date, start, end)
     if not date_resolved:
-        msg = "Provide either --date or --start."
+        msg = "Provide either --date or --start / --end."
         raise click.UsageError(msg)
     request = _validate_request(
         InterpolationRequest,
@@ -1723,7 +1726,7 @@ def summarize(
     """
     date_resolved = _resolve_date(date, start, end)
     if not date_resolved:
-        msg = "Provide either --date or --start."
+        msg = "Provide either --date or --start / --end."
         raise click.UsageError(msg)
     request = _validate_request(
         SummaryRequest,
