@@ -33,16 +33,27 @@ def quiet_eccodes_version_advice() -> None:
     process that read BUFR as a warning nobody could act on (GH-2442). `ensure_eccodes` logs the
     library's version at debug in its place.
 
-    One filter, installed once and left in place, scoped to the message and to `gribapi`, the module
-    that gives it: any other warning, and this message from anywhere else, still reaches the caller.
-    The bindings give the advice once, as `gribapi` is first imported, so a filter left after that
-    hides nothing further -- and a caller who imported eccodes before this ran has seen it already.
-    The subsets warning `dwd/road` leaves alone is the other case: pdbufr gives it on every read it
-    applies to, so a filter left for it would go on hiding it from anything else reading BUFR.
-    Called before each import of eccodes or pdbufr in this package; cached, so the filter list is
-    changed once.
+    One filter, installed once and left in place, scoped to the message and to the bindings'
+    `gribapi` modules, which give it: any other warning, and this message from anywhere else, still
+    reaches the caller. The bindings give the advice once, as `gribapi` is first imported, so a
+    filter left after that hides nothing further -- and a caller who imported eccodes before this
+    ran has seen it already. The subsets warning `dwd/road` leaves alone is the other case: pdbufr
+    gives it on every read it applies to, so a filter left for it would go on hiding it from
+    anything else reading BUFR.
+
+    Appended, not put first: a caller's own filter for the advice -- `-W error::UserWarning:gribapi`
+    to catch a stale library, say -- is matched before this one and still decides.
+
+    Called by both probes, and by `read_radar_bufr`, the one reader that can run without asking
+    them first; cached, so the filter list is changed once.
     """
-    warnings.filterwarnings("ignore", message=_ECCODES_VERSION_ADVICE, category=UserWarning, module="gribapi")
+    warnings.filterwarnings(
+        "ignore",
+        message=_ECCODES_VERSION_ADVICE,
+        category=UserWarning,
+        module="gribapi",
+        append=True,
+    )
 
 
 @lru_cache

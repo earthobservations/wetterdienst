@@ -35,10 +35,10 @@ Types of changes:
   below the working directory is no longer created with older platformdirs either (GH-2408)
 - Reading BUFR (DWD road weather, radar with `read_bufr`) no longer warns "ecCodes 2.42.0 or
   higher is recommended" with an older ecCodes library, such as Debian trixie's 2.41 or Ubuntu
-  24.04's 2.34, which decode it all the same. The library's version is logged at debug instead.
-  It is an ignore filter for that message from `gribapi`, added to the warning filters when
-  wetterdienst first loads the BUFR reader. Other warnings still show, and so does this one if you
-  import eccodes first (GH-2442)
+  24.04's 2.34. The library's version is logged at debug instead. An ignore filter for that
+  message from `gribapi` is appended to the warning filters when wetterdienst first loads the BUFR
+  reader, so a filter of your own for it still applies. Other warnings still show, and so does this
+  one if you import eccodes first (GH-2442)
 
 ## [0.140.0] - 2026-10-05
 

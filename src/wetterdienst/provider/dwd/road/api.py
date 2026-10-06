@@ -26,7 +26,7 @@ from wetterdienst.model.metadata import (
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA
-from wetterdienst.util.eccodes import quiet_eccodes_version_advice, require_bufr
+from wetterdienst.util.eccodes import require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
 
 if TYPE_CHECKING:
@@ -1026,7 +1026,6 @@ class DwdRoadValues(TimeseriesValues):
         the same number arriving again, which decides nothing and loses nothing. Each is named in
         the log. Keeping the ones that differ would want an axis this frame has not got, GH-1908.
         """
-        quiet_eccodes_version_advice()
         import pdbufr  # noqa: PLC0415
 
         parameter_names = [parameter.name_original for parameter in parameters]
@@ -1040,9 +1039,10 @@ class DwdRoadValues(TimeseriesValues):
             # second sensor where the next does not. It warns about the column order it returns
             # them in, and nothing below reads a column by position. It is left to reach the caller
             # rather than filtered: Python shows it once per process whatever the request asks for,
-            # and suppressing it means editing the process's global warning filters, which are not
-            # this library's to edit -- it would go on suppressing the same warning for anything
-            # else reading BUFR alongside it
+            # and suppressing it means a filter in the process's global warning filters, which
+            # would go on suppressing the same warning for anything else reading BUFR alongside it.
+            # The eccodes version advice is filtered because it is given once, on import, and a
+            # filter left after that hides nothing else; see `quiet_eccodes_version_advice`
             #
             # "data", so the read returns the message's values and not its header too: the
             # twenty-one header keys of a road file are read, converted and dropped again, being

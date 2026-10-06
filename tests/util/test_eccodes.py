@@ -322,10 +322,11 @@ def test_the_advice_to_upgrade_the_library_is_not_warned(probe: str) -> None:
     The bindings warned so on every first import -- Debian trixie ships 2.41 and Ubuntu 24.04 2.34,
     against a recommended 2.42 -- and a caller could neither act on it nor tell it was harmless
     (GH-2442). Either probe may be the first import in a process, pdbufr importing eccodes itself.
-    Nothing else the import says is held back.
+    Nothing else the import says is held back. No `simplefilter("always")` here or below: put first,
+    it would decide before the filter under test, which is appended -- Python's default shows each
+    of these once, and each is new.
     """
     with warnings.catch_warnings(record=True) as seen:
-        warnings.simplefilter("always")
         assert getattr(eccodes, probe)() is True
     said = [str(warning.message) for warning in seen]
     assert not [message for message in said if "or higher is recommended" in message]
@@ -335,10 +336,8 @@ def test_the_advice_to_upgrade_the_library_is_not_warned(probe: str) -> None:
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_the_library_version_is_logged_in_its_place(stale_library: str, caplog: pytest.LogCaptureFixture) -> None:
     """Which library loaded is still there to be read, at debug."""
-    with (
-        caplog.at_level(logging.DEBUG, logger=eccodes.__name__),
-        pytest.warns(UserWarning, match="something else the bindings say on import"),
-    ):
+    # recorded rather than `pytest.warns`, which puts "always" first and shows the advice anyway
+    with caplog.at_level(logging.DEBUG, logger=eccodes.__name__), warnings.catch_warnings(record=True):
         assert eccodes.ensure_eccodes() is True
     assert f"ecCodes library {stale_library}" in caplog.text
 
@@ -355,10 +354,8 @@ def test_a_radar_bufr_read_asked_directly_is_quiet_too() -> None:
 
     # taken from where it is loaded rather than imported, which would import gribapi before the read
     unreadable = sys.modules["gribapi.errors"].GribInternalError
-    with warnings.catch_warnings(record=True) as seen:
-        warnings.simplefilter("always")
-        with pytest.raises(unreadable):
-            read_radar_bufr(BytesIO(b"not BUFR"), next(iter(_BUFR_VALUE_FIELD)))
+    with warnings.catch_warnings(record=True) as seen, pytest.raises(unreadable):
+        read_radar_bufr(BytesIO(b"not BUFR"), next(iter(_BUFR_VALUE_FIELD)))
     said = [str(warning.message) for warning in seen]
     assert not [message for message in said if "or higher is recommended" in message]
     assert "something else the bindings say on import" in said
@@ -372,10 +369,24 @@ def test_the_advice_is_ignored_only_from_the_bindings() -> None:
     """
     eccodes.quiet_eccodes_version_advice.cache_clear()
     with warnings.catch_warnings(record=True) as seen:
-        warnings.simplefilter("always")
         eccodes.quiet_eccodes_version_advice()
         warnings.warn("ecCodes 2.42.0 or higher is recommended. You are running version 2.34.1", stacklevel=1)
     eccodes.quiet_eccodes_version_advice.cache_clear()
     assert [str(warning.message) for warning in seen] == [
         "ecCodes 2.42.0 or higher is recommended. You are running version 2.34.1"
     ]
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+@pytest.mark.usefixtures("stale_library")
+def test_a_filter_of_the_callers_own_for_the_advice_still_decides() -> None:
+    """The filter is appended, so one the caller set first is matched first.
+
+    Someone running with `-W error::UserWarning:gribapi` -- or, as here, asking to always see it --
+    wants to know their library is older than recommended, and gets told.
+    """
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.filterwarnings("always", message=eccodes._ECCODES_VERSION_ADVICE, module="gribapi")  # noqa: SLF001
+        assert eccodes.ensure_eccodes() is True
+    said = [str(warning.message) for warning in seen]
+    assert [message for message in said if "or higher is recommended" in message]
