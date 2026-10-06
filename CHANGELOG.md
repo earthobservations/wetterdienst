@@ -22,8 +22,10 @@ Types of changes:
   `DwdObservationRequest(..., start=..., end=...)` for every provider's request and
   `DwdRadarValues`, read `.start` / `.end` off a request or a `StationsResult`, and pass
   `--start` / `--end` on the CLI. The old keywords and options fail with an error naming the new
-  one; reading the old attributes is a plain `AttributeError`. Error messages that named the pair
-  name `start` / `end`. The station columns `start_date` / `end_date` keep their names (GH-2437)
+  one; reading the old attributes, or passing them by keyword to
+  `TimeseriesRequest.convert_timestamps`, is a plain Python error. Error messages that named the
+  pair name `start` / `end`. The station columns `start_date` / `end_date` keep their names
+  (GH-2437)
 
 ## [0.141.0] - 2026-10-06
 
