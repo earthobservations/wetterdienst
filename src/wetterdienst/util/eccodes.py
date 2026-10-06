@@ -9,18 +9,19 @@ only says so when asked for a version. Neither half alone answers "can this envi
 BUFR", which is the only question any caller has: use `bufr_is_available` for that, or
 `require_bufr` where the answer has to be no further than the first line of a method.
 
-pdbufr reads from a path, so the bytes a reader downloads go through `bufr_file` on their way to it.
+pdbufr reads BUFR from a file it opens by name, so the bytes a reader downloads go through `bufr_file`.
 """
 
 import importlib.util
 import logging
+import shutil
 import sys
 import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import mkdtemp
 
 from wetterdienst.exceptions import BufrReaderMissingError
 
@@ -176,10 +177,14 @@ def require_bufr(what: str) -> None:
 def bufr_file(content: bytes) -> Iterator[Path]:
     """Write BUFR bytes to a file of their own, for a reader that opens it by name.
 
-    pdbufr takes a path, never bytes, and opens it itself. The file is written and closed before the
-    path is handed over, in a directory that goes again on the way out: Windows refuses to open a
-    file a second time while a `NamedTemporaryFile` holds it open, so on Windows every read through
-    one failed with `PermissionError` (GH-2446).
+    pdbufr reads BUFR from a file it opens itself, not from bytes in memory. The file is written and
+    closed before the path is handed over, in a directory that goes again on the way out: Windows
+    refuses to open a file a second time while a `NamedTemporaryFile` holds it open, so on Windows
+    every read through one failed with `PermissionError` (GH-2446).
+
+    A directory that cannot be removed -- on Windows, a file something else still holds open, such
+    as a virus scanner reading what was just written -- is logged and left behind, rather than
+    raised after a read that worked or in place of the read's own error.
 
     Args:
         content: the BUFR message(s), as published
@@ -188,9 +193,13 @@ def bufr_file(content: bytes) -> Iterator[Path]:
         the path of the file holding them
 
     """
-    # a file Windows will not yet let go of -- a virus scanner reading what was just written -- is
-    # left behind rather than turned into an error after a read that worked
-    with TemporaryDirectory(prefix="wetterdienst-bufr-", ignore_cleanup_errors=True) as directory:
-        path = Path(directory) / "message.bufr"
+    directory = Path(mkdtemp(prefix="wetterdienst-bufr-"))
+    try:
+        path = directory / "message.bufr"
         path.write_bytes(content)
         yield path
+    finally:
+        try:
+            shutil.rmtree(directory)
+        except OSError as error:
+            log.warning(f"Unable to remove the temporary BUFR file {directory}: {error}")

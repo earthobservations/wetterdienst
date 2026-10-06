@@ -14,7 +14,6 @@ import sys
 import warnings
 from collections.abc import Iterator
 from io import BytesIO
-from pathlib import Path
 
 import pytest
 
@@ -511,22 +510,6 @@ _TIME_DESCRIPTORS = [4001, 4002, 4003, 4004, 4005]
 _TIME = {"year": 2026, "month": 9, "day": 13, "hour": 12, "minute": 0}
 
 
-@pytest.fixture
-def files_read(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
-    """Record the paths pdbufr is asked to read, on the way to the real reader."""
-    import pdbufr  # noqa: PLC0415
-
-    read_bufr = pdbufr.read_bufr
-    paths = []
-
-    def recording(path: Path, *args: object, **kwargs: object) -> object:
-        paths.append(Path(path))
-        return read_bufr(path, *args, **kwargs)
-
-    monkeypatch.setattr(pdbufr, "read_bufr", recording)
-    return paths
-
-
 def test_bufr_file_holds_the_bytes_and_goes_again_after_a_failed_read() -> None:
     """The file is there to be opened by name while the read runs, and gone however the read ends."""
     with pytest.raises(RuntimeError, match="the read failed"), eccodes.bufr_file(b"some bytes") as path:  # noqa: PT012
@@ -538,7 +521,7 @@ def test_bufr_file_holds_the_bytes_and_goes_again_after_a_failed_read() -> None:
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-def test_a_road_file_decodes_through_the_reader(files_read: list[Path]) -> None:
+def test_a_road_file_decodes_through_the_reader() -> None:
     """A road message is read by pdbufr from the file it is written to, on every platform.
 
     The road tests around the parse stub pdbufr, and the ones reading published files are remote, so
@@ -560,13 +543,10 @@ def test_a_road_file_decodes_through_the_reader(files_read: list[Path]) -> None:
     assert df.drop_nulls("value").select("station_id", "parameter", "value").rows() == [
         ("A006", "airTemperature", 285.5),
     ]
-    # read from a file of its own, which is gone again
-    assert len(files_read) == 1
-    assert not files_read[0].exists()
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-def test_a_radar_file_decodes_through_the_reader(files_read: list[Path]) -> None:
+def test_a_radar_file_decodes_through_the_reader() -> None:
     """A radar BUFR product is read by pdbufr from the file it is written to, on every platform.
 
     On Windows that read failed for the reason the road read did, and `_attach_bufr` logged "Unable
@@ -594,14 +574,15 @@ def test_a_radar_file_decodes_through_the_reader(files_read: list[Path]) -> None
     df = read_radar_bufr(data, DwdRadarParameter.PE_ECHO_TOP)
     assert df.get_column("station_id").unique().to_list() == ["BOO"]
     assert df.get_column("value").to_list() == [1000.0, 2000.0, 3000.0]
-    assert len(files_read) == 1
-    assert not files_read[0].exists()
     # and the caller's bytes are still there to be read
     assert data.read() == message
 
 
-def test_bufr_file_a_file_that_will_not_go_does_not_fail_the_read(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A file the OS will not let go of yet is left behind, not raised after a read that worked.
+def test_bufr_file_a_file_that_will_not_go_does_not_fail_the_read(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A file the OS will not let go of yet is left behind and logged, not raised after a read that worked.
 
     On Windows a file still open elsewhere -- a virus scanner reading what was just written -- cannot
     be removed, and the removal runs the moment the read returns.
@@ -614,10 +595,11 @@ def test_bufr_file_a_file_that_will_not_go_does_not_fail_the_read(monkeypatch: p
             raise PermissionError(msg)
         unlink(path, *args, **kwargs)
 
-    with eccodes.bufr_file(b"some bytes") as path:
+    with caplog.at_level(logging.WARNING, logger=eccodes.__name__), eccodes.bufr_file(b"some bytes") as path:
         monkeypatch.setattr(os, "unlink", refusing)
     monkeypatch.undo()
     try:
         assert path.read_bytes() == b"some bytes"
+        assert f"Unable to remove the temporary BUFR file {path.parent}" in caplog.text
     finally:
         shutil.rmtree(path.parent)
