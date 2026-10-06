@@ -637,14 +637,14 @@ def test_cli_values_image_pdf() -> None:
 
 @pytest.mark.remote
 def test_cli_values_start_date_end_date() -> None:
-    """Test --start-date/--end-date as alternative to --date interval."""
+    """Test --start/--end as alternative to --date interval."""
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
         setting=[
             "--parameters=daily/kl",
-            "--start-date=2020-06-30",
-            "--end-date=2020-06-30",
+            "--start=2020-06-30",
+            "--end=2020-06-30",
         ],
         station="01048",
         fmt="json",
@@ -658,13 +658,13 @@ def test_cli_values_start_date_end_date() -> None:
 
 @pytest.mark.remote
 def test_cli_values_start_date_only() -> None:
-    """Test --start-date without --end-date (single-point date)."""
+    """Test --start without --end (single-point date)."""
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
         setting=[
             "--parameters=daily/kl",
-            "--start-date=2020-06-30",
+            "--start=2020-06-30",
         ],
         station="01048",
         fmt="json",
@@ -676,13 +676,13 @@ def test_cli_values_start_date_only() -> None:
 
 @pytest.mark.remote
 def test_cli_values_end_date_only() -> None:
-    """Test --end-date without --start-date (treated as single-point date)."""
+    """Test --end without --start (treated as single-point date)."""
     result = invoke_wetterdienst_values_static(
         provider="dwd",
         network="observation",
         setting=[
             "--parameters=daily/kl",
-            "--end-date=2020-06-30",
+            "--end=2020-06-30",
         ],
         station="01048",
         fmt="json",
@@ -715,7 +715,7 @@ def test_cli_values_name_filter() -> None:
 
 
 def test_cli_values_date_and_start_date_conflict() -> None:
-    """Test that --date and --start-date together raise an error."""
+    """Test that --date and --start together raise an error."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -726,15 +726,15 @@ def test_cli_values_date_and_start_date_conflict() -> None:
             "--parameters=daily/kl",
             "--station=01048",
             "--date=2020-06-30",
-            "--start-date=2020-06-30",
+            "--start=2020-06-30",
         ],
     )
     assert result.exit_code != 0
-    assert "Use either --date or --start-date" in result.output
+    assert "Use either --date or --start" in result.output
 
 
 def test_cli_values_date_and_end_date_conflict() -> None:
-    """Test that --date and --end-date together raise an error."""
+    """Test that --date and --end together raise an error."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -745,11 +745,11 @@ def test_cli_values_date_and_end_date_conflict() -> None:
             "--parameters=daily/kl",
             "--station=01048",
             "--date=2020-06-30",
-            "--end-date=2020-06-30",
+            "--end=2020-06-30",
         ],
     )
     assert result.exit_code != 0
-    assert "Use either --date or --start-date" in result.output
+    assert "Use either --date or --start" in result.output
 
 
 def test_cli_values_without_the_bufr_reader_says_what_to_install(
@@ -786,8 +786,8 @@ def test_cli_values_without_the_bufr_reader_says_what_to_install(
                 "--network=road",
                 "--parameters=15_minutes/data/temperature_air_mean_2m",
                 "--station=A006",
-                "--start-date=2024-01-01",
-                "--end-date=2024-01-02",
+                "--start=2024-01-01",
+                "--end=2024-01-02",
             ],
         )
     assert result.exit_code == 1
@@ -1146,3 +1146,18 @@ def test_cli_values_leaves_an_upstream_failure_its_traceback(monkeypatch: pytest
     assert result.exit_code == 1
     assert isinstance(result.exception, FileNotFoundError)
     assert "Usage:" not in result.output
+
+
+@pytest.mark.parametrize(("old", "new"), [("--start-date", "--start"), ("--end-date", "--end")])
+@pytest.mark.parametrize("command", ["values", "interpolate", "summarize"])
+def test_cli_refuses_a_renamed_window_option_by_its_new_name(command: str, old: str, new: str) -> None:
+    """Test the old window options name the new one rather than click's bare no-such-option (GH-2437)."""
+    result = CliRunner().invoke(
+        cli,
+        [command, "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--station=01048", f"{old}=2020"],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(f"\n\nError: Option {old} was renamed to {new}.\n")
+    # still refused, but no longer offered
+    assert old not in CliRunner().invoke(cli, [command, "--help"]).output

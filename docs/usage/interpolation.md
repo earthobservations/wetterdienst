@@ -63,8 +63,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-    start_date=dt.datetime(2022, 1, 1),
-    end_date=dt.datetime(2022, 1, 20),
+    start=dt.datetime(2022, 1, 1),
+    end=dt.datetime(2022, 1, 20),
 )
 values = request.interpolate(latlon=(50.0, 8.9))
 df = values.df
@@ -84,8 +84,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-    start_date=dt.datetime(2022, 1, 1),
-    end_date=dt.datetime(2022, 1, 20),
+    start=dt.datetime(2022, 1, 1),
+    end=dt.datetime(2022, 1, 20),
 )
 values = request.interpolate_by_station_id(station_id="02480")
 df = values.df
@@ -331,8 +331,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 settings = Settings(ts_geo_station_distance={"precipitation_amount": 25.0})
 request = DwdObservationRequest(
     parameters=("hourly", "precipitation", "precipitation_amount"),
-    start_date=dt.datetime(2022, 1, 1),
-    end_date=dt.datetime(2022, 1, 20),
+    start=dt.datetime(2022, 1, 1),
+    end=dt.datetime(2022, 1, 20),
     settings=settings,
 )
 values = request.interpolate(latlon=(52.8, 12.9))
@@ -382,8 +382,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-    start_date=dt.datetime(2022, 1, 1),
-    end_date=dt.datetime(2022, 1, 20),
+    start=dt.datetime(2022, 1, 1),
+    end=dt.datetime(2022, 1, 20),
 )
 values = request.summarize(latlon=(50.0, 8.9))
 df = values.df
@@ -403,8 +403,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
     parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
-    start_date=dt.datetime(2022, 1, 1),
-    end_date=dt.datetime(2022, 1, 20),
+    start=dt.datetime(2022, 1, 1),
+    end=dt.datetime(2022, 1, 20),
 )
 values = request.summarize_by_station_id(station_id="02480")
 df = values.df
@@ -425,14 +425,14 @@ wetterdienst interpolate \
   --provider dwd --network observation \
   --parameters hourly/temperature_air/temperature_air_mean_2m \
   --latitude 50.0 --longitude 8.9 \
-  --start-date 2022-01-01 --end-date 2022-01-20
+  --start 2022-01-01 --end 2022-01-20
 
 # Summarize around a reference station.
 wetterdienst summarize \
   --provider dwd --network observation \
   --parameters hourly/temperature_air/temperature_air_mean_2m \
   --station 02480 \
-  --start-date 2022-01-01 --end-date 2022-01-20
+  --start 2022-01-01 --end 2022-01-20
 ```
 
 Both take `--elevation` in metres above sea level, which brings each station's readings to that
@@ -443,7 +443,7 @@ wetterdienst interpolate \
   --provider dwd --network observation \
   --parameters daily/kl/temperature_air_mean_2m \
   --latitude 47.48 --longitude 11.06 --elevation 1500 \
-  --start-date 2022-01-01 --end-date 2022-01-05
+  --start 2022-01-01 --end 2022-01-05
 ```
 
 Both commands take the search radius as options, `--interpolation_station_distance_homogeneous`
@@ -455,7 +455,7 @@ wetterdienst interpolate \
   --provider dwd --network observation \
   --parameters hourly/precipitation/precipitation_amount \
   --latitude 52.8 --longitude 12.9 \
-  --start-date 2022-01-01 --end-date 2022-01-20 \
+  --start 2022-01-01 --end 2022-01-20 \
   --interpolation_station_distance_heterogeneous 30 \
   --interpolation_station_distance '{"precipitation_amount": 25}'
 ```
@@ -467,7 +467,7 @@ wetterdienst summarize \
   --provider dwd --network observation \
   --parameters daily/climate_summary/precipitation_amount \
   --station 02480 \
-  --start-date 2022-01-01 --end-date 2022-01-20 \
+  --start 2022-01-01 --end 2022-01-20 \
   --summary_station_distance_heterogeneous 15
 ```
 

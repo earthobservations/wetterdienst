@@ -128,18 +128,32 @@ issue_opt = click.option(
     help="DWD MOSMIX/DMO/SWSMOS model run (ISO 8601); list them with: wetterdienst issues. Default: the latest",
 )
 date_opt = click.option("--date", type=click.STRING, help=_DATE_HELP)
-start_date_opt = click.option(
-    "--start-date",
-    "start_date",
+start_opt = click.option(
+    "--start",
     type=click.STRING,
     help="Start of a date range, instead of --date. Given alone, it is a single date.",
 )
-end_date_opt = click.option(
-    "--end-date",
-    "end_date",
+end_opt = click.option(
+    "--end",
     type=click.STRING,
     help="End of a date range. Given alone, it is a single date.",
 )
+
+
+def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
+    """Refuse an option renamed for 1.0 by naming the new one, where click would only say it has none."""
+
+    def refuse(ctx: click.Context, _param: click.Parameter, value: object) -> None:
+        if value is not None:
+            msg = f"Option {old} was renamed to {new}."
+            raise click.UsageError(msg, ctx)
+
+    return click.option(old, type=click.STRING, hidden=True, expose_value=False, callback=refuse)
+
+
+# GH-2437: the window is a pair of UTC timestamps, not of dates
+start_date_renamed_opt = _renamed_opt("--start-date", "--start")
+end_date_renamed_opt = _renamed_opt("--end-date", "--end")
 
 # station selection for `stations` and `values`: exactly one of --all, --station, --name, a point
 # or a bounding box, --sql. The request models enforce it, so the CLI, REST API and MCP share it
@@ -479,19 +493,19 @@ def _require_one_of(**given: bool) -> None:
         raise click.UsageError(msg, ctx)
 
 
-def _resolve_date(date: str | None, start_date: str | None, end_date: str | None) -> str | None:
-    """Resolve --date from either --date or the --start-date/--end-date pair.
+def _resolve_date(date: str | None, start: str | None, end: str | None) -> str | None:
+    """Resolve --date from either --date or the --start/--end pair.
 
-    If only --end-date is given, it is treated as a single-point date (start == end).
+    If only --end is given, it is treated as a single-point date (start == end).
     Raises click.UsageError when conflicting options are supplied.
     """
-    if date and (start_date or end_date):
-        msg = "Use either --date or --start-date / --end-date, not both."
+    if date and (start or end):
+        msg = "Use either --date or --start / --end, not both."
         raise click.UsageError(msg)
-    if start_date or end_date:
-        start = start_date or end_date
-        end = end_date or start_date
-        return f"{start}/{end}" if start != end else start
+    if start or end:
+        first = start or end
+        last = end or start
+        return f"{first}/{last}" if first != last else first
     return date
 
 
@@ -573,11 +587,11 @@ VALUES_EXAMPLES = r"""
     wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl --date=2020-05 --station=1048
     wetterdienst values --provider=dwd --network=observation --parameters=annual/kl --date=2019 --station=1048,4411
 
-    # a range, as an ISO 8601 interval or as --start-date/--end-date; historical and recent data are joined
+    # a range, as an ISO 8601 interval or as --start/--end; historical and recent data are joined
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
         --date=1969-01-01/2020-06-11 --station=1048
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
-        --start-date=2020-05-01 --end-date=2020-05-05 --station=1048
+        --start=2020-05-01 --end=2020-05-05 --station=1048
 
     # two parameters from different datasets, hourly, one column each
     wetterdienst values --provider=dwd --network=observation \
@@ -1303,8 +1317,10 @@ def history(
 @parameters_opt
 @periods_opt
 @date_opt
-@start_date_opt
-@end_date_opt
+@start_opt
+@end_opt
+@start_date_renamed_opt
+@end_date_renamed_opt
 @lead_time_opt
 @issue_opt
 @all_opt
@@ -1374,8 +1390,8 @@ def values(
     periods: list[str],
     lead_time: Literal["short", "long"],
     date: str,
-    start_date: str,
-    end_date: str,
+    start: str,
+    end: str,
     issue: str,
     all_: bool,  # noqa: FBT001
     station: list[str],
@@ -1412,7 +1428,7 @@ def values(
     Select the stations with exactly one of --all, --station, --name, --latitude/--longitude with
     --rank or --distance, --left/--bottom/--right/--top, or --sql.
     """
-    date_resolved = _resolve_date(date, start_date, end_date)
+    date_resolved = _resolve_date(date, start, end)
     request = _validate_request(
         ValuesRequest,
         {
@@ -1502,8 +1518,10 @@ def values(
 @parameters_opt
 @periods_opt
 @date_opt
-@start_date_opt
-@end_date_opt
+@start_opt
+@end_opt
+@start_date_renamed_opt
+@end_date_renamed_opt
 @lead_time_opt
 @issue_opt
 @reference_station_opt
@@ -1534,8 +1552,8 @@ def interpolate(
     interpolation_station_distance_heterogeneous: float | None,
     use_nearby_station_distance: float,
     date: str,
-    start_date: str,
-    end_date: str,
+    start: str,
+    end: str,
     issue: str,
     station: str,
     latitude: float,
@@ -1557,9 +1575,9 @@ def interpolate(
 
     Give the point as exactly one of --station or --latitude/--longitude.
     """
-    date_resolved = _resolve_date(date, start_date, end_date)
+    date_resolved = _resolve_date(date, start, end)
     if not date_resolved:
-        msg = "Provide either --date or --start-date."
+        msg = "Provide either --date or --start."
         raise click.UsageError(msg)
     request = _validate_request(
         InterpolationRequest,
@@ -1646,8 +1664,10 @@ def interpolate(
 @parameters_opt
 @periods_opt
 @date_opt
-@start_date_opt
-@end_date_opt
+@start_opt
+@end_opt
+@start_date_renamed_opt
+@end_date_renamed_opt
 @lead_time_opt
 @issue_opt
 @reference_station_opt
@@ -1678,8 +1698,8 @@ def summarize(
     summary_station_distance_heterogeneous: float | None,
     use_nearby_station_distance: float,
     date: str,
-    start_date: str,
-    end_date: str,
+    start: str,
+    end: str,
     issue: str,
     station: str,
     latitude: float,
@@ -1701,9 +1721,9 @@ def summarize(
 
     Give the point as exactly one of --station or --latitude/--longitude.
     """
-    date_resolved = _resolve_date(date, start_date, end_date)
+    date_resolved = _resolve_date(date, start, end)
     if not date_resolved:
-        msg = "Provide either --date or --start-date."
+        msg = "Provide either --date or --start."
         raise click.UsageError(msg)
     request = _validate_request(
         SummaryRequest,

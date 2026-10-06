@@ -477,7 +477,7 @@ def test_cli_interpolate_image_pdf() -> None:
 
 @pytest.mark.remote
 def test_cli_interpolate_start_date_end_date() -> None:
-    """Test --start-date/--end-date as alternative to --date interval in interpolate."""
+    """Test --start/--end as alternative to --date interval in interpolate."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -487,8 +487,8 @@ def test_cli_interpolate_start_date_end_date() -> None:
             "--network=observation",
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--station=00071",
-            "--start-date=1986-10-31",
-            "--end-date=1986-11-01",
+            "--start=1986-10-31",
+            "--end=1986-11-01",
             "--format=json",
             "--with_metadata=false",
             "--with_stations=false",
@@ -504,7 +504,7 @@ def test_cli_interpolate_start_date_end_date() -> None:
 
 @pytest.mark.remote
 def test_cli_interpolate_end_date_only() -> None:
-    """Test --end-date without --start-date (treated as single-point date) in interpolate."""
+    """Test --end without --start (treated as single-point date) in interpolate."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -514,7 +514,7 @@ def test_cli_interpolate_end_date_only() -> None:
             "--network=observation",
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--station=00071",
-            "--end-date=1986-11-01",
+            "--end=1986-11-01",
             "--format=json",
             "--with_metadata=false",
             "--with_stations=false",
@@ -581,11 +581,11 @@ def test_cli_interpolate_missing_date() -> None:
         ],
     )
     assert result.exit_code != 0
-    assert "Provide either --date or --start-date" in result.output
+    assert "Provide either --date or --start" in result.output
 
 
 def test_cli_interpolate_date_and_start_date_conflict() -> None:
-    """Test that --date and --start-date together raise an error in interpolate."""
+    """Test that --date and --start together raise an error in interpolate."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -596,11 +596,11 @@ def test_cli_interpolate_date_and_start_date_conflict() -> None:
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--station=00071",
             "--date=1986-10-31",
-            "--start-date=1986-10-31",
+            "--start=1986-10-31",
         ],
     )
     assert result.exit_code != 0
-    assert "Use either --date or --start-date" in result.output
+    assert "Use either --date or --start" in result.output
 
 
 @pytest.mark.parametrize("command", ["interpolate", "summarize"])
