@@ -11,6 +11,7 @@ BUFR", which is the only question any caller has: use `bufr_is_available` for th
 """
 
 import logging
+import sys
 import warnings
 from functools import lru_cache
 
@@ -24,7 +25,6 @@ log = logging.getLogger(__name__)
 _ECCODES_VERSION_ADVICE = r"ecCodes [0-9.]+ or higher is recommended"
 
 
-@lru_cache
 def quiet_eccodes_version_advice() -> None:
     """Ignore the eccodes bindings' advice to upgrade the library, and only that.
 
@@ -48,8 +48,14 @@ def quiet_eccodes_version_advice() -> None:
     it by importing eccodes before this runs.
 
     Called by both probes, and by `read_radar_bufr`, the one reader that can run without asking
-    them first; cached, so the filter list is changed once.
+    them first. Once `gribapi` is imported the advice has been given or not, and this does nothing:
+    every change to the filters makes Python forget which warnings it has shown once, so it should
+    not change them for nothing. Until then it is not cached, but asked each time -- a
+    `catch_warnings` that was open when it ran, a test's or another thread's, puts back a list
+    without it on the way out, and a cache would go on saying it is there.
     """
+    if "gribapi" in sys.modules:
+        return
     warnings.filterwarnings(
         "ignore",
         message=_ECCODES_VERSION_ADVICE,

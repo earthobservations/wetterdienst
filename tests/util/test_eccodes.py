@@ -283,16 +283,12 @@ def stale_library(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
     before = {name: module for name, module in sys.modules.items() if forgotten(name)}
     for name in before:
         del sys.modules[name]
-    # pytest puts back the filters it found after every test, so a filter installed in an earlier
-    # one is gone while the cache still says it is there
-    eccodes.quiet_eccodes_version_advice.cache_clear()
     try:
         yield version
     finally:
         for name in [name for name in sys.modules if forgotten(name)]:
             del sys.modules[name]
         sys.modules.update(before)
-        eccodes.quiet_eccodes_version_advice.cache_clear()
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -365,14 +361,15 @@ def test_a_radar_bufr_read_asked_directly_is_quiet_too() -> None:
     assert "something else the bindings say on import" in said
 
 
-def test_the_advice_is_ignored_only_from_the_bindings() -> None:
+def test_the_advice_is_ignored_only_from_the_bindings(monkeypatch: pytest.MonkeyPatch) -> None:
     """The filter is left in place, so it is scoped to the module that gives the advice.
 
     The same words from anywhere else -- here, this test module -- are not the bindings' import-time
     advice, and are still shown.
     """
     advice = "ecCodes 2.42.0 or higher is recommended. You are running version 2.34.1"
-    eccodes.quiet_eccodes_version_advice.cache_clear()
+    # as before the bindings' first import, the only time the filter is installed
+    monkeypatch.delitem(sys.modules, "gribapi", raising=False)
     with warnings.catch_warnings(record=True) as seen:
         warnings.simplefilter("always")
         eccodes.quiet_eccodes_version_advice()
@@ -381,7 +378,6 @@ def test_the_advice_is_ignored_only_from_the_bindings() -> None:
         warnings.warn_explicit(advice, UserWarning, "gribapi_tools.py", 1, module="gribapi_tools")
         # and the bindings' own submodules are not
         warnings.warn_explicit(advice, UserWarning, "gribapi/gribapi.py", 1, module="gribapi.gribapi")
-    eccodes.quiet_eccodes_version_advice.cache_clear()
     assert [(str(warning.message), warning.filename) for warning in seen] == [
         (advice, __file__),
         (advice, "gribapi_tools.py"),
@@ -402,3 +398,30 @@ def test_warnings_as_errors_do_not_make_the_reader_look_missing() -> None:
         warnings.simplefilter("always")
         warnings.filterwarnings("error", message=eccodes._ECCODES_VERSION_ADVICE)  # noqa: SLF001
         assert eccodes.ensure_eccodes() is True
+
+
+def test_the_filters_are_left_alone_once_the_bindings_are_imported(monkeypatch: pytest.MonkeyPatch) -> None:
+    """After the bindings' first import the advice has been given or not, and a filter does nothing.
+
+    Changing the filters anyway would make Python forget which warnings it has shown once, and show
+    them again.
+    """
+    monkeypatch.setitem(sys.modules, "gribapi", sys.modules.get("gribapi", object()))
+    with warnings.catch_warnings():
+        before = list(warnings.filters)
+        eccodes.quiet_eccodes_version_advice()
+        assert warnings.filters == before
+
+
+def test_a_filter_dropped_before_the_import_is_put_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Asked again before the bindings' first import, the filter is there again if it was lost.
+
+    A `catch_warnings` open when it was first installed -- a test's, another thread's -- puts back a
+    list without it on the way out.
+    """
+    monkeypatch.delitem(sys.modules, "gribapi", raising=False)
+    with warnings.catch_warnings():
+        eccodes.quiet_eccodes_version_advice()
+    with warnings.catch_warnings():
+        eccodes.quiet_eccodes_version_advice()
+        assert [f for f in warnings.filters if f[0] == "ignore" and f[1] and "recommended" in f[1].pattern]
