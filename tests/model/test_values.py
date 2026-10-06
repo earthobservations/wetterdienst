@@ -642,7 +642,7 @@ def test_a_station_that_started_after_the_window_is_not_downloaded(monkeypatch: 
     assert collected == []
 
 
-def test_a_station_still_reporting_is_not_ruled_out_by_a_lagging_end_date(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_station_still_reporting_is_not_ruled_out_by_a_lagging_end_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
     """Only the start of a record rules a window out; an `end_timestamp` lags on a live station.
 
     A station index is written before the day it describes is over, so a station that is still
@@ -692,7 +692,7 @@ def test_convert_units_keeps_a_reading_a_much_larger_target_holds_little_of() ->
     assert result.get_column("value").to_list() == [0.000031069, 0.000932057]
 
 
-def test_a_station_is_kept_when_one_dataset_leaves_its_start_date_out(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_station_is_kept_when_one_dataset_leaves_its_start_timestamp_out(monkeypatch: pytest.MonkeyPatch) -> None:
     """An unpublished ``start_timestamp`` for one dataset is not overruled by another dataset's bound.
 
     A station asked for two datasets has a row per dataset in the index. With one row lacking a
