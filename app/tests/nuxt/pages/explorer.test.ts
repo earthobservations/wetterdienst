@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { UApp } from '#components'
 import { clearNuxtState, useNuxtApp, useRouter, useServerSettings, useToast } from '#imports'
+import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
@@ -909,8 +910,6 @@ describe('explorer Page Unit Targets selects (GH-2391)', () => {
     useToast().clear()
   })
 
-  const HINT = 'Override default target units for specific unit types. Leave empty to use defaults.'
-
   // the explorer on a server converting temperatures to Fahrenheit and speeds to knots, with
   // Settings -> Unit Targets open
   async function mountWithUnitTargets(sent: Record<string, unknown>[]) {
@@ -925,14 +924,14 @@ describe('explorer Page Unit Targets selects (GH-2391)', () => {
     await wrapper.findAll('button').find(b => b.text() === 'Settings')!.trigger('click')
     await vi.waitFor(() => expect(wrapper.findAll('button').some(b => b.text() === 'Unit Targets')).toBe(true))
     await wrapper.findAll('button').find(b => b.text() === 'Unit Targets')!.trigger('click')
-    await vi.waitFor(() => expect(wrapper.text()).toContain(HINT))
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="unit-targets"]').exists()).toBe(true))
     return { wrapper, vm }
   }
 
   // the Unit Targets selects' triggers, one per type in the order listed
   function unitTargetTriggers(wrapper: Awaited<ReturnType<typeof mountWithSelection>>['wrapper']) {
-    const hint = wrapper.findAll('p').find(p => p.text() === HINT)!
-    return [...hint.element.parentElement!.querySelectorAll<HTMLButtonElement>('button[role="combobox"]')]
+    const unitTargets = wrapper.find('[data-testid="unit-targets"]')
+    return [...unitTargets.element.querySelectorAll<HTMLButtonElement>('button[role="combobox"]')]
   }
 
   // open a select and pick the item labelled `label`
@@ -953,6 +952,9 @@ describe('explorer Page Unit Targets selects (GH-2391)', () => {
   it('names the server\'s unit on each select left at Default, without an error', async () => {
     const { wrapper } = await mountWithUnitTargets([])
 
+    // the hint above them is the catalog's, read from it so the copy can change without this test
+    expect(wrapper.find('[data-testid="unit-targets"] p').text())
+      .toBe(useNuxtApp().$i18n.t('explorer.unitTargetsHint'))
     expect(unitTargetTriggers(wrapper).map(trigger => trigger.textContent?.trim())).toEqual([
       'Default (Degrees Fahrenheit (°F))',
       'Default (Knots (kn))',
@@ -1203,5 +1205,216 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
     await settle()
 
     expect(vm.dataSettings).toMatchObject({ shape: 'wide', dropNulls: false })
+  })
+})
+
+describe('explorer Page point given by a station in a link (GH-2392)', () => {
+  const HAMBURG = { station_id: '01975', name: 'Hamburg-Fuhlsbüttel', latitude: 53.6332, longitude: 9.9881, elevation: 11 }
+  const LINK = 'provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m'
+    + '&interpolationSource=station&interpolationStation=01975&startDate=2020-01-01&endDate=2020-01-31'
+
+  // the requests /api/stations got
+  let stationsAsked = 0
+  // the gates a test holds answers on, opened after it, before its page goes
+  const releases: (() => void)[] = []
+
+  beforeEach(() => {
+    stationsAsked = 0
+    clearNuxtState('server-settings')
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    releases.splice(0).forEach(release => release())
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+    useToast().clear()
+  })
+
+  // a gate the test opens: an answer held on it comes once `release` is called
+  function gate() {
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    releases.push(release)
+    return { held, release }
+  }
+
+  // Open the link in `mode`, with the elevation it names; `stations` answers /api/stations
+  async function open(stations: () => unknown, { mode = 'interpolation', elevation = '11' } = {}) {
+    endpoints.push(registerEndpoint('/api/coverage', (event) => {
+      if (getQuery(event).provider)
+        return dailyClimateSummaryCoverage()
+      return { dwd: { observation: {} } }
+    }))
+    endpoints.push(registerEndpoint('/api/stations', () => {
+      stationsAsked += 1
+      return stations()
+    }))
+    const wrapper = await mountSuspended(ExplorerWithApp, { attachTo: document.body, route: `/explorer?${LINK}&mode=${mode}&elevation=${elevation}` })
+    mounted.push(wrapper)
+    return { wrapper, vm: wrapper.findComponent(ExplorerPage).vm as any }
+  }
+
+  const query = () => useRouter().currentRoute.value.query
+
+  // the link once the page has written it, which the link it was opened at, naming no setting, is not
+  async function written() {
+    await vi.waitFor(() => expect(query().humanize).toBeDefined())
+    return query()
+  }
+
+  it.each(['interpolation', 'summary'])('restores the station as the point in %s mode, and keeps it in the link', async (mode) => {
+    const { vm } = await open(() => ({ stations: [HAMBURG] }), { mode })
+
+    await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.station?.station_id).toBe('01975'))
+    expect(vm.stationSelectionState.interpolation).toMatchObject({ source: 'station', latitude: 53.6332, longitude: 9.9881, elevation: 11 })
+    expect(vm.hasLocationSelection).toBe(true)
+    expect((await written()).interpolationStation).toBe('01975')
+  })
+
+  it('keeps the elevation the link was copied with, typed over the station\'s', async () => {
+    const { vm } = await open(() => ({ stations: [HAMBURG] }), { elevation: '500' })
+
+    await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.station?.station_id).toBe('01975'))
+    expect(vm.stationSelectionState.interpolation).toMatchObject({ latitude: 53.6332, longitude: 9.9881, elevation: 500 })
+    expect(await written()).toMatchObject({ interpolationStation: '01975', elevation: '500' })
+  })
+
+  it('keeps an elevation typed while the list is on its way', async () => {
+    const { held, release } = gate()
+    const { wrapper, vm } = await open(async () => {
+      await held
+      return { stations: [HAMBURG] }
+    })
+    await vi.waitFor(() => expect(stationsAsked).toBe(1))
+    await wrapper.find('input[placeholder="e.g. 34"]').setValue('300')
+    await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.elevation).toBe(300))
+
+    release()
+    await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.station?.station_id).toBe('01975'))
+    expect(vm.stationSelectionState.interpolation.elevation).toBe(300)
+  })
+
+  it('keeps the id in the link while the list is on its way, and in every link written on the way', async () => {
+    const replace = vi.spyOn(useRouter(), 'replace')
+    const { held, release } = gate()
+    const { vm } = await open(async () => {
+      await held
+      return { stations: [HAMBURG] }
+    })
+    await vi.waitFor(() => expect(stationsAsked).toBe(1))
+
+    expect((await written()).interpolationStation).toBe('01975')
+    expect(vm.stationSelectionState.interpolation.station).toBeUndefined()
+
+    release()
+    await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.station?.station_id).toBe('01975'))
+    expect(query().interpolationStation).toBe('01975')
+    // the page's own: none, the one written as the station is restored included, went without it
+    const links = replace.mock.calls.map(([to]) => (to as { query?: Record<string, string> }).query).filter(q => q?.mode)
+    expect(links.length).toBeGreaterThan(1)
+    expect(links.map(q => q!.interpolationStation)).toEqual(links.map(() => '01975'))
+  })
+
+  it('keeps the id in the link when the list fails, and restores the station on Retry', async () => {
+    let fail = true
+    const { wrapper, vm } = await open(() => {
+      if (fail)
+        throw createError({ statusCode: 400 })
+      return { stations: [HAMBURG] }
+    })
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to load stations.'))
+
+    expect((await written()).interpolationStation).toBe('01975')
+    expect(vm.stationSelectionState.interpolation.station).toBeUndefined()
+
+    fail = false
+    await wrapper.findAll('button').find(b => b.text() === 'Retry')!.trigger('click')
+    await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.station?.station_id).toBe('01975'))
+    expect(query().interpolationStation).toBe('01975')
+  })
+
+  it('keeps the id in the link while the server\'s settings are on their way, and once they come', async () => {
+    const settings = gate()
+    const stations = gate()
+    endpoints.push(registerEndpoint('/api/settings', async () => {
+      await settings.held
+      return { values: { humanize: false } }
+    }))
+    const { vm } = await open(async () => {
+      await stations.held
+      return { stations: [HAMBURG] }
+    })
+
+    expect((await written()).interpolationStation).toBe('01975')
+    settings.release()
+    await vi.waitFor(() => expect(query().humanize).toBe('false'))
+    expect(query().interpolationStation).toBe('01975')
+
+    stations.release()
+    await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.station?.station_id).toBe('01975'))
+    expect(query().interpolationStation).toBe('01975')
+  })
+
+  // the picker offers neither: the point is left for the user to choose, as station mode leaves
+  // out a station the list does not have, and the link no longer names it
+  it.each([
+    ['not in the list', { ...HAMBURG, station_id: '00001' }],
+    ['without a position', { ...HAMBURG, latitude: null, longitude: null }],
+  ])('leaves the point unset for a station %s, and drops it from the link', async (_, station) => {
+    const { vm } = await open(() => ({ stations: [station] }))
+    await vi.waitFor(() => expect(stationsAsked).toBe(1))
+
+    await vi.waitFor(() => expect(query().interpolationStation).toBeUndefined())
+    expect((await written()).interpolationSource).toBe('station')
+    expect(vm.stationSelectionState.interpolation.station).toBeUndefined()
+    expect(vm.hasLocationSelection).toBe(false)
+  })
+
+  it.each([
+    ['', false],
+    [', and back to a station', true],
+  ])('gives the station up when the user switches to coordinates before the list came%s', async (_, back) => {
+    const { held, release } = gate()
+    const { wrapper, vm } = await open(async () => {
+      await held
+      return { stations: [HAMBURG] }
+    })
+    const source = (label: string) => wrapper.findAll('button').find(b => b.text() === label)!.trigger('click')
+    await vi.waitFor(() => expect(stationsAsked).toBe(1))
+    await source('Manual coordinates')
+    await vi.waitFor(() => expect(query().interpolationSource).toBe('manual'))
+    if (back) {
+      await source('From station')
+      await vi.waitFor(() => expect(query().interpolationSource).toBe('station'))
+      expect(query().interpolationStation).toBeUndefined()
+    }
+
+    release()
+    await vi.waitFor(() => expect(vm.stationSelectionState.interpolation.source).toBe(back ? 'station' : 'manual'))
+    // the list has answered
+    await vi.waitFor(() => expect((wrapper.findComponent(InterpolationSummarySelection).vm as any).stationsStatus).toBe('success'))
+    expect(vm.stationSelectionState.interpolation.station).toBeUndefined()
+    expect(vm.stationSelectionState.interpolation.latitude).toBeUndefined()
+    expect(query().interpolationStation).toBeUndefined()
+  })
+
+  it('forgets the station when the dataset changes before the list came', async () => {
+    const { held } = gate()
+    const { vm } = await open(async () => {
+      await held
+      return { stations: [HAMBURG] }
+    })
+    await vi.waitFor(() => expect(stationsAsked).toBe(1))
+
+    // the parameter selection takes back a resolution the provider does not have, which is a change too
+    vm.parameterSelectionState.selection.resolution = 'hourly'
+    await vi.waitFor(() => expect(query()).toMatchObject({ interpolationSource: 'manual' }))
+    expect(query().resolution).toBeUndefined()
+    vm.stationSelectionState.interpolation = { source: 'station' }
+    await vi.waitFor(() => expect(query().interpolationSource).toBe('station'))
+    expect(query().interpolationStation).toBeUndefined()
   })
 })

@@ -40,6 +40,7 @@ from wetterdienst.ui.core import (
     SummaryRequest,
     ValuesRequest,
     _get_stripes_stations,
+    _is_caller_refusal,
     _plot_stripes,
     describe_fields,
     get_glossary,
@@ -1139,7 +1140,11 @@ def issues_cmd(
     except NotImplementedError:
         log.exception("Issues not available for the given request.")
         sys.exit(1)
-    except Exception:
+    except Exception as e:
+        # a request the caller can rephrase, such as a DMO-only option on MOSMIX, is told in one
+        # line, as `/api/issues` answers it with a 400; an upstream failure keeps its traceback
+        if _is_caller_refusal(e, request):
+            raise click.UsageError(str(e)) from e
         log.exception("Failed to get issues.")
         sys.exit(1)
 
@@ -2016,8 +2021,10 @@ def stripes_values(
             "debug": debug,
         },
     )
-    if target and not target.name.lower().endswith(fmt):
-        msg = f"'target' must have extension '{fmt}'"
+    # the suffix, dot included, so `stripespng` is refused; `.jpeg` is as usual for JPEG as `.jpg`
+    suffixes = (".jpg", ".jpeg") if fmt == "jpg" else (f".{fmt}",)
+    if target and target.suffix.lower() not in suffixes:
+        msg = f"'target' must have extension {' or '.join(f'{suffix!r}' for suffix in suffixes)}"
         raise click.ClickException(msg)
 
     set_logging_level(debug=debug)

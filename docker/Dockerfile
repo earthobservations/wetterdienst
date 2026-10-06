@@ -33,9 +33,11 @@ ENV UV_NO_DEV=1
 ENV UV_LINK_MODE=copy
 ENV UV_PROJECT_ENVIRONMENT=/usr/local
 
-# Install chromium -> required for kaleido png export, and curl for health checks
+# Install chromium -> required for kaleido png export, curl for health checks, and the ecCodes
+# library (with its definitions, libeccodes-data) that the eccodes bindings of the `bufr` extra
+# load to decode BUFR -- the lock installs the bindings only
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends chromium curl && \
+    apt-get install -y --no-install-recommends chromium curl libeccodes0 libeccodes-data && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -54,9 +56,11 @@ CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:3000", "--reload"]
 # Final stage
 FROM python:3.14-slim-trixie
 
-# Install chromium -> required for kaleido png export, and curl for health checks
+# Install chromium -> required for kaleido png export, curl for health checks, and the ecCodes
+# library (with its definitions, libeccodes-data) that the eccodes bindings of the `bufr` extra
+# load to decode BUFR -- the lock installs the bindings only
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends chromium curl && \
+    apt-get install -y --no-install-recommends chromium curl libeccodes0 libeccodes-data && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages from build stage
