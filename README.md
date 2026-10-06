@@ -93,10 +93,10 @@ Extras: `bufr`, `cratedb`, `duckdb`, `eccodes`, `excel`, `export`, `influxdb`, `
 `knmi`, `mcp`, `mysql`, `pdf`, `plotting`, `postgresql`, `radar`, `radarplus`, `restapi`, `sql`.
 Check the installation with `wetterdienst --help`.
 
-On Linux, `bufr` (or `eccodes`) together with `radarplus` can make Python crash at exit
-([ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354)). The
-[known issues](https://wetterdienst.readthedocs.io/en/latest/known_issues.html) page has the
-workaround.
+On Linux, `bufr` (or `eccodes`) can make Python crash at exit once `pyproj`, which `radarplus`
+brings, is imported after it ([ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354)). See
+[known issues](https://wetterdienst.readthedocs.io/en/latest/known_issues.html#crash-at-exit-with-eccodes-and-pyproj-on-linux)
+for the workaround.
 
 Prefer Docker? The image ships with the optional dependencies included:
 

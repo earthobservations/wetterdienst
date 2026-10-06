@@ -45,33 +45,42 @@ export WD_USE_CERTIFI=true
 This uses Mozilla's curated collection of root certificates instead of your system certificates.
 For more information, see the [settings documentation](usage/settings.md).
 
-## Crash at exit with the `bufr` and `radarplus` extras on Linux
+## Crash at exit with ecCodes and pyproj on Linux
 
-On Linux, `eccodes` (from the `bufr` or `eccodes` extra) pulls in the `eccodeslib` and `eckitlib`
-wheels, and `eckitlib` bundles its own copy of PROJ. The `radarplus` extra brings in `pyproj`, which
-bundles another. A process that imports `eccodes` before `pyproj` then crashes at interpreter exit
-(`double free or corruption` or `free(): invalid pointer`, usually exit status 134):
+Installed with pip on Linux, `eccodes` (from the `bufr` or `eccodes` extra) pulls in the
+`eccodeslib` and `eckitlib` wheels, and `eckitlib` bundles its own copy of PROJ. `pyproj` bundles
+another, and comes with the `radarplus` extra (through wradlib and xradar) as well as with libraries
+such as geopandas or cartopy. A process that loads `eccodes` and then imports `pyproj` crashes at
+interpreter exit (`double free or corruption`, `free(): invalid pointer` or a segmentation fault,
+exit status 134 or 139):
 
 ```bash
 python -c "import eccodes; import pyproj"; echo $?   # 134
 python -c "import pyproj; import eccodes"; echo $?   # 0
 ```
 
-The crash comes after your code has finished, so output is already written, but the non-zero exit
-status fails scripts and CI jobs. This is the upstream bug
+wetterdienst loads `eccodes` when it first reads BUFR: DWD road data, or DWD radar data with the
+`read_bufr` setting. The crash comes after your code has finished, so output is already written,
+but the non-zero exit status fails scripts and CI jobs. This is the upstream bug
 [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
-[#2441](https://github.com/earthobservations/wetterdienst/issues/2441).
+[#2441](https://github.com/earthobservations/wetterdienst/issues/2441). The Docker image does not
+install the `eccodeslib` wheel and is not affected.
 
-Until it is fixed, install your distribution's ecCodes library and tell `findlibs` to use it instead
-of the one from the wheel (Debian/Ubuntu shown):
+Until it is fixed, install your distribution's ecCodes library and set
+`FINDLIBS_DISABLE_PACKAGE=yes` in the environment of the process that runs wetterdienst (the shell,
+the CI job, the service unit), so that `findlibs` loads that library instead of the wheel's. On
+Debian 13:
 
 ```bash
 sudo apt-get install libeccodes0
-export FINDLIBS_DISABLE_PACKAGE=yes
+FINDLIBS_DISABLE_PACKAGE=yes python my_script.py
 ```
 
-Both steps are needed: with only `FINDLIBS_DISABLE_PACKAGE` set and no system library,
-`eccodes` cannot load at all. Importing `pyproj` before `eccodes` avoids the crash as well.
+Both are needed: with only the variable set and no system library, `eccodes` cannot load at all.
+The variable applies to every library `findlibs` looks up in that process, not only ecCodes, so
+another package that relies on `findlibs` to find a library in its wheel will no longer find it.
+
+Alternatively, import `pyproj` (or wradlib, xradar) before the first BUFR read.
 
 ## Raspberry Pi / Linux ARM
 
