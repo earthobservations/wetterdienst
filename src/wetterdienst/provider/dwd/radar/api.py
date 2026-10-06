@@ -12,7 +12,6 @@ import re
 import tarfile
 from dataclasses import dataclass
 from io import BytesIO
-from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
@@ -42,7 +41,7 @@ from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_stri
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import _parse_datetime_from_formats, raster_minutes, round_minutes
-from wetterdienst.util.eccodes import bufr_is_available, quiet_eccodes_version_advice
+from wetterdienst.util.eccodes import bufr_file, bufr_is_available, quiet_eccodes_version_advice
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
 
@@ -116,12 +115,10 @@ def read_radar_bufr(data: BytesIO, parameter: DwdRadarParameter) -> pl.DataFrame
     import pdbufr  # noqa: PLC0415
 
     value_field = _BUFR_VALUE_FIELD[parameter]
-    with NamedTemporaryFile("w+b", suffix=".bufr") as tf:
-        # getvalue() (not read()) leaves the caller's BytesIO position untouched, so result.data
-        # stays readable afterwards.
-        tf.write(data.getvalue())
-        tf.seek(0)
-        df = pdbufr.read_bufr(tf.name, columns="data", flat=True)
+    # getvalue() (not read()) leaves the caller's BytesIO position untouched, so result.data
+    # stays readable afterwards.
+    with bufr_file(data.getvalue()) as path:
+        df = pdbufr.read_bufr(path, columns="data", flat=True)
     # a single BUFR subset -> one pandas row; leading metadata descriptors carry a "#1#" prefix
     row = df.iloc[0]
     date = dt.datetime(

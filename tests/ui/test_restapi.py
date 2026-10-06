@@ -9,7 +9,7 @@ import logging
 import os
 import pathlib
 import zipfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, get_args
@@ -26,6 +26,9 @@ from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
 
 if TYPE_CHECKING:
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
     from wetterdienst.model.result import ValuesResult
 
 # the media type each image format is registered as, spelled out rather than read from the REST API's
@@ -2954,14 +2957,14 @@ def _year_10000_message() -> str:
         pytest.param(
             "/api/interpolate",
             {**_OBSERVATION, "station": "01048", "date": "foo"},
-            404,
+            400,
             "date_string foo could not be parsed",
             id="interpolate-unparseable-date",
         ),
         pytest.param(
             "/api/summarize",
             {**_OBSERVATION, "station": "01048", "date": "foo"},
-            404,
+            400,
             "date_string foo could not be parsed",
             id="summarize-unparseable-date",
         ),
@@ -2982,7 +2985,7 @@ def _year_10000_message() -> str:
         pytest.param(
             "/api/interpolate",
             {**_OBSERVATION, "parameters": "daily/abc", "station": "01048", "date": "2020-06-30"},
-            404,
+            400,
             "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
             id="interpolate-unknown-parameter",
         ),
@@ -3025,21 +3028,21 @@ def _year_10000_message() -> str:
                 "issue": "foo",
                 "date": "2026-10-01",
             },
-            404,
+            400,
             "Invalid isoformat string: 'foo'",
             id="interpolate-dmo-unparseable-issue",
         ),
         pytest.param(
             "/api/interpolate",
             {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": ""},
-            404,
+            400,
             "start_date and end_date are required for interpolation",
             id="interpolate-empty-date",
         ),
         pytest.param(
             "/api/summarize",
             {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": ""},
-            404,
+            400,
             "start_date and end_date are required for summarization",
             id="summarize-empty-date",
         ),
@@ -3053,7 +3056,7 @@ def _year_10000_message() -> str:
         pytest.param(
             "/api/interpolate",
             {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "date": "9999-12-31"},
-            404,
+            400,
             "date value out of range",
             id="interpolate-date-past-the-last-day",
         ),
@@ -3103,9 +3106,8 @@ def test_a_refusal_of_the_request_keeps_its_4xx(
     """A request refused for what it asks is still the caller's to fix, and answers with a 4xx (GH-2252).
 
     Each is refused before anything is downloaded, so these are real requests rather than stubs.
-    The 404s from the geo endpoints are the status those answered with before GH-2252; only failures
-    that are not a refusal of the request moved, to a 500. A point beyond the latitudes UTM covers
-    is a 400 since GH-2385, as the other points the geo endpoints cannot answer at are.
+    The geo endpoints answered these with a 404 until GH-2429, and answer them with the 400
+    `/api/values` gives since.
     """
     response = client.get(endpoint, params=params)
 
@@ -3149,7 +3151,7 @@ def _raise_station_not_found(**_kwargs: object) -> None:
             "/api/interpolate",
             "get_interpolate",
             _raise_unit_target_refusal,
-            404,
+            400,
             "Unit foo not supported for type temperature",
             id="interpolate-unknown-unit-target",
         ),
@@ -3160,7 +3162,7 @@ def _raise_station_not_found(**_kwargs: object) -> None:
             "/api/summarize",
             "get_summarize",
             _raise_sql_refusal,
-            404,
+            400,
             'Referenced column "foo" not found',
             id="summarize-sql",
         ),
@@ -3191,10 +3193,11 @@ def test_a_refusal_raised_past_the_station_lookup_keeps_its_4xx(
     status: int,
     detail: str,
 ) -> None:
-    """A refusal raised once stations are known still answers as it did (GH-2252).
+    """A refusal raised once stations are known still answers with a 4xx (GH-2252).
 
     The refusal is raised by the code that raises it on the real path -- the unit converter, the SQL
-    filter -- from a stub at the point the network would otherwise be needed to reach it.
+    filter -- from a stub at the point the network would otherwise be needed to reach it. The geo
+    endpoints answer it with a 400 since GH-2429, and a station the lookup does not know with a 404.
     """
     if entry_point is None:
         stations = SimpleNamespace(values=SimpleNamespace(all=refuse))
@@ -6223,3 +6226,363 @@ def test_stripes_a_station_that_returns_no_rows_is_a_400(
     assert response.json()["detail"] == (
         "At least two years with data are required to create climate stripes; station 01048 has data for no year"
     )
+
+
+@pytest.fixture
+def telemetry(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple["InMemorySpanExporter", "InMemoryMetricReader"]]:
+    """Set up global OpenTelemetry tracer and meter providers that keep what they record in memory.
+
+    FastAPI reports to the global providers once they are set. OpenTelemetry sets each only once per
+    process, so this swaps the module attributes that hold them, puts them back afterwards and shuts
+    the swapped-in ones down: a proxy tracer resolved meanwhile keeps its provider.
+    """
+    from opentelemetry import trace  # noqa: PLC0415
+    from opentelemetry.metrics import _internal as metrics_internal  # noqa: PLC0415
+    from opentelemetry.sdk.metrics import MeterProvider  # noqa: PLC0415
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader  # noqa: PLC0415
+    from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor  # noqa: PLC0415
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: PLC0415
+
+    spans = InMemorySpanExporter()
+    tracer_provider = TracerProvider(shutdown_on_exit=False)
+    tracer_provider.add_span_processor(SimpleSpanProcessor(spans))
+    metrics = InMemoryMetricReader()
+    meter_provider = MeterProvider(metric_readers=[metrics], shutdown_on_exit=False)
+    monkeypatch.setattr(trace, "_TRACER_PROVIDER", tracer_provider)
+    monkeypatch.setattr(metrics_internal, "_METER_PROVIDER", meter_provider)
+    yield spans, metrics
+    tracer_provider.shutdown()
+    meter_provider.shutdown()
+
+
+def _span_names(spans: "InMemorySpanExporter", library: str, *, server: bool = False) -> list[str]:
+    """Name the spans one instrumentation library recorded, or only its server spans.
+
+    FastAPI records one server span per request it sees, and operation spans beneath it.
+    """
+    from opentelemetry.trace import SpanKind  # noqa: PLC0415
+
+    return [
+        span.name
+        for span in spans.get_finished_spans()
+        if span.instrumentation_scope
+        and span.instrumentation_scope.name == library
+        and (not server or span.kind is SpanKind.SERVER)
+    ]
+
+
+def _metric_names(metrics: "InMemoryMetricReader", library: str) -> list[str]:
+    """Name the metrics one instrumentation library recorded."""
+    data = metrics.get_metrics_data()
+    return [
+        metric.name
+        for resource in (data.resource_metrics if data else [])
+        for scope in resource.scope_metrics
+        if scope.scope.name == library
+        for metric in scope.metrics
+    ]
+
+
+def _request_durations(metrics: "InMemoryMetricReader") -> dict[str, int]:
+    """Count the requests in fastapi's `http.server.request.duration` histogram, by route."""
+    counts: dict[str, int] = {}
+    data = metrics.get_metrics_data()
+    for resource in data.resource_metrics if data else []:
+        for scope in resource.scope_metrics:
+            for metric in scope.metrics:
+                if metric.name == "http.server.request.duration":
+                    for point in metric.data.data_points:
+                        route = str(point.attributes.get("http.route"))
+                        counts[route] = counts.get(route, 0) + point.count
+    return counts
+
+
+def test_mcp_tool_call_in_process_request_is_left_out_of_fastapi_telemetry(
+    telemetry: tuple["InMemorySpanExporter", "InMemoryMetricReader"],
+) -> None:
+    """A tool call's in-process request to the REST app records no fastapi span or metric (GH-2432).
+
+    Its spans would start a trace of their own, cut off from the tool call's, and the server metrics
+    would count each tool call a second time. The tool call's own span stays.
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    spans, metrics = telemetry
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool("glossary", {"parameter": "temperature_air_mean_2m"})
+
+    asyncio.run(_call())
+
+    assert "tools/call glossary" in _span_names(spans, "fastmcp", server=True)
+    assert _span_names(spans, "fastapi") == []
+    assert _metric_names(metrics, "fastapi") == []
+
+
+@pytest.mark.parametrize("base_url", ["http://testserver", "http://wetterdienst.local"])
+def test_rest_request_is_recorded_by_fastapi_telemetry(
+    telemetry: tuple["InMemorySpanExporter", "InMemoryMetricReader"],
+    base_url: str,
+) -> None:
+    """A request to the REST API keeps its fastapi span and metric, even one to the tools' host (GH-2432)."""
+    spans, metrics = telemetry
+
+    response = TestClient(restapi.app, base_url=base_url).get("/api/glossary", params={"limit": 1})
+
+    assert response.status_code == 200
+    assert _span_names(spans, "fastapi", server=True) == ["GET /api/glossary"]
+    assert _request_durations(metrics) == {"/api/glossary": 1}
+
+
+def test_mcp_tool_call_over_mcp_is_recorded_as_the_mcp_request_only(
+    telemetry: tuple["InMemorySpanExporter", "InMemoryMetricReader"],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A tool call over `/mcp` records the `/mcp` requests, not the tool's REST request (GH-2432).
+
+    The tool's request runs in the context of the `/mcp` request, so fastapi's operation spans for it
+    sit beneath the tool call's span.
+    """
+    pytest.importorskip("fastmcp")
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    # a fresh MCP server in place of the one mounted at import, which closes its client to the REST
+    # app as a lifespan ends, as an earlier test's may have
+    mcp_app = build_mcp_server(restapi.app).http_app(path="/mcp")
+    routes = [route for route in restapi.app.router.routes if getattr(route, "path", None) != "/mcp"]
+    monkeypatch.setattr(restapi.app.router, "routes", [*routes, *mcp_app.router.routes])
+    monkeypatch.setattr(restapi.app.router, "lifespan_context", mcp_app.router.lifespan_context)
+    spans, metrics = telemetry
+    headers = {"Accept": "application/json, text/event-stream"}
+    initialize = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "test", "version": "1"},
+        },
+    }
+    initialized = {"jsonrpc": "2.0", "method": "notifications/initialized"}
+    call = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {"name": "glossary", "arguments": {"parameter": "temperature_air_mean_2m"}},
+    }
+
+    # the session manager runs in the app lifespan, so drive the client as a context manager
+    with TestClient(restapi.app) as client:
+        response = client.post("/mcp", json=initialize, headers=headers)
+        headers["mcp-session-id"] = response.headers["mcp-session-id"]
+        client.post("/mcp", json=initialized, headers=headers)
+        response = client.post("/mcp", json=call, headers=headers)
+
+    assert '"isError":false' in response.text
+    assert _span_names(spans, "fastapi", server=True) == ["POST /mcp"] * 3
+    assert _request_durations(metrics) == {"/mcp": 3}
+    (tool_call,) = [span for span in spans.get_finished_spans() if span.name == "tools/call glossary"]
+    operations = [span for span in spans.get_finished_spans() if span.name.startswith("fastapi.")]
+    assert {span.name for span in operations} == {"fastapi.dependencies", "fastapi.endpoint", "fastapi.serialization"}
+    assert {span.parent.span_id for span in operations if span.parent} == {tool_call.context.span_id}
+
+
+def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An upstream outage answers a 5xx, where it used to read as a station without data (GH-2430)."""
+    from aiohttp import ClientResponseError, RequestInfo  # noqa: PLC0415
+    from multidict import CIMultiDict, CIMultiDictProxy  # noqa: PLC0415
+    from yarl import URL  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import api as dwd_observation_api  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import download as dwd_observation_download  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    station = {
+        "resolution": "annual",
+        "dataset": "climate_summary",
+        "station_id": "01048",
+        "start_date": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+        "end_date": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "latitude": 51.1278,
+        "longitude": 13.7543,
+        "elevation": 228.0,
+        "name": "Dresden-Klotzsche",
+        "region": "Sachsen",
+    }
+    url = "https://example.invalid/jahreswerte_KL_01048_19340101_20231231_hist.zip"
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame([station]))
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "create_file_list_for_climate_observations",
+        lambda *_args, **_kwargs: pl.Series([url]),
+    )
+    # what `download_file` hands back for a 5xx that outlasted its retries
+    request_info = RequestInfo(URL(url), "GET", CIMultiDictProxy(CIMultiDict()), URL(url))
+    error = ClientResponseError(request_info, (), status=503, message="Service Unavailable")
+    failed = File(url=url, content=error, status=503)
+    monkeypatch.setattr(dwd_observation_download, "download_files", lambda **_kwargs: [failed])
+
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "annual/climate_summary",
+            "periods": "historical",
+            "station": "01048",
+        },
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == f"503, message='Service Unavailable', url='{url}'"
+
+
+_GEO_REFUSALS = [
+    pytest.param(
+        "interpolate",
+        {"latitude": 50.0, "longitude": 10.0, "date": "2020-06-30/2020-06-01"},
+        400,
+        "Error: 'start_date' must be smaller or equal to 'end_date'.",
+        id="interpolate-window-the-wrong-way-round",
+    ),
+    pytest.param(
+        "summarize",
+        {"latitude": 50.0, "longitude": 10.0, "date": "2020-06-30/2020-06-01"},
+        400,
+        "Error: 'start_date' must be smaller or equal to 'end_date'.",
+        id="summarize-window-the-wrong-way-round",
+    ),
+    pytest.param(
+        "interpolate",
+        {"latitude": 50.0, "longitude": 10.0, "date": "9999-12-31"},
+        400,
+        "date value out of range",
+        id="interpolate-date-past-the-last-day",
+    ),
+    pytest.param(
+        "interpolate",
+        {"station": "00001", "date": "2020-06-30"},
+        404,
+        "no station found for 00001",
+        id="interpolate-unknown-station",
+    ),
+    pytest.param(
+        "summarize",
+        {"station": "00001", "date": "2020-06-30"},
+        404,
+        "no station found for 00001",
+        id="summarize-unknown-station",
+    ),
+]
+
+
+@pytest.mark.parametrize(("endpoint", "point", "status", "detail"), _GEO_REFUSALS)
+def test_geo_a_refusal_of_the_request_is_logged_as_info(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    point: dict[str, object],
+    status: int,
+    detail: str,
+) -> None:
+    """A request refused for what it asks is a 400 and an info line; an unknown station a 404 (GH-2429).
+
+    The geo endpoints answered most refusals with a 404 and logged their traceback as an error. A
+    station the lookup does not know is the one refusal that means "no such thing".
+    """
+    _stub_a_station_without_position(monkeypatch)
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get(f"/api/{endpoint}", params={**_OBSERVATION, **point})
+    assert response.status_code == status
+    assert response.json()["detail"] == detail
+    records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [
+        (logging.INFO, f"Failed to {endpoint}: {detail}")
+    ]
+    assert not any(record.exc_info for record in records)
+
+
+def test_values_a_window_the_wrong_way_round_is_logged_as_info(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A window that ends before it starts is the caller's 400, logged without a traceback (GH-2429)."""
+    detail = "Error: 'start_date' must be smaller or equal to 'end_date'."
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get(
+            "/api/values", params={**_OBSERVATION, "station": "01048", "date": "2020-06-30/2020-06-01"}
+        )
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+    records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [
+        (logging.INFO, f"Failed to get values: {detail}")
+    ]
+    assert not any(record.exc_info for record in records)
+
+
+@pytest.mark.parametrize(("tool", "point", "status", "detail"), _GEO_REFUSALS)
+def test_mcp_a_refusal_of_the_request_keeps_the_rest_apis_status(
+    monkeypatch: pytest.MonkeyPatch,
+    tool: str,
+    point: dict[str, object],
+    status: int,
+    detail: str,
+) -> None:
+    """The MCP tools are the REST API's routes, and answer a refusal with the same status (GH-2429)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    _stub_a_station_without_position(monkeypatch)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(tool, {**_OBSERVATION, **point})
+
+    with pytest.raises(ToolError, match=f"HTTP error {status}") as error:
+        asyncio.run(_call())
+    assert detail in str(error.value)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point"), [("interpolate", "get_interpolate"), ("summarize", "get_summarize")]
+)
+def test_geo_an_issue_the_source_does_not_list_is_a_400(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    entry_point: str,
+) -> None:
+    """A forecast run the listing does not hold is a 400, as `/api/values` answers it (GH-2429)."""
+    from wetterdienst.exceptions import IssueNotFoundError  # noqa: PLC0415
+
+    msg = "Unable to find 2020-01-01 00:00:00 file within https://example.com/kmz"
+
+    def refuse(**_kwargs: object) -> None:
+        raise IssueNotFoundError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
+    response = client.get(f"/api/{endpoint}", params={**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == msg

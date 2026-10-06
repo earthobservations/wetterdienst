@@ -1033,3 +1033,23 @@ def test_imgw_meteorology_daily_precipitation_returns_a_dry_day_the_file_leaves_
     )
     assert values.get_column("value").to_list() == [0.0]
     assert values.get_column("quality").to_list() == [11.0]
+
+
+def test_imgw_meteorology_raises_a_failed_download_and_drops_a_missing_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A download that failed for any reason but a 404 is raised, not dropped as a missing file (GH-2430)."""
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.imgw.meteorology import api as imgw_meteorology_api  # noqa: PLC0415
+
+    missing = File(url="https://example.invalid/missing.zip", content=FileNotFoundError("missing.zip"), status=404)
+    failed = File(url="https://example.invalid/a.zip", content=ConnectionError("503"), status=503)
+    values = ImgwMeteorologyValues.__new__(ImgwMeteorologyValues)
+    values.sr = SimpleNamespace(stations=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
+    monkeypatch.setattr(values, "_get_urls", lambda _dataset, _station_id: ["unused"])
+    dataset = ImgwMeteorologyMetadata.daily.climate
+    monkeypatch.setattr(imgw_meteorology_api, "download_files", lambda **_kwargs: [missing, failed])
+    with pytest.raises(ConnectionError):
+        values._collect_station_parameter_or_dataset("249180010", dataset)  # noqa: SLF001
+    monkeypatch.setattr(imgw_meteorology_api, "download_files", lambda **_kwargs: [missing])
+    assert values._collect_station_parameter_or_dataset("249180010", dataset).is_empty()  # noqa: SLF001

@@ -47,24 +47,27 @@ _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 #: what pydantic renders a secret as, and so what a credential looks like after a JSON round-trip
 _MASK = "*" * 10
 
-#: what a credential may arrive as: the text of one, or one that has already been validated once
-_Secretish = str | SecretStr
-
 #: the share of readings a station must cover not to be skipped: a threshold above 1 skips every
 #: station, one of 0 or below none, so neither is one. The REST request model takes it too, so the
 #: two cannot drift apart (GH-2334)
 SkipThreshold = Annotated[float, Field(gt=0, le=1)]
 
 
-def _as_given(value: object) -> _Secretish:
-    """Pass a secret through as it is, and anything else on as text for the field to wrap.
+def _as_given(value: object) -> object:
+    """Pass an element of a credential pair on for the field to wrap, an all-digit one as its text.
 
-    ``str()`` of a ``SecretStr`` is its mask, so a pair that has already been validated once --
-    which is what a ``model_dump()`` round-trip hands back -- would come back as ten asterisks and
-    fail at the provider later with nothing to say why. The single-valued fields never had this to
-    worry about: pydantic passes an existing secret straight through.
+    A secret is passed through as it is: ``str()`` of a ``SecretStr`` is its mask, so a pair that
+    has already been validated once -- which is what a ``model_dump()`` round-trip hands back --
+    would come back as ten asterisks and fail at the provider later with nothing to say why. An
+    ``int`` is taken as its decimal text: the environment decodes a pair as JSON where it parses,
+    so an all-digit id arrives as one (JSON has no number with a leading zero, so such an id must
+    be quoted in a pair). Anything else -- ``null``, ``true``, a float, an object -- is left for the field to
+    refuse, which names the element; ``str()`` took the text of its repr, ``'None'`` or ``'True'``,
+    for the credential (GH-2434).
     """
-    return value if isinstance(value, SecretStr) else str(value)
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    return value
 
 
 def reveal(secret: SecretStr | None) -> str | None:
@@ -91,7 +94,9 @@ class Auth(BaseModel):
     # a credential assigned after construction (`settings.auth.knmi = ...`) is wrapped, split and
     # checked as one given to the constructor is; without it a plain `str` was kept, which `reveal()`
     # could not read and which printed as it was (GH-2387)
-    model_config = ConfigDict(validate_assignment=True)
+    # a credential refused is not repeated in the error, which pydantic otherwise echoes as its
+    # `input_value` -- and a malformed credential is the one whose traceback gets pasted (GH-2435)
+    model_config = ConfigDict(validate_assignment=True, hide_input_in_errors=True)
 
     aemet: SecretStr | None = Field(default=None)
     knmi: SecretStr | None = Field(default=None)
@@ -130,8 +135,7 @@ class Auth(BaseModel):
         """
         if value is None:
             return None
-        if isinstance(value, int) and not isinstance(value, bool):
-            value = str(value)
+        value = _as_given(value)
         if isinstance(value, (str, SecretStr)):
             return value, ""
         if isinstance(value, Mapping) or not isinstance(value, Iterable):
@@ -140,7 +144,9 @@ class Auth(BaseModel):
         if len(as_tuple) != 2:
             msg = f"metno_frost must be a (client_id, secret) pair, got {len(as_tuple)} element(s)"
             raise ValueError(msg)
-        return _as_given(as_tuple[0]), _as_given(as_tuple[1])
+        client_id, secret = as_tuple
+        # a client id with no secret, as a lone client id gives (GH-2434)
+        return _as_given(client_id), "" if secret is None else _as_given(secret)
 
     @field_validator("ceda", mode="before")
     @classmethod
@@ -342,6 +348,10 @@ class Settings(BaseSettings):
         # model validators below run again; without it a value out of bounds or outside its choices
         # was taken as it was and failed later, far from the assignment (GH-2342)
         validate_assignment=True,
+        # the error does not repeat the value refused: `Auth`'s own setting hides it only in an error
+        # raised by `Auth` itself, not in one raised through the settings, and a value given for
+        # `auth` as a whole, or for `fsspec_client_kwargs` with its headers, is echoed here (GH-2435)
+        hide_input_in_errors=True,
     )
 
     cache_disable: bool = Field(default=False)
@@ -630,11 +640,12 @@ def _describe_settings_error(error: ValidationError | SettingsError) -> list[str
     builds them. Neither hands on a key that is no setting (GH-2349), so every problem is a
     setting's.
 
-    pydantic's own account names the field rather than the variable an operator set, and repeats
-    the value given -- which for `WD_AUTH__*` is a credential, and for `WD_FSSPEC_CLIENT_KWARGS`
-    may hold request headers. Here each problem is the variable and pydantic's message, without
-    the input it echoes (GH-2335). A validator's own message may still name what it refuses -- a
-    unit or a parameter name -- which none of those on the credentials or the headers does.
+    pydantic's own account names the field rather than the variable an operator set, and each of
+    its `errors()` holds the value given -- which for `WD_AUTH__*` is a credential, and for
+    `WD_FSSPEC_CLIENT_KWARGS` may hold request headers. Here each problem is the variable and
+    pydantic's message, without that input (GH-2335), which the settings leave out of the error's
+    text as well (GH-2435). A validator's own message may still name what it refuses -- a unit or a
+    parameter name -- which none of those on the credentials or the headers does.
     """
     if isinstance(error, SettingsError):
         # a dict, a pair or a nested setting is read as JSON, and pydantic-settings says which field
@@ -645,7 +656,14 @@ def _describe_settings_error(error: ValidationError | SettingsError) -> list[str
         return [str(error)]
     lines = []
     for problem in error.errors(include_url=False):
-        variable = "WD_" + "__".join(str(part) for part in problem["loc"]).upper() if problem["loc"] else "WD_*"
+        # an element of a pair, such as the secret in `WD_AUTH__METNO_FROST`, is no variable of its
+        # own, and is told by its index after the name that holds it: `WD_AUTH__METNO_FROST[1]`
+        variable = "WD_" if problem["loc"] else "WD_*"
+        for part in problem["loc"]:
+            if isinstance(part, int):
+                variable += f"[{part}]"
+            else:
+                variable += ("" if variable == "WD_" else "__") + str(part).upper()
         lines.append(f"{variable} is invalid: {problem['msg'].removeprefix('Value error, ')}")
     return lines
 

@@ -3,12 +3,16 @@
 """Tests for geosphere observation API."""
 
 from datetime import datetime
+from io import BytesIO
+from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
 import pytest
 from dirty_equals import IsNumeric
+from freezegun import freeze_time
 
-from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
+from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest, api
+from wetterdienst.util.network import File
 
 
 @pytest.mark.remote
@@ -66,3 +70,61 @@ def test_geosphere_observation_api_radiation(
     assert df.get_column("value").is_not_null().sum() == expected_rows
     # the result is slightly different for each resolution
     assert df.get_column("value").sum() == expected_sum
+
+
+_STATIONS = (
+    "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
+    "4821,Test,16.0,48.0,200,1992-05-20 00:00:00+00:00,2100-01-01 00:00:00+00:00,Wien,True,True\n"
+).encode()
+
+
+def _data_window(monkeypatch: pytest.MonkeyPatch, **dates: datetime) -> tuple[str, str]:
+    """Request one station's values offline and return the start and end the data URL carries."""
+    data_urls = []
+
+    def _download(url: str, **_kwargs: object) -> File:
+        if url.endswith("/metadata/stations"):
+            return File(url=url, content=BytesIO(_STATIONS), status=200)
+        data_urls.append(url)
+        return File(url=url, content=BytesIO(b'{"timestamps": [], "features": []}'), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)
+
+    request = GeosphereObservationRequest(parameters=[("10_minutes", "data", "humidity_relative")], **dates)
+    request.filter_by_station_id("4821").values.all()
+
+    assert len(data_urls) == 1
+    query = parse_qs(urlparse(data_urls[0]).query)
+    return query["start"][0], query["end"][0]
+
+
+def test_geosphere_observation_request_window_carries_the_minutes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the start and end sent upstream keep the request's minutes.
+
+    The window was formatted with ``%H:%m``, so the minute position carried the month: a request
+    starting 13:37 in December sent ``13:12`` (GH-2436). The values are cut to the requested span
+    locally, so this showed only in the URL, and with it the cache key.
+    """
+    start, end = _data_window(
+        monkeypatch,
+        start_date=datetime(2020, 12, 2, 13, 37, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime(2020, 12, 3, 8, 45, tzinfo=ZoneInfo("UTC")),
+    )
+    # one day of buffer on either side of the requested window
+    assert start == "2020-12-01T13:37"
+    assert end == "2020-12-04T08:45"
+
+
+@freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
+def test_geosphere_observation_open_ended_window_ends_on_the_hour(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a request without dates ends its window on the hour, not on the current minute.
+
+    Without dates the window ends a day after now. Sent to the minute, that URL, and so the cache
+    key, would change every minute and a repeat of the whole-record download within the cache's
+    five minutes would miss; floored to the hour, a repeat builds the same URL unless an hour
+    boundary falls between them (GH-2436).
+    """
+    start, end = _data_window(monkeypatch)
+    # the 10 minutes record's default start, less the one-day buffer
+    assert start == "1992-05-19T00:00"
+    assert end == "2020-12-03T13:00"
