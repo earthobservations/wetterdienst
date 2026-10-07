@@ -1014,10 +1014,20 @@ class IssuesRequest(BaseModel):
     debug: _DebugField = False
 
 
-# the query parameters of `/api/coverage`, `/api/glossary` and `/api/alerts`, and of
+# the query parameters of `/api/auth`, `/api/coverage`, `/api/glossary` and `/api/alerts`, and of
 # `/api/stripes/stations` below, each a model forbidding others as the other endpoints' requests
 # are: taken loose, a parameter the endpoint does not know was passed over, and the request answered
 # as if it had not been given it (GH-2479)
+class AuthRequest(BaseModel):
+    """Request model for checking the credentials of a provider and network."""
+
+    model_config = {"extra": "forbid"}
+
+    provider: str
+    network: str
+    debug: _DebugField = False
+
+
 class CoverageRequest(BaseModel):
     """Request model for listing providers and networks, or the resolutions, datasets and parameters of one."""
 
@@ -1027,8 +1037,8 @@ class CoverageRequest(BaseModel):
     network: str | None = None
     resolutions: str | None = None
     datasets: str | None = None
-    pretty: bool = False
-    debug: bool = False
+    pretty: _PrettyField = False
+    debug: _DebugField = False
 
 
 class GlossaryRequest(BaseModel):
@@ -1039,7 +1049,7 @@ class GlossaryRequest(BaseModel):
     parameter: str | None = None
     unit_type: UnitType | None = None
     limit: int | None = None
-    debug: bool = False
+    debug: _DebugField = False
 
 
 class AlertsRequest(_RefusesRenamedParameters):
@@ -1051,8 +1061,8 @@ class AlertsRequest(_RefusesRenamedParameters):
     language: Literal["de", "en", "es", "fr", "mul"] = "en"
     timestamp: str | None = None
     format: Literal["json", "geojson", "csv"] = "json"
-    pretty: bool = False
-    debug: bool = False
+    pretty: _PrettyField = False
+    debug: _DebugField = False
 
 
 # what a request can provoke on its way through `get_values`, `get_interpolate` and
@@ -1473,8 +1483,8 @@ class StripesStationsRequest(BaseModel):
     kind: StripesKind
     active: bool = True
     format: Literal["json", "geojson", "csv"] = "json"
-    pretty: bool = False
-    debug: bool = False
+    pretty: _PrettyField = False
+    debug: _DebugField = False
 
 
 class StripesRequest(BaseModel):

@@ -26,8 +26,6 @@ from wetterdienst.exceptions import (
     StationNotFoundError,
 )
 from wetterdienst.metadata.resolution import Resolution
-
-# needed at runtime: FastAPI resolves this annotation to build the query parameter's enum
 from wetterdienst.model.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -43,6 +41,7 @@ from wetterdienst.settings import SkipThreshold, check_settings
 from wetterdienst.ui.core import (
     SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     AlertsRequest,
+    AuthRequest,
     CoverageRequest,
     GlossaryEntry,
     GlossaryRequest,
@@ -698,10 +697,7 @@ def oauth_metadata_not_found() -> None:
 
 @app.get("/api/auth")
 def auth(
-    provider: str,
-    network: str,
-    *,
-    debug: bool = False,
+    request: Annotated[AuthRequest, Query()],
 ) -> JSONResponse:
     """Check whether the credentials for an auth-required provider are present and valid.
 
@@ -710,7 +706,8 @@ def auth(
     `configured` reflects whether credentials are present; `valid` whether a probe request succeeded.
     `valid` is false whenever `configured` is false (a probe cannot be performed without credentials).
     """
-    set_logging_level(debug=debug)
+    set_logging_level(debug=request.debug)
+    provider, network = request.provider, request.network
 
     try:
         api = Wetterdienst(str(provider), str(network))
@@ -1266,7 +1263,7 @@ def stripes_stations(
     try:
         stations = _get_stripes_stations(kind=request.kind, active=request.active)
     except Exception as e:
-        # nothing of the caller's reaches the lookup but a kind and a flag its signature has checked,
+        # nothing of the caller's reaches the lookup but a kind and a flag its request has checked,
         # so a failure here is the server's or the data source's, whatever its type
         log.exception("Failed to get stripes stations")
         raise HTTPException(status_code=500, detail=str(e)) from e

@@ -6826,3 +6826,31 @@ def test_mcp_known_arguments_reach_the_endpoint() -> None:
 
     (entry,) = asyncio.run(_call())
     assert "temperature_air_mean_2m" in entry["name"]
+
+
+def _query_endpoints() -> list[str]:
+    """Name every endpoint of the REST API taking query parameters."""
+    return [
+        path
+        for path, operations in restapi.app.openapi()["paths"].items()
+        if any(parameter["in"] == "query" for parameter in operations.get("get", {}).get("parameters", []))
+    ]
+
+
+@pytest.mark.parametrize("endpoint", _query_endpoints())
+def test_every_endpoint_refuses_an_unknown_parameter(client: TestClient, endpoint: str) -> None:
+    """Every endpoint taking query parameters refuses one it does not take (GH-2479).
+
+    An endpoint taking its parameters loose, rather than as a model forbidding others, passes over
+    one it does not know, as four of them and `/api/auth` did. The required parameters this request
+    leaves out are reported missing beside it.
+    """
+    response = client.get(endpoint, params={"limt": "1"})
+
+    assert response.status_code == 422, response.text
+    assert {
+        "type": "extra_forbidden",
+        "loc": ["query", "limt"],
+        "msg": "Extra inputs are not permitted",
+        "input": "1",
+    } in (response.json()["detail"])
