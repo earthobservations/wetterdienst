@@ -6854,3 +6854,49 @@ def test_every_endpoint_refuses_an_unknown_parameter(client: TestClient, endpoin
         "msg": "Extra inputs are not permitted",
         "input": "1",
     } in (response.json()["detail"])
+
+
+@pytest.mark.parametrize(
+    ("tool", "arguments", "detail"),
+    [
+        pytest.param(
+            "interpolate",
+            {"latitude": 50.0, "longitude": 10.0, "timestamp": ""},
+            "timestamp is required to interpolate",
+            id="interpolate-no-window",
+        ),
+        pytest.param(
+            "summarize",
+            {"latitude": 50.0, "longitude": 10.0, "timestamp": ""},
+            "timestamp is required to summarize",
+            id="summarize-no-window",
+        ),
+        pytest.param(
+            "values",
+            {"station": "01048", "timestamp": "2020-06-30/2020-06-01"},
+            "the interval in timestamp ends before it starts",
+            id="values-window-the-wrong-way-round",
+        ),
+    ],
+)
+def test_mcp_a_refused_window_is_worded_in_terms_of_timestamp(
+    tool: str, arguments: dict[str, object], detail: str
+) -> None:
+    """The MCP tools refuse a missing or reversed window as the REST routes do, naming `timestamp` (GH-2478)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(tool, {**_OBSERVATION, **arguments})
+
+    with pytest.raises(ToolError, match="HTTP error 400") as error:
+        asyncio.run(_call())
+    assert detail in str(error.value)
