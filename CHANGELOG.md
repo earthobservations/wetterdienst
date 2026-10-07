@@ -63,6 +63,10 @@ Types of changes:
   derived's months, skipped them too. KNMI's and AEMET's own retry of a 429 or 5xx now
   applies through the cache too. A cache miss is one GET instead of two, and a body that ends
   before its `Content-Length` is no longer read back from the cache by the retry (GH-2467)
+- `filter_by_name`, `filter_by_rank`, `filter_by_bbox`, `interpolate` and `summarize` build the
+  station list once, where they built it twice, and `filter_by_distance` once instead of four
+  times: that many fewer station-list downloads on a cold cache. `filter_by_distance` on a request
+  with no stations finds none, where it raised "'rank' has to be at least 1." (GH-2475)
 
 ## [0.141.0] - 2026-10-06
 
