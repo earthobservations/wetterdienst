@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import pickle
+import socket
 import tempfile
 import threading
 import time
@@ -2457,3 +2458,128 @@ def test_file_dir_cache_falls_back_to_a_temporary_dir_where_no_home_resolves(
         assert cache.cache_location.parent.name.startswith("wetterdienst-fsspec-")
     finally:
         _temporary_cache_dir.cache_clear()
+
+
+class _StatusEndpoint(BaseHTTPRequestHandler):
+    """Answers each path with the status the test set for it, and records every request."""
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        """Keep the test output quiet."""
+
+    def do_GET(self) -> None:
+        """Answer with the status set for this path, `/truncated` with a body cut short."""
+        self.server.requests.append(self.path)
+        if self.path == "/truncated":
+            # promises more than it sends, and the connection closing after it is the cut
+            self.send_response(200)
+            self.send_header("Content-Length", "1000")
+            self.end_headers()
+            self.wfile.write(b"payload")
+            return
+        status = self.server.statuses.get(self.path, 200)
+        body = b"payload" if status == 200 else b"error"
+        self.send_response(status)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+@pytest.fixture
+def status_server() -> Iterator[ThreadingHTTPServer]:
+    """Run `_StatusEndpoint` on a port of its own; `server.url` is its address."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _StatusEndpoint)
+    server.statuses = {"/503": 503, "/404": 404}
+    server.requests = []
+    server.url = f"http://127.0.0.1:{server.server_port}"
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def _refusing_url() -> str:
+    """Name a local address nothing listens on, so connecting to it is refused."""
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    return f"http://127.0.0.1:{port}/file"
+
+
+@pytest.mark.parametrize("cache_disable", [False, True], ids=["cache", "no-cache"])
+@pytest.mark.parametrize(
+    ("where", "status", "error"),
+    [
+        ("/503", 503, ClientResponseError),
+        ("refused", 503, NoInternetError),
+        ("/404", 404, FileNotFoundError),
+    ],
+)
+def test_the_cache_reports_the_failure_the_download_met(
+    status_server: ThreadingHTTPServer,
+    tmp_path: Path,
+    where: str,
+    status: int,
+    error: type[Exception],
+    *,
+    cache_disable: bool,
+) -> None:
+    """A 503 or a refused connection is not a missing file, cache or no cache (GH-2467).
+
+    fsspec's caching filesystem asked HTTP whether the file `exists` before fetching it, which
+    answers `False` for any error, and so turned both into the `FileNotFoundError` of a 404.
+    """
+    url = _refusing_url() if where == "refused" else f"{status_server.url}{where}"
+    with stamina.set_testing(True, attempts=1):
+        result = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES, cache_disable=cache_disable)
+
+    assert result.status == status
+    assert isinstance(result.content, error)
+
+
+def test_a_cache_miss_costs_one_request(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
+    """The `exists` probe was a whole GET of its own before the GET of the body (GH-2467)."""
+    url = f"{status_server.url}/file"
+    with stamina.set_testing(True, attempts=1):
+        miss = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
+        hit = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
+
+    assert (miss.status, miss.from_cache, miss.content.getvalue()) == (200, False, b"payload")
+    assert (hit.status, hit.from_cache, hit.content.getvalue()) == (200, True, b"payload")
+    assert status_server.requests == ["/file"]
+
+
+def test_a_failed_refresh_does_not_revive_an_expired_copy(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
+    """An expired blob still on disk is not served as fresh because a refresh of it failed (GH-2467).
+
+    fsspec records the cache entry, stamped now, before the body arrives. Behind its `exists` probe
+    that was only reached for a server that answered; fetching straight away, a 503 would have left
+    a fresh-looking entry pointing at the old blob, for the retry and every later call to read.
+    """
+    url = f"{status_server.url}/file"
+    with stamina.set_testing(True, attempts=2):
+        assert download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES).status == 200
+        filesystem = NetworkFilesystemManager.get(
+            cache_dir=tmp_path, cache_expiry=CacheExpiry.FIVE_MINUTES, cache_disable=False
+        )
+        _age_metadata(Path(filesystem.storage[-1]), seconds=3600)
+        filesystem.load_cache()
+        status_server.statuses["/file"] = 503
+        first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
+        second = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
+
+    assert (first.status, first.from_cache) == (503, False)
+    assert (second.status, second.from_cache) == (503, False)
+
+
+def test_a_body_cut_short_is_not_read_back_from_the_cache(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
+    """The retry after a truncated download fetches the file again rather than reading the stub (GH-2467)."""
+    with stamina.set_testing(True, attempts=2):
+        result = download_file(url=f"{status_server.url}/truncated", cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
+
+    assert result.status != 200
+    assert result.from_cache is False
+    assert status_server.requests == ["/truncated", "/truncated"]

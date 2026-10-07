@@ -745,6 +745,32 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         with _cache_dir_lock:
             super().clear_cache()
 
+    def _open(self, path: str, mode: str = "rb", **kwargs) -> object:  # noqa: ANN003
+        """Fetch a file the cache does not hold, then open the cached copy.
+
+        fsspec's own `_open` asks the remote filesystem whether the file `exists` before fetching
+        it, and HTTP's `exists` answers `False` for any status of 400 or above and for a refused
+        connection. A 503 or a server that is down then came back as the `FileNotFoundError` a
+        404 raises, and `download_file` reported a missing file for a failure (GH-2467). Fetched
+        straight away instead, the error is the one the download met: `FileNotFoundError` for a
+        404, which HTTP's `get_file` raises itself, and the aiohttp error for anything else. A cache
+        miss also costs one GET rather than two.
+
+        The entry is recorded after the body has arrived rather than before, as fsspec records it.
+        A download that fails mid-body leaves no entry claiming a fresh copy, so a retry fetches the
+        file again rather than reading back the truncated one; and one that fails before a byte
+        arrives does not refresh an expired entry whose old blob is still on disk.
+        """
+        path = self._strip_protocol(path)
+        # inline rather than a helper method: this class's `__getattribute__` hands any method name
+        # fsspec does not list to the wrapped filesystem, which has no such method
+        if "r" in mode and not self._check_file(path):
+            self._mkcache()
+            self.fs.get_file(path, str(Path(self.storage[-1]) / self._mapper(path)))
+            self._make_local_details(path)
+            self.save_cache()
+        return super()._open(path, mode=mode, **kwargs)
+
 
 class NetworkFilesystemManager:
     """Manage multiple FSSPEC instances keyed by cache expiration time.
