@@ -45,6 +45,12 @@ Types of changes:
   new one. The app reads the new names from its next release, so upgrade the app with the backend
   (GH-2439)
 
+### Fixed
+
+- DWD observation history: the station's current position in `geography` has `valid_to` null, as
+  a name or operator still in use has, where it gave the time the history was read, a value that
+  changed on every call. Read a null `valid_to` as a position that still applies (GH-2474)
+
 ## [0.141.0] - 2026-10-06
 
 ### Added

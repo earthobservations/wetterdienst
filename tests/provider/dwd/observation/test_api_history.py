@@ -1158,8 +1158,7 @@ def test_dwd_obs_daily_climate_summary_history() -> None:
     assert geography.latitude == 54.3776
     assert geography.longitude == 10.1424
     assert geography.valid_from == dt.datetime(2019, 9, 18, 0, 0, tzinfo=ZoneInfo("UTC"))
-    assert geography.valid_to is not None
-    assert geography.valid_to > geography.valid_from
+    assert geography.valid_to is None
     assert geography.station_name == "Kiel-Holtenau"
     assert len(history.missing_data.summary) == 14
     summary_missing_data = history.missing_data.summary[0]
@@ -1495,8 +1494,8 @@ def test_dwd_obs_history_records_give_their_validity() -> None:
     """Test every history record gives the span it held for as `valid_from` and `valid_to` (GH-2440).
 
     These are the names `/api/history`, the MCP `history` tool and the CLI `history` command dump each
-    record with. A name or operator still in use has no `valid_to`; the geography file leaves the end
-    of the current position blank too, which is read as the time of reading.
+    record with. A name or operator still in use has no `valid_to`, and neither has the station's
+    current position, whose end the geography file leaves blank too (GH-2474).
     """
     zfs = ZipFileSystem(_metadata_zip(_STATION_01048_METADATA))
     name = DwdObservationHistory.read_name_history(zfs)
@@ -1522,7 +1521,7 @@ def test_dwd_obs_history_records_give_their_validity() -> None:
         "name.operator": [{"valid_from": utc(1991, 1, 1), "valid_to": None}],
         "parameter": [{"valid_from": utc(2001, 4, 1), "valid_to": utc(2026, 4, 18)}],
         "device": [{"valid_from": utc(2019, 8, 14), "valid_to": utc(2026, 4, 19)}],
-        "geography": [{"valid_from": utc(2019, 8, 14), "valid_to": IsDatetime(ge=utc(2026, 1, 1))}],
+        "geography": [{"valid_from": utc(2019, 8, 14), "valid_to": None}],
         "missing_data.summary": [{"valid_from": utc(1934, 1, 1), "valid_to": utc(2026, 4, 18)}],
         "missing_data.periods": [{"valid_from": utc(2024, 1, 9), "valid_to": utc(2024, 1, 10)}],
     }
