@@ -66,9 +66,10 @@ Types of changes:
 - A failed download raised through `File.raise_if_exception`, as 13 of the 23 providers raise
   one, names the file: `Failed to download <url>: <reason>`, in the REST API's `detail` and the
   CLI's traceback, where a timeout's message was empty and a dropped connection's named no file.
-  The URL is shown without its query, fragment or user information, which can carry a key. The
-  error keeps its type, attributes and the original as its cause, so code catching
-  `FSTimeoutError` or `ClientResponseError` still catches it (GH-2460)
+  The message shows the URL without its query, fragment or user information, which can carry a
+  key; the original error, which a traceback prints as its cause, is unchanged. The error keeps
+  its type and attributes, so code catching `FSTimeoutError` or `ClientResponseError` still
+  catches it (GH-2460)
 
 ## [0.141.0] - 2026-10-06
 

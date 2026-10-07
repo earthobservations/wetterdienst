@@ -132,15 +132,30 @@ class _NamingTheFile(Exception):  # noqa: N818 -- a mixin, never raised as itsel
     renders its own, with the URL as it was requested.
     """
 
+    _stored_type: ClassVar[type[Exception]]
+    """The error type this subclass was made for."""
     _download_message: str
 
     def __str__(self) -> str:
-        """Say which file failed to download, and how."""
-        return self._download_message
+        """Say which file failed to download, and how.
+
+        Falls back to the error type's own message for one built with that type's constructor,
+        `type(error)(*error.args)`, which `_naming_the_file` did not get to name.
+        """
+        message = self.__dict__.get("_download_message")
+        return message if message is not None else super().__str__()
 
     def __repr__(self) -> str:
         """Render as the message, not as the args, which hold the request info and its raw URL."""
-        return f"{type(self).__name__}({self._download_message!r})"
+        return f"{type(self).__name__}({str(self)!r})"
+
+    def __reduce__(self) -> tuple:
+        """Pickle by the type this subclass was made for, which pickle can find by its name.
+
+        The subclass carries the name and module of that type, so pickle would find the type
+        itself under them and refuse to stand it in for this one.
+        """
+        return _rebuild_naming_the_file, (self._stored_type, self.args, dict(vars(self)))
 
 
 # one subclass per error type, made the first time a download fails with it, so that the type of
@@ -173,23 +188,38 @@ def _naming_the_file(error: Exception, url: str) -> Exception:
     with it. A response error is told by its status and reason, anything else by its own message
     unless that is empty or holds a URL, and by the name of its type then.
     """
-    kind = type(error)
-    named = _NAMING_THE_FILE_TYPES.get(kind)
-    if named is None:
-        attributes = {"__module__": kind.__module__, "__qualname__": kind.__qualname__}
-        named = _NAMING_THE_FILE_TYPES.setdefault(kind, type(kind.__name__, (_NamingTheFile, kind), attributes))
-    # built without its `__init__`, whose signature differs from type to type, and given the stored
-    # error's args and attributes instead: what a caller reads off one, it can read off the other
-    raised = named.__new__(named, *error.args)
-    raised.args = error.args
-    raised.__dict__.update(vars(error))
+    # an error named once already is named again as the type it was made for
+    kind = error._stored_type if isinstance(error, _NamingTheFile) else type(error)  # noqa: SLF001
+    raised = _rebuild_naming_the_file(kind, error.args, vars(error))
+    if isinstance(error, OSError) and isinstance(raised, OSError):
+        # held outside `__dict__`, and parsed from the args only by `OSError`'s own `__init__` where
+        # a subclass defines one of its own
+        raised.errno, raised.strerror, raised.filename = error.errno, error.strerror, error.filename
+        raised.filename2 = error.filename2
     if isinstance(error, ClientResponseError) and error.status:
         detail = f"{error.status}, message={error.message!r}"
     else:
-        detail = str(error)
+        # the type's own message, not the one an error named once already renders
+        detail = kind.__str__(error)
     if not detail or "://" in detail:
         detail = kind.__name__
     raised._download_message = f"Failed to download {_without_url_secrets(url)}: {detail}"  # noqa: SLF001
+    return raised
+
+
+def _rebuild_naming_the_file(kind: type[Exception], args: tuple, state: dict) -> _NamingTheFile:
+    """Build an error of the subclass made for `kind`, holding these args and attributes.
+
+    Built without the type's `__init__`, whose signature differs from type to type: what a caller
+    reads off the stored error, it can read off this one.
+    """
+    named = _NAMING_THE_FILE_TYPES.get(kind)
+    if named is None:
+        attributes = {"__module__": kind.__module__, "__qualname__": kind.__qualname__, "_stored_type": kind}
+        named = _NAMING_THE_FILE_TYPES.setdefault(kind, type(kind.__name__, (_NamingTheFile, kind), attributes))
+    raised = named.__new__(named, *args)
+    raised.args = args
+    raised.__dict__.update(state)
     return raised
 
 

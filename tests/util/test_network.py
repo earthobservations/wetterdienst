@@ -2737,3 +2737,69 @@ def test_a_failed_download_raises_naming_the_file_without_its_key(
 
     assert caught.value.status == 503
     assert str(caught.value) == f"Failed to download {status_server.url}/503: 503, message='Service Unavailable'"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(FSTimeoutError(), id="timeout"),
+        pytest.param(ClientPayloadError("Response payload is not completed"), id="payload"),
+        pytest.param(ClientOSError(54, "Connection reset by peer"), id="reset"),
+    ],
+)
+def test_file_raise_if_exception_raises_what_pickles(error: Exception) -> None:
+    """The error raised crosses a process boundary as the stored one did (GH-2460).
+
+    Its type carries the stored type's name and module, under which pickle finds the stored type
+    and not the one made from it. A response error is left out: its request info holds a
+    `CIMultiDictProxy`, which does not pickle, raised named or not.
+    """
+    with pytest.raises(type(error)) as caught:
+        File(url=_FAILED_URL, content=error, status=500).raise_if_exception()
+
+    restored = pickle.loads(pickle.dumps(caught.value))  # noqa: S301 -- pickled just above
+
+    assert type(restored) is type(caught.value)
+    assert str(restored) == str(caught.value)
+    assert getattr(restored, "errno", None) == getattr(error, "errno", None)
+    assert getattr(restored, "status", None) == getattr(error, "status", None)
+
+
+def test_file_raise_if_exception_names_an_error_named_once_already() -> None:
+    """An error `raise_if_exception` raised, stored in a `File` again, is named again (GH-2460)."""
+    with pytest.raises(ServerDisconnectedError) as first:
+        File(url=_FAILED_URL, content=ServerDisconnectedError(), status=500).raise_if_exception()
+
+    with pytest.raises(ServerDisconnectedError) as second:
+        File(url=f"{_FAILED_URL}.md5", content=first.value, status=500).raise_if_exception()
+
+    assert type(second.value) is type(first.value)
+    assert str(second.value) == f"Failed to download {_FAILED_URL}.md5: Server disconnected"
+
+
+def test_file_raise_if_exception_raises_what_its_type_rebuilds() -> None:
+    """The type of the error raised builds an error with its own constructor, as the stored type did (GH-2460)."""
+    with pytest.raises(ServerDisconnectedError) as caught:
+        File(url=_FAILED_URL, content=ServerDisconnectedError(), status=500).raise_if_exception()
+
+    rebuilt = type(caught.value)(*caught.value.args)
+
+    assert isinstance(rebuilt, ServerDisconnectedError)
+    assert str(rebuilt) == "Server disconnected"
+
+
+def test_file_raise_if_exception_keeps_an_os_error_s_errno() -> None:
+    """The errno of an `OSError` whose type parses its args itself survives (GH-2460).
+
+    `OSError` keeps it outside the instance dict, and leaves parsing the args to its own `__init__`
+    where a subclass defines one.
+    """
+
+    class _ResetError(OSError):
+        def __init__(self, message: str) -> None:
+            super().__init__(54, message)
+
+    with pytest.raises(_ResetError) as caught:
+        File(url=_FAILED_URL, content=_ResetError("reset"), status=500).raise_if_exception()
+
+    assert (caught.value.errno, caught.value.strerror) == (54, "reset")
