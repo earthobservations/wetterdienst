@@ -44,6 +44,11 @@ Types of changes:
   database table you append stations to; a `sql` filter on a station's old name fails naming the
   new one. The app reads the new names from its next release, so upgrade the app with the backend
   (GH-2439)
+- **Breaking**: `/api/auth`, `/api/coverage`, `/api/glossary`, `/api/stripes/stations` and
+  `/api/alerts` refuse a query parameter they do not take with a 422, as `/api/stations` and
+  `/api/values` do, and every MCP tool refuses an argument it does not take, naming the ones it
+  does. Both used to answer as if it had not been given, so a misspelt `limit` returned every
+  match. Drop parameters an endpoint or tool does not take, such as a cache buster (GH-2479)
 - CLI: `stations` reports a request the caller can rephrase -- an unknown parameter, a bad
   bounding box, a `--sql` DuckDB refuses -- as a one-line usage error with exit code 2, where it
   printed a traceback. `history` on a network whose stations have no history, such as
