@@ -86,19 +86,26 @@ def import_pyproj_before_eccodes() -> None:
     BUFR could not tell what they had done to get a failing exit status (GH-2468). Drop this once
     the floor requires an eckitlib with the upstream fix.
 
-    Called before each import of eccodes or pdbufr this package makes. Where the bindings are
-    loaded already the order is settled, and importing pyproj then would only make the abort
-    reachable for a process that never imports it; where they are not installed there is nothing
-    to put it ahead of. A pyproj that does not import is left to whoever imports it next: reading
-    BUFR does not need it.
+    Called by both probes, and by `read_radar_bufr`, the one reader that can run without asking
+    them first; DWD road's reader asks `require_bufr` before it imports pdbufr. Where the bindings
+    are loaded already the order is settled, and importing pyproj then would only make the abort
+    reachable for a process that never imports it. Where the bindings are not installed there is
+    nothing to put pyproj ahead of, and where pyproj is not -- a `bufr` install without
+    `radarplus` -- nothing to import, which is the ordinary case and not logged. A pyproj that is
+    installed and does not import is left to whoever imports it next: reading BUFR does not need it.
     """
-    if "gribapi" in sys.modules or importlib.util.find_spec("gribapi") is None:
+    if (
+        "gribapi" in sys.modules
+        or importlib.util.find_spec("gribapi") is None
+        or importlib.util.find_spec("pyproj") is None
+    ):
         return
     try:
         import pyproj  # noqa: F401, PLC0415
     except Exception:
-        # not installed, or installed and broken -- pyproj raises out of its import where it
-        # finds no PROJ data directory. Neither is this function's to report
+        # installed and does not import -- a broken install, or, under `-W error`, the warning
+        # pyproj gives on import where it finds no PROJ data directory. Not this function's to
+        # report: the caller hears of it on their own import of pyproj, if they make one
         log.debug("pyproj did not import ahead of eccodes", exc_info=True)
 
 

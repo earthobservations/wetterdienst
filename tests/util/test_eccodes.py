@@ -690,3 +690,29 @@ def test_a_caller_that_loads_eccodes_first_keeps_its_order() -> None:
         """
     )
     assert _watch(code) == [False, False]
+
+
+def test_an_install_without_pyproj_is_not_logged(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A `bufr` install without `radarplus` has no pyproj, which is ordinary and not worth a traceback.
+
+    The bindings are made to look not yet loaded, so the function gets as far as pyproj.
+    """
+    monkeypatch.delitem(sys.modules, "gribapi")
+    find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        importlib.util, "find_spec", lambda name, *args: None if name == "pyproj" else find_spec(name, *args)
+    )
+    real_import = builtins.__import__
+
+    def import_without_pyproj(name: str, *args: object, **kwargs: object) -> object:
+        if name == "pyproj":
+            raise ModuleNotFoundError(name=name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_without_pyproj)
+    with caplog.at_level(logging.DEBUG, logger=eccodes.__name__):
+        eccodes.import_pyproj_before_eccodes()
+    assert not caplog.records
