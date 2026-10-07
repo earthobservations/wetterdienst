@@ -317,6 +317,6 @@ def test_file_target_path_reads_a_file_uri_as_the_path_it_names(
 
 
 def test_file_target_path_round_trips_path_as_uri(tmp_path: Path) -> None:
-    """The URI `Path.as_uri()` gives names the path it came from, whatever the platform."""
+    """The URI `Path.as_uri()` gives for a local path with a space, `%` and `#` names that path."""
     filepath = tmp_path.joinpath("my data", "100% #1.csv")
     assert Path(file_target_path(filepath.as_uri())) == filepath
