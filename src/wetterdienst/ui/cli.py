@@ -2071,7 +2071,8 @@ def stripes_values(
     if target and "://" in target:
         msg = "only a local path is supported here, not a URI."
         raise click.BadParameter(msg, param_hint="--target")
-    target_path = Path(target) if target else None
+    # `is not None`: an empty `--target=` is a path to refuse below, not the absence of one that writes to stdout
+    target_path = Path(target) if target is not None else None
     request = _validate_request(
         StripesImageRequest,
         {
@@ -2091,7 +2092,7 @@ def stripes_values(
     )
     # the suffix, dot included, so `stripespng` is refused; `.jpeg` is as usual for JPEG as `.jpg`
     suffixes = (".jpg", ".jpeg") if fmt == "jpg" else (f".{fmt}",)
-    if target_path and target_path.suffix.lower() not in suffixes:
+    if target_path is not None and target_path.suffix.lower() not in suffixes:
         msg = f"must have extension {' or '.join(f'{suffix!r}' for suffix in suffixes)}"
         raise click.BadParameter(msg, param_hint="--target")
 
@@ -2111,7 +2112,7 @@ def stripes_values(
 
     image = fig.to_image(fmt, scale=dpi / 100)
 
-    if target_path:
+    if target_path is not None:
         # rendered outside the handler: talking to the renderer's browser can raise an `OSError` of its own
         # (choreographer's `ChannelClosedError`), which says nothing about --target
         try:

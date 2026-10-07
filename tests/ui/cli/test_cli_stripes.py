@@ -312,3 +312,15 @@ def test_stripes_values_target_with_a_uri_scheme_is_refused_before_plotting(
     assert result.exit_code == 2, result.output
     assert "Invalid value for --target: only a local path is supported here, not a URI.\n" in result.output
     assert list(tmp_path.iterdir()) == []
+
+
+def test_stripes_values_empty_target_is_refused_not_written_to_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an empty --target is refused as a path without the format's suffix, not read as no target."""
+
+    def _plot_stripes(_request: object) -> None:
+        pytest.fail("plotted although --target is empty")
+
+    monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", _plot_stripes)
+    result = CliRunner().invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", "--target="])
+    assert result.exit_code == 2, result.output
+    assert "Invalid value for --target: must have extension '.png'\n" in result.output

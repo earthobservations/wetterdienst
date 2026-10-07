@@ -79,9 +79,10 @@ Types of changes:
   `pyproj` or wradlib after such a read aborted at exit with status 134 or 139 (ecmwf/eckit#354);
   it now exits cleanly, unless something imported `eccodes` before wetterdienst did (GH-2468)
 - `wetterdienst stripes values` refuses a `--target` that is a URI (`s3://...`, `file://...`)
-  before it fetches and renders, as a usage error (exit 2) naming `--target`; it wrote the image
-  to the path read off the URI and failed only afterwards. A `--target` whose extension does not
-  match `--format` is a usage error too, exit 2 where it was 1. Pass a local path (GH-2450)
+  before it fetches and renders, as a usage error (exit 2) naming `--target`; the write to the
+  path read off the URI (`s3:/bucket/...`) failed only afterwards. A `--target` whose extension
+  does not match `--format` is a usage error too, exit 2 where it was 1. Pass a local path
+  (GH-2450)
 
 ## [0.141.0] - 2026-10-06
 
