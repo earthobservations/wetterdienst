@@ -1288,9 +1288,9 @@ def history(
 
     try:
         history_provider = stations_.history
-    except NotImplementedError:
-        log.exception("History not implemented for provider/network")
-        sys.exit(1)
+    except NotImplementedError as e:
+        # a network without station history, which the message names: `/api/history` answers a 404
+        raise click.UsageError(str(e)) from e
 
     data: dict[str, Any] = {}
     if request.with_metadata:
