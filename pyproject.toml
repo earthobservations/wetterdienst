@@ -409,6 +409,11 @@ DEP002 = [
     "xradar",
     "zarr"
 ]
+DEP003 = [
+    # imported only where installed, ahead of eccodes (`util/eccodes.py`, GH-2468), and not needed
+    # otherwise: `radarplus` brings it through wradlib and xradar
+    "pyproj",
+]
 
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError"
