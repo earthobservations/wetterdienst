@@ -45,6 +45,13 @@ Types of changes:
   new one. The app reads the new names from its next release, so upgrade the app with the backend
   (GH-2439)
 
+### Fixed
+
+- `WD_USE_CERTIFI=true` now reaches every download of `geosphere/observation` values,
+  `ea/hydrology` values, `metno/frost` stations, values and credential check, and `dwd/road`
+  values. They went out with the system CA store, so where that store cannot verify the upstream
+  they failed SSL verification even with the setting on (GH-2463)
+
 ## [0.141.0] - 2026-10-06
 
 ### Added
