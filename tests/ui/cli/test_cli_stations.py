@@ -3,6 +3,7 @@
 """Tests for the CLI command `stations`."""
 
 import json
+import logging
 from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock
@@ -471,3 +472,51 @@ def test_cli_stations_image_pdf() -> None:
     )
     assert "ERROR" not in result.output
     assert result.exit_code == 0
+
+
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        pytest.param(
+            ["--parameters=daily/nonexistent", "--all"],
+            "No valid parameters could be parsed from ['daily/nonexistent'] for DwdObservationRequest",
+            id="parameter",
+        ),
+        pytest.param(
+            ["--parameters=daily/kl", "--left=10", "--bottom=50", "--right=5", "--top=52"],
+            "bbox left border should be smaller then right",
+            id="bbox",
+        ),
+    ],
+)
+def test_cli_stations_refusal_is_a_usage_error(
+    arguments: list[str], message: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test a request the caller can rephrase is a one-line usage error, not a traceback (GH-2465)."""
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(cli, ["stations", "--provider=dwd", "--network=observation", *arguments])
+
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(f"\n\nError: {message}\n")
+    assert not caplog.records
+
+
+def test_cli_stations_keeps_the_traceback_for_an_upstream_failure(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test a station lookup failing upstream is logged with its traceback and exits 1, unlike a refusal (GH-2465)."""
+
+    def get_stations(**_kwargs: object) -> None:
+        msg = "upstream station list unreachable"
+        raise FileNotFoundError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", get_stations)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli, ["stations", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--all"]
+        )
+
+    assert result.exit_code == 1, result.output
+    assert "Usage:" not in result.output
+    assert "Failed to get stations." in caplog.text
+    assert "FileNotFoundError: upstream station list unreachable" in caplog.text

@@ -1096,12 +1096,16 @@ def stations(
 
     api = get_api(provider=provider, network=network)
 
-    stations_ = get_stations(
-        api=api,
-        request=request,
-        timestamp=None,
-        settings=Settings(),
-    )
+    # built outside the catch-all below, so that a malformed `WD_*` setting is told by its variable
+    settings = Settings()
+    try:
+        stations_ = get_stations(api=api, request=request, timestamp=None, settings=settings)
+    except Exception as e:
+        # a parameter, bounding box or --sql the caller can rephrase is told in one line, as
+        # `/api/stations` answers it with a 400; an upstream failure keeps its traceback
+        _refuse_if_callers(e, request)
+        log.exception("Failed to get stations.")
+        sys.exit(1)
 
     if stations_.df.is_empty():
         log.error("No stations available for given constraints")
