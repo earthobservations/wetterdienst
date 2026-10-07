@@ -718,6 +718,10 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     run, `clear_expired_cache` is the sweep, and `clear_cache` deletes the file along with the
     blobs. fsspec resolves all five on the class rather than on the instance, so an override here is
     what its own internal calls reach as well.
+
+    `_open` is overridden for another reason: to fetch a missing file without fsspec's `exists`
+    probe, and to record it only once it has arrived (GH-2467). It reaches the metadata file through
+    `save_cache`, under the lock like every other caller.
     """
 
     def load_cache(self) -> None:
@@ -744,6 +748,45 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         """Delete the directory, metadata file and all, and load the empty metadata back."""
         with _cache_dir_lock:
             super().clear_cache()
+
+    def _open(self, path: str, mode: str = "rb", **kwargs) -> object:  # noqa: ANN003
+        """Open the cached copy of a file, fetching it first when the cache does not hold one.
+
+        fsspec's own `_open` asks the remote filesystem whether the file `exists` before fetching
+        it, and HTTP's `exists` answers `False` for any status of 400 or above and for a refused
+        connection. A 503 or a server that is down then came back as the `FileNotFoundError` a
+        404 raises, and `download_file` reported a missing file for a failure (GH-2467). Fetched
+        straight away instead, the error is the one the download met: `FileNotFoundError` for a
+        404, which HTTP's `get_file` raises itself, and the aiohttp error for anything else. A cache
+        miss also costs one GET rather than two.
+
+        The entry is recorded once the whole body has arrived, where fsspec records it first. A
+        download that fails before the body neither refreshes an expired entry nor touches the blob
+        behind it, and one that aiohttp sees cut short leaves no entry claiming a fresh copy of what
+        it wrote for a retry to read back. What it wrote stays on disk until the next download of
+        the file overwrites it: the body is written in place, as fsspec writes it (GH-2493).
+
+        The copy fetched is the one opened, rather than handing back to fsspec's `_open` to find it
+        again: if it had gone in between, that would probe and record-first all over.
+        """
+        if "r" not in mode or "+" in mode:
+            # writing goes through fsspec's own temporary file; wetterdienst only ever reads
+            return super()._open(path, mode=mode, **kwargs)
+        path = self._strip_protocol(path)
+        cached = self._check_file(path)
+        if cached:
+            _, blob = cached
+        else:
+            # inline rather than a helper method: this class's `__getattribute__` hands any method
+            # name fsspec does not list to the wrapped filesystem, which has no such method.
+            # `_mkcache` again, as fsspec does before its fetch: a sweep elsewhere may have removed
+            # the directory since `_check_file` made it
+            self._mkcache()
+            blob = str(Path(self.storage[-1]) / self._mapper(path))
+            self.fs.get_file(path, blob)
+            self._make_local_details(path)
+            self.save_cache()
+        return Path(blob).open(mode)
 
 
 class NetworkFilesystemManager:

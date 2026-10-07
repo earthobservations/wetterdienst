@@ -49,6 +49,31 @@ Types of changes:
   `/api/values` do, and every MCP tool refuses an argument it does not take, naming the ones it
   does. Both used to answer as if it had not been given, so a misspelt `limit` returned every
   match. Drop parameters an endpoint or tool does not take, such as a cache buster (GH-2479)
+- CLI: `stations` reports a request the caller can rephrase -- an unknown parameter, a bad
+  bounding box, a `--sql` DuckDB refuses -- as a one-line usage error with exit code 2, where it
+  printed a traceback. `history` on a network whose stations have no history, such as
+  `dwd/mosmix`, and `about coverage` on a standalone network such as `dwd/radar` are usage errors
+  too, where they exited 1. Scripts checking for exit 1 on these now see 2; an upstream failure
+  still exits 1 with its traceback (GH-2465)
+- **Breaking**: in a DWD observation station's history, the current position in `geography` has a
+  null `valid_to`, where it was the time the history was read and changed on every call. A name or
+  operator still in use was null already. Read a null `valid_to` as a position that still applies
+  (GH-2474)
+
+### Fixed
+
+- A `WD_AUTH__METNO_FROST` pair that is not valid JSON, such as `[myid, mysecret]` with its
+  elements unquoted, is refused, and `check_settings()` names it. It was taken whole as the client
+  id, secret included, and sent to Frost, which refused it. Quote each element:
+  `["myid", "mysecret"]`. A pair given in Python as that text is read as the pair (GH-2464)
+- A download through the cache (any TTL but `CacheExpiry.NO_CACHE`, cache not disabled) reports
+  the failure it met, as one without the cache does: an HTTP error other than 404 comes back with
+  its own status -- a 401, 403 or 429 too, which `download_file` no longer asks again -- and a
+  refused connection as 503 with `NoInternetError`, where all were `File(status=404)` with
+  `FileNotFoundError`, as a missing file is, and a provider that skips a missing file, such as DWD
+  derived's months, skipped them too. KNMI's and AEMET's own retry of a 429 or 5xx now
+  applies through the cache too. A cache miss is one GET instead of two, and a body that ends
+  before its `Content-Length` is no longer read back from the cache by the retry (GH-2467)
 
 ## [0.141.0] - 2026-10-06
 
