@@ -62,6 +62,10 @@ Types of changes:
 
 ### Fixed
 
+- `/api/values` and the MCP `values` tool log a request they refuse with a 400 -- an unparseable
+  timestamp, an unknown parameter or period -- as one info line, as `/api/interpolate` and
+  `/api/summarize` do. Each was logged as an error with its traceback; the status is unchanged
+  (GH-2459)
 - A `WD_AUTH__METNO_FROST` pair that is not valid JSON, such as `[myid, mysecret]` with its
   elements unquoted, is refused, and `check_settings()` names it. It was taken whole as the client
   id, secret included, and sent to Frost, which refused it. Quote each element:
