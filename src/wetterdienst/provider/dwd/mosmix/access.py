@@ -135,6 +135,9 @@ class KMLReader:
             # writes its cache metadata before the copy finishes -- `_make_local_details` records
             # the entry, `get_file` fills it afterwards -- so a download interrupted mid-copy
             # leaves a truncated blob that `_check_file` then accepts for the life of the entry.
+            # `_LockedWholeFileCacheFileSystem._open` now records the entry after the copy
+            # (GH-2467), but a blob an earlier version cached that way is still read back, and a
+            # body cut short with no `Content-Length` to tell is recorded as if whole.
             # Held five minutes that righted itself; held twelve hours, and with `LATEST` now
             # resolving to the same immutable URL rather than to an alias, it would not.
             #
