@@ -1081,10 +1081,10 @@ def _values(
         # as a 500, not the caller's to fix
         raise
     except Exception as e:
-        # a refusal is the caller's to fix, so an info line and no traceback of ours
         if not _is_caller_refusal(e, request):
             log.exception("Failed to get values.")
             raise HTTPException(status_code=500, detail=str(e)) from e
+        # the caller's to fix, so an info line and no traceback of ours
         log.info(f"Failed to get values: {e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
 
