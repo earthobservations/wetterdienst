@@ -67,8 +67,12 @@ python -c "import pyproj; import eccodes"; echo $?   # 0
 Import `pyproj` first. Where you cannot, install your distribution's ecCodes library and set
 `FINDLIBS_DISABLE_PACKAGE=yes` for the command that runs your code, so that `findlibs` loads that
 library instead of the wheel's (on Debian 13, `sudo apt-get install libeccodes0 libeccodes-data`).
-The variable applies to every library `findlibs` looks up, so scope it to the one command. The
-Docker image does not install the `eckitlib` wheel and is not affected.
+Both are needed: with the variable and no system library, `eccodes` does not load at all. The
+variable applies to every library `findlibs` looks up, so scope it to the one command.
+
+Only installs with the `eckitlib` wheel are affected: where
+`python -c "import importlib.metadata as m; print(m.version('eckitlib'))"` raises
+`PackageNotFoundError`, yours is not. The Docker image does not install it.
 
 ## Raspberry Pi / Linux ARM
 
