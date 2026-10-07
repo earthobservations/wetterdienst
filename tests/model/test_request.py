@@ -647,55 +647,24 @@ def test_filter_by_distance_without_stations_finds_none(
     assert result.df_all.is_empty()
 
 
-@pytest.mark.parametrize(
-    ("method", "core", "frame"),
-    [
-        pytest.param(
-            "interpolate",
-            "wetterdienst.core.interpolate.get_interpolated_df",
-            {"distance_mean": [5.0], "taken_station_ids": [["01048", "01050"]]},
-            id="interpolate",
-        ),
-        pytest.param(
-            "summarize",
-            "wetterdienst.core.summarize.get_summarized_df",
-            {"distance": [5.0], "taken_station_id": ["01048"]},
-            id="summarize",
-        ),
-    ],
-)
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
 def test_estimates_build_the_station_index_twice(
     monkeypatch: pytest.MonkeyPatch,
     default_settings: Settings,
     method: str,
-    core: str,
-    frame: dict,
 ) -> None:
     """Test interpolate and summarize build the station index twice, where they built it six times (GH-2475).
 
-    The core is stubbed by one that ranks the stations with `filter_by_distance` as the real one
-    does, and skips reading values. That is one build; the request's own frame of the stations
-    taken is the other, which it built again for df_all. GH-2506 is the one left in the core.
+    The real core runs, with the stations' values read as none. It ranks the stations with
+    `filter_by_distance`, one build; the request's own frame of the stations taken is the other,
+    which it built again for df_all. GH-2506 is the one left in the core.
     """
+    from wetterdienst.model.values import TimeseriesValues  # noqa: PLC0415
+
     if method == "interpolate":
-        pytest.importorskip("shapely")
+        pytest.importorskip("wetterdienst.core.interpolate")
     built = _count_station_index_builds(monkeypatch)
-    estimate = pl.DataFrame(
-        {
-            "resolution": ["daily"],
-            "dataset": ["climate_summary"],
-            "parameter": ["temperature_air_mean_2m"],
-            "timestamp": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))],
-            "value": [1.0],
-            **frame,
-        },
-    )
-
-    def _estimate(request: TimeseriesRequest, latitude: float, longitude: float, *_args: object) -> pl.DataFrame:
-        request.filter_by_distance(latlon=(latitude, longitude), distance=40)
-        return estimate
-
-    monkeypatch.setattr(core, _estimate)
+    monkeypatch.setattr(TimeseriesValues, "query", lambda _self: iter([]))
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start="2020-01-01",
@@ -706,5 +675,4 @@ def test_estimates_build_the_station_index_twice(
     result = getattr(request, method)(latlon=(51.05, 13.74))
 
     assert len(built) == 2
-    assert not result.stations.df.is_empty()
     assert_frame_equal(result.stations.df_all, request.all().df)

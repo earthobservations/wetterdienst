@@ -945,9 +945,9 @@ class DwdDmoRequest(TimeseriesRequest):
         from typing import cast  # noqa: PLC0415
 
         # once per product per request, not once per `all()`. `TimeseriesRequest.all()` is not
-        # memoized and the filters call it repeatedly -- `filter_by_rank` twice, `filter_by_distance`
-        # four times -- so with `cache_disable` set, which turns fsspec's listings cache off too,
-        # a single `filter_by_distance` would fetch this 640 KB index four times per product
+        # memoized and a request calls it once per filter and again per lookup --
+        # `interpolate_by_station_id` three times -- so with `cache_disable` set, which turns
+        # fsspec's listings cache off too, that would fetch this 640 KB index three times per product
         cached = self._coverage_cache.get(dataset_name_original, _UNREAD)
         if cached is not _UNREAD:
             return cast("set[str] | None", cached)
