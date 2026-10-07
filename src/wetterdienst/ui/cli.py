@@ -899,10 +899,10 @@ def coverage(
     api = get_api(provider=provider, network=network)
 
     # Standalone networks (e.g. dwd/radar, dwd/alerts) have no metadata model and thus no per-network
-    # discover(); report that cleanly instead of crashing with an AttributeError.
+    # discover(); a usage error, as `/api/coverage` answers it with a 404, not an AttributeError.
     if not hasattr(api, "discover"):
-        log.error(f"Coverage is not available for provider '{provider}' and network '{network}'.")
-        sys.exit(1)
+        msg = f"Coverage is not available for provider '{provider}' and network '{network}'."
+        raise click.UsageError(msg)
 
     cov = api.discover(
         resolutions=resolutions_list,
