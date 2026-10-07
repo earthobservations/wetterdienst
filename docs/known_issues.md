@@ -48,12 +48,12 @@ For more information, see the [settings documentation](usage/settings.md).
 ## Crash at exit with ecCodes and pyproj on Linux
 
 On Linux, installing `eccodes` (from the `bufr` or `eccodes` extra) with pip, `uv pip` or another
-installer that reads its wheel's dependencies pulls in the `eckitlib` wheel, which bundles its own
-copy of PROJ. A process that loads `eccodes` and then imports `pyproj` (which the `radarplus` extra
-brings, as do geopandas or cartopy) crashes at interpreter exit with `double free or corruption`
-or a segmentation fault, exit status 134 or 139. Files your code wrote and closed are complete, but
-the exit status fails scripts and CI jobs. This is the upstream bug
-[ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
+installer that reads its wheel's dependencies pulls in the `eccodeslib` and `eckitlib` wheels, and
+`eckitlib` bundles its own copy of PROJ. A process that loads `eccodes` and then imports `pyproj`
+(which the `radarplus` extra brings, as do geopandas or cartopy) crashes at interpreter exit with
+`double free or corruption`, `free(): invalid pointer` or a segmentation fault, exit status 134 or
+139. Files your code wrote and closed are complete, but the exit status fails scripts and CI jobs.
+This is the upstream bug [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
 [#2441](https://github.com/earthobservations/wetterdienst/issues/2441).
 
 wetterdienst imports `pyproj`, where it is installed, before it loads `eccodes` for DWD road and
@@ -67,9 +67,10 @@ python -c "import pyproj; import eccodes"; echo $?   # 0
 
 Import `pyproj` first. Where you cannot, install your distribution's ecCodes library and set
 `FINDLIBS_DISABLE_PACKAGE=yes` for the command that runs your code, so that `findlibs` loads that
-library instead of the wheel's (on Debian 13, `sudo apt-get install libeccodes0 libeccodes-data`).
-Both are needed: with the variable and no system library, `eccodes` does not load at all. The
-variable applies to every library `findlibs` looks up, so scope it to the one command.
+library instead of the `eccodeslib` wheel's (on Debian 13,
+`sudo apt-get install libeccodes0 libeccodes-data`). Both are needed: with the variable and no
+system library, `eccodes` does not load at all. The variable applies to every library `findlibs`
+looks up, so scope it to the one command.
 
 Only installs with the `eckitlib` wheel are affected: where
 `python -c "import importlib.metadata as m; print(m.version('eckitlib'))"` raises
