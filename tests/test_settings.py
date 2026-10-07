@@ -1391,3 +1391,34 @@ def test_settings_auth_metno_frost_reads_a_pair_given_as_json_text_in_python(wra
     assert tuple(reveal(part) for part in settings.auth.metno_frost) == expected
     with pytest.raises(ValidationError, match=r"got 3 element\(s\)"):
         Settings(auth={"metno_frost": wrap('["a", "b", "c"]')})
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "value",
+    ["[DUMMY-FROST-ID, TOPSECRET]", "[" * 100_000 + "TOPSECRET"],
+    ids=["unquoted", "nested-too-deep"],
+)
+def test_settings_auth_metno_frost_refusal_keeps_no_exception_holding_the_secret(value: str) -> None:
+    """The refusal of a Frost pair keeps no exception that holds the refused text (GH-2464).
+
+    A JSON decode error holds the text it failed on as its `doc`, and an exception raised while it
+    is handled keeps it as its context, which pydantic keeps in the error's `ctx` -- where an error
+    reporter or a debugger walking the chain reaches it. Text nested too deep to decode is refused
+    as well, rather than escaping as a `RecursionError`.
+    """
+    with pytest.raises(ValidationError) as excinfo:
+        Settings(auth={"metno_frost": value})
+    for error in excinfo.value.errors():
+        exception: BaseException | None = error.get("ctx", {}).get("error")
+        while exception is not None:
+            assert "TOPSECRET" not in repr(exception.args)
+            assert "TOPSECRET" not in repr(vars(exception))
+            exception = exception.__cause__ or exception.__context__
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_metno_frost_reads_a_pair_after_any_whitespace(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A pair after whitespace that JSON does not take, such as a pasted no-break space, is still read (GH-2464)."""
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", '\xa0["DUMMY-FROST-ID", "DUMMY-FROST-SECRET"]\xa0')
+    assert tuple(reveal(part) for part in Settings().auth.metno_frost) == ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")

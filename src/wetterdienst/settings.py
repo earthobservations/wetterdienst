@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import atexit
+import contextlib
 import functools
 import json
 import logging
@@ -129,27 +130,33 @@ class Auth(BaseModel):
         """Parse the Frost (client_id, secret) pair, a lone client id counting as one with no secret.
 
         An all-digit client id arrives as an `int`, as the environment decodes a nested value as JSON
-        where it parses, and is still an id. A mapping, or any other value that is not iterable -- a
-        float, `true`, a JSON object -- is left for the field to refuse, which names it, where reading
-        it as a pair failed with a bare `TypeError` or took the object's keys (GH-2379).
+        where it parses, and is still an id. Text starting with `[` is a pair, not a client id: it is
+        decoded as JSON, and refused where it does not decode (GH-2464). A mapping, or any other value
+        that is not iterable -- a float, `true`, a JSON object -- is left for the field to refuse,
+        which names it, where reading it as a pair failed with a bare `TypeError` or took the object's
+        keys (GH-2379).
         """
         if value is None:
             return None
         value = _as_given(value)
         if isinstance(value, (str, SecretStr)):
-            text = value.get_secret_value() if isinstance(value, SecretStr) else value
+            text = (value.get_secret_value() if isinstance(value, SecretStr) else value).strip()
             # a client id is a UUID and never starts with `[`, so such text is a pair: the
             # environment hands one on as its raw text where it is not valid JSON, and it was taken
             # whole as the client id, secret and all. One given as text in Python is read as the
             # environment reads it (GH-2464)
-            if not text.lstrip().startswith("["):
+            if not text.startswith("["):
                 return value, ""
-            try:
-                value = json.loads(text)
-            except json.JSONDecodeError:
-                # `from None`: the decode error holds the text it failed on
+            # decoding text that starts with `[` gives a list or fails. The refusal is raised outside
+            # the handler, so that the decode error, which holds the text it failed on, is not kept
+            # as its context
+            decoded = None
+            with contextlib.suppress(json.JSONDecodeError, RecursionError):
+                decoded = json.loads(text)
+            if decoded is None:
                 msg = 'metno_frost looks like a pair but is not valid JSON: write it as ["client_id", "secret"]'
-                raise ValueError(msg) from None
+                raise ValueError(msg)
+            value = decoded
         if isinstance(value, Mapping) or not isinstance(value, Iterable):
             return value
         as_tuple = tuple(value)
