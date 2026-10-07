@@ -155,7 +155,7 @@ class _NamingTheFile(Exception):  # noqa: N818 -- a mixin, never raised as itsel
         The subclass carries the name and module of that type, so pickle would find the type
         itself under them and refuse to stand it in for this one.
         """
-        return _rebuild_naming_the_file, (self._stored_type, self.args, dict(vars(self)))
+        return _rebuild_naming_the_file, (self._stored_type, self.args, dict(vars(self)), _os_error_fields(self))
 
 
 # one subclass per error type, made the first time a download fails with it, so that the type of
@@ -190,12 +190,7 @@ def _naming_the_file(error: Exception, url: str) -> Exception:
     """
     # an error named once already is named again as the type it was made for
     kind = error._stored_type if isinstance(error, _NamingTheFile) else type(error)  # noqa: SLF001
-    raised = _rebuild_naming_the_file(kind, error.args, vars(error))
-    if isinstance(error, OSError) and isinstance(raised, OSError):
-        # held outside `__dict__`, and parsed from the args only by `OSError`'s own `__init__` where
-        # a subclass defines one of its own
-        raised.errno, raised.strerror, raised.filename = error.errno, error.strerror, error.filename
-        raised.filename2 = error.filename2
+    raised = _rebuild_naming_the_file(kind, error.args, vars(error), _os_error_fields(error))
     if isinstance(error, ClientResponseError) and error.status:
         detail = f"{error.status}, message={error.message!r}"
     else:
@@ -207,7 +202,20 @@ def _naming_the_file(error: Exception, url: str) -> Exception:
     return raised
 
 
-def _rebuild_naming_the_file(kind: type[Exception], args: tuple, state: dict) -> _NamingTheFile:
+def _os_error_fields(error: BaseException) -> tuple | None:
+    """Give an `OSError`'s errno, strerror, filename and filename2, or `None` for any other error.
+
+    Held outside `__dict__`, and not all of them in the args: `filename` never is, and a subclass
+    with an `__init__` of its own has `OSError` parse none of them from the args.
+    """
+    if isinstance(error, OSError):
+        return error.errno, error.strerror, error.filename, error.filename2
+    return None
+
+
+def _rebuild_naming_the_file(
+    kind: type[Exception], args: tuple, state: dict, os_error_fields: tuple | None
+) -> _NamingTheFile:
     """Build an error of the subclass made for `kind`, holding these args and attributes.
 
     Built without the type's `__init__`, whose signature differs from type to type: what a caller
@@ -220,6 +228,12 @@ def _rebuild_naming_the_file(kind: type[Exception], args: tuple, state: dict) ->
     raised = named.__new__(named, *args)
     raised.args = args
     raised.__dict__.update(state)
+    if "__notes__" in state:
+        # a list of its own, so that a note added to one error is not added to the other
+        raised.__dict__["__notes__"] = list(state["__notes__"])
+    # `isinstance` for the type checker's sake: the fields are only ever given for an `OSError`
+    if os_error_fields is not None and isinstance(raised, OSError):
+        raised.errno, raised.strerror, raised.filename, raised.filename2 = os_error_fields
     return raised
 
 

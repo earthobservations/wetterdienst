@@ -2803,3 +2803,45 @@ def test_file_raise_if_exception_keeps_an_os_error_s_errno() -> None:
         File(url=_FAILED_URL, content=_ResetError("reset"), status=500).raise_if_exception()
 
     assert (caught.value.errno, caught.value.strerror) == (54, "reset")
+
+
+class _ResetError(OSError):
+    """An `OSError` whose type parses its args itself, defined where pickle can find it."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(54, message)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(FileNotFoundError(2, "No such file", "/tmp/x"), id="filename"),  # noqa: S108
+        pytest.param(_ResetError("reset"), id="own-init"),
+    ],
+)
+def test_file_raise_if_exception_raises_what_pickles_with_its_os_error_fields(error: OSError) -> None:
+    """An `OSError`'s errno, strerror and filename survive pickling, as the stored error's do (GH-2460).
+
+    Its filename is never in its args, and a type with an `__init__` of its own has none of them
+    parsed from the args.
+    """
+    with pytest.raises(OSError) as caught:  # noqa: PT011 -- the type is the parametrized one
+        File(url=_FAILED_URL, content=error, status=500).raise_if_exception()
+
+    restored = pickle.loads(pickle.dumps(caught.value))  # noqa: S301 -- pickled just above
+
+    assert (restored.errno, restored.strerror, restored.filename) == (error.errno, error.strerror, error.filename)
+
+
+def test_file_raise_if_exception_keeps_the_stored_error_s_notes_its_own() -> None:
+    """A note added to the error raised is not added to the stored one, which the `File` keeps (GH-2460)."""
+    error = FSTimeoutError()
+    error.__notes__ = ["stored"]
+    file = File(url=_FAILED_URL, content=error, status=408)
+
+    with pytest.raises(FSTimeoutError) as caught:
+        file.raise_if_exception()
+    caught.value.__notes__.append("raised")
+
+    assert error.__notes__ == ["stored"]
+    assert caught.value.__notes__ == ["stored", "raised"]
