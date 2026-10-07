@@ -45,6 +45,13 @@ Types of changes:
   new one. The app reads the new names from its next release, so upgrade the app with the backend
   (GH-2439)
 
+### Fixed
+
+- A `WD_AUTH__METNO_FROST` pair that is not valid JSON, such as `[myid, mysecret]` with its
+  elements unquoted, is refused, and `check_settings()` names it. It was taken whole as the client
+  id, secret included, and sent to Frost, which refused it. Quote each element:
+  `["myid", "mysecret"]` (GH-2464)
+
 ## [0.141.0] - 2026-10-06
 
 ### Added

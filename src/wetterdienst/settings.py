@@ -137,6 +137,13 @@ class Auth(BaseModel):
             return None
         value = _as_given(value)
         if isinstance(value, (str, SecretStr)):
+            text = value.get_secret_value() if isinstance(value, SecretStr) else value
+            # the environment hands on a pair that is not valid JSON as its raw text, which would be
+            # taken whole as the client id, secret and all. A client id is a UUID and never starts
+            # with `[` (GH-2464)
+            if text.lstrip().startswith("["):
+                msg = "metno_frost looks like a (client_id, secret) pair but is not valid JSON: quote each element"
+                raise ValueError(msg)
             return value, ""
         if isinstance(value, Mapping) or not isinstance(value, Iterable):
             return value
