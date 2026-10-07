@@ -44,6 +44,17 @@ Types of changes:
   database table you append stations to; a `sql` filter on a station's old name fails naming the
   new one. The app reads the new names from its next release, so upgrade the app with the backend
   (GH-2439)
+- **Breaking**: `/api/auth`, `/api/coverage`, `/api/glossary`, `/api/stripes/stations` and
+  `/api/alerts` refuse a query parameter they do not take with a 422, as `/api/stations` and
+  `/api/values` do, and every MCP tool refuses an argument it does not take, naming the ones it
+  does. Both used to answer as if it had not been given, so a misspelt `limit` returned every
+  match. Drop parameters an endpoint or tool does not take, such as a cache buster (GH-2479)
+- CLI: `stations` reports a request the caller can rephrase -- an unknown parameter, a bad
+  bounding box, a `--sql` DuckDB refuses -- as a one-line usage error with exit code 2, where it
+  printed a traceback. `history` on a network whose stations have no history, such as
+  `dwd/mosmix`, and `about coverage` on a standalone network such as `dwd/radar` are usage errors
+  too, where they exited 1. Scripts checking for exit 1 on these now see 2; an upstream failure
+  still exits 1 with its traceback (GH-2465)
 - **Breaking**: in a DWD observation station's history, the current position in `geography` has a
   null `valid_to`, where it was the time the history was read and changed on every call. A name or
   operator still in use was null already. Read a null `valid_to` as a position that still applies
@@ -63,6 +74,10 @@ Types of changes:
   derived's months, skipped them too. KNMI's and AEMET's own retry of a 429 or 5xx now
   applies through the cache too. A cache miss is one GET instead of two, and a body that ends
   before its `Content-Length` is no longer read back from the cache by the retry (GH-2467)
+- DWD road values and radar BUFR reads import `pyproj`, where it is installed, before they load
+  `eccodes`. On Linux, with the `eckitlib` wheel pip installs beside `eccodes`, a process that used
+  `pyproj` or wradlib after such a read aborted at exit with status 134 or 139 (ecmwf/eckit#354);
+  it now exits cleanly, unless something imported `eccodes` before wetterdienst did (GH-2468)
 
 ## [0.141.0] - 2026-10-06
 
