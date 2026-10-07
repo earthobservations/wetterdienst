@@ -65,9 +65,10 @@ Types of changes:
   before its `Content-Length` is no longer read back from the cache by the retry (GH-2467)
 - `filter_by_name`, `filter_by_rank` and `filter_by_bbox` build the station list once, where they
   built it twice, `filter_by_distance` once instead of four times, and `interpolate` and
-  `summarize` twice instead of six times: that many fewer station-list downloads on a cold cache.
-  `filter_by_distance` on a request with no stations finds none, where it raised "'rank' has to
-  be at least 1." (GH-2475)
+  `summarize` twice instead of six times: that much less parsing, and with `WD_CACHE_DISABLE` or a
+  provider that does not cache its station list, that many fewer downloads. `filter_by_distance`
+  on a request with no stations finds none, where it raised "'rank' has to be at least 1."
+  (GH-2475)
 
 ## [0.141.0] - 2026-10-06
 

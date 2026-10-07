@@ -597,14 +597,16 @@ def _count_station_index_builds(monkeypatch: pytest.MonkeyPatch) -> list[None]:
 
 
 @pytest.mark.parametrize(
-    ("method", "kwargs"),
+    ("method", "kwargs", "expected"),
     [
-        ("filter_by_station_id", {"station_id": "01048"}),
-        ("filter_by_name", {"name": "Dresden-Klotzsche"}),
-        ("filter_by_rank", {"latlon": (51.05, 13.74), "rank": 2}),
-        ("filter_by_distance", {"latlon": (51.05, 13.74), "distance": 10}),
-        ("filter_by_bbox", {"left": 13.7, "bottom": 51.0, "right": 13.8, "top": 51.2}),
-        ("filter_by_sql", {"sql": "station_id = '01048'"}),
+        ("filter_by_station_id", {"station_id": "01048"}, ["01048"]),
+        ("filter_by_name", {"name": "Dresden-Klotzsche"}, ["01048"]),
+        # the rank limits value collection later on, not the stations listed
+        ("filter_by_rank", {"latlon": (51.05, 13.74), "rank": 2}, ["01050", "01048", "01051"]),
+        # every station in reach, not one: it ranks with filter_by_rank at rank 1
+        ("filter_by_distance", {"latlon": (51.05, 13.74), "distance": 10}, ["01050", "01048"]),
+        ("filter_by_bbox", {"left": 13.7, "bottom": 51.0, "right": 13.8, "top": 51.2}, ["01048"]),
+        ("filter_by_sql", {"sql": "station_id = '01048'"}, ["01048"]),
     ],
 )
 def test_station_filters_build_the_station_index_once(
@@ -612,12 +614,12 @@ def test_station_filters_build_the_station_index_once(
     default_settings: Settings,
     method: str,
     kwargs: dict,
+    expected: list[str],
 ) -> None:
     """Test each station filter builds the station index once and hands that frame to df_all (GH-2475).
 
-    They built it again for the result's df_all, and filter_by_distance four times, which on a
-    cold cache is that many readings of the station list upstream. df_all stays the full station
-    list as all() gives it: filter_by_rank's distance column is not added to it.
+    They built it again for the result's df_all, and filter_by_distance four times. df_all stays
+    the full station list as all() gives it: filter_by_rank's distance column is not added to it.
     """
     built = _count_station_index_builds(monkeypatch)
     request = DwdObservationRequest(parameters=[("daily", "climate_summary")], settings=default_settings)
@@ -625,7 +627,7 @@ def test_station_filters_build_the_station_index_once(
     result = getattr(request, method)(**kwargs)
 
     assert len(built) == 1
-    assert not result.df.is_empty()
+    assert result.df.get_column("station_id").to_list() == expected
     assert_frame_equal(result.df_all, request.all().df)
 
 
