@@ -507,9 +507,13 @@ class DwdObservationHistory(TimeseriesHistory):
                     "latitude": float(parts[2].strip()),
                     "longitude": float(parts[3].strip()),
                     "valid_from": dt.datetime.strptime(parts[4].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC")),
-                    "valid_to": dt.datetime.strptime(parts[5].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC"))
-                    if parts[5].strip()
-                    else dt.datetime.now(tz=ZoneInfo("UTC")),
+                    # DWD leaves `bis_datum` blank for the current position, as it does for the current
+                    # name and operator: the position still applies, so it has no end
+                    "valid_to": (
+                        dt.datetime.strptime(parts[5].strip(), "%Y%m%d").replace(tzinfo=ZoneInfo("UTC"))
+                        if parts[5].strip()
+                        else None
+                    ),
                     "station_name": parts[6].strip(),
                 }
                 records.append(record)

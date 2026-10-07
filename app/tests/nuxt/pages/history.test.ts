@@ -310,7 +310,7 @@ describe('history Page', () => {
         },
         geography: [
           { station_id: '00001', station_name: 'Foo Station', latitude: 51.0883, longitude: 13.7601, station_elevation: 152, valid_from: '1926-05-01T00:00:00+00:00', valid_to: '1935-07-10T00:00:00+00:00' },
-          { station_id: '00001', station_name: 'Foo Station', latitude: 51.1278, longitude: 13.7543, station_elevation: 227.57, valid_from: '2019-08-14T00:00:00+00:00', valid_to: '2026-09-30T00:00:00+00:00' },
+          { station_id: '00001', station_name: 'Foo Station', latitude: 51.1278, longitude: 13.7543, station_elevation: 227.57, valid_from: '2019-08-14T00:00:00+00:00', valid_to: null },
         ],
       }],
     }))
@@ -321,7 +321,8 @@ describe('history Page', () => {
     await vi.waitFor(() => expect(wrapper.text()).toContain('Station ID: 00001'), { timeout: 5000 })
     await wrapper.findAll('button').find(b => b.text().includes('Geography history'))!.trigger('click')
 
-    // each period a row of its own: from, to, latitude, longitude, elevation
+    // each period a row of its own: from, to, latitude, longitude, elevation. The current position has no
+    // end (GH-2474), shown as a dash
     const rows = () => {
       const table = wrapper.findAll('table').find(t => t.text().includes('1935-07-10'))
       return table
@@ -331,7 +332,7 @@ describe('history Page', () => {
     }
     await vi.waitFor(() => expect(rows()).toEqual([
       ['1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00', '51.0883', '13.7601', '152'],
-      ['2019-08-14T00:00:00+00:00', '2026-09-30T00:00:00+00:00', '51.1278', '13.7543', '227.57'],
+      ['2019-08-14T00:00:00+00:00', '-', '51.1278', '13.7543', '227.57'],
     ]), { timeout: 5000 })
   })
 
