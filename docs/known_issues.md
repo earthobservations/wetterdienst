@@ -51,7 +51,8 @@ On Linux, installing `eccodes` (from the `bufr` or `eccodes` extra) with pip, `u
 installer that reads its wheel's dependencies pulls in the `eckitlib` wheel, which bundles its own
 copy of PROJ. A process that loads `eccodes` and then imports `pyproj` (which the `radarplus` extra
 brings, as do geopandas or cartopy) crashes at interpreter exit with `double free or corruption`
-or a segmentation fault, exit status 134 or 139. This is the upstream bug
+or a segmentation fault, exit status 134 or 139. Files your code wrote and closed are complete, but
+the exit status fails scripts and CI jobs. This is the upstream bug
 [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
 [#2441](https://github.com/earthobservations/wetterdienst/issues/2441).
 
