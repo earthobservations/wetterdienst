@@ -44,6 +44,12 @@ Types of changes:
   database table you append stations to; a `sql` filter on a station's old name fails naming the
   new one. The app reads the new names from its next release, so upgrade the app with the backend
   (GH-2439)
+- CLI: `stations` reports a request the caller can rephrase -- an unknown parameter, a bad
+  bounding box, a `--sql` DuckDB refuses -- as a one-line usage error with exit code 2, where it
+  printed a traceback. `history` on a network whose stations have no history, such as
+  `dwd/mosmix`, and `about coverage` on a standalone network such as `dwd/radar` are usage errors
+  too, where they exited 1. Scripts checking for exit 1 on these now see 2; an upstream failure
+  still exits 1 with its traceback (GH-2465)
 - **Breaking**: in a DWD observation station's history, the current position in `geography` has a
   null `valid_to`, where it was the time the history was read and changed on every call. A name or
   operator still in use was null already. Read a null `valid_to` as a position that still applies
