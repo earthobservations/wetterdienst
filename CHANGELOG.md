@@ -48,11 +48,10 @@ Types of changes:
   null `valid_to`, where it was the time the history was read and changed on every call. A name or
   operator still in use was null already. Read a null `valid_to` as a position that still applies
   (GH-2474)
-- **Breaking**: a station still in service has a null `end_timestamp` in the station list of
-  `eaufrance/hubeau` (every station it lists) and of `dwd/observation` 1-minute precipitation from
-  the historical period, where it was the time of the call or the day before. CHMI, FMI and
-  Météo-France give such a station a null end already. Read a null `end_timestamp` as a station
-  still reporting (GH-2482)
+- **Breaking**: a station the provider gives no end has a null `end_timestamp` in the station list
+  of `eaufrance/hubeau` (every station it lists) and of `dwd/observation` 1-minute precipitation
+  from the historical period, where it was the time of the call or the day before. Read a null
+  `end_timestamp` there as a station the provider has not closed (GH-2482)
 
 ### Fixed
 
