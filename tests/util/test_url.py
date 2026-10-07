@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from wetterdienst.exceptions import ExportRefusedError
-from wetterdienst.util.url import ConnectionString, redact_password
+from wetterdienst.util.url import ConnectionString, file_target_path, redact_password
 
 
 def test_connectionstring_database_from_path() -> None:
@@ -278,3 +278,45 @@ def test_connectionstring_file_target_path_is_everything_after_the_scheme(url: s
     """
     cs = ConnectionString(url)
     assert (cs.protocol, cs.path, cs.host) == ("file", path, None)
+
+
+@pytest.mark.parametrize(
+    ("target", "windows", "path"),
+    [
+        pytest.param("file:///home/me/my%20data/kl.csv", False, "/home/me/my data/kl.csv", id="percent-encoded-space"),
+        pytest.param("file://out/my%20data/kl.csv", False, "out/my data/kl.csv", id="percent-encoded-relative"),
+        pytest.param("file:///home/me/100%25/kl.csv", False, "/home/me/100%/kl.csv", id="encoded-percent"),
+        pytest.param("file:///home/me/100%/kl.csv", False, "/home/me/100%/kl.csv", id="bare-percent-left"),
+        pytest.param("file:///C:/data/obs.csv", False, "/C:/data/obs.csv", id="drive-letter-kept-off-windows"),
+        pytest.param("file:///C:/data/obs.csv", True, "C:/data/obs.csv", id="drive-letter-three-slashes"),
+        pytest.param("file:///c:/my%20data/obs.csv", True, "c:/my data/obs.csv", id="drive-letter-and-encoding"),
+        pytest.param("file:///C:", True, "C:", id="drive-letter-alone"),
+        pytest.param("file:///C:%5Cdata%5Cobs.csv", True, r"C:\data\obs.csv", id="drive-letter-encoded-backslash"),
+        pytest.param("file://C:/data/obs.csv", True, "C:/data/obs.csv", id="drive-letter-two-slashes"),
+        pytest.param("file:///CD:/data/obs.csv", True, "/CD:/data/obs.csv", id="not-a-drive-letter"),
+        pytest.param("file:///data/C:/obs.csv", True, "/data/C:/obs.csv", id="drive-letter-not-first"),
+        pytest.param("/home/me/my%20data/kl.csv", True, "/home/me/my%20data/kl.csv", id="plain-path-not-decoded"),
+        pytest.param("my%20data.csv", False, "my%20data.csv", id="plain-relative-path-not-decoded"),
+    ],
+)
+def test_file_target_path_reads_a_file_uri_as_the_path_it_names(
+    monkeypatch: pytest.MonkeyPatch,
+    target: str,
+    windows: bool,  # noqa: FBT001
+    path: str,
+) -> None:
+    """A `file://` target is percent-decoded and, on Windows, loses the `/` before a drive letter (GH-2454).
+
+    `Path.as_uri()` and browsers give `file:///C:/data/obs.csv` and `%20` for a space. A target without the
+    scheme is a plain path, which `%` is part of.
+    """
+    monkeypatch.setattr("wetterdienst.util.url._WINDOWS", windows)
+    assert file_target_path(target) == path
+    if target.startswith("file://"):
+        assert ConnectionString(target).path == path
+
+
+def test_file_target_path_round_trips_path_as_uri(tmp_path: Path) -> None:
+    """The URI `Path.as_uri()` gives names the path it came from, whatever the platform."""
+    filepath = tmp_path.joinpath("my data", "100% #1.csv")
+    assert Path(file_target_path(filepath.as_uri())) == filepath

@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Helper class to support ``IoAccessor.export()``."""
 
+import os
 import re
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -67,6 +68,28 @@ _URL_PATTERN = re.compile(
     re.VERBOSE,
 )
 
+# whether a drive letter is a thing a path starts with; a variable so a test can read a target as Windows does
+_WINDOWS = os.name == "nt"
+_DRIVE_LETTER = re.compile(r"^/(?=[A-Za-z]:(?:[/\\]|$))")
+
+
+def file_target_path(target: str) -> str:
+    """Give the path a ``--target`` names, reading ``file://`` as a URI and anything else as a path.
+
+    Everything after ``file://`` is the path, so ``file://out/data.csv`` stays relative and
+    ``file:///data/out.csv`` is absolute. That text is percent-decoded, as the path of a URI
+    ``Path.as_uri()`` or a browser gives is, so ``file:///home/me/my%20data/kl.csv`` names the
+    directory ``my data``. On Windows the ``/`` the URI puts before a drive letter is dropped, so
+    ``file:///C:/data/obs.csv`` names ``C:/data/obs.csv``; elsewhere a path starting ``/C:/`` is a
+    directory of the root and is left. A target without the scheme is a plain path and is returned
+    as given, ``%`` included.
+    """
+    if not target.startswith("file://"):
+        return target
+    path = unquote(target.removeprefix("file://"))
+    return _DRIVE_LETTER.sub("", path, count=1) if _WINDOWS else path
+
+
 # a file sink is addressed by a path, not read with SQLAlchemy's pattern: a Windows path
 # such as `duckdb:///C:\data\dwd.duckdb` would give it a host `C`
 _FILE_PREFIXES = ("file://", "duckdb://")
@@ -80,8 +103,8 @@ class ConnectionString:
     `#`, so a password holding one was split and its pieces became the port and database, and
     from there a log line. The username, password and database are percent-decoded, as
     SQLAlchemy decodes them. A DuckDB target is a path, and is read with `urlparse`; a file
-    target's path is everything after `file://`, so `file://out/data.csv` is relative and
-    `file:///data/out.csv` absolute.
+    target's path is everything after `file://`, percent-decoded (`file_target_path`), so
+    `file://out/data.csv` is relative and `file:///data/out.csv` absolute.
 
     Raises:
         ExportRefusedError: The target is not a URL, names a port that is not a number, or its
@@ -110,7 +133,7 @@ class ConnectionString:
                 # `urlparse` takes the first segment of `file://out/data.csv` as a host and leaves
                 # `/data.csv`, so the relative path would land at the root
                 self._name, self._database, self._query = "file", None, ""
-                self._path = url.removeprefix("file://")
+                self._path = file_target_path(url)
                 return
             parsed = urlparse(url)
             self._name = parsed.scheme
