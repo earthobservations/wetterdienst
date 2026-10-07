@@ -567,10 +567,9 @@ class HubeauRequest(TimeseriesRequest):
             .replace_strict(_SYSTEME_ALTI_LABELS, default=pl.col("code_systeme_alti_site").cast(pl.String))
             .alias("gauge_zero_datum"),
             pl.col("start_timestamp").str.to_datetime(time_zone="UTC"),
-            pl.when(pl.col("end_timestamp").is_null())
-            .then(dt.datetime.now(ZoneInfo("UTC")))
-            .otherwise(pl.col("end_timestamp").str.to_datetime(time_zone="UTC"))
-            .alias("end_timestamp"),
+            # a station in service has no `date_fermeture_station`, so it has no end: null, as other
+            # providers give it, rather than the time of the call
+            pl.col("end_timestamp").str.to_datetime(time_zone="UTC"),
         )
         # A station belongs to the resolution it transmits at, which is measured rather than
         # declared -- see `_STEP_TO_RESOLUTION`. One that has published nothing to measure is
