@@ -195,31 +195,36 @@ def _dwd_road(monkeypatch: pytest.MonkeyPatch) -> Seen:
         ),
     ],
 )
-def test_downloads_use_certifi_when_the_settings_ask_for_it(
+@pytest.mark.parametrize("use_certifi", [True, False])
+def test_downloads_follow_the_use_certifi_setting(
     monkeypatch: pytest.MonkeyPatch,
     collect: Callable[[pytest.MonkeyPatch], Seen],
     downloads: int,
+    *,
+    use_certifi: bool,
 ) -> None:
-    """Test that every download of a request goes out with `WD_USE_CERTIFI`.
+    """Test that every download of a request goes out as `WD_USE_CERTIFI` says.
 
     `download_file` defaults `use_certifi` to off, so a call that did not pass the setting on went
     out with the system CA store whatever the caller had set -- and on a host whose store cannot
-    verify the upstream, it failed verification with the setting on (GH-2463).
+    verify the upstream, it failed verification with the setting on (GH-2463). The setting off is
+    asked as well, so that a call passing `True` whatever the setting says does not pass either.
     """
-    monkeypatch.setenv("WD_USE_CERTIFI", "true")
+    monkeypatch.setenv("WD_USE_CERTIFI", str(use_certifi).lower())
     seen = collect(monkeypatch)
     # every download the request makes, so that none of them is left out of the check below
     assert len(seen) == downloads, seen
-    assert [url for url, use_certifi in seen if use_certifi is not True] == []
+    assert [url for url, used in seen if used is not use_certifi] == []
 
 
 def test_every_network_call_passes_use_certifi() -> None:
     """Test that every call to a network helper taking `use_certifi` passes it, not the default.
 
     The test above runs the four providers GH-2463 found. This one reads every call in the package
-    to the helpers in `util/network.py` that take the keyword and default it to off, so a call added
-    later that leaves it out fails here too. It checks that the keyword is passed, not what it is
-    passed: a call handing on a settings object other than the request's is not caught.
+    that names a helper of `util/network.py` taking the keyword with a default of off, so a call
+    added later that leaves it out fails here too. It reads calls written with the helper's own
+    name: one through an alias or a `functools.partial` is not seen. And it checks that the keyword
+    is passed, not what it is passed.
     """
     functions = {"download_file", "download_files", "post_file", "HTTPFileSystem"}
     methods = {("NetworkFilesystemManager", "get"), ("NetworkFilesystemManager", "register")}
