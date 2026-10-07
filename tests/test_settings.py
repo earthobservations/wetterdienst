@@ -1321,3 +1321,120 @@ def test_describe_settings_error_names_an_element_where_it_stands(loc: tuple, va
     """An index in a problem's location is told where it stands, after the name holding it (GH-2434)."""
     error = ValidationError.from_exception_data("Settings", [{"type": "missing", "loc": loc, "input": None}])
     assert _describe_settings_error(error) == [f"{variable} is invalid: Field required"]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "value",
+    [
+        "[DUMMY-FROST-ID, TOPSECRET]",
+        '[0123, "TOPSECRET"]',
+        '["DUMMY-FROST-ID", "TOPSECRET"',
+        '  ["DUMMY-FROST-ID",TOPSECRET]',
+    ],
+    ids=["unquoted", "leading-zero", "unclosed", "leading-space"],
+)
+def test_settings_auth_metno_frost_refuses_a_pair_that_is_not_valid_json(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    """A Frost pair that is not valid JSON is refused, not taken whole as the client id (GH-2464).
+
+    The environment hands on such a pair as its raw text, which was read as a lone client id with
+    the secret inside it. Neither the error nor `check_settings()` repeats the secret.
+    """
+    message = 'metno_frost looks like a pair but is not valid JSON: write it as ["client_id", "secret"]'
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", value)
+    assert check_settings() == [f"WD_AUTH__METNO_FROST is invalid: {message}"]
+    with pytest.raises(ValidationError, match=re.escape(message)) as excinfo:
+        Settings()
+    assert "TOPSECRET" not in str(excinfo.value)
+    assert "TOPSECRET" not in repr(excinfo.value)
+
+    monkeypatch.delenv("WD_AUTH__METNO_FROST")
+    builds: list[Callable[[], object]] = [
+        lambda: Settings(auth={"metno_frost": value}),
+        lambda: Settings(auth={"metno_frost": SecretStr(value)}),
+        lambda: setattr(Settings().auth, "metno_frost", value),
+    ]
+    for build in builds:
+        with pytest.raises(ValidationError, match=re.escape(message)) as excinfo:
+            build()
+        assert "TOPSECRET" not in str(excinfo.value)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_metno_frost_still_takes_a_lone_client_id_and_a_valid_pair(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A lone client id and a pair written as valid JSON are still read as before (GH-2464)."""
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", "DUMMY-FROST-ID")
+    assert tuple(reveal(part) for part in Settings().auth.metno_frost) == ("DUMMY-FROST-ID", "")
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", ' ["DUMMY-FROST-ID", "DUMMY-FROST-SECRET"]')
+    assert tuple(reveal(part) for part in Settings().auth.metno_frost) == ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")
+    assert check_settings() == []
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("wrap", [str, SecretStr], ids=["str", "secret"])
+def test_settings_auth_metno_frost_reads_a_pair_given_as_json_text_in_python(wrap: Callable[[str], object]) -> None:
+    """A pair given in Python as valid JSON text is read as the pair, as from the environment (GH-2464).
+
+    It was taken whole as the client id, and a refusal of what starts with `[` would have told the
+    caller to fix JSON that is already valid.
+    """
+    text = '["DUMMY-FROST-ID", "DUMMY-FROST-SECRET"]'
+    expected = ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")
+    assert tuple(reveal(part) for part in Settings(auth={"metno_frost": wrap(text)}).auth.metno_frost) == expected
+    settings = Settings()
+    settings.auth.metno_frost = wrap(text)
+    assert tuple(reveal(part) for part in settings.auth.metno_frost) == expected
+    with pytest.raises(ValidationError, match=r"got 3 element\(s\)"):
+        Settings(auth={"metno_frost": wrap('["a", "b", "c"]')})
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("value", "from_environment"),
+    [
+        ("[DUMMY-FROST-ID, TOPSECRET]", False),
+        ("[DUMMY-FROST-ID, TOPSECRET]", True),
+        ("[" + "1" * 5000 + ', "TOPSECRET"]', False),
+        ("[" + "1" * 5000 + ', "TOPSECRET"]', True),
+        # the environment's own decoding fails on this before the settings see it
+        ("[" * 100_000 + "TOPSECRET", False),
+    ],
+    ids=["unquoted", "unquoted-env", "integer-too-long", "integer-too-long-env", "nested-too-deep"],
+)
+def test_settings_auth_metno_frost_refusal_keeps_no_exception_holding_the_secret(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+    *,
+    from_environment: bool,
+) -> None:
+    """The refusal of a Frost pair keeps no exception that holds the refused text (GH-2464).
+
+    A JSON decode error holds the text it failed on as its `doc`, and an exception raised while it
+    is handled keeps it as its context, which pydantic keeps in the error's `ctx` -- where an error
+    reporter or a debugger walking the chain reaches it. Text that fails to decode another way --
+    an integer too long to convert, nesting too deep -- gets the same refusal, rather than an error
+    of its own or an escaping `RecursionError`.
+    """
+    message = 'metno_frost looks like a pair but is not valid JSON: write it as ["client_id", "secret"]'
+    if from_environment:
+        monkeypatch.setenv("WD_AUTH__METNO_FROST", value)
+    with pytest.raises(ValidationError, match=re.escape(message)) as excinfo:
+        Settings() if from_environment else Settings(auth={"metno_frost": value})
+    for error in excinfo.value.errors():
+        exception: BaseException | None = error.get("ctx", {}).get("error")
+        while exception is not None:
+            assert "TOPSECRET" not in repr(exception.args)
+            assert "TOPSECRET" not in repr(vars(exception))
+            exception = exception.__cause__ or exception.__context__
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_metno_frost_reads_a_pair_after_any_whitespace(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A pair after whitespace that JSON does not take, such as a pasted no-break space, is still read (GH-2464)."""
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", '\xa0["DUMMY-FROST-ID", "DUMMY-FROST-SECRET"]\xa0')
+    assert tuple(reveal(part) for part in Settings().auth.metno_frost) == ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")

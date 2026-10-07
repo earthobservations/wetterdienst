@@ -49,6 +49,13 @@ Types of changes:
   operator still in use was null already. Read a null `valid_to` as a position that still applies
   (GH-2474)
 
+### Fixed
+
+- A `WD_AUTH__METNO_FROST` pair that is not valid JSON, such as `[myid, mysecret]` with its
+  elements unquoted, is refused, and `check_settings()` names it. It was taken whole as the client
+  id, secret included, and sent to Frost, which refused it. Quote each element:
+  `["myid", "mysecret"]`. A pair given in Python as that text is read as the pair (GH-2464)
+
 ## [0.141.0] - 2026-10-06
 
 ### Added
