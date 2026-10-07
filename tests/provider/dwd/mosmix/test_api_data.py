@@ -707,7 +707,9 @@ def test_mosmix_a_cached_run_that_is_not_a_zip_is_dropped_and_asked_for_again(
     entry and `get_file` fills it afterwards -- so a download interrupted mid-copy leaves a
     truncated blob that `_check_file` accepts for the life of the entry. Held five minutes that
     righted itself; held twelve hours, with `LATEST` resolving to that same immutable URL rather
-    than to an alias, it would not.
+    than to an alias, it would not. The cache wetterdienst builds now records the entry after the
+    copy (GH-2467), but a blob an earlier version cached that way is still read back, and a body cut
+    short with no `Content-Length` to tell is recorded as if whole.
     """
     import zipfile  # noqa: PLC0415
     from io import BytesIO  # noqa: PLC0415
