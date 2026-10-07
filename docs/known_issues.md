@@ -70,7 +70,8 @@ Import `pyproj` first. Where you cannot, install your distribution's ecCodes lib
 library instead of the `eccodeslib` wheel's (on Debian 13,
 `sudo apt-get install libeccodes0 libeccodes-data`). Both are needed: with the variable and no
 system library, `eccodes` does not load at all. The variable applies to every library `findlibs`
-looks up, so scope it to the one command.
+looks up, so another package that relies on it to find a library in its wheel no longer finds it:
+scope it to the one command, as in `FINDLIBS_DISABLE_PACKAGE=yes python my_script.py`.
 
 Only installs with the `eckitlib` wheel are affected: where
 `python -c "import importlib.metadata as m; print(m.version('eckitlib'))"` raises
