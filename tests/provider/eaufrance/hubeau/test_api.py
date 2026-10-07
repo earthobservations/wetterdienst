@@ -513,3 +513,17 @@ def test_all_leaves_a_station_in_service_without_an_end(monkeypatch: pytest.Monk
         "closing": dt.datetime(2030, 1, 1, tzinfo=ZoneInfo("UTC")),
     }
     assert df.schema["end_timestamp"] == pl.Datetime(time_zone="UTC")
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_all_types_the_end_as_a_timestamp_when_no_station_has_one() -> None:
+    """Test that ``end_timestamp`` stays a UTC datetime when every station's end is null.
+
+    This is the shape Hub'Eau answers in: the list asks for stations in service only, and none of
+    them carries a closing date.
+    """
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert not df.is_empty()
+    assert df.get_column("end_timestamp").null_count() == len(df)
+    assert df.schema["end_timestamp"] == pl.Datetime(time_zone="UTC")
