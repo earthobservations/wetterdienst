@@ -213,20 +213,32 @@ def test_downloads_use_certifi_when_the_settings_ask_for_it(
     assert [url for url, use_certifi in seen if use_certifi is not True] == []
 
 
-def test_every_download_call_passes_use_certifi() -> None:
-    """Test that no download in the package leaves `use_certifi` to its default.
+def test_every_network_call_passes_use_certifi() -> None:
+    """Test that every call to a network helper taking `use_certifi` passes it, not the default.
 
-    The test above runs the four providers GH-2463 found. This one reads every call in the package,
-    those of a provider added later included, since the default is off and leaving it out fails
-    nothing else.
+    The test above runs the four providers GH-2463 found. This one reads every call in the package
+    to the helpers in `util/network.py` that take the keyword and default it to off, so a call added
+    later that leaves it out fails here too. It checks that the keyword is passed, not what it is
+    passed: a call handing on a settings object other than the request's is not caught.
     """
+    functions = {"download_file", "download_files", "post_file", "HTTPFileSystem"}
+    methods = {("NetworkFilesystemManager", "get"), ("NetworkFilesystemManager", "register")}
     root = Path(wetterdienst.__file__).parent
     missing = []
     for path in sorted(root.rglob("*.py")):
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if not isinstance(node, ast.Call):
                 continue
-            name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None)
-            if name in {"download_file", "download_files"} and "use_certifi" not in {k.arg for k in node.keywords}:
+            func = node.func
+            called = (
+                (isinstance(func, ast.Name) and func.id in functions)
+                or (isinstance(func, ast.Attribute) and func.attr in functions)
+                or (
+                    isinstance(func, ast.Attribute)
+                    and isinstance(func.value, ast.Name)
+                    and (func.value.id, func.attr) in methods
+                )
+            )
+            if called and "use_certifi" not in {keyword.arg for keyword in node.keywords}:
                 missing.append(f"{path.relative_to(root)}:{node.lineno}")
     assert missing == []
