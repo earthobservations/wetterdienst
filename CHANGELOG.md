@@ -51,6 +51,10 @@ Types of changes:
   `ea/hydrology` values, `metno/frost` stations, values and credential check, and `dwd/road`
   values. They went out with the system CA store, so where that store cannot verify the upstream
   they failed SSL verification even with the setting on (GH-2463)
+- A `WD_AUTH__METNO_FROST` pair that is not valid JSON, such as `[myid, mysecret]` with its
+  elements unquoted, is refused, and `check_settings()` names it. It was taken whole as the client
+  id, secret included, and sent to Frost, which refused it. Quote each element:
+  `["myid", "mysecret"]`. A pair given in Python as that text is read as the pair (GH-2464)
 
 ## [0.141.0] - 2026-10-06
 
