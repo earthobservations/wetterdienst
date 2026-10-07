@@ -727,11 +727,11 @@ def test_an_install_without_pyproj_is_not_logged(
 
 
 @needs_the_bindings
-def test_a_pyproj_imported_already_is_not_looked_for(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A pyproj in `sys.modules` is ahead already, and asking where it is installed can raise.
+def test_a_pyproj_that_cannot_be_looked_for_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Asking where pyproj is installed can raise, and that is not an answer about eccodes.
 
-    `find_spec` raises `ValueError` for a module whose `__spec__` is None, as a stub's is, and inside
-    the probes that would read as eccodes not loading.
+    `find_spec` raises `ValueError` for a module in `sys.modules` whose `__spec__` is None, as a
+    stub's is, and inside the probes that would read as eccodes not loading.
     """
     monkeypatch.delitem(sys.modules, "gribapi", raising=False)
     monkeypatch.setitem(sys.modules, "pyproj", types.ModuleType("pyproj"))
