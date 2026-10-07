@@ -3038,14 +3038,14 @@ def _year_10000_message() -> str:
             "/api/interpolate",
             {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "timestamp": ""},
             400,
-            "start and end are required for interpolation",
+            "timestamp is required to interpolate",
             id="interpolate-empty-date",
         ),
         pytest.param(
             "/api/summarize",
             {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "timestamp": ""},
             400,
-            "start and end are required for summarization",
+            "timestamp is required to summarize",
             id="summarize-empty-date",
         ),
         pytest.param(
@@ -6466,14 +6466,14 @@ _GEO_REFUSALS = [
         "interpolate",
         {"latitude": 50.0, "longitude": 10.0, "timestamp": "2020-06-30/2020-06-01"},
         400,
-        "Error: 'start' must be smaller or equal to 'end'.",
+        "the interval in timestamp ends before it starts",
         id="interpolate-window-the-wrong-way-round",
     ),
     pytest.param(
         "summarize",
         {"latitude": 50.0, "longitude": 10.0, "timestamp": "2020-06-30/2020-06-01"},
         400,
-        "Error: 'start' must be smaller or equal to 'end'.",
+        "the interval in timestamp ends before it starts",
         id="summarize-window-the-wrong-way-round",
     ),
     pytest.param(
@@ -6532,7 +6532,7 @@ def test_values_a_window_the_wrong_way_round_is_logged_as_info(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A window that ends before it starts is the caller's 400, logged without a traceback (GH-2429)."""
-    detail = "Error: 'start' must be smaller or equal to 'end'."
+    detail = "the interval in timestamp ends before it starts"
     with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
         response = client.get(
             "/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30/2020-06-01"}

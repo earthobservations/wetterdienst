@@ -20,8 +20,10 @@ from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
     InvalidTimeIntervalError,
+    MissingTimeIntervalError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
+    ReversedTimeIntervalError,
     StartDateEndDateError,
     StationNotFoundError,
 )
@@ -1058,6 +1060,19 @@ def _geo_settings(
     return _request_settings(request, given, InterpolationSettings if kind == "interpolation" else SummarySettings)
 
 
+def _refusal_detail(e: Exception, what: str) -> str:
+    """Word a refusal for a caller of this API, who passes the window as one `timestamp`.
+
+    A request refuses a window that is missing or ends before it starts in terms of its `start` and
+    `end`, which a REST or MCP caller cannot pass. Any other refusal is worded the request's way.
+    """
+    if isinstance(e, ReversedTimeIntervalError):
+        return "the interval in timestamp ends before it starts"
+    if isinstance(e, MissingTimeIntervalError):
+        return f"timestamp is required to {what}"
+    return str(e)
+
+
 def _values(
     api: type[TimeseriesRequest],
     request: ValuesRequest,
@@ -1077,8 +1092,9 @@ def _values(
         raise HTTPException(status_code=400, detail=str(e)) from e
     except StartDateEndDateError as e:
         # a window the caller wrote the wrong way round: theirs to fix, and no traceback of ours
-        log.info(f"Failed to get values: {e}")
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        detail = _refusal_detail(e, "get values")
+        log.info(f"Failed to get values: {detail}")
+        raise HTTPException(status_code=400, detail=detail) from e
     except BufrReaderMissingError as e:
         raise _reader_missing_on_the_server(e, "get values") from e
     except AssertionError:
@@ -1127,9 +1143,10 @@ def _geo_values(
         if not _is_caller_refusal(e, request):
             log.exception(f"Failed to {what}")
             raise HTTPException(status_code=500, detail=str(e)) from e
-        log.info(f"Failed to {what}: {e}")
+        detail = _refusal_detail(e, what)
+        log.info(f"Failed to {what}: {detail}")
         status_code = 404 if isinstance(e, StationNotFoundError) else 400
-        raise HTTPException(status_code=status_code, detail=str(e)) from e
+        raise HTTPException(status_code=status_code, detail=detail) from e
 
 
 # response models for the different formats are

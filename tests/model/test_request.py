@@ -11,7 +11,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Period, Settings
-from wetterdienst.exceptions import StartDateEndDateError
+from wetterdienst.exceptions import ReversedTimeIntervalError, StartDateEndDateError
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
@@ -564,3 +564,14 @@ def test_request_keeps_the_window_under_its_new_names(default_settings: Settings
         stations_filter=StationsFilter.ALL,
     )
     assert (stations.start, stations.end) == (request.start, request.end)
+
+
+def test_request_refuses_a_reversed_window_in_its_own_terms() -> None:
+    """Test a Python caller still gets the request's wording and the exception it caught before (GH-2478).
+
+    The REST API and the MCP tools word the same refusal in terms of their `timestamp`; they tell it
+    apart by the subclass, which stays a `StartDateEndDateError`.
+    """
+    with pytest.raises(ReversedTimeIntervalError, match="'start' must be smaller or equal to 'end'") as raised:
+        TimeseriesRequest.convert_timestamps("2020-06-30", "2020-06-01")
+    assert isinstance(raised.value, StartDateEndDateError)
