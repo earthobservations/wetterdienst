@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import json
 import logging
@@ -746,7 +747,7 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             super().clear_cache()
 
     def _open(self, path: str, mode: str = "rb", **kwargs) -> object:  # noqa: ANN003
-        """Fetch a file the cache does not hold, then open the cached copy.
+        """Open the cached copy of a file, fetching it first when the cache does not hold one.
 
         fsspec's own `_open` asks the remote filesystem whether the file `exists` before fetching
         it, and HTTP's `exists` answers `False` for any status of 400 or above and for a refused
@@ -756,20 +757,39 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         404, which HTTP's `get_file` raises itself, and the aiohttp error for anything else. A cache
         miss also costs one GET rather than two.
 
-        The entry is recorded after the body has arrived rather than before, as fsspec records it.
-        A download that fails mid-body leaves no entry claiming a fresh copy, so a retry fetches the
-        file again rather than reading back the truncated one; and one that fails before a byte
-        arrives does not refresh an expired entry whose old blob is still on disk.
+        The entry is recorded once the whole body has arrived, where fsspec records it first. A
+        download that fails part-way then leaves no entry claiming a fresh copy of what it wrote,
+        for a retry to read back, and what it wrote is removed, since no sweep collects a blob
+        without an entry; one that fails before a byte arrives does not refresh an expired entry
+        whose old blob is still on disk.
+
+        The copy fetched is the one opened, rather than handing back to fsspec's `_open` to find it
+        again: if it had gone in between, that would probe and record-first all over.
         """
+        if "r" not in mode or "+" in mode:
+            # writing goes through fsspec's own temporary file; wetterdienst only ever reads
+            return super()._open(path, mode=mode, **kwargs)
         path = self._strip_protocol(path)
-        # inline rather than a helper method: this class's `__getattribute__` hands any method name
-        # fsspec does not list to the wrapped filesystem, which has no such method
-        if "r" in mode and not self._check_file(path):
+        cached = self._check_file(path)
+        if cached:
+            _, blob = cached
+        else:
+            # inline rather than a helper method: this class's `__getattribute__` hands any method
+            # name fsspec does not list to the wrapped filesystem, which has no such method
             self._mkcache()
-            self.fs.get_file(path, str(Path(self.storage[-1]) / self._mapper(path)))
+            blob = str(Path(self.storage[-1]) / self._mapper(path))
+            try:
+                self.fs.get_file(path, blob)
+            except BaseException:
+                # an expired blob this never got to overwrite goes too, which the sweep would do. On
+                # Windows one another handle holds open cannot be removed, and is left for the next
+                # download of the file to overwrite
+                with contextlib.suppress(OSError):
+                    Path(blob).unlink(missing_ok=True)
+                raise
             self._make_local_details(path)
             self.save_cache()
-        return super()._open(path, mode=mode, **kwargs)
+        return Path(blob).open(mode)
 
 
 class NetworkFilesystemManager:

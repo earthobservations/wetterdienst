@@ -7,7 +7,6 @@ import json
 import logging
 import os
 import pickle
-import socket
 import tempfile
 import threading
 import time
@@ -2466,9 +2465,16 @@ class _StatusEndpoint(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
         """Keep the test output quiet."""
 
+    def do_HEAD(self) -> None:
+        """Record a probe, so that a count of requests counts it too, and refuse it."""
+        self.server.requests.append(f"HEAD {self.path}")
+        self.send_response(405)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_GET(self) -> None:
         """Answer with the status set for this path, `/truncated` with a body cut short."""
-        self.server.requests.append(self.path)
+        self.server.requests.append(f"GET {self.path}")
         if self.path == "/truncated":
             # promises more than it sends, and the connection closing after it is the cut
             self.send_response(200)
@@ -2501,12 +2507,21 @@ def status_server() -> Iterator[ThreadingHTTPServer]:
         thread.join(timeout=5)
 
 
-def _refusing_url() -> str:
-    """Name a local address nothing listens on, so connecting to it is refused."""
-    with socket.socket() as probe:
-        probe.bind(("127.0.0.1", 0))
-        port = probe.getsockname()[1]
-    return f"http://127.0.0.1:{port}/file"
+#: A local port that refuses connections. Port 1 (tcpmux) is one nothing on a test host serves, and
+#: one no test can be handed by binding port 0, as a port just freed can be handed to a sibling
+#: test's server under xdist. Holding a socket bound, unlistening, is no answer: macOS then drops
+#: the connection attempt rather than refusing it, and it times out.
+_REFUSING_URL = "http://127.0.0.1:1/file"
+
+
+def _blobs(tmp_path: Path) -> list[str]:
+    """Name the files the five-minute cache under ``tmp_path`` holds, its metadata and marker aside."""
+    filesystem = NetworkFilesystemManager.get(
+        cache_dir=tmp_path, cache_expiry=CacheExpiry.FIVE_MINUTES, cache_disable=False
+    )
+    return sorted(
+        path.name for path in Path(filesystem.storage[-1]).iterdir() if path.name not in {"cache", ".last-used"}
+    )
 
 
 @pytest.mark.parametrize("cache_disable", [False, True], ids=["cache", "no-cache"])
@@ -2532,7 +2547,7 @@ def test_the_cache_reports_the_failure_the_download_met(
     fsspec's caching filesystem asked HTTP whether the file `exists` before fetching it, which
     answers `False` for any error, and so turned both into the `FileNotFoundError` of a 404.
     """
-    url = _refusing_url() if where == "refused" else f"{status_server.url}{where}"
+    url = _REFUSING_URL if where == "refused" else f"{status_server.url}{where}"
     with stamina.set_testing(True, attempts=1):
         result = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES, cache_disable=cache_disable)
 
@@ -2549,7 +2564,7 @@ def test_a_cache_miss_costs_one_request(status_server: ThreadingHTTPServer, tmp_
 
     assert (miss.status, miss.from_cache, miss.content.getvalue()) == (200, False, b"payload")
     assert (hit.status, hit.from_cache, hit.content.getvalue()) == (200, True, b"payload")
-    assert status_server.requests == ["/file"]
+    assert status_server.requests == ["GET /file"]
 
 
 def test_a_failed_refresh_does_not_revive_an_expired_copy(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
@@ -2571,15 +2586,22 @@ def test_a_failed_refresh_does_not_revive_an_expired_copy(status_server: Threadi
         first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
         second = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
 
-    assert (first.status, first.from_cache) == (503, False)
-    assert (second.status, second.from_cache) == (503, False)
+    # the stale copy would have come back as a 200 carrying its bytes
+    assert (first.status, type(first.content)) == (503, ClientResponseError)
+    assert (second.status, type(second.content)) == (503, ClientResponseError)
 
 
-def test_a_body_cut_short_is_not_read_back_from_the_cache(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
-    """The retry after a truncated download fetches the file again rather than reading the stub (GH-2467)."""
+def test_a_body_cut_short_is_neither_read_back_nor_left_behind(
+    status_server: ThreadingHTTPServer, tmp_path: Path
+) -> None:
+    """The retry after a truncated download fetches the file again, and the stub is removed (GH-2467).
+
+    Recorded before the body arrived, the entry had the retry read the stub back as a 200. Recorded
+    after it, a stub with no entry is one no sweep collects, so it goes as soon as the read fails.
+    """
     with stamina.set_testing(True, attempts=2):
         result = download_file(url=f"{status_server.url}/truncated", cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
 
-    assert result.status != 200
-    assert result.from_cache is False
-    assert status_server.requests == ["/truncated", "/truncated"]
+    assert (result.status, type(result.content)) == (500, ClientPayloadError)
+    assert status_server.requests == ["GET /truncated", "GET /truncated"]
+    assert _blobs(tmp_path) == []
