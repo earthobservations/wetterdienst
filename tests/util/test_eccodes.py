@@ -653,7 +653,9 @@ needs_eccodes_and_pyproj = pytest.mark.skipif(
 def _watch(code: str) -> list[bool]:
     """Run `code` in a fresh interpreter, and say whether pyproj came before each look for the bindings."""
     script = f"{_WATCH_THE_ORDER}\n{code}\nprint(json.dumps(seen))"
-    done = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=True, timeout=120)  # noqa: S603
+    done = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=False, timeout=120)  # noqa: S603
+    # the child's traceback, where it failed, is what says why
+    assert done.returncode == 0, done.stderr
     return json.loads(done.stdout.splitlines()[-1])
 
 
