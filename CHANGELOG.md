@@ -47,6 +47,10 @@ Types of changes:
 
 ### Fixed
 
+- A `WD_AUTH__METNO_FROST` pair that is not valid JSON, such as `[myid, mysecret]` with its
+  elements unquoted, is refused, and `check_settings()` names it. It was taken whole as the client
+  id, secret included, and sent to Frost, which refused it. Quote each element:
+  `["myid", "mysecret"]`. A pair given in Python as that text is read as the pair (GH-2464)
 - A download through the cache (any TTL but `CacheExpiry.NO_CACHE`, cache not disabled) reports
   the failure it met, as one without the cache does: an HTTP error other than 404 comes back with
   its own status -- a 401, 403 or 429 too, which `download_file` no longer asks again -- and a
