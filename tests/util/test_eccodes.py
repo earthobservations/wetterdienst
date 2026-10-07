@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import textwrap
+import types
 import warnings
 from collections.abc import Iterator
 from io import BytesIO
@@ -644,9 +645,10 @@ _LOADS_ECCODES = {
     ),
 }
 
+#: the probes are asked to load the library, so it has to load -- not only the bindings be there
 needs_eccodes_and_pyproj = pytest.mark.skipif(
-    importlib.util.find_spec("gribapi") is None or importlib.util.find_spec("pyproj") is None,
-    reason="eccodes and pyproj required",
+    not BUFR_AVAILABLE or importlib.util.find_spec("pyproj") is None,
+    reason="eccodes, pdbufr and pyproj required",
 )
 
 
@@ -692,18 +694,24 @@ def test_a_caller_that_loads_eccodes_first_keeps_its_order() -> None:
     assert _watch(code) == [False, False]
 
 
+@needs_the_bindings
 def test_an_install_without_pyproj_is_not_logged(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A `bufr` install without `radarplus` has no pyproj, which is ordinary and not worth a traceback.
 
-    The bindings are made to look not yet loaded, so the function gets as far as pyproj.
+    The bindings and pyproj are made to look not yet imported, so the function gets as far as asking
+    whether pyproj is installed. The import that fails stands for what an install without it would
+    do, should the function try the import anyway.
     """
-    monkeypatch.delitem(sys.modules, "gribapi")
+    monkeypatch.delitem(sys.modules, "gribapi", raising=False)
+    monkeypatch.delitem(sys.modules, "pyproj", raising=False)
     find_spec = importlib.util.find_spec
     monkeypatch.setattr(
-        importlib.util, "find_spec", lambda name, *args: None if name == "pyproj" else find_spec(name, *args)
+        importlib.util,
+        "find_spec",
+        lambda name, package=None: None if name == "pyproj" else find_spec(name, package),
     )
     real_import = builtins.__import__
 
@@ -716,3 +724,15 @@ def test_an_install_without_pyproj_is_not_logged(
     with caplog.at_level(logging.DEBUG, logger=eccodes.__name__):
         eccodes.import_pyproj_before_eccodes()
     assert not caplog.records
+
+
+@needs_the_bindings
+def test_a_pyproj_imported_already_is_not_looked_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A pyproj in `sys.modules` is ahead already, and asking where it is installed can raise.
+
+    `find_spec` raises `ValueError` for a module whose `__spec__` is None, as a stub's is, and inside
+    the probes that would read as eccodes not loading.
+    """
+    monkeypatch.delitem(sys.modules, "gribapi", raising=False)
+    monkeypatch.setitem(sys.modules, "pyproj", types.ModuleType("pyproj"))
+    eccodes.import_pyproj_before_eccodes()

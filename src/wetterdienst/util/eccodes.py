@@ -89,13 +89,15 @@ def import_pyproj_before_eccodes() -> None:
     Called by both probes, and by `read_radar_bufr`, the one reader that can run without asking
     them first; DWD road's reader asks `require_bufr` before it imports pdbufr. Where the bindings
     are loaded already the order is settled, and importing pyproj then would only make the abort
-    reachable for a process that never imports it. Where the bindings are not installed there is
-    nothing to put pyproj ahead of, and where pyproj is not -- a `bufr` install without
-    `radarplus` -- nothing to import, which is the ordinary case and not logged. A pyproj that is
-    installed and does not import is left to whoever imports it next: reading BUFR does not need it.
+    reachable for a process that never imports it. Where pyproj is imported already it is ahead.
+    Where the bindings are not installed there is nothing to put pyproj ahead of, and where pyproj
+    is not -- a `bufr` install without `radarplus` -- nothing to import, which is the ordinary case
+    and not logged. A pyproj that is installed and does not import is left to whoever imports it
+    next: reading BUFR does not need it.
     """
     if (
         "gribapi" in sys.modules
+        or "pyproj" in sys.modules
         or importlib.util.find_spec("gribapi") is None
         or importlib.util.find_spec("pyproj") is None
     ):
