@@ -2567,28 +2567,13 @@ def test_a_cache_miss_costs_one_request(status_server: ThreadingHTTPServer, tmp_
     assert status_server.requests == ["GET /file"]
 
 
-@pytest.mark.parametrize("removable", [True, False], ids=["removable", "held-open"])
-def test_a_failed_refresh_does_not_revive_an_expired_copy(
-    status_server: ThreadingHTTPServer,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    *,
-    removable: bool,
-) -> None:
+def test_a_failed_refresh_does_not_revive_an_expired_copy(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
     """An expired blob still on disk is not served as fresh because a refresh of it failed (GH-2467).
 
     fsspec records the cache entry, stamped now, before the body arrives. Behind its `exists` probe
     that was only reached for a server that answered; fetching straight away, a 503 would have left
     a fresh-looking entry pointing at the old blob, for the retry and every later call to read.
-    The failed fetch removes the old blob too, except where Windows refuses to while another handle
-    holds it open, so that case is played as well: there only the order of the entry protects it.
     """
-    if not removable:
-
-        def held_open(self: Path, *, missing_ok: bool = False) -> None:  # noqa: ARG001
-            raise PermissionError(13, "The process cannot access the file", str(self))
-
-        monkeypatch.setattr(Path, "unlink", held_open)
     url = f"{status_server.url}/file"
     with stamina.set_testing(True, attempts=2):
         assert download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES).status == 200
@@ -2604,6 +2589,8 @@ def test_a_failed_refresh_does_not_revive_an_expired_copy(
     # the stale copy would have come back as a 200 carrying its bytes
     assert (first.status, type(first.content)) == (503, ClientResponseError)
     assert (second.status, type(second.content)) == (503, ClientResponseError)
+    # and the failure before the body left the old blob alone, for its expired entry to account for
+    assert len(_blobs(tmp_path)) == 1
 
 
 def test_a_body_cut_short_is_neither_read_back_nor_left_behind(

@@ -719,6 +719,10 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
     run, `clear_expired_cache` is the sweep, and `clear_cache` deletes the file along with the
     blobs. fsspec resolves all five on the class rather than on the instance, so an override here is
     what its own internal calls reach as well.
+
+    `_open` is overridden for another reason: to fetch a missing file without fsspec's `exists`
+    probe, and to record it only once it has arrived (GH-2467). It reaches the metadata file through
+    `save_cache`, under the lock like every other caller.
     """
 
     def load_cache(self) -> None:
@@ -760,8 +764,8 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         The entry is recorded once the whole body has arrived, where fsspec records it first. A
         download that fails part-way then leaves no entry claiming a fresh copy of what it wrote,
         for a retry to read back, and what it wrote is removed, since no sweep collects a blob
-        without an entry; one that fails before a byte arrives does not refresh an expired entry
-        whose old blob is still on disk.
+        without an entry; one that fails before a byte arrives neither refreshes an expired entry
+        nor touches the blob behind it.
 
         The copy fetched is the one opened, rather than handing back to fsspec's `_open` to find it
         again: if it had gone in between, that would probe and record-first all over.
@@ -775,21 +779,33 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             _, blob = cached
         else:
             # inline rather than a helper method: this class's `__getattribute__` hands any method
-            # name fsspec does not list to the wrapped filesystem, which has no such method
-            self._mkcache()
-            blob = str(Path(self.storage[-1]) / self._mapper(path))
+            # name fsspec does not list to the wrapped filesystem, which has no such method. The
+            # directory exists, `_check_file` having made it
+            blob = Path(self.storage[-1]) / self._mapper(path)
+            before = _file_signature(blob)
             try:
-                self.fs.get_file(path, blob)
+                self.fs.get_file(path, str(blob))
             except BaseException:
-                # an expired blob this never got to overwrite goes too, which the sweep would do. On
-                # Windows one another handle holds open cannot be removed, and is left for the next
-                # download of the file to overwrite
-                with contextlib.suppress(OSError):
-                    Path(blob).unlink(missing_ok=True)
+                # removed only if this fetch wrote to it: a failure before the body, a 503 say,
+                # leaves the blob as it was -- an expired one to its entry and the sweep, and one
+                # another thread or process has just written fresh to its reader. On Windows a
+                # blob another handle holds open cannot be removed, and is left to be overwritten
+                if _file_signature(blob) != before:
+                    with contextlib.suppress(OSError):
+                        blob.unlink(missing_ok=True)
                 raise
             self._make_local_details(path)
             self.save_cache()
         return Path(blob).open(mode)
+
+
+def _file_signature(path: Path) -> tuple[int, int, int] | None:
+    """Tell one state of a file from another: its inode, size and modification time, or None if absent."""
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return None
+    return stat.st_ino, stat.st_size, stat.st_mtime_ns
 
 
 class NetworkFilesystemManager:
