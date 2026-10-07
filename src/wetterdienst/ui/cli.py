@@ -2042,8 +2042,9 @@ def stripes_stations(
 @click.option("--dpi", type=click.IntRange(min=0, min_open=True), default=300, help="Resolution. Default: 300")
 @click.option(
     "--target",
-    type=click.Path(dir_okay=False, path_type=Path),
-    help="Write the image to this file instead of stdout.",
+    # a string, not a `Path`: a `Path` collapses the `//` of a URI before it can be refused
+    type=click.Path(dir_okay=False, path_type=str),
+    help="Write the image to this local file instead of stdout.",
 )
 @debug_opt
 def stripes_values(
@@ -2058,13 +2059,19 @@ def stripes_values(
     show_data_availability: bool,  # noqa: FBT001
     fmt: str,
     dpi: int,
-    target: Path,
+    target: str | None,
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Create climate stripes for a specific station.
 
     Select the station with exactly one of --station or --name.
     """
+    # the image is written with `Path.write_bytes`, so only a local path is a target: a URI, `file://` included,
+    # would be written to the path read off it (`s3:/bucket/...`) once the station is fetched and the plot rendered
+    if target and "://" in target:
+        msg = "only a local path is supported here, not a URI."
+        raise click.BadParameter(msg, param_hint="--target")
+    target_path = Path(target) if target else None
     request = _validate_request(
         StripesImageRequest,
         {
@@ -2084,9 +2091,9 @@ def stripes_values(
     )
     # the suffix, dot included, so `stripespng` is refused; `.jpeg` is as usual for JPEG as `.jpg`
     suffixes = (".jpg", ".jpeg") if fmt == "jpg" else (f".{fmt}",)
-    if target and target.suffix.lower() not in suffixes:
-        msg = f"'target' must have extension {' or '.join(f'{suffix!r}' for suffix in suffixes)}"
-        raise click.ClickException(msg)
+    if target_path and target_path.suffix.lower() not in suffixes:
+        msg = f"must have extension {' or '.join(f'{suffix!r}' for suffix in suffixes)}"
+        raise click.BadParameter(msg, param_hint="--target")
 
     set_logging_level(debug=debug)
 
@@ -2104,11 +2111,11 @@ def stripes_values(
 
     image = fig.to_image(fmt, scale=dpi / 100)
 
-    if target:
+    if target_path:
         # rendered outside the handler: talking to the renderer's browser can raise an `OSError` of its own
         # (choreographer's `ChannelClosedError`), which says nothing about --target
         try:
-            target.write_bytes(image)
+            target_path.write_bytes(image)
         except OSError as e:
             # a directory that does not exist or cannot be written; `--target` itself refuses a directory
             msg = f"Could not write --target: {e}"

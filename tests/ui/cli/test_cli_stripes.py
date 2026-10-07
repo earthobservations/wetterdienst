@@ -119,8 +119,8 @@ def test_stripes_values_target_not_matching_format(tmp_path: Path) -> None:
     target = tmp_path / "foobar.jpg"
     runner = CliRunner()
     result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"])
-    assert result.exit_code == 1
-    assert "Error: 'target' must have extension '.png'" in result.stderr
+    assert result.exit_code == 2
+    assert "Error: Invalid value for --target: must have extension '.png'" in result.stderr
 
 
 @pytest.mark.remote
@@ -237,8 +237,8 @@ def test_stripes_values_target_without_the_format_suffix_is_refused(
         cli,
         ["stripes", "values", "--kind=precipitation", "--station=1048", f"--format={fmt}", f"--target={target}"],
     )
-    assert result.exit_code == 1
-    assert f"Error: 'target' must have extension {expected}\n" in result.output
+    assert result.exit_code == 2
+    assert f"Error: Invalid value for --target: must have extension {expected}\n" in result.output
     assert not target.exists()
 
 
@@ -283,3 +283,32 @@ def test_stripes_values_keeps_the_traceback_for_an_upstream_failure(
     assert "Usage:" not in result.output
     assert "Error: upstream file unreachable" in result.output
     assert "FileNotFoundError: upstream file unreachable" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        pytest.param("s3://bucket/stripes.png", id="s3"),
+        pytest.param("duckdb:///stripes.png", id="duckdb"),
+        pytest.param("file://stripes.png", id="file"),
+        pytest.param("s3://bucket/stripes", id="no-suffix"),
+    ],
+)
+def test_stripes_values_target_with_a_uri_scheme_is_refused_before_plotting(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    target: str,
+) -> None:
+    """Test a --target holding `://` is a usage error before anything is fetched or rendered (GH-2450)."""
+
+    def _plot_stripes(_request: object) -> None:
+        pytest.fail("plotted although --target is a URI")
+
+    monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", _plot_stripes)
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(
+        cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"]
+    )
+    assert result.exit_code == 2, result.output
+    assert "Invalid value for --target: only a local path is supported here, not a URI.\n" in result.output
+    assert list(tmp_path.iterdir()) == []
