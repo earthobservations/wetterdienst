@@ -2457,3 +2457,155 @@ def test_file_dir_cache_falls_back_to_a_temporary_dir_where_no_home_resolves(
         assert cache.cache_location.parent.name.startswith("wetterdienst-fsspec-")
     finally:
         _temporary_cache_dir.cache_clear()
+
+
+class _StatusEndpoint(BaseHTTPRequestHandler):
+    """Answers each path with the status the test set for it, and records every request."""
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        """Keep the test output quiet."""
+
+    def do_HEAD(self) -> None:
+        """Record a probe, so that a count of requests counts it too, and refuse it."""
+        self.server.requests.append(f"HEAD {self.path}")
+        self.send_response(405)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_GET(self) -> None:
+        """Answer with the status set for this path, `/truncated` with a body cut short."""
+        self.server.requests.append(f"GET {self.path}")
+        if self.path == "/truncated":
+            # promises more than it sends, and the connection closing after it is the cut
+            self.send_response(200)
+            self.send_header("Content-Length", "1000")
+            self.end_headers()
+            self.wfile.write(b"payload")
+            return
+        status = self.server.statuses.get(self.path, 200)
+        body = b"payload" if status == 200 else b"error"
+        self.send_response(status)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+@pytest.fixture
+def status_server() -> Iterator[ThreadingHTTPServer]:
+    """Run `_StatusEndpoint` on a port of its own; `server.url` is its address."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _StatusEndpoint)
+    server.statuses = {"/503": 503, "/404": 404, "/401": 401, "/429": 429}
+    server.requests = []
+    server.url = f"http://127.0.0.1:{server.server_port}"
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+#: A local port that refuses connections. Port 1 (tcpmux) is one nothing on a test host serves, and
+#: one no test can be handed by binding port 0, as a port just freed can be handed to a sibling
+#: test's server under xdist. Holding a socket bound, unlistening, is no answer: macOS then drops
+#: the connection attempt rather than refusing it, and it times out.
+_REFUSING_URL = "http://127.0.0.1:1/file"
+
+
+def _blobs(tmp_path: Path) -> list[str]:
+    """Name the files the five-minute cache under ``tmp_path`` holds, its metadata and marker aside."""
+    filesystem = NetworkFilesystemManager.get(
+        cache_dir=tmp_path, cache_expiry=CacheExpiry.FIVE_MINUTES, cache_disable=False
+    )
+    return sorted(
+        path.name for path in Path(filesystem.storage[-1]).iterdir() if path.name not in {"cache", ".last-used"}
+    )
+
+
+@pytest.mark.parametrize("cache_disable", [False, True], ids=["cache", "no-cache"])
+@pytest.mark.parametrize(
+    ("where", "status", "error", "asked"),
+    [
+        ("/503", 503, ClientResponseError, 2),
+        ("refused", 503, NoInternetError, 0),
+        ("/404", 404, FileNotFoundError, 2),
+        ("/401", 401, ClientResponseError, 1),
+        ("/429", 429, ClientResponseError, 1),
+    ],
+)
+def test_the_cache_reports_the_failure_the_download_met(
+    status_server: ThreadingHTTPServer,
+    tmp_path: Path,
+    where: str,
+    status: int,
+    error: type[Exception],
+    asked: int,
+    *,
+    cache_disable: bool,
+) -> None:
+    """A 503, a 4xx or a refused connection is not a missing file, cache or no cache (GH-2467).
+
+    fsspec's caching filesystem asked HTTP whether the file `exists` before fetching it, which
+    answers `False` for any error, and so turned each into the `FileNotFoundError` of a 404 --
+    retried as one, where a 401 or a 429 is an answer and asked once.
+    """
+    url = _REFUSING_URL if where == "refused" else f"{status_server.url}{where}"
+    with stamina.set_testing(True, attempts=2):
+        result = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES, cache_disable=cache_disable)
+
+    assert result.status == status
+    assert isinstance(result.content, error)
+    assert status_server.requests == [f"GET {where}"] * asked
+
+
+def test_a_cache_miss_costs_one_request(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
+    """The `exists` probe was a whole GET of its own before the GET of the body (GH-2467)."""
+    url = f"{status_server.url}/file"
+    with stamina.set_testing(True, attempts=1):
+        miss = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
+        hit = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
+
+    assert (miss.status, miss.from_cache, miss.content.getvalue()) == (200, False, b"payload")
+    assert (hit.status, hit.from_cache, hit.content.getvalue()) == (200, True, b"payload")
+    assert status_server.requests == ["GET /file"]
+
+
+def test_a_failed_refresh_does_not_revive_an_expired_copy(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
+    """An expired blob still on disk is not served as fresh because a refresh of it failed (GH-2467).
+
+    fsspec records the cache entry, stamped now, before the body arrives. Behind its `exists` probe
+    that was only reached for a server that answered; fetching straight away, a 503 would have left
+    a fresh-looking entry pointing at the old blob, for the retry and every later call to read.
+    """
+    url = f"{status_server.url}/file"
+    with stamina.set_testing(True, attempts=2):
+        assert download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES).status == 200
+        filesystem = NetworkFilesystemManager.get(
+            cache_dir=tmp_path, cache_expiry=CacheExpiry.FIVE_MINUTES, cache_disable=False
+        )
+        _age_metadata(Path(filesystem.storage[-1]), seconds=3600)
+        filesystem.load_cache()
+        status_server.statuses["/file"] = 503
+        first = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
+        second = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
+
+    # the stale copy would have come back as a 200 carrying its bytes
+    assert (first.status, type(first.content)) == (503, ClientResponseError)
+    assert (second.status, type(second.content)) == (503, ClientResponseError)
+    # and the failure before the body left the old blob alone, for its expired entry to account for
+    (blob,) = _blobs(tmp_path)
+    assert (Path(filesystem.storage[-1]) / blob).read_bytes() == b"payload"
+
+
+def test_a_body_cut_short_is_not_read_back_from_the_cache(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
+    """The retry after a truncated download fetches the file again rather than reading the stub (GH-2467).
+
+    Recorded before the body arrived, the entry had the retry read the stub back as a 200.
+    """
+    with stamina.set_testing(True, attempts=2):
+        result = download_file(url=f"{status_server.url}/truncated", cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
+
+    assert (result.status, type(result.content)) == (500, ClientPayloadError)
+    assert status_server.requests == ["GET /truncated", "GET /truncated"]
