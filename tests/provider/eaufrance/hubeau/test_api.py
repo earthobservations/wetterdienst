@@ -513,4 +513,4 @@ def test_all_lists_the_stations_when_the_sites_download_times_out(
 
     assert dict(df.select("station_id", "elevation").iter_rows()) == {"O972001001": None}
     assert "sites referential could not be read" in caplog.text
-    assert "Failed to download https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/sites" in caplog.text
+    assert "DownloadError('https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/sites'" in caplog.text

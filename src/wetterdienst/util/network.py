@@ -35,7 +35,7 @@ from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 
 if TYPE_CHECKING:
@@ -95,17 +95,15 @@ class File:
         For NoInternetError, logs at debug level and returns silently instead of raising,
         allowing callers to return empty frames rather than propagating the error.
 
-        What is raised names the file: a timeout's own message is empty, and a dropped connection's
-        or a cut-short body's says nothing of which file it was, so the REST API answered a `detail`
-        of `""` and the command line a bare traceback (GH-2460). It is an instance of the stored
-        error's own type, carrying its attributes, so every `except` and `isinstance` that caught
-        the stored error catches this one too, and it is raised `from` the stored error.
+        What is raised is a `DownloadError` naming the file, with the stored exception as its
+        `__cause__`: a timeout's own message is empty, and a dropped connection's or a cut-short
+        body's says nothing of which file it was (GH-2460).
         """
         if isinstance(self.content, NoInternetError):
             log.debug(f"No internet connection available for {self.url}, returning empty result.")
             return
         if isinstance(self.content, Exception):
-            raise _naming_the_file(self.content, self.url) from self.content
+            raise _download_error(self.content, self.url) from self.content
 
     @property
     def is_no_internet_error(self) -> bool:
@@ -125,44 +123,6 @@ class File:
         return self.nbytes == 0
 
 
-class _NamingTheFile(Exception):  # noqa: N818 -- a mixin, never raised as itself
-    """Put first among the bases of a failed download's own error type, to say which file it was.
-
-    First, so that its `__str__` wins over the one the error's type has: `ClientResponseError`
-    renders its own, with the URL as it was requested.
-    """
-
-    _stored_type: ClassVar[type[Exception]]
-    """The error type this subclass was made for."""
-    _download_message: str
-
-    def __str__(self) -> str:
-        """Say which file failed to download, and how.
-
-        Falls back to the error type's own message for one built with that type's constructor,
-        `type(error)(*error.args)`, which `_naming_the_file` did not get to name.
-        """
-        message = self.__dict__.get("_download_message")
-        return message if message is not None else super().__str__()
-
-    def __repr__(self) -> str:
-        """Render as the message, not as the args, which hold the request info and its raw URL."""
-        return f"{type(self).__name__}({str(self)!r})"
-
-    def __reduce__(self) -> tuple:
-        """Pickle by the type this subclass was made for, which pickle can find by its name.
-
-        The subclass carries the name and module of that type, so pickle would find the type
-        itself under them and refuse to stand it in for this one.
-        """
-        return _rebuild_naming_the_file, (self._stored_type, self.args, dict(vars(self)), _os_error_fields(self))
-
-
-# one subclass per error type, made the first time a download fails with it, so that the type of
-# what is raised stays the same from one failure to the next
-_NAMING_THE_FILE_TYPES: dict[type[Exception], type[_NamingTheFile]] = {}
-
-
 def _without_url_secrets(url: str) -> str:
     """Give back a URL as it can be shown: with no query, no fragment and no user information.
 
@@ -180,61 +140,22 @@ def _without_url_secrets(url: str) -> str:
     return f"{scheme}://{authority}{slash}{path}"
 
 
-def _naming_the_file(error: Exception, url: str) -> Exception:
-    """Make an error of the same type as a failed download's, whose message names the file.
+def _download_error(error: Exception, url: str) -> DownloadError:
+    """Say which file a download failed for, and why.
 
-    The message is built here rather than taken from the error, because the error's own can hold
-    the URL as requested, query and all: `FileNotFoundError` is the URL, `ClientResponseError` ends
-    with it. A response error is told by its status and reason, anything else by its own message
-    unless that is empty or holds a URL, and by the name of its type then.
+    The reason is built here rather than taken from the error, because the error's own message can
+    hold the URL as requested, query and all: `FileNotFoundError`'s is the URL, and
+    `ClientResponseError`'s ends with it. A response error is told by its status and reason phrase,
+    anything else by its own message unless that is empty or holds a URL, and by the name of its
+    type then.
     """
-    # an error named once already is named again as the type it was made for
-    kind = error._stored_type if isinstance(error, _NamingTheFile) else type(error)  # noqa: SLF001
-    raised = _rebuild_naming_the_file(kind, error.args, vars(error), _os_error_fields(error))
     if isinstance(error, ClientResponseError) and error.status:
-        detail = f"{error.status}, message={error.message!r}"
+        reason = f"{error.status}, message={error.message!r}"
     else:
-        # the type's own message, not the one an error named once already renders
-        detail = kind.__str__(error)
-    if not detail or "://" in detail:
-        detail = kind.__name__
-    raised._download_message = f"Failed to download {_without_url_secrets(url)}: {detail}"  # noqa: SLF001
-    return raised
-
-
-def _os_error_fields(error: BaseException) -> tuple | None:
-    """Give an `OSError`'s errno, strerror, filename and filename2, or `None` for any other error.
-
-    Held outside `__dict__`, and not all of them in the args: `filename` never is, and a subclass
-    with an `__init__` of its own has `OSError` parse none of them from the args.
-    """
-    if isinstance(error, OSError):
-        return error.errno, error.strerror, error.filename, error.filename2
-    return None
-
-
-def _rebuild_naming_the_file(
-    kind: type[Exception], args: tuple, state: dict, os_error_fields: tuple | None
-) -> _NamingTheFile:
-    """Build an error of the subclass made for `kind`, holding these args and attributes.
-
-    Built without the type's `__init__`, whose signature differs from type to type: what a caller
-    reads off the stored error, it can read off this one.
-    """
-    named = _NAMING_THE_FILE_TYPES.get(kind)
-    if named is None:
-        attributes = {"__module__": kind.__module__, "__qualname__": kind.__qualname__, "_stored_type": kind}
-        named = _NAMING_THE_FILE_TYPES.setdefault(kind, type(kind.__name__, (_NamingTheFile, kind), attributes))
-    raised = named.__new__(named, *args)
-    raised.args = args
-    raised.__dict__.update(state)
-    if "__notes__" in state:
-        # a list of its own, so that a note added to one error is not added to the other
-        raised.__dict__["__notes__"] = list(state["__notes__"])
-    # `isinstance` for the type checker's sake: the fields are only ever given for an `OSError`
-    if os_error_fields is not None and isinstance(raised, OSError):
-        raised.errno, raised.strerror, raised.filename, raised.filename2 = os_error_fields
-    return raised
+        reason = str(error)
+    if not reason or "://" in reason:
+        reason = type(error).__name__
+    return DownloadError(_without_url_secrets(url), reason)
 
 
 # Directory names the listings cache used to create under the cache dir but never writes to any

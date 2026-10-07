@@ -35,7 +35,7 @@ from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
 from pydantic import SecretStr
 
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings, _temporary_cache_dir
 from wetterdienst.util import network
@@ -88,8 +88,9 @@ def test_file_raise_if_exception_no_internet_does_not_raise() -> None:
 def test_file_raise_if_exception_other_exception_raises() -> None:
     """File.raise_if_exception() must still raise for non-NoInternetError exceptions."""
     f = File(url="http://example.com/file.txt", content=FileNotFoundError("not found"), status=404)
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(DownloadError) as caught:
         f.raise_if_exception()
+    assert isinstance(caught.value.__cause__, FileNotFoundError)
 
 
 def test_file_is_no_internet_error_true() -> None:
@@ -2625,7 +2626,7 @@ _FAILED_URL = "https://example.invalid/data/file.zip"
 
 
 @pytest.mark.parametrize(
-    ("error", "detail"),
+    ("error", "reason"),
     [
         pytest.param(FSTimeoutError(), "FSTimeoutError", id="timeout"),
         pytest.param(FileNotFoundError(_FAILED_URL), "FileNotFoundError", id="not-found"),
@@ -2637,57 +2638,19 @@ _FAILED_URL = "https://example.invalid/data/file.zip"
         pytest.param(ClientOSError(54, "Connection reset by peer"), "[Errno 54] Connection reset by peer", id="reset"),
     ],
 )
-def test_file_raise_if_exception_names_the_file(error: Exception, detail: str) -> None:
-    """What is raised names the URL, and is still caught as the stored error was (GH-2460).
+def test_file_raise_if_exception_raises_a_download_error_naming_the_file(error: Exception, reason: str) -> None:
+    """What is raised names the URL and the reason, and carries the stored error as its cause (GH-2460).
 
     A timeout's own message is empty, and a dropped connection's says nothing of which file it was.
     """
     file = File(url=_FAILED_URL, content=error, status=500)
 
-    with pytest.raises(type(error)) as caught:
+    with pytest.raises(DownloadError) as caught:
         file.raise_if_exception()
 
-    assert str(caught.value) == f"Failed to download {_FAILED_URL}: {detail}"
-    assert repr(caught.value) == f"{type(error).__name__}({str(caught.value)!r})"
+    assert str(caught.value) == f"Failed to download {_FAILED_URL}: {reason}"
+    assert (caught.value.url, caught.value.reason) == (_FAILED_URL, reason)
     assert caught.value.__cause__ is error
-    # what a caller reads off the stored error, it reads off this one
-    assert caught.value.args == error.args
-    assert {key: value for key, value in vars(caught.value).items() if key != "_download_message"} == vars(error)
-    # the type is the stored error's, as a traceback prints it
-    assert (type(caught.value).__module__, type(caught.value).__qualname__) == (
-        type(error).__module__,
-        type(error).__qualname__,
-    )
-
-
-def test_file_raise_if_exception_keeps_what_the_callers_catch() -> None:
-    """The handlers downstream of `raise_if_exception` tell failures apart by type and attribute (GH-2460).
-
-    Hubeau's sites referential catches `FSTimeoutError`, `OSError` and `ClientError`; a response
-    error is read by its status, a reset connection by its errno.
-    """
-    timeout = File(url=_FAILED_URL, content=FSTimeoutError(), status=408)
-    with pytest.raises(FSTimeoutError):
-        timeout.raise_if_exception()
-    missing = File(url=_FAILED_URL, content=FileNotFoundError(_FAILED_URL), status=404)
-    with pytest.raises(OSError, match=r"FileNotFoundError$"):
-        missing.raise_if_exception()
-    error = _response_error(_FAILED_URL, 401)
-    refused = File(url=_FAILED_URL, content=error, status=401)
-    with pytest.raises(ClientResponseError) as caught:
-        refused.raise_if_exception()
-    assert caught.value.status == 401
-    assert caught.value.request_info is error.request_info
-    reset = File(url=_FAILED_URL, content=ClientOSError(54, "Connection reset by peer"), status=500)
-    with pytest.raises(ClientOSError) as caught_reset:
-        reset.raise_if_exception()
-    assert caught_reset.value.errno == 54
-    # raised again, the same type: one subclass per error type, not one per failure
-    with pytest.raises(FSTimeoutError) as first:
-        timeout.raise_if_exception()
-    with pytest.raises(FSTimeoutError) as second:
-        timeout.raise_if_exception()
-    assert type(first.value) is type(second.value)
 
 
 @pytest.mark.parametrize(
@@ -2708,135 +2671,33 @@ def test_file_raise_if_exception_keeps_what_the_callers_catch() -> None:
     ],
 )
 def test_file_raise_if_exception_names_no_credential_of_the_url(url: str, error: Callable[[str], Exception]) -> None:
-    """A key, token or password the URL carries stays out of the message (GH-2460).
+    """A key, token or password the URL carries stays out of the error (GH-2460).
 
-    The message reaches whoever asked, a remote caller of the REST API among them. The stored
-    error's own message can hold the URL as requested: `FileNotFoundError` is the URL, and
-    `ClientResponseError` ends with it.
+    It reaches whoever asked, a remote caller of the REST API among them. The stored error's own
+    message can hold the URL as requested: `FileNotFoundError` is the URL, and `ClientResponseError`
+    ends with it.
     """
     file = File(url=url, content=error(url), status=500)
 
-    with pytest.raises(Exception) as caught:  # noqa: PT011 -- the type is the parametrized one
+    with pytest.raises(DownloadError) as caught:
         file.raise_if_exception()
 
     assert "SECRET" not in str(caught.value)
     assert "SECRET" not in repr(caught.value)
-    assert "example.invalid/data/file.zip" in str(caught.value)
+    assert caught.value.url.endswith("example.invalid/data/file.zip")
 
 
 def test_a_failed_download_raises_naming_the_file_without_its_key(
     status_server: ThreadingHTTPServer, tmp_path: Path
 ) -> None:
-    """A download answered 503 raises a response error naming the file, but not its query (GH-2460)."""
+    """A download answered 503 raises an error naming the file, but not its query (GH-2460)."""
     status_server.statuses["/503?token=SECRET"] = 503
     with stamina.set_testing(True, attempts=1):
         file = download_file(url=f"{status_server.url}/503?token=SECRET", cache_dir=tmp_path, cache_disable=True)
 
-    with pytest.raises(ClientResponseError) as caught:
+    with pytest.raises(DownloadError) as caught:
         file.raise_if_exception()
 
-    assert caught.value.status == 503
     assert str(caught.value) == f"Failed to download {status_server.url}/503: 503, message='Service Unavailable'"
-
-
-@pytest.mark.parametrize(
-    "error",
-    [
-        pytest.param(FSTimeoutError(), id="timeout"),
-        pytest.param(ClientPayloadError("Response payload is not completed"), id="payload"),
-        pytest.param(ClientOSError(54, "Connection reset by peer"), id="reset"),
-    ],
-)
-def test_file_raise_if_exception_raises_what_pickles(error: Exception) -> None:
-    """The error raised crosses a process boundary as the stored one did (GH-2460).
-
-    Its type carries the stored type's name and module, under which pickle finds the stored type
-    and not the one made from it. A response error is left out: its request info holds a
-    `CIMultiDictProxy`, which does not pickle, raised named or not.
-    """
-    with pytest.raises(type(error)) as caught:
-        File(url=_FAILED_URL, content=error, status=500).raise_if_exception()
-
-    restored = pickle.loads(pickle.dumps(caught.value))  # noqa: S301 -- pickled just above
-
-    assert type(restored) is type(caught.value)
-    assert str(restored) == str(caught.value)
-    assert getattr(restored, "errno", None) == getattr(error, "errno", None)
-    assert getattr(restored, "status", None) == getattr(error, "status", None)
-
-
-def test_file_raise_if_exception_names_an_error_named_once_already() -> None:
-    """An error `raise_if_exception` raised, stored in a `File` again, is named again (GH-2460)."""
-    with pytest.raises(ServerDisconnectedError) as first:
-        File(url=_FAILED_URL, content=ServerDisconnectedError(), status=500).raise_if_exception()
-
-    with pytest.raises(ServerDisconnectedError) as second:
-        File(url=f"{_FAILED_URL}.md5", content=first.value, status=500).raise_if_exception()
-
-    assert type(second.value) is type(first.value)
-    assert str(second.value) == f"Failed to download {_FAILED_URL}.md5: Server disconnected"
-
-
-def test_file_raise_if_exception_raises_what_its_type_rebuilds() -> None:
-    """The type of the error raised builds an error with its own constructor, as the stored type did (GH-2460)."""
-    with pytest.raises(ServerDisconnectedError) as caught:
-        File(url=_FAILED_URL, content=ServerDisconnectedError(), status=500).raise_if_exception()
-
-    rebuilt = type(caught.value)(*caught.value.args)
-
-    assert isinstance(rebuilt, ServerDisconnectedError)
-    assert str(rebuilt) == "Server disconnected"
-
-
-def test_file_raise_if_exception_keeps_an_os_error_s_errno() -> None:
-    """The errno of an `OSError` whose type parses its args itself survives (GH-2460).
-
-    `OSError` keeps it outside the instance dict, and leaves parsing the args to its own `__init__`
-    where a subclass defines one.
-    """
-    with pytest.raises(_ResetError) as caught:
-        File(url=_FAILED_URL, content=_ResetError("reset"), status=500).raise_if_exception()
-
-    assert (caught.value.errno, caught.value.strerror) == (54, "reset")
-
-
-class _ResetError(OSError):
-    """An `OSError` whose type parses its args itself, defined where pickle can find it."""
-
-    def __init__(self, message: str) -> None:
-        super().__init__(54, message)
-
-
-@pytest.mark.parametrize(
-    "error",
-    [
-        pytest.param(FileNotFoundError(2, "No such file", "/tmp/x"), id="filename"),  # noqa: S108
-        pytest.param(_ResetError("reset"), id="own-init"),
-    ],
-)
-def test_file_raise_if_exception_raises_what_pickles_with_its_os_error_fields(error: OSError) -> None:
-    """An `OSError`'s errno, strerror and filename survive pickling, as the stored error's do (GH-2460).
-
-    Its filename is never in its args, and a type with an `__init__` of its own has none of them
-    parsed from the args.
-    """
-    with pytest.raises(OSError) as caught:  # noqa: PT011 -- the type is the parametrized one
-        File(url=_FAILED_URL, content=error, status=500).raise_if_exception()
-
-    restored = pickle.loads(pickle.dumps(caught.value))  # noqa: S301 -- pickled just above
-
-    assert (restored.errno, restored.strerror, restored.filename) == (error.errno, error.strerror, error.filename)
-
-
-def test_file_raise_if_exception_keeps_the_stored_error_s_notes_its_own() -> None:
-    """A note added to the error raised is not added to the stored one, which the `File` keeps (GH-2460)."""
-    error = FSTimeoutError()
-    error.__notes__ = ["stored"]
-    file = File(url=_FAILED_URL, content=error, status=408)
-
-    with pytest.raises(FSTimeoutError) as caught:
-        file.raise_if_exception()
-    caught.value.__notes__.append("raised")
-
-    assert error.__notes__ == ["stored"]
-    assert caught.value.__notes__ == ["stored", "raised"]
+    assert isinstance(caught.value.__cause__, ClientResponseError)
+    assert caught.value.__cause__.status == 503

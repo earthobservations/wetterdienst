@@ -9,6 +9,7 @@ from aiohttp import ClientResponseError, ServerDisconnectedError
 from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import skip_if_upstream_unavailable
+from wetterdienst.exceptions import DownloadError
 
 
 def _response_error(status: int) -> ClientResponseError:
@@ -68,3 +69,28 @@ def test_skip_if_upstream_unavailable_decorates_a_test_function() -> None:
 
     with pytest.raises(pytest.skip.Exception):
         _remote_test()
+
+
+@pytest.mark.parametrize(
+    ("cause", "skipped"),
+    [
+        pytest.param(FSTimeoutError(), True, id="timeout"),
+        pytest.param(_response_error(503), True, id="503"),
+        pytest.param(FileNotFoundError("https://hubeau.eaufrance.fr/api"), False, id="404"),
+    ],
+)
+def test_a_download_error_is_told_by_the_failure_it_carries(cause: Exception, skipped: bool) -> None:  # noqa: FBT001
+    """Test that a `DownloadError` skips or fails the test as its cause would (GH-2460).
+
+    `File.raise_if_exception` raises it in place of the stored error, so a timeout that is raised
+    through it must still read as upstream not answering.
+    """
+    error = DownloadError("https://example.invalid/file", "reason")
+    error.__cause__ = cause
+
+    if skipped:
+        with pytest.raises(pytest.skip.Exception, match="upstream did not answer"), skip_if_upstream_unavailable():
+            raise error
+    else:
+        with pytest.raises(DownloadError), skip_if_upstream_unavailable():
+            raise error

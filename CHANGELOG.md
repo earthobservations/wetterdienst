@@ -48,6 +48,11 @@ Types of changes:
   null `valid_to`, where it was the time the history was read and changed on every call. A name or
   operator still in use was null already. Read a null `valid_to` as a position that still applies
   (GH-2474)
+- **Breaking**: a download that failed raises `wetterdienst.exceptions.DownloadError` through
+  `File.raise_if_exception`, which 13 providers use, where it raised the stored `FSTimeoutError`,
+  `ClientResponseError` or `FileNotFoundError`. Its message is `Failed to download <url>: <reason>`
+  with the URL stripped of query, fragment and user information, so the REST API's `detail` and the
+  CLI name the file. Catch `DownloadError` and read `__cause__` for the original error (GH-2460)
 
 ### Fixed
 
@@ -63,12 +68,6 @@ Types of changes:
   derived's months, skipped them too. KNMI's and AEMET's own retry of a 429 or 5xx now
   applies through the cache too. A cache miss is one GET instead of two, and a body that ends
   before its `Content-Length` is no longer read back from the cache by the retry (GH-2467)
-- A failed download raised through `File.raise_if_exception`, as 13 of the 23 providers raise
-  one, names the file: `Failed to download <url>: <reason>`, in the REST API's `detail` and the
-  CLI's traceback, where a timeout's message was empty and a dropped connection's named no file.
-  The message shows the URL without its query, fragment or user information; the original error,
-  which a traceback prints as its cause, is unchanged. The error keeps its type and attributes,
-  so code catching `FSTimeoutError` or `ClientResponseError` still catches it (GH-2460)
 
 ## [0.141.0] - 2026-10-06
 
