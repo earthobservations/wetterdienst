@@ -28,7 +28,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "station_id": "ACW00011604",
-                "start_date": dt.datetime(1949, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "start_timestamp": dt.datetime(1949, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "elevation": 10.1,
                 "latitude": 17.1167,
                 "longitude": -61.7833,
@@ -39,7 +39,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "station_id": "ACW00011647",
-                "start_date": dt.datetime(1957, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "start_timestamp": dt.datetime(1957, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "elevation": 19.2,
                 "latitude": 17.1333,
                 "longitude": -61.7833,
@@ -50,7 +50,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "station_id": "AE000041196",
-                "start_date": dt.datetime(1944, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "start_timestamp": dt.datetime(1944, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "elevation": 34.0,
                 "latitude": 25.333,
                 "longitude": 55.517,
@@ -61,7 +61,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "station_id": "AEM00041194",
-                "start_date": dt.datetime(1983, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "start_timestamp": dt.datetime(1983, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "elevation": 10.4,
                 "latitude": 25.255,
                 "longitude": 55.364,
@@ -72,7 +72,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "station_id": "AEM00041217",
-                "start_date": dt.datetime(1983, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "start_timestamp": dt.datetime(1983, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "elevation": 26.8,
                 "latitude": 24.433,
                 "longitude": 54.651,
@@ -84,7 +84,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
             "resolution": pl.String,
             "dataset": pl.String,
             "station_id": pl.String,
-            "start_date": pl.Datetime(time_zone="UTC"),
+            "start_timestamp": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
             "elevation": pl.Float64,
@@ -93,7 +93,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
         },
         orient="row",
     )
-    assert_frame_equal(df.drop("end_date"), df_expected)
+    assert_frame_equal(df.drop("end_timestamp"), df_expected)
 
 
 def test_noaa_ghcn_daily_stations_missing_elevation(
@@ -166,7 +166,7 @@ def test_noaa_ghcn_stations_hourly_and_daily(monkeypatch: pytest.MonkeyPatch, de
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file)
     df = NoaaGhcnRequest(parameters=[("hourly", "data"), ("daily", "data")], settings=default_settings).all().df
     utc = ZoneInfo("UTC")
-    assert df.select("resolution", "station_id", "start_date", "end_date", "elevation").rows() == [
+    assert df.select("resolution", "station_id", "start_timestamp", "end_timestamp", "elevation").rows() == [
         ("hourly", "ACM00078861", None, None, 10.0),
         ("hourly", "AGM00060350", None, None, None),
         ("hourly", "AOM00066116", None, None, None),

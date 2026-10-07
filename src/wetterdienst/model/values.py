@@ -47,9 +47,6 @@ class TimeseriesValues(ABC):
     stations_collected: list[str] = field(default_factory=list)
     unit_converter: UnitConverter = field(default_factory=UnitConverter)
 
-    # Fields for date coercion
-    _date_fields: ClassVar = ["timestamp", "start_date", "end_date"]
-
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
         self.unit_converter.update_targets(self.sr.settings.ts_unit_targets)
@@ -238,23 +235,23 @@ class TimeseriesValues(ABC):
         request for a window that predates the whole network used to stop after ``rank`` stations
         and would otherwise download every station there is to reach the same answer.
 
-        Only this one direction is read. A ``start_date`` is a historical fact and does not move,
-        while an ``end_date`` lags on a station that is still reporting -- the index is written
+        Only this one direction is read. A ``start_timestamp`` is a historical fact and does not move,
+        while an ``end_timestamp`` lags on a station that is still reporting -- the index is written
         before the day it describes is over -- so ruling a station out for having stopped too
         early would drop live stations from a request for recent data. A bound the provider did
         not publish, as the forecast networks do not, states nothing either way. That holds for
         each row: a station asked for several datasets has a row per dataset, and one that leaves
-        its ``start_date`` out says nothing about that dataset's data, so the station is kept even
+        its ``start_timestamp`` out says nothing about that dataset's data, so the station is kept even
         if another dataset begins after the window. ``min()`` skips nulls, so asking it alone let
         the published bound speak for the unpublished one.
         """
-        if not self.sr.end or "start_date" not in df_station_meta.columns:
+        if not self.sr.end or "start_timestamp" not in df_station_meta.columns:
             return False
-        start_dates = df_station_meta.get_column("start_date")
-        if start_dates.null_count():
+        start_timestamps = df_station_meta.get_column("start_timestamp")
+        if start_timestamps.null_count():
             return False
         # null-free and never empty, as `group_by` yields no empty group, so `min()` has a value
-        return cast("dt.datetime", start_dates.min()) > self.sr.end
+        return cast("dt.datetime", start_timestamps.min()) > self.sr.end
 
     def _filter_by_window(self, df: pl.DataFrame) -> pl.DataFrame:
         """Cut a station's frame down to the window the request asked for, if it named one.

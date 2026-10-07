@@ -169,8 +169,8 @@ class GeosphereObservationRequest(TimeseriesRequest):
                     "Länge [°E]": "longitude",
                     "Breite [°N]": "latitude",
                     "Höhe [m]": "elevation",
-                    "Startdatum": "start_date",
-                    "Enddatum": "end_date",
+                    "Startdatum": "start_timestamp",
+                    "Enddatum": "end_timestamp",
                     "Bundesland": "region",
                 },
             )
@@ -181,6 +181,6 @@ class GeosphereObservationRequest(TimeseriesRequest):
             data.append(df)
         df = pl.concat(data)
         return df.with_columns(
-            pl.col("start_date").str.to_datetime(format="%Y-%m-%d %H:%M:%S%z", time_zone="UTC"),
-            pl.col("end_date").str.to_datetime(format="%Y-%m-%d %H:%M:%S%z", time_zone="UTC"),
+            pl.col("start_timestamp").str.to_datetime(format="%Y-%m-%d %H:%M:%S%z", time_zone="UTC"),
+            pl.col("end_timestamp").str.to_datetime(format="%Y-%m-%d %H:%M:%S%z", time_zone="UTC"),
         )

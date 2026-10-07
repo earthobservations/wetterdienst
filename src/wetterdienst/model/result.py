@@ -84,8 +84,8 @@ class _Station(TypedDict):
     resolution: str
     dataset: str
     station_id: str
-    start_date: str | None
-    end_date: str | None
+    start_timestamp: str | None
+    end_timestamp: str | None
     # null where the provider gives a station no position, elevation or name
     latitude: float | None
     longitude: float | None
@@ -113,8 +113,8 @@ class _OgcFeatureProperties(TypedDict):
     id: str
     name: str | None
     region: str | None
-    start_date: str | None
-    end_date: str | None
+    start_timestamp: str | None
+    end_timestamp: str | None
 
 
 class _OgcFeatureGeometry(TypedDict):
@@ -243,8 +243,8 @@ class StationsResult(ExportMixin):
         if not df.is_empty():
             df = df.with_columns(
                 [
-                    pl.col("start_date").dt.to_string("iso:strict"),
-                    pl.col("end_date").dt.to_string("iso:strict"),
+                    pl.col("start_timestamp").dt.to_string("iso:strict"),
+                    pl.col("end_timestamp").dt.to_string("iso:strict"),
                 ],
             )
         data["stations"] = df.to_dicts()
@@ -304,8 +304,8 @@ class StationsResult(ExportMixin):
                 "id": station["station_id"],
                 "name": station["name"],
                 "region": station["region"],
-                "start_date": station["start_date"],
-                "end_date": station["end_date"],
+                "start_timestamp": station["start_timestamp"],
+                "end_timestamp": station["end_timestamp"],
                 **{column: station[column] for column in extra_columns},
             },
             "geometry": geometry,
@@ -329,8 +329,8 @@ class StationsResult(ExportMixin):
         extra_columns = self._ogc_extra_columns()
         features = []
         for station in self.df.with_columns(
-            pl.col("start_date").dt.to_string("iso:strict"),
-            pl.col("end_date").dt.to_string("iso:strict"),
+            pl.col("start_timestamp").dt.to_string("iso:strict"),
+            pl.col("end_timestamp").dt.to_string("iso:strict"),
         ).iter_rows(named=True):
             features.append(self._to_ogc_feature(station, extra_columns))
         data["data"] = {
@@ -668,19 +668,19 @@ class ValuesResult(_ValuesResult):
             df_stations = df_stations.with_columns(
                 pl.when(merged).then(None).otherwise(pl.col("dataset")).alias("dataset"),
                 pl.when(merged)
-                .then(pl.col("start_date").min().over(station_key))
-                .otherwise(pl.col("start_date"))
-                .alias("start_date"),
+                .then(pl.col("start_timestamp").min().over(station_key))
+                .otherwise(pl.col("start_timestamp"))
+                .alias("start_timestamp"),
                 pl.when(merged)
-                .then(pl.col("end_date").max().over(station_key))
-                .otherwise(pl.col("end_date"))
-                .alias("end_date"),
+                .then(pl.col("end_timestamp").max().over(station_key))
+                .otherwise(pl.col("end_timestamp"))
+                .alias("end_timestamp"),
             ).unique(subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True)
         extra_columns = self.stations._ogc_extra_columns()  # noqa: SLF001
         features = []
         for station in df_stations.with_columns(
-            pl.col("start_date").dt.to_string("iso:strict"),
-            pl.col("end_date").dt.to_string("iso:strict"),
+            pl.col("start_timestamp").dt.to_string("iso:strict"),
+            pl.col("end_timestamp").dt.to_string("iso:strict"),
         ).iter_rows(named=True):
             df_values = values_by_series.get((station["resolution"], station["dataset"], station["station_id"]))
             if df_values is None:

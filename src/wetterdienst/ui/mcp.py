@@ -129,7 +129,7 @@ resolution, dataset and parameter, in timestamp order within each group. A param
 timestamp is the LAST item of its group, not the last item of the array.
 - Responses are compact by default (just the `values`). Keep them small (and answer in fewer calls) \
 by querying a single "resolution/dataset/parameter" and -- if you only need one day -- a \
-`timestamp` (e.g. timestamp="2026-07-25"; a station's most recent day is its `end_date` from \
+`timestamp` (e.g. timestamp="2026-07-25"; a station's most recent day is its `end_timestamp` from \
 `stations`). A date covers everything it names, so a day of hourly data is that day's 24 readings, \
 "2026-07" is the month and "2026" the year; name the hour (timestamp="2026-07-25T12") for a single \
 reading.

@@ -125,7 +125,7 @@ request = DwdObservationRequest(
 stations = request.df
 stations.head()
 # ┌────────────┬─────────────────┬────────────┬─────────────────────────┬───┬───────────┬───────────┬──────────────────────┬─────────┐
-# │ resolution ┆ dataset         ┆ station_id ┆ start_date              ┆ … ┆ longitude ┆ elevation ┆ name                 ┆ region  │
+# │ resolution ┆ dataset         ┆ station_id ┆ start_timestamp         ┆ … ┆ longitude ┆ elevation ┆ name                 ┆ region  │
 # │ ---        ┆ ---             ┆ ---        ┆ ---                     ┆   ┆ ---       ┆ ---       ┆ ---                  ┆ ---     │
 # │ str        ┆ str             ┆ str        ┆ datetime[μs, UTC]       ┆   ┆ f64       ┆ f64       ┆ str                  ┆ str     │
 # ╞════════════╪═════════════════╪════════════╪═════════════════════════╪═══╪═══════════╪═══════════╪══════════════════════╪═════════╡

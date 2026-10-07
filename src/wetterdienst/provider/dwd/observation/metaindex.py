@@ -31,8 +31,8 @@ log = logging.getLogger(__name__)
 
 DWD_COLUMN_NAMES_MAPPING = {
     "column_1": "station_id",
-    "column_2": "start_date",
-    "column_3": "end_date",
+    "column_2": "start_timestamp",
+    "column_3": "end_timestamp",
     "column_4": "elevation",
     "column_5": "latitude",
     "column_6": "longitude",
@@ -85,8 +85,8 @@ def create_meta_index_for_climate_observations(
         pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
         pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
         "station_id",
-        pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=strict_dates),
-        pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=strict_dates),
+        pl.col("start_timestamp").str.to_datetime("%Y%m%d", time_zone="UTC", strict=strict_dates),
+        pl.col("end_timestamp").str.to_datetime("%Y%m%d", time_zone="UTC", strict=strict_dates),
         pl.col("elevation").cast(pl.Float64),
         pl.col("latitude").cast(pl.Float64),
         pl.col("longitude").cast(pl.Float64),
@@ -211,8 +211,8 @@ def _read_meta_df_urban(raw_lines: list[bytes]) -> pl.LazyFrame:
         records.append(
             {
                 "station_id": tokens[0],
-                "start_date": dates[0] if dates else "",
-                "end_date": dates[1] if len(dates) > 1 else "",
+                "start_timestamp": dates[0] if dates else "",
+                "end_timestamp": dates[1] if len(dates) > 1 else "",
                 "elevation": tokens[elevation_idx],
                 "latitude": tokens[lat_idx],
                 "longitude": tokens[lon_idx],
@@ -220,7 +220,7 @@ def _read_meta_df_urban(raw_lines: list[bytes]) -> pl.LazyFrame:
                 "region": " ".join(trailing[1:]),
             }
         )
-    columns = ("station_id", "start_date", "end_date", "elevation", "latitude", "longitude", "name", "region")
+    columns = ("station_id", "start_timestamp", "end_timestamp", "elevation", "latitude", "longitude", "name", "region")
     return pl.DataFrame(records, schema=dict.fromkeys(columns, pl.String)).lazy()
 
 
@@ -296,10 +296,10 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
     ]
     df = pl.concat(dfs)
     df = df.with_columns(
-        pl.when(pl.col("end_date").str.strip_chars().eq(""))
+        pl.when(pl.col("end_timestamp").str.strip_chars().eq(""))
         .then(pl.lit((dt.datetime.now(ZoneInfo("UTC")).date() - dt.timedelta(days=1)).strftime("%Y%m%d")))
-        .otherwise(pl.col("end_date"))
-        .alias("end_date"),
+        .otherwise(pl.col("end_timestamp"))
+        .alias("end_timestamp"),
     )
     df = df.with_columns(pl.all().str.strip_chars())
     # Make station id str
@@ -317,17 +317,17 @@ def _parse_geo_metadata(file: File, station_id: str) -> pl.LazyFrame:
             "Stationshoehe": "elevation",
             "Geogr.Breite": "latitude",
             "Geogr.Laenge": "longitude",
-            "von_datum": "start_date",
-            "bis_datum": "end_date",
+            "von_datum": "start_timestamp",
+            "bis_datum": "end_timestamp",
             "Stationsname": "name",
         },
     )
-    df = df.with_columns(pl.col("start_date").first().cast(str), pl.col("end_date").cast(str))
+    df = df.with_columns(pl.col("start_timestamp").first().cast(str), pl.col("end_timestamp").cast(str))
     df = df.last()
     return df.select(
         pl.col("station_id"),
-        pl.col("start_date"),
-        pl.col("end_date"),
+        pl.col("start_timestamp"),
+        pl.col("end_timestamp"),
         pl.col("elevation"),
         pl.col("latitude"),
         pl.col("longitude"),

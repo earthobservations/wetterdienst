@@ -18,8 +18,8 @@ _EMPTY_STATIONS_SCHEMA = {
     "region": pl.String,
     "latitude": pl.Float64,
     "longitude": pl.Float64,
-    "start_date": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "end_date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "start_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "end_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
 }
 
 _EMPTY_OBSERVATIONS_SCHEMA = {
@@ -99,8 +99,8 @@ def _parse_facility(facility: _Element) -> dict[str, str | None] | None:
         "region": region,
         "latitude": latitude,
         "longitude": longitude,
-        "start_date": start,
-        "end_date": end,
+        "start_timestamp": start,
+        "end_timestamp": end,
     }
 
 
@@ -131,11 +131,11 @@ def parse_fmi_stations(content: bytes) -> pl.DataFrame:
         pl.col("longitude").cast(pl.Float64, strict=False),
         # cast to String first: when every station is still active (or the field is absent) the
         # column is inferred as Null dtype, which str.to_datetime rejects.
-        pl.col("start_date")
+        pl.col("start_timestamp")
         .cast(pl.String)
         .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us")
         .dt.replace_time_zone("UTC"),
-        pl.col("end_date")
+        pl.col("end_timestamp")
         .cast(pl.String)
         .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us")
         .dt.replace_time_zone("UTC"),

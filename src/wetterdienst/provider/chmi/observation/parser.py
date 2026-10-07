@@ -21,8 +21,8 @@ _EMPTY_STATIONS_SCHEMA = {
     "latitude": pl.Float64,
     "longitude": pl.Float64,
     "elevation": pl.Float64,
-    "start_date": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "end_date": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "start_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "end_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
 }
 
 _EMPTY_VALUES_SCHEMA = {
@@ -39,7 +39,7 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
     ``FULL_NAME``, ``GEOGR1``/``GEOGR2`` = longitude/latitude, ``ELEVATION``), so a station with a
     relocated sensor appears multiple times. Collapse to a single row using the most recent
     position for the coordinates/name and the full operational extent for the dates. An
-    ``END_DATE`` in year 3999 marks a still-active station and leaves ``end_date`` null.
+    ``END_DATE`` in year 3999 marks a still-active station and leaves ``end_timestamp`` null.
     """
     df = pl.read_csv(content, has_header=True, infer_schema_length=0)
     if df.is_empty():
@@ -53,8 +53,8 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
         pl.col("GEOGR2").sort_by("END_DATE").last().alias("latitude"),
         pl.col("GEOGR1").sort_by("END_DATE").last().alias("longitude"),
         pl.col("ELEVATION").sort_by("END_DATE").last().alias("elevation"),
-        pl.col("BEGIN_DATE").min().alias("start_date"),
-        pl.col("END_DATE").max().alias("end_date"),
+        pl.col("BEGIN_DATE").min().alias("start_timestamp"),
+        pl.col("END_DATE").max().alias("end_timestamp"),
     )
     return df.select(
         pl.col("WSI").cast(pl.String).alias("station_id"),
@@ -62,8 +62,11 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
         pl.col("latitude").cast(pl.Float64, strict=False),
         pl.col("longitude").cast(pl.Float64, strict=False),
         pl.col("elevation").cast(pl.Float64, strict=False),
-        pl.col("start_date"),
-        pl.when(pl.col("end_date").dt.year() >= 3999).then(None).otherwise(pl.col("end_date")).alias("end_date"),
+        pl.col("start_timestamp"),
+        pl.when(pl.col("end_timestamp").dt.year() >= 3999)
+        .then(None)
+        .otherwise(pl.col("end_timestamp"))
+        .alias("end_timestamp"),
     )
 
 

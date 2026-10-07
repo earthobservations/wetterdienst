@@ -373,7 +373,7 @@ class MeteoswissObservationRequest(TimeseriesRequest):
             pl.col("station_data_since")
             .str.to_datetime("%d.%m.%Y", strict=False)
             .dt.replace_time_zone("UTC")
-            .alias("start_date"),
+            .alias("start_timestamp"),
         )
         data = []
         for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters)):

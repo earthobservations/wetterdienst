@@ -205,7 +205,7 @@ class MeteoFranceSynopRequest(TimeseriesRequest):
                     "station_id": properties["Id"],
                     "name": properties["Nom"],
                     "elevation": properties["Altitude"],
-                    "start_date": properties["Date_ouverture"],
+                    "start_timestamp": properties["Date_ouverture"],
                     "latitude": latitude,
                     "longitude": longitude,
                 },
@@ -216,14 +216,14 @@ class MeteoFranceSynopRequest(TimeseriesRequest):
                 "station_id": pl.String,
                 "name": pl.String,
                 "elevation": pl.Float64,
-                "start_date": pl.String,
+                "start_timestamp": pl.String,
                 "latitude": pl.Float64,
                 "longitude": pl.Float64,
             },
         )
         df = df.lazy()
         df = df.with_columns(
-            pl.col("start_date").str.to_datetime("%Y-%m-%d", strict=False).dt.replace_time_zone("UTC"),
+            pl.col("start_timestamp").str.to_datetime("%Y-%m-%d", strict=False).dt.replace_time_zone("UTC"),
         )
         # self.parameters is parsed at runtime to a list[ParameterModel], but the static type of
         # the attribute is a union of input forms; cast here so the typechecker understands we

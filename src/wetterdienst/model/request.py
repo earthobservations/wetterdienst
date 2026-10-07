@@ -154,8 +154,8 @@ class TimeseriesRequest:
         "resolution",
         "dataset",
         "station_id",
-        "start_date",
-        "end_date",
+        "start_timestamp",
+        "end_timestamp",
         "latitude",
         "longitude",
         "elevation",
@@ -420,8 +420,8 @@ class TimeseriesRequest:
             pl.col("longitude").cast(pl.Float64),
             pl.col("name").cast(pl.String),
             pl.col("region").cast(pl.String),
-            pl.col("start_date").cast(pl.Datetime(time_zone="UTC")),
-            pl.col("end_date").cast(pl.Datetime(time_zone="UTC")),
+            pl.col("start_timestamp").cast(pl.Datetime(time_zone="UTC")),
+            pl.col("end_timestamp").cast(pl.Datetime(time_zone="UTC")),
         )
 
     @abstractmethod

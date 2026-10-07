@@ -558,19 +558,19 @@ class HubeauRequest(TimeseriesRequest):
                 "latitude_station": "latitude",
                 "altitude_ref_alti_station": "gauge_zero",
                 "libelle_departement": "region",
-                "date_ouverture_station": "start_date",
-                "date_fermeture_station": "end_date",
+                "date_ouverture_station": "start_timestamp",
+                "date_fermeture_station": "end_timestamp",
             },
         )
         df_raw = df_raw.with_columns(
             pl.col("code_systeme_alti_site")
             .replace_strict(_SYSTEME_ALTI_LABELS, default=pl.col("code_systeme_alti_site").cast(pl.String))
             .alias("gauge_zero_datum"),
-            pl.col("start_date").str.to_datetime(time_zone="UTC"),
-            pl.when(pl.col("end_date").is_null())
+            pl.col("start_timestamp").str.to_datetime(time_zone="UTC"),
+            pl.when(pl.col("end_timestamp").is_null())
             .then(dt.datetime.now(ZoneInfo("UTC")))
-            .otherwise(pl.col("end_date").str.to_datetime(time_zone="UTC"))
-            .alias("end_date"),
+            .otherwise(pl.col("end_timestamp").str.to_datetime(time_zone="UTC"))
+            .alias("end_timestamp"),
         )
         # A station belongs to the resolution it transmits at, which is measured rather than
         # declared -- see `_STEP_TO_RESOLUTION`. One that has published nothing to measure is

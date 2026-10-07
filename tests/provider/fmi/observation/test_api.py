@@ -83,8 +83,8 @@ def test_extract_exception_text() -> None:
     assert extract_exception_text(empty) is None
 
 
-def test_parse_fmi_stations_active_station_end_date_null() -> None:
-    """A trailing concrete endPosition does not override an active station's null end_date."""
+def test_parse_fmi_stations_active_station_end_timestamp_null() -> None:
+    """A trailing concrete endPosition does not override an active station's null end_timestamp."""
     content = b"""<?xml version="1.0" encoding="UTF-8"?>
     <wfs:FeatureCollection
         xmlns:wfs="http://www.opengis.net/wfs/2.0"
@@ -113,9 +113,9 @@ def test_parse_fmi_stations_active_station_end_date_null() -> None:
     assert df.height == 1
     row = df.to_dicts()[0]
     assert row["station_id"] == "100971"
-    assert row["start_date"] == dt.datetime(1844, 1, 1, tzinfo=UTC)
+    assert row["start_timestamp"] == dt.datetime(1844, 1, 1, tzinfo=UTC)
     # active station: the indeterminate operational endPosition wins over the later concrete one
-    assert row["end_date"] is None
+    assert row["end_timestamp"] is None
 
 
 @pytest.mark.remote
@@ -126,7 +126,9 @@ def test_fmi_observation_stations() -> None:
         parameters=[("hourly", "data", "temperature_air_mean_2m")],
     ).filter_by_station_id(HELSINKI_KAISANIEMI)
     df = request.df
-    assert df.select(pl.exclude("latitude", "longitude", "start_date", "end_date", "elevation")).to_dicts() == [
+    assert df.select(
+        pl.exclude("latitude", "longitude", "start_timestamp", "end_timestamp", "elevation")
+    ).to_dicts() == [
         {
             "resolution": "hourly",
             "dataset": "data",

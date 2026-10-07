@@ -29,7 +29,7 @@ def expected_stations_df() -> pl.DataFrame:
                 "resolution": "hourly",
                 "dataset": "temperature_air",
                 "station_id": "02480",
-                "start_date": dt.datetime(2004, 9, 1, tzinfo=ZoneInfo("UTC")),
+                "start_timestamp": dt.datetime(2004, 9, 1, tzinfo=ZoneInfo("UTC")),
                 "latitude": 50.0643,
                 "longitude": 8.993,
                 "elevation": 108.0,
@@ -41,7 +41,7 @@ def expected_stations_df() -> pl.DataFrame:
                 "resolution": "hourly",
                 "dataset": "temperature_air",
                 "station_id": "04411",
-                "start_date": dt.datetime(2002, 1, 24, tzinfo=ZoneInfo("UTC")),
+                "start_timestamp": dt.datetime(2002, 1, 24, tzinfo=ZoneInfo("UTC")),
                 "latitude": 49.9195,
                 "longitude": 8.9672,
                 "elevation": 155.0,
@@ -53,7 +53,7 @@ def expected_stations_df() -> pl.DataFrame:
                 "resolution": "hourly",
                 "dataset": "temperature_air",
                 "station_id": "07341",
-                "start_date": dt.datetime(2005, 7, 16, tzinfo=ZoneInfo("UTC")),
+                "start_timestamp": dt.datetime(2005, 7, 16, tzinfo=ZoneInfo("UTC")),
                 "latitude": 50.0900,
                 "longitude": 8.7862,
                 "elevation": 119.0,
@@ -66,7 +66,7 @@ def expected_stations_df() -> pl.DataFrame:
             "resolution": pl.String,
             "dataset": pl.String,
             "station_id": pl.String,
-            "start_date": pl.Datetime(time_zone="UTC"),
+            "start_timestamp": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
             "elevation": pl.Float64,
@@ -193,10 +193,10 @@ def test_dwd_observation_stations_filter_by_rank_single(
         latlon=(50.0, 8.9),
         rank=1,
     )
-    given_df = request.df.drop("end_date")
+    given_df = request.df.drop("end_timestamp")
     assert_frame_equal(given_df[0, :], expected_stations_df[0, :])
     values = request.values.all()
-    assert_frame_equal(values.df_stations.head(1).drop("end_date"), expected_stations_df.head(1))
+    assert_frame_equal(values.df_stations.head(1).drop("end_timestamp"), expected_stations_df.head(1))
 
 
 @pytest.mark.remote
@@ -209,13 +209,13 @@ def test_dwd_observation_stations_filter_by_rank_multiple(
         latlon=(50.0, 8.9),
         rank=3,
     )
-    given_df = request.df.drop("end_date")
+    given_df = request.df.drop("end_timestamp")
     assert_frame_equal(
         given_df.head(3),
         expected_stations_df,
     )
     values = request.values.all()
-    assert_frame_equal(values.df_stations.drop("end_date"), expected_stations_df)
+    assert_frame_equal(values.df_stations.drop("end_timestamp"), expected_stations_df)
 
 
 @pytest.mark.remote
@@ -226,11 +226,11 @@ def test_dwd_observation_stations_nearby_distance(
     """Test for distance filter."""
     # Kilometers
     nearby_station = default_request.filter_by_distance(latlon=(50.0, 8.9), distance=16.13, unit="km")
-    nearby_station = nearby_station.df.drop("end_date")
+    nearby_station = nearby_station.df.drop("end_timestamp")
     assert_frame_equal(nearby_station, expected_stations_df)
     # Miles
     nearby_station = default_request.filter_by_distance(latlon=(50.0, 8.9), distance=10.03, unit="mi")
-    nearby_station = nearby_station.df.drop("end_date")
+    nearby_station = nearby_station.df.drop("end_timestamp")
     assert_frame_equal(nearby_station, expected_stations_df)
 
 
@@ -238,7 +238,7 @@ def test_dwd_observation_stations_nearby_distance(
 def test_dwd_observation_stations_bbox(default_request: TimeseriesRequest, expected_stations_df: pl.DataFrame) -> None:
     """Test for bounding box filter."""
     nearby_station = default_request.filter_by_bbox(left=8.7862, bottom=49.9195, right=8.993, top=50.0900)
-    nearby_station = nearby_station.df.drop("end_date")
+    nearby_station = nearby_station.df.drop("end_timestamp")
     assert_frame_equal(nearby_station, expected_stations_df.drop("distance"))
 
 
@@ -294,11 +294,13 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
         "precipitation",
     ]
     # station in climate_summary
-    assert df_stations.filter(pl.col("station_id") == "02315").select(pl.all().exclude("end_date")).to_dicts()[0] == {
+    assert df_stations.filter(pl.col("station_id") == "02315").select(pl.all().exclude("end_timestamp")).to_dicts()[
+        0
+    ] == {
         "resolution": "daily",
         "dataset": "climate_summary",
         "station_id": "02315",
-        "start_date": dt.datetime(2000, 6, 1, tzinfo=ZoneInfo("UTC")),
+        "start_timestamp": dt.datetime(2000, 6, 1, tzinfo=ZoneInfo("UTC")),
         "latitude": 51.7657,
         "longitude": 13.1666,
         "elevation": 78.0,
@@ -307,13 +309,13 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
     }
     # station in climate_summary and temperature_air
     assert df_stations.filter(pl.col("station_id") == "01050").sort(["resolution"]).select(
-        pl.all().exclude("end_date"),
+        pl.all().exclude("end_timestamp"),
     ).to_dicts() == [
         {
             "resolution": "daily",
             "dataset": "climate_summary",
             "station_id": "01050",
-            "start_date": dt.datetime(1949, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "start_timestamp": dt.datetime(1949, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
             "latitude": 51.0221,
             "longitude": 13.847,
             "elevation": 112.0,
@@ -324,7 +326,7 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
             "resolution": "hourly",
             "dataset": "precipitation",
             "station_id": "01050",
-            "start_date": dt.datetime(2006, 4, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "start_timestamp": dt.datetime(2006, 4, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
             "latitude": 51.0221,
             "longitude": 13.847,
             "elevation": 112.0,
@@ -333,12 +335,12 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
         },
     ]
     # station in temperature_air
-    assert df_stations.filter(pl.col("station_id") == "19140").select(pl.all().exclude("end_date")).to_dicts() == [
+    assert df_stations.filter(pl.col("station_id") == "19140").select(pl.all().exclude("end_timestamp")).to_dicts() == [
         {
             "resolution": "hourly",
             "dataset": "precipitation",
             "station_id": "19140",
-            "start_date": dt.datetime(2020, 11, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
+            "start_timestamp": dt.datetime(2020, 11, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
             "latitude": 50.9657,
             "longitude": 10.6988,
             "elevation": 278.0,

@@ -660,8 +660,8 @@ class DwdDmoRequest(TimeseriesRequest):
         "dataset",
         "station_id",
         "icao_id",
-        "start_date",
-        "end_date",
+        "start_timestamp",
+        "end_timestamp",
         "latitude",
         "longitude",
         "elevation",
@@ -843,8 +843,8 @@ class DwdDmoRequest(TimeseriesRequest):
             f"describing them from its newest run instead",
         )
         extra = extra.with_columns(
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
             pl.lit(None, pl.String).alias("region"),
         )
         return pl.concat([df_dataset, extra.select(df_dataset.columns)])
@@ -1016,8 +1016,8 @@ class DwdDmoRequest(TimeseriesRequest):
             pl.col("icao_id").replace("----", None),
             _dm_degrees("latitude").alias("latitude"),
             _dm_degrees("longitude").alias("longitude"),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_date"),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_date"),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
+            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
             pl.lit(None, pl.String).alias("region"),
         )
         # combinations of resolution and dataset

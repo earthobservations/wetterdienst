@@ -105,7 +105,7 @@ def _(mo):
 @app.cell
 def _(con, mo):
     _total = con.execute("SELECT count(*) FROM stations").fetchone()[0]
-    _start_min, _start_max = con.execute("SELECT min(start_date)::date, max(start_date)::date FROM stations").fetchone()
+    _start_min, _start_max = con.execute("SELECT min(start_timestamp)::date, max(start_timestamp)::date FROM stations").fetchone()
     _active = con.execute("""
         SELECT count(DISTINCT station_id) FROM "values"
         WHERE year(timestamp) = 2024
@@ -154,7 +154,7 @@ def _(alt, con):
                 tooltip=[
                     "name:N",
                     "region:N",
-                    alt.Tooltip("start_date:T", title="Since", format="%Y"),
+                    alt.Tooltip("start_timestamp:T", title="Since", format="%Y"),
                     "active:N",
                 ],
             )
@@ -175,15 +175,15 @@ def _(alt, con):
         )
 
     _df_1900 = _with_active(
-        "SELECT station_id, name, region, latitude, longitude, start_date FROM stations WHERE start_date <= '1900-12-31'"
+        "SELECT station_id, name, region, latitude, longitude, start_timestamp FROM stations WHERE start_timestamp <= '1900-12-31'"
     )
     _df_1950 = _with_active(
-        "SELECT station_id, name, region, latitude, longitude, start_date FROM stations WHERE start_date <= '1950-12-31'"
+        "SELECT station_id, name, region, latitude, longitude, start_timestamp FROM stations WHERE start_timestamp <= '1950-12-31'"
     )
     _df_1980 = _with_active(
-        "SELECT station_id, name, region, latitude, longitude, start_date FROM stations WHERE start_date <= '1980-12-31'"
+        "SELECT station_id, name, region, latitude, longitude, start_timestamp FROM stations WHERE start_timestamp <= '1980-12-31'"
     )
-    _df_all = _with_active("SELECT station_id, name, region, latitude, longitude, start_date FROM stations")
+    _df_all = _with_active("SELECT station_id, name, region, latitude, longitude, start_timestamp FROM stations")
 
     _active_1900 = (_df_1900["active"] == "active").sum()
     _active_1950 = (_df_1950["active"] == "active").sum()

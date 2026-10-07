@@ -91,8 +91,8 @@ def df_stations() -> pl.DataFrame:
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "station_id": "01048",
-                "start_date": dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC")),
-                "end_date": dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC")),
+                "start_timestamp": dt.datetime(1957, 5, 1, tzinfo=ZoneInfo("UTC")),
+                "end_timestamp": dt.datetime(1995, 11, 30, tzinfo=ZoneInfo("UTC")),
                 "elevation": 645.0,
                 "latitude": 48.8049,
                 "longitude": 13.5528,
@@ -279,8 +279,8 @@ def test_stations_to_dict(df_stations: pl.DataFrame) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "station_id": "01048",
-            "start_date": "1957-05-01T00:00:00.000000+00:00",
-            "end_date": "1995-11-30T00:00:00.000000+00:00",
+            "start_timestamp": "1957-05-01T00:00:00.000000+00:00",
+            "end_timestamp": "1995-11-30T00:00:00.000000+00:00",
             "elevation": 645.0,
             "latitude": 48.8049,
             "longitude": 13.5528,
@@ -321,8 +321,8 @@ def test_stations_to_ogc_feature_collection(df_stations: pl.DataFrame) -> None:
             "resolution": "daily",
             "dataset": "climate_summary",
             "id": "01048",
-            "start_date": "1957-05-01T00:00:00.000000+00:00",
-            "end_date": "1995-11-30T00:00:00.000000+00:00",
+            "start_timestamp": "1957-05-01T00:00:00.000000+00:00",
+            "end_timestamp": "1995-11-30T00:00:00.000000+00:00",
             "name": "Freyung vorm Wald",
             "region": "Bayern",
         },
@@ -387,7 +387,10 @@ def test_stations_format_csv(df_stations: pl.DataFrame) -> None:
         .strip()
     )
     lines = output.split("\n")
-    assert lines[0] == "resolution,dataset,station_id,start_date,end_date,elevation,latitude,longitude,name,region"
+    assert (
+        lines[0]
+        == "resolution,dataset,station_id,start_timestamp,end_timestamp,elevation,latitude,longitude,name,region"
+    )
     assert (
         lines[1] == "daily,climate_summary,01048,1957-05-01T00:00:00.000000+00:00,1995-11-30T00:00:00.000000+00:00,"
         "645.0,48.8049,13.5528,Freyung vorm Wald,Bayern"
@@ -437,8 +440,8 @@ def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_resu
             "id": "01048",
             "name": "Freyung vorm Wald",
             "region": "Bayern",
-            "start_date": "1957-05-01T00:00:00.000000+00:00",
-            "end_date": "1995-11-30T00:00:00.000000+00:00",
+            "start_timestamp": "1957-05-01T00:00:00.000000+00:00",
+            "end_timestamp": "1995-11-30T00:00:00.000000+00:00",
         },
         "type": "Feature",
         "values": [
@@ -572,8 +575,8 @@ def test_interpolated_values_to_ogc_feature_collection(
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "station_id": "01048",
-                "start_date": "1957-05-01T00:00:00.000000+00:00",
-                "end_date": "1995-11-30T00:00:00.000000+00:00",
+                "start_timestamp": "1957-05-01T00:00:00.000000+00:00",
+                "end_timestamp": "1995-11-30T00:00:00.000000+00:00",
                 "latitude": 48.8049,
                 "longitude": 13.5528,
                 "elevation": 645.0,
@@ -673,8 +676,8 @@ def test_summarized_values_to_ogc_feature_collection(
                 "resolution": "daily",
                 "dataset": "climate_summary",
                 "station_id": "01048",
-                "start_date": "1957-05-01T00:00:00.000000+00:00",
-                "end_date": "1995-11-30T00:00:00.000000+00:00",
+                "start_timestamp": "1957-05-01T00:00:00.000000+00:00",
+                "end_timestamp": "1995-11-30T00:00:00.000000+00:00",
                 "latitude": 48.8049,
                 "longitude": 13.5528,
                 "elevation": 645.0,
@@ -911,14 +914,14 @@ def test_filter_by_sql_on_stations(df_stations: pl.DataFrame) -> None:
     """Station metadata can be filtered by SQL through a result.
 
     `ExportMixin.filter_by_sql` stripped the time zone off a `date` column, which a stations frame
-    does not have -- it carries `start_date` and `end_date` -- so `request.all().filter_by_sql(...)`
+    does not have -- it carries `start_timestamp` and `end_timestamp` -- so `request.all().filter_by_sql(...)`
     raised `ColumnNotFoundError`. The CLI's own `--sql` goes through `TimeseriesRequest`, which
     named those two columns itself and so worked; both run this one filter now.
     """
     df = ExportMixin(df=df_stations).filter_by_sql("region='Bayern'")
     assert df.get_column("station_id").to_list() == ["01048"]
     # the timestamps keep the zone they came with
-    assert df.schema["start_date"].time_zone == "UTC"
+    assert df.schema["start_timestamp"].time_zone == "UTC"
     assert ExportMixin(df=df_stations).filter_by_sql("region='Sachsen'").is_empty()
 
 
@@ -2434,7 +2437,7 @@ def test_sql_sink_writes_mysql_datetimes_as_naive_utc(
         name = "wdmysqlfork"
 
     monkeypatch.setitem(registry.impls, "wdmysqlfork", lambda: ForkDialect)
-    # `start_date` and `end_date` stand for the station frame's other datetime columns, the latter
+    # `start_timestamp` and `end_timestamp` stand for the station frame's other datetime columns, the latter
     # empty as an active station's is. Midnight in Berlin in 1850 is 23:06:32 UTC the day before
     # (local mean time), so a zone dropped without converting to UTC first would show
     export = ExportMixin(
@@ -2442,8 +2445,8 @@ def test_sql_sink_writes_mysql_datetimes_as_naive_utc(
             {
                 "station_id": ["01048"],
                 "timestamp": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("UTC"))],
-                "start_date": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("Europe/Berlin"))],
-                "end_date": pl.Series([None], dtype=pl.Datetime("us", "UTC")),
+                "start_timestamp": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("Europe/Berlin"))],
+                "end_timestamp": pl.Series([None], dtype=pl.Datetime("us", "UTC")),
                 "value": [1.0],
             }
         )
@@ -2471,18 +2474,18 @@ def test_sql_sink_writes_mysql_datetimes_as_naive_utc(
         table = SQLTable("weather", database, frame=frame, index=False).table
         ddl = str(CreateTable(table).compile(dialect=engine.dialect))
     assert f"timestamp {datetime_type}" in ddl
-    assert f"start_date {datetime_type}" in ddl
-    assert f"end_date {datetime_type}" in ddl
-    assert frame["end_date"].isna().tolist() == [True]
+    assert f"start_timestamp {datetime_type}" in ddl
+    assert f"end_timestamp {datetime_type}" in ddl
+    assert frame["end_timestamp"].isna().tolist() == [True]
     if datetime_type == "DATETIME":
         assert frame["timestamp"].tolist() == [pd.Timestamp("1850-01-01 00:00:00")]
-        assert frame["start_date"].tolist() == [pd.Timestamp("1849-12-31 23:06:32")]
+        assert frame["start_timestamp"].tolist() == [pd.Timestamp("1849-12-31 23:06:32")]
     else:
         assert frame["timestamp"].tolist() == [pd.Timestamp("1850-01-01 00:00:00", tz="UTC")]
         # compared as an instant: pandas rounds Berlin's 1850 offset to whole minutes when it builds one
-        assert isinstance(frame["start_date"].dtype, pd.DatetimeTZDtype)
-        assert str(frame["start_date"].dtype.tz) == "Europe/Berlin"
-        assert frame["start_date"].dt.tz_convert("UTC").tolist() == [pd.Timestamp("1849-12-31 23:06:32", tz="UTC")]
+        assert isinstance(frame["start_timestamp"].dtype, pd.DatetimeTZDtype)
+        assert str(frame["start_timestamp"].dtype.tz) == "Europe/Berlin"
+        assert frame["start_timestamp"].dt.tz_convert("UTC").tolist() == [pd.Timestamp("1849-12-31 23:06:32", tz="UTC")]
 
 
 def _gauge_stations_result() -> StationsResult:
@@ -2496,7 +2499,13 @@ def _gauge_stations_result() -> StationsResult:
     class GaugeRequestMock:
         _base_columns = (*TimeseriesRequest._base_columns, "gauge_zero")  # noqa: SLF001
 
-    station = {"resolution": "15_minutes", "dataset": "data", "start_date": None, "end_date": None, "region": None}
+    station = {
+        "resolution": "15_minutes",
+        "dataset": "data",
+        "start_timestamp": None,
+        "end_timestamp": None,
+        "region": None,
+    }
     df = pl.DataFrame(
         [
             {**station, "station_id": "a", "latitude": 50.0, "longitude": 8.0, "elevation": 100.0, "name": "A"},
@@ -2507,8 +2516,8 @@ def _gauge_stations_result() -> StationsResult:
             "resolution": pl.String,
             "dataset": pl.String,
             "station_id": pl.String,
-            "start_date": pl.Datetime(time_zone="UTC"),
-            "end_date": pl.Datetime(time_zone="UTC"),
+            "start_timestamp": pl.Datetime(time_zone="UTC"),
+            "end_timestamp": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
             "elevation": pl.Float64,
@@ -2994,8 +3003,8 @@ def test_sql_sink_writes_sql_server_datetimes_as_naive_utc_datetime2(target: str
             {
                 "station_id": ["01048"],
                 "timestamp": [dt.datetime(1700, 1, 1, tzinfo=ZoneInfo("UTC"))],
-                "start_date": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("Europe/Berlin"))],
-                "end_date": pl.Series([None], dtype=pl.Datetime("us", "UTC")),
+                "start_timestamp": [dt.datetime(1850, 1, 1, tzinfo=ZoneInfo("Europe/Berlin"))],
+                "end_timestamp": pl.Series([None], dtype=pl.Datetime("us", "UTC")),
                 "value": [1.0],
             }
         )
@@ -3025,12 +3034,12 @@ def test_sql_sink_writes_sql_server_datetimes_as_naive_utc_datetime2(target: str
         table = SQLTable("weather", database, frame=frame, index=False, dtype=dtype).table
         ddl = str(CreateTable(table).compile(dialect=engine.dialect))
     assert f"timestamp {datetime_type}" in ddl
-    assert f"start_date {datetime_type}" in ddl
-    assert f"end_date {datetime_type}" in ddl
+    assert f"start_timestamp {datetime_type}" in ddl
+    assert f"end_timestamp {datetime_type}" in ddl
     assert "TIMESTAMP" not in ddl
     assert frame["timestamp"].tolist() == [pd.Timestamp("1700-01-01 00:00:00")]
-    assert frame["start_date"].tolist() == [pd.Timestamp("1849-12-31 23:06:32")]
-    assert frame["end_date"].isna().tolist() == [True]
+    assert frame["start_timestamp"].tolist() == [pd.Timestamp("1849-12-31 23:06:32")]
+    assert frame["end_timestamp"].isna().tolist() == [True]
 
 
 def _two_dataset_stations_result() -> StationsResult:
@@ -3042,8 +3051,8 @@ def _two_dataset_stations_result() -> StationsResult:
     station = {
         "resolution": "daily",
         "station_id": "01048",
-        "start_date": None,
-        "end_date": None,
+        "start_timestamp": None,
+        "end_timestamp": None,
         "latitude": 51.1,
         "longitude": 13.8,
         "elevation": 228.0,
@@ -3056,8 +3065,8 @@ def _two_dataset_stations_result() -> StationsResult:
             "resolution": pl.String,
             "dataset": pl.String,
             "station_id": pl.String,
-            "start_date": pl.Datetime(time_zone="UTC"),
-            "end_date": pl.Datetime(time_zone="UTC"),
+            "start_timestamp": pl.Datetime(time_zone="UTC"),
+            "end_timestamp": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
             "elevation": pl.Float64,
@@ -3162,8 +3171,8 @@ def test_values_to_ogc_feature_collection_wide_rows_spanning_datasets() -> None:
         "id": "01048",
         "name": "Dresden-Klotzsche",
         "region": "Sachsen",
-        "start_date": None,
-        "end_date": None,
+        "start_timestamp": None,
+        "end_timestamp": None,
     }
 
 
@@ -3173,7 +3182,12 @@ def _unlocated_stations_result() -> StationsResult:
     "10115" is a postcode, which DWD derived's climate_correction_factor lists as a station with
     no latitude, longitude or elevation; "half" has a latitude but no longitude.
     """
-    station = {"resolution": "monthly", "dataset": "climate_correction_factor", "start_date": None, "end_date": None}
+    station = {
+        "resolution": "monthly",
+        "dataset": "climate_correction_factor",
+        "start_timestamp": None,
+        "end_timestamp": None,
+    }
     df = pl.DataFrame(
         [
             {**station, "station_id": "located", "latitude": 50.0, "longitude": 8.0, "elevation": None, "name": "A"},
@@ -3184,8 +3198,8 @@ def _unlocated_stations_result() -> StationsResult:
             "resolution": pl.String,
             "dataset": pl.String,
             "station_id": pl.String,
-            "start_date": pl.Datetime(time_zone="UTC"),
-            "end_date": pl.Datetime(time_zone="UTC"),
+            "start_timestamp": pl.Datetime(time_zone="UTC"),
+            "end_timestamp": pl.Datetime(time_zone="UTC"),
             "latitude": pl.Float64,
             "longitude": pl.Float64,
             "elevation": pl.Float64,
@@ -3258,8 +3272,8 @@ def test_values_to_ogc_feature_collection_merged_datasets_span_their_dates() -> 
             "resolution": pl.String,
             "dataset": pl.String,
             "station_id": pl.String,
-            "start_date": pl.Datetime(time_zone="UTC"),
-            "end_date": pl.Datetime(time_zone="UTC"),
+            "start_timestamp": pl.Datetime(time_zone="UTC"),
+            "end_timestamp": pl.Datetime(time_zone="UTC"),
         },
         orient="row",
     ).with_columns(
@@ -3295,8 +3309,8 @@ def test_values_to_ogc_feature_collection_merged_datasets_span_their_dates() -> 
             feature["properties"]["resolution"],
             feature["properties"]["dataset"],
             feature["properties"]["id"],
-            feature["properties"]["start_date"],
-            feature["properties"]["end_date"],
+            feature["properties"]["start_timestamp"],
+            feature["properties"]["end_timestamp"],
             [value["timestamp"][:4] for value in feature["values"]],
         )
         for feature in features
@@ -3558,3 +3572,21 @@ def test_export_file_relative_target_with_directory(tmp_path: Path, monkeypatch:
     tmp_path.joinpath("out").mkdir()
     _one_row().to_target("file://out/data.csv")
     assert pl.read_csv(tmp_path / "out" / "data.csv").height == 1
+
+
+@pytest.mark.sql
+def test_filter_by_sql_names_the_renamed_station_timestamp_columns(
+    df_stations: pl.DataFrame, df_values: pl.DataFrame
+) -> None:
+    """A filter on a station's `start_date` or `end_date` names the column it is now (GH-2439)."""
+    import duckdb  # noqa: PLC0415
+
+    with pytest.raises(duckdb.BinderException, match='column "start_date" was renamed to "start_timestamp"'):
+        ExportMixin(df=df_stations).filter_by_sql("start_date < '1960-01-01'")
+    with pytest.raises(duckdb.BinderException, match='column "END_DATE" was renamed to "end_timestamp"'):
+        ExportMixin(df=df_stations).filter_by_sql("END_DATE > '1990-01-01'")
+    # a values frame never had either, nor has it the new ones, so DuckDB's own error stands
+    with pytest.raises(duckdb.BinderException, match='Referenced column "end_date" not found'):
+        ExportMixin(df=df_values).filter_by_sql("end_date > '1990-01-01'")
+    df = ExportMixin(df=df_stations).filter_by_sql("start_timestamp < '1960-01-01' AND end_timestamp > '1990-01-01'")
+    assert df.get_column("station_id").to_list() == ["01048"]

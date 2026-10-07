@@ -26,8 +26,8 @@ log = logging.getLogger(__name__)
 
 DWD_COLUMN_NAMES_MAPPING = {
     "column_1": "station_id",
-    "column_2": "start_date",
-    "column_3": "end_date",
+    "column_2": "start_timestamp",
+    "column_3": "end_timestamp",
     "column_4": "elevation",
     "column_5": "latitude",
     "column_6": "longitude",
@@ -128,8 +128,8 @@ def _get_raw_station_data_from_plz_generator() -> pl.LazyFrame:
         pl.lit(None, dtype=pl.Float64).alias("latitude"),
         pl.lit(None, dtype=pl.Float64).alias("longitude"),
         pl.lit(None, dtype=pl.Float64).alias("elevation"),
-        pl.lit(None, dtype=pl.Datetime(time_zone="UTC")).alias("start_date"),
-        pl.lit(None, dtype=pl.Datetime(time_zone="UTC")).alias("end_date"),
+        pl.lit(None, dtype=pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
+        pl.lit(None, dtype=pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
     )
 
 
@@ -155,8 +155,8 @@ def _read_meta_df(dataset: DatasetModel, file: File) -> pl.LazyFrame:
             },
         ).lazy()
         df = df.with_columns(
-            pl.lit(None).cast(pl.Datetime(time_zone="UTC")).alias("start_date"),
-            pl.lit(None).cast(pl.Datetime(time_zone="UTC")).alias("end_date"),
+            pl.lit(None).cast(pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
+            pl.lit(None).cast(pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
             pl.col("name").str.strip_chars(),
             pl.col("region").str.strip_chars(),
             pl.col("station_id").cast(str).str.pad_start(5, "0"),
@@ -182,7 +182,7 @@ def _read_meta_df(dataset: DatasetModel, file: File) -> pl.LazyFrame:
             pl.col("station_id").cast(str).str.pad_start(5, "0"),
             pl.col("name").str.strip_chars(),
             pl.col("region").str.strip_chars(),
-            pl.col("start_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=False),
-            pl.col("end_date").str.to_datetime("%Y%m%d", time_zone="UTC", strict=False),
+            pl.col("start_timestamp").str.to_datetime("%Y%m%d", time_zone="UTC", strict=False),
+            pl.col("end_timestamp").str.to_datetime("%Y%m%d", time_zone="UTC", strict=False),
         )
     return df

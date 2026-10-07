@@ -215,8 +215,8 @@ class DwdObservationValues(TimeseriesValues):
         if start_date_min:
             file_index = file_index.filter(
                 pl.col("station_id").eq(station_id)
-                & pl.col("start_date").ge(end_date_max).not_()
-                & pl.col("end_date").le(start_date_min).not_(),
+                & pl.col("start_timestamp").ge(end_date_max).not_()
+                & pl.col("end_timestamp").le(start_date_min).not_(),
             )
         result = file_index.collect(background=False)
         if not isinstance(result, pl.DataFrame):

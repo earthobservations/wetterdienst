@@ -134,7 +134,7 @@ class ExportMixin:
         # is a CSV field
         df = _join_list_columns(df).with_columns(pl.col(pl.Enum).cast(pl.String))
         # every timestamp the frame carries, in UTC without the zone: a stations frame has
-        # `start_date` and `end_date` and no `timestamp`, and naming the values column alone (then
+        # `start_timestamp` and `end_timestamp` and no `timestamp`, and naming the values column alone (then
         # `date`) took it down with a missing column before it could be written at all
         df = df.with_columns(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
 
@@ -258,7 +258,7 @@ class ExportMixin:
         import duckdb  # noqa: PLC0415
 
         # every timestamp the frame carries, not the values column alone (then `date`): a stations
-        # frame has `start_date` and `end_date` and no `timestamp` at all, so the CLI's own
+        # frame has `start_timestamp` and `end_timestamp` and no `timestamp` at all, so the CLI's own
         # `--sql "state=\'Sachsen\'"` (as it then was) -- documented as a filter on station metadata
         # -- died on a missing column
         zones = {name: dtype.time_zone for name, dtype in df.schema.items() if isinstance(dtype, pl.Datetime)}

@@ -26,8 +26,8 @@ SETTINGS_STATIONS = (
             "resolution": "daily",
             "dataset": "climate_summary",
             "station_id": "01048",
-            "start_date": "1934-01-01T00:00:00.000000+00:00",
-            "end_date": IsStr,
+            "start_timestamp": "1934-01-01T00:00:00.000000+00:00",
+            "end_timestamp": IsStr,
             "latitude": 51.1278,
             "longitude": 13.7543,
             "elevation": 228.0,
@@ -50,8 +50,8 @@ SETTINGS_STATIONS = (
             "dataset": "large",
             "station_id": "10488",
             "icao_id": "EDDC",
-            "start_date": None,
-            "end_date": None,
+            "start_timestamp": None,
+            "end_timestamp": None,
             "latitude": 51.13,
             "longitude": 13.75,
             "elevation": 230.0,
@@ -73,8 +73,8 @@ SETTINGS_STATIONS = (
             "dataset": "icon",
             "station_id": "10488",
             "icao_id": "EDDC",
-            "start_date": None,
-            "end_date": None,
+            "start_timestamp": None,
+            "end_timestamp": None,
             "latitude": 51.13,
             "longitude": 13.75,
             "elevation": 230.0,
@@ -259,7 +259,7 @@ def test_cli_stations_geojson(
     assert response.keys() == {"data"}
     first = response["data"]["features"][0]
     first_prop = first["properties"]
-    first_prop.pop("end_date")
+    first_prop.pop("end_timestamp")
     expected_dict_geo = expected_dict.copy()
     expected_dict_geo["id"] = expected_dict_geo.pop("station_id")
     assert first_prop.items() <= expected_dict_geo.items()
