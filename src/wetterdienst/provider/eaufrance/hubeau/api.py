@@ -506,9 +506,10 @@ class HubeauRequest(TimeseriesRequest):
             rows = _paged_rows(_SITES_ENDPOINT, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
         except (DownloadError, FSTimeoutError, OSError, ClientError, ValueError) as e:
             # `DownloadError` is what `raise_if_exception` raises for a timeout, a missing file, and
-            # a refused or broken response (GH-2460); a body that is not JSON is a `ValueError`. The
-            # rest are what the download itself can raise, such as a cache dir that cannot be
-            # written; FSTimeoutError is named as it is no OSError before Python 3.11
+            # a refused or broken response (GH-2460); a body that is not JSON is a `ValueError`, and
+            # a cache dir that cannot be written an `OSError`. The aiohttp and fsspec types are
+            # what the download raised itself before GH-2460, kept for a caller that still sends
+            # them; FSTimeoutError is named as it is no OSError before Python 3.11
             rows, error = [], e
         # no rows without an error is a connection that could not be made, which `_paged_rows`
         # reads as an empty answer -- the referential itself always lists thousands of sites

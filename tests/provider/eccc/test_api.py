@@ -7,15 +7,14 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
-from fsspec.exceptions import FSTimeoutError
 from polars.testing import assert_frame_equal
 
+from tests.conftest import skip_if_upstream_unavailable
 from wetterdienst import Settings
-from wetterdienst.exceptions import DownloadError
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 
 
-@pytest.mark.xfail(raises=(FSTimeoutError, DownloadError), strict=False, reason="ECCC server regularly times out")
+@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
     """Test fetching of ECCC stations."""
@@ -46,7 +45,7 @@ def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
     assert_frame_equal(given_df, expected_df)
 
 
-@pytest.mark.xfail(raises=(FSTimeoutError, DownloadError), strict=False, reason="ECCC server regularly times out")
+@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
     """Test fetching of ECCC data."""
@@ -157,7 +156,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
     assert_frame_equal(given_df, expected_df)
 
 
-@pytest.mark.xfail(raises=(FSTimeoutError, DownloadError), strict=False, reason="ECCC server regularly times out")
+@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_eccc_degree_days_are_degree_days_not_day_counts(settings_convert_units_false: Settings) -> None:
     """Test that ECCC heating degree days hold a degree day value rather than a count of days.
@@ -179,7 +178,7 @@ def test_eccc_degree_days_are_degree_days_not_day_counts(settings_convert_units_
     assert values["heating_degree_day"] > 1
 
 
-@pytest.mark.xfail(raises=(FSTimeoutError, DownloadError), strict=False, reason="ECCC server regularly times out")
+@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_eccc_hourly_returns_data(settings_convert_units_false: Settings) -> None:
     """Test that the hourly resolution returns data.
@@ -209,7 +208,7 @@ def test_eccc_hourly_returns_data(settings_convert_units_false: Settings) -> Non
     assert direction.max() > 36
 
 
-@pytest.mark.xfail(raises=(FSTimeoutError, DownloadError), strict=False, reason="ECCC server regularly times out")
+@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_eccc_monthly_returns_data(settings_convert_units_false: Settings) -> None:
     """Test that the monthly resolution returns data.

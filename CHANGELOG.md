@@ -49,10 +49,11 @@ Types of changes:
   operator still in use was null already. Read a null `valid_to` as a position that still applies
   (GH-2474)
 - **Breaking**: a download that failed raises `wetterdienst.exceptions.DownloadError` through
-  `File.raise_if_exception`, which 13 providers use, where it raised the stored `FSTimeoutError`,
-  `ClientResponseError` or `FileNotFoundError`. Its message is `Failed to download <url>: <reason>`
-  with the URL stripped of query, fragment and user information, so the REST API's `detail` and the
-  CLI name the file. Catch `DownloadError` and read `__cause__` for the original error (GH-2460)
+  `File.raise_if_exception`, which 13 providers use, where it raised the stored error itself
+  (`FSTimeoutError`, `ClientResponseError`, `FileNotFoundError`, aiohttp's connection errors). Its
+  message is `Failed to download <url>: <reason>` with the URL stripped of query, fragment and user
+  information, so the REST API's `detail` and the CLI name the file. Catch `DownloadError` and read
+  `__cause__` for the original error (GH-2460)
 
 ### Fixed
 
