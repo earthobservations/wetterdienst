@@ -520,3 +520,25 @@ def test_cli_stations_keeps_the_traceback_for_an_upstream_failure(
     assert "Usage:" not in result.output
     assert "Failed to get stations." in caplog.text
     assert "FileNotFoundError: upstream station list unreachable" in caplog.text
+
+
+def test_cli_stations_sql_refused_by_duckdb_is_a_usage_error(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test a --sql DuckDB refuses as a statement is a one-line usage error, not a traceback (GH-2465)."""
+    duckdb = pytest.importorskip("duckdb")
+    refusal = duckdb.BinderException('Binder Error: Referenced column "nope" not found in FROM clause!')
+
+    def get_stations(**_kwargs: object) -> None:
+        raise refusal
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", get_stations)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            ["stations", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--sql=nope = 1"],
+        )
+
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(f"\n\nError: {refusal}\n")
+    assert not caplog.records

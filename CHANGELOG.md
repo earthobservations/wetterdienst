@@ -46,9 +46,9 @@ Types of changes:
   (GH-2439)
 - CLI: `stations` reports a request the caller can rephrase -- an unknown parameter, a bad
   bounding box, a `--sql` DuckDB refuses -- as a one-line usage error with exit code 2, where it
-  printed a traceback; `history` on a network without station history and `about coverage` on a
-  standalone network such as `dwd/radar` do too. Scripts checking for exit 1 on these now see 2;
-  an upstream failure still exits 1 with its traceback (GH-2465)
+  printed a traceback; so do `history` on a network whose stations have no history, such as
+  `dwd/mosmix`, and `about coverage` on a standalone network such as `dwd/radar`. Scripts checking
+  for exit 1 on these now see 2; an upstream failure still exits 1 with its traceback (GH-2465)
 
 ## [0.141.0] - 2026-10-06
 
