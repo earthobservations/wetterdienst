@@ -2794,11 +2794,6 @@ def test_file_raise_if_exception_keeps_an_os_error_s_errno() -> None:
     `OSError` keeps it outside the instance dict, and leaves parsing the args to its own `__init__`
     where a subclass defines one.
     """
-
-    class _ResetError(OSError):
-        def __init__(self, message: str) -> None:
-            super().__init__(54, message)
-
     with pytest.raises(_ResetError) as caught:
         File(url=_FAILED_URL, content=_ResetError("reset"), status=500).raise_if_exception()
 
