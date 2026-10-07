@@ -6,11 +6,15 @@ import builtins
 import contextlib
 import importlib
 import importlib.util
+import json
 import logging
 import os
 import re
 import shutil
+import subprocess
 import sys
+import textwrap
+import types
 import warnings
 from collections.abc import Iterator
 from io import BytesIO
@@ -603,3 +607,132 @@ def test_bufr_file_a_file_that_will_not_go_does_not_fail_the_read(
         assert f"Unable to remove the temporary BUFR file {path.parent}" in caplog.text
     finally:
         shutil.rmtree(path.parent)
+
+
+#: run in a fresh interpreter, since this one loaded eccodes while collecting: notes, each time the
+#: bindings' module that loads the compiled library is looked for, whether pyproj was there already
+_WATCH_THE_ORDER = """
+import importlib.abc
+import json
+import sys
+
+seen = []
+
+
+class Watch(importlib.abc.MetaPathFinder):
+    def find_spec(self, name, path, target=None):
+        if name == "gribapi.bindings":
+            seen.append("pyproj" in sys.modules)
+
+
+sys.meta_path.insert(0, Watch())
+"""
+
+#: each way a read can be the first to load eccodes: DWD road asks `require_bufr` and radar's
+#: `_attach_bufr` asks `bufr_is_available`, both through `ensure_eccodes`; `ensure_pdbufr` and
+#: `read_radar_bufr` can each be asked first
+_LOADS_ECCODES = {
+    "ensure_eccodes": "from wetterdienst.util.eccodes import ensure_eccodes; ensure_eccodes()",
+    "ensure_pdbufr": "from wetterdienst.util.eccodes import ensure_pdbufr; ensure_pdbufr()",
+    "read_radar_bufr": textwrap.dedent(
+        """
+        import contextlib
+        from io import BytesIO
+        from wetterdienst.provider.dwd.radar.api import _BUFR_VALUE_FIELD, read_radar_bufr
+        with contextlib.suppress(Exception):
+            read_radar_bufr(BytesIO(b"not BUFR"), next(iter(_BUFR_VALUE_FIELD)))
+        """
+    ),
+}
+
+#: the probes are asked to load the library, so it has to load -- not only the bindings be there
+needs_eccodes_and_pyproj = pytest.mark.skipif(
+    not BUFR_AVAILABLE or importlib.util.find_spec("pyproj") is None,
+    reason="eccodes, pdbufr and pyproj required",
+)
+
+
+def _watch(code: str) -> list[bool]:
+    """Run `code` in a fresh interpreter, and say whether pyproj came before each look for the bindings."""
+    script = f"{_WATCH_THE_ORDER}\n{code}\nprint(json.dumps(seen))"
+    done = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=False, timeout=120)  # noqa: S603
+    # the child's traceback, where it failed, is what says why
+    assert done.returncode == 0, done.stderr
+    return json.loads(done.stdout.splitlines()[-1])
+
+
+@needs_eccodes_and_pyproj
+@pytest.mark.parametrize("entry", _LOADS_ECCODES)
+def test_pyproj_is_imported_before_wetterdienst_loads_eccodes(entry: str) -> None:
+    """Pyproj is there before the bindings load their library, whichever way a read gets to them.
+
+    On Linux the eckitlib wheel the bindings pull in bundles its own PROJ, and a process that loads
+    it before pyproj aborts at exit (ecmwf/eckit#354, GH-2441). A read of DWD road or radar BUFR
+    loaded it first, so a caller that went on to use pyproj or wradlib failed with exit status 134
+    or 139 after its work was done (GH-2468). The order is what is checked, being what avoids the
+    abort, and can be checked where the abort does not happen.
+    """
+    assert _watch(_LOADS_ECCODES[entry]) == [True]
+
+
+@needs_eccodes_and_pyproj
+def test_a_caller_that_loads_eccodes_first_keeps_its_order() -> None:
+    """Where eccodes is loaded already, pyproj is not imported after it.
+
+    The order is settled by then, and importing pyproj would only make the abort at exit reachable
+    for a process that never imports it. Also the control for the test above: an import of eccodes
+    that does not go through this package is seen without pyproj.
+    """
+    code = textwrap.dedent(
+        """
+        import eccodes
+        from wetterdienst.util.eccodes import ensure_eccodes
+        assert ensure_eccodes()
+        seen.append("pyproj" in sys.modules)
+        """
+    )
+    assert _watch(code) == [False, False]
+
+
+@needs_the_bindings
+def test_an_install_without_pyproj_is_not_logged(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A `bufr` install without `radarplus` has no pyproj, which is ordinary and not worth a traceback.
+
+    The bindings and pyproj are made to look not yet imported, so the function gets as far as asking
+    whether pyproj is installed. The import that fails stands for what an install without it would
+    do, should the function try the import anyway.
+    """
+    monkeypatch.delitem(sys.modules, "gribapi", raising=False)
+    monkeypatch.delitem(sys.modules, "pyproj", raising=False)
+    find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        importlib.util,
+        "find_spec",
+        lambda name, package=None: None if name == "pyproj" else find_spec(name, package),
+    )
+    real_import = builtins.__import__
+
+    def import_without_pyproj(name: str, *args: object, **kwargs: object) -> object:
+        if name == "pyproj":
+            raise ModuleNotFoundError(name=name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_without_pyproj)
+    with caplog.at_level(logging.DEBUG, logger=eccodes.__name__):
+        eccodes.import_pyproj_before_eccodes()
+    assert not caplog.records
+
+
+@needs_the_bindings
+def test_a_pyproj_that_cannot_be_looked_for_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Asking where pyproj is installed can raise, and that is not an answer about eccodes.
+
+    `find_spec` raises `ValueError` for a module in `sys.modules` whose `__spec__` is None, as a
+    stub's is, and inside the probes that would read as eccodes not loading.
+    """
+    monkeypatch.delitem(sys.modules, "gribapi", raising=False)
+    monkeypatch.setitem(sys.modules, "pyproj", types.ModuleType("pyproj"))
+    eccodes.import_pyproj_before_eccodes()

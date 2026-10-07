@@ -69,6 +69,10 @@ Types of changes:
   derived's months, skipped them too. KNMI's and AEMET's own retry of a 429 or 5xx now
   applies through the cache too. A cache miss is one GET instead of two, and a body that ends
   before its `Content-Length` is no longer read back from the cache by the retry (GH-2467)
+- DWD road values and radar BUFR reads import `pyproj`, where it is installed, before they load
+  `eccodes`. On Linux, with the `eckitlib` wheel pip installs beside `eccodes`, a process that used
+  `pyproj` or wradlib after such a read aborted at exit with status 134 or 139 (ecmwf/eckit#354);
+  it now exits cleanly, unless something imported `eccodes` before wetterdienst did (GH-2468)
 
 ## [0.141.0] - 2026-10-06
 
