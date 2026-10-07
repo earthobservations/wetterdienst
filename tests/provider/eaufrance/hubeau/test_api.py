@@ -486,3 +486,31 @@ def test_all_names_the_vertical_datum_of_the_gauge_zero(monkeypatch: pytest.Monk
     # the station referential has to be asked for the code, or its live answer carries none
     (stations_url,) = [url for url in urls if "referentiel/stations" in url]
     assert "code_systeme_alti_site" in stations_url.split("fields=")[1].split("&")[0].split(",")
+
+
+def test_all_lists_the_stations_when_the_sites_download_times_out(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A timed-out sites referential is still caught as one, now that its error names the file (GH-2460).
+
+    `raise_if_exception` raises an error naming the URL rather than the stored one, and the sites
+    referential tells a failure to read apart from a defect by the error's type.
+    """
+
+    def _download_file(url: str, **_kwargs: object) -> File:
+        if "referentiel/sites" in url:
+            return File(url=url, content=FSTimeoutError(), status=408)
+        if "referentiel/stations" in url:
+            rows = [{**_station("O972001001"), "code_site": "O9720010"}]
+        else:
+            rows = _observations(_dates("O972001001", 5, 8))
+        return File(url=url, content=BytesIO(json.dumps({"data": rows}).encode()), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download_file)
+
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert dict(df.select("station_id", "elevation").iter_rows()) == {"O972001001": None}
+    assert "sites referential could not be read" in caplog.text
+    assert "Failed to download https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/sites" in caplog.text

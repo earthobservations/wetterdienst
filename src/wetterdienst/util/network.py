@@ -94,12 +94,18 @@ class File:
 
         For NoInternetError, logs at debug level and returns silently instead of raising,
         allowing callers to return empty frames rather than propagating the error.
+
+        What is raised names the file: a timeout's own message is empty, and a dropped connection's
+        or a cut-short body's says nothing of which file it was, so the REST API answered a `detail`
+        of `""` and the command line a bare traceback (GH-2460). It is an instance of the stored
+        error's own type, carrying its attributes, so every `except` and `isinstance` that caught
+        the stored error catches this one too, and it is raised `from` the stored error.
         """
         if isinstance(self.content, NoInternetError):
             log.debug(f"No internet connection available for {self.url}, returning empty result.")
             return
         if isinstance(self.content, Exception):
-            raise self.content
+            raise _naming_the_file(self.content, self.url) from self.content
 
     @property
     def is_no_internet_error(self) -> bool:
@@ -117,6 +123,74 @@ class File:
     def is_empty(self) -> bool:
         """Check if the file content is empty."""
         return self.nbytes == 0
+
+
+class _NamingTheFile(Exception):  # noqa: N818 -- a mixin, never raised as itself
+    """Put first among the bases of a failed download's own error type, to say which file it was.
+
+    First, so that its `__str__` wins over the one the error's type has: `ClientResponseError`
+    renders its own, with the URL as it was requested.
+    """
+
+    _download_message: str
+
+    def __str__(self) -> str:
+        """Say which file failed to download, and how."""
+        return self._download_message
+
+    def __repr__(self) -> str:
+        """Render as the message, not as the args, which hold the request info and its raw URL."""
+        return f"{type(self).__name__}({self._download_message!r})"
+
+
+# one subclass per error type, made the first time a download fails with it, so that the type of
+# what is raised stays the same from one failure to the next
+_NAMING_THE_FILE_TYPES: dict[type[Exception], type[_NamingTheFile]] = {}
+
+
+def _without_url_secrets(url: str) -> str:
+    """Give back a URL as it can be shown: with no query, no fragment and no user information.
+
+    Either can carry a credential -- a pre-signed URL's signature, an API key, `user:password@` --
+    and what this names travels to whoever asked, a remote caller of the REST API among them. Cut
+    with string operations rather than parsed, so that a malformed URL cannot raise from here.
+    """
+    base = re.split(r"[?#]", url, maxsplit=1)[0]
+    scheme, separator, rest = base.partition("://")
+    if not separator:
+        return base
+    authority, slash, path = rest.partition("/")
+    if "@" in authority:
+        authority = "***@" + authority.rpartition("@")[2]
+    return f"{scheme}://{authority}{slash}{path}"
+
+
+def _naming_the_file(error: Exception, url: str) -> Exception:
+    """Make an error of the same type as a failed download's, whose message names the file.
+
+    The message is built here rather than taken from the error, because the error's own can hold
+    the URL as requested, query and all: `FileNotFoundError` is the URL, `ClientResponseError` ends
+    with it. A response error is told by its status and reason, anything else by its own message
+    unless that is empty or holds a URL, and by the name of its type then.
+    """
+    kind = type(error)
+    named = _NAMING_THE_FILE_TYPES.get(kind)
+    if named is None:
+        attributes = {"__module__": kind.__module__, "__qualname__": kind.__qualname__}
+        named = _NAMING_THE_FILE_TYPES.setdefault(kind, type(kind.__name__, (_NamingTheFile, kind), attributes))
+    # built without its `__init__`, whose signature differs from type to type, and given the stored
+    # error's args and attributes instead: what a caller reads off one, it can read off the other
+    raised = named.__new__(named, *error.args)
+    raised.args = error.args
+    raised.__dict__.update(vars(error))
+    if isinstance(error, ClientResponseError) and error.status:
+        detail = f"{error.status}, message={error.message!r}"
+    else:
+        detail = str(error)
+    if not detail or "://" in detail:
+        detail = kind.__name__
+    raised._download_message = f"Failed to download {_without_url_secrets(url)}: {detail}"  # noqa: SLF001
+    return raised
 
 
 # Directory names the listings cache used to create under the cache dir but never writes to any

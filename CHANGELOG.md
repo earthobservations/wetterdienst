@@ -63,6 +63,12 @@ Types of changes:
   derived's months, skipped them too. KNMI's and AEMET's own retry of a 429 or 5xx now
   applies through the cache too. A cache miss is one GET instead of two, and a body that ends
   before its `Content-Length` is no longer read back from the cache by the retry (GH-2467)
+- A failed download raised through `File.raise_if_exception`, as 13 of the 23 providers raise
+  one, names the file: `Failed to download <url>: <reason>`, in the REST API's `detail` and the
+  CLI's traceback, where a timeout's message was empty and a dropped connection's named no file.
+  The URL is shown without its query, fragment or user information, which can carry a key. The
+  error keeps its type, attributes and the original as its cause, so code catching
+  `FSTimeoutError` or `ClientResponseError` still catches it (GH-2460)
 
 ## [0.141.0] - 2026-10-06
 
