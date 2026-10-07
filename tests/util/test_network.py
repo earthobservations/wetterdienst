@@ -2595,7 +2595,8 @@ def test_a_failed_refresh_does_not_revive_an_expired_copy(status_server: Threadi
     assert (first.status, type(first.content)) == (503, ClientResponseError)
     assert (second.status, type(second.content)) == (503, ClientResponseError)
     # and the failure before the body left the old blob alone, for its expired entry to account for
-    assert len(_blobs(tmp_path)) == 1
+    (blob,) = _blobs(tmp_path)
+    assert (Path(filesystem.storage[-1]) / blob).read_bytes() == b"payload"
 
 
 def test_a_body_cut_short_is_not_read_back_from_the_cache(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:

@@ -49,10 +49,11 @@ Types of changes:
 
 - A download through the cache (any TTL but `CacheExpiry.NO_CACHE`, cache not disabled) reports
   the failure it met, as one without the cache does: an HTTP error other than 404 comes back with
-  its own status -- a 401, 403 or 429 too, which are no longer retried -- and a refused connection
-  as 503 with `NoInternetError`, where all were `File(status=404)` with `FileNotFoundError`, as a
-  missing file is. A cache miss is one GET instead of two, and a body that ends before its
-  `Content-Length` is no longer read back from the cache by the retry (GH-2467)
+  its own status -- a 401, 403 or 429 too, which `download_file` no longer asks again -- and a
+  refused connection as 503 with `NoInternetError`, where all were `File(status=404)` with
+  `FileNotFoundError`, as a missing file is. KNMI's and AEMET's own retry of a 429 or 5xx now
+  applies through the cache too. A cache miss is one GET instead of two, and a body that ends
+  before its `Content-Length` is no longer read back from the cache by the retry (GH-2467)
 
 ## [0.141.0] - 2026-10-06
 
