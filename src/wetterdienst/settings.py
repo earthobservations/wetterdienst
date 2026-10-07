@@ -138,13 +138,18 @@ class Auth(BaseModel):
         value = _as_given(value)
         if isinstance(value, (str, SecretStr)):
             text = value.get_secret_value() if isinstance(value, SecretStr) else value
-            # the environment hands on a pair that is not valid JSON as its raw text, which would be
-            # taken whole as the client id, secret and all. A client id is a UUID and never starts
-            # with `[` (GH-2464)
-            if text.lstrip().startswith("["):
-                msg = "metno_frost looks like a (client_id, secret) pair but is not valid JSON: quote each element"
-                raise ValueError(msg)
-            return value, ""
+            # a client id is a UUID and never starts with `[`, so such text is a pair: the
+            # environment hands one on as its raw text where it is not valid JSON, and it was taken
+            # whole as the client id, secret and all. One given as text in Python is read as the
+            # environment reads it (GH-2464)
+            if not text.lstrip().startswith("["):
+                return value, ""
+            try:
+                value = json.loads(text)
+            except json.JSONDecodeError:
+                # `from None`: the decode error holds the text it failed on
+                msg = 'metno_frost looks like a pair but is not valid JSON: write it as ["client_id", "secret"]'
+                raise ValueError(msg) from None
         if isinstance(value, Mapping) or not isinstance(value, Iterable):
             return value
         as_tuple = tuple(value)

@@ -1343,7 +1343,7 @@ def test_settings_auth_metno_frost_refuses_a_pair_that_is_not_valid_json(
     The environment hands on such a pair as its raw text, which was read as a lone client id with
     the secret inside it. Neither the error nor `check_settings()` repeats the secret.
     """
-    message = "metno_frost looks like a (client_id, secret) pair but is not valid JSON: quote each element"
+    message = 'metno_frost looks like a pair but is not valid JSON: write it as ["client_id", "secret"]'
     monkeypatch.setenv("WD_AUTH__METNO_FROST", value)
     assert check_settings() == [f"WD_AUTH__METNO_FROST is invalid: {message}"]
     with pytest.raises(ValidationError, match=re.escape(message)) as excinfo:
@@ -1373,3 +1373,21 @@ def test_settings_auth_metno_frost_still_takes_a_lone_client_id_and_a_valid_pair
     monkeypatch.setenv("WD_AUTH__METNO_FROST", ' ["DUMMY-FROST-ID", "DUMMY-FROST-SECRET"]')
     assert tuple(reveal(part) for part in Settings().auth.metno_frost) == ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")
     assert check_settings() == []
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("wrap", [str, SecretStr], ids=["str", "secret"])
+def test_settings_auth_metno_frost_reads_a_pair_given_as_json_text_in_python(wrap: Callable[[str], object]) -> None:
+    """A pair given in Python as valid JSON text is read as the pair, as from the environment (GH-2464).
+
+    It was taken whole as the client id, and a refusal of what starts with `[` would have told the
+    caller to fix JSON that is already valid.
+    """
+    text = '["DUMMY-FROST-ID", "DUMMY-FROST-SECRET"]'
+    expected = ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")
+    assert tuple(reveal(part) for part in Settings(auth={"metno_frost": wrap(text)}).auth.metno_frost) == expected
+    settings = Settings()
+    settings.auth.metno_frost = wrap(text)
+    assert tuple(reveal(part) for part in settings.auth.metno_frost) == expected
+    with pytest.raises(ValidationError, match=r"got 3 element\(s\)"):
+        Settings(auth={"metno_frost": wrap('["a", "b", "c"]')})

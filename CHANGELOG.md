@@ -50,7 +50,7 @@ Types of changes:
 - A `WD_AUTH__METNO_FROST` pair that is not valid JSON, such as `[myid, mysecret]` with its
   elements unquoted, is refused, and `check_settings()` names it. It was taken whole as the client
   id, secret included, and sent to Frost, which refused it. Quote each element:
-  `["myid", "mysecret"]` (GH-2464)
+  `["myid", "mysecret"]`. A pair given in Python as that text is read as the pair (GH-2464)
 
 ## [0.141.0] - 2026-10-06
 
