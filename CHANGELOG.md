@@ -45,6 +45,13 @@ Types of changes:
   new one. The app reads the new names from its next release, so upgrade the app with the backend
   (GH-2439)
 
+### Fixed
+
+- DWD road values and radar BUFR reads import `pyproj`, where it is installed, before they load
+  `eccodes`. On Linux, with the `eckitlib` wheel pip installs beside `eccodes`, a process that used
+  `pyproj` or wradlib after such a read aborted at exit with status 134 or 139 (ecmwf/eckit#354);
+  it now exits cleanly, unless something imported `eccodes` before wetterdienst did (GH-2468)
+
 ## [0.141.0] - 2026-10-06
 
 ### Added
