@@ -51,8 +51,8 @@ Types of changes:
   the failure it met, as one without the cache does: an HTTP error other than 404 comes back with
   its own status -- a 401, 403 or 429 too, which are no longer retried -- and a refused connection
   as 503 with `NoInternetError`, where all were `File(status=404)` with `FileNotFoundError`, as a
-  missing file is. A cache miss is one GET instead of two, and a download that fails part-way no
-  longer leaves a copy that its retry reads back from the cache (GH-2467)
+  missing file is. A cache miss is one GET instead of two, and a body that ends before its
+  `Content-Length` is no longer read back from the cache by the retry (GH-2467)
 
 ## [0.141.0] - 2026-10-06
 

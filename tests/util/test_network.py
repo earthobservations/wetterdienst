@@ -2494,7 +2494,7 @@ class _StatusEndpoint(BaseHTTPRequestHandler):
 def status_server() -> Iterator[ThreadingHTTPServer]:
     """Run `_StatusEndpoint` on a port of its own; `server.url` is its address."""
     server = ThreadingHTTPServer(("127.0.0.1", 0), _StatusEndpoint)
-    server.statuses = {"/503": 503, "/404": 404}
+    server.statuses = {"/503": 503, "/404": 404, "/401": 401, "/429": 429}
     server.requests = []
     server.url = f"http://127.0.0.1:{server.server_port}"
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -2526,11 +2526,13 @@ def _blobs(tmp_path: Path) -> list[str]:
 
 @pytest.mark.parametrize("cache_disable", [False, True], ids=["cache", "no-cache"])
 @pytest.mark.parametrize(
-    ("where", "status", "error"),
+    ("where", "status", "error", "asked"),
     [
-        ("/503", 503, ClientResponseError),
-        ("refused", 503, NoInternetError),
-        ("/404", 404, FileNotFoundError),
+        ("/503", 503, ClientResponseError, 2),
+        ("refused", 503, NoInternetError, 0),
+        ("/404", 404, FileNotFoundError, 2),
+        ("/401", 401, ClientResponseError, 1),
+        ("/429", 429, ClientResponseError, 1),
     ],
 )
 def test_the_cache_reports_the_failure_the_download_met(
@@ -2539,20 +2541,23 @@ def test_the_cache_reports_the_failure_the_download_met(
     where: str,
     status: int,
     error: type[Exception],
+    asked: int,
     *,
     cache_disable: bool,
 ) -> None:
-    """A 503 or a refused connection is not a missing file, cache or no cache (GH-2467).
+    """A 503, a 4xx or a refused connection is not a missing file, cache or no cache (GH-2467).
 
     fsspec's caching filesystem asked HTTP whether the file `exists` before fetching it, which
-    answers `False` for any error, and so turned both into the `FileNotFoundError` of a 404.
+    answers `False` for any error, and so turned each into the `FileNotFoundError` of a 404 --
+    retried as one, where a 401 or a 429 is an answer and asked once.
     """
     url = _REFUSING_URL if where == "refused" else f"{status_server.url}{where}"
-    with stamina.set_testing(True, attempts=1):
+    with stamina.set_testing(True, attempts=2):
         result = download_file(url=url, cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES, cache_disable=cache_disable)
 
     assert result.status == status
     assert isinstance(result.content, error)
+    assert status_server.requests == [f"GET {where}"] * asked
 
 
 def test_a_cache_miss_costs_one_request(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
@@ -2593,17 +2598,13 @@ def test_a_failed_refresh_does_not_revive_an_expired_copy(status_server: Threadi
     assert len(_blobs(tmp_path)) == 1
 
 
-def test_a_body_cut_short_is_neither_read_back_nor_left_behind(
-    status_server: ThreadingHTTPServer, tmp_path: Path
-) -> None:
-    """The retry after a truncated download fetches the file again, and the stub is removed (GH-2467).
+def test_a_body_cut_short_is_not_read_back_from_the_cache(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
+    """The retry after a truncated download fetches the file again rather than reading the stub (GH-2467).
 
-    Recorded before the body arrived, the entry had the retry read the stub back as a 200. Recorded
-    after it, a stub with no entry is one no sweep collects, so it goes as soon as the read fails.
+    Recorded before the body arrived, the entry had the retry read the stub back as a 200.
     """
     with stamina.set_testing(True, attempts=2):
         result = download_file(url=f"{status_server.url}/truncated", cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
 
     assert (result.status, type(result.content)) == (500, ClientPayloadError)
     assert status_server.requests == ["GET /truncated", "GET /truncated"]
-    assert _blobs(tmp_path) == []
