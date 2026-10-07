@@ -147,11 +147,12 @@ class Auth(BaseModel):
             # environment reads it (GH-2464)
             if not text.startswith("["):
                 return value, ""
-            # decoding text that starts with `[` gives a list or fails. The refusal is raised outside
-            # the handler, so that the decode error, which holds the text it failed on, is not kept
-            # as its context
+            # decoding text that starts with `[` gives a list or fails: a `JSONDecodeError`, a
+            # `ValueError` for an integer too long to convert, a `RecursionError` for nesting too
+            # deep. The refusal is raised outside the handler, so that the decode error, which holds
+            # the text it failed on, is not kept as its context
             decoded = None
-            with contextlib.suppress(json.JSONDecodeError, RecursionError):
+            with contextlib.suppress(ValueError, RecursionError):
                 decoded = json.loads(text)
             if decoded is None:
                 msg = 'metno_frost looks like a pair but is not valid JSON: write it as ["client_id", "secret"]'

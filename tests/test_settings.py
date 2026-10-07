@@ -1395,20 +1395,36 @@ def test_settings_auth_metno_frost_reads_a_pair_given_as_json_text_in_python(wra
 
 @pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize(
-    "value",
-    ["[DUMMY-FROST-ID, TOPSECRET]", "[" * 100_000 + "TOPSECRET"],
-    ids=["unquoted", "nested-too-deep"],
+    ("value", "from_environment"),
+    [
+        ("[DUMMY-FROST-ID, TOPSECRET]", False),
+        ("[DUMMY-FROST-ID, TOPSECRET]", True),
+        ("[" + "1" * 5000 + ', "TOPSECRET"]', False),
+        ("[" + "1" * 5000 + ', "TOPSECRET"]', True),
+        # the environment's own decoding fails on this before the settings see it
+        ("[" * 100_000 + "TOPSECRET", False),
+    ],
+    ids=["unquoted", "unquoted-env", "integer-too-long", "integer-too-long-env", "nested-too-deep"],
 )
-def test_settings_auth_metno_frost_refusal_keeps_no_exception_holding_the_secret(value: str) -> None:
+def test_settings_auth_metno_frost_refusal_keeps_no_exception_holding_the_secret(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+    *,
+    from_environment: bool,
+) -> None:
     """The refusal of a Frost pair keeps no exception that holds the refused text (GH-2464).
 
     A JSON decode error holds the text it failed on as its `doc`, and an exception raised while it
     is handled keeps it as its context, which pydantic keeps in the error's `ctx` -- where an error
-    reporter or a debugger walking the chain reaches it. Text nested too deep to decode is refused
-    as well, rather than escaping as a `RecursionError`.
+    reporter or a debugger walking the chain reaches it. Text that fails to decode another way --
+    an integer too long to convert, nesting too deep -- gets the same refusal, rather than an error
+    of its own or an escaping `RecursionError`.
     """
-    with pytest.raises(ValidationError) as excinfo:
-        Settings(auth={"metno_frost": value})
+    message = 'metno_frost looks like a pair but is not valid JSON: write it as ["client_id", "secret"]'
+    if from_environment:
+        monkeypatch.setenv("WD_AUTH__METNO_FROST", value)
+    with pytest.raises(ValidationError, match=re.escape(message)) as excinfo:
+        Settings() if from_environment else Settings(auth={"metno_frost": value})
     for error in excinfo.value.errors():
         exception: BaseException | None = error.get("ctx", {}).get("error")
         while exception is not None:
