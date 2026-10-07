@@ -4,14 +4,17 @@
 
 from __future__ import annotations
 
+import ast
 import datetime as dt
 import json
 from io import BytesIO
+from pathlib import Path
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import pytest
 
+import wetterdienst
 from tests.conftest import BUFR_AVAILABLE
 from wetterdienst.util.network import File
 
@@ -109,8 +112,10 @@ def _ea(monkeypatch: pytest.MonkeyPatch) -> Seen:
 def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> Seen:
     """Request the station list, each way to a station's values, and the credential probe.
 
-    The two fallbacks past the first values request are what a 404 from Frost is to lead to. Each is
-    called directly here rather than reached through that 404, as each makes downloads of its own.
+    The two fallbacks past the first values request are meant for a 404 from Frost, but they are
+    called directly here. `download_file` reports a 404 as an exception with no body, and the
+    values request reads that as empty and returns before it checks the status, so a 404 from the
+    stub would not reach them.
     """
     from wetterdienst.provider.metno.frost import MetnoFrostRequest  # noqa: PLC0415
     from wetterdienst.provider.metno.frost import api as frost_api  # noqa: PLC0415
@@ -199,10 +204,29 @@ def test_downloads_use_certifi_when_the_settings_ask_for_it(
 
     `download_file` defaults `use_certifi` to off, so a call that did not pass the setting on went
     out with the system CA store whatever the caller had set -- and on a host whose store cannot
-    verify the upstream, the station list loaded and the values then failed verification (GH-2463).
+    verify the upstream, it failed verification with the setting on (GH-2463).
     """
     monkeypatch.setenv("WD_USE_CERTIFI", "true")
     seen = collect(monkeypatch)
     # every download the request makes, so that none of them is left out of the check below
     assert len(seen) == downloads, seen
     assert [url for url, use_certifi in seen if use_certifi is not True] == []
+
+
+def test_every_download_call_passes_use_certifi() -> None:
+    """Test that no download in the package leaves `use_certifi` to its default.
+
+    The test above runs the four providers GH-2463 found. This one reads every call in the package,
+    those of a provider added later included, since the default is off and leaving it out fails
+    nothing else.
+    """
+    root = Path(wetterdienst.__file__).parent
+    missing = []
+    for path in sorted(root.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.Call):
+                continue
+            name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None)
+            if name in {"download_file", "download_files"} and "use_certifi" not in {k.arg for k in node.keywords}:
+                missing.append(f"{path.relative_to(root)}:{node.lineno}")
+    assert missing == []
