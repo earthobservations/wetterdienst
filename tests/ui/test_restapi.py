@@ -23,6 +23,7 @@ from wetterdienst import Settings, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
+from wetterdienst.ui.mcp import _TOOL_NAMES
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
 
 if TYPE_CHECKING:
@@ -6675,29 +6676,26 @@ def test_mcp_date_is_refused_naming_timestamp(
 
 
 def test_mcp_date_is_left_to_a_tool_without_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A tool not taking `timestamp` is not told `date` was renamed to it: it took neither (GH-2438)."""
+    """A tool not taking `timestamp` is not told `date` was renamed to it: it took neither (GH-2438).
+
+    It refuses `date` as an argument it does not take, as any other (GH-2479).
+    """
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415
 
     from fastmcp import Client  # noqa: PLC0415
     from fastmcp.exceptions import ToolError  # noqa: PLC0415
 
-    from wetterdienst.exceptions import ApiNotFoundError  # noqa: PLC0415
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
-    def no_such_api(*_args: object, **_kwargs: object) -> None:
-        msg = "reached the provider lookup"
-        raise ApiNotFoundError(msg)
-
-    monkeypatch.setattr(restapi, "Wetterdienst", no_such_api)
+    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
     mcp = build_mcp_server(restapi.app)
 
     async def _call() -> None:
         async with Client(mcp) as client:
             await client.call_tool("stations", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
 
-    # the stations tool goes on to the provider lookup, which the stub answers with a 404
-    with pytest.raises(ToolError, match="reached the provider lookup") as error:
+    with pytest.raises(ToolError, match=r"^date is not an argument of stations, which takes all, ") as error:
         asyncio.run(_call())
     assert "renamed" not in str(error.value)
 
@@ -6755,3 +6753,76 @@ def test_unknown_parameter_is_refused(
             "input": "1",
         }
     ]
+
+
+@pytest.mark.parametrize("tool", sorted(_TOOL_NAMES.values()))
+def test_mcp_unknown_argument_is_refused(monkeypatch: pytest.MonkeyPatch, tool: str) -> None:
+    """Every tool refuses an argument it does not take, naming the ones it does (GH-2479).
+
+    FastMCP sends the endpoint only the arguments the tool's schema names, so the endpoint's own
+    refusal never saw it: the call was answered as if the argument had not been given.
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _refuse_to_fetch_alerts)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(tool, {"bogus": "x"})
+
+    with pytest.raises(ToolError, match=rf"^bogus is not an argument of {tool}, which takes \w+(, \w+)* and \w+$"):
+        asyncio.run(_call())
+
+
+def test_mcp_renamed_argument_is_named_beside_an_unknown_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A renamed argument is refused naming the new one even beside an unknown one (GH-2438, GH-2479)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(
+                "values", {**_OBSERVATION, "station": "01048", "date": "2020-06-30", "bogus": "x", "limt": 1}
+            )
+
+    with pytest.raises(
+        ToolError,
+        match=r"^date was renamed to timestamp; bogus and limt are not arguments of values, which takes all, ",
+    ):
+        asyncio.run(_call())
+
+
+def test_mcp_known_arguments_reach_the_endpoint() -> None:
+    """A call giving only arguments its tool takes is answered by the endpoint (GH-2479)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> list[dict[str, object]]:
+        async with Client(mcp) as client:
+            result = await client.call_tool("glossary", {"parameter": "temperature_air_mean_2m", "limit": 1})
+        return result.structured_content["result"]
+
+    (entry,) = asyncio.run(_call())
+    assert "temperature_air_mean_2m" in entry["name"]
