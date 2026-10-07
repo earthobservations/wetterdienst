@@ -6715,3 +6715,43 @@ def test_stations_output_schemas_name_the_span_as_the_frame_does(client: TestCli
         branches = schema["properties"][field].get("anyOf", [schema["properties"][field]])
         assert {branch.get("type") for branch in branches} == {"string", "null"}, f"{schema_name}.{field}"
     assert not {"start_date", "end_date"} & set(schema["properties"])
+
+
+# each endpoint whose query parameters were taken loose, with a request it would otherwise serve,
+# and what of it a refused request must not reach (GH-2479)
+_LOOSE_ENDPOINTS = [
+    pytest.param("/api/coverage", {}, "Wetterdienst", id="coverage"),
+    pytest.param("/api/glossary", {"parameter": "temperature_air_mean_2m"}, "get_glossary", id="glossary"),
+    pytest.param("/api/stripes/stations", {"kind": "temperature"}, "_get_stripes_stations", id="stripes-stations"),
+    pytest.param("/api/alerts", {}, None, id="alerts"),
+]
+
+
+@pytest.mark.parametrize(("endpoint", "query", "fetch"), _LOOSE_ENDPOINTS)
+def test_unknown_parameter_is_refused(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    query: dict[str, object],
+    fetch: str | None,
+) -> None:
+    """An endpoint refuses a parameter it does not take, as `/api/stations` does, before fetching anything (GH-2479).
+
+    Taken loose, a misspelt parameter was passed over, and the request answered as if it had not
+    been given: `/api/glossary` with `limt=1` with every match.
+    """
+    if fetch is not None:
+        monkeypatch.setattr(restapi, fetch, _fail_to_fetch)
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _refuse_to_fetch_alerts)
+
+    response = client.get(endpoint, params={**query, "limt": "1"})
+
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == [
+        {
+            "type": "extra_forbidden",
+            "loc": ["query", "limt"],
+            "msg": "Extra inputs are not permitted",
+            "input": "1",
+        }
+    ]
