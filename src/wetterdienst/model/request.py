@@ -128,9 +128,10 @@ class TimeseriesRequest:
         if not self._values:
             msg = f"{self.__class__.__name__}._values not implemented"
             raise NotImplementedError(msg)
-        # Convert settings given as a dict to a validated model. A `Settings` is already validated, at
-        # construction and on every assignment since; validating it again only re-ran its
-        # after-validators, which logged the cache line a second time (GH-2476)
+        # Convert settings given as a dict to a validated model. A `Settings` object is used as it is:
+        # one built the usual way was validated at construction and on every assignment since, and
+        # validating it again only re-ran its after-validators, which logged the cache line a second
+        # time (GH-2476). One built with `model_construct` skipped validation on purpose
         if not isinstance(self.settings, Settings):
             self.settings = Settings.model_validate(self.settings)
         # Convert timestamps

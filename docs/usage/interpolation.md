@@ -313,8 +313,8 @@ Settings are meant to be constructed rather than edited. The two radii and the f
 when a radius is worked out, so assigning to them on an existing `Settings` object does take
 effect; the per-parameter `ts_geo_station_distance` is taken once, when the settings are built, and
 assigning a new mapping to it afterwards is discarded -- build a new `Settings` for that. Note also
-that a request validates the settings it is handed when it is constructed, not when `.interpolate()`
-or `.summarize()` is called.
+that a request validates settings given as a dict when it is constructed, not when `.interpolate()`
+or `.summarize()` is called; a `Settings` object it is handed is used as it is.
 ```
 
 The example below widens the radius for precipitation to 25 km:
