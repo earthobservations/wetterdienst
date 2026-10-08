@@ -26,6 +26,10 @@ Types of changes:
 
 ### Fixed
 
+- `metno/frost` values read a failed download's status before treating it as empty. A 404 now
+  reaches the fallbacks written for it (each parameter alone, then its time series discovered),
+  where the request returned no data; a 401, 403 or 500 is logged as `Failed to download <url>`
+  where it passed as "no data" without a word (GH-2494)
 - KNMI and AEMET stations and values requested with no network, or with a connection that cannot
   be made (refused, DNS or TLS handshake failure), no longer wait through two more attempts per
   URL, 2 s and more apart, before returning empty: `download_file`'s own two attempts are all
