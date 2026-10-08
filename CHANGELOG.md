@@ -59,6 +59,12 @@ Types of changes:
   null `valid_to`, where it was the time the history was read and changed on every call. A name or
   operator still in use was null already. Read a null `valid_to` as a position that still applies
   (GH-2474)
+- **Breaking**: a download that failed raises `wetterdienst.exceptions.DownloadError` through
+  `File.raise_if_exception`, which 13 providers use, where it raised the stored error itself
+  (`FSTimeoutError`, `ClientResponseError`, `FileNotFoundError`, aiohttp's connection errors). Its
+  message is `Failed to download <url>: <reason>` with the URL stripped of query, fragment and user
+  information, so the REST API's `detail` and the CLI name the file. Catch `DownloadError` and read
+  `__cause__` for the original error (GH-2460)
 - **Breaking**: a station the provider gives no end has a null `end_timestamp` in the station list
   of `eaufrance/hubeau` (every station it lists) and of `dwd/observation` 1-minute precipitation
   from the historical period, where it was the time of the call or the day before. Read a null

@@ -7,7 +7,7 @@ import pytest
 from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst import Settings
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.provider.dwd.derived import download as dwd_derived_download
 from wetterdienst.provider.dwd.derived.download import download_climate_derived_data
 from wetterdienst.util.network import File
@@ -32,8 +32,9 @@ def test_download_climate_derived_data_raises_a_failed_download(
     Dropped, an outage read as a station without data: an empty result with a success status.
     """
     monkeypatch.setattr(dwd_derived_download, "download_files", lambda **_kwargs: [_MISSING, failed])
-    with pytest.raises(type(failed.content)):
+    with pytest.raises(DownloadError) as caught:
         download_climate_derived_data(pl.Series(["unused"]), default_settings)
+    assert caught.value.__cause__ is failed.content
 
 
 @pytest.mark.parametrize(
