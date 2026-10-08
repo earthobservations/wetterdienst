@@ -130,8 +130,8 @@ class TimeseriesRequest:
             raise NotImplementedError(msg)
         # Convert settings given as a dict to a validated model. A `Settings` object is used as it is:
         # one built the usual way was validated at construction and on every assignment since, and
-        # validating it again only re-ran its after-validators, which logged the cache line a second
-        # time (GH-2476). One built with `model_construct` skipped validation on purpose
+        # validating it again would only re-run its after-validators (it once logged the cache line a
+        # second time, GH-2476, GH-2504). One built with `model_construct` skipped validation on purpose
         if not isinstance(self.settings, Settings):
             self.settings = Settings.model_validate(self.settings)
         # Convert timestamps
