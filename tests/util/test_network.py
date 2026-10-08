@@ -2701,3 +2701,121 @@ def test_a_failed_download_raises_naming_the_file_without_its_key(
     assert str(caught.value) == f"Failed to download {status_server.url}/503: 503, message='Service Unavailable'"
     assert isinstance(caught.value.__cause__, ClientResponseError)
     assert caught.value.__cause__.status == 503
+
+
+class _SlowFileSystem(MemoryFileSystem):
+    """A remote that writes `body` in two halves and runs `between` after the first, or fails there."""
+
+    protocol = "slowmem"
+    body = b"new-body"
+    between: Callable[[], None] | None = None
+    fail = False
+
+    def info(self, path: str, **_kwargs: object) -> dict:
+        """Describe the one file this remote holds, which is all the entry's unique key needs."""
+        return {"name": path, "size": len(self.body), "type": "file"}
+
+    def get_file(self, _rpath: str, lpath: str, **_kwargs: object) -> None:
+        """Write the first half, let the test look, then write the rest or raise."""
+        half = len(self.body) // 2
+        with Path(lpath).open("wb") as handle:
+            handle.write(self.body[:half])
+            handle.flush()
+            if self.between is not None:
+                self.between()
+            if self.fail:
+                msg = "connection cut"
+                raise ConnectionError(msg)
+            handle.write(self.body[half:])
+
+
+def _caching_over_slow_remote(storage: Path) -> tuple[network._LockedWholeFileCacheFileSystem, Path]:
+    """Build the caching filesystem over `_SlowFileSystem`, and name the blob it keeps `/f.txt` in."""
+    filesystem = network._LockedWholeFileCacheFileSystem(  # noqa: SLF001
+        fs=_SlowFileSystem(), cache_storage=str(storage), expiry_time=3600
+    )
+    return filesystem, Path(filesystem.storage[-1]) / filesystem._mapper("/f.txt")  # noqa: SLF001
+
+
+def _stray_files(storage: Path) -> list[str]:
+    """Name what the cache directory holds besides its metadata file."""
+    return sorted(path.name for path in storage.iterdir() if path.name != "cache")
+
+
+def test_a_fetch_in_flight_never_shows_a_half_written_blob(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A reader that trusts the blob finds the old copy whole until the new one replaces it (GH-2493).
+
+    The body was written into the blob path itself, which empties it: a concurrent fetch of the same
+    file truncated the copy another reader was serving.
+    """
+    filesystem, blob = _caching_over_slow_remote(tmp_path)
+    blob.write_bytes(b"old-body")
+    seen: list[bytes] = []
+    monkeypatch.setattr(_SlowFileSystem, "between", staticmethod(lambda: seen.append(blob.read_bytes())))
+
+    assert filesystem.cat_file("/f.txt") == b"new-body"
+
+    assert seen == [b"old-body"]
+    assert blob.read_bytes() == b"new-body"
+    assert _stray_files(tmp_path) == [blob.name]
+
+
+def test_a_download_that_fails_leaves_no_partial_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A body cut short leaves no blob, no temporary file and no entry (GH-2493)."""
+    filesystem, _ = _caching_over_slow_remote(tmp_path)
+    monkeypatch.setattr(_SlowFileSystem, "fail", True)
+
+    with pytest.raises(ConnectionError):
+        filesystem.cat_file("/f.txt")
+
+    assert _stray_files(tmp_path) == []
+
+
+def test_a_failed_download_leaves_the_copy_already_cached(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The blob a failed refresh was meant to replace is the one still there afterwards (GH-2493)."""
+    filesystem, blob = _caching_over_slow_remote(tmp_path)
+    blob.write_bytes(b"old-body")
+    monkeypatch.setattr(_SlowFileSystem, "fail", True)
+
+    with pytest.raises(ConnectionError):
+        filesystem.cat_file("/f.txt")
+
+    assert blob.read_bytes() == b"old-body"
+    assert _stray_files(tmp_path) == [blob.name]
+
+
+def test_a_blob_another_handle_holds_open_is_left_alone(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Where Windows refuses to replace the blob, this read is served from the fetched copy (GH-2493).
+
+    `os.replace` onto a file another handle holds open is a `PermissionError` there, a failure the
+    in-place write did not have. The blob is a whole copy put in place by the same rename, so it
+    stays, the temporary file is gone, and the entry is recorded all the same.
+    """
+    filesystem, blob = _caching_over_slow_remote(tmp_path)
+    blob.write_bytes(b"old-body")
+
+    replace = os.replace
+
+    def refuse(source: str, destination: str) -> None:
+        # only the blob: fsspec replaces its metadata file through the same function
+        if Path(destination) == blob:
+            msg = "[WinError 5] Access is denied"
+            raise PermissionError(msg)
+        replace(source, destination)
+
+    monkeypatch.setattr(network.os, "replace", refuse)
+
+    assert filesystem.cat_file("/f.txt") == b"new-body"
+
+    assert blob.read_bytes() == b"old-body"
+    assert _stray_files(tmp_path) == [blob.name]
+    assert list(json.loads((tmp_path / "cache").read_text())) == ["/f.txt"]
+
+
+def test_a_body_cut_short_leaves_no_file_in_the_cache(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
+    """The stub of a truncated download is removed, not left for a sweep that never finds it (GH-2493)."""
+    with stamina.set_testing(True, attempts=2):
+        result = download_file(url=f"{status_server.url}/truncated", cache_dir=tmp_path, ttl=CacheExpiry.FIVE_MINUTES)
+
+    assert result.status == 500
+    assert _blobs(tmp_path) == []
