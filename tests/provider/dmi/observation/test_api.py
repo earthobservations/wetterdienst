@@ -5,6 +5,7 @@
 import datetime as dt
 import json
 import logging
+from collections.abc import Callable
 from io import BytesIO
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
@@ -152,21 +153,16 @@ def test_iter_station_value_pages_raises_on_download_error(monkeypatch: pytest.M
         _iter_pages(object.__new__(dmi_api.DmiObservationValues))
 
 
-def test_iter_station_value_pages_no_internet_is_silent(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """A NoInternetError ends pagination silently -- no warning (already logged at debug upstream)."""
+def test_iter_station_value_pages_raises_no_internet_for_the_caller(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A NoInternetError is raised as it is, for the caller to end the whole read quietly."""
     monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 2)
 
     def fake_download_file(*, url: str, **_: object) -> File:
         return File(url=url, content=NoInternetError("offline"), status=503)
 
     monkeypatch.setattr(dmi_api, "download_file", fake_download_file)
-    with caplog.at_level(logging.WARNING):
-        dfs = _iter_pages(object.__new__(dmi_api.DmiObservationValues))
-    assert dfs == []
-    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+    with pytest.raises(NoInternetError):
+        _iter_pages(object.__new__(dmi_api.DmiObservationValues))
 
 
 @pytest.mark.remote
@@ -272,11 +268,12 @@ def _collect_hourly(
     server: _FakeStationValueServer,
     start: dt.datetime,
     end: dt.datetime,
+    download_file: Callable[..., File] | None = None,
 ) -> pl.DataFrame:
     """Collect hourly mean_temp for one station through the provider, against the fake server."""
     monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 100)
     monkeypatch.setattr(dmi_api, "_MAX_OFFSET", server.max_offset)
-    monkeypatch.setattr(dmi_api, "download_file", server)
+    monkeypatch.setattr(dmi_api, "download_file", download_file or server)
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
         start=start,
@@ -328,7 +325,30 @@ def test_fetch_station_value_pages_gives_up_where_a_second_holds_too_many(monkey
     monkeypatch.setattr(dmi_api, "download_file", lambda **_: _station_value_file(2))
     values = object.__new__(dmi_api.DmiObservationValues)
     start = dt.datetime(2023, 1, 1, tzinfo=UTC)
-    with pytest.raises(dmi_api._OffsetCapReachedError):  # noqa: SLF001
+    with pytest.raises(DownloadError, match="more records than the pages"):
         values._fetch_station_value_pages(  # noqa: SLF001
-            "06180", "hour", start, start + dt.timedelta(seconds=3), Settings(cache_disable=True)
+            "06180", "hour", start, start + dt.timedelta(seconds=3), Settings(cache_disable=True), []
         )
+
+
+def test_collect_ends_quietly_at_the_window_without_a_connection(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Without a connection the read keeps the windows got so far, asks for no later one, and logs no warning."""
+    first = dt.datetime(2023, 1, 1, tzinfo=UTC)
+    server = _FakeStationValueServer(first, hours=24 * 35, max_offset=200)
+    requests: list[str] = []
+
+    def download_file(*, url: str, **kwargs: object) -> File:
+        requests.append(url)
+        if len(requests) > 3:  # the first window (3 pages) is read, the second one is offline
+            return File(url=url, content=NoInternetError("offline"), status=503)
+        return server(url=url, **kwargs)
+
+    monkeypatch.setattr(dmi_api, "_WINDOW_SPAN", {Resolution.HOURLY: dt.timedelta(days=10)})
+    with caplog.at_level(logging.WARNING):
+        df = _collect_hourly(monkeypatch, server, first, first + dt.timedelta(days=35), download_file)
+    assert len(requests) == 4
+    assert df.height == 24 * 10 + 1
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]

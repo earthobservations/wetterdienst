@@ -10,6 +10,7 @@ request -- see https://opendatadocs.dmi.govcloud.dk/Data/Climate_Data.
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
@@ -17,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -33,9 +35,8 @@ if TYPE_CHECKING:
 
 _BASE_URL = "https://opendataapi.dmi.dk/v2/climateData/collections"
 _UTC = ZoneInfo("UTC")
-# DMI accepts a limit of up to 300000 records per page; a single page therefore covers any
-# realistic station/parameter/resolution/date-range combination and pagination rarely kicks
-# in. DMI always returns a "next" link regardless, so pagination stops on a short page.
+# DMI accepts a limit of up to 300000 records per page, so a short range is one page. DMI always
+# returns a "next" link regardless, so pagination stops on a short page.
 _PAGE_LIMIT = 300_000
 # DMI answers a request whose offset is above 500000 with a 400 ("Offset cannot be greater than
 # 500000"), so a window of more than two full pages (600000 records) cannot be paged through.
@@ -159,7 +160,7 @@ class DmiObservationValues(TimeseriesValues):
 
         DMI paginates via limit/offset and always emits a "next" link, so pages are walked
         until a short (or empty) page marks the end. Yields the parsed ``properties`` of each
-        non-empty page; raises on the first download error, and stops quietly where no connection can be made.
+        non-empty page; raises on the first download error, ``NoInternetError`` included.
 
         DMI refuses an offset above ``_MAX_OFFSET``, so no page is requested beyond it: a range
         that fills every page below it raises ``_OffsetCapReachedError`` once the last one is read.
@@ -180,10 +181,11 @@ class DmiObservationValues(TimeseriesValues):
             )
             # a station with no data for the window answers an empty (200) page, so any failure here
             # is an outage, a 404 included, and is raised: swallowed it read as a station without
-            # data (GH-2461). NoInternetError, an expected offline condition, ends the paging quietly
+            # data (GH-2461). NoInternetError, an expected offline condition, is raised on for the
+            # caller to end the whole read quietly: the next window would meet it too
             file.raise_if_exception()
             if isinstance(file.content, Exception):
-                return
+                raise file.content
             df = pl.read_json(file.content, schema=_STATION_VALUE_SCHEMA)
             df = df.select(pl.col("features").explode(empty_as_null=True).struct.field("properties")).unnest(
                 "properties"
@@ -202,15 +204,18 @@ class DmiObservationValues(TimeseriesValues):
         start: dt.datetime,
         end: dt.datetime,
         settings: Settings,
-    ) -> list[pl.DataFrame]:
-        """Read every page of DMI stationValue records for a station/resolution/date range.
+        records: list[pl.DataFrame],
+    ) -> None:
+        """Append every page of DMI stationValue records for a station/resolution/date range to ``records``.
 
         A range whose records fill all the pages DMI lets one request reach is halved and each half
         read on its own, down to a span of a second, so no request asks for an offset above the cap.
         The two halves share their boundary instant, as DMI's datetime filter includes both ends.
+        Pages read before ``NoInternetError`` is raised stay in ``records``.
         """
+        read = len(records)
         try:
-            return list(
+            records.extend(
                 self._iter_station_value_pages(
                     station_id,
                     time_resolution,
@@ -219,13 +224,14 @@ class DmiObservationValues(TimeseriesValues):
                     settings,
                 )
             )
-        except _OffsetCapReachedError:
+        except _OffsetCapReachedError as error:
+            del records[read:]
             middle = start + dt.timedelta(seconds=int((end - start).total_seconds() // 2))
             if middle <= start:
-                raise
-            return self._fetch_station_value_pages(
-                station_id, time_resolution, start, middle, settings
-            ) + self._fetch_station_value_pages(station_id, time_resolution, middle, end, settings)
+                url = f"{_BASE_URL}/stationValue/items"
+                raise DownloadError(url, str(error)) from error
+            self._fetch_station_value_pages(station_id, time_resolution, start, middle, settings, records)
+            self._fetch_station_value_pages(station_id, time_resolution, middle, end, settings, records)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -265,23 +271,24 @@ class DmiObservationValues(TimeseriesValues):
 
         # a long range is read as consecutive windows, DMI refusing offsets above _MAX_OFFSET; the
         # windows share their boundary instant (DMI's datetime filter includes both ends), so a
-        # record at it is read twice and the identical rows are dropped
+        # record at it is read twice and the identical rows are dropped. Without a connection the
+        # read ends with the pages got so far, as it always did
         span = _WINDOW_SPAN.get(resolution)
         window_start = start
         records: list[pl.DataFrame] = []
-        while True:
-            window_end = min(window_start + span, end) if span else end
-            records.extend(
-                self._fetch_station_value_pages(station_id, time_resolution, window_start, window_end, settings)
-            )
-            if window_end >= end:
-                break
-            window_start = window_end
+        with contextlib.suppress(NoInternetError):
+            while True:
+                window_end = min(window_start + span, end) if span else end
+                self._fetch_station_value_pages(
+                    station_id, time_resolution, window_start, window_end, settings, records
+                )
+                if window_end >= end:
+                    break
+                window_start = window_end
         if not records:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
-        df = pl.concat(records).unique(maintain_order=True)
-        df = df.filter(pl.col("parameterId").is_in(known_parameters))
+        df = pl.concat(records).filter(pl.col("parameterId").is_in(known_parameters)).unique(maintain_order=True)
         if df.is_empty():
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         return df.select(
