@@ -615,7 +615,7 @@ class MetnoFrostValues(TimeseriesValues):
             ),
         )
 
-    def _collect_via_time_series_discovery(
+    def _collect_via_time_series_discovery(  # noqa: C901
         self,
         station_id: str,
         parameter_or_dataset: ParameterModel,
@@ -647,7 +647,12 @@ class MetnoFrostValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        if avail_file.is_no_internet_error or avail_file.is_empty or isinstance(avail_file.content, Exception):
+        if avail_file.is_no_internet_error:
+            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        if isinstance(avail_file.content, Exception):
+            log.warning(f"Failed to download {avail_url}: {avail_file.content}")
+            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        if avail_file.is_empty:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         ts_list = json.loads(avail_file.content.read()).get("data", [])

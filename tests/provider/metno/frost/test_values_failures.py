@@ -170,3 +170,19 @@ def test_metno_frost_values_discovered_series_failure_is_warned_about(
         message.startswith("Failed to download ") and message.endswith(": upstream answered 500") for message in warned
     )
     assert all("timeseriesids=" in message for message in warned)
+
+
+def test_metno_frost_values_discovery_failure_is_warned_about(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that a failed request for the available time series is warned about, not taken for no data."""
+    values, seen = _values(monkeypatch, lambda url: _failed(url, 404 if "availableTimeSeries" not in url else 500))
+    with caplog.at_level("WARNING", logger=LOGGER):
+        df = values.all().df
+    assert df.is_empty()
+    warned = [record.getMessage() for record in caplog.records if record.name == LOGGER]
+    assert warned
+    assert all(message.startswith("Failed to download ") for message in warned)
+    assert all("availableTimeSeries" in message for message in warned)
+    assert not any("timeseriesids=" in url for url in seen)
