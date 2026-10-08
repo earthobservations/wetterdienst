@@ -163,7 +163,13 @@ def _download_with_rate_limit_retry(
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
-                if isinstance(last_file.content, Exception) and last_file.status not in _NON_RETRYABLE_STATUSES:
+                # no network is not a blip two quick retries clear: report it at once, as an
+                # offline listing does (the 503 `download_file` gives it would otherwise match)
+                if (
+                    isinstance(last_file.content, Exception)
+                    and not last_file.is_no_internet_error
+                    and last_file.status not in _NON_RETRYABLE_STATUSES
+                ):
                     log.warning(
                         f"Retryable AEMET failure (status={last_file.status}) for {url}: {last_file.content}; retrying",
                     )
