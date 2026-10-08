@@ -825,6 +825,17 @@ def glossary(
     return get_glossary(parameter=request.parameter, unit_type=request.unit_type, limit=request.limit)
 
 
+def _refuse_unavailable_provider(e: ImportError) -> HTTPException:
+    """Answer a provider whose module or dependency cannot be imported with a 404, as one info line.
+
+    `Wetterdienst.resolve` words what is missing and which extra installs it, so the caller gets that
+    message as it is; pointing at the list of providers, as for an unknown one, would not say why.
+    """
+    msg = str(e)
+    log.info(f"Refused a provider and network that cannot be imported: {msg}")
+    return HTTPException(status_code=404, detail=msg)
+
+
 def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -> type[TimeseriesRequest]:
     """Get the API of a network the timeseries endpoints serve, refusing one they cannot with a 404.
 
@@ -838,6 +849,8 @@ def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -
         msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
         log.info(f"Refused a provider and network without an API for the request: {msg}")
         raise HTTPException(status_code=404, detail=msg) from e
+    except ImportError as e:
+        raise _refuse_unavailable_provider(e) from e
     except NotImplementedError as e:
         log.info(f"Refused a request for station history: {e}")
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -925,6 +938,8 @@ def issues(
         msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
         log.info(f"Refused a provider and network without an API for the request: {msg}")
         raise HTTPException(status_code=404, detail=msg) from e
+    except ImportError as e:
+        raise _refuse_unavailable_provider(e) from e
 
     # outside the handler below, as for `/api/stations`
     settings = Settings()

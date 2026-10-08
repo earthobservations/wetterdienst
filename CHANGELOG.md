@@ -26,6 +26,10 @@ Types of changes:
 
 ### Fixed
 
+- `/api/stations`, `/api/values`, `/api/interpolate`, `/api/summarize`, `/api/history` and
+  `/api/issues` answer a provider whose optional extra is not installed with a 404 carrying the
+  install advice, and log one info line. They answered a bare 500 and logged a traceback, where
+  `/api/coverage` and `/api/auth` already answered a 404 (GH-2545)
 - `interpolate`, `summarize` and their `_by_station_id` variants build a provider's station list
   once, not two or three times: on a cold cache that is a round of upstream requests fewer, for
   DWD observation the station description files and the file index per period. `filter_by_rank`

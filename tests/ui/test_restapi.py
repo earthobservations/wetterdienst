@@ -7368,3 +7368,39 @@ def test_a_history_not_implemented_is_logged_as_info_without_a_traceback(
         (logging.INFO, "Refused a request for station history: History not implemented for DwdMosmixRequest")
     ]
     assert records[0].exc_info is None
+
+
+_MISSING_EXTRA = (
+    "Module wetterdienst.provider.knmi.observation.KnmiObservationRequest needs h5py, which is not installed."
+)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "params"),
+    [
+        pytest.param("issues", {"station": "00011"}, id="issues"),
+        *(pytest.param(endpoint, params, id=endpoint) for endpoint, params in _NO_API_ENDPOINTS.items()),
+    ],
+)
+def test_a_provider_whose_extra_is_missing_is_a_404_and_one_info_line_without_a_traceback(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    params: dict[str, object],
+) -> None:
+    """A provider that cannot be imported is a 404 with the exception's advice, not a bare 500 (GH-2545)."""
+
+    def resolve(_provider: str, _network: str) -> None:
+        raise ImportError(_MISSING_EXTRA)
+
+    monkeypatch.setattr(restapi.Wetterdienst, "resolve", staticmethod(resolve))
+    with caplog.at_level(logging.INFO, logger=restapi.log.name):
+        response = client.get(f"/api/{endpoint}", params={"provider": "knmi", "network": "observation", **params})
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == _MISSING_EXTRA
+    records = _the_restapi_records(caplog)
+    assert [(r.levelno, r.getMessage()) for r in records] == [
+        (logging.INFO, f"Refused a provider and network that cannot be imported: {_MISSING_EXTRA}")
+    ]
+    assert records[0].exc_info is None
