@@ -3672,10 +3672,10 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
             id="history-unknown-parameter",
         ),
         pytest.param(
-            "/api/history",
+            "/api/values",
             {"provider": "eccc", "network": "observation", "parameters": "hourly/data", "all": "true"},
             "Start and end date required for single period datasets",
-            id="history-dataset-listed-only-for-a-date",
+            id="values-dataset-listed-only-for-a-date",
         ),
         pytest.param(
             "/api/issues",
