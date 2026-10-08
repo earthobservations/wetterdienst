@@ -62,6 +62,10 @@ Types of changes:
 
 ### Fixed
 
+- `/api/values` and the MCP `values` tool log a request they refuse with a 400 -- an unparseable
+  timestamp, an unknown parameter or period -- as one info line, as `/api/interpolate` and
+  `/api/summarize` do. Each was logged as an error with its traceback; the status is unchanged
+  (GH-2459)
 - `WD_USE_CERTIFI=true` now reaches every download of `geosphere/observation` values,
   `ea/hydrology` values, `metno/frost` stations, values and credential check, and `dwd/road`
   values. They went out with the system CA store, so where that store cannot verify the upstream
