@@ -268,7 +268,7 @@ def test_metno_frost_values_404_on_a_one_parameter_dataset_is_not_asked_again(mo
 def test_metno_frost_values_404_fallback_for_one_parameter_leaves_its_siblings_alone(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test that the fallback for a single parameter model resolves that parameter, not the others requested (GH-2554)."""
+    """Test that the fallback for one parameter model resolves that parameter, not its siblings (GH-2554)."""
     requested = [("hourly", "data", "temperature_air_mean_2m"), ("hourly", "data", "wind_speed")]
     values, seen = _values(monkeypatch, lambda url: _failed(url, 404), requested)
     assert values._collect_station_parameter_or_dataset("SN18700", values.sr.parameters[1]).is_empty()  # noqa: SLF001
