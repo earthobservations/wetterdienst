@@ -187,7 +187,7 @@ def _serve_archive(
             datetime(1992, 5, 20, tzinfo=ZoneInfo("UTC")),
             datetime(1995, 1, 1, tzinfo=ZoneInfo("UTC")),
         ),
-        # windows of ten years from 1880-03-29; the archive runs across the boundary near 1930
+        # windows of ten years from 1880-03-30; the archive runs across the boundary near 1930
         (
             "hourly",
             timedelta(hours=1),
@@ -243,6 +243,8 @@ def test_geosphere_observation_time_windows_leave_no_gap_and_no_overlap() -> Non
     assert all(stop - begin <= timedelta(days=730) for begin, stop in windows)
     assert all(nxt[0] - prev[1] == timedelta(minutes=1) for prev, nxt in pairwise(windows))
     assert list(_time_windows(start, end, None)) == [(start, end)]
+    # a window that ends before it starts has nothing to ask for
+    assert list(_time_windows(end, start, timedelta(days=730))) == []
 
 
 def test_geosphere_observation_values_lost_midway_are_empty_not_partial(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -264,3 +266,27 @@ def test_geosphere_observation_values_lost_midway_are_empty_not_partial(monkeypa
         end=end,
     )
     assert request.filter_by_station_id("4821").values.all().df.is_empty()
+
+
+def test_geosphere_observation_windows_of_a_local_time_request_leave_no_gap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that windows cut from a request in a local time zone still follow each other in UTC.
+
+    Adding two years to 03:00 Vienna time on 2000-10-28 lands on 03:00 on 2002-10-27, the day the
+    clocks go back, an hour later in UTC than the 24-hour days it spans, and the hour between the
+    windows was never requested.
+    """
+    vienna = ZoneInfo("Europe/Vienna")
+    windows = _serve_archive(
+        monkeypatch,
+        timedelta(minutes=10),
+        datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC")),
+        datetime(2000, 1, 2, tzinfo=ZoneInfo("UTC")),
+    )
+    request = GeosphereObservationRequest(
+        parameters=[("10_minutes", "data", "humidity_relative")],
+        start=datetime(2000, 10, 28, 3, tzinfo=vienna),
+        end=datetime(2003, 1, 1, tzinfo=vienna),
+    )
+    request.filter_by_station_id("4821").values.all()
+    assert len(windows) > 1
+    assert all(nxt[0] - prev[1] == timedelta(minutes=1) for prev, nxt in pairwise(windows))

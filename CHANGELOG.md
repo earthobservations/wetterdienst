@@ -62,10 +62,10 @@ Types of changes:
 
 ### Fixed
 
-- `geosphere/observation` values without dates, at 10 minutes or hourly, and a 10-minute window
-  longer than about 19 years no longer raise `FileNotFoundError`, as they did when the API refused
-  the request for exceeding its 1,000,000 data points. The window is fetched in several requests,
-  two years each at 10 minutes and ten years each hourly (GH-2466)
+- `geosphere/observation` values without dates, at 10 minutes or hourly, and a window longer than
+  about 19 years at 10 minutes or 114 years hourly no longer raise `FileNotFoundError`, as they did
+  when the API refused the request for exceeding its 1,000,000 data points. The window is fetched
+  in several requests, two years each at 10 minutes and ten years each hourly (GH-2466)
 - `WD_USE_CERTIFI=true` now reaches every download of `geosphere/observation` values,
   `ea/hydrology` values, `metno/frost` stations, values and credential check, and `dwd/road`
   values. They went out with the system CA store, so where that store cannot verify the upstream

@@ -90,18 +90,18 @@ class GeosphereObservationValues(TimeseriesValues):
         # floored to the hour, so a repeat of an open-ended request builds the same URL (the cache key)
         # unless an hour boundary falls between them; the one-day buffer below still reaches past now
         end_date = self.sr.end or round_minutes(datetime.now(ZoneInfo("UTC")), 60)
-        # add buffers
-        start_date = start_date - timedelta(days=1)
-        end_date = end_date + timedelta(days=1)
-        frames = [
-            self._collect_window(station_id, parameter_or_dataset, window_start, window_end)
-            for window_start, window_end in _time_windows(start_date, end_date, self._window_spans.get(resolution))
-        ]
-        # a window without internet comes back as a bare frame without columns (any other failure
-        # raises); the whole result is then empty, not a series with years missing
-        if not frames or not all(frame.width for frame in frames):
-            return pl.DataFrame()
-        return pl.concat(frames)
+        # add buffers; the windows are cut in UTC, where a day is 24 hours, whatever zone the request is in
+        start_date = start_date.astimezone(ZoneInfo("UTC")) - timedelta(days=1)
+        end_date = end_date.astimezone(ZoneInfo("UTC")) + timedelta(days=1)
+        frames = []
+        for window_start, window_end in _time_windows(start_date, end_date, self._window_spans.get(resolution)):
+            frame = self._collect_window(station_id, parameter_or_dataset, window_start, window_end)
+            # a window without internet comes back as a bare frame without columns (any other failure
+            # raises); the whole result is then empty, not a series with years missing
+            if not frame.width:
+                return pl.DataFrame()
+            frames.append(frame)
+        return pl.concat(frames) if frames else pl.DataFrame()
 
     def _collect_window(
         self,
