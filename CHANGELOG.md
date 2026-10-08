@@ -150,7 +150,8 @@ Types of changes:
   pointing at `/api/coverage`, where they answered a bare 500. With no provider and network the
   list of every provider honours `pretty`, so it comes back compact by default, not indented as
   before; pass `pretty=true` for the indented form. `resolutions` or `datasets` without `provider`
-  and `network` is refused with a 400, where the full list came back unfiltered (GH-2496)
+  and `network` is refused with a 400, where the full list came back unfiltered; pass both with
+  them, or drop the filter (GH-2496)
 
 ## [0.141.0] - 2026-10-06
 
