@@ -35,6 +35,11 @@ Types of changes:
   reaches the fallbacks written for it (each parameter alone, then its time series discovered),
   where the request returned no data; a 401, 403 or 500 is logged as `Failed to download <url>`
   where it passed as "no data" without a word (GH-2494)
+- `metno/frost` values, when the request for a whole dataset 404s, resolve only the parameters
+  asked for, not every parameter of the dataset: one hourly parameter cost up to 11 requests alone
+  and 11 time series discoveries per station, against Frost's rate limit. A dataset of one
+  parameter (`6_hour`) goes straight to the discovery instead of repeating the request that
+  404'd (GH-2554)
 - KNMI and AEMET stations and values requested with no network, or with a connection that cannot
   be made (refused, DNS or TLS handshake failure), no longer wait through two more attempts per
   URL, 2 s and more apart, before returning empty: `download_file`'s own two attempts are all
