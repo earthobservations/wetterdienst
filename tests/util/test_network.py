@@ -22,6 +22,7 @@ import platformdirs
 import pytest
 import stamina
 from aiohttp import (
+    BasicAuth,
     ClientConnectorCertificateError,
     ClientConnectorError,
     ClientConnectorSSLError,
@@ -32,6 +33,7 @@ from aiohttp import (
     ClientTimeout,
     ServerDisconnectedError,
 )
+from aiohttp.client_reqrep import ConnectionKey
 from diskcache import Cache
 from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cache_metadata import CacheMetadata
@@ -2855,9 +2857,17 @@ def test_a_temporary_file_that_cannot_be_removed_changes_neither_result_nor_erro
         assert filesystem.cat_file("/f.txt") == b"new-body"
 
 
-def _tls_failure(kind: str) -> ClientSSLError:
+def _tls_failure(kind: str, proxy_auth: BasicAuth | None = None) -> ClientSSLError:
     """Build the error aiohttp raises for a TLS failure: a failed verification, or a dropped handshake."""
-    connection_key = MagicMock()
+    connection_key = ConnectionKey(
+        host="example.com",
+        port=443,
+        is_ssl=True,
+        ssl=True,
+        proxy=None,
+        proxy_auth=proxy_auth,
+        proxy_headers_hash=None,
+    )
     if kind == "certificate":
         return ClientConnectorCertificateError(connection_key, ssl.SSLCertVerificationError("self-signed certificate"))
     return ClientConnectorSSLError(connection_key, ssl.SSLError("handshake failure"))
@@ -2903,12 +2913,30 @@ def test_post_file_does_not_report_a_tls_failure_as_being_offline(kind: str) -> 
     assert result.content is error
     assert result.status == 500
     assert not result.is_no_internet_error
+    with pytest.raises(DownloadError) as raised:
+        result.raise_if_exception()
+    assert raised.value.__cause__ is error
 
 
-def test_download_file_still_reports_a_refused_connection_as_being_offline() -> None:
-    """Only the TLS failures left the offline answer: a refused connection is still one (GH-2553)."""
-    with stamina.set_testing(True, attempts=1):
-        result = download_file(url=_REFUSING_URL, cache_dir=Path(tempfile.gettempdir()), cache_disable=True)
+@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
+@pytest.mark.parametrize("kind", ["certificate", "handshake"])
+def test_a_tls_failure_keeps_the_proxy_password_out_of_its_repr(kind: str) -> None:
+    """The error holds its connection key, and that key a proxy's password (GH-2553).
 
-    assert result.is_no_internet_error
-    assert result.status == 503
+    A proxy named in `HTTPS_PROXY` as `user:secret@host` is read by aiohttp into the key's
+    `proxy_auth`, and an exception's repr renders its args. The offline answer stored only
+    `str(error)`; the error is stored whole now, and logged by stamina's retry hook as its repr.
+    """
+    error = _tls_failure(kind, proxy_auth=BasicAuth("user", "secret"))
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = error
+
+    with (
+        stamina.set_testing(True, attempts=1),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+    ):
+        result = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+
+    assert isinstance(result.content, type(error))
+    assert result.status == 500
+    assert "secret" not in repr(result.content)

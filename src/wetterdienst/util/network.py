@@ -1349,6 +1349,10 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     travels. The traceback is dropped only for a request that carried credentials: for every other
     one it is worth more than it costs.
     """
+    # a TLS failure is stored as itself, and holds the connection key it was made with in its args:
+    # a repr renders the key's `proxy_auth`, the password of a proxy named in `HTTPS_PROXY`
+    if isinstance(error, ClientSSLError) and getattr(error.args[0], "proxy_auth", None) is not None:
+        error = type(error)(error.args[0]._replace(proxy_auth=None), error.args[1])
     if not sent_credentials:
         return error
     error = error.with_traceback(None)
