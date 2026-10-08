@@ -1048,7 +1048,7 @@ class GlossaryRequest(BaseModel):
 
     parameter: str | None = None
     unit_type: UnitType | None = None
-    limit: int | None = None
+    limit: Annotated[int | None, Field(ge=1, description="Return at most this many entries.")] = None
     debug: _DebugField = False
 
 

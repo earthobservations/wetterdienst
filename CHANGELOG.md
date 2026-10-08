@@ -81,6 +81,8 @@ Types of changes:
 
 ### Fixed
 
+- `/api/glossary` and the MCP `glossary` tool refuse a `limit` below 1 with a 422, as the CLI's
+  `--limit` already does; a limit of 0 or below answered one entry with a 200 (GH-2497)
 - `geosphere/observation` values without dates, at 10 minutes or hourly, and long windows no
   longer fail: the API refused a slice of more than 1,000,000 data points (the 10-minute record is
   1.8 million), and answered one of more than about 6 years at 10 minutes too slowly for the read
