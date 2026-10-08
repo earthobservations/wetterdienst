@@ -575,6 +575,8 @@ def test_request_refuses_a_reversed_window_in_its_own_terms() -> None:
     with pytest.raises(ReversedTimeIntervalError, match="'start' must be smaller or equal to 'end'") as raised:
         TimeseriesRequest.convert_timestamps("2020-06-30", "2020-06-01")
     assert isinstance(raised.value, StartDateEndDateError)
+    # no "Error: " of its own: the command line prefixes one to every usage error (GH-2513)
+    assert str(raised.value) == "'start' must be smaller or equal to 'end'."
 
 
 def _count_station_index_builds(monkeypatch: pytest.MonkeyPatch) -> list[None]:

@@ -1173,3 +1173,36 @@ def test_cli_refuses_a_renamed_window_option_by_its_new_name(command: str, old: 
     assert result.stderr.endswith(f"\n\nError: {old} was renamed to {new}.\n")
     # still refused, but no longer offered
     assert old not in CliRunner().invoke(cli, [command, "--help"]).output
+
+
+@pytest.mark.parametrize(
+    "window",
+    [["--timestamp=2020-06-30/2020-06-01"], ["--start=2020-06-30", "--end=2020-06-01"]],
+    ids=["timestamp", "start-end"],
+)
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["values", "--station=01048"],
+        ["interpolate", "--latitude=49.9195", "--longitude=8.9671"],
+        ["summarize", "--latitude=49.9195", "--longitude=8.9671"],
+    ],
+    ids=["values", "interpolate", "summarize"],
+)
+def test_cli_refuses_a_reversed_window_in_terms_of_its_options(
+    command: list[str], window: list[str], caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test a window that ends before it starts is refused naming the options, once (GH-2513).
+
+    The request words it in terms of `start` and `end`; the command line spells the window
+    `--timestamp` or `--start` / `--end`, and click already puts `Error: ` before a usage error.
+    """
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            [*command, "--provider=dwd", "--network=observation", "--parameters=daily/kl", *window],
+        )
+
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith("\n\nError: the interval in --timestamp or --start / --end ends before it starts\n")
+    assert not caplog.records
