@@ -1594,14 +1594,18 @@ _FAILED_DOWNLOAD_FILES = (
 )
 
 
-def _stub_downloads(monkeypatch: pytest.MonkeyPatch, contents: list[BytesIO | Exception]) -> None:
+def _stub_downloads(
+    monkeypatch: pytest.MonkeyPatch,
+    contents: list[BytesIO | Exception],
+    status: int = 500,
+) -> None:
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
     files = [
         File(
             url=f"https://example.com/road/DD/{name}",
             content=content,
-            status=200 if isinstance(content, BytesIO) else 500,
+            status=200 if isinstance(content, BytesIO) else status,
         )
         for name, content in zip(_FAILED_DOWNLOAD_FILES, contents, strict=True)
     ]
@@ -1609,6 +1613,7 @@ def _stub_downloads(monkeypatch: pytest.MonkeyPatch, contents: list[BytesIO | Ex
     monkeypatch.setattr(api, "download_files", lambda **_kwargs: files)
 
 
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_raises_when_every_download_of_a_group_failed(monkeypatch: pytest.MonkeyPatch) -> None:
     """A group whose every file failed to download is an error, not a group with nothing published.
 
@@ -1624,6 +1629,7 @@ def test_dwd_road_weather_raises_when_every_download_of_a_group_failed(monkeypat
         _stub_stations().values.all()
 
 
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
 def test_dwd_road_weather_does_not_raise_for_no_internet(monkeypatch: pytest.MonkeyPatch) -> None:
     """No connection stays an empty answer, as `File.raise_if_exception` has it everywhere else."""
     from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
@@ -1662,3 +1668,17 @@ def test_dwd_road_weather_still_drops_a_142_byte_file_that_downloaded(
 
     assert df.is_empty()
     assert "could not be downloaded" not in caplog.text
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_files_withdrawn_since_the_listing_are_warned_about(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A 404 is a file DWD removed after the listing was read: an empty answer and a warning, not an error."""
+    _stub_downloads(monkeypatch, [FileNotFoundError("x"), FileNotFoundError("x")], status=404)
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.road.api"):
+        df = _stub_stations().values.all().df
+
+    assert df.is_empty()
+    assert "2 of 2 files of DD could not be downloaded" in caplog.text

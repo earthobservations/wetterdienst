@@ -959,12 +959,16 @@ class DwdRoadValues(TimeseriesValues):
         # a 403, an outage -- would read as a group with nothing published
         failed = [file for file in files if isinstance(file.content, Exception)]
         if failed and len(failed) == len(files):
-            # raises the first failure, but for a `NoInternetError`, which it logs and lets through
+            # a 404 is a file DWD has withdrawn since the listing was read, which is warned about
+            # below; any other failure is raised, but for a `NoInternetError`, which is logged and
+            # let through
             for file in failed:
-                file.raise_if_exception()
-        elif failed:
-            # some files of the window arrived: their readings are returned and the minutes of the
-            # others are missing, which the stuck-sensor check already reads as a gap rather than a run
+                if file.status != 404:
+                    file.raise_if_exception()
+        if failed:
+            # the readings of the files that arrived are returned, and those of the others are
+            # missing: a gap in the window, which can also keep a stuck sensor below the count of
+            # readings that marks it
             log.warning(
                 f"{len(failed)} of {len(files)} files of {road_weather_station_group.value} could not be "
                 f"downloaded and their readings are missing (first: {failed[0].filename}, "
