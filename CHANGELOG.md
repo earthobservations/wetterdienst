@@ -26,6 +26,12 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/road` raises a `DownloadError` when every file of a station group fails with an error
+  response or a timeout (403, 5xx); the request used to return an empty frame. When only some
+  files fail, the readings of the others are returned and a warning names how many of how many
+  failed; the same warning accompanies an empty result when all are 404 (withdrawn since the
+  listing). A failure to connect, a refused certificate included, still gives an empty result,
+  now with that warning (GH-2495, GH-2553)
 - `interpolate`, `summarize` and their `_by_station_id` variants build a provider's station list
   once, not two or three times: on a cold cache that is a round of upstream requests fewer, for
   DWD observation the station description files and the file index per period. `filter_by_rank`
