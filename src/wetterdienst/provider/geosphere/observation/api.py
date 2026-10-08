@@ -23,12 +23,30 @@ from wetterdienst.util.datetime import round_minutes
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+
+def _time_windows(
+    start: dt.datetime, end: dt.datetime, span: timedelta | None
+) -> Iterator[tuple[dt.datetime, dt.datetime]]:
+    """Split ``[start, end]`` into ``(start, end)`` windows no longer than ``span``.
+
+    The API includes both ends of a window, so a window stops one minute short of where the next
+    one starts: a reading on the boundary is neither fetched twice nor lost. Readings sit on
+    10-minute marks or coarser. ``span=None`` keeps the window whole.
+    """
+    if span is None:
+        yield start, end
+        return
+    cursor = start
+    while cursor <= end:
+        yield cursor, min(cursor + span - timedelta(minutes=1), end)
+        cursor += span
 
 
 class GeosphereObservationValues(TimeseriesValues):
@@ -50,18 +68,45 @@ class GeosphereObservationValues(TimeseriesValues):
         Resolution.MONTHLY: dt.datetime(1767, 11, 30, tzinfo=ZoneInfo("UTC")),
     }
 
+    # The API refuses a slice of more than 1,000,000 data points (timestamps times parameters times
+    # stations; one parameter and one station here) with HTTP 400. Longer windows are split into
+    # requests of at most this span: 10 minutes is about 52,600 points per 365 days, hourly about
+    # 438,000 per 50 years. Daily and monthly reach the limit only after centuries and stay whole.
+    _window_spans: ClassVar = {
+        Resolution.MINUTE_10: timedelta(days=365),
+        Resolution.HOURLY: timedelta(days=365 * 50),
+    }
+
     def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
         parameter_or_dataset: ParameterModel,
     ) -> pl.DataFrame:
-        start_date = self.sr.start or self._default_start_dates[parameter_or_dataset.dataset.resolution.value]
+        resolution = parameter_or_dataset.dataset.resolution.value
+        start_date = self.sr.start or self._default_start_dates[resolution]
         # floored to the hour, so a repeat of an open-ended request builds the same URL (the cache key)
         # unless an hour boundary falls between them; the one-day buffer below still reaches past now
         end_date = self.sr.end or round_minutes(datetime.now(ZoneInfo("UTC")), 60)
         # add buffers
         start_date = start_date - timedelta(days=1)
         end_date = end_date + timedelta(days=1)
+        frames = [
+            self._collect_window(station_id, parameter_or_dataset, window_start, window_end)
+            for window_start, window_end in _time_windows(start_date, end_date, self._window_spans.get(resolution))
+        ]
+        # a window the download failed on comes back as a bare frame without columns
+        frames = [frame for frame in frames if frame.width]
+        if not frames:
+            return pl.DataFrame()
+        return pl.concat(frames)
+
+    def _collect_window(
+        self,
+        station_id: str,
+        parameter_or_dataset: ParameterModel,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> pl.DataFrame:
         url = self._endpoint.format(
             station_id=station_id,
             parameter=parameter_or_dataset.name_original,
