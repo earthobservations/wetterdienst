@@ -558,6 +558,8 @@ class TimeseriesRequest:
         self,
         latlon: tuple[float, float],
         rank: int,
+        *,
+        df_all: pl.DataFrame | None = None,
     ) -> StationsResult:
         """Filter stations by rank.
 
@@ -579,6 +581,8 @@ class TimeseriesRequest:
         Args:
             latlon: Latitude and longitude for the requested point.
             rank: Number of stations requested.
+            df_all: This request's own ``all().df``, for a caller that has it already; built here
+                where left out.
 
         Returns:
             StationsResult: Stations sorted by distance (see note above on ``rank``).
@@ -592,7 +596,8 @@ class TimeseriesRequest:
             raise ValueError(msg)
         # setup spatial parameters
         q_lat, q_lon = latlon
-        df_all = self.all().df
+        if df_all is None:
+            df_all = self.all().df
         latitudes = df_all.get_column("latitude").to_arrow()
         longitudes = df_all.get_column("longitude").to_arrow()
         distances = derive_nearest_neighbours(
@@ -617,13 +622,22 @@ class TimeseriesRequest:
             rank=rank,
         )
 
-    def filter_by_distance(self, latlon: tuple[float, float], distance: float, unit: str = "km") -> StationsResult:
+    def filter_by_distance(
+        self,
+        latlon: tuple[float, float],
+        distance: float,
+        unit: str = "km",
+        *,
+        df_all: pl.DataFrame | None = None,
+    ) -> StationsResult:
         """Filter stations by distance.
 
         Args:
             latlon: Latitude and longitude for the requested point.
             distance: Maximum distance to the requested point.
             unit: Unit of the distance.
+            df_all: This request's own ``all().df``, for a caller that has it already; built here
+                where left out.
 
         Returns:
             StationsResult: Filtered stations.
@@ -642,7 +656,7 @@ class TimeseriesRequest:
 
         # the rank only limits value collection later on: `df` holds every located station whatever
         # it is, so asking for one spares building the station index again just to count it
-        ranked = self.filter_by_rank(latlon, rank=1)
+        ranked = self.filter_by_rank(latlon, rank=1, df_all=df_all)
 
         df = ranked.df.filter(pl.col("distance").le(distance_in_km))
 
@@ -730,8 +744,22 @@ class TimeseriesRequest:
                 it. A few providers report no elevation for any station.
 
         """
+        return self._interpolate(latlon, elevation)
+
+    def _interpolate(
+        self,
+        latlon: tuple[float, float],
+        elevation: float | None,
+        *,
+        df_all: pl.DataFrame | None = None,
+    ) -> InterpolatedValuesResult:
+        """Do `interpolate` with the station list `all()` gave, where the caller has it already.
+
+        The core ranks the stations near the point and the result names the stations taken, both off
+        this one frame, so that the provider builds its station list once.
+        """
         try:
-            from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+            from wetterdienst.core.interpolate import get_interpolated_df, place_in_utm  # noqa: PLC0415
         except ImportError as e:
             msg = missing_dependency_message("Interpolation", e.name, extra="interpolation")
             raise ImportError(msg) from e
@@ -751,7 +779,13 @@ class TimeseriesRequest:
 
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
-        df_interpolated = self._as_asked(get_interpolated_df(self._for_estimating(), lat, lon, elevation))
+        # a point UTM cannot place is refused before the station list is built, as the core does
+        place_in_utm(lat, lon)
+        if df_all is None:
+            df_all = self.all().df
+        df_interpolated = self._as_asked(
+            get_interpolated_df(self._for_estimating(), lat, lon, elevation, df_all=df_all)
+        )
         # the elevation belongs in the name: two elevations at one point are two different
         # answers, and sharing an id would merge them wherever the id is what identifies a series
         point = (
@@ -770,8 +804,7 @@ class TimeseriesRequest:
             pl.col("distance_mean"),
             pl.col("taken_station_ids"),
         )
-        df_stations_all = self.all().df
-        df_stations = df_stations_all.join(
+        df_stations = df_all.join(
             other=df_interpolated.select(pl.col("taken_station_ids").alias("station_id"))
             .explode("station_id", empty_as_null=True)
             .unique(),
@@ -780,7 +813,7 @@ class TimeseriesRequest:
         stations_result = StationsResult(
             stations=self,
             df=df_stations,
-            df_all=df_stations_all,
+            df_all=df_all,
             stations_filter=StationsFilter.BY_STATION_ID,
         )
         return InterpolatedValuesResult(
@@ -807,10 +840,12 @@ class TimeseriesRequest:
                 station listed at 0.0, 0.0 or named BOGUS.
 
         """
-        latitude, longitude, station_elevation = self._get_position_by_station_id(station_id)
-        return self.interpolate(
-            latlon=(latitude, longitude),
-            elevation=elevation if elevation is not None else station_elevation,
+        df_all = self.all().df
+        latitude, longitude, station_elevation = self._get_position_by_station_id(station_id, df_all=df_all)
+        return self._interpolate(
+            (latitude, longitude),
+            elevation if elevation is not None else station_elevation,
+            df_all=df_all,
         )
 
     def summarize(self, latlon: tuple[float, float], elevation: float | None = None) -> SummarizedValuesResult:
@@ -834,6 +869,20 @@ class TimeseriesRequest:
                 it. A few providers report no elevation for any station.
 
         """
+        return self._summarize(latlon, elevation)
+
+    def _summarize(
+        self,
+        latlon: tuple[float, float],
+        elevation: float | None,
+        *,
+        df_all: pl.DataFrame | None = None,
+    ) -> SummarizedValuesResult:
+        """Do `summarize` with the station list `all()` gave, where the caller has it already.
+
+        The core ranks the stations near the point and the result names the stations taken, both off
+        this one frame, so that the provider builds its station list once.
+        """
         from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
 
         if not self.start:
@@ -851,7 +900,11 @@ class TimeseriesRequest:
 
         lat, lon = latlon
         lat, lon = float(lat), float(lon)
-        summarized_values = self._as_asked(get_summarized_df(self._for_estimating(), lat, lon, elevation))
+        if df_all is None:
+            df_all = self.all().df
+        summarized_values = self._as_asked(
+            get_summarized_df(self._for_estimating(), lat, lon, elevation, df_all=df_all)
+        )
         # the elevation belongs in the name: two elevations at one point are two different
         # answers, and sharing an id would merge them wherever the id is what identifies a series
         point = (
@@ -868,8 +921,7 @@ class TimeseriesRequest:
             pl.col("distance"),
             pl.col("taken_station_id"),
         )
-        df_stations_all = self.all().df
-        df_stations = df_stations_all.join(
+        df_stations = df_all.join(
             other=summarized_values.select(pl.col("taken_station_id")).unique(),
             left_on="station_id",
             right_on="taken_station_id",
@@ -877,7 +929,7 @@ class TimeseriesRequest:
         stations_result = StationsResult(
             stations=self,
             df=df_stations,
-            df_all=df_stations_all,
+            df_all=df_all,
             stations_filter=StationsFilter.BY_STATION_ID,
         )
         return SummarizedValuesResult(
@@ -902,10 +954,12 @@ class TimeseriesRequest:
                 says.
 
         """
-        latitude, longitude, station_elevation = self._get_position_by_station_id(station_id)
-        return self.summarize(
-            latlon=(latitude, longitude),
-            elevation=elevation if elevation is not None else station_elevation,
+        df_all = self.all().df
+        latitude, longitude, station_elevation = self._get_position_by_station_id(station_id, df_all=df_all)
+        return self._summarize(
+            (latitude, longitude),
+            elevation if elevation is not None else station_elevation,
+            df_all=df_all,
         )
 
     def _for_estimating(self) -> TimeseriesRequest:
@@ -961,7 +1015,12 @@ class TimeseriesRequest:
         latitude, longitude, _ = self._get_position_by_station_id(station_id)
         return latitude, longitude
 
-    def _get_position_by_station_id(self, station_id: str) -> tuple[float, float, float | None]:
+    def _get_position_by_station_id(
+        self,
+        station_id: str,
+        *,
+        df_all: pl.DataFrame | None = None,
+    ) -> tuple[float, float, float | None]:
         """Get the coordinates and the elevation of a station.
 
         The elevation comes along because naming a point by a station names its altitude too, which
@@ -980,7 +1039,9 @@ class TimeseriesRequest:
 
         """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
-        stations = self.all().df.filter(pl.col("station_id").eq(station_id))
+        if df_all is None:
+            df_all = self.all().df
+        stations = df_all.filter(pl.col("station_id").eq(station_id))
         if stations.is_empty():
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg)

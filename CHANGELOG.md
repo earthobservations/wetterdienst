@@ -26,6 +26,10 @@ Types of changes:
 
 ### Fixed
 
+- `interpolate`, `summarize` and their `_by_station_id` variants build a provider's station list
+  once, not two or three times: on a cold cache that is a round of upstream requests fewer, for
+  DWD observation the station description files and the file index per period. `filter_by_rank`
+  and `filter_by_distance` take the station list as an optional `df_all` (GH-2506)
 - `/api/stations`, `/api/values`, `/api/interpolate`, `/api/summarize`, `/api/history` and
   `/api/issues` log an unknown provider or network as one info line, as do the first five for a
   network without stations or values (`dwd/radar`, `dwd/alerts`), and `/api/history` one without
