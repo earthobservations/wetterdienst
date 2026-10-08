@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `wetterdienst about coverage --resolutions=...` or `--datasets=...` without `--provider` and
+  `--network` printed the catalogue of every provider with the filter dropped; it is now a usage
+  error (exit 2) naming the options it needs, as `/api/coverage` and the MCP `coverage` tool already
+  answer it with a 400. Add both options, or drop the filter (GH-2527)
 - `Settings` logs its `Wetterdienst cache is ...` line, and the `ts_drop_nulls` notice for a wide
   shape, once when built, no longer again on every field assignment or
   `Settings.model_validate(settings)`. A `ts_shape` assigned later logs nothing (GH-2504)
