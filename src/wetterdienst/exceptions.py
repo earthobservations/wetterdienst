@@ -38,9 +38,10 @@ class InvalidTimeIntervalError(ValueError):
 class ReversedTimeIntervalError(StartDateEndDateError):
     """Raised when a request's window ends before it starts.
 
-    Told apart from its parent so that the REST API and the MCP tools, whose callers pass the window as
-    one ``timestamp`` and know nothing of a request's ``start`` and ``end``, can word the refusal their
-    own way. Python callers get the request's message.
+    Told apart from its parent so that the REST API, the MCP tools and the command line, whose callers
+    pass the window as ``timestamp`` or ``--timestamp`` / ``--start`` / ``--end`` and know nothing of a
+    request's ``start`` and ``end``, can word the refusal their own way. Python callers get the
+    request's message.
     """
 
 
