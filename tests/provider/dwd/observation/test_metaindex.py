@@ -3,6 +3,8 @@
 """Tests for DWD observation meta index creation."""
 
 import datetime as dt
+import zipfile
+from io import BytesIO
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -12,6 +14,7 @@ import pytest
 from wetterdienst import Settings
 from wetterdienst.exceptions import MetaFileFormatError, MetaFileNotFoundError
 from wetterdienst.metadata.period import Period
+from wetterdienst.provider.dwd.observation import metaindex
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.metaindex import (
@@ -19,6 +22,7 @@ from wetterdienst.provider.dwd.observation.metaindex import (
     _read_meta_df_urban,
     create_meta_index_for_climate_observations,
 )
+from wetterdienst.util.network import File
 
 
 @pytest.mark.remote
@@ -151,3 +155,61 @@ def test_missing_meta_file_skipped(default_settings: Settings) -> None:
             settings=default_settings,
         ).all()
         assert request.df.is_empty()
+
+
+def _geography_zip(station_id: str, lines: list[str]) -> BytesIO:
+    """Pack a ``Metadaten_Geographie_<id>.txt`` the way DWD's 1-minute ``meta_data`` zips carry it."""
+    header = "Stations_id;Stationshoehe;Geogr.Breite;Geogr.Laenge;von_datum;bis_datum;Stationsname"
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(f"Metadaten_Geographie_{station_id}.txt", "\n".join([header, *lines]) + "\n")
+    buffer.seek(0)
+    return buffer
+
+
+def test_meta_index_1mph_leaves_an_open_station_without_an_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a station still reporting has a null ``end_timestamp`` in the 1-minute precipitation index.
+
+    DWD leaves ``bis_datum`` blank (eight spaces) on the position a station still stands at. The
+    index filled that blank with the day before the call, so the end moved every day and a caller
+    could not tell an open station from one that closed the day before.
+    """
+    base = (
+        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/meta_data/"
+    )
+    zips = {
+        "01048": _geography_zip(
+            "01048",
+            [
+                "  1048;  227.00; 51.1280; 13.7543;20120302;20190813;Dresden-Klotzsche",
+                "  1048;  227.57; 51.1278; 13.7543;20190814;        ;Dresden-Klotzsche",
+            ],
+        ),
+        "00003": _geography_zip("00003", ["     3;  202.00; 50.7827;  6.0941;18910101;20110331;Aachen"]),
+    }
+    file_index = pl.LazyFrame(
+        {
+            "filename": [f"Meta_Daten_ein_min_rr_{station_id}.zip" for station_id in zips],
+            "url": [f"{base}Meta_Daten_ein_min_rr_{station_id}.zip" for station_id in zips],
+        },
+    )
+    regions = pl.LazyFrame({"station_id": ["00003", "01048"], "region": ["Nordrhein-Westfalen", "Sachsen"]})
+
+    def _download_files(urls: list[str], **_: object) -> list[File]:
+        return [File(url=url, content=zips[url.rsplit("_", 1)[-1].removesuffix(".zip")], status=200) for url in urls]
+
+    monkeypatch.setattr(metaindex, "_create_file_index_for_dwd_server", lambda *_, **__: file_index)
+    monkeypatch.setattr(metaindex, "download_files", _download_files)
+    monkeypatch.setattr(metaindex, "_create_meta_index_for_climate_observations", lambda *_, **__: regions)
+
+    df = create_meta_index_for_climate_observations(
+        dataset=DwdObservationMetadata.minute_1.precipitation,
+        period=Period.HISTORICAL,
+        settings=Settings(),
+    ).collect()
+
+    assert df.select("station_id", "start_timestamp", "end_timestamp").rows() == [
+        ("00003", dt.datetime(1891, 1, 1, tzinfo=ZoneInfo("UTC")), dt.datetime(2011, 3, 31, tzinfo=ZoneInfo("UTC"))),
+        ("01048", dt.datetime(2012, 3, 2, tzinfo=ZoneInfo("UTC")), None),
+    ]
+    assert df.schema["end_timestamp"] == pl.Datetime(time_zone="UTC")

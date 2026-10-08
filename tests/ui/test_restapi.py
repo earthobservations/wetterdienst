@@ -23,6 +23,7 @@ from wetterdienst import Settings, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
+from wetterdienst.ui.mcp import _TOOL_NAMES
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
 
 if TYPE_CHECKING:
@@ -6675,29 +6676,26 @@ def test_mcp_date_is_refused_naming_timestamp(
 
 
 def test_mcp_date_is_left_to_a_tool_without_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A tool not taking `timestamp` is not told `date` was renamed to it: it took neither (GH-2438)."""
+    """A tool not taking `timestamp` is not told `date` was renamed to it: it took neither (GH-2438).
+
+    It refuses `date` as an argument it does not take, as any other (GH-2479).
+    """
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415
 
     from fastmcp import Client  # noqa: PLC0415
     from fastmcp.exceptions import ToolError  # noqa: PLC0415
 
-    from wetterdienst.exceptions import ApiNotFoundError  # noqa: PLC0415
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
-    def no_such_api(*_args: object, **_kwargs: object) -> None:
-        msg = "reached the provider lookup"
-        raise ApiNotFoundError(msg)
-
-    monkeypatch.setattr(restapi, "Wetterdienst", no_such_api)
+    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
     mcp = build_mcp_server(restapi.app)
 
     async def _call() -> None:
         async with Client(mcp) as client:
             await client.call_tool("stations", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
 
-    # the stations tool goes on to the provider lookup, which the stub answers with a 404
-    with pytest.raises(ToolError, match="reached the provider lookup") as error:
+    with pytest.raises(ToolError, match=r"^date is not an argument of stations, which takes all, ") as error:
         asyncio.run(_call())
     assert "renamed" not in str(error.value)
 
@@ -6715,3 +6713,213 @@ def test_stations_output_schemas_name_the_span_as_the_frame_does(client: TestCli
         branches = schema["properties"][field].get("anyOf", [schema["properties"][field]])
         assert {branch.get("type") for branch in branches} == {"string", "null"}, f"{schema_name}.{field}"
     assert not {"start_date", "end_date"} & set(schema["properties"])
+
+
+# each endpoint whose query parameters were taken loose, with a request it would otherwise serve,
+# and what of it a refused request must not reach (GH-2479)
+_LOOSE_ENDPOINTS = [
+    pytest.param("/api/coverage", {}, "Wetterdienst", id="coverage"),
+    pytest.param("/api/glossary", {"parameter": "temperature_air_mean_2m"}, "get_glossary", id="glossary"),
+    pytest.param("/api/stripes/stations", {"kind": "temperature"}, "_get_stripes_stations", id="stripes-stations"),
+    pytest.param("/api/alerts", {}, None, id="alerts"),
+]
+
+
+@pytest.mark.parametrize(("endpoint", "query", "fetch"), _LOOSE_ENDPOINTS)
+def test_unknown_parameter_is_refused(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    query: dict[str, object],
+    fetch: str | None,
+) -> None:
+    """An endpoint refuses a parameter it does not take, as `/api/stations` does, before fetching anything (GH-2479).
+
+    Taken loose, a misspelt parameter was passed over, and the request answered as if it had not
+    been given: `/api/glossary` with `limt=1` with every match.
+    """
+    if fetch is not None:
+        monkeypatch.setattr(restapi, fetch, _fail_to_fetch)
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _refuse_to_fetch_alerts)
+
+    response = client.get(endpoint, params={**query, "limt": "1"})
+
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == [
+        {
+            "type": "extra_forbidden",
+            "loc": ["query", "limt"],
+            "msg": "Extra inputs are not permitted",
+            "input": "1",
+        }
+    ]
+
+
+@pytest.mark.parametrize("tool", sorted(_TOOL_NAMES.values()))
+def test_mcp_unknown_argument_is_refused(monkeypatch: pytest.MonkeyPatch, tool: str) -> None:
+    """Every tool refuses an argument it does not take, naming the ones it does (GH-2479).
+
+    FastMCP sends the endpoint only the arguments the tool's schema names, so the endpoint's own
+    refusal never saw it: the call was answered as if the argument had not been given.
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _refuse_to_fetch_alerts)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(tool, {"bogus": "x"})
+
+    with pytest.raises(ToolError, match=rf"^bogus is not an argument of {tool}, which takes \w+(, \w+)* and \w+$"):
+        asyncio.run(_call())
+
+
+def test_mcp_renamed_argument_is_named_beside_an_unknown_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A renamed argument is refused naming the new one even beside an unknown one (GH-2438, GH-2479)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(
+                "values", {**_OBSERVATION, "station": "01048", "date": "2020-06-30", "bogus": "x", "limt": 1}
+            )
+
+    with pytest.raises(
+        ToolError,
+        match=r"^date was renamed to timestamp; bogus and limt are not arguments of values, which takes all, ",
+    ):
+        asyncio.run(_call())
+
+
+def test_mcp_known_arguments_reach_the_endpoint() -> None:
+    """A call giving only arguments its tool takes is answered by the endpoint (GH-2479)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> list[dict[str, object]]:
+        async with Client(mcp) as client:
+            result = await client.call_tool("glossary", {"parameter": "temperature_air_mean_2m", "limit": 1})
+        return result.structured_content["result"]
+
+    (entry,) = asyncio.run(_call())
+    assert "temperature_air_mean_2m" in entry["name"]
+
+
+def _query_endpoints() -> list[str]:
+    """Name every endpoint of the REST API taking query parameters."""
+    return [
+        path
+        for path, operations in restapi.app.openapi()["paths"].items()
+        if any(parameter["in"] == "query" for parameter in operations.get("get", {}).get("parameters", []))
+    ]
+
+
+@pytest.mark.parametrize("endpoint", _query_endpoints())
+def test_every_endpoint_refuses_an_unknown_parameter(client: TestClient, endpoint: str) -> None:
+    """Every endpoint taking query parameters refuses one it does not take (GH-2479).
+
+    An endpoint taking its parameters loose, rather than as a model forbidding others, passes over
+    one it does not know, as four of them and `/api/auth` did. The required parameters this request
+    leaves out are reported missing beside it.
+    """
+    response = client.get(endpoint, params={"limt": "1"})
+
+    assert response.status_code == 422, response.text
+    assert {
+        "type": "extra_forbidden",
+        "loc": ["query", "limt"],
+        "msg": "Extra inputs are not permitted",
+        "input": "1",
+    } in (response.json()["detail"])
+
+
+@pytest.mark.parametrize(
+    ("params", "detail"),
+    [
+        pytest.param(
+            {**_OBSERVATION, "station": "01048", "timestamp": "foo"},
+            "date_string foo could not be parsed",
+            id="unparseable-date",
+        ),
+        pytest.param(
+            {**_OBSERVATION, "station": "01048", "timestamp": "2020/2021/2022"},
+            "Invalid ISO 8601 time interval",
+            id="three-part-interval",
+        ),
+        pytest.param(
+            {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
+            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            id="unknown-parameter",
+        ),
+        pytest.param(
+            {**_OBSERVATION, "station": "01048", "periods": "foo"},
+            "foo could not be parsed from Period.",
+            id="unknown-period",
+        ),
+    ],
+)
+def test_values_every_refusal_of_the_request_is_logged_as_info(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+    params: dict[str, str],
+    detail: str,
+) -> None:
+    """A request `/api/values` refuses is a 400 and one info line, as the geo endpoints log it (GH-2459).
+
+    Only a parameter the run does not carry and a window the wrong way round earned an info line;
+    every other refusal the endpoint answers with a 400 was logged as an error with its traceback.
+    """
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get("/api/values", params=params)
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+    records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [
+        (logging.INFO, f"Failed to get values: {detail}")
+    ]
+    assert not any(record.exc_info for record in records)
+
+
+def test_values_a_failure_that_is_not_a_refusal_is_still_logged_with_its_traceback(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """What is not the caller's to fix stays a 500 and an error with its traceback (GH-2459)."""
+    msg = "can only call '.item()' if the dataframe has a single element"
+
+    def fail() -> None:
+        raise ValueError(msg)
+
+    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get("/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
+    assert response.status_code == 500
+    assert response.json()["detail"] == msg
+    records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [(logging.ERROR, "Failed to get values.")]
+    assert records[0].exc_info

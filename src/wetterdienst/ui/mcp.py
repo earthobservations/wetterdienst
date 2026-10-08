@@ -9,7 +9,8 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
 - a core ``instructions`` block describing the station -> values workflow, the DWD defaults, the
   parameter syntax and how to read results (so agents don't re-request the same data in different
   formats),
-- clean tool names (``values`` instead of ``values_api_values_get``), and
+- clean tool names (``values`` instead of ``values_api_values_get``),
+- the refusal of an argument a tool does not take, which FastMCP would drop, and
 - exclusion of the non-data endpoints (index, robots, health, version, auth, settings) so the tool
   list stays focused. The settings a data tool used come back in its own answer with
   ``with_metadata``.
@@ -130,7 +131,8 @@ timestamp is the LAST item of its group, not the last item of the array.
 - Responses are compact by default (just the `values`). Keep them small (and answer in fewer calls) \
 by querying a single "resolution/dataset/parameter" and -- if you only need one day -- a \
 `timestamp` (e.g. timestamp="2026-07-25"; a station's most recent day is its `end_timestamp` from \
-`stations`). A date covers everything it names, so a day of hourly data is that day's 24 readings, \
+`stations` where it has one; a null one means the provider gives no end, not that the data reaches \
+today). A date covers everything it names, so a day of hourly data is that day's 24 readings, \
 "2026-07" is the month and "2026" the year; name the hour (timestamp="2026-07-25T12") for a single \
 reading.
 - The default JSON is already machine-readable — do NOT re-request the same data in a different \
@@ -171,36 +173,47 @@ _TOOL_NAMES = {
 }
 
 
-def _refuse_renamed_arguments(provider: OpenAPIProvider) -> Middleware:
-    """Build the middleware that refuses a tool argument given by its old name, naming the new one.
+def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
+    """Build the middleware that refuses a tool argument the tool does not take.
 
     A tool's arguments are its REST endpoint's query parameters, and FastMCP sends the endpoint
-    only the ones the tool's schema names: an argument by a name since renamed would be dropped,
-    and the call answered as if it had not been given -- a dated `values` call as an undated one.
-    A tool of `provider` taking the new name refuses the old one, as its endpoint does (GH-2438).
+    only the ones the tool's schema names, dropping the rest: an argument the tool does not take
+    never reached the endpoint's refusal, and the call was answered as if it had not been given
+    (GH-2479). An argument by a name since renamed is refused naming the new one, where the tool
+    takes it, as its endpoint does (GH-2438).
+
+    The input schemas are left without `additionalProperties: false`: a client checking a call
+    against that would refuse a renamed argument itself, without the name it was renamed to.
     """
     from fastmcp.exceptions import ToolError  # noqa: PLC0415
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
 
-    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS  # noqa: PLC0415
+    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS, join_names  # noqa: PLC0415
 
-    class RefuseRenamedArguments(Middleware):
+    class RefuseUnknownArguments(Middleware):
         async def on_call_tool(
             self,
             context: MiddlewareContext[Any],
             call_next: CallNext[Any, ToolResult],
         ) -> ToolResult:
             arguments = context.message.arguments or {}
-            renamed = {old: new for old, new in RENAMED_REQUEST_PARAMETERS.items() if old in arguments}
-            if renamed:
-                tool = await provider.get_tool(context.message.name)
-                taken = tool.parameters.get("properties", {}) if tool is not None else {}
-                refused = [f"{old} was renamed to {new}" for old, new in renamed.items() if new in taken]
+            # a call without arguments has none to refuse, and one to no tool is FastMCP's to refuse
+            tool = await provider.get_tool(context.message.name) if arguments else None
+            if tool is not None:
+                taken = tool.parameters.get("properties", {})
+                unknown = [name for name in arguments if name not in taken]
+                renamed = [name for name in unknown if RENAMED_REQUEST_PARAMETERS.get(name) in taken]
+                refused = [f"{name} was renamed to {RENAMED_REQUEST_PARAMETERS[name]}" for name in renamed]
+                if others := [name for name in unknown if name not in renamed]:
+                    verb = "is not an argument" if len(others) == 1 else "are not arguments"
+                    refused.append(
+                        f"{join_names(others)} {verb} of {tool.name}, which takes {join_names(sorted(taken))}"
+                    )
                 if refused:
                     raise ToolError("; ".join(refused))
             return await call_next(context)
 
-    return RefuseRenamedArguments()
+    return RefuseUnknownArguments()
 
 
 def build_mcp_server(rest_app: FastAPI) -> FastMCP:
@@ -252,5 +265,5 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         instructions=INSTRUCTIONS,
         providers=[provider],
         lifespan=lifespan,
-        middleware=[_refuse_renamed_arguments(provider)],
+        middleware=[_refuse_unknown_arguments(provider)],
     )
