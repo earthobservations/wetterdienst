@@ -1586,3 +1586,122 @@ def test_dwd_road_weather_impossible_temperature_keeps_the_reading() -> None:
     df = api._flag_impossible_temperatures(readings, "a-group")  # noqa: SLF001
 
     assert df.get_column("value").eq(published).all()
+
+
+_FAILED_DOWNLOAD_FILES = (
+    "swis2-ISXD70_DWDD_131200-2609131200-DD---bin",
+    "swis2-ISXD70_DWDD_131215-2609131215-DD---bin",
+)
+
+
+def _stub_downloads(
+    monkeypatch: pytest.MonkeyPatch,
+    contents: list[BytesIO | Exception],
+    status: int = 500,
+) -> None:
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    files = [
+        File(
+            url=f"https://example.com/road/DD/{name}",
+            content=content,
+            status=200 if isinstance(content, BytesIO) else status,
+        )
+        for name, content in zip(_FAILED_DOWNLOAD_FILES, contents, strict=True)
+    ]
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: list(_FAILED_DOWNLOAD_FILES))
+    monkeypatch.setattr(api, "download_files", lambda **_kwargs: files)
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_raises_when_every_download_of_a_group_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A group whose every file failed to download is an error, not a group with nothing published.
+
+    A failed download comes back as a `File` carrying its exception and no bytes, which the 142-byte
+    filter for the empty files of GH-1526 dropped as it drops an empty file -- so a 403 or a timeout
+    on every file answered with an empty frame and, at the default verbosity, not a word.
+    """
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+
+    _stub_downloads(monkeypatch, [ConnectionError("x"), ConnectionError("x")])
+    with pytest.raises(DownloadError, match=r"example\.com/road/DD/swis2-ISXD70_DWDD_131200"):
+        _stub_stations().values.all()
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_does_not_raise_for_no_internet(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """No connection stays an empty answer, as `File.raise_if_exception` has it everywhere else."""
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+
+    _stub_downloads(monkeypatch, [NoInternetError("x"), NoInternetError("x")])
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.road.api"):
+        df = _stub_stations().values.all().df
+
+    assert df.is_empty()
+    assert "2 of 2 files of DD could not be downloaded" in caplog.text
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_warns_for_files_that_failed_among_files_that_arrived(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A window with some files missing returns the readings it has and says how many it lacks."""
+    reading = _flat({"#1#shortStationName": "A006", "#1#airTemperature": 12.0})
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
+    _stub_downloads(monkeypatch, [BytesIO(b"x" * 500), ConnectionError("x")])
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.road.api"):
+        df = _stub_stations().values.all().df
+
+    # the one file that arrived is read, converted from the kelvin DWD publishes
+    assert df.drop_nulls("value").get_column("value").to_list() == [pytest.approx(12.0 - 273.15)]
+    assert "1 of 2 files of DD could not be downloaded" in caplog.text
+    assert _FAILED_DOWNLOAD_FILES[1] in caplog.text
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_still_drops_a_142_byte_file_that_downloaded(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The empty files of GH-1526 answered 200 with 142 bytes: they stay skipped, and are not failures."""
+    _stub_downloads(monkeypatch, [BytesIO(b"x" * 142), BytesIO(b"x" * 142)])
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.road.api"):
+        df = _stub_stations().values.all().df
+
+    assert df.is_empty()
+    assert "could not be downloaded" not in caplog.text
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_files_withdrawn_since_the_listing_are_warned_about(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A 404 is a file DWD removed after the listing was read: an empty answer and a warning, not an error."""
+    _stub_downloads(monkeypatch, [FileNotFoundError("x"), FileNotFoundError("x")], status=404)
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.road.api"):
+        df = _stub_stations().values.all().df
+
+    assert df.is_empty()
+    assert "2 of 2 files of DD could not be downloaded" in caplog.text
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_404_does_not_hide_the_failure_beside_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One withdrawn file among files that failed otherwise is still an outage."""
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    first, second = _FAILED_DOWNLOAD_FILES
+    files = [
+        File(url=f"https://example.com/road/DD/{first}", content=FileNotFoundError("x"), status=404),
+        File(url=f"https://example.com/road/DD/{second}", content=ConnectionError("x"), status=500),
+    ]
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: list(_FAILED_DOWNLOAD_FILES))
+    monkeypatch.setattr(api, "download_files", lambda **_kwargs: files)
+    with pytest.raises(DownloadError, match=second):
+        _stub_stations().values.all()

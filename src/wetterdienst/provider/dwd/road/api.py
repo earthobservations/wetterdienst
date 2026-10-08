@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from functools import reduce
+from http import HTTPStatus
 from typing import TYPE_CHECKING, ClassVar
 from urllib.parse import urljoin
 
@@ -954,6 +955,26 @@ class DwdRoadValues(TimeseriesValues):
             cache_disable=self.sr.settings.cache_disable,
             use_certifi=self.sr.settings.use_certifi,
         )
+        # a failed download carries its exception and no bytes, so the size filter below would drop it
+        # as it drops an empty file, and a group whose every download failed -- a 403, a timeout --
+        # would read as a group with nothing published
+        failed = [file for file in files if isinstance(file.content, Exception)]
+        if failed and len(failed) == len(files):
+            # a 404 is a file DWD has withdrawn since the listing was read, which is warned about
+            # below; any other failure is raised. A `NoInternetError` is let through: it is also what
+            # a failed connection or certificate check is stored as (GH-2553)
+            for file in failed:
+                if file.status != HTTPStatus.NOT_FOUND:
+                    file.raise_if_exception()
+        if failed:
+            # the readings of the files that arrived are returned, and those of the others are
+            # missing: a gap in the window, which can also keep a stuck sensor below the count of
+            # readings that marks it
+            log.warning(
+                f"{len(failed)} of {len(files)} files of {road_weather_station_group.value} could not be "
+                f"downloaded and their readings are missing (first: {failed[0].filename}, "
+                f"{type(failed[0].content).__name__})",
+            )
         # files may be empty, see https://github.com/earthobservations/wetterdienst/issues/1526
         # -> those files had only 142 bytes
         # -> skip empty files with equal or less size

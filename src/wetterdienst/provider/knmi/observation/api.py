@@ -113,7 +113,8 @@ def _download_with_retry(url: str, settings: Settings, ttl: CacheExpiry, *, clie
     """Download a URL, retrying on retryable failures (rate limiting, transient network errors).
 
     Mirrors AEMET's retry design: a deliberately modest couple of short-backoff
-    retries, not an attempt to wait out a sustained outage.
+    retries, not an attempt to wait out a sustained outage. A failure `download_file`
+    classes as no network (`File.is_no_internet_error`) is not retried here.
     """
     last_file: File | None = None
     with contextlib.suppress(_KnmiRetryableError):
@@ -133,7 +134,13 @@ def _download_with_retry(url: str, settings: Settings, ttl: CacheExpiry, *, clie
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
-                if isinstance(last_file.content, Exception) and last_file.status not in _NON_RETRYABLE_STATUSES:
+                # no network is not a blip two more retries clear: report it at once, as an
+                # offline listing does (the 503 `download_file` gives it would otherwise match)
+                if (
+                    isinstance(last_file.content, Exception)
+                    and not last_file.is_no_internet_error
+                    and last_file.status not in _NON_RETRYABLE_STATUSES
+                ):
                     log.warning(
                         f"Retryable KNMI failure (status={last_file.status}) for {_redact(url)}: "
                         f"{last_file.content}; retrying",

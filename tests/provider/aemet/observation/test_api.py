@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.aemet.observation.api import (
     AemetObservationRequest,
@@ -453,3 +454,45 @@ def test_aemet_observation_permanent_failure_not_retried(monkeypatch: pytest.Mon
     )
     assert result.status == 404
     assert len(calls) == 1
+
+
+def test_aemet_observation_no_internet_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A download that failed for want of a network is returned at once, not retried."""
+    calls = []
+
+    def offline(**_kwargs: object) -> File:
+        calls.append(1)
+        return File(url="url", content=NoInternetError("no route to host"), status=503)
+
+    monkeypatch.setattr("wetterdienst.provider.aemet.observation.api.download_file", offline)
+    result = _download_with_rate_limit_retry(
+        "https://example.org",
+        Settings(),
+        CacheExpiry.NO_CACHE,
+        wait_initial=0.01,
+        wait_max=0.01,
+        max_retries=2,
+    )
+    assert result.is_no_internet_error
+    assert len(calls) == 1
+
+
+def test_aemet_observation_plain_503_still_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 503 that is not a missing network (an overloaded server) keeps its retries."""
+    calls = []
+
+    def overloaded(**_kwargs: object) -> File:
+        calls.append(1)
+        return File(url="url", content=Exception("service unavailable"), status=503)
+
+    monkeypatch.setattr("wetterdienst.provider.aemet.observation.api.download_file", overloaded)
+    result = _download_with_rate_limit_retry(
+        "https://example.org",
+        Settings(),
+        CacheExpiry.NO_CACHE,
+        wait_initial=0.01,
+        wait_max=0.01,
+        max_retries=2,
+    )
+    assert not result.is_no_internet_error
+    assert len(calls) == 3
