@@ -134,7 +134,8 @@ def _download_with_rate_limit_retry(
     """Download a URL, retrying on retryable AEMET failures.
 
     Retries both the per-minute rate limit (429) and transient network failures
-    (timeouts, connection resets, TLS handshake drops, etc.).
+    (timeouts, connection resets, etc.). A failure `download_file` classes as no network
+    (`File.is_no_internet_error`) is returned at once.
 
     download_file() already retries transiently via stamina internally, but with a very
     short, generic backoff -- not enough to reliably clear either failure mode observed

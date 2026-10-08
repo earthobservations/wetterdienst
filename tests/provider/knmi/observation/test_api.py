@@ -342,6 +342,7 @@ def test_knmi_download_retry_gives_up_eventually(monkeypatch: pytest.MonkeyPatch
     result = _download_with_retry("https://example.org", Settings(), CacheExpiry.NO_CACHE)
     assert result.status == 503
     assert isinstance(result.content, Exception)
+    assert not result.is_no_internet_error
     assert len(calls) == 3  # 1 initial attempt + 2 retries, then gives up
 
 
@@ -481,17 +482,3 @@ def test_knmi_download_no_internet_not_retried(monkeypatch: pytest.MonkeyPatch) 
     result = _download_with_retry("https://example.org", Settings(), CacheExpiry.NO_CACHE)
     assert result.is_no_internet_error
     assert len(calls) == 1
-
-
-def test_knmi_download_plain_503_still_retried(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A 503 that is not a missing network (an overloaded server) keeps its retries."""
-    calls = []
-
-    def overloaded(**_kwargs: object) -> File:
-        calls.append(1)
-        return File(url="url", content=Exception("service unavailable"), status=503)
-
-    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api.download_file", overloaded)
-    result = _download_with_retry("https://example.org", Settings(), CacheExpiry.NO_CACHE)
-    assert not result.is_no_internet_error
-    assert len(calls) == 3
