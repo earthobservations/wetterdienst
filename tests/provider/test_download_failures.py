@@ -90,8 +90,11 @@ def _ipma(module: Any) -> object:  # noqa: ANN401
 
 
 def _dmi(module: Any) -> object:  # noqa: ANN401
-    values = _values(module.DmiObservationValues)
-    return list(values._iter_station_value_pages("06180", "hour", "start", "end", _settings()))  # noqa: SLF001
+    # the read as a whole: the pager raises `NoInternetError` for the collect to end the windows quietly
+    start = dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))
+    values = _values(module.DmiObservationValues, start=start, end=start + dt.timedelta(days=1))
+    dataset = module.DmiObservationMetadata["hourly"].datasets[0]
+    return values._collect_station_parameter_or_dataset("06180", dataset)  # noqa: SLF001
 
 
 def _rmi(module: Any) -> object:  # noqa: ANN401

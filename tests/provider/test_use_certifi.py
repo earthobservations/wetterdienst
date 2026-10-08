@@ -110,12 +110,11 @@ def _ea(monkeypatch: pytest.MonkeyPatch) -> Seen:
 
 
 def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> Seen:
-    """Request the station list, each way to a station's values, and the credential probe.
+    """Request the station list, the values by each way to them, and the credential probe.
 
-    The two fallbacks past the first values request are meant for a 404 from Frost, but they are
-    called directly here. `download_file` reports a 404 as an exception with no body, and the
-    values request reads that as empty and returns before it checks the status, so a 404 from the
-    stub would not reach them.
+    The 6-hourly precipitation is requested because its dataset holds that one parameter: a 404
+    for the request of the dataset is followed by the request of the parameter alone, and a 404
+    for that by the discovery of its time series.
     """
     from wetterdienst.provider.metno.frost import MetnoFrostRequest  # noqa: PLC0415
     from wetterdienst.provider.metno.frost import api as frost_api  # noqa: PLC0415
@@ -148,17 +147,14 @@ def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> Seen:
             return _ok(url, json.dumps(sources).encode())
         if "/availableTimeSeries/" in url:
             return _ok(url, json.dumps(available).encode())
-        # no data for the window, which ends each path without a further request
-        return File(url=url, content=FileNotFoundError(url), status=412)
+        # no data for the window, which ends the discovered series without a further request
+        if "timeseriesids=" in url:
+            return File(url=url, content=FileNotFoundError(url), status=412)
+        return File(url=url, content=FileNotFoundError(url), status=404)
 
     seen = _record(monkeypatch, frost_api, answer)
-    request = MetnoFrostRequest(parameters=[("hourly", "data", "temperature_air_mean_2m")], start=START, end=END)
-    values = request.filter_by_station_id("SN18700").values
-    values.all()
-    parameter = request.parameters[0]
-    settings = request.settings
-    values._collect_single_parameter("SN18700", parameter, START, END, settings, {})  # noqa: SLF001
-    values._collect_via_time_series_discovery("SN18700", parameter, START, END, settings, {})  # noqa: SLF001
+    request = MetnoFrostRequest(parameters=[("6_hour", "data", "precipitation_amount")], start=START, end=END)
+    request.filter_by_station_id("SN18700").values.all()
     MetnoFrostRequest.is_valid()
     return seen
 
