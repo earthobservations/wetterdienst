@@ -500,14 +500,11 @@ class MetnoFrostValues(TimeseriesValues):
         if file.is_no_internet_error or file.status == 412:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # 404: one or more elements may require specific time-series parameters (e.g.
-        # historical synoptic data). Fall back to resolving each parameter individually.
+        # historical synoptic data). Fall back to resolving each requested parameter individually.
         if file.status == 404:
-            frames = [
-                self._collect_single_parameter(station_id, parameter, start_date, end_date, settings, client_kwargs)
-                for parameter in parameters
-            ]
-            frames = [frame for frame in frames if not frame.is_empty()]
-            return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return self._collect_after_batch_404(
+                station_id, dataset, parameters, start_date, end_date, settings, client_kwargs
+            )
         if isinstance(file.content, Exception):
             log.warning(f"Failed to download {url}: {file.content}")
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
@@ -540,6 +537,36 @@ class MetnoFrostValues(TimeseriesValues):
                 pl.col("qualityCode").cast(pl.Float64).alias("quality"),
             ),
         )
+
+    def _collect_after_batch_404(
+        self,
+        station_id: str,
+        dataset: DatasetModel,
+        batched: list[ParameterModel],
+        start_date: datetime,
+        end_date: datetime,
+        settings: Settings,
+        client_kwargs: dict,
+    ) -> pl.DataFrame:
+        """Resolve the requested parameters one by one after the request for `batched` 404'd.
+
+        Only the parameters that were asked for: the batch fetched the whole dataset, but its extra
+        rows are dropped later, so resolving them would spend requests on nothing. A batch of one
+        element is the single request itself, which just 404'd, so that goes straight to discovery.
+        """
+        requested = {
+            parameter.name_original
+            for parameter in self.sr.parameters
+            if (parameter.dataset.resolution.name, parameter.dataset.name) == (dataset.resolution.name, dataset.name)
+        }
+        resolve = self._collect_via_time_series_discovery if len(batched) == 1 else self._collect_single_parameter
+        frames = [
+            resolve(station_id, parameter, start_date, end_date, settings, client_kwargs)
+            for parameter in batched
+            if parameter.name_original in requested
+        ]
+        frames = [frame for frame in frames if not frame.is_empty()]
+        return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
     def _collect_single_parameter(
         self,
