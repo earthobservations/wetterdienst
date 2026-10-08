@@ -3672,10 +3672,10 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
             id="history-unknown-parameter",
         ),
         pytest.param(
-            "/api/history",
+            "/api/values",
             {"provider": "eccc", "network": "observation", "parameters": "hourly/data", "all": "true"},
-            "Start and end date required for single period datasets",
-            id="history-dataset-listed-only-for-a-date",
+            "timestamp is required for this dataset",
+            id="values-dataset-listed-only-for-a-date",
         ),
         pytest.param(
             "/api/issues",
@@ -7018,6 +7018,56 @@ def test_values_a_failure_that_is_not_a_refusal_is_still_logged_with_its_traceba
     assert records[0].exc_info
 
 
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param({"provider": "foo", "network": "bar"}, id="unknown-provider"),
+        pytest.param({"provider": "dwd", "network": "nope"}, id="unknown-network"),
+    ],
+)
+def test_coverage_unknown_provider_or_network_is_a_404(client: TestClient, params: dict[str, str]) -> None:
+    """An unknown provider or network is a 404 pointing at the coverage listing, as in /api/auth (GH-2496)."""
+    response = client.get("/api/coverage", params=params)
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Choose provider and network from /api/coverage"}
+
+
+def test_coverage_missing_provider_dependency_is_a_404(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A provider module that cannot be imported answers the same 404 as an unknown one (GH-2496)."""
+
+    def fail(*_args: object) -> None:
+        msg = "Module wetterdienst.provider.foo not found."
+        raise ImportError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.resolve", fail)
+    response = client.get("/api/coverage", params={"provider": "dwd", "network": "observation"})
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Choose provider and network from /api/coverage"}
+
+
+def test_coverage_all_providers_honours_pretty(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The list of every provider is compact unless pretty is set, like the per-network listing (GH-2496)."""
+    # discover() probes the providers whose credentials are configured, which reaches upstream
+    monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.discover", lambda: {"dwd": {"observation": {}}})
+    compact = client.get("/api/coverage")
+    pretty = client.get("/api/coverage", params={"pretty": "true"})
+    assert compact.status_code == pretty.status_code == 200
+    assert "\n" not in compact.text
+    assert pretty.text.startswith('{\n    "')
+    assert compact.json() == pretty.json()
+
+
+@pytest.mark.parametrize("params", [{"resolutions": "daily"}, {"datasets": "climate_summary"}])
+def test_coverage_filter_without_provider_and_network_is_a_400(client: TestClient, params: dict[str, str]) -> None:
+    """A resolutions or datasets filter has nothing to narrow without a provider and network (GH-2496)."""
+    response = client.get("/api/coverage", params=params)
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "'resolutions' and 'datasets' narrow the coverage of one provider and network, so "
+        "'provider' and 'network' must be given with them.",
+    }
+
+
 @pytest.mark.parametrize("limit", [0, -5])
 def test_glossary_limit_below_one_is_refused(client: TestClient, limit: int) -> None:
     """A limit of 0 or below is a 422, not the one entry `get_glossary` appended before comparing (GH-2497)."""
@@ -7103,3 +7153,46 @@ def test_mcp_a_dataset_queried_by_a_window_without_a_timestamp_names_timestamp(
     with pytest.raises(ToolError, match="HTTP error 400") as error:
         asyncio.run(_call())
     assert "timestamp is required for this dataset" in str(error.value)
+
+
+@pytest.mark.parametrize("network", ["alerts", "radar"])
+@pytest.mark.parametrize(
+    ("endpoint", "selection"),
+    [
+        ("stations", {"all": "true"}),
+        ("values", {"station": "1"}),
+        ("history", {"all": "true"}),
+        ("interpolate", {"station": "1", "timestamp": "2020-01-01"}),
+        ("summarize", {"station": "1", "timestamp": "2020-01-01"}),
+    ],
+)
+def test_timeseries_endpoint_refuses_a_standalone_network(
+    client: TestClient, endpoint: str, selection: dict, network: str
+) -> None:
+    """A network without a metadata model has no stations or values: a 404, not an AttributeError's 500 (GH-2492)."""
+    response = client.get(
+        f"/api/{endpoint}", params={"provider": "dwd", "network": network, "parameters": "x", **selection}
+    )
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == (
+        f"Provider 'dwd' and network '{network}' have no stations or values to request. "
+        "Use /api/coverage to discover available providers and networks."
+    )
+
+
+def test_history_refuses_a_network_without_history_before_the_station_lookup(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A network without station history is refused before its catalogue is downloaded to find out (GH-2492)."""
+
+    def lookup(*_args: object, **_kwargs: object) -> None:
+        msg = "the station lookup was reached"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(restapi, "get_stations", lookup)
+    response = client.get(
+        "/api/history",
+        params={"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "all": "true"},
+    )
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "History not implemented for DwdMosmixRequest"
