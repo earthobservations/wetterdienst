@@ -35,7 +35,7 @@ from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 
 if TYPE_CHECKING:
@@ -94,12 +94,16 @@ class File:
 
         For NoInternetError, logs at debug level and returns silently instead of raising,
         allowing callers to return empty frames rather than propagating the error.
+
+        What is raised is a `DownloadError` naming the file, with the stored exception as its
+        `__cause__`: a timeout's own message is empty, and a dropped connection's or a cut-short
+        body's says nothing of which file it was (GH-2460).
         """
         if isinstance(self.content, NoInternetError):
             log.debug(f"No internet connection available for {self.url}, returning empty result.")
             return
         if isinstance(self.content, Exception):
-            raise self.content
+            raise _download_error(self.content, self.url) from self.content
 
     @property
     def is_no_internet_error(self) -> bool:
@@ -117,6 +121,41 @@ class File:
     def is_empty(self) -> bool:
         """Check if the file content is empty."""
         return self.nbytes == 0
+
+
+def _without_url_secrets(url: str) -> str:
+    """Give back a URL as it can be shown: with no query, no fragment and no user information.
+
+    Either can carry a credential -- a pre-signed URL's signature, an API key, `user:password@` --
+    and what this names travels to whoever asked, a remote caller of the REST API among them. Cut
+    with string operations rather than parsed, so that a malformed URL cannot raise from here.
+    """
+    base = re.split(r"[?#]", url, maxsplit=1)[0]
+    scheme, separator, rest = base.partition("://")
+    if not separator:
+        return base
+    authority, slash, path = rest.partition("/")
+    if "@" in authority:
+        authority = "***@" + authority.rpartition("@")[2]
+    return f"{scheme}://{authority}{slash}{path}"
+
+
+def _download_error(error: Exception, url: str) -> DownloadError:
+    """Say which file a download failed for, and why.
+
+    The reason is built here rather than taken from the error, because the error's own message can
+    hold the URL as requested, query and all: `FileNotFoundError`'s is the URL, and
+    `ClientResponseError`'s ends with it. A response error is told by its status and reason phrase,
+    anything else by its own message unless that is empty or holds a URL, and by the name of its
+    type then.
+    """
+    if isinstance(error, ClientResponseError) and error.status:
+        reason = f"{error.status}, message={error.message!r}"
+    else:
+        reason = str(error)
+    if not reason or "://" in reason:
+        reason = type(error).__name__
+    return DownloadError(_without_url_secrets(url), reason)
 
 
 # Directory names the listings cache used to create under the cache dir but never writes to any

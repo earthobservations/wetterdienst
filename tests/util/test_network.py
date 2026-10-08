@@ -35,7 +35,7 @@ from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
 from pydantic import SecretStr
 
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings, _temporary_cache_dir
 from wetterdienst.util import network
@@ -88,8 +88,9 @@ def test_file_raise_if_exception_no_internet_does_not_raise() -> None:
 def test_file_raise_if_exception_other_exception_raises() -> None:
     """File.raise_if_exception() must still raise for non-NoInternetError exceptions."""
     f = File(url="http://example.com/file.txt", content=FileNotFoundError("not found"), status=404)
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(DownloadError) as caught:
         f.raise_if_exception()
+    assert isinstance(caught.value.__cause__, FileNotFoundError)
 
 
 def test_file_is_no_internet_error_true() -> None:
@@ -2609,3 +2610,94 @@ def test_a_body_cut_short_is_not_read_back_from_the_cache(status_server: Threadi
 
     assert (result.status, type(result.content)) == (500, ClientPayloadError)
     assert status_server.requests == ["GET /truncated", "GET /truncated"]
+
+
+def _response_error(url: str, status: int) -> ClientResponseError:
+    """Build the error aiohttp raises for an answer of `status` to a GET of `url`."""
+    from aiohttp import RequestInfo  # noqa: PLC0415
+    from multidict import CIMultiDict, CIMultiDictProxy  # noqa: PLC0415
+    from yarl import URL  # noqa: PLC0415
+
+    request_info = RequestInfo(URL(url), "GET", CIMultiDictProxy(CIMultiDict()), URL(url))
+    return ClientResponseError(request_info, (), status=status, message="Service Unavailable")
+
+
+_FAILED_URL = "https://example.invalid/data/file.zip"
+
+
+@pytest.mark.parametrize(
+    ("error", "reason"),
+    [
+        pytest.param(FSTimeoutError(), "FSTimeoutError", id="timeout"),
+        pytest.param(FileNotFoundError(_FAILED_URL), "FileNotFoundError", id="not-found"),
+        pytest.param(_response_error(_FAILED_URL, 503), "503, message='Service Unavailable'", id="response"),
+        pytest.param(ServerDisconnectedError(), "Server disconnected", id="disconnected"),
+        pytest.param(
+            ClientPayloadError("Response payload is not completed"), "Response payload is not completed", id="payload"
+        ),
+        pytest.param(ClientOSError(54, "Connection reset by peer"), "[Errno 54] Connection reset by peer", id="reset"),
+    ],
+)
+def test_file_raise_if_exception_raises_a_download_error_naming_the_file(error: Exception, reason: str) -> None:
+    """What is raised names the URL and the reason, and carries the stored error as its cause (GH-2460).
+
+    A timeout's own message is empty, and a dropped connection's says nothing of which file it was.
+    """
+    file = File(url=_FAILED_URL, content=error, status=500)
+
+    with pytest.raises(DownloadError) as caught:
+        file.raise_if_exception()
+
+    assert str(caught.value) == f"Failed to download {_FAILED_URL}: {reason}"
+    assert (caught.value.url, caught.value.reason) == (_FAILED_URL, reason)
+    assert caught.value.__cause__ is error
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        pytest.param("https://example.invalid/data/file.zip?api_key=SECRET&station=01048", id="query"),
+        pytest.param("https://user:SECRET@example.invalid/data/file.zip", id="userinfo"),
+        pytest.param("https://SECRET@example.invalid/data/file.zip", id="token-as-user"),
+        pytest.param("https://example.invalid/data/file.zip#SECRET", id="fragment"),
+    ],
+)
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(FileNotFoundError, id="not-found"),
+        pytest.param(lambda url: _response_error(url, 503), id="response"),
+        pytest.param(lambda _url: FSTimeoutError(), id="timeout"),
+    ],
+)
+def test_file_raise_if_exception_names_no_credential_of_the_url(url: str, error: Callable[[str], Exception]) -> None:
+    """A key, token or password the URL carries stays out of the error (GH-2460).
+
+    It reaches whoever asked, a remote caller of the REST API among them. The stored error's own
+    message can hold the URL as requested: `FileNotFoundError` is the URL, and `ClientResponseError`
+    ends with it.
+    """
+    file = File(url=url, content=error(url), status=500)
+
+    with pytest.raises(DownloadError) as caught:
+        file.raise_if_exception()
+
+    assert "SECRET" not in str(caught.value)
+    assert "SECRET" not in repr(caught.value)
+    assert caught.value.url.endswith("example.invalid/data/file.zip")
+
+
+def test_a_failed_download_raises_naming_the_file_without_its_key(
+    status_server: ThreadingHTTPServer, tmp_path: Path
+) -> None:
+    """A download answered 503 raises an error naming the file, but not its query (GH-2460)."""
+    status_server.statuses["/503?token=SECRET"] = 503
+    with stamina.set_testing(True, attempts=1):
+        file = download_file(url=f"{status_server.url}/503?token=SECRET", cache_dir=tmp_path, cache_disable=True)
+
+    with pytest.raises(DownloadError) as caught:
+        file.raise_if_exception()
+
+    assert str(caught.value) == f"Failed to download {status_server.url}/503: 503, message='Service Unavailable'"
+    assert isinstance(caught.value.__cause__, ClientResponseError)
+    assert caught.value.__cause__.status == 503

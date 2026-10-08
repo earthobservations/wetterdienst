@@ -952,6 +952,7 @@ class DwdRoadValues(TimeseriesValues):
             ttl=CacheExpiry.TWELVE_HOURS,
             client_kwargs=self.sr.settings.fsspec_client_kwargs,
             cache_disable=self.sr.settings.cache_disable,
+            use_certifi=self.sr.settings.use_certifi,
         )
         # files may be empty, see https://github.com/earthobservations/wetterdienst/issues/1526
         # -> those files had only 142 bytes
