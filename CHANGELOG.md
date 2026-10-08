@@ -81,6 +81,9 @@ Types of changes:
 
 ### Fixed
 
+- The CLI's `about coverage` refuses `--provider` without `--network`, and `--network` without
+  `--provider`, with a usage error (exit 2) naming the missing option. It printed every provider
+  with exit 0, as if neither had been given; with neither it still lists them (GH-2498)
 - `/api/glossary` and the MCP `glossary` tool refuse a `limit` below 1 with a 422, as the CLI's
   `--limit` already does; a limit of 0 or below answered one entry with a 200 (GH-2497)
 - `geosphere/observation` values without dates, at 10 minutes or hourly, and long windows no
