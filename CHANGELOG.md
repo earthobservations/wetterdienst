@@ -19,9 +19,9 @@ Types of changes:
 ### Fixed
 
 - `/api/stations`, `/api/values`, `/api/interpolate`, `/api/summarize`, `/api/history` and
-  `/api/issues` log an unknown provider or network, and `/api/history` a network without station
-  history, as one info line, where they logged an error with its traceback; the 404 is unchanged
-  (GH-2532)
+  `/api/issues` log an unknown provider or network as one info line, as do the first five for a
+  network without stations or values (`dwd/radar`, `dwd/alerts`), and `/api/history` one without
+  station history. They logged an error with its traceback; the 404 is unchanged (GH-2532)
 
 ## [0.142.0] - 2026-10-08
 
