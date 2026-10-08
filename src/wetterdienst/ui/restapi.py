@@ -883,8 +883,7 @@ def stations(
         # as a 500, not the caller's to fix
         raise
     except Exception as e:
-        log.exception("Failed to get stations.")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
+        raise _failure(e, request, "get stations") from e
 
     # A rank filter keeps all stations in the frame (rank is applied lazily during value collection);
     # for a plain listing return just the N closest the caller asked for instead of every station.
@@ -933,8 +932,7 @@ def issues(
     except NotImplementedError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        log.exception("Failed to get issues.")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
+        raise _failure(e, request, "get issues") from e
 
     return JSONResponse(content={"issues": issue_list})
 
@@ -1090,6 +1088,21 @@ def _refusal_detail(e: Exception, what: str) -> str:
     return str(e)
 
 
+def _failure(e: Exception, request: BaseModel, what: str, *, refusal_status: int = 400) -> HTTPException:
+    """Log a failure at the level it deserves and answer it with the status it deserves.
+
+    One decision for every catch-all that tells a caller's refusal from a failure of ours: a request
+    the caller phrased wrong is theirs to fix, so an info line without a traceback and a 400 (or
+    `refusal_status`); anything else is a logged traceback and a 500.
+    """
+    if not _is_caller_refusal(e, request):
+        log.error(f"Failed to {what}.", exc_info=e)
+        return HTTPException(status_code=500, detail=str(e))
+    detail = _refusal_detail(e, what)
+    log.info(f"Failed to {what}: {detail}")
+    return HTTPException(status_code=refusal_status, detail=detail)
+
+
 def _values(
     api: type[TimeseriesRequest],
     request: ValuesRequest,
@@ -1114,13 +1127,7 @@ def _values(
         # as a 500, not the caller's to fix
         raise
     except Exception as e:
-        if not _is_caller_refusal(e, request):
-            log.exception("Failed to get values.")
-            raise HTTPException(status_code=500, detail=str(e)) from e
-        # the caller's to fix, so an info line and no traceback of ours
-        detail = _refusal_detail(e, "get values")
-        log.info(f"Failed to get values: {detail}")
-        raise HTTPException(status_code=400, detail=detail) from e
+        raise _failure(e, request, "get values") from e
 
 
 def _geo_values(
@@ -1157,13 +1164,7 @@ def _geo_values(
         # as a 500, not the caller's to fix
         raise
     except Exception as e:
-        if not _is_caller_refusal(e, request):
-            log.exception(f"Failed to {what}")
-            raise HTTPException(status_code=500, detail=str(e)) from e
-        detail = _refusal_detail(e, what)
-        log.info(f"Failed to {what}: {detail}")
-        status_code = 404 if isinstance(e, StationNotFoundError) else 400
-        raise HTTPException(status_code=status_code, detail=detail) from e
+        raise _failure(e, request, what, refusal_status=404 if isinstance(e, StationNotFoundError) else 400) from e
 
 
 # response models for the different formats are
@@ -1316,8 +1317,7 @@ def stripes_values(
         # a request its model should have refused: our bug, which FastAPI answers as a 500
         raise
     except Exception as e:
-        log.exception("Failed to get stripes data")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
+        raise _failure(e, request, "get stripes data") from e
 
     if request.format == "csv":
         content = stripes_data.df.write_csv()
@@ -1354,8 +1354,7 @@ def stripes_image(
         # a request its model should have refused: our bug, which FastAPI answers as a 500
         raise
     except Exception as e:
-        log.exception("Failed to plot stripes")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
+        raise _failure(e, request, "plot stripes") from e
     return Response(
         content=fig.to_image(request.format, scale=request.dpi / 100),
         media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
@@ -1391,8 +1390,7 @@ def history(
         # as a 500, not the caller's to fix
         raise
     except Exception as e:
-        log.exception("Failed to get stations for history.")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
+        raise _failure(e, request, "get stations for history") from e
 
     try:
         history_provider = stations_.history

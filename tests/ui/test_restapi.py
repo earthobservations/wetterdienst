@@ -7099,6 +7099,110 @@ def test_glossary_mcp_tool_refuses_a_limit_below_one(limit: int) -> None:
     assert "limit" in str(error.value)
 
 
+def _the_restapi_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    return [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+
+
+_LOOKUPS = [
+    pytest.param("/api/stations", "get_stations", {**_OBSERVATION, "all": "true"}, "get stations", id="stations"),
+    pytest.param(
+        "/api/issues",
+        "get_issues",
+        {"provider": "dwd", "network": "mosmix", "station": "10382"},
+        "get issues",
+        id="issues",
+    ),
+    pytest.param(
+        "/api/stripes/values",
+        "_get_stripes_data",
+        {"kind": "temperature", "station": "01048"},
+        "get stripes data",
+        id="stripes-values",
+    ),
+    pytest.param(
+        "/api/stripes/image",
+        "_plot_stripes",
+        {"kind": "temperature", "station": "01048"},
+        "plot stripes",
+        id="stripes-image",
+    ),
+    pytest.param(
+        "/api/history",
+        "get_stations",
+        {**_OBSERVATION, "station": "01048"},
+        "get stations for history",
+        id="history",
+    ),
+]
+
+
+@pytest.mark.parametrize(("endpoint", "entry_point", "params", "what"), _LOOKUPS)
+def test_a_refusal_of_the_request_is_logged_as_info(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    entry_point: str,
+    params: dict[str, object],
+    what: str,
+) -> None:
+    """A request refused for what it asks is a 400 and one info line without a traceback (GH-2512).
+
+    These five logged it as an error with its traceback, as `/api/values` did before GH-2459.
+    """
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", _fail_as_a_refusal)
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get(endpoint, params=params)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == _UNEXPECTED
+    records = _the_restapi_records(caplog)
+    assert [(record.levelno, record.getMessage()) for record in records] == [
+        (logging.INFO, f"Failed to {what}: {_UNEXPECTED}")
+    ]
+    assert not any(record.exc_info for record in records)
+
+
+@pytest.mark.parametrize(("endpoint", "entry_point", "params", "what"), _LOOKUPS)
+def test_a_failure_that_is_not_a_refusal_is_logged_with_its_traceback(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    entry_point: str,
+    params: dict[str, object],
+    what: str,
+) -> None:
+    """What is not the caller's to fix stays a 500 and an error with its traceback (GH-2512)."""
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", _fail)
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get(endpoint, params=params)
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == _UNEXPECTED
+    records = _the_restapi_records(caplog)
+    assert [(record.levelno, record.getMessage()) for record in records] == [(logging.ERROR, f"Failed to {what}.")]
+    assert records[0].exc_info
+
+
+def test_stations_an_unknown_period_is_logged_as_info(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
+    """The request of the issue, unstubbed: an unknown period is a 400 and an info line (GH-2512)."""
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get(
+            "/api/stations",
+            params={**_OBSERVATION, "parameters": "daily/kl", "all": "true", "periods": "foo"},
+        )
+
+    assert response.status_code == 400
+    records = _the_restapi_records(caplog)
+    assert [(record.levelno, record.getMessage()) for record in records] == [
+        (logging.INFO, f"Failed to get stations: {response.json()['detail']}")
+    ]
+    assert not any(record.exc_info for record in records)
+
+
 @pytest.mark.parametrize("network", ["alerts", "radar"])
 @pytest.mark.parametrize(
     ("endpoint", "selection"),
