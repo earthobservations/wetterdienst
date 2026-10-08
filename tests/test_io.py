@@ -3590,3 +3590,13 @@ def test_filter_by_sql_names_the_renamed_station_timestamp_columns(
         ExportMixin(df=df_values).filter_by_sql("end_date > '1990-01-01'")
     df = ExportMixin(df=df_stations).filter_by_sql("start_timestamp < '1960-01-01' AND end_timestamp > '1990-01-01'")
     assert df.get_column("station_id").to_list() == ["01048"]
+
+
+def test_export_file_target_reads_a_file_uri_as_the_path_it_names(df_stations: pl.DataFrame, tmp_path: Path) -> None:
+    """A `file://` URI as `Path.as_uri()` gives it writes where it points, `%20` and drive letter read (GH-2454)."""
+    directory = tmp_path.joinpath("my data")
+    directory.mkdir()
+    filename = directory.joinpath("stations.csv")
+    ExportMixin(df=df_stations).to_target(filename.as_uri())
+    assert filename.exists()
+    assert not tmp_path.joinpath("my%20data").exists()

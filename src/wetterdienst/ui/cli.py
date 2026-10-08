@@ -56,7 +56,7 @@ from wetterdienst.ui.core import (
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.extras import missing_dependency_message
 from wetterdienst.util.ui import read_list
-from wetterdienst.util.url import redact_password
+from wetterdienst.util.url import file_target_path, redact_password
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -1249,8 +1249,8 @@ def history(
     Select the stations with exactly one of --all or --station.
     """
     _refuse_non_file_target(target, "history")
-    # a local path, or a `file://` URI with its prefix removed as `alerts` removes it; the `.json` check reads the rest
-    path = target.removeprefix("file://") if target else None
+    # a local path, or a `file://` URI read as `alerts` reads it; the `.json` check reads the path it names
+    path = file_target_path(target) if target else None
     if path is not None and not path.endswith(".json"):
         msg = "--target for history endpoint must end with .json"
         raise click.BadParameter(msg)
@@ -1971,7 +1971,7 @@ def alerts(
     output = result.to_format(fmt, indent=pretty)
 
     if target:
-        path = target.removeprefix("file://")
+        path = file_target_path(target)
         try:
             Path(path).write_text(output, encoding="utf-8")
         except OSError as e:
@@ -2042,8 +2042,9 @@ def stripes_stations(
 @click.option("--dpi", type=click.IntRange(min=0, min_open=True), default=300, help="Resolution. Default: 300")
 @click.option(
     "--target",
-    type=click.Path(dir_okay=False, path_type=Path),
-    help="Write the image to this file instead of stdout.",
+    # a string, not a `Path`: a `Path` collapses the `//` of a URI before it can be refused
+    type=click.Path(dir_okay=False, path_type=str),
+    help="Write the image to this local file instead of stdout.",
 )
 @debug_opt
 def stripes_values(
@@ -2058,13 +2059,20 @@ def stripes_values(
     show_data_availability: bool,  # noqa: FBT001
     fmt: str,
     dpi: int,
-    target: Path,
+    target: str | None,
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Create climate stripes for a specific station.
 
     Select the station with exactly one of --station or --name.
     """
+    # the image is written with `Path.write_bytes`, so only a local path is a target: a URI, `file://` included,
+    # would be written to the path read off it (`s3:/bucket/...`) once the station is fetched and the plot rendered
+    if target and "://" in target:
+        msg = "only a local path is supported here, not a URI."
+        raise click.BadParameter(msg, param_hint="--target")
+    # `is not None`: an empty `--target=` is a path to refuse below, not the absence of one that writes to stdout
+    target_path = Path(target) if target is not None else None
     request = _validate_request(
         StripesImageRequest,
         {
@@ -2084,9 +2092,9 @@ def stripes_values(
     )
     # the suffix, dot included, so `stripespng` is refused; `.jpeg` is as usual for JPEG as `.jpg`
     suffixes = (".jpg", ".jpeg") if fmt == "jpg" else (f".{fmt}",)
-    if target and target.suffix.lower() not in suffixes:
-        msg = f"'target' must have extension {' or '.join(f'{suffix!r}' for suffix in suffixes)}"
-        raise click.ClickException(msg)
+    if target_path is not None and target_path.suffix.lower() not in suffixes:
+        msg = f"must have extension {' or '.join(f'{suffix!r}' for suffix in suffixes)}"
+        raise click.BadParameter(msg, param_hint="--target")
 
     set_logging_level(debug=debug)
 
@@ -2104,11 +2112,11 @@ def stripes_values(
 
     image = fig.to_image(fmt, scale=dpi / 100)
 
-    if target:
+    if target_path is not None:
         # rendered outside the handler: talking to the renderer's browser can raise an `OSError` of its own
         # (choreographer's `ChannelClosedError`), which says nothing about --target
         try:
-            target.write_bytes(image)
+            target_path.write_bytes(image)
         except OSError as e:
             # a directory that does not exist or cannot be written; `--target` itself refuses a directory
             msg = f"Could not write --target: {e}"

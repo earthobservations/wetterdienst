@@ -35,6 +35,22 @@ class InvalidTimeIntervalError(ValueError):
     """Raised when an invalid time interval is provided."""
 
 
+class ReversedTimeIntervalError(StartDateEndDateError):
+    """Raised when a request's window ends before it starts.
+
+    Told apart from its parent so that the REST API and the MCP tools, whose callers pass the window as
+    one ``timestamp`` and know nothing of a request's ``start`` and ``end``, can word the refusal their
+    own way. Python callers get the request's message.
+    """
+
+
+class MissingTimeIntervalError(InvalidTimeIntervalError):
+    """Raised when a computation that needs a window of time is given none.
+
+    Told apart from its parent for the same reason as `ReversedTimeIntervalError`.
+    """
+
+
 class InvalidBoundingBoxError(ValueError):
     """Raised when a bounding box's borders are given the wrong way round."""
 

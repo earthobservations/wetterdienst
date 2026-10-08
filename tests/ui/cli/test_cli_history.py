@@ -365,3 +365,14 @@ def test_history_network_without_history_is_a_usage_error(
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith("\n\nError: History not implemented for DwdMosmixRequest\n")
     assert not caplog.records
+
+
+def test_history_target_percent_encoded_file_uri(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Test a `file://` URI as `Path.as_uri()` gives it, `%20` for a space, writes to the path it names (GH-2454)."""
+    directory = tmp_path / "my data"
+    directory.mkdir()
+    target = directory / "history.json"
+    result = _history_to_target(monkeypatch, target.as_uri())
+    assert result.exit_code == 0, result.output
+    assert json.loads(target.read_text()) == {"histories": []}
+    assert not (tmp_path / "my%20data").exists()

@@ -22,11 +22,11 @@ from typing_extensions import Self
 
 from wetterdienst.exceptions import (
     InvalidBoundingBoxError,
-    InvalidTimeIntervalError,
     LocationOutOfRangeError,
+    MissingTimeIntervalError,
     NoParametersFoundError,
     NoPeriodsFoundError,
-    StartDateEndDateError,
+    ReversedTimeIntervalError,
     StationNotFoundError,
 )
 from wetterdienst.io.export import ExportMixin
@@ -307,7 +307,7 @@ class TimeseriesRequest:
             raise TypeError(msg)
         if not start <= end:
             msg = "Error: 'start' must be smaller or equal to 'end'."
-            raise StartDateEndDateError(msg)
+            raise ReversedTimeIntervalError(msg)
 
         return start, end
 
@@ -738,7 +738,7 @@ class TimeseriesRequest:
 
         if not self.start:
             msg = "start and end are required for interpolation"
-            raise InvalidTimeIntervalError(msg)
+            raise MissingTimeIntervalError(msg)
 
         resolutions = {
             parameter.dataset.resolution.value for parameter in self.parameters if isinstance(parameter, ParameterModel)
@@ -838,7 +838,7 @@ class TimeseriesRequest:
 
         if not self.start:
             msg = "start and end are required for summarization"
-            raise InvalidTimeIntervalError(msg)
+            raise MissingTimeIntervalError(msg)
 
         resolutions = {
             parameter.dataset.resolution.value for parameter in self.parameters if isinstance(parameter, ParameterModel)
