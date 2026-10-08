@@ -32,6 +32,7 @@ from aiohttp import (
     ClientError,
     ClientPayloadError,
     ClientResponseError,
+    ClientSSLError,
 )
 from fsspec.asyn import sync, sync_wrapper
 from fsspec.exceptions import FSTimeoutError
@@ -1274,6 +1275,20 @@ def download_file(
     except FSTimeoutError as e:
         log.info(f"Failed to download file {url}.")
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=408)
+    except ClientSSLError as e:
+        # a certificate that does not verify, or a TLS protocol failure such as an alert: the host
+        # answered, so this is not being offline. (A connection the server drops mid-handshake is
+        # a plain `ClientConnectorError` and stays the offline answer.) A subclass of
+        # `ClientConnectorError`, hence before it. What is stored is the `ssl.SSLError` underneath,
+        # not `e`: that holds the connection key, which renders the password of a proxy named in
+        # `HTTPS_PROXY` in its repr. And it is stored without its traceback, whose frames hold the
+        # request -- its headers and the proxy's credentials -- as locals
+        log.info(f"Failed to download file {url}.")
+        return File(
+            url=url,
+            content=e.os_error.with_traceback(None),
+            status=500,
+        )
     except ClientConnectorError as e:
         log.info(f"No internet connection while downloading file {url}.")
         return File(url=url, content=NoInternetError(str(e)), status=503)
@@ -1470,6 +1485,14 @@ def post_file(
     except ClientResponseError as e:
         log.info(f"Failed to post to {url}.")
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=e.status or 500)
+    except ClientSSLError as e:
+        # not being offline, and stored as the error underneath: see `download_file`
+        log.info(f"Failed to post to {url}.")
+        return File(
+            url=url,
+            content=e.os_error.with_traceback(None),
+            status=500,
+        )
     except ClientConnectorError as e:
         log.info(f"No internet connection while posting to {url}.")
         return File(url=url, content=NoInternetError(str(e)), status=503)

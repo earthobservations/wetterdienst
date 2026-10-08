@@ -49,14 +49,15 @@ _MAX_REQUEST_DAYS = 179
 # too much to enumerate as an allow-list, so everything is retried here EXCEPT the statuses
 # that mean the request itself is invalid and retrying it can't help (bad auth, bad station,
 # malformed request), and a failure download_file() reports as no network. That is aiohttp's
-# ClientConnectorError -- refused, DNS, and a TLS handshake that fails rather than times out
-# (#2553 tracks that it also covers more than being offline) -- and it is returned without a
-# retry here because offline, that only adds a wait. A timeout is not one and is retried. Kept
-# deliberately modest (a couple of short-backoff retries): AEMET's outages have been observed
-# to regularly outlast even a much longer retry budget, so paying for one is mostly wasted
-# time -- this is enough to smooth over brief blips without making a single failing call hang
-# for minutes. Tests that hit sustained live outages are handled via xfail rather than a
-# longer retry (see tests/provider/aemet/observation/test_api.py).
+# ClientConnectorError -- refused, DNS, or a connection lost mid-handshake, but not a TLS error
+# such as a failed certificate check or an alert (GH-2553) -- and it is returned without a
+# retry here because offline, that only adds a wait. A timeout is not one and is retried, and
+# so is a TLS error. Kept deliberately modest (a couple of short-backoff
+# retries): AEMET's outages have been observed to regularly outlast even a much longer retry
+# budget, so paying for one is mostly wasted time -- this is enough to smooth over brief blips
+# without making a single failing call hang for minutes. Tests that hit sustained live outages
+# are handled via xfail rather than a longer retry (see
+# tests/provider/aemet/observation/test_api.py).
 _NON_RETRYABLE_STATUSES = {400, 401, 403, 404}
 _RETRY_WAIT_INITIAL_SECONDS = 2
 _RETRY_WAIT_MAX_SECONDS = 15

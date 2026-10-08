@@ -961,8 +961,8 @@ class DwdRoadValues(TimeseriesValues):
         failed = [file for file in files if isinstance(file.content, Exception)]
         if failed and len(failed) == len(files):
             # a 404 is a file DWD has withdrawn since the listing was read, which is warned about
-            # below; any other failure is raised. A `NoInternetError` is let through: it is also what
-            # a failed connection or certificate check is stored as (GH-2553)
+            # below; any other failure is raised. A `NoInternetError` is let through: it is what a
+            # failed connection is stored as
             for file in failed:
                 if file.status != HTTPStatus.NOT_FOUND:
                     file.raise_if_exception()

@@ -37,6 +37,9 @@ Types of changes:
 
 ### Fixed
 
+- A download or post that fails on a certificate that does not verify, or on a TLS protocol
+  error, is reported as that failure (status 500) and no longer as being offline (503): callers
+  that return an empty result for no internet now warn about it or raise instead (GH-2553)
 - An `mssql://` export writes in inserts within SQL Server's limits of 2100 parameters and 1000
   rows, about 299 rows of a 7-column values frame. It sent 5000 rows at a time, so any export of
   more than a few hundred rows failed with "too many parameters" (GH-2268)
