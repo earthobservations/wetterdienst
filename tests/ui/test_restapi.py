@@ -7047,3 +7047,49 @@ def test_glossary_mcp_tool_refuses_a_limit_below_one(limit: int) -> None:
     with pytest.raises(ToolError, match="HTTP error 422") as error:
         asyncio.run(_call())
     assert "limit" in str(error.value)
+
+
+_PER_DATE_DATASET = {"provider": "eccc", "network": "observation", "parameters": "hourly/data"}
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "params"),
+    [
+        pytest.param("/api/values", {"station": "x"}, id="values"),
+        pytest.param("/api/interpolate", {"latitude": 50.0, "longitude": 10.0, "timestamp": ""}, id="interpolate"),
+        pytest.param("/api/summarize", {"latitude": 50.0, "longitude": 10.0, "timestamp": ""}, id="summarize"),
+    ],
+)
+def test_a_dataset_published_per_date_without_a_timestamp_names_timestamp(
+    client: TestClient, endpoint: str, params: dict[str, object]
+) -> None:
+    """A dataset published per date, requested without a `timestamp`, is refused naming it (GH-2514).
+
+    It was "Start and end date required for single period datasets", which names things a REST
+    caller cannot set. Refused before anything is downloaded, so these are real requests.
+    """
+    response = client.get(endpoint, params={**_PER_DATE_DATASET, **params})
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "timestamp is required for this dataset"}
+
+
+def test_mcp_a_dataset_published_per_date_without_a_timestamp_names_timestamp() -> None:
+    """The MCP `values` tool refuses such a request as the REST route does (GH-2514)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool("values", {**_PER_DATE_DATASET, "station": "x"})
+
+    with pytest.raises(ToolError, match="HTTP error 400") as error:
+        asyncio.run(_call())
+    assert "timestamp is required for this dataset" in str(error.value)

@@ -52,6 +52,15 @@ class MissingTimeIntervalError(InvalidTimeIntervalError):
     """
 
 
+class DateRequiredError(MissingTimeIntervalError, StartDateEndDateError):
+    """Raised when a dataset that is published per date is requested without a window of time.
+
+    Told apart from its parents for the same reason as `ReversedTimeIntervalError`. It is also a
+    `StartDateEndDateError`, which is what this refusal was before, so that a caller catching that
+    still catches it.
+    """
+
+
 class InvalidBoundingBoxError(ValueError):
     """Raised when a bounding box's borders are given the wrong way round."""
 
