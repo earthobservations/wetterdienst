@@ -7,6 +7,7 @@ import json
 import polars as pl
 import pytest
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.provider.wsv.pegel import WsvPegelRequest
 from wetterdienst.provider.wsv.pegel.api import _SOURCE_UNIT_FACTORS
 from wetterdienst.util.network import File
@@ -498,11 +499,32 @@ def test_wsv_a_failed_values_download_names_the_file(monkeypatch: pytest.MonkeyP
     A timeout's own message is empty, so raising the stored `FSTimeoutError` itself answered the
     REST API with a 500 and `{"detail": ""}`.
     """
-    from io import BytesIO  # noqa: PLC0415
-
     from fsspec.exceptions import FSTimeoutError  # noqa: PLC0415
 
     from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+
+    _stub_values_download(monkeypatch, FSTimeoutError())
+
+    with pytest.raises(DownloadError, match=r"Failed to download .*measurements\.json: FSTimeoutError") as caught:
+        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
+    assert isinstance(caught.value.__cause__, FSTimeoutError)
+
+
+@pytest.mark.parametrize("failure", [NoInternetError("offline"), FileNotFoundError("gone")], ids=["offline", "404"])
+def test_wsv_a_values_download_that_is_offline_or_missing_returns_no_data(
+    monkeypatch: pytest.MonkeyPatch, failure: Exception
+) -> None:
+    """Test that being offline, or a 404, still gives an empty frame rather than an error."""
+    _stub_values_download(monkeypatch, failure)
+
+    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
+    assert values.df.is_empty()
+
+
+def _stub_values_download(monkeypatch: pytest.MonkeyPatch, measurements: Exception) -> None:
+    """Serve a one-station listing, and fail the measurements request with the given error."""
+    from io import BytesIO  # noqa: PLC0415
+
     from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
 
     station = {
@@ -519,11 +541,7 @@ def test_wsv_a_failed_values_download_names_the_file(monkeypatch: pytest.MonkeyP
     def _download(**kwargs: object) -> File:
         url = str(kwargs["url"])
         if url.endswith("measurements.json"):
-            return File(url=url, content=FSTimeoutError(), status=408)
+            return File(url=url, content=measurements, status=408)
         return File(url=url, content=BytesIO(listing), status=200)
 
     monkeypatch.setattr(api, "download_file", _download)
-
-    with pytest.raises(DownloadError, match=r"Failed to download .*measurements\.json: FSTimeoutError") as caught:
-        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
-    assert isinstance(caught.value.__cause__, FSTimeoutError)

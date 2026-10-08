@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `wsv/pegel` values, the OPERA radar sites listing and the DWD field descriptions read from PDFs
+  raise `DownloadError` for a failed download, as `File.raise_if_exception` does elsewhere, where
+  they raised the stored error itself: a timeout there had an empty message and answered the REST
+  API with `{"detail": ""}`. Catch `DownloadError` and read `__cause__` for the original (GH-2507)
+
 ## [0.143.0] - 2026-10-08
 
 ### Changed
@@ -81,10 +88,6 @@ Types of changes:
   the padding and refused there. Text of nothing but whitespace, or `""` given in Python, reads as
   unset, as an empty value in the environment does, where it counted as a configured client id
   (GH-2542)
-- `wsv/pegel` values, the OPERA radar sites listing and the DWD field descriptions read from PDFs
-  raise `DownloadError` for a failed download, as `File.raise_if_exception` does elsewhere, where
-  they raised the stored error itself: a timeout there had an empty message and answered the REST
-  API with `{"detail": ""}`. Catch `DownloadError` and read `__cause__` for the original (GH-2507)
 
 ## [0.142.0] - 2026-10-08
 
