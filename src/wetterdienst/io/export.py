@@ -903,6 +903,9 @@ class ExportMixin:
                     # row counter that takes no value at all
                     columns.append(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
                 if isinstance(engine.dialect, MSDialect):
+                    # SQL Server takes at most 2100 parameters a request, 2099 here to leave room
+                    # for a driver that counts one more, and 1000 rows in a table value constructor
+                    chunk_size = min(chunk_size, 1000, 2099 // len(self.df.columns))
                     # a naive datetime would be SQL Server's `DATETIME`, which starts in 1753 and
                     # rounds to 1/300 s; `DATETIME2` holds every year a Python datetime can
                     dtype = {name: DATETIME2() for name in self.df.select(cs.datetime()).columns}
