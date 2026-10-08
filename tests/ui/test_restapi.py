@@ -7055,3 +7055,14 @@ def test_coverage_all_providers_honours_pretty(client: TestClient, monkeypatch: 
     assert "\n" not in compact.text
     assert pretty.text.startswith('{\n    "')
     assert compact.json() == pretty.json()
+
+
+@pytest.mark.parametrize("params", [{"resolutions": "daily"}, {"datasets": "climate_summary"}])
+def test_coverage_filter_without_provider_and_network_is_a_400(client: TestClient, params: dict[str, str]) -> None:
+    """A resolutions or datasets filter has nothing to narrow without a provider and network (GH-2496)."""
+    response = client.get("/api/coverage", params=params)
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "'resolutions' and 'datasets' narrow the coverage of one provider and network, so "
+        "'provider' and 'network' must be given with them.",
+    }

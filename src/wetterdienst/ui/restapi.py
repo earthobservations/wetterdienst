@@ -764,6 +764,14 @@ def coverage(
         )
 
     if not provider and not network:
+        # the list of every provider has no resolutions or datasets to narrow; answering it
+        # unfiltered would let the caller believe the filter applied
+        if request.resolutions or request.datasets:
+            raise HTTPException(
+                status_code=400,
+                detail="'resolutions' and 'datasets' narrow the coverage of one provider and network, so "
+                "'provider' and 'network' must be given with them.",
+            )
         cov = Wetterdienst.discover()
         return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
 
