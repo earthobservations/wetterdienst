@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `WD_AUTH__METNO_FROST` (and `Settings(auth={"metno_frost": ...})`) written as `id:secret`,
+  `id,secret` or `("id", "secret")` is refused, with a message naming the form
+  `["client_id", "secret"]`; it was taken whole as the client id, secret included, and Frost
+  refused the credential later. `check_settings()` reports it too (GH-2487)
+
 ## [0.142.0] - 2026-10-08
 
 ### Changed

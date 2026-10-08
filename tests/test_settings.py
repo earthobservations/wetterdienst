@@ -1464,3 +1464,60 @@ def test_settings_request_validates_settings_given_as_a_dict() -> None:
     request = DwdObservationRequest(parameters=["daily/kl"], settings={"ts_shape": "wide"})
     assert isinstance(request.settings, Settings)
     assert request.settings.ts_shape == "wide"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "value",
+    [
+        "DUMMY-FROST-ID:TOPSECRET",
+        "DUMMY-FROST-ID,TOPSECRET",
+        "DUMMY-FROST-ID TOPSECRET",
+        "DUMMY-FROST-ID\tTOPSECRET",
+        '("DUMMY-FROST-ID", "TOPSECRET")',
+        "{DUMMY-FROST-ID: TOPSECRET}",
+        "DUMMY-FROST-ID:",
+    ],
+    ids=["colon", "comma", "space", "tab", "tuple", "braces", "colon-no-secret"],
+)
+def test_settings_auth_metno_frost_refuses_a_pair_written_as_a_lone_text(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    """A Frost pair written as `id:secret` or the like is refused, not taken whole as the client id (GH-2487).
+
+    `id:secret` is the shape WD_AUTH__CEDA takes, so it is an easy one to carry over. The message is
+    the same for each and neither it nor `check_settings()` repeats the text.
+    """
+    message = 'metno_frost looks like a pair but is not a client id: write it as ["client_id", "secret"]'
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", value)
+    assert check_settings() == [f"WD_AUTH__METNO_FROST is invalid: {message}"]
+    with pytest.raises(ValidationError, match=re.escape(message)) as excinfo:
+        Settings()
+    assert "TOPSECRET" not in str(excinfo.value)
+    assert "TOPSECRET" not in repr(excinfo.value)
+
+    monkeypatch.delenv("WD_AUTH__METNO_FROST")
+    builds: list[Callable[[], object]] = [
+        lambda: Settings(auth={"metno_frost": value}),
+        lambda: Settings(auth={"metno_frost": SecretStr(value)}),
+        lambda: setattr(Settings().auth, "metno_frost", value),
+    ]
+    for build in builds:
+        with pytest.raises(ValidationError, match=re.escape(message)) as excinfo:
+            build()
+        assert "TOPSECRET" not in str(excinfo.value)
+        assert "TOPSECRET" not in repr(excinfo.value)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_metno_frost_still_takes_a_uuid_client_id_padded_with_whitespace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A UUID client id is still a lone client id, whitespace around it does not count (GH-2487)."""
+    client_id = "8e1b6a2c-3f4d-4c5e-9a7b-0d1e2f3a4b5c"
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", client_id)
+    assert tuple(reveal(part) for part in Settings().auth.metno_frost) == (client_id, "")
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", f" {client_id}\n")
+    assert check_settings() == []
+    assert reveal(Settings().auth.metno_frost[1]) == ""
