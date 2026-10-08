@@ -25,7 +25,7 @@ GeosphereObservationMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "klima-v2-10min",
-                    "grouped": False,
+                    "grouped": True,
                     "parameters": [
                         {
                             "name": "humidity_relative",
@@ -155,7 +155,7 @@ GeosphereObservationMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "klima-v2-1h",
-                    "grouped": False,
+                    "grouped": True,
                     "parameters": [
                         {
                             "name": "humidity_relative",
@@ -265,7 +265,7 @@ GeosphereObservationMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "klima-v2-1d",
-                    "grouped": False,
+                    "grouped": True,
                     "parameters": [
                         {
                             "name": "cloud_cover_total",
@@ -361,7 +361,7 @@ GeosphereObservationMetadata = {
                 {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "klima-v2-1m",
-                    "grouped": False,
+                    "grouped": True,
                     "parameters": [
                         {
                             "name": "cloud_cover_total",

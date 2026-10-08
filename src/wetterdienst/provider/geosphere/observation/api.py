@@ -8,7 +8,7 @@ import datetime as dt
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -25,27 +25,26 @@ from wetterdienst.util.network import download_file
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
-    from wetterdienst.model.metadata import ParameterModel
+    from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
 
-def _time_windows(
-    start: dt.datetime, end: dt.datetime, span: timedelta | None
-) -> Iterator[tuple[dt.datetime, dt.datetime]]:
+def _time_windows(start: dt.datetime, end: dt.datetime, span: timedelta) -> Iterator[tuple[dt.datetime, dt.datetime]]:
     """Split ``[start, end]`` into ``(start, end)`` windows no longer than ``span``.
 
     The API includes both ends of a window, so a window stops one minute short of where the next
     one starts: a reading on the boundary is neither fetched twice nor lost. Readings sit on
-    10-minute marks or coarser. ``span=None`` keeps the window whole.
+    10-minute marks or coarser.
     """
-    if span is None:
-        yield start, end
-        return
     cursor = start
     while cursor <= end:
-        yield cursor, min(cursor + span - timedelta(minutes=1), end)
+        # compared as a difference, so a span of centuries cannot push the cursor past year 9999
+        if end - cursor < span:
+            yield cursor, end
+            return
+        yield cursor, cursor + span - timedelta(minutes=1)
         cursor += span
 
 
@@ -68,24 +67,50 @@ class GeosphereObservationValues(TimeseriesValues):
         Resolution.MONTHLY: dt.datetime(1767, 11, 30, tzinfo=ZoneInfo("UTC")),
     }
 
-    # The API refuses a slice of more than 1,000,000 data points (timestamps times parameters times
-    # stations; one parameter and one station here) with HTTP 400. Longer windows are split into
-    # requests of at most this span. The spans are far below that limit on purpose: the API answers
-    # only once it has built the whole slice, about 5 seconds per year at 10 minutes (measured 2026-10:
-    # 10 s for 2 years, 30 s for 6 years) against the client's 30 s read timeout, and it allows 240
-    # requests an hour, so they are not smaller either. Daily and monthly reach the limit only after
-    # centuries and stay whole.
-    _window_spans: ClassVar = {
-        Resolution.MINUTE_10: timedelta(days=2 * 365),  # about 105,000 points
-        Resolution.HOURLY: timedelta(days=10 * 365),  # about 88,000 points
+    # The API refuses a slice of more than 1,000,000 data points with HTTP 400. It counts the points the window
+    # asks for, timestamps times parameters (times stations; one here), whatever the station holds. A window is
+    # therefore cut to at most _window_points / (number of parameters requested) timestamps, and at most
+    # _window_timestamps for one parameter at 10 minutes and hourly. The API answers only once it has built
+    # the whole slice, against the client's 30 s read timeout; measured 2026-10 for station 5904, the time
+    # grows with the timestamps far more than with the parameters: 10 s for 2 years at 10 minutes with one
+    # parameter (105,000 points), 4.1 s for 17,000 timestamps with 23 (400,000 points), 8.4 s for 34,000
+    # (790,000), 4.4 s for 21,000 hourly timestamps with 19. The budget keeps a request near 4 s and the
+    # cap keeps a few parameters at the 10 s of one. It allows 240 requests an hour, so windows are not
+    # smaller: a whole 10-minute dataset is about 105 requests, hourly about 62, daily 4 and monthly 1.
+    _window_points = 400_000
+    _window_timestamps: ClassVar = {
+        Resolution.MINUTE_10: 2 * 365 * 144,  # two years
+        Resolution.HOURLY: 10 * 365 * 24,  # ten years
     }
+    # the shortest time between two readings, so that a window of n steps never holds more than n of them
+    _timesteps: ClassVar = {
+        Resolution.MINUTE_10: timedelta(minutes=10),
+        Resolution.HOURLY: timedelta(hours=1),
+        Resolution.DAILY: timedelta(days=1),
+        Resolution.MONTHLY: timedelta(days=28),
+    }
+
+    def _window_span(self, resolution: Resolution, n_parameters: int) -> timedelta:
+        """Return the longest window the API accepts and answers in time for this many parameters."""
+        timestamps = self._window_points // n_parameters
+        if resolution in self._window_timestamps:
+            timestamps = min(timestamps, self._window_timestamps[resolution])
+        return timestamps * self._timesteps[resolution]
 
     def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
         self,
         station_id: str,
-        parameter_or_dataset: ParameterModel,
+        parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
-        resolution = parameter_or_dataset.dataset.resolution.value
+        dataset = parameter_or_dataset
+        resolution = dataset.resolution.value
+        # the API takes several parameters in one request: those asked for from this dataset, not all of
+        # its parameters, so a request for one parameter stays a request for one parameter
+        parameters = [
+            parameter.name_original
+            for parameter in cast("Iterable[ParameterModel]", self.sr.stations.parameters)
+            if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
+        ]
         start_date = self.sr.start or self._default_start_dates[resolution]
         # floored to the hour, so a repeat of an open-ended request builds the same URL (the cache key)
         # unless an hour boundary falls between them; the one-day buffer below still reaches past now
@@ -94,8 +119,10 @@ class GeosphereObservationValues(TimeseriesValues):
         start_date = start_date.astimezone(ZoneInfo("UTC")) - timedelta(days=1)
         end_date = end_date.astimezone(ZoneInfo("UTC")) + timedelta(days=1)
         frames = []
-        for window_start, window_end in _time_windows(start_date, end_date, self._window_spans.get(resolution)):
-            frame = self._collect_window(station_id, parameter_or_dataset, window_start, window_end)
+        for window_start, window_end in _time_windows(
+            start_date, end_date, self._window_span(resolution, len(parameters))
+        ):
+            frame = self._collect_window(station_id, dataset, parameters, window_start, window_end)
             # a window without internet comes back as a bare frame without columns (any other failure
             # raises); the whole result is then empty, not a series with years missing
             if not frame.width:
@@ -106,19 +133,18 @@ class GeosphereObservationValues(TimeseriesValues):
     def _collect_window(
         self,
         station_id: str,
-        parameter_or_dataset: ParameterModel,
+        dataset: DatasetModel,
+        parameters: list[str],
         start_date: datetime,
         end_date: datetime,
     ) -> pl.DataFrame:
         url = self._endpoint.format(
             station_id=station_id,
-            parameter=parameter_or_dataset.name_original,
-            dataset=parameter_or_dataset.dataset.name_original,
+            parameter=",".join(parameters),
+            dataset=dataset.name_original,
             start_date=start_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M"),
             end_date=end_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M"),
         )
-        from typing import cast  # noqa: PLC0415
-
         settings = cast("Settings", self.sr.stations.settings)
         file = download_file(
             url=url,
@@ -142,11 +168,8 @@ class GeosphereObservationValues(TimeseriesValues):
                                 {
                                     "parameters": pl.Struct(
                                         {
-                                            parameter_or_dataset.name_original: pl.Struct(
-                                                {
-                                                    "data": pl.List(pl.Float64),
-                                                },
-                                            ),
+                                            parameter: pl.Struct({"data": pl.List(pl.Float64)})
+                                            for parameter in parameters
                                         },
                                     ),
                                 },
@@ -156,8 +179,9 @@ class GeosphereObservationValues(TimeseriesValues):
                 ),
             },
         )
-        series_timestamps = df.get_column("timestamps")
-        series_timestamps = series_timestamps.explode(empty_as_null=True)
+        # every parameter shares the timestamps, so each row of the unpivoted frame below is one
+        # parameter's list of values next to the one list of timestamps
+        timestamps = df.get_column("timestamps").to_list()[0]
         df = df.select("features")
         df = df.explode("features", empty_as_null=True)
         df = df.select(pl.col("features").struct.unnest())
@@ -168,14 +192,15 @@ class GeosphereObservationValues(TimeseriesValues):
         )
         df = df.with_columns(
             pl.col("value").struct.field("data").alias("value"),
+            pl.lit(timestamps, dtype=pl.List(pl.String)).alias("timestamp"),
         )
-        df = df.explode("value", empty_as_null=True)
+        df = df.explode(["value", "timestamp"], empty_as_null=True)
         return df.select(
-            pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
+            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            series_timestamps.alias("timestamp").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
+            pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
             pl.col("value"),
             pl.lit(None, pl.Float64).alias("quality"),
         )
@@ -191,8 +216,6 @@ class GeosphereObservationRequest(TimeseriesRequest):
     _endpoint = "https://dataset.api.hub.geosphere.at/v1/station/historical/{dataset}/metadata/stations"
 
     def _all(self) -> pl.LazyFrame:
-        from typing import cast  # noqa: PLC0415
-
         settings = cast("Settings", self.settings)
         data = []
         for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters)):

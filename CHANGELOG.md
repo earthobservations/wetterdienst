@@ -84,9 +84,14 @@ Types of changes:
 - `geosphere/observation` values without dates, at 10 minutes or hourly, and long windows no
   longer fail: the API refused a slice of more than 1,000,000 data points (the 10-minute record is
   1.8 million), and answered one of more than about 6 years at 10 minutes too slowly for the read
-  timeout. A window is fetched in several requests per parameter, two years each at 10 minutes and
-  ten years each hourly. The API allows 240 requests an hour: a whole dataset (19 to 23
-  parameters) without dates still runs into that limit (GH-2466)
+  timeout. A window is fetched in several requests, two years each at 10 minutes and ten years
+  each hourly for one parameter (GH-2466)
+- `geosphere/observation` values ask the API for all the requested parameters of a dataset in one
+  request, not one request per parameter. A whole dataset of a station without dates took 285 to
+  414 requests at 10 minutes or hourly and stopped at the API's 240 requests an hour with an HTTP
+  429; it takes about 105 (10 minutes), 62 (hourly), 4 (daily) and 1 (monthly). The windows get
+  shorter with more parameters, as the API counts timestamps times parameters towards its limit of
+  1,000,000 data points, and a whole daily dataset is now fetched in windows too (GH-2517)
 - A `file://` target of `to_target` and of the CLI's `stations`, `values`, `interpolate`,
   `summarize`, `history` and `alerts` is read as the path the URI names: `%20` and other
   percent-encoding is decoded, and on Windows `file:///C:/data/obs.csv` is `C:/data/obs.csv`.
