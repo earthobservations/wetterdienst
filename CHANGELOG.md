@@ -62,10 +62,11 @@ Types of changes:
 
 ### Fixed
 
-- A `file://` target (any CLI `--target`, and `to_target`) is read as the path the URI names:
-  `%20` and other percent-encoding is decoded, and on Windows `file:///C:/data/obs.csv` is
-  `C:/data/obs.csv`. Both wrote to the wrong path. A path with a literal `%20` in a `file://`
-  target is now written `%2520`; a plain path is read as given (GH-2454)
+- A `file://` target of `to_target` and of the CLI's `stations`, `values`, `interpolate`,
+  `summarize`, `history` and `alerts` is read as the path the URI names: `%20` and other
+  percent-encoding is decoded, and on Windows `file:///C:/data/obs.csv` is `C:/data/obs.csv`.
+  Both wrote to the wrong path. A path with a literal `%20` in a `file://` target is now written
+  `%2520`; a plain path is read as given (GH-2454)
 - A `WD_AUTH__METNO_FROST` pair that is not valid JSON, such as `[myid, mysecret]` with its
   elements unquoted, is refused, and `check_settings()` names it. It was taken whole as the client
   id, secret included, and sent to Frost, which refused it. Quote each element:
