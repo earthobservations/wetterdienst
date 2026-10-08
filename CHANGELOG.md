@@ -18,10 +18,11 @@ Types of changes:
 
 ### Fixed
 
-- `wsv/pegel` values, the OPERA radar sites listing and the DWD field descriptions read from PDFs
-  raise `DownloadError` for a failed download, as `File.raise_if_exception` does elsewhere, where
-  they raised the stored error itself: a timeout there had an empty message and answered the REST
-  API with `{"detail": ""}`. Catch `DownloadError` and read `__cause__` for the original (GH-2507)
+- `wsv/pegel` values, the DWD field descriptions read from PDFs and the script that regenerates the
+  packaged OPERA radar sites raise `DownloadError` for a failed download, as
+  `File.raise_if_exception` does elsewhere, where they raised the stored error itself: a timeout
+  there had an empty message and answered the REST API with `{"detail": ""}`. Catch
+  `DownloadError` and read `__cause__` for the original (GH-2507)
 
 ## [0.143.0] - 2026-10-08
 

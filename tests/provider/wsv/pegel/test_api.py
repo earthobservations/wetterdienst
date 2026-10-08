@@ -503,25 +503,29 @@ def test_wsv_a_failed_values_download_names_the_file(monkeypatch: pytest.MonkeyP
 
     from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
 
-    _stub_values_download(monkeypatch, FSTimeoutError())
+    _stub_values_download(monkeypatch, FSTimeoutError(), 408)
 
     with pytest.raises(DownloadError, match=r"Failed to download .*measurements\.json: FSTimeoutError") as caught:
         WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
     assert isinstance(caught.value.__cause__, FSTimeoutError)
 
 
-@pytest.mark.parametrize("failure", [NoInternetError("offline"), FileNotFoundError("gone")], ids=["offline", "404"])
+@pytest.mark.parametrize(
+    ("failure", "status"),
+    [(NoInternetError("offline"), 503), (FileNotFoundError("gone"), 404)],
+    ids=["offline", "404"],
+)
 def test_wsv_a_values_download_that_is_offline_or_missing_returns_no_data(
-    monkeypatch: pytest.MonkeyPatch, failure: Exception
+    monkeypatch: pytest.MonkeyPatch, failure: Exception, status: int
 ) -> None:
     """Test that being offline, or a 404, still gives an empty frame rather than an error."""
-    _stub_values_download(monkeypatch, failure)
+    _stub_values_download(monkeypatch, failure, status)
 
     values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
     assert values.df.is_empty()
 
 
-def _stub_values_download(monkeypatch: pytest.MonkeyPatch, measurements: Exception) -> None:
+def _stub_values_download(monkeypatch: pytest.MonkeyPatch, measurements: Exception, status: int) -> None:
     """Serve a one-station listing, and fail the measurements request with the given error."""
     from io import BytesIO  # noqa: PLC0415
 
@@ -541,7 +545,7 @@ def _stub_values_download(monkeypatch: pytest.MonkeyPatch, measurements: Excepti
     def _download(**kwargs: object) -> File:
         url = str(kwargs["url"])
         if url.endswith("measurements.json"):
-            return File(url=url, content=measurements, status=408)
+            return File(url=url, content=measurements, status=status)
         return File(url=url, content=BytesIO(listing), status=200)
 
     monkeypatch.setattr(api, "download_file", _download)
