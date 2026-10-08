@@ -111,6 +111,12 @@ Types of changes:
   `eccodes`. On Linux, with the `eckitlib` wheel pip installs beside `eccodes`, a process that used
   `pyproj` or wradlib after such a read aborted at exit with status 134 or 139 (ecmwf/eckit#354);
   it now exits cleanly, unless something imported `eccodes` before wetterdienst did (GH-2468)
+- `/api/values`, `/api/interpolate`, `/api/summarize` and their MCP tools word a `timestamp` that
+  ends before it starts, or is missing for an interpolation or a summary, in terms of `timestamp`
+  ("the interval in timestamp ends before it starts"), where they named the request's `start`
+  and `end`, which their callers cannot pass. Python callers keep the request's message, and
+  `ReversedTimeIntervalError` and `MissingTimeIntervalError` are subclasses of the exceptions
+  they raised (GH-2478)
 - `wetterdienst stripes values` refuses a `--target` that is a URI (`s3://...`, `file://...`)
   before it fetches and renders, as a usage error (exit 2) naming `--target`; the write to the
   path read off the URI (`s3:/bucket/...`) failed only afterwards. A `--target` whose extension
