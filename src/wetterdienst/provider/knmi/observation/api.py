@@ -134,7 +134,7 @@ def _download_with_retry(url: str, settings: Settings, ttl: CacheExpiry, *, clie
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
-                # no network is not a blip two quick retries clear: report it at once, as an
+                # no network is not a blip two more retries clear: report it at once, as an
                 # offline listing does (the 503 `download_file` gives it would otherwise match)
                 if (
                     isinstance(last_file.content, Exception)

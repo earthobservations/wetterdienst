@@ -44,13 +44,14 @@ _MAX_REQUEST_DAYS = 179
 
 # AEMET's own error message for a 429 is "Espere al siguiente minuto" (wait for the next
 # minute), and it has also been observed, live, to fail in several other transient ways
-# (timeouts, connections reset mid-request, and other failures on its second-stage "datos"
-# URL) even after download_file()'s own short built-in retry is exhausted -- the exact status
-# varies too much to enumerate as an allow-list, so everything is retried here EXCEPT the
-# statuses that mean the request itself is invalid and retrying it can't help (bad auth, bad
-# station, malformed request), and a failure download_file() reports as no network (aiohttp's
-# ClientConnectorError: refused, DNS, TLS handshake; a connect timeout is not one and is
-# retried), which is returned without a retry here because that only adds a wait. Kept
+# (TLS handshake failures, timeouts, and other failures on its second-stage "datos" URL) even
+# after download_file()'s own short built-in retry is exhausted -- the exact status varies
+# too much to enumerate as an allow-list, so everything is retried here EXCEPT the statuses
+# that mean the request itself is invalid and retrying it can't help (bad auth, bad station,
+# malformed request), and a failure download_file() reports as no network. That is aiohttp's
+# ClientConnectorError -- refused, DNS, and a TLS handshake that fails rather than times out
+# (#2553 tracks that it also covers more than being offline) -- and it is returned without a
+# retry here because offline, that only adds a wait. A timeout is not one and is retried. Kept
 # deliberately modest (a couple of short-backoff retries): AEMET's outages have been observed
 # to regularly outlast even a much longer retry budget, so paying for one is mostly wasted
 # time -- this is enough to smooth over brief blips without making a single failing call hang
@@ -167,7 +168,7 @@ def _download_with_rate_limit_retry(
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
-                # no network is not a blip two quick retries clear: report it at once, as an
+                # no network is not a blip two more retries clear: report it at once, as an
                 # offline listing does (the 503 `download_file` gives it would otherwise match)
                 if (
                     isinstance(last_file.content, Exception)
