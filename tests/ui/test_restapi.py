@@ -7018,6 +7018,56 @@ def test_values_a_failure_that_is_not_a_refusal_is_still_logged_with_its_traceba
     assert records[0].exc_info
 
 
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param({"provider": "foo", "network": "bar"}, id="unknown-provider"),
+        pytest.param({"provider": "dwd", "network": "nope"}, id="unknown-network"),
+    ],
+)
+def test_coverage_unknown_provider_or_network_is_a_404(client: TestClient, params: dict[str, str]) -> None:
+    """An unknown provider or network is a 404 pointing at the coverage listing, as in /api/auth (GH-2496)."""
+    response = client.get("/api/coverage", params=params)
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Choose provider and network from /api/coverage"}
+
+
+def test_coverage_missing_provider_dependency_is_a_404(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A provider module that cannot be imported answers the same 404 as an unknown one (GH-2496)."""
+
+    def fail(*_args: object) -> None:
+        msg = "Module wetterdienst.provider.foo not found."
+        raise ImportError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.resolve", fail)
+    response = client.get("/api/coverage", params={"provider": "dwd", "network": "observation"})
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Choose provider and network from /api/coverage"}
+
+
+def test_coverage_all_providers_honours_pretty(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The list of every provider is compact unless pretty is set, like the per-network listing (GH-2496)."""
+    # discover() probes the providers whose credentials are configured, which reaches upstream
+    monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.discover", lambda: {"dwd": {"observation": {}}})
+    compact = client.get("/api/coverage")
+    pretty = client.get("/api/coverage", params={"pretty": "true"})
+    assert compact.status_code == pretty.status_code == 200
+    assert "\n" not in compact.text
+    assert pretty.text.startswith('{\n    "')
+    assert compact.json() == pretty.json()
+
+
+@pytest.mark.parametrize("params", [{"resolutions": "daily"}, {"datasets": "climate_summary"}])
+def test_coverage_filter_without_provider_and_network_is_a_400(client: TestClient, params: dict[str, str]) -> None:
+    """A resolutions or datasets filter has nothing to narrow without a provider and network (GH-2496)."""
+    response = client.get("/api/coverage", params=params)
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "'resolutions' and 'datasets' narrow the coverage of one provider and network, so "
+        "'provider' and 'network' must be given with them.",
+    }
+
+
 @pytest.mark.parametrize("limit", [0, -5])
 def test_glossary_limit_below_one_is_refused(client: TestClient, limit: int) -> None:
     """A limit of 0 or below is a 422, not the one entry `get_glossary` appended before comparing (GH-2497)."""

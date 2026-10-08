@@ -1196,3 +1196,33 @@ def test_cli_history_refuses_a_network_without_history_before_the_station_lookup
     )
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith("\n\nError: History not implemented for DwdMosmixRequest\n")
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        pytest.param(
+            ["--provider=dwd"], "Error: Missing option '--network'. Required with '--provider'.\n", id="provider-only"
+        ),
+        pytest.param(
+            ["--network=observation"],
+            "Error: Missing option '--provider'. Required with '--network'.\n",
+            id="network-only",
+        ),
+    ],
+)
+def test_coverage_refuses_one_of_provider_and_network(args: list[str], message: str) -> None:
+    """Test coverage with only one of --provider / --network is a usage error, not every provider (GH-2498)."""
+    result = CliRunner().invoke(cli, ["about", "coverage", *args])
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(f"\n\n{message}")
+    assert result.stdout == ""
+
+
+def test_coverage_without_provider_and_network_lists_every_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test coverage without --provider and --network still lists every provider (GH-2498)."""
+    # the real catalogue validates the credentials a provider is configured with against its upstream
+    monkeypatch.setattr(Wetterdienst, "discover", classmethod(lambda _cls: {"dwd": {"observation": {}}}))
+    result = CliRunner().invoke(cli, ["about", "coverage"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout) == {"dwd": {"observation": {}}}
