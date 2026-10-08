@@ -70,11 +70,14 @@ class GeosphereObservationValues(TimeseriesValues):
 
     # The API refuses a slice of more than 1,000,000 data points (timestamps times parameters times
     # stations; one parameter and one station here) with HTTP 400. Longer windows are split into
-    # requests of at most this span: 10 minutes is about 52,600 points per 365 days, hourly about
-    # 438,000 per 50 years. Daily and monthly reach the limit only after centuries and stay whole.
+    # requests of at most this span. The spans are far below that limit on purpose: the API answers
+    # only once it has built the whole slice, about 5 seconds per year at 10 minutes (measured 2026-10:
+    # 10 s for 2 years, 30 s for 6 years) against the client's 30 s read timeout, and it allows 240
+    # requests an hour, so they are not smaller either. Daily and monthly reach the limit only after
+    # centuries and stay whole.
     _window_spans: ClassVar = {
-        Resolution.MINUTE_10: timedelta(days=365),
-        Resolution.HOURLY: timedelta(days=365 * 50),
+        Resolution.MINUTE_10: timedelta(days=2 * 365),  # about 105,000 points
+        Resolution.HOURLY: timedelta(days=10 * 365),  # about 88,000 points
     }
 
     def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
@@ -94,9 +97,9 @@ class GeosphereObservationValues(TimeseriesValues):
             self._collect_window(station_id, parameter_or_dataset, window_start, window_end)
             for window_start, window_end in _time_windows(start_date, end_date, self._window_spans.get(resolution))
         ]
-        # a window the download failed on comes back as a bare frame without columns
-        frames = [frame for frame in frames if frame.width]
-        if not frames:
+        # a window without internet comes back as a bare frame without columns (any other failure
+        # raises); the whole result is then empty, not a series with years missing
+        if not frames or not all(frame.width for frame in frames):
             return pl.DataFrame()
         return pl.concat(frames)
 

@@ -13,6 +13,7 @@ import pytest
 from dirty_equals import IsNumeric
 from freezegun import freeze_time
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest, api
 from wetterdienst.provider.geosphere.observation.api import _time_windows
 from wetterdienst.util.network import File
@@ -81,8 +82,11 @@ _STATIONS = (
 ).encode()
 
 
-def _data_window(monkeypatch: pytest.MonkeyPatch, **dates: datetime) -> tuple[str, str]:
-    """Request one station's values offline and return the start and end the data URL carries."""
+def _data_window(monkeypatch: pytest.MonkeyPatch, requests: int = 1, **dates: datetime) -> tuple[str, str]:
+    """Request one station's values offline and return the start and end the data URLs carry.
+
+    A long window is split, so these run from the first request's start to the last one's end.
+    """
     data_urls = []
 
     def _download(url: str, **_kwargs: object) -> File:
@@ -96,8 +100,7 @@ def _data_window(monkeypatch: pytest.MonkeyPatch, **dates: datetime) -> tuple[st
     request = GeosphereObservationRequest(parameters=[("10_minutes", "data", "humidity_relative")], **dates)
     request.filter_by_station_id("4821").values.all()
 
-    # a long window is split, so the span runs from the first request's start to the last one's end
-    assert data_urls
+    assert len(data_urls) == requests
     return parse_qs(urlparse(data_urls[0]).query)["start"][0], parse_qs(urlparse(data_urls[-1]).query)["end"][0]
 
 
@@ -127,7 +130,8 @@ def test_geosphere_observation_open_ended_window_ends_on_the_hour(monkeypatch: p
     five minutes would miss; floored to the hour, a repeat builds the same URL unless an hour
     boundary falls between them (GH-2436).
     """
-    start, end = _data_window(monkeypatch)
+    # the record from 1992-05-19 to 2020-12-03, in windows of two years
+    start, end = _data_window(monkeypatch, requests=15)
     # the 10 minutes record's default start, less the one-day buffer
     assert start == "1992-05-19T00:00"
     assert end == "2020-12-03T13:00"
@@ -160,12 +164,9 @@ def _serve_archive(
         windows.append((start, end))
         if (end - start) // step + 1 > _API_LIMIT:
             return File(url=url, content=FileNotFoundError(url), status=400)
-        timestamps = []
-        cursor = archive_start
-        while cursor <= min(end, archive_end):
-            if cursor >= start:
-                timestamps.append(cursor)
-            cursor += step
+        first = max(0, -((start - archive_start) // -step))
+        last = (min(end, archive_end) - archive_start) // step
+        timestamps = [archive_start + i * step for i in range(first, last + 1)]
         body = {
             "timestamps": [timestamp.strftime("%Y-%m-%dT%H:%M+00:00") for timestamp in timestamps],
             "features": [{"properties": {"parameters": {"rf": {"data": [1.0] * len(timestamps)}}}}],
@@ -179,14 +180,14 @@ def _serve_archive(
 @pytest.mark.parametrize(
     ("resolution", "step", "archive_start", "archive_end"),
     [
-        # the archive runs across the first window boundary, 365 days after 1992-05-19
+        # the archive runs across the first window boundary, two years after 1992-05-19
         (
             "10_minutes",
             timedelta(minutes=10),
             datetime(1992, 5, 20, tzinfo=ZoneInfo("UTC")),
-            datetime(1994, 1, 1, tzinfo=ZoneInfo("UTC")),
+            datetime(1995, 1, 1, tzinfo=ZoneInfo("UTC")),
         ),
-        # one window of 50 years starts 1880-03-30; the archive runs across its boundary
+        # windows of ten years from 1880-03-29; the archive runs across the boundary near 1930
         (
             "hourly",
             timedelta(hours=1),
@@ -195,6 +196,7 @@ def _serve_archive(
         ),
     ],
 )
+@freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
 def test_geosphere_observation_values_without_dates_stay_under_the_api_limit(
     monkeypatch: pytest.MonkeyPatch,
     resolution: str,
@@ -211,7 +213,8 @@ def test_geosphere_observation_values_without_dates_stay_under_the_api_limit(
     windows = _serve_archive(monkeypatch, step, archive_start, archive_end)
     request = GeosphereObservationRequest(parameters=[(resolution, "data", "humidity_relative")])
     df = request.filter_by_station_id("4821").values.all().df
-    assert len(windows) > 1
+    # a window starts inside the archive, so a reading on a boundary is among those checked
+    assert any(archive_start < begin < archive_end for begin, _ in windows)
     timestamps = df.get_column("timestamp").to_list()
     expected = (archive_end - archive_start) // step + 1
     assert timestamps == [archive_start + i * step for i in range(expected)]
@@ -226,7 +229,7 @@ def test_geosphere_observation_values_of_a_long_explicit_window_are_split(monkey
         parameters=[("10_minutes", "data", "humidity_relative")], start=start, end=end
     )
     df = request.filter_by_station_id("4821").values.all().df
-    assert len(windows) == 26
+    assert len(windows) == 13
     assert df.height == 145
 
 
@@ -234,9 +237,30 @@ def test_geosphere_observation_time_windows_leave_no_gap_and_no_overlap() -> Non
     """Test that the windows cover the span from start to end, each reading in exactly one."""
     start = datetime(2020, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
     end = datetime(2022, 3, 5, 13, 40, tzinfo=ZoneInfo("UTC"))
-    windows = list(_time_windows(start, end, timedelta(days=365)))
+    windows = list(_time_windows(start, end, timedelta(days=730)))
     assert windows[0][0] == start
     assert windows[-1][1] == end
-    assert all(stop - begin <= timedelta(days=365) for begin, stop in windows)
+    assert all(stop - begin <= timedelta(days=730) for begin, stop in windows)
     assert all(nxt[0] - prev[1] == timedelta(minutes=1) for prev, nxt in pairwise(windows))
     assert list(_time_windows(start, end, None)) == [(start, end)]
+
+
+def test_geosphere_observation_values_lost_midway_are_empty_not_partial(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that losing the connection on a later window leaves no series with years missing."""
+    start = datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC"))
+    end = datetime(2005, 1, 1, tzinfo=ZoneInfo("UTC"))
+    windows = _serve_archive(monkeypatch, timedelta(minutes=10), start, end)
+    serve = api.download_file
+
+    def _lose_the_third_window(url: str, **kwargs: object) -> File:
+        if len(windows) == 2 and not url.endswith("/metadata/stations"):
+            return File(url=url, content=NoInternetError(url), status=0)
+        return serve(url, **kwargs)
+
+    monkeypatch.setattr(api, "download_file", _lose_the_third_window)
+    request = GeosphereObservationRequest(
+        parameters=[("10_minutes", "data", "humidity_relative")],
+        start=start,
+        end=end,
+    )
+    assert request.filter_by_station_id("4821").values.all().df.is_empty()
