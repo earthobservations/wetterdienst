@@ -7032,8 +7032,23 @@ def test_coverage_unknown_provider_or_network_is_a_404(client: TestClient, param
     assert response.json() == {"detail": "Choose provider and network from /api/coverage"}
 
 
-def test_coverage_all_providers_honours_pretty(client: TestClient) -> None:
+def test_coverage_missing_provider_dependency_is_a_404(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A provider module that cannot be imported answers the same 404 as an unknown one (GH-2496)."""
+
+    def fail(*_args: object) -> None:
+        msg = "Module wetterdienst.provider.foo not found."
+        raise ImportError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.resolve", fail)
+    response = client.get("/api/coverage", params={"provider": "dwd", "network": "observation"})
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Choose provider and network from /api/coverage"}
+
+
+def test_coverage_all_providers_honours_pretty(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The list of every provider is compact unless pretty is set, like the per-network listing (GH-2496)."""
+    # discover() probes the providers whose credentials are configured, which reaches upstream
+    monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.discover", lambda: {"dwd": {"observation": {}}})
     compact = client.get("/api/coverage")
     pretty = client.get("/api/coverage", params={"pretty": "true"})
     assert compact.status_code == pretty.status_code == 200
