@@ -26,11 +26,10 @@ Types of changes:
 
 ### Fixed
 
-- KNMI and AEMET stations and values requested with no network no longer retry each URL twice
-  more, with a wait of 2 s and more between, before returning empty: the failed download reads as
-  a 503, which was retried. A failure `download_file` reports as no network (a refused
-  connection, a DNS or TLS handshake failure included) is no longer retried either; the retries
-  for an HTTP 503 and for a 429 are unchanged (GH-2499)
+- KNMI and AEMET stations and values requested with no network, or with a connection that cannot
+  be made (refused, DNS or TLS handshake failure), no longer wait through two more attempts per
+  URL, 2 s and more apart, before returning empty: `download_file`'s own two attempts are all
+  there are. The retries for an HTTP 503 and for a 429 are unchanged (GH-2499)
 - `interpolate`, `summarize` and their `_by_station_id` variants build a provider's station list
   once, not two or three times: on a cold cache that is a round of upstream requests fewer, for
   DWD observation the station description files and the file index per period. `filter_by_rank`

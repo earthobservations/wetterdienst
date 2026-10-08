@@ -114,7 +114,7 @@ def _download_with_retry(url: str, settings: Settings, ttl: CacheExpiry, *, clie
 
     Mirrors AEMET's retry design: a deliberately modest couple of short-backoff
     retries, not an attempt to wait out a sustained outage. A failure `download_file`
-    classes as no network (`File.is_no_internet_error`) is returned at once.
+    classes as no network (`File.is_no_internet_error`) is not retried here.
     """
     last_file: File | None = None
     with contextlib.suppress(_KnmiRetryableError):
