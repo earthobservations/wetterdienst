@@ -491,6 +491,7 @@ class MetnoFrostValues(TimeseriesValues):
             ttl=CacheExpiry.FIVE_MINUTES,
             client_kwargs=client_kwargs,
             cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         if file.is_no_internet_error or file.is_empty:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
@@ -565,6 +566,7 @@ class MetnoFrostValues(TimeseriesValues):
             ttl=CacheExpiry.FIVE_MINUTES,
             client_kwargs=client_kwargs,
             cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         if file.is_no_internet_error or file.is_empty:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
@@ -637,6 +639,7 @@ class MetnoFrostValues(TimeseriesValues):
             ttl=CacheExpiry.ONE_HOUR,
             client_kwargs=client_kwargs,
             cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         if avail_file.is_no_internet_error or avail_file.is_empty or isinstance(avail_file.content, Exception):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
@@ -674,6 +677,7 @@ class MetnoFrostValues(TimeseriesValues):
                 ttl=CacheExpiry.FIVE_MINUTES,
                 client_kwargs=client_kwargs,
                 cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
             )
             if obs_file.is_no_internet_error or obs_file.is_empty or obs_file.status in (404, 412):
                 continue
@@ -734,6 +738,7 @@ def _probe_frost_credentials(settings: Settings) -> bool:
         ttl=CacheExpiry.ONE_HOUR,
         client_kwargs=client_kwargs,
         cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
     )
     return not file.is_no_internet_error and not isinstance(file.content, Exception) and file.status == 200
 
@@ -781,6 +786,7 @@ class MetnoFrostRequest(TimeseriesRequest):
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=client_kwargs,
             cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
         )
         if isinstance(file.content, Exception):
             if file.status in {401, 403}:

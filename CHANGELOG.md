@@ -62,6 +62,14 @@ Types of changes:
 
 ### Fixed
 
+- `/api/values` and the MCP `values` tool log a request they refuse with a 400 -- an unparseable
+  timestamp, an unknown parameter or period -- as one info line, as `/api/interpolate` and
+  `/api/summarize` do. Each was logged as an error with its traceback; the status is unchanged
+  (GH-2459)
+- `WD_USE_CERTIFI=true` now reaches every download of `geosphere/observation` values,
+  `ea/hydrology` values, `metno/frost` stations, values and credential check, and `dwd/road`
+  values. They went out with the system CA store, so where that store cannot verify the upstream
+  they failed SSL verification even with the setting on (GH-2463)
 - A `WD_AUTH__METNO_FROST` pair that is not valid JSON, such as `[myid, mysecret]` with its
   elements unquoted, is refused, and `check_settings()` names it. It was taken whole as the client
   id, secret included, and sent to Frost, which refused it. Quote each element:
@@ -74,6 +82,10 @@ Types of changes:
   derived's months, skipped them too. KNMI's and AEMET's own retry of a 429 or 5xx now
   applies through the cache too. A cache miss is one GET instead of two, and a body that ends
   before its `Content-Length` is no longer read back from the cache by the retry (GH-2467)
+- A request built from a `Settings` object, as the CLI builds its requests, uses it as it is rather
+  than validating it again, so the cache line and the `ts_drop_nulls` notice of a wide shape are
+  logged once, when the settings are built, rather than twice. Settings given as a dict are
+  validated as before (GH-2476)
 - DWD road values and radar BUFR reads import `pyproj`, where it is installed, before they load
   `eccodes`. On Linux, with the `eckitlib` wheel pip installs beside `eccodes`, a process that used
   `pyproj` or wradlib after such a read aborted at exit with status 134 or 139 (ecmwf/eckit#354);

@@ -24,7 +24,6 @@ from wetterdienst.exceptions import (
     NoStationsWithElevationError,
     ParameterNotCarriedError,
     ReversedTimeIntervalError,
-    StartDateEndDateError,
     StationNotFoundError,
 )
 from wetterdienst.metadata.resolution import Resolution
@@ -1090,11 +1089,6 @@ def _values(
         # the message is the whole of it: which parameters, and the lead time that carries them
         log.info(f"Failed to get values: {e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
-    except StartDateEndDateError as e:
-        # a window the caller wrote the wrong way round: theirs to fix, and no traceback of ours
-        detail = _refusal_detail(e, "get values")
-        log.info(f"Failed to get values: {detail}")
-        raise HTTPException(status_code=400, detail=detail) from e
     except BufrReaderMissingError as e:
         raise _reader_missing_on_the_server(e, "get values") from e
     except AssertionError:
@@ -1102,8 +1096,13 @@ def _values(
         # as a 500, not the caller's to fix
         raise
     except Exception as e:
-        log.exception("Failed to get values.")
-        raise HTTPException(status_code=400 if _is_caller_refusal(e, request) else 500, detail=str(e)) from e
+        if not _is_caller_refusal(e, request):
+            log.exception("Failed to get values.")
+            raise HTTPException(status_code=500, detail=str(e)) from e
+        # the caller's to fix, so an info line and no traceback of ours
+        detail = _refusal_detail(e, "get values")
+        log.info(f"Failed to get values: {detail}")
+        raise HTTPException(status_code=400, detail=detail) from e
 
 
 def _geo_values(
