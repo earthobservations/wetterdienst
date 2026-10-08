@@ -139,10 +139,11 @@ class MeteoFranceSynopValues(TimeseriesValues):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
-            # the year range above is already clamped to the archive's known coverage, so a failure
-            # other than a missing-year 404 is an outage, and is raised rather than leaving the year
-            # out of a result that reads as complete (GH-2461)
-            if file.status != 404:
+            # the year range above is already clamped to the archive's known coverage and each year's
+            # file holds every station, so only the current year's, not yet published in early January,
+            # can be missing: that 404 is dropped. Any other failure is an outage, and is raised
+            # rather than leaving the year out of a result that reads as complete (GH-2461)
+            if file.status != 404 or year != current_year:
                 file.raise_if_exception()
             if isinstance(file.content, Exception):
                 if not file.is_no_internet_error:

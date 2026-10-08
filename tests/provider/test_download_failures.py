@@ -108,11 +108,13 @@ def _lhmt(module: Any) -> object:  # noqa: ANN401
     return values._download_day("vilniaus-ams", dt.date(2020, 1, 1), _settings())  # noqa: SLF001
 
 
-def _meteofrance_synop(module: Any) -> object:  # noqa: ANN401
+def _meteofrance_synop(module: Any, year: int | None = None) -> object:  # noqa: ANN401
+    """Ask for a day of one year, by default the current one: the only year whose file can be missing."""
+    year = year or dt.datetime.now(tz=UTC).year
     values = _values(
         module.MeteoFranceSynopValues,
-        start=dt.datetime(2020, 1, 1, tzinfo=UTC),
-        end=dt.datetime(2020, 1, 2, tzinfo=UTC),
+        start=dt.datetime(year, 1, 1, tzinfo=UTC),
+        end=dt.datetime(year, 1, 2, tzinfo=UTC),
     )
     return values._collect_station_parameter_or_dataset(  # noqa: SLF001
         "07149",
@@ -130,7 +132,7 @@ def _meteofrance_observation(module: Any) -> object:  # noqa: ANN401
 
 # (module, driver, whether a 404 is dropped: the file is simply not there)
 _SITES = [
-    pytest.param(phenology_api, _phenology, True, id="dwd/phenology"),
+    pytest.param(phenology_api, _phenology, False, id="dwd/phenology"),
     pytest.param(poi_api, _poi, True, id="dwd/poi"),
     pytest.param(chmi_api, _chmi, True, id="chmi"),
     pytest.param(fmi_api, _fmi, False, id="fmi"),
@@ -239,3 +241,18 @@ def test_no_connection_at_all_stays_quiet(
 
     assert _gives_nothing(driver(module))
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+def test_a_404_for_a_past_synop_year_is_raised(serve: Callable[[Any, Exception, int], None]) -> None:
+    """Every year's file holds every station, and only the current year's can be missing, so any other 404 raises."""
+    serve(meteofrance_synop_api, FileNotFoundError("404 Not Found"), 404)
+
+    with pytest.raises(DownloadError, match="404 Not Found"):
+        _meteofrance_synop(meteofrance_synop_api, year=2020)
+
+
+def test_fmi_drops_the_400_for_a_station_it_does_not_know(serve: Callable[[Any, Exception, int], None]) -> None:
+    """FMI answers 400 "Unknown 'fmisid' value!" for a few stations of its own catalogue, which have no data."""
+    serve(fmi_api, OSError("400 Bad Request"), 400)
+
+    assert _gives_nothing(_fmi(fmi_api))

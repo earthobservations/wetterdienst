@@ -202,10 +202,10 @@ class DwdSwsmosValues(TimeseriesValues):
         served whatever the listing says by now. It decides because a 404 alone does not: a run the
         listing names is the server's to serve, and refusing it would have `available_issues` offer
         a run this then called the caller's mistake; a listing naming no run is a directory moved or
-        the host offline, which says nothing about the issue. Both are warned about as any other
-        failed fetch. `LATEST` names no run of its own and asks only for runs the listing has just
-        named, so a 404 there is a run gone since, never the caller's. A listing that fails after
-        the 404 raises, as it does for `LATEST`.
+        the host offline, which says nothing about the issue. Both are warned about, as the 404 is.
+        `LATEST` names no run of its own and asks only for runs the listing has just named, so a 404
+        there is a run gone since, never the caller's. A listing that fails after the 404 raises, as
+        it does for `LATEST`.
 
         A fetch that fails otherwise -- a timeout, a 5xx after the retries -- raises a
         `DownloadError`, as `dwd/observation` does: answered with `None` it read as a run holding

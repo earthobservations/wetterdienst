@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import datetime as dt
 import itertools
-import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
 from zoneinfo import ZoneInfo
@@ -32,7 +31,6 @@ if TYPE_CHECKING:
 
     from wetterdienst.settings import Settings
 
-log = logging.getLogger(__name__)
 
 _BASE_URL = "https://opendataapi.dmi.dk/v2/climateData/collections"
 _UTC = ZoneInfo("UTC")

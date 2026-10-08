@@ -162,7 +162,7 @@ def test_iter_station_value_pages_no_internet_is_silent(
         return File(url=url, content=NoInternetError("offline"), status=503)
 
     monkeypatch.setattr(dmi_api, "download_file", fake_download_file)
-    with caplog.at_level(logging.WARNING, logger=dmi_api.log.name):
+    with caplog.at_level(logging.WARNING):
         dfs = _iter_pages(object.__new__(dmi_api.DmiObservationValues))
     assert dfs == []
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]

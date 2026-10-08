@@ -191,11 +191,16 @@ class FmiObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        # a station reporting no data for a window yields an empty (200) response, so any exception
-        # here is a real transport/HTTP failure, a 404 included, and is raised: swallowed it read as
-        # a station without data (GH-2461). NoInternetError returns silently, to give an empty frame.
-        file.raise_if_exception()
+        # a station reporting no data for a window yields an empty (200) response, so a failure here
+        # is a real transport/HTTP one, a 404 included, and is raised: swallowed it read as a station
+        # without data (GH-2461). The exception is the 400 "Unknown 'fmisid' value!" that FMI answers
+        # for a few stations of its own catalogue, which have no data and are warned about.
+        # NoInternetError returns silently, to give an empty frame.
+        if file.status != 400:
+            file.raise_if_exception()
         if isinstance(file.content, Exception):
+            if not file.is_no_internet_error:
+                log.warning(f"Failed to fetch FMI data for station {station_id}: {file.content}")
             return pl.DataFrame(
                 schema={
                     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
