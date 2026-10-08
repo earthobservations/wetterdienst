@@ -493,10 +493,11 @@ class MetnoFrostValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        if file.is_no_internet_error or file.is_empty:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        # the status is read before the body: `download_file` hands a failed request back as an
+        # exception with no body, which `is_empty` also reports, so asking that first would
+        # answer every failure as "no data" and skip the checks below it
         # 412: no data for this station/elements/period combination
-        if file.status == 412:
+        if file.is_no_internet_error or file.status == 412:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # 404: one or more elements may require specific time-series parameters (e.g.
         # historical synoptic data). Fall back to resolving each parameter individually.
@@ -509,6 +510,9 @@ class MetnoFrostValues(TimeseriesValues):
             return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         if isinstance(file.content, Exception):
             log.warning(f"Failed to download {url}: {file.content}")
+            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        # a 200 with no body
+        if file.is_empty:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         df = pl.read_json(file.content)
@@ -568,10 +572,9 @@ class MetnoFrostValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        if file.is_no_internet_error or file.is_empty:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        # the status before the body, as in `_collect_station_parameter_or_dataset`
         # 412: no data for this station/element/period combination
-        if file.status == 412:
+        if file.is_no_internet_error or file.status == 412:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # 404: element may require specific time-series parameters (e.g. historical synoptic data)
         if file.status == 404:
@@ -580,6 +583,9 @@ class MetnoFrostValues(TimeseriesValues):
             )
         if isinstance(file.content, Exception):
             log.warning(f"Failed to download {url}: {file.content}")
+            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        # a 200 with no body
+        if file.is_empty:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         df = pl.read_json(file.content)
@@ -679,10 +685,12 @@ class MetnoFrostValues(TimeseriesValues):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
-            if obs_file.is_no_internet_error or obs_file.is_empty or obs_file.status in (404, 412):
+            if obs_file.is_no_internet_error or obs_file.status in (404, 412):
                 continue
             if isinstance(obs_file.content, Exception):
                 log.warning(f"Failed to download {obs_url}: {obs_file.content}")
+                continue
+            if obs_file.is_empty:
                 continue
 
             df = pl.read_json(obs_file.content)

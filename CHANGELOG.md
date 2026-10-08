@@ -26,6 +26,10 @@ Types of changes:
 
 ### Fixed
 
+- `metno/frost` values read a failed download's status before treating it as empty. A 404 now
+  reaches the fallbacks written for it (each parameter alone, then its time series discovered),
+  where the request returned no data; a 401, 403 or 500, or a certificate failure, is logged as
+  `Failed to download <url>` where it passed as "no data" without a word (GH-2494)
 - `interpolate`, `summarize` and their `_by_station_id` variants build a provider's station list
   once, not two or three times: on a cold cache that is a round of upstream requests fewer, for
   DWD observation the station description files and the file index per period. `filter_by_rank`
