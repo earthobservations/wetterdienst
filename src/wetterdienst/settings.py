@@ -131,28 +131,30 @@ class Auth(BaseModel):
 
         An all-digit client id arrives as an `int`, as the environment decodes a nested value as JSON
         where it parses, and is still an id. Text starting with `[` is a pair, not a client id: it is
-        decoded as JSON, and refused where it does not decode (GH-2464); so is text holding a character
-        a UUID cannot, such as `id:secret` (GH-2487). A mapping, or any other value
-        that is not iterable -- a float, `true`, a JSON object -- is left for the field to refuse,
-        which names it, where reading it as a pair failed with a bare `TypeError` or took the object's
-        keys (GH-2379).
+        decoded as JSON, and refused where it does not decode (GH-2464). Other text is refused, before
+        any decoding, where it holds a character a client id cannot, such as `id:secret` (GH-2487). A
+        mapping, or any other value that is not iterable -- a float, `true`, a JSON object -- is left
+        for the field to refuse, which names it, where reading it as a pair failed with a bare
+        `TypeError` or took the object's keys (GH-2379).
         """
         if value is None:
             return None
         value = _as_given(value)
         if isinstance(value, (str, SecretStr)):
-            text = (value.get_secret_value() if isinstance(value, SecretStr) else value).strip()
+            given = value.get_secret_value() if isinstance(value, SecretStr) else value
+            text = given.strip()
             # a client id is a UUID and never starts with `[`, so such text is a pair: the
             # environment hands one on as its raw text where it is not valid JSON, and it was taken
             # whole as the client id, secret and all. One given as text in Python is read as the
             # environment reads it (GH-2464)
             if not text.startswith("["):
-                # nor does it hold a character a UUID cannot -- anything but letters, digits and `-`.
-                # Text that does is a pair written as `id:secret` (the shape WD_AUTH__CEDA takes),
-                # `id,secret`, `id;secret` or `("id", "secret")`, which was taken whole as the client
-                # id. The message stays constant, as the text holds the secret (GH-2487). The mask a
-                # dumped credential leaves behind is left for the check that names it
-                if text != _MASK and re.search(r"[^0-9A-Za-z-]", text):
+                # nor does it hold a character a Frost client id cannot -- anything but ASCII letters,
+                # digits and `-`. Text that does is a pair written as `id:secret` (the shape
+                # WD_AUTH__CEDA takes), `id,secret`, `id;secret` or `("id", "secret")`, which was
+                # taken whole as the client id. The message stays constant, as the text holds the
+                # secret (GH-2487). The mask a dumped credential leaves behind is left for the check
+                # that names it, which compares it as given, so a padded mask is refused here
+                if given != _MASK and re.search(r"[^0-9A-Za-z-]", text):
                     msg = (
                         'metno_frost is not a client id (letters, digits and "-" only); '
                         'write a pair as ["client_id", "secret"]'

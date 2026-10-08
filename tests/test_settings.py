@@ -1555,3 +1555,9 @@ def test_settings_auth_metno_frost_names_a_lone_mask_as_one(monkeypatch: pytest.
     monkeypatch.delenv("WD_AUTH__METNO_FROST")
     with pytest.raises(ValidationError, match=re.escape(message)):
         Settings(auth={"metno_frost": "*" * 10})
+    # a mask padded with whitespace is not the mask, and not a client id either
+    for padded in (f" {'*' * 10} ", f"{'*' * 10}\n"):
+        monkeypatch.setenv("WD_AUTH__METNO_FROST", padded)
+        assert len(check_settings()) == 1
+        with pytest.raises(ValidationError, match="is not a client id"):
+            Settings(auth={"metno_frost": padded})
