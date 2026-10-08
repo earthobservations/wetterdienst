@@ -92,10 +92,10 @@ Types of changes:
   it now exits cleanly, unless something imported `eccodes` before wetterdienst did (GH-2468)
 - `/api/values`, `/api/interpolate`, `/api/summarize` and their MCP tools word a `timestamp` that
   ends before it starts, or is missing for an interpolation or a summary, in terms of `timestamp`
-  ("the interval in timestamp ends before it starts"), where they named the request's `start` and
-  `end`, which they cannot pass. Python callers keep the request's message, and the exceptions
-  `ReversedTimeIntervalError` and `MissingTimeIntervalError` are subclasses of those they raised
-  (GH-2478)
+  ("the interval in timestamp ends before it starts"), where they named the request's `start`
+  and `end`, which their callers cannot pass. Python callers keep the request's message, and
+  `ReversedTimeIntervalError` and `MissingTimeIntervalError` are subclasses of the exceptions
+  they raised (GH-2478)
 
 ## [0.141.0] - 2026-10-06
 
