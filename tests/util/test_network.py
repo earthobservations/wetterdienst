@@ -40,6 +40,7 @@ from fsspec.implementations.cache_metadata import CacheMetadata
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
 from pydantic import SecretStr
+from yarl import URL
 
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -2857,14 +2858,14 @@ def test_a_temporary_file_that_cannot_be_removed_changes_neither_result_nor_erro
         assert filesystem.cat_file("/f.txt") == b"new-body"
 
 
-def _tls_failure(kind: str, proxy_auth: BasicAuth | None = None) -> ClientSSLError:
+def _tls_failure(kind: str, proxy: URL | None = None, proxy_auth: BasicAuth | None = None) -> ClientSSLError:
     """Build the error aiohttp raises for a TLS failure: a failed verification, or a dropped handshake."""
     connection_key = ConnectionKey(
         host="example.com",
         port=443,
         is_ssl=True,
         ssl=True,
-        proxy=None,
+        proxy=proxy,
         proxy_auth=proxy_auth,
         proxy_headers_hash=None,
     )
@@ -2891,12 +2892,14 @@ def test_download_file_does_not_report_a_tls_failure_as_being_offline(kind: str)
     ):
         result = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
 
-    assert result.content is error
+    # the SSL error underneath, which says why, and not the aiohttp one around it (see the proxy test)
+    assert result.content is error.os_error
+    assert isinstance(result.content, ssl.SSLError)
     assert result.status == 500
     assert not result.is_no_internet_error
     with pytest.raises(DownloadError) as raised:
         result.raise_if_exception()
-    assert raised.value.__cause__ is error
+    assert raised.value.__cause__ is error.os_error
 
 
 @pytest.mark.parametrize("kind", ["certificate", "handshake"])
@@ -2910,33 +2913,37 @@ def test_post_file_does_not_report_a_tls_failure_as_being_offline(kind: str) -> 
     ):
         result = post_file("https://example.com/token")
 
-    assert result.content is error
+    # the SSL error underneath, which says why, and not the aiohttp one around it (see the proxy test)
+    assert result.content is error.os_error
+    assert isinstance(result.content, ssl.SSLError)
     assert result.status == 500
     assert not result.is_no_internet_error
     with pytest.raises(DownloadError) as raised:
         result.raise_if_exception()
-    assert raised.value.__cause__ is error
+    assert raised.value.__cause__ is error.os_error
 
 
 @pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
 @pytest.mark.parametrize("kind", ["certificate", "handshake"])
-def test_a_tls_failure_keeps_the_proxy_password_out_of_its_repr(kind: str) -> None:
-    """The error holds its connection key, and that key a proxy's password (GH-2553).
+def test_a_tls_failure_keeps_a_proxy_password_out_of_what_is_stored(kind: str) -> None:
+    """The aiohttp error holds the connection key, and that key a proxy's password (GH-2553).
 
-    A proxy named in `HTTPS_PROXY` as `user:secret@host` is read by aiohttp into the key's
-    `proxy_auth`, and an exception's repr renders its args. The offline answer stored only
-    `str(error)`; the error is stored whole now, and logged by stamina's retry hook as its repr.
+    A proxy named in `HTTPS_PROXY` or `client_kwargs` as `user:secret@host` is kept in the key's
+    `proxy_auth` and `proxy`, and an exception's repr renders its args. The offline answer stored
+    only `str(error)`; what is stored for a TLS failure is the SSL error underneath, with no key.
     """
-    error = _tls_failure(kind, proxy_auth=BasicAuth("user", "secret"))
+    error = _tls_failure(kind, proxy=URL("http://user:secret@proxy:3128"), proxy_auth=BasicAuth("user", "secret"))
     mock_fs = MagicMock()
     mock_fs.cat_file.side_effect = error
 
     with (
         stamina.set_testing(True, attempts=1),
         patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+        patch("wetterdienst.util.network.sync", side_effect=error),
     ):
-        result = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+        downloaded = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+        posted = post_file("https://example.com/token")
 
-    assert isinstance(result.content, type(error))
-    assert result.status == 500
-    assert "secret" not in repr(result.content)
+    for result in (downloaded, posted):
+        assert "secret" not in repr(result.content)
+        assert "secret" not in str(result.content)
