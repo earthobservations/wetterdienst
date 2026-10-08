@@ -81,6 +81,9 @@ Types of changes:
 
 ### Fixed
 
+- The CLI's `about coverage` refuses `--provider` without `--network`, and `--network` without
+  `--provider`, with a usage error (exit 2) naming the missing option. It printed every provider
+  with exit 0, as if neither had been given; with neither it still lists them (GH-2498)
 - `geosphere/observation` values without dates, at 10 minutes or hourly, and long windows no
   longer fail: the API refused a slice of more than 1,000,000 data points (the 10-minute record is
   1.8 million), and answered one of more than about 6 years at 10 minutes too slowly for the read

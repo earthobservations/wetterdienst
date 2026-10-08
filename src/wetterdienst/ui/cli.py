@@ -889,7 +889,15 @@ def coverage(
     """Get coverage information."""
     set_logging_level(debug=debug)
 
-    if not provider or not network:
+    # one without the other is no request for every provider, as /api/coverage refuses it with a 400
+    if bool(provider) != bool(network):
+        ctx = click.get_current_context()
+        params = {param.name: param for param in ctx.command.params}
+        missing, given = ("network", "provider") if provider else ("provider", "network")
+        message = f"Required with {_option_hint(given, params, ctx)}."
+        raise click.UsageError(click.MissingParameter(message, ctx, params[missing]).format_message(), ctx)
+
+    if not provider and not network:
         print(json.dumps(Wetterdienst.discover(), indent=2))  # noqa: T201
         return
 
