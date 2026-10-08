@@ -490,3 +490,40 @@ def test_wsv_station_list_names_the_vertical_datum_of_the_gauge_zero(monkeypatch
         "austria": (235.98, "m ü. A."),
         "none": (None, None),
     }
+
+
+def test_wsv_a_failed_values_download_names_the_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a values download that timed out raises an error naming the file (GH-2507).
+
+    A timeout's own message is empty, so raising the stored `FSTimeoutError` itself answered the
+    REST API with a 500 and `{"detail": ""}`.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from fsspec.exceptions import FSTimeoutError  # noqa: PLC0415
+
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+    from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
+
+    station = {
+        "number": "slow",
+        "shortname": "slow",
+        "km": 1.0,
+        "latitude": 50.0,
+        "longitude": 10.0,
+        "water": {"shortname": "TEST"},
+        "timeseries": [{"shortname": "W", "equidistance": 15, "unit": "cm", "characteristicValues": []}],
+    }
+    listing = json.dumps([station]).encode()
+
+    def _download(**kwargs: object) -> File:
+        url = str(kwargs["url"])
+        if url.endswith("measurements.json"):
+            return File(url=url, content=FSTimeoutError(), status=408)
+        return File(url=url, content=BytesIO(listing), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)
+
+    with pytest.raises(DownloadError, match=r"Failed to download .*measurements\.json: FSTimeoutError") as caught:
+        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
+    assert isinstance(caught.value.__cause__, FSTimeoutError)

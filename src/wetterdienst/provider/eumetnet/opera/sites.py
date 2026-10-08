@@ -7,7 +7,7 @@ from __future__ import annotations
 import gzip
 import importlib.resources
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
@@ -15,6 +15,7 @@ from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from io import BytesIO
 
 
 class OperaRadarSites:
@@ -123,9 +124,9 @@ class OperaRadarSitesGenerator:
         )
         if payload.is_no_internet_error:
             return []
-        if isinstance(payload.content, Exception):
-            raise payload.content
-        data = json.loads(payload.content.read())
+        payload.raise_if_exception()
+        # only a NoInternetError gets past `raise_if_exception`, and the check above returned for it
+        data = json.loads(cast("BytesIO", payload.content).read())
 
         # Filter empty elements and convert data types.
         integer_values = ["maxrange", "number", "startyear", "status", "wmocode"]
