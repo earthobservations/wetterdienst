@@ -137,6 +137,10 @@ Types of changes:
   and `end`, which their callers cannot pass. Python callers keep the request's message, and
   `ReversedTimeIntervalError` and `MissingTimeIntervalError` are subclasses of the exceptions
   they raised (GH-2478)
+- `wetterdienst values`, `interpolate` and `summarize` word a window that ends before it starts in
+  terms of the options ("the interval in --timestamp or --start / --end ends before it starts"),
+  where they printed `Error: Error: 'start' must be smaller or equal to 'end'.`. Python callers
+  get the request's message without the stray `Error: ` prefix (GH-2513)
 - `wetterdienst stripes values` refuses a `--target` that is a URI (`s3://...`, `file://...`)
   before it fetches and renders, as a usage error (exit 2) naming `--target`; the write to the
   path read off the URI (`s3:/bucket/...`) failed only afterwards. A `--target` whose extension

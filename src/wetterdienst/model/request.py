@@ -306,7 +306,7 @@ class TimeseriesRequest:
             msg = "start and end must be datetime objects at this point"
             raise TypeError(msg)
         if not start <= end:
-            msg = "Error: 'start' must be smaller or equal to 'end'."
+            msg = "'start' must be smaller or equal to 'end'."
             raise ReversedTimeIntervalError(msg)
 
         return start, end
