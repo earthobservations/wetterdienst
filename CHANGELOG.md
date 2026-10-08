@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `WD_AUTH__CEDA` written as a pair that is not valid JSON (`[user, pa:ss]`) is refused by
+  `check_settings()` and `Settings()`; with a colon in it, it was split there into a username and
+  password still holding the brackets, and failed at CEDA. A pair given in Python as valid JSON
+  text (`'["user", "pa:ss"]'`) is read as the pair (GH-2483)
+
 ## [0.142.0] - 2026-10-08
 
 ### Changed
