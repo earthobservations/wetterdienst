@@ -2820,3 +2820,32 @@ def test_a_body_cut_short_leaves_no_file_in_the_cache(status_server: ThreadingHT
 
     assert result.status == 500
     assert _blobs(tmp_path) == []
+
+
+@pytest.mark.parametrize("fails", [False, True], ids=["fetched", "download-fails"])
+def test_a_temporary_file_that_cannot_be_removed_changes_neither_result_nor_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, fails: bool
+) -> None:
+    """An unlink that Windows refuses (an indexer holds the file) is not what the caller sees (GH-2493)."""
+    filesystem, blob = _caching_over_slow_remote(tmp_path)
+    monkeypatch.setattr(_SlowFileSystem, "fail", fails)
+    replace = os.replace
+
+    def refuse(source: str, destination: str) -> None:
+        if Path(destination) == blob:
+            msg = "[WinError 5] Access is denied"
+            raise PermissionError(msg)
+        replace(source, destination)
+
+    def stuck(_self: Path, **_kwargs: bool) -> None:
+        msg = "[WinError 32] The process cannot access the file"
+        raise PermissionError(msg)
+
+    monkeypatch.setattr(network.os, "replace", refuse)
+    monkeypatch.setattr(Path, "unlink", stuck)
+
+    if fails:
+        with pytest.raises(ConnectionError):
+            filesystem.cat_file("/f.txt")
+    else:
+        assert filesystem.cat_file("/f.txt") == b"new-body"

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import json
 import logging
@@ -19,7 +20,7 @@ from collections.abc import Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from http import HTTPStatus
-from io import BytesIO, TextIOWrapper
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Literal, TypeVar
 from urllib.parse import urlparse
@@ -806,7 +807,7 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         behind it, and one that aiohttp sees cut short leaves no entry claiming a fresh copy of what
         it wrote for a retry to read back. The body is written to a file of its own and renamed onto
         the blob once whole, so a concurrent fetch of the same file never finds it half-written and
-        a failed one leaves nothing on disk (GH-2493).
+        a failed one removes what it wrote (GH-2493).
 
         The copy fetched is the one opened, rather than handing back to fsspec's `_open` to find it
         again: if it had gone in between, that would probe and record-first all over.
@@ -839,12 +840,16 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                     # this read is served from the file just fetched, in memory because that file
                     # cannot be removed while open. No entry is recorded: it would call the blob,
                     # which still holds the older copy, fresh, so the next read fetches again
-                    data = Path(temp).read_bytes()
-                    return BytesIO(data) if "b" in mode else TextIOWrapper(BytesIO(data))
+                    log.debug(f"Could not replace {blob}, serving {path} from the fetched copy", exc_info=True)
+                    # `open` has turned a text mode into a binary one by now and wraps the handle itself
+                    return BytesIO(Path(temp).read_bytes())
                 self._make_local_details(path)
                 self.save_cache()
             finally:
-                Path(temp).unlink(missing_ok=True)
+                # best effort: an unlink that fails must not replace the bytes in hand or the error
+                # the download met, which is what the caller's status and retry go by
+                with contextlib.suppress(OSError):
+                    Path(temp).unlink(missing_ok=True)
         return Path(blob).open(mode)
 
 
