@@ -3038,14 +3038,14 @@ def _year_10000_message() -> str:
             "/api/interpolate",
             {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "timestamp": ""},
             400,
-            "start and end are required for interpolation",
+            "timestamp is required to interpolate",
             id="interpolate-empty-date",
         ),
         pytest.param(
             "/api/summarize",
             {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0, "timestamp": ""},
             400,
-            "start and end are required for summarization",
+            "timestamp is required to summarize",
             id="summarize-empty-date",
         ),
         pytest.param(
@@ -6458,7 +6458,7 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
     )
 
     assert response.status_code == 500
-    assert response.json()["detail"] == f"503, message='Service Unavailable', url='{url}'"
+    assert response.json()["detail"] == f"Failed to download {url}: 503, message='Service Unavailable'"
 
 
 _GEO_REFUSALS = [
@@ -6466,14 +6466,14 @@ _GEO_REFUSALS = [
         "interpolate",
         {"latitude": 50.0, "longitude": 10.0, "timestamp": "2020-06-30/2020-06-01"},
         400,
-        "Error: 'start' must be smaller or equal to 'end'.",
+        "the interval in timestamp ends before it starts",
         id="interpolate-window-the-wrong-way-round",
     ),
     pytest.param(
         "summarize",
         {"latitude": 50.0, "longitude": 10.0, "timestamp": "2020-06-30/2020-06-01"},
         400,
-        "Error: 'start' must be smaller or equal to 'end'.",
+        "the interval in timestamp ends before it starts",
         id="summarize-window-the-wrong-way-round",
     ),
     pytest.param(
@@ -6532,7 +6532,7 @@ def test_values_a_window_the_wrong_way_round_is_logged_as_info(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A window that ends before it starts is the caller's 400, logged without a traceback (GH-2429)."""
-    detail = "Error: 'start' must be smaller or equal to 'end'."
+    detail = "the interval in timestamp ends before it starts"
     with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
         response = client.get(
             "/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30/2020-06-01"}
@@ -6715,6 +6715,53 @@ def test_stations_output_schemas_name_the_span_as_the_frame_does(client: TestCli
     assert not {"start_date", "end_date"} & set(schema["properties"])
 
 
+def test_values_a_timed_out_download_names_the_file(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A download that timed out answers a 500 naming the file, where its `detail` was empty (GH-2460)."""
+    from fsspec.exceptions import FSTimeoutError  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import api as dwd_observation_api  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import download as dwd_observation_download  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    station = {
+        "resolution": "annual",
+        "dataset": "climate_summary",
+        "station_id": "01048",
+        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "latitude": 51.1278,
+        "longitude": 13.7543,
+        "elevation": 228.0,
+        "name": "Dresden-Klotzsche",
+        "region": "Sachsen",
+    }
+    url = "https://example.invalid/jahreswerte_KL_01048_19340101_20231231_hist.zip"
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame([station]))
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "create_file_list_for_climate_observations",
+        lambda *_args, **_kwargs: pl.Series([url]),
+    )
+    # what `download_file` hands back for a timeout that outlasted its retries
+    failed = File(url=url, content=FSTimeoutError(), status=408)
+    monkeypatch.setattr(dwd_observation_download, "download_files", lambda **_kwargs: [failed])
+
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "annual/climate_summary",
+            "periods": "historical",
+            "station": "01048",
+        },
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == f"Failed to download {url}: FSTimeoutError"
+
+
 # each endpoint whose query parameters were taken loose, with a request it would otherwise serve,
 # and what of it a refused request must not reach (GH-2479)
 _LOOSE_ENDPOINTS = [
@@ -6854,6 +6901,52 @@ def test_every_endpoint_refuses_an_unknown_parameter(client: TestClient, endpoin
         "msg": "Extra inputs are not permitted",
         "input": "1",
     } in (response.json()["detail"])
+
+
+@pytest.mark.parametrize(
+    ("tool", "arguments", "detail"),
+    [
+        pytest.param(
+            "interpolate",
+            {"latitude": 50.0, "longitude": 10.0, "timestamp": ""},
+            "timestamp is required to interpolate",
+            id="interpolate-no-window",
+        ),
+        pytest.param(
+            "summarize",
+            {"latitude": 50.0, "longitude": 10.0, "timestamp": ""},
+            "timestamp is required to summarize",
+            id="summarize-no-window",
+        ),
+        pytest.param(
+            "values",
+            {"station": "01048", "timestamp": "2020-06-30/2020-06-01"},
+            "the interval in timestamp ends before it starts",
+            id="values-window-the-wrong-way-round",
+        ),
+    ],
+)
+def test_mcp_a_refused_window_is_worded_in_terms_of_timestamp(
+    tool: str, arguments: dict[str, object], detail: str
+) -> None:
+    """The MCP tools refuse a missing or reversed window as the REST routes do, naming `timestamp` (GH-2478)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(tool, {**_OBSERVATION, **arguments})
+
+    with pytest.raises(ToolError, match="HTTP error 400") as error:
+        asyncio.run(_call())
+    assert detail in str(error.value)
 
 
 @pytest.mark.parametrize(

@@ -171,3 +171,21 @@ def test_cli_alerts_unwritable_target_is_a_readable_error(monkeypatch: pytest.Mo
     assert "Error: Could not write --target: " in result.output
     assert "No such file or directory" in result.output
     assert not target.exists()
+
+
+def test_cli_alerts_percent_encoded_file_uri_target(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Test a `file://` URI as `Path.as_uri()` gives it, `%20` for a space, writes to the path it names (GH-2454)."""
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    class _Result:
+        def to_format(self, _fmt: str, *, indent: bool) -> str:  # noqa: ARG002
+            return "{}"
+
+    monkeypatch.setattr(DwdWeatherAlertRequest, "query", lambda _self: _Result())
+    directory = tmp_path / "my data"
+    directory.mkdir()
+    target = directory / "alerts.json"
+    result = CliRunner().invoke(cli, ["alerts", f"--target={target.as_uri()}"])
+    assert result.exit_code == 0, result.output
+    assert target.read_text(encoding="utf-8") == "{}"
+    assert not (tmp_path / "my%20data").exists()

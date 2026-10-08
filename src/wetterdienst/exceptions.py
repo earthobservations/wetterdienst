@@ -35,6 +35,22 @@ class InvalidTimeIntervalError(ValueError):
     """Raised when an invalid time interval is provided."""
 
 
+class ReversedTimeIntervalError(StartDateEndDateError):
+    """Raised when a request's window ends before it starts.
+
+    Told apart from its parent so that the REST API and the MCP tools, whose callers pass the window as
+    one ``timestamp`` and know nothing of a request's ``start`` and ``end``, can word the refusal their
+    own way. Python callers get the request's message.
+    """
+
+
+class MissingTimeIntervalError(InvalidTimeIntervalError):
+    """Raised when a computation that needs a window of time is given none.
+
+    Told apart from its parent for the same reason as `ReversedTimeIntervalError`.
+    """
+
+
 class InvalidBoundingBoxError(ValueError):
     """Raised when a bounding box's borders are given the wrong way round."""
 
@@ -65,6 +81,28 @@ class ApiNotFoundError(Exception):
 
 class NoInternetError(OSError):
     """Raised when no internet connection is available."""
+
+
+class DownloadError(Exception):
+    """Raised when a download failed, saying which file it was and why.
+
+    The failure a download met is on `__cause__`, as the exception it was: a timeout, a response
+    error, a dropped connection. Catch this to handle any of them, or read `__cause__` to tell them
+    apart.
+
+    `url` is the address without its query, fragment or user information, which can carry a key or
+    a password; it is what the message shows. Held in `args`, so the error pickles.
+    """
+
+    def __init__(self, url: str, reason: str) -> None:
+        """Initialize the error with the address that failed and why."""
+        super().__init__(url, reason)
+        self.url = url
+        self.reason = reason
+
+    def __str__(self) -> str:
+        """Say which file failed to download, and how."""
+        return f"Failed to download {self.url}: {self.reason}"
 
 
 class BufrReaderMissingError(ImportError):
