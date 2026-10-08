@@ -3614,3 +3614,52 @@ def test_export_duckdb_target_reads_a_percent_encoded_path_as_the_path_it_names(
     filename = directory.joinpath("stations.duckdb")
     ExportMixin(df=df_stations).to_target(f"duckdb:///{quote(filename.as_posix())}?table=stations")
     assert filename.exists()
+
+
+@pytest.mark.parametrize(
+    ("target", "columns", "rows_per_insert"),
+    [
+        pytest.param(
+            "mssql+pyodbc://u:p@localhost/dwd?driver=ODBC+Driver+18+for+SQL+Server&table=weather",
+            7,
+            299,
+            id="pyodbc",
+        ),
+        pytest.param("mssql+pymssql://u:p@localhost/dwd?table=weather", 7, 299, id="pymssql"),
+        # a narrow frame is held by the 1000 rows of a table value constructor
+        pytest.param("mssql+pymssql://u:p@localhost/dwd?table=weather", 2, 1000, id="narrow"),
+        # the control: no other dialect is held to SQL Server's limits
+        pytest.param("mysql+pymysql://u:p@localhost/dwd?table=weather", 7, 5000, id="mysql"),
+    ],
+)
+def test_sql_sink_keeps_a_sql_server_insert_within_2099_parameters(
+    target: str,
+    columns: int,
+    rows_per_insert: int,
+) -> None:
+    """A values frame goes to SQL Server in inserts of at most 2099 values and 1000 rows (GH-2268).
+
+    A multi-row insert carries one parameter per cell, and SQL Server refuses a request of more
+    than 2100 ("The incoming request has too many parameters"), so a values frame of 7 columns
+    failed from 301 rows on, in the first chunk of 5000. The cap is 2099, one under the limit,
+    for drivers that count one more parameter than the statement binds. The cap follows the
+    dialect, so it holds for every SQL Server driver, including ones that bind on the client and
+    would need only the row cap. No server is needed: the engine carries the target's dialect over
+    a stand-in driver, and the chunk size the sink hands `to_sql` is read off a stubbed call.
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    frame = ExportMixin(df=pl.DataFrame({f"column_{i}": [i] for i in range(columns)}))
+    create_engine = sqlalchemy.create_engine
+
+    def engine_for(url: object, **kwargs: object) -> object:
+        # pyodbc's dialect reads the driver's version as it is built
+        driver = mock.MagicMock(version="5.2.0", __version__="2.3.13")
+        return create_engine(url, module=driver, **kwargs)
+
+    with (
+        mock.patch("sqlalchemy.create_engine", side_effect=engine_for),
+        mock.patch.object(pd.DataFrame, "to_sql", autospec=True) as to_sql,
+    ):
+        frame.to_target(target)
+    assert to_sql.call_args.kwargs["chunksize"] == rows_per_insert

@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- A `WD_*` value in the environment or `.env` that is nested too deeply to decode as JSON, such
+  as `WD_AUTH__CEDA` set to 100000 opening brackets, is treated as text that is not JSON is:
+  `check_settings()` names the variable and `Settings()` raises a `ValidationError` or
+  `SettingsError`; text for a key of a dict setting is kept as it is. All three raised a
+  `RecursionError` before: `check_settings()`, `Settings()` and so a provider's `is_configured()`,
+  which now raises the `ValidationError` (GH-2543)
+
+## [0.143.0] - 2026-10-08
+
 ### Changed
 
 - **Breaking**: the path of a `duckdb://` target is read as the path of a URI, as a `file://` one
@@ -26,6 +37,12 @@ Types of changes:
 
 ### Fixed
 
+- A download or post that fails on a certificate that does not verify, or on a TLS protocol
+  error, is reported as that failure (status 500) and no longer as being offline (503): callers
+  that return an empty result for no internet now warn about it or raise instead (GH-2553)
+- An `mssql://` export writes in inserts within SQL Server's limits of 2100 parameters and 1000
+  rows, about 299 rows of a 7-column values frame. It sent 5000 rows at a time, so any export of
+  more than a few hundred rows failed with "too many parameters" (GH-2268)
 - A file the cache downloads is written beside its blob and renamed onto it once whole, so a
   concurrent request for the same URL, from another thread or process, no longer truncates a copy
   another reader is serving, and a body cut short leaves no partial file in the cache directory.
@@ -83,6 +100,12 @@ Types of changes:
   the padding and refused there. Text of nothing but whitespace, or `""` given in Python, reads as
   unset, as an empty value in the environment does, where it counted as a configured client id
   (GH-2542)
+- `WD_AUTH__KNMI`, `WD_AUTH__AEMET`, both halves of `WD_AUTH__CEDA`, and each element of a
+  `WD_AUTH__METNO_FROST` pair are kept without the whitespace around them (a newline from a `.env`
+  value, a CRLF); they were sent to the provider with it and refused there. A key of nothing but
+  whitespace, and a CEDA or Frost pair whose username or client id is blank, now read as unset, as
+  a lone Frost client id does; they counted as configured and sent empty credentials. A password
+  or secret with whitespace at its edges loses it too (GH-2557)
 
 ## [0.142.0] - 2026-10-08
 
@@ -4081,7 +4104,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.142.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...HEAD
+[0.143.0]: https://github.com/earthobservations/wetterdienst/compare/v0.142.0...v0.143.0
 [0.142.0]: https://github.com/earthobservations/wetterdienst/compare/v0.141.0...v0.142.0
 [0.141.0]: https://github.com/earthobservations/wetterdienst/compare/v0.140.0...v0.141.0
 [0.140.0]: https://github.com/earthobservations/wetterdienst/compare/v0.139.0...v0.140.0
