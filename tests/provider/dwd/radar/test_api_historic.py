@@ -258,7 +258,7 @@ def test_radar_request_composite_historic_hg_timerange(default_settings: Setting
     assert len(results) == 2
 
     # Verify all timestamps are properly propagated from the tarfile.
-    assert all(request.start == result.timestamp or request.start + dt.timedelta(minutes=5) for result in results)
+    assert all(result.timestamp in (request.start, request.start + dt.timedelta(minutes=5)) for result in results)
 
 
 @pytest.mark.xfail(reason="UnicodeDecodeError: invalid start byte")

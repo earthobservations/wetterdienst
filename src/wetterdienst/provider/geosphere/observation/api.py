@@ -78,6 +78,7 @@ class GeosphereObservationValues(TimeseriesValues):
             ttl=CacheExpiry.FIVE_MINUTES,
             client_kwargs=self.sr.settings.fsspec_client_kwargs,
             cache_disable=self.sr.settings.cache_disable,
+            use_certifi=self.sr.settings.use_certifi,
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
