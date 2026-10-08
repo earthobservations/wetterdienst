@@ -46,6 +46,11 @@ Types of changes:
 - `Settings` logs its `Wetterdienst cache is ...` line, and the `ts_drop_nulls` notice for a wide
   shape, once when built, no longer again on every field assignment or
   `Settings.model_validate(settings)`. A `ts_shape` assigned later logs nothing (GH-2504)
+- `WD_AUTH__METNO_FROST` (and `Settings(auth={"metno_frost": ...})`) written as `id:secret`,
+  `id,secret`, `id secret` or the text `("id", "secret")` is refused, as is any other lone text
+  holding a character but an ASCII letter, digit or `-`, with a message naming the form
+  `["client_id", "secret"]`; it was taken whole as the client id, secret included, and Frost
+  refused the credential later. `check_settings()` reports it too (GH-2487)
 
 ## [0.142.0] - 2026-10-08
 
