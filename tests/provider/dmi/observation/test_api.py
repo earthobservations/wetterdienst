@@ -5,7 +5,9 @@
 import datetime as dt
 import json
 import logging
+from collections.abc import Callable
 from io import BytesIO
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -151,21 +153,16 @@ def test_iter_station_value_pages_raises_on_download_error(monkeypatch: pytest.M
         _iter_pages(object.__new__(dmi_api.DmiObservationValues))
 
 
-def test_iter_station_value_pages_no_internet_is_silent(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """A NoInternetError ends pagination silently -- no warning (already logged at debug upstream)."""
+def test_iter_station_value_pages_raises_no_internet_for_the_caller(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A NoInternetError is raised as it is, for the caller to end the whole read quietly."""
     monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 2)
 
     def fake_download_file(*, url: str, **_: object) -> File:
         return File(url=url, content=NoInternetError("offline"), status=503)
 
     monkeypatch.setattr(dmi_api, "download_file", fake_download_file)
-    with caplog.at_level(logging.WARNING):
-        dfs = _iter_pages(object.__new__(dmi_api.DmiObservationValues))
-    assert dfs == []
-    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+    with pytest.raises(NoInternetError):
+        _iter_pages(object.__new__(dmi_api.DmiObservationValues))
 
 
 @pytest.mark.remote
@@ -228,3 +225,148 @@ def test_dmi_observation_values_empty_for_unknown_station() -> None:
     ).filter_by_station_id(["00000"])
     values = request.values.all().df
     assert values.is_empty()
+
+
+class _FakeStationValueServer:
+    """Stand-in for DMI's stationValue endpoint: one hourly record per hour, newest first.
+
+    Applies the request's closed ``datetime`` window, ``limit`` and ``offset``, and refuses an offset
+    above the cap the way DMI does (a 400), recording every offset it was asked for.
+    """
+
+    def __init__(self, first: dt.datetime, hours: int, max_offset: int) -> None:
+        self.hours = [first + dt.timedelta(hours=hour) for hour in range(hours)]
+        self.max_offset = max_offset
+        self.offsets: list[int] = []
+
+    def __call__(self, *, url: str, **_: object) -> File:
+        query = dict(part.split("=", 1) for part in url.split("?", 1)[1].split("&"))
+        offset, limit = int(query["offset"]), int(query["limit"])
+        self.offsets.append(offset)
+        if offset > self.max_offset:
+            return File(url=url, content=RuntimeError("Offset cannot be greater than 500000"), status=400)
+        window_start, window_end = (
+            dt.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+            for value in query["datetime"].split("/")
+        )
+        in_window = sorted((hour for hour in self.hours if window_start <= hour <= window_end), reverse=True)
+        features = [
+            {
+                "properties": {
+                    "parameterId": "mean_temp",
+                    "from": hour.strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+                    "value": float(hour.timestamp()),
+                },
+            }
+            for hour in in_window[offset : offset + limit]
+        ]
+        return File(url=url, content=BytesIO(json.dumps({"features": features}).encode()), status=200)
+
+
+def _collect_hourly(
+    monkeypatch: pytest.MonkeyPatch,
+    server: _FakeStationValueServer,
+    start: dt.datetime,
+    end: dt.datetime,
+    download_file: Callable[..., File] | None = None,
+) -> pl.DataFrame:
+    """Collect hourly mean_temp for one station through the provider, against the fake server."""
+    monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 100)
+    monkeypatch.setattr(dmi_api, "_MAX_OFFSET", server.max_offset)
+    monkeypatch.setattr(dmi_api, "download_file", download_file or server)
+    values = object.__new__(dmi_api.DmiObservationValues)
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        start=start,
+        end=end,
+        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+    )
+    dataset = dmi_api.DmiObservationMetadata["hourly"].datasets[0]
+    return values._collect_station_parameter_or_dataset(COPENHAGEN_LANDBOHOJSKOLEN, dataset)  # noqa: SLF001
+
+
+def test_collect_windows_a_long_range_below_the_offset_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A range of several windows is read window by window; no offset is above the cap, no row is lost or doubled."""
+    first = dt.datetime(2023, 1, 1, tzinfo=UTC)
+    server = _FakeStationValueServer(first, hours=24 * 35, max_offset=200)
+    # three windows of 10 days (241 records, so pages at offsets 0, 100, 200) and a short last one
+    monkeypatch.setattr(dmi_api, "_WINDOW_SPAN", {Resolution.HOURLY: dt.timedelta(days=10)})
+    df = _collect_hourly(monkeypatch, server, first, first + dt.timedelta(days=35))
+    # three windows of three pages each, then the last of two: none had to be halved
+    assert server.offsets == [0, 100, 200] * 3 + [0, 100]
+    timestamps = df.get_column("timestamp").sort().to_list()
+    assert timestamps == [first + dt.timedelta(hours=hour) for hour in range(24 * 35)]
+
+
+def test_collect_halves_a_window_that_fills_every_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A window with more records than the pages below the cap carry is halved, not paged past the cap."""
+    first = dt.datetime(2023, 1, 1, tzinfo=UTC)
+    server = _FakeStationValueServer(first, hours=24 * 30, max_offset=200)
+    # the default span of a year puts all 720 records in one window: 3 full pages reach the cap
+    df = _collect_hourly(monkeypatch, server, first, first + dt.timedelta(days=30))
+    assert max(server.offsets) <= 200
+    assert len(server.offsets) > 3
+    timestamps = df.get_column("timestamp").sort().to_list()
+    assert timestamps == [first + dt.timedelta(hours=hour) for hour in range(24 * 30)]
+
+
+def test_collect_reads_a_short_range_in_one_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A range inside one window is one request, as before windows existed."""
+    first = dt.datetime(2023, 1, 1, tzinfo=UTC)
+    server = _FakeStationValueServer(first, hours=24, max_offset=200)
+    df = _collect_hourly(monkeypatch, server, first, first + dt.timedelta(hours=23))
+    assert server.offsets == [0]
+    assert df.height == 24
+
+
+def test_fetch_station_value_pages_gives_up_where_a_second_holds_too_many(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Halving stops at a span of a second, so a source ignoring the window cannot recurse forever."""
+    monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 2)
+    monkeypatch.setattr(dmi_api, "_MAX_OFFSET", 2)
+    monkeypatch.setattr(dmi_api, "download_file", lambda **_: _station_value_file(2))
+    values = object.__new__(dmi_api.DmiObservationValues)
+    start = dt.datetime(2023, 1, 1, tzinfo=UTC)
+    with pytest.raises(DownloadError, match="more records than the pages"):
+        values._fetch_station_value_pages(  # noqa: SLF001
+            "06180", "hour", start, start + dt.timedelta(seconds=3), Settings(cache_disable=True), []
+        )
+
+
+def test_fetch_station_value_pages_drops_the_pages_of_a_halved_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The pages read of a window that is then halved are not kept: only halves' boundary instants repeat."""
+    monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 100)
+    monkeypatch.setattr(dmi_api, "_MAX_OFFSET", 200)
+    first = dt.datetime(2023, 1, 1, tzinfo=UTC)
+    server = _FakeStationValueServer(first, hours=24 * 30, max_offset=200)
+    monkeypatch.setattr(dmi_api, "download_file", server)
+    values = object.__new__(dmi_api.DmiObservationValues)
+    records: list[pl.DataFrame] = []
+    values._fetch_station_value_pages(  # noqa: SLF001
+        "06180", "hour", first, first + dt.timedelta(days=30), Settings(cache_disable=True), records
+    )
+    df = pl.concat(records)
+    # each halving shares one instant at most; keeping the discarded pages would repeat hundreds of rows
+    assert df.height - df.unique().height <= 10
+    assert df.unique().height == 24 * 30
+
+
+def test_collect_ends_quietly_at_the_window_without_a_connection(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Without a connection the read keeps the windows got so far, asks for no later one, and logs no warning."""
+    first = dt.datetime(2023, 1, 1, tzinfo=UTC)
+    server = _FakeStationValueServer(first, hours=24 * 35, max_offset=200)
+    requests: list[str] = []
+
+    def download_file(*, url: str, **kwargs: object) -> File:
+        requests.append(url)
+        if len(requests) > 3:  # the first window (3 pages) is read, the second one is offline
+            return File(url=url, content=NoInternetError("offline"), status=503)
+        return server(url=url, **kwargs)
+
+    monkeypatch.setattr(dmi_api, "_WINDOW_SPAN", {Resolution.HOURLY: dt.timedelta(days=10)})
+    with caplog.at_level(logging.WARNING):
+        df = _collect_hourly(monkeypatch, server, first, first + dt.timedelta(days=35), download_file)
+    assert len(requests) == 4
+    assert df.height == 24 * 10 + 1
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
