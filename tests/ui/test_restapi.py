@@ -7044,5 +7044,6 @@ def test_glossary_mcp_tool_refuses_a_limit_below_one(limit: int) -> None:
         async with Client(mcp) as client:
             await client.call_tool("glossary", {"limit": limit})
 
-    with pytest.raises(ToolError, match="limit"):
+    with pytest.raises(ToolError, match="HTTP error 422") as error:
         asyncio.run(_call())
+    assert "limit" in str(error.value)
