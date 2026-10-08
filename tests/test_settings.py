@@ -1751,3 +1751,46 @@ def test_settings_auth_metno_frost_reads_whitespace_only_text_as_unset(
     settings = Settings()
     settings.auth.metno_frost = value
     assert settings.auth.metno_frost is None
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("variable", "error"),
+    [
+        ("WD_AUTH__CEDA", ValidationError),
+        ("WD_AUTH__METNO_FROST", ValidationError),
+        ("WD_FSSPEC_CLIENT_KWARGS", SettingsError),
+    ],
+)
+@pytest.mark.parametrize("from_dotenv", [False, True], ids=["environment", "dotenv"])
+def test_settings_value_nested_too_deeply_is_refused_as_text_that_is_not_json_is(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    variable: str,
+    error: type[Exception],
+    *,
+    from_dotenv: bool,
+) -> None:
+    """A value nested too deeply to decode is reported like any other that is not valid JSON (GH-2543).
+
+    The decoder of the environment and of `.env` raised a `RecursionError` for it, which neither
+    `check_settings()` nor `Settings()` handled: both raised it, and so did anything that builds the
+    settings, such as `MetOfficeObservationRequest.is_configured()`. It is refused with the
+    error that text which is not JSON gets, naming the variable and not repeating the value.
+    """
+    value = "[" * 100_000 + "TOPSECRET"
+    if from_dotenv:
+        (tmp_path / ".env").write_text(f"{variable}={value}\n")
+    else:
+        monkeypatch.setenv(variable, value)
+    (problem,) = check_settings()
+    assert problem.startswith(f"{variable} is invalid: ")
+    assert "TOPSECRET" not in problem
+    with pytest.raises(error) as excinfo:
+        Settings()
+    assert "TOPSECRET" not in str(excinfo.value)
+    # the configuration check of a provider that needs a credential, which builds the settings
+    from wetterdienst.provider.metoffice.observation.api import MetOfficeObservationRequest  # noqa: PLC0415
+
+    with pytest.raises(error):
+        MetOfficeObservationRequest.is_configured()

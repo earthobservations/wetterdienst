@@ -18,7 +18,7 @@ import threading
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 import platformdirs
 from pydantic import (
@@ -32,13 +32,16 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from pydantic_settings import BaseSettings, SettingsConfigDict, SettingsError
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, SettingsError
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.unit import UnitConverter
+
+if TYPE_CHECKING:
+    from pydantic.fields import FieldInfo
 
 log = logging.getLogger(__name__)
 
@@ -389,6 +392,28 @@ def _merge_fsspec_client_kwargs(given: dict) -> dict:
     return merged
 
 
+def _decode_nested_as_json_would(source: PydanticBaseSettingsSource) -> PydanticBaseSettingsSource:
+    """Have a source read a value nested too deeply to decode as it does one that is not valid JSON (GH-2543).
+
+    The source decodes a dict, a pair or a nested setting as JSON before any validator sees it, and
+    for text such as 100000 opening brackets the decoder raises a ``RecursionError``. That is no
+    ``ValueError``, so it escaped the source's handling of text that is not JSON: it was neither
+    kept as the raw text for the validator to refuse nor reported by `check_settings`, and
+    ``Settings()`` raised it. As a ``ValueError`` it is dealt with as any other malformed value is.
+    """
+    decode = source.decode_complex_value
+
+    def decode_complex_value(field_name: str, field: FieldInfo, value: Any) -> Any:  # noqa: ANN401
+        try:
+            return decode(field_name, field, value)
+        except RecursionError as error:
+            msg = "nested too deeply to decode as JSON"
+            raise ValueError(msg) from error
+
+    source.decode_complex_value = decode_complex_value  # ty: ignore[invalid-assignment]
+    return source
+
+
 class Settings(BaseSettings):
     """Settings for the wetterdienst package."""
 
@@ -464,6 +489,23 @@ class Settings(BaseSettings):
     # this setting defines how many additional stations are used in the interpolation process independent of the gain
     # of value pairs, so if the gain is not reached anymore, there at least `num` more stations added to the list
     ts_geo_num_additional_stations: Annotated[int, Field(ge=0)] = 3
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],  # noqa: ARG003
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """Take the sources as they are, but have the environment and `.env` refuse a value nested too deeply."""
+        return (
+            init_settings,
+            _decode_nested_as_json_would(env_settings),
+            _decode_nested_as_json_would(dotenv_settings),
+            file_secret_settings,
+        )
 
     @field_validator("fsspec_client_kwargs", mode="before")
     @classmethod
