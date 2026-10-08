@@ -32,6 +32,7 @@ from aiohttp import (
     ClientError,
     ClientPayloadError,
     ClientResponseError,
+    ClientSSLError,
 )
 from fsspec.asyn import sync, sync_wrapper
 from fsspec.exceptions import FSTimeoutError
@@ -1274,6 +1275,11 @@ def download_file(
     except FSTimeoutError as e:
         log.info(f"Failed to download file {url}.")
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=408)
+    except ClientSSLError as e:
+        # a certificate that does not verify, or a TLS handshake that fails: the host answered, so
+        # this is not being offline. A subclass of `ClientConnectorError`, hence before it
+        log.info(f"Failed to download file {url}.")
+        return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
     except ClientConnectorError as e:
         log.info(f"No internet connection while downloading file {url}.")
         return File(url=url, content=NoInternetError(str(e)), status=503)
@@ -1470,6 +1476,10 @@ def post_file(
     except ClientResponseError as e:
         log.info(f"Failed to post to {url}.")
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=e.status or 500)
+    except ClientSSLError as e:
+        # not being offline, see `download_file`; a subclass of `ClientConnectorError`, hence before it
+        log.info(f"Failed to post to {url}.")
+        return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
     except ClientConnectorError as e:
         log.info(f"No internet connection while posting to {url}.")
         return File(url=url, content=NoInternetError(str(e)), status=503)

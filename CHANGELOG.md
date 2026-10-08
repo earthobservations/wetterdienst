@@ -26,6 +26,9 @@ Types of changes:
 
 ### Fixed
 
+- A download or post that fails on a certificate that does not verify, or on a TLS handshake that
+  drops, is reported as that failure (status 500) and no longer as being offline (503): callers
+  that return an empty result for no internet now warn about it or raise instead (GH-2553)
 - A file the cache downloads is written beside its blob and renamed onto it once whole, so a
   concurrent request for the same URL, from another thread or process, no longer truncates a copy
   another reader is serving, and a body cut short leaves no partial file in the cache directory.

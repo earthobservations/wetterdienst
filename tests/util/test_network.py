@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import pickle
+import ssl
 import tempfile
 import threading
 import time
@@ -21,10 +22,13 @@ import platformdirs
 import pytest
 import stamina
 from aiohttp import (
+    ClientConnectorCertificateError,
     ClientConnectorError,
+    ClientConnectorSSLError,
     ClientOSError,
     ClientPayloadError,
     ClientResponseError,
+    ClientSSLError,
     ClientTimeout,
     ServerDisconnectedError,
 )
@@ -2849,3 +2853,62 @@ def test_a_temporary_file_that_cannot_be_removed_changes_neither_result_nor_erro
             filesystem.cat_file("/f.txt")
     else:
         assert filesystem.cat_file("/f.txt") == b"new-body"
+
+
+def _tls_failure(kind: str) -> ClientSSLError:
+    """Build the error aiohttp raises for a TLS failure: a failed verification, or a dropped handshake."""
+    connection_key = MagicMock()
+    if kind == "certificate":
+        return ClientConnectorCertificateError(connection_key, ssl.SSLCertVerificationError("self-signed certificate"))
+    return ClientConnectorSSLError(connection_key, ssl.SSLError("handshake failure"))
+
+
+@pytest.mark.parametrize("kind", ["certificate", "handshake"])
+def test_download_file_does_not_report_a_tls_failure_as_being_offline(kind: str) -> None:
+    """A certificate that does not verify, or a failed handshake, is not `NoInternetError` (GH-2553).
+
+    Both are `ClientConnectorError`s, so they were caught with a refused connection and came back as
+    a 503 that callers answer with an empty result and no warning. The host answered: they are
+    failures to report, as any other download failure is.
+    """
+    error = _tls_failure(kind)
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = error
+
+    with (
+        stamina.set_testing(True, attempts=1),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+    ):
+        result = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+
+    assert result.content is error
+    assert result.status == 500
+    assert not result.is_no_internet_error
+    with pytest.raises(DownloadError) as raised:
+        result.raise_if_exception()
+    assert raised.value.__cause__ is error
+
+
+@pytest.mark.parametrize("kind", ["certificate", "handshake"])
+def test_post_file_does_not_report_a_tls_failure_as_being_offline(kind: str) -> None:
+    """A post meets a TLS failure as a download does (GH-2553)."""
+    error = _tls_failure(kind)
+
+    with (
+        stamina.set_testing(True, attempts=1),
+        patch("wetterdienst.util.network.sync", side_effect=error),
+    ):
+        result = post_file("https://example.com/token")
+
+    assert result.content is error
+    assert result.status == 500
+    assert not result.is_no_internet_error
+
+
+def test_download_file_still_reports_a_refused_connection_as_being_offline() -> None:
+    """Only the TLS failures left the offline answer: a refused connection is still one (GH-2553)."""
+    with stamina.set_testing(True, attempts=1):
+        result = download_file(url=_REFUSING_URL, cache_dir=Path(tempfile.gettempdir()), cache_disable=True)
+
+    assert result.is_no_internet_error
+    assert result.status == 503
