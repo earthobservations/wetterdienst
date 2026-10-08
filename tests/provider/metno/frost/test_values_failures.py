@@ -225,7 +225,7 @@ def test_metno_frost_values_404_fallback_asks_for_the_requested_parameters_only(
     assert values.all().df.is_empty()
     batch, *rest = _observation_requests(seen)
     assert len(values.sr.parameters[0].dataset.parameters) > len(requested)
-    assert batch.count(",") >= len(requested)
+    assert batch.count(",") == len(values.sr.parameters[0].dataset.parameters) - 1
     # one request alone and one discovery per requested parameter, and nothing for the rest
     assert [url.split("elements=")[1].split("&")[0] for url in rest if "availableTimeSeries" not in url] == [
         "air_temperature",
@@ -263,3 +263,17 @@ def test_metno_frost_values_404_on_a_one_parameter_dataset_is_not_asked_again(mo
     assert ["availableTimeSeries" in url for url in requests] == [False, True, False]
     assert "timeseriesids=" in requests[2]
     assert df["value"].to_list() == [1.5]
+
+
+def test_metno_frost_values_404_fallback_for_one_parameter_leaves_its_siblings_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the fallback for a single parameter model resolves that parameter, not the others requested (GH-2554)."""
+    requested = [("hourly", "data", "temperature_air_mean_2m"), ("hourly", "data", "wind_speed")]
+    values, seen = _values(monkeypatch, lambda url: _failed(url, 404), requested)
+    assert values._collect_station_parameter_or_dataset("SN18700", values.sr.parameters[1]).is_empty()  # noqa: SLF001
+    # the request for that parameter alone, then its discovery; air_temperature is never asked for
+    assert [url.split("elements=")[1].split("&")[0] for url in _observation_requests(seen)] == [
+        "wind_speed",
+        "wind_speed",
+    ]

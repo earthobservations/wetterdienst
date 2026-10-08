@@ -554,15 +554,16 @@ class MetnoFrostValues(TimeseriesValues):
         rows are dropped later, so resolving them would spend requests on nothing. A batch of one
         element is the single request itself, which just 404'd, so that goes straight to discovery.
         """
-        requested = [
-            parameter
+        requested = {
+            parameter.name_original
             for parameter in self.sr.parameters
             if (parameter.dataset.resolution.name, parameter.dataset.name) == (dataset.resolution.name, dataset.name)
-        ]
+        }
         resolve = self._collect_via_time_series_discovery if len(batched) == 1 else self._collect_single_parameter
         frames = [
             resolve(station_id, parameter, start_date, end_date, settings, client_kwargs)
-            for parameter in requested or batched
+            for parameter in batched
+            if parameter.name_original in requested
         ]
         frames = [frame for frame in frames if not frame.is_empty()]
         return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
