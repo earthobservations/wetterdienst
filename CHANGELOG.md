@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `Settings` logs its `Wetterdienst cache is ...` line once, when built, no longer again on every
+  field assignment or `Settings.model_validate(settings)`. The `ts_drop_nulls` notice is logged
+  when `ts_shape` is given as `"wide"`, at construction or by assignment, and not for other
+  fields (GH-2504)
+
 ## [0.142.0] - 2026-10-08
 
 ### Changed

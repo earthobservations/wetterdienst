@@ -1464,3 +1464,36 @@ def test_settings_request_validates_settings_given_as_a_dict() -> None:
     request = DwdObservationRequest(parameters=["daily/kl"], settings={"ts_shape": "wide"})
     assert isinstance(request.settings, Settings)
     assert request.settings.ts_shape == "wide"
+
+
+def _settings_log_messages(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [record.getMessage() for record in caplog.records if record.name == "wetterdienst.settings"]
+
+
+def test_settings_log_their_cache_once_not_per_assignment(caplog: pytest.LogCaptureFixture) -> None:
+    """Assigning a field or revalidating an instance does not log the cache line again (GH-2504)."""
+    with caplog.at_level(logging.INFO, logger="wetterdienst.settings"):
+        settings = Settings()
+        assert len(_settings_log_messages(caplog)) == 1
+        settings.ts_skip_empty = True
+        settings.cache_disable = True
+        Settings.model_validate(settings)
+        settings.model_copy()
+    messages = _settings_log_messages(caplog)
+    assert len(messages) == 1
+    assert messages[0].startswith("Wetterdienst cache is enabled")
+
+
+def test_settings_log_ts_drop_nulls_notice_when_the_shape_is_given(caplog: pytest.LogCaptureFixture) -> None:
+    """The `ts_drop_nulls` notice follows `ts_shape`: logged when given as wide, not by other assignments (GH-2504)."""
+    with caplog.at_level(logging.INFO, logger="wetterdienst.settings"):
+        settings = Settings()
+        caplog.clear()
+        settings.ts_skip_empty = True
+        assert _settings_log_messages(caplog) == []
+        settings.ts_shape = "wide"
+        assert len(_settings_log_messages(caplog)) == 1
+        assert "ts_drop_nulls" in _settings_log_messages(caplog)[0]
+        settings.ts_skip_threshold = 0.5
+        settings.ts_shape = "long"
+    assert len(_settings_log_messages(caplog)) == 1
