@@ -2859,7 +2859,7 @@ def test_a_temporary_file_that_cannot_be_removed_changes_neither_result_nor_erro
 
 
 def _tls_failure(kind: str, proxy: URL | None = None, proxy_auth: BasicAuth | None = None) -> ClientSSLError:
-    """Build the error aiohttp raises for a TLS failure: a failed verification, or a dropped handshake."""
+    """Build the error aiohttp raises for a TLS failure: a failed verification, or a protocol error (an alert)."""
     connection_key = ConnectionKey(
         host="example.com",
         port=443,
@@ -2876,7 +2876,7 @@ def _tls_failure(kind: str, proxy: URL | None = None, proxy_auth: BasicAuth | No
 
 @pytest.mark.parametrize("kind", ["certificate", "handshake"])
 def test_download_file_does_not_report_a_tls_failure_as_being_offline(kind: str) -> None:
-    """A certificate that does not verify, or a failed handshake, is not `NoInternetError` (GH-2553).
+    """A certificate that does not verify, or a TLS protocol error, is not `NoInternetError` (GH-2553).
 
     Both are `ClientConnectorError`s, so they were caught with a refused connection and came back as
     a 503 that callers answer with an empty result and no warning. The host answered: they are
@@ -2949,11 +2949,11 @@ def test_a_tls_failure_keeps_a_proxy_password_out_of_what_is_stored(kind: str) -
         assert "secret" not in str(result.content)
 
 
-def test_a_tls_failure_of_a_credentialed_request_is_stored_without_its_traceback() -> None:
+def test_a_tls_failure_is_stored_without_its_traceback() -> None:
     """The SSL error aiohttp raises carries a traceback whose frames hold the request (GH-2553).
 
-    Those frames' locals include the headers, so a request that sent a credential drops the
-    traceback, as it does for every other error it hands back.
+    Those frames' locals include the headers and a proxy's credentials, so it is dropped whether
+    or not a header credential was sent, for a download and for a post.
     """
     try:
         msg = "certificate verify failed"
@@ -2967,12 +2967,18 @@ def test_a_tls_failure_of_a_credentialed_request_is_stored_without_its_traceback
     with (
         stamina.set_testing(True, attempts=1),
         patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+        patch("wetterdienst.util.network.sync", side_effect=error),
     ):
-        result = download_file(
-            url="https://example.com/file.txt",
-            cache_dir=Path(tempfile.gettempdir()),
-            client_kwargs={"headers": {"Authorization": "SUPER-SECRET-API-KEY"}},
-        )
+        results = [
+            download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir())),
+            download_file(
+                url="https://example.com/file.txt",
+                cache_dir=Path(tempfile.gettempdir()),
+                client_kwargs={"headers": {"Authorization": "SUPER-SECRET-API-KEY"}},
+            ),
+            post_file("https://example.com/token", auth=("user", "pass")),
+        ]
 
-    assert isinstance(result.content, ssl.SSLError)
-    assert result.content.__traceback__ is None
+    for result in results:
+        assert isinstance(result.content, ssl.SSLError)
+        assert result.content.__traceback__ is None
