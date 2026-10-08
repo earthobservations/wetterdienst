@@ -1470,6 +1470,146 @@ def test_settings_request_validates_settings_given_as_a_dict() -> None:
 @pytest.mark.parametrize(
     "value",
     [
+        '["DUMMY-USER", "TOP:SECRET"',
+        "[DUMMY-USER, TOP:SECRET]",
+        "[DUMMY-USER, TOPSECRET]",
+        '  ["DUMMY-USER",TOP:SECRET]',
+    ],
+    ids=["unclosed-colon", "unquoted-colon", "unquoted", "leading-space"],
+)
+def test_settings_auth_ceda_refuses_a_pair_that_is_not_valid_json(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    """A CEDA pair that is not valid JSON is refused, not split at a colon inside it (GH-2483).
+
+    The environment hands on such a pair as its raw text, which was split at its first colon with
+    the brackets and quotes kept in both halves. Neither the error nor `check_settings()` repeats
+    the password.
+    """
+    message = 'ceda looks like a pair but is not valid JSON: write it as ["username", "password"]'
+    monkeypatch.setenv("WD_AUTH__CEDA", value)
+    assert check_settings() == [f"WD_AUTH__CEDA is invalid: {message}"]
+    with pytest.raises(ValidationError, match=re.escape(message)) as excinfo:
+        Settings()
+    assert "SECRET" not in str(excinfo.value)
+    assert "SECRET" not in repr(excinfo.value)
+
+    monkeypatch.delenv("WD_AUTH__CEDA")
+    builds: list[Callable[[], object]] = [
+        lambda: Settings(auth={"ceda": value}),
+        lambda: Settings(auth={"ceda": SecretStr(value)}),
+        lambda: setattr(Settings().auth, "ceda", value),
+    ]
+    for build in builds:
+        with pytest.raises(ValidationError, match=re.escape(message)) as excinfo:
+            build()
+        assert "SECRET" not in str(excinfo.value)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_ceda_still_takes_username_password_text_and_a_valid_pair(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`username:password` text and a pair written as valid JSON are still read as before (GH-2483)."""
+    monkeypatch.setenv("WD_AUTH__CEDA", "DUMMY-USER:DUMMY:PASSWORD")
+    assert tuple(reveal(part) for part in Settings().auth.ceda) == ("DUMMY-USER", "DUMMY:PASSWORD")
+    monkeypatch.setenv("WD_AUTH__CEDA", ' ["DUMMY-USER", "DUMMY:PASSWORD"]')
+    assert tuple(reveal(part) for part in Settings().auth.ceda) == ("DUMMY-USER", "DUMMY:PASSWORD")
+    assert check_settings() == []
+    monkeypatch.setenv("WD_AUTH__CEDA", "DUMMY-USER")
+    assert check_settings() == ["WD_AUTH__CEDA is invalid: ceda must be given as 'username:password'"]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("wrap", [str, SecretStr], ids=["str", "secret"])
+def test_settings_auth_ceda_reads_a_pair_given_as_json_text_in_python(wrap: Callable[[str], object]) -> None:
+    """A pair given in Python as valid JSON text is read as the pair, as from the environment (GH-2483).
+
+    It was split at a colon in it, and a refusal of what starts with `[` would have told the caller
+    to fix JSON that is already valid.
+    """
+    text = '["DUMMY-USER", "DUMMY:PASSWORD"]'
+    expected = ("DUMMY-USER", "DUMMY:PASSWORD")
+    assert tuple(reveal(part) for part in Settings(auth={"ceda": wrap(text)}).auth.ceda) == expected
+    settings = Settings()
+    settings.auth.ceda = wrap(text)
+    assert tuple(reveal(part) for part in settings.auth.ceda) == expected
+    with pytest.raises(ValidationError, match=r"got 3 element\(s\)"):
+        Settings(auth={"ceda": wrap('["a", "b", "c"]')})
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("value", "from_environment"),
+    [
+        ("[DUMMY-USER, TOP:SECRET]", False),
+        ("[DUMMY-USER, TOP:SECRET]", True),
+        ("[" + "1" * 5000 + ', "TOP:SECRET"]', False),
+        ("[" + "1" * 5000 + ', "TOP:SECRET"]', True),
+        # the environment's own decoding fails on this before the settings see it
+        ("[" * 100_000 + "TOP:SECRET", False),
+    ],
+    ids=["unquoted", "unquoted-env", "integer-too-long", "integer-too-long-env", "nested-too-deep"],
+)
+def test_settings_auth_ceda_refusal_keeps_no_exception_holding_the_password(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+    *,
+    from_environment: bool,
+) -> None:
+    """The refusal of a CEDA pair keeps no exception that holds the refused text (GH-2483).
+
+    A JSON decode error holds the text it failed on as its `doc`, and an exception raised while it
+    is handled keeps it as its context, which pydantic keeps in the error's `ctx`. Text that fails
+    to decode another way -- an integer too long to convert, nesting too deep -- gets the same
+    refusal, rather than an error of its own or an escaping `RecursionError`.
+    """
+    message = 'ceda looks like a pair but is not valid JSON: write it as ["username", "password"]'
+    if from_environment:
+        monkeypatch.setenv("WD_AUTH__CEDA", value)
+    with pytest.raises(ValidationError, match=re.escape(message)) as excinfo:
+        Settings() if from_environment else Settings(auth={"ceda": value})
+    for error in excinfo.value.errors():
+        exception: BaseException | None = error.get("ctx", {}).get("error")
+        while exception is not None:
+            assert "SECRET" not in repr(exception.args)
+            assert "SECRET" not in repr(vars(exception))
+            exception = exception.__cause__ or exception.__context__
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_ceda_reads_a_pair_after_any_whitespace(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A pair after whitespace that JSON does not take, such as a pasted no-break space, is still read (GH-2483)."""
+    monkeypatch.setenv("WD_AUTH__CEDA", '\xa0["DUMMY-USER", "DUMMY:PASSWORD"]\xa0')
+    assert tuple(reveal(part) for part in Settings().auth.ceda) == ("DUMMY-USER", "DUMMY:PASSWORD")
+
+
+def _settings_log_messages(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [record.getMessage() for record in caplog.records if record.name == "wetterdienst.settings"]
+
+
+def test_settings_log_once_not_per_assignment(caplog: pytest.LogCaptureFixture) -> None:
+    """Assigning a field or revalidating an instance does not log the settings' notices again (GH-2504)."""
+    with caplog.at_level(logging.INFO, logger="wetterdienst.settings"):
+        # given explicitly, so neither the environment nor a `.env` changes what is logged
+        settings = Settings(cache_disable=False, ts_shape="wide")
+        messages = _settings_log_messages(caplog)
+        assert len(messages) == 2
+        assert "ts_drop_nulls" in messages[0]
+        assert messages[1].startswith("Wetterdienst cache is enabled")
+        settings.ts_skip_empty = True
+        settings.ts_shape = "long"
+        settings.ts_shape = "wide"
+        settings.cache_disable = True
+        Settings.model_validate(settings)
+    assert _settings_log_messages(caplog) == messages
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "value",
+    [
         "DUMMY-FROST-ID:TOPSECRET",
         "DUMMY-FROST-ID,TOPSECRET",
         "DUMMY-FROST-ID TOPSECRET",

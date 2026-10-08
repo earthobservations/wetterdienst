@@ -280,11 +280,18 @@ def test_search_radius_reaches_the_request(
 
     seen = []
 
-    def _record(self: DwdObservationRequest, latlon: tuple[float, float], distance: float) -> None:  # noqa: ARG001
+    def _record(
+        self: DwdObservationRequest,  # noqa: ARG001
+        latlon: tuple[float, float],  # noqa: ARG001
+        distance: float,
+        df_all: pl.DataFrame | None = None,  # noqa: ARG001
+    ) -> None:
         seen.append(distance)
         raise _StopError
 
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _record)
+    # the request lists its stations before the search starts, which would otherwise be a request
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame())
     request = DwdObservationRequest(
         parameters=[(resolution, dataset, "precipitation_amount")],
         start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -953,6 +960,7 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
         self: DwdObservationRequest,
         latlon: tuple[float, float],  # noqa: ARG001
         distance: float,  # noqa: ARG001
+        df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
         return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
@@ -1064,6 +1072,7 @@ def test_interpolate_and_summarize_keep_a_reading_in_a_small_source_unit_when_un
         self: DwdRoadRequest,
         latlon: tuple[float, float],  # noqa: ARG001
         distance: float,  # noqa: ARG001
+        df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
         return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
@@ -1158,6 +1167,7 @@ def test_interpolation_places_stations_across_a_utm_zone_boundary_in_the_point_s
         self: DwdObservationRequest,
         latlon: tuple[float, float],  # noqa: ARG001
         distance: float,  # noqa: ARG001
+        df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
         return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
@@ -1242,6 +1252,7 @@ def test_interpolation_leaves_out_a_station_beyond_what_utm_covers(
         self: DwdObservationRequest,
         latlon: tuple[float, float],  # noqa: ARG001
         distance: float,  # noqa: ARG001
+        df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
         return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
@@ -1330,6 +1341,7 @@ def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_settings
         self: DwdObservationRequest,
         latlon: tuple[float, float],  # noqa: ARG001
         distance: float,  # noqa: ARG001
+        df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
         return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
@@ -1444,6 +1456,7 @@ def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station
         self: DwdObservationRequest,
         latlon: tuple[float, float],  # noqa: ARG001
         distance: float,  # noqa: ARG001
+        df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
         return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 

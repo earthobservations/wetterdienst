@@ -911,8 +911,16 @@ def about() -> None:
 @about.command(epilog=_examples(COVERAGE_EXAMPLES))
 @click.option("--provider", type=click.STRING, help="Data provider. Without it and --network, every combination.")
 @click.option("--network", type=click.STRING, help="Data network of the provider.")
-@click.option("--resolutions", type=click.STRING, help="Only these resolutions, comma-separated. Example: daily,hourly")
-@click.option("--datasets", type=click.STRING, help="Only these datasets, comma-separated. Example: climate_summary")
+@click.option(
+    "--resolutions",
+    type=click.STRING,
+    help="Only these resolutions, comma-separated. Needs --provider and --network. Example: daily,hourly",
+)
+@click.option(
+    "--datasets",
+    type=click.STRING,
+    help="Only these datasets, comma-separated. Needs --provider and --network. Example: climate_summary",
+)
 @debug_opt
 def coverage(
     provider: str,
@@ -924,13 +932,20 @@ def coverage(
     """Get coverage information."""
     set_logging_level(debug=debug)
 
-    # one without the other is no request for every provider, as /api/coverage refuses it with a 400
-    if bool(provider) != bool(network):
+    # /api/coverage refuses, with a 400, a request for every provider that is neither: one of
+    # provider and network without the other, or resolutions / datasets, which that list has none of
+    filters = [name for name, value in (("resolutions", resolutions), ("datasets", datasets)) if value]
+    if bool(provider) != bool(network) or (filters and not (provider or network)):
         ctx = click.get_current_context()
         params = {param.name: param for param in ctx.command.params}
-        missing, given = ("network", "provider") if provider else ("provider", "network")
-        message = f"Required with {_option_hint(given, params, ctx)}."
-        raise click.MissingParameter(message, ctx, params[missing])
+        missing = [name for name, value in (("provider", provider), ("network", network)) if not value]
+        # what the missing ones are required with: the other of the two, else the filters given
+        given = [name for name in ("provider", "network") if name not in missing] or filters
+        message = f"Required with {join_names([_option_hint(name, params, ctx) for name in given])}."
+        hint = join_names([_option_hint(name, params, ctx) for name in missing])
+        raise click.MissingParameter(
+            message, ctx, param_hint=hint, param_type="options" if len(missing) > 1 else "option"
+        )
 
     if not provider and not network:
         print(json.dumps(Wetterdienst.discover(), indent=2))  # noqa: T201
