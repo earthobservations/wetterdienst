@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `interpolate`, `summarize` and their `_by_station_id` variants build a provider's station list
+  once, not two or three times: on a cold cache that is a round of upstream requests fewer, for
+  DWD observation the station description files and the file index per period (GH-2506)
+
 ## [0.142.0] - 2026-10-08
 
 ### Changed

@@ -662,21 +662,31 @@ def test_filter_by_distance_without_stations_finds_none(
     assert result.df_all.is_empty()
 
 
-@pytest.mark.parametrize("method", ["interpolate", "summarize"])
-def test_estimates_build_the_station_index_twice(
+@pytest.mark.parametrize(
+    ("method", "kwargs"),
+    [
+        ("interpolate", {"latlon": (51.05, 13.74)}),
+        ("summarize", {"latlon": (51.05, 13.74)}),
+        # the position is read off the same station list: it used to be a third build
+        ("interpolate_by_station_id", {"station_id": "01048"}),
+        ("summarize_by_station_id", {"station_id": "01048"}),
+    ],
+)
+def test_estimates_build_the_station_index_once(
     monkeypatch: pytest.MonkeyPatch,
     default_settings: Settings,
     method: str,
+    kwargs: dict,
 ) -> None:
-    """Test interpolate and summarize build the station index twice, where they built it six times (GH-2475).
+    """Test interpolate and summarize build the station index once, where they built it six times (GH-2506).
 
     The real core runs, with the stations' values read as none. It ranks the stations with
-    `filter_by_distance`, one build; the request's own frame of the stations taken is the other,
-    which it built again for df_all. GH-2506 is the one left in the core.
+    `filter_by_distance` and the request builds its frame of the stations taken (`df_all`) off the
+    same station list, which each used to build on its own (GH-2475 took six builds to two).
     """
     from wetterdienst.model.values import TimeseriesValues  # noqa: PLC0415
 
-    if method == "interpolate":
+    if method.startswith("interpolate"):
         pytest.importorskip("wetterdienst.core.interpolate")
     built = _count_station_index_builds(monkeypatch)
     monkeypatch.setattr(TimeseriesValues, "query", lambda _self: iter([]))
@@ -687,7 +697,33 @@ def test_estimates_build_the_station_index_twice(
         settings=default_settings,
     )
 
-    result = getattr(request, method)(latlon=(51.05, 13.74))
+    result = getattr(request, method)(**kwargs)
 
-    assert len(built) == 2
+    assert len(built) == 1
     assert_frame_equal(result.stations.df_all, request.all().df)
+
+
+def test_interpolate_refuses_a_point_utm_cannot_place_before_building_the_station_index(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+) -> None:
+    """Test a point beyond UTM is refused without building the station index (GH-2506).
+
+    The request hands the core the station list, so it has to refuse the point first, as the core
+    did before the list was built there.
+    """
+    from wetterdienst.exceptions import LocationOutOfRangeError  # noqa: PLC0415
+
+    pytest.importorskip("wetterdienst.core.interpolate")
+    built = _count_station_index_builds(monkeypatch)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="2020-01-01",
+        end="2020-01-02",
+        settings=default_settings,
+    )
+
+    with pytest.raises(LocationOutOfRangeError):
+        request.interpolate(latlon=(89.0, 13.74))
+
+    assert built == []

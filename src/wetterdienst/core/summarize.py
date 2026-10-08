@@ -47,6 +47,8 @@ def get_summarized_df(
     latitude: float,
     longitude: float,
     elevation: float | None = None,
+    *,
+    df_all: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     """Get summarized DataFrame.
 
@@ -55,6 +57,8 @@ def get_summarized_df(
         latitude: float of the point to summarize
         longitude: float of the point to summarize
         elevation: elevation of the point in metres, to bring the station's readings to
+        df_all: the station list `request.all()` gave, for a caller that has it already; built here
+            where left out
 
     Returns:
         Summarized DataFrame
@@ -65,7 +69,7 @@ def get_summarized_df(
 
     """
     stations_dict, param_dict, dropped_for_elevation, unanswerable = request_stations(
-        request, latitude, longitude, elevation
+        request, latitude, longitude, elevation, df_all=df_all
     )
     df = calculate_summary(stations_dict, param_dict)
     report_elevation_exclusions(
@@ -84,6 +88,8 @@ def request_stations(
     latitude: float,
     longitude: float,
     elevation: float | None = None,
+    *,
+    df_all: pl.DataFrame | None = None,
 ) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForElevation], set[tuple[str, str, str]]]:
     """Request stations.
 
@@ -104,7 +110,7 @@ def request_stations(
         for parameter in request.parameters
         if isinstance(parameter, ParameterModel)
     )
-    stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=distance)
+    stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=distance, df_all=df_all)
     df_stations_ranked = stations_ranked.df
     # looked up by station id rather than zipped against the ranked frame positionally: `query()`
     # yields only the stations that returned data inside the requested window, so any station it

@@ -65,24 +65,43 @@ UTM_LATITUDE_MAX = 84
 # quantity, so it is declared once in `metadata.parameter_table` rather than listed here.
 
 
+def place_in_utm(latitude: float, longitude: float) -> tuple[float, float, int, str]:
+    """Place a point in UTM, which covers 80 deg S to 84 deg N.
+
+    Raises:
+        LocationOutOfRangeError: where the point is beyond, which is the caller's to move
+
+    """
+    try:
+        return utm.from_latlon(latitude, longitude)
+    except OutOfRangeError as e:
+        raise LocationOutOfRangeError(str(e)) from e
+
+
 def get_interpolated_df(
     request: TimeseriesRequest,
     latitude: float,
     longitude: float,
     elevation: float | None = None,
+    *,
+    df_all: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     """Get the interpolated DataFrame for the given request and location.
+
+    Args:
+        request: TimeseriesRequest
+        latitude: latitude of the point to interpolate
+        longitude: longitude of the point to interpolate
+        elevation: elevation of the point in metres, to bring each station's readings to
+        df_all: the station list `request.all()` gave, for a caller that has it already; built here
+            where left out
 
     Raises:
         NoStationsWithElevationError: where an elevation is asked about and leaving out the stations
             of unknown elevation leaves nothing that can answer it
 
     """
-    try:
-        utm_x, utm_y, zone_number, zone_letter = utm.from_latlon(latitude, longitude)
-    except OutOfRangeError as e:
-        # UTM covers 80 deg S to 84 deg N, so a point beyond is the caller's to move
-        raise LocationOutOfRangeError(str(e)) from e
+    utm_x, utm_y, zone_number, zone_letter = place_in_utm(latitude, longitude)
     settings = cast("Settings", request.settings)
     stations_dict, param_dict, dropped_for_elevation, unanswerable = request_stations(
         request,
@@ -92,6 +111,7 @@ def get_interpolated_df(
         utm_y,
         elevation,
         zone=(zone_number, zone_letter),
+        df_all=df_all,
     )
     df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance)
     # after the frame is built, not before: a parameter the exclusions left with three stations
@@ -117,6 +137,7 @@ def request_stations(
     elevation: float | None = None,
     *,
     zone: tuple[int, str] | None = None,
+    df_all: pl.DataFrame | None = None,
 ) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForElevation], set[tuple[str, str, str]]]:
     """Request the stations for the interpolation.
 
@@ -131,6 +152,8 @@ def request_stations(
             placed in as well: each zone has a frame of its own, and a station a few kilometres
             across a zone boundary would otherwise land hundreds of kilometres from the point.
             Taken from `latitude` and `longitude` where not given
+        df_all: the station list `request.all()` gave, which the ranking reads rather than building
+            it again
 
     Returns:
         the stations dict, the parameter dict, how many stations each parameter lost for
@@ -148,7 +171,9 @@ def request_stations(
         for parameter in request.parameters
         if isinstance(parameter, ParameterModel)
     )
-    stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=max_interp_distance)
+    stations_ranked = request.filter_by_distance(
+        latlon=(latitude, longitude), distance=max_interp_distance, df_all=df_all
+    )
     df_stations_ranked = stations_ranked.df
     # looked up by station id rather than zipped against the ranked frame positionally: `query()`
     # yields only the stations that returned data inside the requested window, so any station it
