@@ -177,8 +177,8 @@ _MAX_PAGES = 40
 
 
 # reported once per process rather than per request: `_all` measures the network whole every time
-# it runs, and `filter_by_name` and `filter_by_rank` each run it twice, so a single station on an
-# unmapped interval would otherwise warn on every call
+# it runs, and every filter runs it, so a single station on an unmapped interval would otherwise
+# warn on every call
 _reported_steps: set[int] = set()
 
 

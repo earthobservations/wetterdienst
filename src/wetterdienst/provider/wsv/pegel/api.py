@@ -100,8 +100,8 @@ class TimeseriesMeta:
 
 
 # reported once per process rather than per request: the listing is scanned whole every time
-# `_all` runs, and `filter_by_name` and `filter_by_rank` each run it twice, so a single new
-# interval anywhere in the network would otherwise warn on every call
+# `_all` runs, and every filter runs it, so a single new interval anywhere in the network would
+# otherwise warn on every call
 _reported_equidistances: set[int] = set()
 
 
