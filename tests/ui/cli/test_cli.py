@@ -1251,6 +1251,11 @@ def test_coverage_without_provider_and_network_lists_every_provider(monkeypatch:
             "Error: Missing option '--provider'. Required with '--network'.\n",
             id="network-and-datasets",
         ),
+        pytest.param(
+            ["--provider=dwd", "--datasets=climate_summary"],
+            "Error: Missing option '--network'. Required with '--provider'.\n",
+            id="provider-and-datasets",
+        ),
     ],
 )
 def test_coverage_refuses_a_filter_without_provider_and_network(args: list[str], message: str) -> None:

@@ -911,8 +911,16 @@ def about() -> None:
 @about.command(epilog=_examples(COVERAGE_EXAMPLES))
 @click.option("--provider", type=click.STRING, help="Data provider. Without it and --network, every combination.")
 @click.option("--network", type=click.STRING, help="Data network of the provider.")
-@click.option("--resolutions", type=click.STRING, help="Only these resolutions, comma-separated. Example: daily,hourly")
-@click.option("--datasets", type=click.STRING, help="Only these datasets, comma-separated. Example: climate_summary")
+@click.option(
+    "--resolutions",
+    type=click.STRING,
+    help="Only these resolutions, comma-separated. Needs --provider and --network. Example: daily,hourly",
+)
+@click.option(
+    "--datasets",
+    type=click.STRING,
+    help="Only these datasets, comma-separated. Needs --provider and --network. Example: climate_summary",
+)
 @debug_opt
 def coverage(
     provider: str,
@@ -924,10 +932,10 @@ def coverage(
     """Get coverage information."""
     set_logging_level(debug=debug)
 
-    # one without the other is no request for every provider, nor is a filter on that list, which
-    # has no resolutions or datasets to narrow: as /api/coverage refuses them, with a 400
+    # /api/coverage refuses, with a 400, a request for every provider that is neither: one of
+    # provider and network without the other, or resolutions / datasets, which that list has none of
     filters = [name for name, value in (("resolutions", resolutions), ("datasets", datasets)) if value]
-    if bool(provider) != bool(network) or (filters and not provider):
+    if bool(provider) != bool(network) or (filters and not (provider or network)):
         ctx = click.get_current_context()
         params = {param.name: param for param in ctx.command.params}
         missing = [name for name, value in (("provider", provider), ("network", network)) if not value]
