@@ -1759,6 +1759,7 @@ def test_settings_auth_metno_frost_reads_whitespace_only_text_as_unset(
     [
         ("WD_AUTH__CEDA", ValidationError),
         ("WD_AUTH__METNO_FROST", ValidationError),
+        ("WD_AUTH", SettingsError),
         ("WD_FSSPEC_CLIENT_KWARGS", SettingsError),
     ],
 )
@@ -1794,3 +1795,16 @@ def test_settings_value_nested_too_deeply_is_refused_as_text_that_is_not_json_is
 
     with pytest.raises(error):
         MetOfficeObservationRequest.is_configured()
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_key_nested_too_deeply_under_a_dict_setting_is_kept_as_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A key of a dict setting may hold text, so one nested too deeply is kept as it is, not decoded (GH-2543).
+
+    `WD_FSSPEC_CLIENT_KWARGS__HEADERS` is a key of a dict, which the environment decodes as JSON and
+    keeps as text where that fails -- `[abc` is a header value as well as 100000 brackets are. It
+    raised a `RecursionError` before; it is read as any text that is not JSON is.
+    """
+    monkeypatch.setenv("WD_FSSPEC_CLIENT_KWARGS__HEADERS", "[" * 100_000)
+    assert check_settings() == []
+    assert Settings().fsspec_client_kwargs["headers"] == "[" * 100_000

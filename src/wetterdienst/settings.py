@@ -392,8 +392,9 @@ def _merge_fsspec_client_kwargs(given: dict) -> dict:
     return merged
 
 
-def _decode_nested_as_json_would(source: PydanticBaseSettingsSource) -> PydanticBaseSettingsSource:
-    """Have a source read a value nested too deeply to decode as it does one that is not valid JSON (GH-2543).
+@functools.cache
+def _reading_nested_as_json_would(source_class: type[PydanticBaseSettingsSource]) -> type[PydanticBaseSettingsSource]:
+    """Give a source class the reading of a value nested too deeply as of one that is not valid JSON (GH-2543).
 
     The source decodes a dict, a pair or a nested setting as JSON before any validator sees it, and
     for text such as 100000 opening brackets the decoder raises a ``RecursionError``. That is no
@@ -401,16 +402,22 @@ def _decode_nested_as_json_would(source: PydanticBaseSettingsSource) -> Pydantic
     kept as the raw text for the validator to refuse nor reported by `check_settings`, and
     ``Settings()`` raised it. As a ``ValueError`` it is dealt with as any other malformed value is.
     """
-    decode = source.decode_complex_value
 
-    def decode_complex_value(field_name: str, field: FieldInfo, value: Any) -> Any:  # noqa: ANN401
-        try:
-            return decode(field_name, field, value)
-        except RecursionError as error:
-            msg = "nested too deeply to decode as JSON"
-            raise ValueError(msg) from error
+    class Reading(source_class):  # ty: ignore[unsupported-base]
+        def decode_complex_value(self, field_name: str, field: FieldInfo, value: Any) -> Any:  # noqa: ANN401
+            try:
+                return super().decode_complex_value(field_name, field, value)
+            except RecursionError as error:
+                msg = "nested too deeply to decode as JSON"
+                raise ValueError(msg) from error
 
-    source.decode_complex_value = decode_complex_value  # ty: ignore[invalid-assignment]
+    Reading.__name__ = source_class.__name__
+    return Reading
+
+
+def _decode_nested_as_json_would(source: PydanticBaseSettingsSource) -> PydanticBaseSettingsSource:
+    """Give a source, as configured, the reading of `_reading_nested_as_json_would`."""
+    source.__class__ = _reading_nested_as_json_would(type(source))
     return source
 
 

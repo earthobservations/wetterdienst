@@ -80,9 +80,10 @@ Types of changes:
   unset, as an empty value in the environment does, where it counted as a configured client id
   (GH-2542)
 - A `WD_*` value in the environment or `.env` that is nested too deeply to decode as JSON, such
-  as `WD_AUTH__CEDA` set to 100000 opening brackets, is refused as text that is not JSON is:
-  `check_settings()` names the variable, and `Settings()` raises a `ValidationError` or
-  `SettingsError`. It escaped both as a `RecursionError`, as did `is_configured()` (GH-2543)
+  as `WD_AUTH__CEDA` set to 100000 opening brackets, is treated as text that is not JSON is:
+  `check_settings()` names the variable and `Settings()` raises a `ValidationError` or
+  `SettingsError`; text for a key of a dict setting is kept as it is. All of it raised a
+  `RecursionError`, as did `is_configured()` (GH-2543)
 
 ## [0.142.0] - 2026-10-08
 
