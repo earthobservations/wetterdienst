@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 
 from wetterdienst import Info, Settings
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.util.eccodes import bufr_is_available
 from wetterdienst.util.network import _worth_retrying
 
@@ -55,7 +56,9 @@ def skip_if_upstream_unavailable() -> Generator[None]:
     try:
         yield
     except Exception as error:
-        if _worth_retrying(error):
+        # a download raised through `File.raise_if_exception` carries the failure as its cause
+        failure = error.__cause__ if isinstance(error, DownloadError) and error.__cause__ else error
+        if isinstance(failure, Exception) and _worth_retrying(failure):
             pytest.skip(f"upstream did not answer: {error!r}")
         raise
 

@@ -575,3 +575,117 @@ def test_request_refuses_a_reversed_window_in_its_own_terms() -> None:
     with pytest.raises(ReversedTimeIntervalError, match="'start' must be smaller or equal to 'end'") as raised:
         TimeseriesRequest.convert_timestamps("2020-06-30", "2020-06-01")
     assert isinstance(raised.value, StartDateEndDateError)
+
+
+def _count_station_index_builds(monkeypatch: pytest.MonkeyPatch) -> list[None]:
+    """Stub DWD observation's station index with three stations and record each time it is built.
+
+    `_all` is what reads the station description files and builds the file index upstream, so a
+    call to it is a full station index built; nothing leaves the machine.
+    """
+    built = []
+    stations = pl.DataFrame(
+        {
+            "resolution": ["daily"] * 3,
+            "dataset": ["climate_summary"] * 3,
+            "station_id": ["01048", "01050", "01051"],
+            "start_timestamp": [dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC"))] * 3,
+            "end_timestamp": [dt.datetime(2026, 10, 1, tzinfo=ZoneInfo("UTC"))] * 3,
+            "latitude": [51.1278, 51.0221, 50.9800],
+            "longitude": [13.7543, 13.8470, 13.9500],
+            "elevation": [228.0, 119.0, 300.0],
+            "name": ["Dresden-Klotzsche", "Dresden-Hosterwitz", "Dresden-Elsewhere"],
+            "region": ["Sachsen"] * 3,
+        },
+    )
+
+    def _all(_self: DwdObservationRequest) -> pl.LazyFrame:
+        built.append(None)
+        return stations.lazy()
+
+    monkeypatch.setattr(DwdObservationRequest, "_all", _all)
+    return built
+
+
+@pytest.mark.parametrize(
+    ("method", "kwargs", "expected"),
+    [
+        ("filter_by_station_id", {"station_id": "01048"}, ["01048"]),
+        ("filter_by_name", {"name": "Dresden-Klotzsche"}, ["01048"]),
+        # the rank limits value collection later on, not the stations listed
+        ("filter_by_rank", {"latlon": (51.05, 13.74), "rank": 2}, ["01050", "01048", "01051"]),
+        # every station in reach, not one: it ranks with filter_by_rank at rank 1
+        ("filter_by_distance", {"latlon": (51.05, 13.74), "distance": 10}, ["01050", "01048"]),
+        ("filter_by_bbox", {"left": 13.7, "bottom": 51.0, "right": 13.8, "top": 51.2}, ["01048"]),
+        ("filter_by_sql", {"sql": "station_id = '01048'"}, ["01048"]),
+    ],
+)
+def test_station_filters_build_the_station_index_once(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+    method: str,
+    kwargs: dict,
+    expected: list[str],
+) -> None:
+    """Test each station filter builds the station index once and hands that frame to df_all (GH-2475).
+
+    They built it again for the result's df_all, and filter_by_distance four times. df_all stays
+    the full station list as all() gives it: filter_by_rank's distance column is not added to it.
+    """
+    built = _count_station_index_builds(monkeypatch)
+    request = DwdObservationRequest(parameters=[("daily", "climate_summary")], settings=default_settings)
+
+    result = getattr(request, method)(**kwargs)
+
+    assert len(built) == 1
+    assert result.df.get_column("station_id").to_list() == expected
+    assert_frame_equal(result.df_all, request.all().df)
+
+
+def test_filter_by_distance_without_stations_finds_none(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+) -> None:
+    """Test a distance filter over an empty station list answers with no stations (GH-2475).
+
+    It ranked by the number of stations, which is 0 here, and so raised "'rank' has to be at least
+    1." for a rank the caller never gave.
+    """
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame())
+    request = DwdObservationRequest(parameters=[("daily", "climate_summary")], settings=default_settings)
+
+    result = request.filter_by_distance(latlon=(51.05, 13.74), distance=10)
+
+    assert result.df.is_empty()
+    assert result.df_all.is_empty()
+
+
+@pytest.mark.parametrize("method", ["interpolate", "summarize"])
+def test_estimates_build_the_station_index_twice(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+    method: str,
+) -> None:
+    """Test interpolate and summarize build the station index twice, where they built it six times (GH-2475).
+
+    The real core runs, with the stations' values read as none. It ranks the stations with
+    `filter_by_distance`, one build; the request's own frame of the stations taken is the other,
+    which it built again for df_all. GH-2506 is the one left in the core.
+    """
+    from wetterdienst.model.values import TimeseriesValues  # noqa: PLC0415
+
+    if method == "interpolate":
+        pytest.importorskip("wetterdienst.core.interpolate")
+    built = _count_station_index_builds(monkeypatch)
+    monkeypatch.setattr(TimeseriesValues, "query", lambda _self: iter([]))
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        start="2020-01-01",
+        end="2020-01-02",
+        settings=default_settings,
+    )
+
+    result = getattr(request, method)(latlon=(51.05, 13.74))
+
+    assert len(built) == 2
+    assert_frame_equal(result.stations.df_all, request.all().df)

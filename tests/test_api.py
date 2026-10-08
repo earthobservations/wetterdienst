@@ -11,7 +11,6 @@ from typing import get_args
 
 import polars as pl
 import pytest
-from fsspec.exceptions import FSTimeoutError
 from pydantic import ValidationError
 
 from tests.conftest import BUFR_AVAILABLE, skip_if_upstream_unavailable
@@ -704,7 +703,7 @@ def test_api_rmi_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@pytest.mark.xfail(raises=FSTimeoutError, strict=False, reason="ECCC server regularly times out")
+@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_api_eccc_observation(default_settings: Settings) -> None:
     """Test eccc observation API."""

@@ -59,9 +59,24 @@ Types of changes:
   null `valid_to`, where it was the time the history was read and changed on every call. A name or
   operator still in use was null already. Read a null `valid_to` as a position that still applies
   (GH-2474)
+- **Breaking**: a download that failed raises `wetterdienst.exceptions.DownloadError` through
+  `File.raise_if_exception`, which 13 providers use, where it raised the stored error itself
+  (`FSTimeoutError`, `ClientResponseError`, `FileNotFoundError`, aiohttp's connection errors). Its
+  message is `Failed to download <url>: <reason>` with the URL stripped of query, fragment and user
+  information, so the REST API's `detail` and the CLI name the file. Catch `DownloadError` and read
+  `__cause__` for the original error (GH-2460)
+- **Breaking**: a station the provider gives no end has a null `end_timestamp` in the station list
+  of `eaufrance/hubeau` (every station it lists) and of `dwd/observation` 1-minute precipitation
+  from the historical period, where it was the time of the call or the day before. Read a null
+  `end_timestamp` there as a station the provider has not closed (GH-2482)
 
 ### Fixed
 
+- A `file://` target of `to_target` and of the CLI's `stations`, `values`, `interpolate`,
+  `summarize`, `history` and `alerts` is read as the path the URI names: `%20` and other
+  percent-encoding is decoded, and on Windows `file:///C:/data/obs.csv` is `C:/data/obs.csv`.
+  Both wrote to the wrong path. A path with a literal `%20` in a `file://` target is now written
+  `%2520`; a plain path is read as given (GH-2454)
 - `/api/values` and the MCP `values` tool log a request they refuse with a 400 -- an unparseable
   timestamp, an unknown parameter or period -- as one info line, as `/api/interpolate` and
   `/api/summarize` do. Each was logged as an error with its traceback; the status is unchanged
@@ -82,6 +97,12 @@ Types of changes:
   derived's months, skipped them too. KNMI's and AEMET's own retry of a 429 or 5xx now
   applies through the cache too. A cache miss is one GET instead of two, and a body that ends
   before its `Content-Length` is no longer read back from the cache by the retry (GH-2467)
+- `filter_by_name`, `filter_by_rank` and `filter_by_bbox` build the station list once, where they
+  built it twice, `filter_by_distance` once instead of four times, and `interpolate` and
+  `summarize` twice instead of six times: that much less parsing, and with `WD_CACHE_DISABLE` or a
+  provider that does not cache its station list, that many fewer downloads. `filter_by_distance`
+  on a request with no stations finds none, where it raised "'rank' has to be at least 1."
+  (GH-2475)
 - A request built from a `Settings` object, as the CLI builds its requests, uses it as it is rather
   than validating it again, so the cache line and the `ts_drop_nulls` notice of a wide shape are
   logged once, when the settings are built, rather than twice. Settings given as a dict are
@@ -96,6 +117,11 @@ Types of changes:
   and `end`, which their callers cannot pass. Python callers keep the request's message, and
   `ReversedTimeIntervalError` and `MissingTimeIntervalError` are subclasses of the exceptions
   they raised (GH-2478)
+- `wetterdienst stripes values` refuses a `--target` that is a URI (`s3://...`, `file://...`)
+  before it fetches and renders, as a usage error (exit 2) naming `--target`; the write to the
+  path read off the URI (`s3:/bucket/...`) failed only afterwards. A `--target` whose extension
+  does not match `--format` is a usage error too, exit 2 where it was 1. Pass a local path
+  (GH-2450)
 
 ## [0.141.0] - 2026-10-06
 

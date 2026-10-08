@@ -6458,7 +6458,7 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
     )
 
     assert response.status_code == 500
-    assert response.json()["detail"] == f"503, message='Service Unavailable', url='{url}'"
+    assert response.json()["detail"] == f"Failed to download {url}: 503, message='Service Unavailable'"
 
 
 _GEO_REFUSALS = [
@@ -6713,6 +6713,53 @@ def test_stations_output_schemas_name_the_span_as_the_frame_does(client: TestCli
         branches = schema["properties"][field].get("anyOf", [schema["properties"][field]])
         assert {branch.get("type") for branch in branches} == {"string", "null"}, f"{schema_name}.{field}"
     assert not {"start_date", "end_date"} & set(schema["properties"])
+
+
+def test_values_a_timed_out_download_names_the_file(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A download that timed out answers a 500 naming the file, where its `detail` was empty (GH-2460)."""
+    from fsspec.exceptions import FSTimeoutError  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import api as dwd_observation_api  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import download as dwd_observation_download  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    station = {
+        "resolution": "annual",
+        "dataset": "climate_summary",
+        "station_id": "01048",
+        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "latitude": 51.1278,
+        "longitude": 13.7543,
+        "elevation": 228.0,
+        "name": "Dresden-Klotzsche",
+        "region": "Sachsen",
+    }
+    url = "https://example.invalid/jahreswerte_KL_01048_19340101_20231231_hist.zip"
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame([station]))
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "create_file_list_for_climate_observations",
+        lambda *_args, **_kwargs: pl.Series([url]),
+    )
+    # what `download_file` hands back for a timeout that outlasted its retries
+    failed = File(url=url, content=FSTimeoutError(), status=408)
+    monkeypatch.setattr(dwd_observation_download, "download_files", lambda **_kwargs: [failed])
+
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "annual/climate_summary",
+            "periods": "historical",
+            "station": "01048",
+        },
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == f"Failed to download {url}: FSTimeoutError"
 
 
 # each endpoint whose query parameters were taken loose, with a request it would otherwise serve,
