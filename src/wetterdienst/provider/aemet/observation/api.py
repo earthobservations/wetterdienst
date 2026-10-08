@@ -44,15 +44,19 @@ _MAX_REQUEST_DAYS = 179
 
 # AEMET's own error message for a 429 is "Espere al siguiente minuto" (wait for the next
 # minute), and it has also been observed, live, to fail in several other transient ways
-# (TLS handshake drops, timeouts, and other failures on its second-stage "datos" URL) even
+# (TLS handshake failures, timeouts, and other failures on its second-stage "datos" URL) even
 # after download_file()'s own short built-in retry is exhausted -- the exact status varies
 # too much to enumerate as an allow-list, so everything is retried here EXCEPT the statuses
 # that mean the request itself is invalid and retrying it can't help (bad auth, bad station,
-# malformed request). Kept deliberately modest (a couple of short-backoff retries): AEMET's
-# outages have been observed to regularly outlast even a much longer retry budget, so paying
-# for one is mostly wasted time -- this is enough to smooth over brief blips without making
-# a single failing call hang for minutes. Tests that hit sustained live outages are handled
-# via xfail rather than a longer retry (see tests/provider/aemet/observation/test_api.py).
+# malformed request), and a failure download_file() reports as no network. That is aiohttp's
+# ClientConnectorError -- refused, DNS, and a TLS handshake that fails rather than times out
+# (#2553 tracks that it also covers more than being offline) -- and it is returned without a
+# retry here because offline, that only adds a wait. A timeout is not one and is retried. Kept
+# deliberately modest (a couple of short-backoff retries): AEMET's outages have been observed
+# to regularly outlast even a much longer retry budget, so paying for one is mostly wasted
+# time -- this is enough to smooth over brief blips without making a single failing call hang
+# for minutes. Tests that hit sustained live outages are handled via xfail rather than a
+# longer retry (see tests/provider/aemet/observation/test_api.py).
 _NON_RETRYABLE_STATUSES = {400, 401, 403, 404}
 _RETRY_WAIT_INITIAL_SECONDS = 2
 _RETRY_WAIT_MAX_SECONDS = 15
@@ -134,7 +138,8 @@ def _download_with_rate_limit_retry(
     """Download a URL, retrying on retryable AEMET failures.
 
     Retries both the per-minute rate limit (429) and transient network failures
-    (timeouts, connection resets, TLS handshake drops, etc.).
+    (timeouts, connection resets, etc.). A failure `download_file` classes as no network
+    (`File.is_no_internet_error`) is not retried here.
 
     download_file() already retries transiently via stamina internally, but with a very
     short, generic backoff -- not enough to reliably clear either failure mode observed
@@ -163,7 +168,13 @@ def _download_with_rate_limit_retry(
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
-                if isinstance(last_file.content, Exception) and last_file.status not in _NON_RETRYABLE_STATUSES:
+                # no network is not a blip two more retries clear: report it at once, as an
+                # offline listing does (the 503 `download_file` gives it would otherwise match)
+                if (
+                    isinstance(last_file.content, Exception)
+                    and not last_file.is_no_internet_error
+                    and last_file.status not in _NON_RETRYABLE_STATUSES
+                ):
                     log.warning(
                         f"Retryable AEMET failure (status={last_file.status}) for {url}: {last_file.content}; retrying",
                     )
