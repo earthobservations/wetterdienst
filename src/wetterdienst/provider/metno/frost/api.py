@@ -500,7 +500,7 @@ class MetnoFrostValues(TimeseriesValues):
         if file.is_no_internet_error or file.status == 412:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # 404: one or more elements may require specific time-series parameters (e.g.
-        # historical synoptic data). Fall back to resolving each parameter individually.
+        # historical synoptic data). Fall back to resolving each requested parameter individually.
         if file.status == 404:
             return self._collect_after_batch_404(
                 station_id, dataset, parameters, start_date, end_date, settings, client_kwargs
