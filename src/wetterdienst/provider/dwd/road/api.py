@@ -955,13 +955,13 @@ class DwdRoadValues(TimeseriesValues):
             use_certifi=self.sr.settings.use_certifi,
         )
         # a failed download carries its exception and no bytes, so the size filter below would drop it
-        # as it drops an empty file, and a group whose every download failed -- a refused certificate,
-        # a 403, an outage -- would read as a group with nothing published
+        # as it drops an empty file, and a group whose every download failed -- a 403, a timeout --
+        # would read as a group with nothing published
         failed = [file for file in files if isinstance(file.content, Exception)]
         if failed and len(failed) == len(files):
             # a 404 is a file DWD has withdrawn since the listing was read, which is warned about
-            # below; any other failure is raised, but for a `NoInternetError`, which is logged and
-            # let through
+            # below; any other failure is raised. A `NoInternetError` is let through: it is also what
+            # a failed connection or certificate check is stored as (GH-2553)
             for file in failed:
                 if file.status != 404:
                     file.raise_if_exception()

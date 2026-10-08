@@ -1618,9 +1618,8 @@ def test_dwd_road_weather_raises_when_every_download_of_a_group_failed(monkeypat
     """A group whose every file failed to download is an error, not a group with nothing published.
 
     A failed download comes back as a `File` carrying its exception and no bytes, which the 142-byte
-    filter for the empty files of GH-1526 dropped as it drops an empty file -- so a refused
-    certificate or a 403 on every file answered with an empty frame and, at the default verbosity,
-    not a word.
+    filter for the empty files of GH-1526 dropped as it drops an empty file -- so a 403 or a timeout
+    on every file answered with an empty frame and, at the default verbosity, not a word.
     """
     from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
 
