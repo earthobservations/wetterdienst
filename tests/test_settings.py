@@ -168,10 +168,9 @@ def test_settings_geo_station_distance_round_trips() -> None:
 def test_settings_geo_station_distance_survives_revalidation() -> None:
     """Test that validating the same settings twice does not turn the table into overrides.
 
-    `TimeseriesRequest` runs `Settings.model_validate(settings)` on what it is handed, which re-runs
-    every after-validator on the same instance. Capturing the overrides again there would take the
-    already-expanded mapping for what the user wrote, and those 34 entries would then outrank a
-    radius set afterwards.
+    `Settings.model_validate(settings)` re-runs every after-validator on the same instance.
+    Capturing the overrides again there would take the already-expanded mapping for what the user
+    wrote, and those 34 entries would then outrank a radius set afterwards.
     """
     settings = Settings(ts_geo_station_distance_heterogeneous=30.0)
     revalidated = Settings.model_validate(settings)
@@ -1438,3 +1437,30 @@ def test_settings_auth_metno_frost_reads_a_pair_after_any_whitespace(monkeypatch
     """A pair after whitespace that JSON does not take, such as a pasted no-break space, is still read (GH-2464)."""
     monkeypatch.setenv("WD_AUTH__METNO_FROST", '\xa0["DUMMY-FROST-ID", "DUMMY-FROST-SECRET"]\xa0')
     assert tuple(reveal(part) for part in Settings().auth.metno_frost) == ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")
+
+
+@pytest.mark.parametrize("ts_shape", ["long", "wide"])
+def test_settings_request_built_from_settings_logs_them_once(caplog: pytest.LogCaptureFixture, ts_shape: str) -> None:
+    """A request handed a `Settings` does not validate it again, which logged its notices twice (GH-2476).
+
+    The CLI builds the settings and then the request from them; every command logged the cache line
+    twice, and the `ts_drop_nulls` notice too for a wide shape.
+    """
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    with caplog.at_level(logging.INFO, logger="wetterdienst.settings"):
+        settings = Settings(ts_shape=ts_shape)
+        request = DwdObservationRequest(parameters=["daily/kl"], settings=settings)
+    assert request.settings is settings
+    messages = [record.getMessage() for record in caplog.records if record.name == "wetterdienst.settings"]
+    assert sum(message.startswith("Wetterdienst cache is") for message in messages) == 1
+    assert sum("ts_drop_nulls" in message for message in messages) == (ts_shape == "wide")
+
+
+def test_settings_request_validates_settings_given_as_a_dict() -> None:
+    """A request handed its settings as a dict still validates them into a `Settings` (GH-2476)."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    request = DwdObservationRequest(parameters=["daily/kl"], settings={"ts_shape": "wide"})
+    assert isinstance(request.settings, Settings)
+    assert request.settings.ts_shape == "wide"

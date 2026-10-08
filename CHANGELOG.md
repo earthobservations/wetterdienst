@@ -74,6 +74,10 @@ Types of changes:
   derived's months, skipped them too. KNMI's and AEMET's own retry of a 429 or 5xx now
   applies through the cache too. A cache miss is one GET instead of two, and a body that ends
   before its `Content-Length` is no longer read back from the cache by the retry (GH-2467)
+- A request built from a `Settings` object, as the CLI builds its requests, uses it as it is rather
+  than validating it again, so the cache line and the `ts_drop_nulls` notice of a wide shape are
+  logged once, when the settings are built, rather than twice. Settings given as a dict are
+  validated as before (GH-2476)
 - DWD road values and radar BUFR reads import `pyproj`, where it is installed, before they load
   `eccodes`. On Linux, with the `eckitlib` wheel pip installs beside `eccodes`, a process that used
   `pyproj` or wradlib after such a read aborted at exit with status 134 or 139 (ecmwf/eckit#354);
