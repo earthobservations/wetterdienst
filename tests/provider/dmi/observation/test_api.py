@@ -331,6 +331,24 @@ def test_fetch_station_value_pages_gives_up_where_a_second_holds_too_many(monkey
         )
 
 
+def test_fetch_station_value_pages_drops_the_pages_of_a_halved_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The pages read of a window that is then halved are not kept: only halves' boundary instants repeat."""
+    monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 100)
+    monkeypatch.setattr(dmi_api, "_MAX_OFFSET", 200)
+    first = dt.datetime(2023, 1, 1, tzinfo=UTC)
+    server = _FakeStationValueServer(first, hours=24 * 30, max_offset=200)
+    monkeypatch.setattr(dmi_api, "download_file", server)
+    values = object.__new__(dmi_api.DmiObservationValues)
+    records: list[pl.DataFrame] = []
+    values._fetch_station_value_pages(  # noqa: SLF001
+        "06180", "hour", first, first + dt.timedelta(days=30), Settings(cache_disable=True), records
+    )
+    df = pl.concat(records)
+    # each halving shares one instant at most; keeping the discarded pages would repeat hundreds of rows
+    assert df.height - df.unique().height <= 10
+    assert df.unique().height == 24 * 30
+
+
 def test_collect_ends_quietly_at_the_window_without_a_connection(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
