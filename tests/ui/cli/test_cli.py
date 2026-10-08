@@ -248,11 +248,11 @@ def test_coverage() -> None:
 
 @pytest.mark.parametrize("network", ["alerts", "radar"])
 def test_coverage_standalone_network_reports_cleanly(network: str) -> None:
-    """Test coverage for a metadata-less standalone network fails cleanly instead of crashing."""
+    """Test coverage for a metadata-less standalone network is a one-line usage error (GH-2465)."""
     runner = CliRunner()
     result = runner.invoke(cli, ["about", "coverage", "--provider=dwd", f"--network={network}"])
-    assert result.exit_code == 1
-    assert not isinstance(result.exception, AttributeError)
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(f"\n\nError: Coverage is not available for provider 'dwd' and network '{network}'.\n")
 
 
 def test_coverage_resolution_1_minute() -> None:

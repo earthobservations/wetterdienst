@@ -11,7 +11,6 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, WithJsonSchema
 from typing_extensions import NotRequired
@@ -27,9 +26,6 @@ from wetterdienst.exceptions import (
     StationNotFoundError,
 )
 from wetterdienst.metadata.resolution import Resolution
-
-# needed at runtime: FastAPI resolves this annotation to build the query parameter's enum
-from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001
 from wetterdienst.model.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -44,13 +40,18 @@ from wetterdienst.model.unit import UnitConverter
 from wetterdienst.settings import SkipThreshold, check_settings
 from wetterdienst.ui.core import (
     SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
+    AlertsRequest,
+    AuthRequest,
+    CoverageRequest,
     GlossaryEntry,
+    GlossaryRequest,
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
     SettingsRequest,
     StationsRequest,
     StripesImageRequest,
+    StripesStationsRequest,
     StripesValuesRequest,
     SummaryRequest,
     ValuesRequest,
@@ -696,10 +697,7 @@ def oauth_metadata_not_found() -> None:
 
 @app.get("/api/auth")
 def auth(
-    provider: str,
-    network: str,
-    *,
-    debug: bool = False,
+    request: Annotated[AuthRequest, Query()],
 ) -> JSONResponse:
     """Check whether the credentials for an auth-required provider are present and valid.
 
@@ -708,7 +706,8 @@ def auth(
     `configured` reflects whether credentials are present; `valid` whether a probe request succeeded.
     `valid` is false whenever `configured` is false (a probe cannot be performed without credentials).
     """
-    set_logging_level(debug=debug)
+    set_logging_level(debug=request.debug)
+    provider, network = request.provider, request.network
 
     try:
         api = Wetterdienst(str(provider), str(network))
@@ -745,13 +744,7 @@ def auth(
 
 @app.get("/api/coverage")
 def coverage(
-    provider: str | None = None,
-    network: str | None = None,
-    resolutions: str | None = None,
-    datasets: str | None = None,
-    *,
-    pretty: bool = False,
-    debug: bool = False,
+    request: Annotated[CoverageRequest, Query()],
 ) -> Response:
     """List available data: providers/networks, or the resolutions, datasets and parameters within one.
 
@@ -759,7 +752,8 @@ def coverage(
     provider="dwd", network="observation") to list its resolutions/datasets/parameters; narrow with
     resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names.
     """
-    set_logging_level(debug=debug)
+    set_logging_level(debug=request.debug)
+    provider, network = request.provider, request.network
 
     if (provider and not network) or (not provider and network):
         raise HTTPException(
@@ -788,24 +782,20 @@ def coverage(
             detail=f"Coverage is not available for provider '{provider}' and network '{network}'.",
         )
 
-    resolutions_list: list[str] | None = read_list(resolutions) if resolutions else None
-    datasets_list: list[str] | None = read_list(datasets) if datasets else None
+    resolutions_list: list[str] | None = read_list(request.resolutions) if request.resolutions else None
+    datasets_list: list[str] | None = read_list(request.datasets) if request.datasets else None
 
     cov = api.discover(
         resolutions=resolutions_list,
         datasets=datasets_list,
     )
 
-    return Response(content=json.dumps(cov, indent=4 if pretty else None), media_type="application/json")
+    return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
 
 
 @app.get("/api/glossary", response_model=list[GlossaryEntry])
 def glossary(
-    parameter: str | None = None,
-    unit_type: UnitType | None = None,
-    limit: int | None = None,
-    *,
-    debug: bool = False,
+    request: Annotated[GlossaryRequest, Query()],
 ) -> list[GlossaryEntry]:
     """Look up what a parameter measures and which unit it is returned in.
 
@@ -819,9 +809,9 @@ def glossary(
     what any of them means. The unit reported is the one a values request would actually return,
     including any ts_unit_targets override.
     """
-    set_logging_level(debug=debug)
+    set_logging_level(debug=request.debug)
 
-    return get_glossary(parameter=parameter, unit_type=unit_type, limit=limit)
+    return get_glossary(parameter=request.parameter, unit_type=request.unit_type, limit=request.limit)
 
 
 # response models for the different formats are
@@ -1261,28 +1251,24 @@ def summarize(
 
 @app.get("/api/stripes/stations")
 def stripes_stations(
-    kind: Annotated[Literal["temperature", "precipitation"], Query()],
-    active: Annotated[bool, Query()] = True,  # noqa: FBT002
-    fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
-    pretty: Annotated[bool, Query()] = False,  # noqa: FBT002
-    debug: Annotated[bool, Query()] = False,  # noqa: FBT002
+    request: Annotated[StripesStationsRequest, Query()],
 ) -> Response:
     """Wrap get_climate_stripes_temperature_request to provide results via restapi."""
-    set_logging_level(debug=debug)
+    set_logging_level(debug=request.debug)
 
     # the provider request below builds its settings from the environment inside the handler: checked
     # here first, a malformed server setting is the bare 500 FastAPI answers, which does not read its
     # value back
     Settings()
     try:
-        stations = _get_stripes_stations(kind=kind, active=active)
+        stations = _get_stripes_stations(kind=request.kind, active=request.active)
     except Exception as e:
-        # nothing of the caller's reaches the lookup but a kind and a flag its signature has checked,
+        # nothing of the caller's reaches the lookup but a kind and a flag its request has checked,
         # so a failure here is the server's or the data source's, whatever its type
         log.exception("Failed to get stripes stations")
         raise HTTPException(status_code=500, detail=str(e)) from e
-    content = stations.to_format(fmt=fmt, with_metadata=True, indent=pretty)
-    media_type = "text/csv" if fmt == "csv" else "application/json"
+    content = stations.to_format(fmt=request.format, with_metadata=True, indent=request.pretty)
+    media_type = "text/csv" if request.format == "csv" else "application/json"
     return Response(content=content, media_type=media_type)
 
 
@@ -1425,13 +1411,7 @@ def history(
 
 @app.get("/api/alerts")
 def alerts(
-    http_request: Request,
-    granularity: Annotated[Literal["community", "district"], Query()] = "community",
-    language: Annotated[Literal["de", "en", "es", "fr", "mul"], Query()] = "en",
-    timestamp: Annotated[str | None, Query()] = None,
-    fmt: Annotated[Literal["json", "geojson", "csv"], Query(alias="format")] = "json",
-    pretty: Annotated[bool, Query()] = False,  # noqa: FBT002
-    debug: Annotated[bool, Query()] = False,  # noqa: FBT002
+    request: Annotated[AlertsRequest, Query()],
 ) -> Response:
     """Provide DWD weather alerts (CAP warnings) via restapi.
 
@@ -1442,35 +1422,20 @@ def alerts(
     """
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
-    set_logging_level(debug=debug)
-
-    # these query parameters are no model forbidding others, so FastAPI would pass over a `date`
-    # without a word and answer the latest snapshot: refused as the values request refuses it
-    if "date" in http_request.query_params:
-        raise RequestValidationError(
-            [
-                {
-                    "type": "renamed",
-                    "loc": ("query", "date"),
-                    "msg": "date was renamed to timestamp",
-                    "input": http_request.query_params["date"],
-                    "ctx": {"renamed_to": "timestamp"},
-                }
-            ]
-        )
+    set_logging_level(debug=request.debug)
 
     # outside the handlers below, as for `/api/stations`: a `ValidationError` is a `ValueError`
     settings = Settings()
     try:
-        request = DwdWeatherAlertRequest(
-            granularity=granularity, language=language, timestamp=timestamp, settings=settings
+        alerts_request = DwdWeatherAlertRequest(
+            granularity=request.granularity, language=request.language, timestamp=request.timestamp, settings=settings
         )
     except (ValueError, OverflowError) as e:
         # a date that does not parse, or one an offset carries out of what a datetime holds
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     try:
-        result = request.query()
+        result = alerts_request.query()
     except InvalidTimeIntervalError as e:
         # a date before DWD's rolling window, the one refusal of the request's own `query` raises
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -1480,8 +1445,8 @@ def alerts(
         log.exception("Failed to get weather alerts")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
-    content = result.to_format(fmt, indent=pretty)
-    media_type = "text/csv" if fmt == "csv" else "application/json"
+    content = result.to_format(request.format, indent=request.pretty)
+    media_type = "text/csv" if request.format == "csv" else "application/json"
     return Response(content=content, media_type=media_type)
 
 
