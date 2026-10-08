@@ -134,10 +134,10 @@ class Auth(BaseModel):
         decoded as JSON, and refused where it does not decode (GH-2464). Other text is refused, before
         any decoding, where it holds a character a client id cannot, such as `id:secret` (GH-2487). A
         lone client id is the text stripped of the whitespace around it, and text of nothing but
-        whitespace, or an empty one, is no client id but unset (GH-2542). A
-        mapping, or any other value that is not iterable -- a float, `true`, a JSON object -- is left
-        for the field to refuse, which names it, where reading it as a pair failed with a bare
-        `TypeError` or took the object's keys (GH-2379).
+        whitespace, or an empty one, is no client id but unset (GH-2542). A mapping, or any other
+        value that is not iterable -- a float, `true`, a JSON object -- is left for the field to
+        refuse, which names it, where reading it as a pair failed with a bare `TypeError` or took
+        the object's keys (GH-2379).
         """
         if value is None:
             return None
