@@ -72,6 +72,11 @@ Types of changes:
 
 ### Fixed
 
+- A `file://` target of `to_target` and of the CLI's `stations`, `values`, `interpolate`,
+  `summarize`, `history` and `alerts` is read as the path the URI names: `%20` and other
+  percent-encoding is decoded, and on Windows `file:///C:/data/obs.csv` is `C:/data/obs.csv`.
+  Both wrote to the wrong path. A path with a literal `%20` in a `file://` target is now written
+  `%2520`; a plain path is read as given (GH-2454)
 - `/api/values` and the MCP `values` tool log a request they refuse with a 400 -- an unparseable
   timestamp, an unknown parameter or period -- as one info line, as `/api/interpolate` and
   `/api/summarize` do. Each was logged as an error with its traceback; the status is unchanged

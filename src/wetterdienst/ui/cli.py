@@ -56,7 +56,7 @@ from wetterdienst.ui.core import (
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.extras import missing_dependency_message
 from wetterdienst.util.ui import read_list
-from wetterdienst.util.url import redact_password
+from wetterdienst.util.url import file_target_path, redact_password
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -1249,8 +1249,8 @@ def history(
     Select the stations with exactly one of --all or --station.
     """
     _refuse_non_file_target(target, "history")
-    # a local path, or a `file://` URI with its prefix removed as `alerts` removes it; the `.json` check reads the rest
-    path = target.removeprefix("file://") if target else None
+    # a local path, or a `file://` URI read as `alerts` reads it; the `.json` check reads the path it names
+    path = file_target_path(target) if target else None
     if path is not None and not path.endswith(".json"):
         msg = "--target for history endpoint must end with .json"
         raise click.BadParameter(msg)
@@ -1971,7 +1971,7 @@ def alerts(
     output = result.to_format(fmt, indent=pretty)
 
     if target:
-        path = target.removeprefix("file://")
+        path = file_target_path(target)
         try:
             Path(path).write_text(output, encoding="utf-8")
         except OSError as e:
