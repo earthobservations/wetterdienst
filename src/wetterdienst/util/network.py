@@ -837,10 +837,9 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                     # Windows refuses to replace a blob another handle holds open. That blob is a
                     # whole copy, put there by the same kind of rename, so it is left alone and
                     # this read is served from the file just fetched, in memory because that file
-                    # cannot be removed while open
+                    # cannot be removed while open. No entry is recorded: it would call the blob,
+                    # which still holds the older copy, fresh, so the next read fetches again
                     data = Path(temp).read_bytes()
-                    self._make_local_details(path)
-                    self.save_cache()
                     return BytesIO(data) if "b" in mode else TextIOWrapper(BytesIO(data))
                 self._make_local_details(path)
                 self.save_cache()

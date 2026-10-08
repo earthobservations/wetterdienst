@@ -2789,7 +2789,8 @@ def test_a_blob_another_handle_holds_open_is_left_alone(monkeypatch: pytest.Monk
 
     `os.replace` onto a file another handle holds open is a `PermissionError` there, a failure the
     in-place write did not have. The blob is a whole copy put in place by the same rename, so it
-    stays, the temporary file is gone, and the entry is recorded all the same.
+    stays, the temporary file is gone, and no entry is recorded: one would call the blob, which
+    still holds the older copy, fresh for the whole TTL.
     """
     filesystem, blob = _caching_over_slow_remote(tmp_path)
     blob.write_bytes(b"old-body")
@@ -2809,7 +2810,7 @@ def test_a_blob_another_handle_holds_open_is_left_alone(monkeypatch: pytest.Monk
 
     assert blob.read_bytes() == b"old-body"
     assert _stray_files(tmp_path) == [blob.name]
-    assert list(json.loads((tmp_path / "cache").read_text())) == ["/f.txt"]
+    assert not filesystem._check_file("/f.txt")  # noqa: SLF001
 
 
 def test_a_body_cut_short_leaves_no_file_in_the_cache(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:

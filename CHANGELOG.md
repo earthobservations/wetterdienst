@@ -30,7 +30,7 @@ Types of changes:
   concurrent request for the same URL, from another thread or process, no longer truncates a copy
   another reader is serving, and a body cut short leaves no partial file in the cache directory.
   Where Windows refuses the rename because the blob is open, that read is served from the file
-  just fetched and the blob is kept (GH-2493)
+  just fetched, the blob is kept and the next read fetches again (GH-2493)
 - `interpolate`, `summarize` and their `_by_station_id` variants build a provider's station list
   once, not two or three times: on a cold cache that is a round of upstream requests fewer, for
   DWD observation the station description files and the file index per period. `filter_by_rank`
