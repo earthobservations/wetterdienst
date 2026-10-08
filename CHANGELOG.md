@@ -133,6 +133,14 @@ Types of changes:
   the station: the REST API answers a 500 and the CLI fails, and so do interpolate and summarize
   where a station they read times out. A 5xx after the retries is raised the same way only with
   the cache off (`WD_CACHE_DISABLE=true`); with it on, a 5xx still reads as a missing file (GH-2430)
+- Values of `dwd/phenology`, `dwd/poi`, `dwd/swsmos`, `chmi`, `fmi`, `ipma`, `dmi`, `rmi`,
+  `metoffice`, `lhmt`, `meteofrance/synop` and `meteofrance/observation` raise a download that
+  failed -- a timeout, a 5xx -- as `DownloadError`, where they logged it and returned no data for
+  the station, or went on to the next file: the REST API answers a 500 and the CLI fails, and so
+  do interpolate and summarize where a station they read fails. A 404 still gives no data where the
+  network lets a file be absent, such as a station's month at CHMI or a year at Met Office, and
+  raises at `fmi`, `ipma`, `dmi` and `rmi`, which answer an empty 200 for no data. A connection
+  that cannot be made at all still gives no data (GH-2461)
 - CLI: `values`, `interpolate`, `summarize`, `issues`, `stripes values` and the station lookup of
   `history` report a request the caller can rephrase -- such as a parameter the network does not
   have, a network without an issue listing, or a point there is no estimate at -- as a one-line
