@@ -765,11 +765,11 @@ def coverage(
 
     if not provider and not network:
         cov = Wetterdienst.discover()
-        return Response(content=json.dumps(cov, indent=4), media_type="application/json")
+        return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
 
     try:
         api = Wetterdienst(str(provider), str(network))
-    except KeyError as e:
+    except (ApiNotFoundError, ImportError) as e:
         raise HTTPException(
             status_code=404,
             detail=f"Choose provider and network from {app.url_path_for('coverage')}",

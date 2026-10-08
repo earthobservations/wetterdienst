@@ -7016,3 +7016,27 @@ def test_values_a_failure_that_is_not_a_refusal_is_still_logged_with_its_traceba
     records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
     assert [(record.levelno, record.getMessage()) for record in records] == [(logging.ERROR, "Failed to get values.")]
     assert records[0].exc_info
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param({"provider": "foo", "network": "bar"}, id="unknown-provider"),
+        pytest.param({"provider": "dwd", "network": "nope"}, id="unknown-network"),
+    ],
+)
+def test_coverage_unknown_provider_or_network_is_a_404(client: TestClient, params: dict[str, str]) -> None:
+    """An unknown provider or network is a 404 pointing at the coverage listing, as in /api/auth (GH-2496)."""
+    response = client.get("/api/coverage", params=params)
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Choose provider and network from /api/coverage"}
+
+
+def test_coverage_all_providers_honours_pretty(client: TestClient) -> None:
+    """The list of every provider is compact unless pretty is set, like the per-network listing (GH-2496)."""
+    compact = client.get("/api/coverage")
+    pretty = client.get("/api/coverage", params={"pretty": "true"})
+    assert compact.status_code == pretty.status_code == 200
+    assert "\n" not in compact.text
+    assert pretty.text.startswith('{\n    "')
+    assert compact.json() == pretty.json()

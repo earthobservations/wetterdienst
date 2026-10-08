@@ -142,6 +142,10 @@ Types of changes:
   path read off the URI (`s3:/bucket/...`) failed only afterwards. A `--target` whose extension
   does not match `--format` is a usage error too, exit 2 where it was 1. Pass a local path
   (GH-2450)
+- `/api/coverage` and the MCP `coverage` tool answer 404 for an unknown provider or network,
+  pointing at `/api/coverage`, where they answered a bare 500. With no provider and network the
+  list of every provider honours `pretty`, so it comes back compact by default, not indented as
+  before; pass `pretty=true` for the indented form (GH-2496)
 
 ## [0.141.0] - 2026-10-06
 
