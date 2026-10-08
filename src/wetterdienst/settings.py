@@ -160,7 +160,11 @@ class Auth(BaseModel):
                         'write a pair as ["client_id", "secret"]'
                     )
                     raise ValueError(msg)
-                return value, ""
+                # the client id is the stripped text, as it is the text that was checked: a trailing
+                # newline from `$(cat file)` or a `.env` line, or an NBSP, was sent on as part of the
+                # id. Text with nothing but whitespace is no client id, and reads as unset, as an
+                # empty value does (GH-2542)
+                return (text, "") if text else None
             # decoding text that starts with `[` gives a list or fails: a `JSONDecodeError`, a
             # `ValueError` for an integer too long to convert, a `RecursionError` for nesting too
             # deep. The refusal is raised outside the handler, so that the decode error, which holds
