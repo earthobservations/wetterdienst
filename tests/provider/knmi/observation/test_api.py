@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.knmi.observation.api import (
@@ -466,3 +467,31 @@ def test_knmi_observation_values_10_minutes() -> None:
     assert value_of("temperature_air_mean_2m") == pytest.approx(23.2)
     assert value_of("humidity_relative") == pytest.approx(0.32)
     assert value_of("wind_speed") == pytest.approx(3.01)
+
+
+def test_knmi_download_no_internet_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A download that failed for want of a network is returned at once, not retried."""
+    calls = []
+
+    def offline(**_kwargs: object) -> File:
+        calls.append(1)
+        return File(url="url", content=NoInternetError("no route to host"), status=503)
+
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api.download_file", offline)
+    result = _download_with_retry("https://example.org", Settings(), CacheExpiry.NO_CACHE)
+    assert result.is_no_internet_error
+    assert len(calls) == 1
+
+
+def test_knmi_download_plain_503_still_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 503 that is not a missing network (an overloaded server) keeps its retries."""
+    calls = []
+
+    def overloaded(**_kwargs: object) -> File:
+        calls.append(1)
+        return File(url="url", content=Exception("service unavailable"), status=503)
+
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api.download_file", overloaded)
+    result = _download_with_retry("https://example.org", Settings(), CacheExpiry.NO_CACHE)
+    assert not result.is_no_internet_error
+    assert len(calls) == 3
