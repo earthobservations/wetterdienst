@@ -19,6 +19,7 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 from typing_extensions import LiteralString, TypedDict
 
 from wetterdienst.exceptions import (
+    ApiNotFoundError,
     InvalidBoundingBoxError,
     InvalidEnumerationError,
     InvalidTimeIntervalError,
@@ -1224,6 +1225,28 @@ def get_issues(
         raise NotImplementedError(msg)
 
     return [issue.isoformat() for issue in issues]
+
+
+def check_timeseries_api(
+    api: type[TimeseriesRequest],
+    provider: str,
+    network: str,
+    *,
+    history: bool = False,
+) -> None:
+    """Refuse a network the timeseries commands cannot serve, before any request is built.
+
+    A standalone network (dwd/radar, dwd/alerts) has no metadata model, so there are no parameters to
+    resolve: `ApiNotFoundError`, which the callers word with where the networks are listed. With
+    `history`, a network without station history is refused with `NotImplementedError` before its
+    station catalogue is downloaded to find that out.
+    """
+    if not hasattr(api, "metadata"):
+        msg = f"Provider '{provider}' and network '{network}' have no stations or values to request."
+        raise ApiNotFoundError(msg)
+    if history and not getattr(api, "_history", None):
+        msg = f"History not implemented for {api.__name__}"
+        raise NotImplementedError(msg)
 
 
 def _get_stations_request(

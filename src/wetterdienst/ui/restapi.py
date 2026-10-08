@@ -60,6 +60,7 @@ from wetterdienst.ui.core import (
     _get_stripes_stations,
     _is_caller_refusal,
     _plot_stripes,
+    check_timeseries_api,
     get_glossary,
     get_interpolate,
     get_issues,
@@ -823,6 +824,25 @@ def glossary(
     return get_glossary(parameter=request.parameter, unit_type=request.unit_type, limit=request.limit)
 
 
+def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -> type[TimeseriesRequest]:
+    """Get the API of a network the timeseries endpoints serve, refusing one they cannot with a 404.
+
+    A standalone network (dwd/radar, dwd/alerts) or, with `history`, a network without station
+    history has nothing to answer these with, as a provider or network that does not exist.
+    """
+    try:
+        api = Wetterdienst(provider, network)
+        check_timeseries_api(api, provider, network, history=history)
+    except ApiNotFoundError as e:
+        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
+        log.exception(msg)
+        raise HTTPException(status_code=404, detail=msg) from e
+    except NotImplementedError as e:
+        log.exception("History not implemented for provider/network")
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return api
+
+
 # response models for the different formats are
 # - _StationsDict for json
 # - _StationsOgcFeatureCollection for geojson
@@ -846,12 +866,7 @@ def stations(
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
 
-    try:
-        api = Wetterdienst(request.provider, request.network)
-    except ApiNotFoundError as e:
-        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
-        log.exception(msg)
-        raise HTTPException(status_code=404, detail=msg) from e
+    api = _get_timeseries_api(request.provider, request.network)
 
     # outside the handler below: nothing of the caller's reaches these settings, so a malformed
     # server setting is the bare 500 FastAPI answers, which does not read its value back
@@ -957,12 +972,7 @@ def values(
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
 
-    try:
-        api = Wetterdienst(request.provider, request.network)
-    except ApiNotFoundError as e:
-        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
-        log.exception(msg)
-        raise HTTPException(status_code=404, detail=msg) from e
+    api = _get_timeseries_api(request.provider, request.network)
 
     # a unit target given for a quantity or unit the converter has none for is the request's 400
     settings = _request_settings(request, http_request.query_params.keys(), ValuesSettings)
@@ -1182,12 +1192,7 @@ def interpolate(
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
 
-    try:
-        api = Wetterdienst(request.provider, request.network)
-    except ApiNotFoundError as e:
-        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
-        log.exception(msg)
-        raise HTTPException(status_code=404, detail=msg) from e
+    api = _get_timeseries_api(request.provider, request.network)
 
     settings = _geo_settings(request, http_request.query_params.keys(), "interpolation")
 
@@ -1242,12 +1247,7 @@ def summarize(
     if request.model_dump(include={"use_nearby_station_distance"})["use_nearby_station_distance"] is not None:
         log.warning(f"use_nearby_station_distance is deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}")
 
-    try:
-        api = Wetterdienst(request.provider, request.network)
-    except ApiNotFoundError as e:
-        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
-        log.exception(msg)
-        raise HTTPException(status_code=404, detail=msg) from e
+    api = _get_timeseries_api(request.provider, request.network)
 
     settings = _geo_settings(request, http_request.query_params.keys(), "summary")
 
@@ -1375,12 +1375,7 @@ def history(
     """
     set_logging_level(debug=request.debug)
 
-    try:
-        api = Wetterdienst(request.provider, request.network)
-    except ApiNotFoundError as e:
-        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
-        log.exception(msg)
-        raise HTTPException(status_code=404, detail=msg) from e
+    api = _get_timeseries_api(request.provider, request.network, history=True)
 
     # outside the handler below, as for `/api/stations`
     settings = Settings()
@@ -1401,9 +1396,6 @@ def history(
 
     try:
         history_provider = stations_.history
-    except NotImplementedError as e:
-        log.exception("History not implemented for provider/network")
-        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         # past the station lookup the request has nothing left to refuse: what fails from here on
         # is the server's or the data source's, whatever its type

@@ -81,6 +81,11 @@ Types of changes:
 
 ### Fixed
 
+- `stations`, `values`, `interpolate`, `summarize` and `history` on `dwd/radar` or `dwd/alerts`,
+  which have no stations or parameters to select, are refused with a 404 naming `/api/coverage` in
+  the REST API and a usage error (exit 2) in the CLI, where they failed with an AttributeError: a
+  500 and a traceback. `history` on a network without station history (`dwd/mosmix`) is refused
+  before its station catalogue is downloaded, so an upstream failure no longer hides it (GH-2492)
 - The CLI's `about coverage` refuses `--provider` without `--network`, and `--network` without
   `--provider`, with a usage error (exit 2) naming the missing option. It printed every provider
   with exit 0, as if neither had been given; with neither it still lists them (GH-2498)
