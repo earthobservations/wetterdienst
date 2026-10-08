@@ -74,6 +74,7 @@ from wetterdienst.ui.core import (
 )
 from wetterdienst.ui.mcp import is_tool_request
 from wetterdienst.util.cli import setup_logging
+from wetterdienst.util.extras import extras_installing
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
@@ -831,11 +832,13 @@ def _refuse_unavailable_provider(e: ImportError) -> HTTPException:
     `Wetterdienst.resolve` words what is missing and which extra installs it, so the caller gets that
     message as it is; pointing at the list of providers, as for an unknown one, would not say why.
 
-    Only a module that is not there is this: `resolve` words that one itself. Any other `ImportError`
-    (a library that fails to load, a circular import) is a broken deployment whose message names
-    server paths, so it is raised again for the 500 and traceback it was.
+    Only a module that an extra of wetterdienst installs is this. Any other `ImportError` (a library
+    that fails to load, a circular import, a module of wetterdienst itself that is gone) is a defect
+    of the deployment or the code, whose message may name server paths, so it is raised again for
+    the 500 and traceback it was.
     """
-    if not isinstance(e.__cause__, ModuleNotFoundError):
+    cause = e.__cause__
+    if not (isinstance(cause, ModuleNotFoundError) and cause.name and extras_installing(cause.name)):
         raise e
     msg = str(e)
     log.info(f"Refused a provider and network that cannot be imported: {msg}")

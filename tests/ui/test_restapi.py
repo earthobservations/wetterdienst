@@ -25,6 +25,7 @@ from wetterdienst.ui import restapi
 from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
 from wetterdienst.ui.mcp import _TOOL_NAMES
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
+from wetterdienst.util.extras import missing_dependency_message
 
 if TYPE_CHECKING:
     from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -7370,9 +7371,7 @@ def test_a_history_not_implemented_is_logged_as_info_without_a_traceback(
     assert records[0].exc_info is None
 
 
-_MISSING_EXTRA = (
-    "Module wetterdienst.provider.knmi.observation.KnmiObservationRequest needs h5py, which is not installed."
-)
+_MISSING_EXTRA = missing_dependency_message("Module wetterdienst.provider.knmi.observation", "h5py")
 
 
 @pytest.mark.parametrize(
@@ -7414,14 +7413,26 @@ def test_a_provider_whose_extra_is_missing_is_a_404_and_one_info_line_without_a_
         pytest.param("stations", _NO_API_ENDPOINTS["stations"], id="stations"),
     ],
 )
-def test_an_import_error_that_is_not_a_missing_module_is_not_a_404(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str, params: dict[str, object]
+@pytest.mark.parametrize(
+    "cause",
+    [
+        pytest.param(None, id="library-fails-to-load"),
+        pytest.param(ModuleNotFoundError(name="wetterdienst.util.netwrk"), id="module-of-wetterdienst-gone"),
+        pytest.param(ModuleNotFoundError(name="somepackage_no_extra_installs"), id="package-of-no-extra"),
+    ],
+)
+def test_an_import_error_that_is_not_a_missing_extra_is_not_a_404(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    params: dict[str, object],
+    cause: ModuleNotFoundError | None,
 ) -> None:
-    """A library that fails to load is a broken deployment: its message names server paths (GH-2545)."""
+    """Anything but a package of an extra is a defect of the deployment or the code, a 500 (GH-2545)."""
 
     def resolve(_provider: str, _network: str) -> None:
         msg = "libhdf5.so: cannot open shared object file (/opt/venv/lib/libhdf5.so)"
-        raise ImportError(msg)
+        raise ImportError(msg) from cause
 
     monkeypatch.setattr(restapi.Wetterdienst, "resolve", staticmethod(resolve))
     with pytest.raises(ImportError, match="libhdf5"):
