@@ -581,7 +581,7 @@ class TimeseriesRequest:
         Args:
             latlon: Latitude and longitude for the requested point.
             rank: Number of stations requested.
-            df_all: The station list ``all()`` gave, for a caller that has it already; built here
+            df_all: This request's own ``all().df``, for a caller that has it already; built here
                 where left out.
 
         Returns:
@@ -636,7 +636,7 @@ class TimeseriesRequest:
             latlon: Latitude and longitude for the requested point.
             distance: Maximum distance to the requested point.
             unit: Unit of the distance.
-            df_all: The station list ``all()`` gave, for a caller that has it already; built here
+            df_all: This request's own ``all().df``, for a caller that has it already; built here
                 where left out.
 
         Returns:
