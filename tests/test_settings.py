@@ -1583,3 +1583,24 @@ def test_settings_auth_ceda_reads_a_pair_after_any_whitespace(monkeypatch: pytes
     """A pair after whitespace that JSON does not take, such as a pasted no-break space, is still read (GH-2483)."""
     monkeypatch.setenv("WD_AUTH__CEDA", '\xa0["DUMMY-USER", "DUMMY:PASSWORD"]\xa0')
     assert tuple(reveal(part) for part in Settings().auth.ceda) == ("DUMMY-USER", "DUMMY:PASSWORD")
+
+
+def _settings_log_messages(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [record.getMessage() for record in caplog.records if record.name == "wetterdienst.settings"]
+
+
+def test_settings_log_once_not_per_assignment(caplog: pytest.LogCaptureFixture) -> None:
+    """Assigning a field or revalidating an instance does not log the settings' notices again (GH-2504)."""
+    with caplog.at_level(logging.INFO, logger="wetterdienst.settings"):
+        # given explicitly, so neither the environment nor a `.env` changes what is logged
+        settings = Settings(cache_disable=False, ts_shape="wide")
+        messages = _settings_log_messages(caplog)
+        assert len(messages) == 2
+        assert "ts_drop_nulls" in messages[0]
+        assert messages[1].startswith("Wetterdienst cache is enabled")
+        settings.ts_skip_empty = True
+        settings.ts_shape = "long"
+        settings.ts_shape = "wide"
+        settings.cache_disable = True
+        Settings.model_validate(settings)
+    assert _settings_log_messages(caplog) == messages

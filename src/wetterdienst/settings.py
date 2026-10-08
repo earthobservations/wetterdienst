@@ -648,9 +648,13 @@ class Settings(BaseSettings):
         """
         return self.ts_drop_nulls and self.ts_tidy
 
-    @model_validator(mode="after")
-    def validate(self) -> Settings:
-        """Validate the settings."""
+    def model_post_init(self, _context: object, /) -> None:
+        """Log what the settings were built with, once, as they are built.
+
+        Not a model validator: those run again for every assignment (`validate_assignment`) and for
+        `Settings.model_validate(settings)`, and logged these lines each time. So a field assigned
+        afterwards -- `ts_shape` included -- logs nothing; the lines say how the settings began.
+        """
         if self.ts_shape != "long":
             log.info(
                 "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and "
@@ -660,7 +664,6 @@ class Settings(BaseSettings):
             log.info("Wetterdienst cache is disabled")
         else:
             log.info(f"Wetterdienst cache is enabled [CACHE_DIR:{self.cache_dir}]")
-        return self
 
     def __repr__(self) -> str:
         """Return the settings as a JSON string."""
