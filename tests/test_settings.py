@@ -1779,7 +1779,8 @@ def test_settings_value_nested_too_deeply_is_refused_as_text_that_is_not_json_is
     settings, such as `MetOfficeObservationRequest.is_configured()`. It is refused with the
     error that text which is not JSON gets, naming the variable and not repeating the value.
     """
-    value = "[" * 100_000 + "TOPSECRET"
+    # deeper than the decoder takes, and below the 32767 characters Windows allows in a variable
+    value = "[" * 30_000 + "TOPSECRET"
     if from_dotenv:
         (tmp_path / ".env").write_text(f"{variable}={value}\n")
     else:
@@ -1808,12 +1809,12 @@ def test_settings_key_nested_too_deeply_under_a_dict_setting_is_kept_as_text(
     """A key of a dict setting may hold text, so one nested too deeply is kept as it is, not decoded (GH-2543).
 
     `WD_FSSPEC_CLIENT_KWARGS__HEADERS` is a key of a dict, which the environment decodes as JSON and
-    keeps as text where that fails, `[abc` as well as 100000 brackets. It raised a `RecursionError`
+    keeps as text where that fails, `[abc` as well as 30000 brackets. It raised a `RecursionError`
     before; it is read as any text that is not JSON is.
     """
     if from_dotenv:
-        (tmp_path / ".env").write_text(f"WD_FSSPEC_CLIENT_KWARGS__HEADERS={'[' * 100_000}\n")
+        (tmp_path / ".env").write_text(f"WD_FSSPEC_CLIENT_KWARGS__HEADERS={'[' * 30_000}\n")
     else:
-        monkeypatch.setenv("WD_FSSPEC_CLIENT_KWARGS__HEADERS", "[" * 100_000)
+        monkeypatch.setenv("WD_FSSPEC_CLIENT_KWARGS__HEADERS", "[" * 30_000)
     assert check_settings() == []
-    assert Settings().fsspec_client_kwargs["headers"] == "[" * 100_000
+    assert Settings().fsspec_client_kwargs["headers"] == "[" * 30_000
