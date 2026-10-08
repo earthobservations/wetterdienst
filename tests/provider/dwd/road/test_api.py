@@ -1629,12 +1629,19 @@ def test_dwd_road_weather_raises_when_every_download_of_a_group_failed(monkeypat
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-def test_dwd_road_weather_does_not_raise_for_no_internet(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dwd_road_weather_does_not_raise_for_no_internet(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """No connection stays an empty answer, as `File.raise_if_exception` has it everywhere else."""
     from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
 
     _stub_downloads(monkeypatch, [NoInternetError("x"), NoInternetError("x")])
-    assert _stub_stations().values.all().df.is_empty()
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.road.api"):
+        df = _stub_stations().values.all().df
+
+    assert df.is_empty()
+    assert "2 of 2 files of DD could not be downloaded" in caplog.text
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -1681,3 +1688,20 @@ def test_dwd_road_weather_files_withdrawn_since_the_listing_are_warned_about(
 
     assert df.is_empty()
     assert "2 of 2 files of DD could not be downloaded" in caplog.text
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_a_404_does_not_hide_the_failure_beside_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One withdrawn file among files that failed otherwise is still an outage."""
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    first, second = _FAILED_DOWNLOAD_FILES
+    files = [
+        File(url=f"https://example.com/road/DD/{first}", content=FileNotFoundError("x"), status=404),
+        File(url=f"https://example.com/road/DD/{second}", content=ConnectionError("x"), status=500),
+    ]
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: list(_FAILED_DOWNLOAD_FILES))
+    monkeypatch.setattr(api, "download_files", lambda **_kwargs: files)
+    with pytest.raises(DownloadError, match=second):
+        _stub_stations().values.all()

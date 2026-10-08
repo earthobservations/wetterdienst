@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from functools import reduce
+from http import HTTPStatus
 from typing import TYPE_CHECKING, ClassVar
 from urllib.parse import urljoin
 
@@ -963,7 +964,7 @@ class DwdRoadValues(TimeseriesValues):
             # below; any other failure is raised. A `NoInternetError` is let through: it is also what
             # a failed connection or certificate check is stored as (GH-2553)
             for file in failed:
-                if file.status != 404:
+                if file.status != HTTPStatus.NOT_FOUND:
                     file.raise_if_exception()
         if failed:
             # the readings of the files that arrived are returned, and those of the others are
