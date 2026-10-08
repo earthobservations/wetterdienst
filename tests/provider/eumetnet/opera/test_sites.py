@@ -3,8 +3,12 @@
 """Tests for EUMETNET OPERA radar sites."""
 
 import pytest
+from fsspec.exceptions import FSTimeoutError
 
-from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
+from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.provider.eumetnet.opera import sites
+from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites, OperaRadarSitesGenerator
+from wetterdienst.util.network import File
 
 
 def test_radar_sites_sizes() -> None:
@@ -55,13 +59,6 @@ def test_radar_sites_by_countryname() -> None:
 
 def test_radar_sites_a_failed_listing_download_names_the_file(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a listing download that timed out raises an error naming the file (GH-2507)."""
-    from fsspec.exceptions import FSTimeoutError  # noqa: PLC0415
-
-    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
-    from wetterdienst.provider.eumetnet.opera import sites  # noqa: PLC0415
-    from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSitesGenerator  # noqa: PLC0415
-    from wetterdienst.util.network import File  # noqa: PLC0415
-
     monkeypatch.setattr(
         sites,
         "download_file",
@@ -71,3 +68,14 @@ def test_radar_sites_a_failed_listing_download_names_the_file(monkeypatch: pytes
     with pytest.raises(DownloadError, match=r"Failed to download .*OPERA_RADARS_DB\.json: FSTimeoutError") as caught:
         OperaRadarSitesGenerator().get_opera_radar_sites()
     assert isinstance(caught.value.__cause__, FSTimeoutError)
+
+
+def test_radar_sites_listing_without_internet_is_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that being offline gives an empty listing rather than an error."""
+    monkeypatch.setattr(
+        sites,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=NoInternetError("offline"), status=503),
+    )
+
+    assert OperaRadarSitesGenerator().get_opera_radar_sites() == []

@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar
 
 import polars as pl
 
@@ -18,8 +18,6 @@ from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
-    from io import BytesIO
-
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -340,6 +338,8 @@ class WsvPegelValues(TimeseriesValues):
         REST-API at https://pegelonline.wsv.de/webservices/rest-api/v2/stations/.
 
         """
+        from typing import cast  # noqa: PLC0415
+
         settings = cast("Settings", self.sr.stations.settings)
         name_original = parameter_or_dataset.name_original
         meta = self._timeseries_meta(settings).get((station_id, name_original))
@@ -367,13 +367,13 @@ class WsvPegelValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        if file.is_no_internet_error:
-            return pl.DataFrame()
         if isinstance(file.content, FileNotFoundError):
             return pl.DataFrame()
         file.raise_if_exception()
-        # only a NoInternetError gets past `raise_if_exception`, and the check above returned for it
-        df = pl.read_json(cast("BytesIO", file.content))
+        if isinstance(file.content, Exception):
+            # `raise_if_exception` lets a NoInternetError through silently, for the empty frame
+            return pl.DataFrame()
+        df = pl.read_json(file.content)
         if df.is_empty():
             # a listed timeseries between measurements answers `[]` with HTTP 200, and polars reads
             # that as a frame with no columns at all -- so the timestamp parse below raises rather
@@ -461,6 +461,8 @@ class WsvPegelRequest(TimeseriesRequest):
         It involves reading the REST API, doing some transformations
         and adding characteristic values in extra columns if given for each station.
         """
+        from typing import cast  # noqa: PLC0415
+
         settings = cast("Settings", self.settings)
         file = download_file(
             url=self._endpoint,

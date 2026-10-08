@@ -3,14 +3,10 @@
 """Helper functions for PDF files."""
 
 from io import StringIO
-from typing import TYPE_CHECKING, cast
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import download_file
-
-if TYPE_CHECKING:
-    from io import BytesIO
 
 
 def read_pdf(url: str) -> str:
@@ -27,11 +23,11 @@ def read_pdf(url: str) -> str:
         cache_disable=default_settings.cache_disable,
         use_certifi=default_settings.use_certifi,
     )
-    if file.is_no_internet_error:
-        return ""
     file.raise_if_exception()
-    # only a NoInternetError gets past `raise_if_exception`, and the check above returned for it
-    pdf = pypdf.PdfReader(cast("BytesIO", file.content))
+    if isinstance(file.content, Exception):
+        # `raise_if_exception` lets a NoInternetError through silently, for the empty text
+        return ""
+    pdf = pypdf.PdfReader(file.content)
     for page_number in range(len(pdf.pages)):
         page = pdf.pages[page_number]
         result = page.extract_text()
