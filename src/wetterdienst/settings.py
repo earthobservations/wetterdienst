@@ -132,7 +132,7 @@ class Auth(BaseModel):
         An all-digit client id arrives as an `int`, as the environment decodes a nested value as JSON
         where it parses, and is still an id. Text starting with `[` is a pair, not a client id: it is
         decoded as JSON, and refused where it does not decode (GH-2464); so is text holding a character
-        a client id cannot, such as `id:secret` (GH-2487). A mapping, or any other value
+        a UUID cannot, such as `id:secret` (GH-2487). A mapping, or any other value
         that is not iterable -- a float, `true`, a JSON object -- is left for the field to refuse,
         which names it, where reading it as a pair failed with a bare `TypeError` or took the object's
         keys (GH-2379).
@@ -147,11 +147,11 @@ class Auth(BaseModel):
             # whole as the client id, secret and all. One given as text in Python is read as the
             # environment reads it (GH-2464)
             if not text.startswith("["):
-                # nor does it hold whitespace, `:`, `,`, `(` or `{`: text that does is a pair written
-                # as `id:secret` (the shape WD_AUTH__CEDA takes), `id,secret` or `("id", "secret")`,
-                # which was taken whole as the client id. The message stays constant, as the text
-                # holds the secret (GH-2487)
-                if re.search(r"[\s:,({]", text):
+                # nor does it hold a character a UUID cannot -- anything but letters, digits and `-`.
+                # Text that does is a pair written as `id:secret` (the shape WD_AUTH__CEDA takes),
+                # `id,secret`, `id;secret` or `("id", "secret")`, which was taken whole as the client
+                # id. The message stays constant, as the text holds the secret (GH-2487)
+                if re.search(r"[^0-9A-Za-z-]", text):
                     msg = 'metno_frost looks like a pair but is not a client id: write it as ["client_id", "secret"]'
                     raise ValueError(msg)
                 return value, ""

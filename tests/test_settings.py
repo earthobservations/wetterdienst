@@ -1477,8 +1477,28 @@ def test_settings_request_validates_settings_given_as_a_dict() -> None:
         '("DUMMY-FROST-ID", "TOPSECRET")',
         "{DUMMY-FROST-ID: TOPSECRET}",
         "DUMMY-FROST-ID:",
+        "DUMMY-FROST-ID;TOPSECRET",
+        "DUMMY-FROST-ID|TOPSECRET",
+        "DUMMY-FROST-ID=TOPSECRET",
+        "DUMMY-FROST-ID/TOPSECRET",
+        "DUMMY-FROST-ID@TOPSECRET",
+        "DUMMY-FROST-ID_TOPSECRET",
     ],
-    ids=["colon", "comma", "space", "tab", "tuple", "braces", "colon-no-secret"],
+    ids=[
+        "colon",
+        "comma",
+        "space",
+        "tab",
+        "tuple",
+        "braces",
+        "colon-no-secret",
+        "semicolon",
+        "pipe",
+        "equals",
+        "slash",
+        "at",
+        "underscore",
+    ],
 )
 def test_settings_auth_metno_frost_refuses_a_pair_written_as_a_lone_text(
     monkeypatch: pytest.MonkeyPatch,
@@ -1486,8 +1506,9 @@ def test_settings_auth_metno_frost_refuses_a_pair_written_as_a_lone_text(
 ) -> None:
     """A Frost pair written as `id:secret` or the like is refused, not taken whole as the client id (GH-2487).
 
-    `id:secret` is the shape WD_AUTH__CEDA takes, so it is an easy one to carry over. The message is
-    the same for each and neither it nor `check_settings()` repeats the text.
+    `id:secret` is the shape WD_AUTH__CEDA takes, so it is an easy one to carry over. Any character
+    but a letter, digit or `-` -- all a UUID holds -- is refused, whichever joins the pair. The
+    message is the same for each and neither it nor `check_settings()` repeats the text.
     """
     message = 'metno_frost looks like a pair but is not a client id: write it as ["client_id", "secret"]'
     monkeypatch.setenv("WD_AUTH__METNO_FROST", value)
@@ -1511,7 +1532,7 @@ def test_settings_auth_metno_frost_refuses_a_pair_written_as_a_lone_text(
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_settings_auth_metno_frost_still_takes_a_uuid_client_id_padded_with_whitespace(
+def test_settings_auth_metno_frost_still_takes_a_uuid_client_id_even_padded_with_whitespace(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A UUID client id is still a lone client id, whitespace around it does not count (GH-2487)."""
@@ -1520,4 +1541,6 @@ def test_settings_auth_metno_frost_still_takes_a_uuid_client_id_padded_with_whit
     assert tuple(reveal(part) for part in Settings().auth.metno_frost) == (client_id, "")
     monkeypatch.setenv("WD_AUTH__METNO_FROST", f" {client_id}\n")
     assert check_settings() == []
-    assert reveal(Settings().auth.metno_frost[1]) == ""
+    client, secret = Settings().auth.metno_frost
+    assert reveal(client).strip() == client_id
+    assert reveal(secret) == ""
