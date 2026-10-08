@@ -112,9 +112,9 @@ def _ea(monkeypatch: pytest.MonkeyPatch) -> Seen:
 def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> Seen:
     """Request the station list, the values by each way to them, and the credential probe.
 
-    The 6-hourly precipitation is requested because its dataset holds that one parameter: a 404
-    for the request of the dataset is followed by the request of the parameter alone, and a 404
-    for that by the discovery of its time series.
+    One hourly parameter is requested, out of a dataset of several: a 404 for the request of the
+    dataset is followed by the request of that parameter alone, and a 404 for that by the
+    discovery of its time series.
     """
     from wetterdienst.provider.metno.frost import MetnoFrostRequest  # noqa: PLC0415
     from wetterdienst.provider.metno.frost import api as frost_api  # noqa: PLC0415
@@ -153,7 +153,7 @@ def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> Seen:
         return File(url=url, content=FileNotFoundError(url), status=404)
 
     seen = _record(monkeypatch, frost_api, answer)
-    request = MetnoFrostRequest(parameters=[("6_hour", "data", "precipitation_amount")], start=START, end=END)
+    request = MetnoFrostRequest(parameters=[("hourly", "data", "temperature_air_mean_2m")], start=START, end=END)
     request.filter_by_station_id("SN18700").values.all()
     MetnoFrostRequest.is_valid()
     return seen
