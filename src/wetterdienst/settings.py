@@ -411,7 +411,7 @@ def _reading_nested_as_json_would(source_class: type[PydanticBaseSettingsSource]
                 msg = "nested too deeply to decode as JSON"
                 raise ValueError(msg) from error
 
-    Reading.__name__ = source_class.__name__
+    Reading.__name__ = Reading.__qualname__ = source_class.__name__
     return Reading
 
 
