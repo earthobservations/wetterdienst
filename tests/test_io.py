@@ -13,6 +13,7 @@ import sys
 import time
 from pathlib import Path
 from unittest import mock
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -3598,5 +3599,19 @@ def test_export_file_target_reads_a_file_uri_as_the_path_it_names(df_stations: p
     directory.mkdir()
     filename = directory.joinpath("stations.csv")
     ExportMixin(df=df_stations).to_target(filename.as_uri())
+    assert filename.exists()
+    assert not tmp_path.joinpath("my%20data").exists()
+
+
+def test_export_duckdb_target_reads_a_percent_encoded_path_as_the_path_it_names(
+    df_stations: pl.DataFrame,
+    tmp_path: Path,
+) -> None:
+    """A `duckdb://` target's path is percent-decoded as a `file://` one is, so `%20` is a space (GH-2515)."""
+    pytest.importorskip("duckdb")
+    directory = tmp_path.joinpath("my data")
+    directory.mkdir()
+    filename = directory.joinpath("stations.duckdb")
+    ExportMixin(df=df_stations).to_target(f"duckdb:///{quote(filename.as_posix())}?table=stations")
     assert filename.exists()
     assert not tmp_path.joinpath("my%20data").exists()
