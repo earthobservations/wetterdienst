@@ -1919,3 +1919,31 @@ def test_settings_auth_metno_frost_pair_still_refuses_a_null_client_id() -> None
     """A client id that is no text at all is refused as it was, not read as a blank one (GH-2557)."""
     with pytest.raises(ValidationError, match="metno_frost"):
         Settings(auth={"metno_frost": (None, "secret")})
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("name", ["knmi", "aemet"])
+def test_settings_auth_key_still_refuses_what_is_not_text(name: str) -> None:
+    """A KNMI or AEMET key that is no text is left for the field to refuse, not read as its digits (GH-2557)."""
+    with pytest.raises(ValidationError, match=name):
+        Settings(auth={name: 12345})
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("name", "given"),
+    [
+        pytest.param("ceda", ("", None), id="ceda-none-password"),
+        pytest.param("ceda", (" ", 1.5), id="ceda-float-password"),
+        pytest.param("ceda", ("", "*" * 10), id="ceda-mask-password"),
+        pytest.param("ceda", f" :{'*' * 10}", id="ceda-text-mask-password"),
+        pytest.param("ceda", '[" ", 1.5]', id="ceda-json-float-password"),
+        pytest.param("metno_frost", ("", {"a": 1}), id="frost-object-secret"),
+        pytest.param("metno_frost", ("", ["x"]), id="frost-list-secret"),
+        pytest.param("metno_frost", ("", "*" * 10), id="frost-mask-secret"),
+    ],
+)
+def test_settings_auth_pair_with_a_blank_first_element_still_refuses_its_second(name: str, given: object) -> None:
+    """A pair reads as unset for a blank username or client id only where the rest of it is valid (GH-2557)."""
+    with pytest.raises(ValidationError, match=name):
+        Settings(auth={name: given})

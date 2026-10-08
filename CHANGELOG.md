@@ -83,7 +83,8 @@ Types of changes:
   `WD_AUTH__METNO_FROST` pair are kept without the whitespace around them (a newline from a `.env`
   value, a CRLF); they were sent to the provider with it and refused there. A key of nothing but
   whitespace, and a CEDA or Frost pair whose username or client id is blank, now read as unset, as
-  a lone Frost client id does; they counted as configured and sent empty credentials (GH-2557)
+  a lone Frost client id does; they counted as configured and sent empty credentials. A password
+  or secret with whitespace at its edges loses it too (GH-2557)
 
 ## [0.142.0] - 2026-10-08
 

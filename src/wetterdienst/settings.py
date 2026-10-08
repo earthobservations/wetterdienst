@@ -84,6 +84,17 @@ def _stripped(value: object) -> object:
     return _as_given(value)
 
 
+def _blank_first(first: object, second: object, *, none_ok: bool = False) -> bool:
+    """Tell a pair whose first element is blank from one that is refused, for the first to read as unset.
+
+    The second element must be text that is not the mask a dumped credential leaves behind, or none
+    where `none_ok` says a pair may have none (a Frost secret): anything else is passed on for the
+    field, or the mask check, to refuse, as it was before the first element was read as blank
+    (GH-2557).
+    """
+    return first == "" and ((second is None and none_ok) or (isinstance(second, str) and second != _MASK))
+
+
 def reveal(secret: SecretStr | None) -> str | None:
     """Return what a secret holds, or None where there is no secret.
 
@@ -143,8 +154,11 @@ class Auth(BaseModel):
         provider as part of the key, which refused it with nothing to say why (GH-2557). Anything that
         is not text is left for the field to refuse.
         """
-        value = _stripped(value)
-        return None if value == "" else value
+        if isinstance(value, SecretStr):
+            value = value.get_secret_value()
+        if isinstance(value, str):
+            return value.strip() or None
+        return value
 
     @field_validator("metno_frost", mode="before")
     @classmethod
@@ -211,11 +225,11 @@ class Auth(BaseModel):
         if len(as_tuple) != 2:
             msg = f"metno_frost must be a (client_id, secret) pair, got {len(as_tuple)} element(s)"
             raise ValueError(msg)
-        client_id, secret = _stripped(as_tuple[0]), as_tuple[1]
-        if client_id == "":
+        client_id, secret = _stripped(as_tuple[0]), None if as_tuple[1] is None else _stripped(as_tuple[1])
+        if _blank_first(client_id, secret, none_ok=True):
             return None
         # a client id with no secret, as a lone client id gives (GH-2434)
-        return client_id, "" if secret is None else _stripped(secret)
+        return client_id, "" if secret is None else secret
 
     @field_validator("ceda", mode="before")
     @classmethod
@@ -263,16 +277,16 @@ class Auth(BaseModel):
                 if not sep:
                     msg = "ceda must be given as 'username:password'"
                     raise ValueError(msg)
-                username = username.strip()
-                return (username, password.strip()) if username else None
+                username, password = username.strip(), password.strip()
+                return None if _blank_first(username, password) else (username, password)
         if isinstance(value, Mapping) or not isinstance(value, Iterable):
             return value
         as_tuple = tuple(value)
         if len(as_tuple) != 2:
             msg = f"ceda must be a (username, password) pair, got {len(as_tuple)} element(s)"
             raise ValueError(msg)
-        username = _stripped(as_tuple[0])
-        return (username, _stripped(as_tuple[1])) if username != "" else None
+        username, password = _stripped(as_tuple[0]), _stripped(as_tuple[1])
+        return None if _blank_first(username, password) else (username, password)
 
 
 #: how far a station may be from the target point to still be used, in km
