@@ -102,9 +102,14 @@ class ConnectionString:
     CrateDB read it with `urlparse` before, which ends the host part at the first `/`, `?` or
     `#`, so a password holding one was split and its pieces became the port and database, and
     from there a log line. The username, password and database are percent-decoded, as
-    SQLAlchemy decodes them. A DuckDB target is a path, and is read with `urlparse`; a file
-    target's path is everything after `file://`, percent-decoded (`file_target_path`), so
-    `file://out/data.csv` is relative and `file:///data/out.csv` absolute.
+    SQLAlchemy decodes them. A DuckDB target is a path, and is read with `urlparse`: its path
+    is a URI path, percent-decoded as a file target's is, so `duckdb:////home/me/my%20data/obs.duckdb`
+    opens `/home/me/my data/obs.duckdb`, and a literal `%` followed by two hex digits is written
+    `%25`. The path ends at a `?` or `#`, which are written `%3F` and `%23` in it. The slash after
+    `duckdb://` separates the host from the path, so `duckdb:///obs.duckdb` is relative and
+    `duckdb:////data/obs.duckdb` absolute. A file target's path is everything after `file://`,
+    percent-decoded (`file_target_path`), so `file://out/data.csv` is relative and
+    `file:///data/out.csv` absolute.
 
     Raises:
         ExportRefusedError: The target is not a URL, names a port that is not a number, or its
@@ -137,9 +142,10 @@ class ConnectionString:
                 return
             parsed = urlparse(url)
             self._name = parsed.scheme
-            self._database = parsed.path[1:] if parsed.path.startswith("/") else None
+            # the path is a URI path, percent-decoded as a `file://` one is
+            self._path = unquote(parsed.path or parsed.netloc)
+            self._database = self._path[1:] if parsed.path.startswith("/") else None
             self._query = parsed.query
-            self._path = parsed.path or parsed.netloc
             return
         match = _URL_PATTERN.match(url)
         if match is None:

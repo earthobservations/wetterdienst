@@ -179,7 +179,8 @@ class Auth(BaseModel):
         A mapping, or a value that is neither that text nor iterable -- a number, `true` or a JSON
         object, which the environment decodes as JSON -- is left for the field to refuse, which names
         it, where reading it as a pair failed with a bare `TypeError` or took the object's keys
-        (GH-2379).
+        (GH-2379). Text starting with `[` is a pair, not `username:password`: it is decoded as JSON,
+        and refused where it does not decode (GH-2483).
         """
         if value is None:
             return None
@@ -188,11 +189,28 @@ class Auth(BaseModel):
             # again by the field
             value = value.get_secret_value()
         if isinstance(value, str):
-            username, sep, password = value.partition(":")
-            if not sep:
-                msg = "ceda must be given as 'username:password'"
-                raise ValueError(msg)
-            return username, password
+            # an account name is not expected to start with `[`, so such text is a pair: the
+            # environment hands one on as its raw text where it is not valid JSON, and it was split
+            # at the first colon in it, brackets and quotes kept in both halves. One given as text in
+            # Python is read as the environment reads it
+            if value.lstrip().startswith("["):
+                # decoding gives a list or fails: a `JSONDecodeError`, a `ValueError` for an integer
+                # too long to convert, a `RecursionError` for nesting too deep. The refusal is raised
+                # outside the handler, so that the decode error, which holds the text it failed on,
+                # is not kept as its context
+                decoded = None
+                with contextlib.suppress(ValueError, RecursionError):
+                    decoded = json.loads(value.strip())
+                if decoded is None:
+                    msg = 'ceda looks like a pair but is not valid JSON: write it as ["username", "password"]'
+                    raise ValueError(msg)
+                value = decoded
+            else:
+                username, sep, password = value.partition(":")
+                if not sep:
+                    msg = "ceda must be given as 'username:password'"
+                    raise ValueError(msg)
+                return username, password
         if isinstance(value, Mapping) or not isinstance(value, Iterable):
             return value
         as_tuple = tuple(value)
@@ -630,9 +648,13 @@ class Settings(BaseSettings):
         """
         return self.ts_drop_nulls and self.ts_tidy
 
-    @model_validator(mode="after")
-    def validate(self) -> Settings:
-        """Validate the settings."""
+    def model_post_init(self, _context: object, /) -> None:
+        """Log what the settings were built with, once, as they are built.
+
+        Not a model validator: those run again for every assignment (`validate_assignment`) and for
+        `Settings.model_validate(settings)`, and logged these lines each time. So a field assigned
+        afterwards -- `ts_shape` included -- logs nothing; the lines say how the settings began.
+        """
         if self.ts_shape != "long":
             log.info(
                 "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and "
@@ -642,7 +664,6 @@ class Settings(BaseSettings):
             log.info("Wetterdienst cache is disabled")
         else:
             log.info(f"Wetterdienst cache is enabled [CACHE_DIR:{self.cache_dir}]")
-        return self
 
     def __repr__(self) -> str:
         """Return the settings as a JSON string."""

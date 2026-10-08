@@ -7300,3 +7300,71 @@ def test_history_refuses_a_network_without_history_before_the_station_lookup(
     )
     assert response.status_code == 404, response.text
     assert response.json()["detail"] == "History not implemented for DwdMosmixRequest"
+
+
+_POINT_ON_A_DAY = {"latitude": 50.0, "longitude": 10.0, "timestamp": "2020-06-30"}
+
+
+_NO_API_ENDPOINTS = {
+    "stations": {"parameters": "daily/kl", "all": "true"},
+    "values": {"parameters": "daily/kl", "station": "1"},
+    "interpolate": {**_POINT_ON_A_DAY, "parameters": "daily/kl"},
+    "summarize": {**_POINT_ON_A_DAY, "parameters": "daily/kl"},
+    "history": {"parameters": "daily/kl", "all": "true"},
+}
+_NO_API_UNKNOWN = "No API available for provider foo and network bar."
+_NO_API_STANDALONE = "Provider 'dwd' and network 'radar' have no stations or values"
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "params", "provider", "network", "detail"),
+    [
+        # /api/issues resolves the network itself: a standalone one is not an unknown network there
+        pytest.param("issues", {"station": "00011"}, "foo", "bar", _NO_API_UNKNOWN, id="issues-unknown"),
+        *(
+            pytest.param(endpoint, params, provider, network, detail, id=f"{endpoint}-{kind}")
+            for endpoint, params in _NO_API_ENDPOINTS.items()
+            for kind, provider, network, detail in (
+                ("unknown", "foo", "bar", _NO_API_UNKNOWN),
+                ("standalone", "dwd", "radar", _NO_API_STANDALONE),
+            )
+        ),
+    ],
+)
+def test_a_provider_and_network_without_an_api_is_logged_as_info_without_a_traceback(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    params: dict[str, object],
+    provider: str,
+    network: str,
+    detail: str,
+) -> None:
+    """A provider and network without an API for the request is a 404 and one info line, not an error (GH-2532)."""
+    with caplog.at_level(logging.INFO, logger=restapi.log.name):
+        response = client.get(f"/api/{endpoint}", params={"provider": provider, "network": network, **params})
+    assert response.status_code == 404, response.text
+    message = response.json()["detail"]
+    assert message.startswith(detail)
+    records = _the_restapi_records(caplog)
+    assert [(r.levelno, r.getMessage()) for r in records] == [
+        (logging.INFO, f"Refused a provider and network without an API for the request: {message}")
+    ]
+    assert records[0].exc_info is None
+
+
+def test_a_history_not_implemented_is_logged_as_info_without_a_traceback(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A network without station history is a 404 and one info line, not an error with a traceback (GH-2532)."""
+    with caplog.at_level(logging.INFO, logger=restapi.log.name):
+        response = client.get(
+            "/api/history",
+            params={"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "all": "true"},
+        )
+    assert response.status_code == 404, response.text
+    records = _the_restapi_records(caplog)
+    assert [(r.levelno, r.getMessage()) for r in records] == [
+        (logging.INFO, "Refused a request for station history: History not implemented for DwdMosmixRequest")
+    ]
+    assert records[0].exc_info is None
