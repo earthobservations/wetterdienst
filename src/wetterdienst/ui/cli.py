@@ -25,6 +25,7 @@ from wetterdienst.exceptions import (
     InvalidTimeIntervalError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
+    ReversedTimeIntervalError,
 )
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -707,9 +708,16 @@ def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     A refusal the caller can rephrase -- one the REST API answers with a 4xx -- is told in one line,
     exit 2, as a mistyped option is (GH-2426). Anything else -- an upstream failure or a defect -- is
     left to the handler, and keeps its traceback and exit 1.
+
+    A request refuses a window that ends before it starts in terms of its `start` and `end`, which
+    the command line spells `--timestamp` or `--start` / `--end`.
     """
-    if _is_caller_refusal(e, request):
-        raise click.UsageError(str(e)) from e
+    if not _is_caller_refusal(e, request):
+        return
+    if isinstance(e, ReversedTimeIntervalError):
+        msg = "the interval in --timestamp or --start / --end ends before it starts"
+        raise click.UsageError(msg) from e
+    raise click.UsageError(str(e)) from e
 
 
 def _collect_or_exit(

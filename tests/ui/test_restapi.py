@@ -7016,3 +7016,34 @@ def test_values_a_failure_that_is_not_a_refusal_is_still_logged_with_its_traceba
     records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
     assert [(record.levelno, record.getMessage()) for record in records] == [(logging.ERROR, "Failed to get values.")]
     assert records[0].exc_info
+
+
+@pytest.mark.parametrize("limit", [0, -5])
+def test_glossary_limit_below_one_is_refused(client: TestClient, limit: int) -> None:
+    """A limit of 0 or below is a 422, not the one entry `get_glossary` appended before comparing (GH-2497)."""
+    response = client.get("/api/glossary", params={"limit": limit})
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["msg"] == "Input should be greater than or equal to 1"
+
+
+@pytest.mark.parametrize("limit", [0, -5])
+def test_glossary_mcp_tool_refuses_a_limit_below_one(limit: int) -> None:
+    """The MCP `glossary` tool is the REST route, and refuses such a limit as it does (GH-2497)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool("glossary", {"limit": limit})
+
+    with pytest.raises(ToolError, match="HTTP error 422") as error:
+        asyncio.run(_call())
+    assert "limit" in str(error.value)
