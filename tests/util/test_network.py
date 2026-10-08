@@ -2947,3 +2947,32 @@ def test_a_tls_failure_keeps_a_proxy_password_out_of_what_is_stored(kind: str) -
     for result in (downloaded, posted):
         assert "secret" not in repr(result.content)
         assert "secret" not in str(result.content)
+
+
+def test_a_tls_failure_of_a_credentialed_request_is_stored_without_its_traceback() -> None:
+    """The SSL error aiohttp raises carries a traceback whose frames hold the request (GH-2553).
+
+    Those frames' locals include the headers, so a request that sent a credential drops the
+    traceback, as it does for every other error it hands back.
+    """
+    try:
+        msg = "certificate verify failed"
+        raise ssl.SSLCertVerificationError(msg)  # noqa: TRY301 -- raised to give it a traceback
+    except ssl.SSLCertVerificationError as inner:
+        error = ClientConnectorCertificateError(_tls_failure("certificate").args[0], inner)
+    assert error.os_error.__traceback__ is not None
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = error
+
+    with (
+        stamina.set_testing(True, attempts=1),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+    ):
+        result = download_file(
+            url="https://example.com/file.txt",
+            cache_dir=Path(tempfile.gettempdir()),
+            client_kwargs={"headers": {"Authorization": "SUPER-SECRET-API-KEY"}},
+        )
+
+    assert isinstance(result.content, ssl.SSLError)
+    assert result.content.__traceback__ is None

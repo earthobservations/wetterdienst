@@ -1281,7 +1281,11 @@ def download_file(
         # stored is the `ssl.SSLError` underneath, not `e`: that holds the connection key, and a key
         # renders the password of a proxy named in `HTTPS_PROXY` (`proxy_auth`, and `proxy`) in its repr
         log.info(f"Failed to download file {url}.")
-        return File(url=url, content=e.os_error, status=500)
+        return File(
+            url=url,
+            content=_without_credentials(e.os_error, sent_credentials=sent_credentials),
+            status=500,
+        )
     except ClientConnectorError as e:
         log.info(f"No internet connection while downloading file {url}.")
         return File(url=url, content=NoInternetError(str(e)), status=503)
@@ -1481,7 +1485,11 @@ def post_file(
     except ClientSSLError as e:
         # not being offline, and stored as the error underneath: see `download_file`
         log.info(f"Failed to post to {url}.")
-        return File(url=url, content=e.os_error, status=500)
+        return File(
+            url=url,
+            content=_without_credentials(e.os_error, sent_credentials=sent_credentials),
+            status=500,
+        )
     except ClientConnectorError as e:
         log.info(f"No internet connection while posting to {url}.")
         return File(url=url, content=NoInternetError(str(e)), status=503)
