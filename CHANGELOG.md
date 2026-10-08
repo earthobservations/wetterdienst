@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.143.0] - 2026-10-08
+
 ### Changed
 
 - **Breaking**: the path of a `duckdb://` target is read as the path of a URI, as a `file://` one
@@ -82,6 +84,12 @@ Types of changes:
   the padding and refused there. Text of nothing but whitespace, or `""` given in Python, reads as
   unset, as an empty value in the environment does, where it counted as a configured client id
   (GH-2542)
+- `WD_AUTH__KNMI`, `WD_AUTH__AEMET`, both halves of `WD_AUTH__CEDA`, and each element of a
+  `WD_AUTH__METNO_FROST` pair are kept without the whitespace around them (a newline from a `.env`
+  value, a CRLF); they were sent to the provider with it and refused there. A key of nothing but
+  whitespace, and a CEDA or Frost pair whose username or client id is blank, now read as unset, as
+  a lone Frost client id does; they counted as configured and sent empty credentials. A password
+  or secret with whitespace at its edges loses it too (GH-2557)
 
 ## [0.142.0] - 2026-10-08
 
@@ -4080,7 +4088,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.142.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...HEAD
+[0.143.0]: https://github.com/earthobservations/wetterdienst/compare/v0.142.0...v0.143.0
 [0.142.0]: https://github.com/earthobservations/wetterdienst/compare/v0.141.0...v0.142.0
 [0.141.0]: https://github.com/earthobservations/wetterdienst/compare/v0.140.0...v0.141.0
 [0.140.0]: https://github.com/earthobservations/wetterdienst/compare/v0.139.0...v0.140.0
