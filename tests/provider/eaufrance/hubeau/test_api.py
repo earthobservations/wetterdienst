@@ -486,3 +486,44 @@ def test_all_names_the_vertical_datum_of_the_gauge_zero(monkeypatch: pytest.Monk
     # the station referential has to be asked for the code, or its live answer carries none
     (stations_url,) = [url for url in urls if "referentiel/stations" in url]
     assert "code_systeme_alti_site" in stations_url.split("fields=")[1].split("&")[0].split(",")
+
+
+def test_all_leaves_a_station_in_service_without_an_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a station Hub'Eau gives no closing date has a null ``end_timestamp``.
+
+    The station list read a null ``date_fermeture_station`` as the time of the call, so no station
+    had a null end and the same station's end differed from one call to the next. A closing date
+    the referential does give is kept.
+    """
+    stations = [_station("open"), {**_station("closing"), "date_fermeture_station": "2030-01-01T00:00:00Z"}]
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        if "referentiel/sites" in url:
+            return []
+        if "referentiel/stations" in url:
+            return stations
+        return _observations([*_dates("open", 5, 8), *_dates("closing", 5, 8)])
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert dict(df.select("station_id", "end_timestamp").iter_rows()) == {
+        "open": None,
+        "closing": dt.datetime(2030, 1, 1, tzinfo=ZoneInfo("UTC")),
+    }
+    assert df.schema["end_timestamp"] == pl.Datetime(time_zone="UTC")
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_all_types_the_end_as_a_timestamp_when_no_station_has_one() -> None:
+    """Test that ``end_timestamp`` stays a UTC datetime when every station's end is null.
+
+    This is the shape Hub'Eau answers in: the list asks for stations in service only, and none of
+    them carries a closing date.
+    """
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert not df.is_empty()
+    assert df.get_column("end_timestamp").null_count() == len(df)
+    assert df.schema["end_timestamp"] == pl.Datetime(time_zone="UTC")

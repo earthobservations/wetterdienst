@@ -59,6 +59,10 @@ Types of changes:
   null `valid_to`, where it was the time the history was read and changed on every call. A name or
   operator still in use was null already. Read a null `valid_to` as a position that still applies
   (GH-2474)
+- **Breaking**: a station the provider gives no end has a null `end_timestamp` in the station list
+  of `eaufrance/hubeau` (every station it lists) and of `dwd/observation` 1-minute precipitation
+  from the historical period, where it was the time of the call or the day before. Read a null
+  `end_timestamp` there as a station the provider has not closed (GH-2482)
 
 ### Fixed
 
@@ -68,6 +72,10 @@ Types of changes:
   timeout. A window is fetched in several requests per parameter, two years each at 10 minutes and
   ten years each hourly. The API allows 240 requests an hour: a whole dataset (19 to 23
   parameters) without dates still runs into that limit (GH-2466)
+- `/api/values` and the MCP `values` tool log a request they refuse with a 400 -- an unparseable
+  timestamp, an unknown parameter or period -- as one info line, as `/api/interpolate` and
+  `/api/summarize` do. Each was logged as an error with its traceback; the status is unchanged
+  (GH-2459)
 - `WD_USE_CERTIFI=true` now reaches every download of `geosphere/observation` values,
   `ea/hydrology` values, `metno/frost` stations, values and credential check, and `dwd/road`
   values. They went out with the system CA store, so where that store cannot verify the upstream

@@ -6854,3 +6854,72 @@ def test_every_endpoint_refuses_an_unknown_parameter(client: TestClient, endpoin
         "msg": "Extra inputs are not permitted",
         "input": "1",
     } in (response.json()["detail"])
+
+
+@pytest.mark.parametrize(
+    ("params", "detail"),
+    [
+        pytest.param(
+            {**_OBSERVATION, "station": "01048", "timestamp": "foo"},
+            "date_string foo could not be parsed",
+            id="unparseable-date",
+        ),
+        pytest.param(
+            {**_OBSERVATION, "station": "01048", "timestamp": "2020/2021/2022"},
+            "Invalid ISO 8601 time interval",
+            id="three-part-interval",
+        ),
+        pytest.param(
+            {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
+            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            id="unknown-parameter",
+        ),
+        pytest.param(
+            {**_OBSERVATION, "station": "01048", "periods": "foo"},
+            "foo could not be parsed from Period.",
+            id="unknown-period",
+        ),
+    ],
+)
+def test_values_every_refusal_of_the_request_is_logged_as_info(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+    params: dict[str, str],
+    detail: str,
+) -> None:
+    """A request `/api/values` refuses is a 400 and one info line, as the geo endpoints log it (GH-2459).
+
+    Only a parameter the run does not carry and a window the wrong way round earned an info line;
+    every other refusal the endpoint answers with a 400 was logged as an error with its traceback.
+    """
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get("/api/values", params=params)
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+    records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [
+        (logging.INFO, f"Failed to get values: {detail}")
+    ]
+    assert not any(record.exc_info for record in records)
+
+
+def test_values_a_failure_that_is_not_a_refusal_is_still_logged_with_its_traceback(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """What is not the caller's to fix stays a 500 and an error with its traceback (GH-2459)."""
+    msg = "can only call '.item()' if the dataframe has a single element"
+
+    def fail() -> None:
+        raise ValueError(msg)
+
+    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get("/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
+    assert response.status_code == 500
+    assert response.json()["detail"] == msg
+    records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [(logging.ERROR, "Failed to get values.")]
+    assert records[0].exc_info
