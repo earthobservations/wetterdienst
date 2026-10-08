@@ -1208,10 +1208,10 @@ def test_cli_refuses_a_reversed_window_in_terms_of_its_options(
     assert not caplog.records
 
 
-def test_cli_refuses_a_dataset_published_per_date_without_a_window_naming_its_options(
+def test_cli_refuses_a_dataset_queried_by_a_window_given_none_naming_its_options(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test a dataset published per date, given no window, is refused naming the options, once (GH-2514).
+    """Test a dataset queried by a window, given none, is refused naming the options, once (GH-2514).
 
     The request words it in terms of "start and end date"; the command line spells the window
     `--timestamp` or `--start` / `--end`.

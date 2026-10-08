@@ -143,12 +143,14 @@ Types of changes:
   terms of the options ("the interval in --timestamp or --start / --end ends before it starts"),
   where they printed `Error: Error: 'start' must be smaller or equal to 'end'.`. Python callers
   get the request's message without the stray `Error: ` prefix (GH-2513)
-- `/api/values`, `/api/interpolate`, `/api/summarize` and their MCP tools answer a dataset that is
-  published per date (ECCC, NWS, WSV pegel, met.no Frost, FMI), requested without a `timestamp`,
-  with "timestamp is required for this dataset", where they said "Start and end date required for
-  single period datasets". The CLI says "--timestamp or --start / --end is required for this
-  dataset". Python callers keep the old message; the new `DateRequiredError` is a subclass of
-  `StartDateEndDateError` (GH-2514)
+- `/api/values` and its MCP tool answer a dataset that is queried by a window (ECCC, DMI,
+  Geosphere, NOAA GHCN and others), requested without a `timestamp`, with "timestamp is required
+  for this dataset", where they said "Start and end date required for single period datasets";
+  `/api/interpolate` and `/api/summarize` do the same for an empty `timestamp`. The CLI's `values`
+  says "--timestamp or --start / --end is required for this dataset". Python callers keep the old
+  message; the new `DateRequiredError` is a subclass of `StartDateEndDateError` and also of
+  `MissingTimeIntervalError`, so `except InvalidTimeIntervalError` and `except ValueError` now
+  catch it too (GH-2514)
 - `wetterdienst stripes values` refuses a `--target` that is a URI (`s3://...`, `file://...`)
   before it fetches and renders, as a usage error (exit 2) naming `--target`; the write to the
   path read off the URI (`s3:/bucket/...`) failed only afterwards. A `--target` whose extension

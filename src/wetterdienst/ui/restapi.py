@@ -1064,7 +1064,7 @@ def _refusal_detail(e: Exception, what: str) -> str:
     """Word a refusal for a caller of this API, who passes the window as one `timestamp`.
 
     A request refuses a window that is missing or ends before it starts, and `_get_stations_request`
-    a dataset published per date that is given none, in terms of `start` and `end`, which a REST or
+    a dataset that is queried by a window and is given none, in terms of `start` and `end`, which a REST or
     MCP caller cannot pass. Any other refusal is worded the request's way.
     """
     if isinstance(e, ReversedTimeIntervalError):

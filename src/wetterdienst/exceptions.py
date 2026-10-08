@@ -53,7 +53,7 @@ class MissingTimeIntervalError(InvalidTimeIntervalError):
 
 
 class DateRequiredError(MissingTimeIntervalError, StartDateEndDateError):
-    """Raised when a dataset that is published per date is requested without a window of time.
+    """Raised when a dataset that is queried by a window is requested without one.
 
     Told apart from its parents for the same reason as `ReversedTimeIntervalError`. It is also a
     `StartDateEndDateError`, which is what this refusal was before, so that a caller catching that
