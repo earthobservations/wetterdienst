@@ -104,8 +104,9 @@ Types of changes:
   `/api/summarize` do. Each was logged as an error with its traceback; the status is unchanged
   (GH-2459)
 - `/api/stations`, `/api/issues`, `/api/history`, `/api/stripes/values` and `/api/stripes/image`
-  log a request they refuse with a 400 as one info line, as `/api/values` does. Each was logged as
-  an error with its traceback; the status is unchanged (GH-2512)
+  log a request they refuse with a 400 as one info line, as `/api/values` does, where they logged
+  an error with its traceback; the status is unchanged. `/api/issues` on a network without issue
+  listing is a 400 that was never logged and still is not (GH-2512)
 - `WD_USE_CERTIFI=true` now reaches every download of `geosphere/observation` values,
   `ea/hydrology` values, `metno/frost` stations, values and credential check, and `dwd/road`
   values. They went out with the system CA store, so where that store cannot verify the upstream
