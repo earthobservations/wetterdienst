@@ -51,6 +51,10 @@ Types of changes:
   holding a character but an ASCII letter, digit or `-`, with a message naming the form
   `["client_id", "secret"]`; it was taken whole as the client id, secret included, and Frost
   refused the credential later. `check_settings()` reports it too (GH-2487)
+- `dmi/observation` values for a long range, such as hourly data of station 06180 over six years,
+  are read in windows (a year for hourly, ten for daily) that stay below DMI's offset cap of
+  500000: a request reaching offset 600000 was cut off there, and failed with a 400 since failed
+  downloads are raised. No offset above the cap is asked for any more (GH-2520)
 
 ## [0.142.0] - 2026-10-08
 

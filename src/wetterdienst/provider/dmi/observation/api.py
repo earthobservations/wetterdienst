@@ -11,7 +11,6 @@ request -- see https://opendatadocs.dmi.govcloud.dk/Data/Climate_Data.
 from __future__ import annotations
 
 import datetime as dt
-import itertools
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
 from zoneinfo import ZoneInfo
@@ -38,6 +37,23 @@ _UTC = ZoneInfo("UTC")
 # realistic station/parameter/resolution/date-range combination and pagination rarely kicks
 # in. DMI always returns a "next" link regardless, so pagination stops on a short page.
 _PAGE_LIMIT = 300_000
+# DMI answers a request whose offset is above 500000 with a 400 ("Offset cannot be greater than
+# 500000"), so a window of more than two full pages (600000 records) cannot be paged through.
+_MAX_OFFSET = 500_000
+# The span a request covers at most, per resolution, so that a long range is fetched as a series
+# of windows each far below that cap: an hourly station answers about 300 records a day, a daily
+# one fewer than 100. A resolution not listed is requested in one window. A window that still
+# fills the pages is halved (see `_fetch_station_value_pages`), so these only keep that rare.
+_WINDOW_SPAN: dict[Resolution, dt.timedelta] = {
+    Resolution.HOURLY: dt.timedelta(days=365),
+    Resolution.DAILY: dt.timedelta(days=3650),
+}
+_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+
+class _OffsetCapReachedError(Exception):
+    """Raised when a window holds more records than the pages below DMI's offset cap can carry."""
+
 
 _EMPTY_VALUES_SCHEMA = {
     "resolution": pl.String,
@@ -144,8 +160,11 @@ class DmiObservationValues(TimeseriesValues):
         DMI paginates via limit/offset and always emits a "next" link, so pages are walked
         until a short (or empty) page marks the end. Yields the parsed ``properties`` of each
         non-empty page; raises on the first download error, and stops quietly where no connection can be made.
+
+        DMI refuses an offset above ``_MAX_OFFSET``, so no page is requested beyond it: a range
+        that fills every page below it raises ``_OffsetCapReachedError`` once the last one is read.
         """
-        for offset in itertools.count(0, _PAGE_LIMIT):
+        for offset in range(0, _MAX_OFFSET + 1, _PAGE_LIMIT):
             url = (
                 f"{_BASE_URL}/stationValue/items?stationId={station_id}"
                 f"&timeResolution={time_resolution}&datetime={start}/{end}"
@@ -173,6 +192,40 @@ class DmiObservationValues(TimeseriesValues):
                 yield df
             if df.height < _PAGE_LIMIT:
                 return
+        msg = f"{start}/{end} holds more records than the pages up to offset {_MAX_OFFSET} carry"
+        raise _OffsetCapReachedError(msg)
+
+    def _fetch_station_value_pages(
+        self,
+        station_id: str,
+        time_resolution: str,
+        start: dt.datetime,
+        end: dt.datetime,
+        settings: Settings,
+    ) -> list[pl.DataFrame]:
+        """Read every page of DMI stationValue records for a station/resolution/date range.
+
+        A range whose records fill all the pages DMI lets one request reach is halved and each half
+        read on its own, down to a span of a second, so no request asks for an offset above the cap.
+        The two halves share their boundary instant, as DMI's datetime filter includes both ends.
+        """
+        try:
+            return list(
+                self._iter_station_value_pages(
+                    station_id,
+                    time_resolution,
+                    start.strftime(_DATETIME_FORMAT),
+                    end.strftime(_DATETIME_FORMAT),
+                    settings,
+                )
+            )
+        except _OffsetCapReachedError:
+            middle = start + dt.timedelta(seconds=int((end - start).total_seconds() // 2))
+            if middle <= start:
+                raise
+            return self._fetch_station_value_pages(
+                station_id, time_resolution, start, middle, settings
+            ) + self._fetch_station_value_pages(station_id, time_resolution, middle, end, settings)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -203,18 +256,31 @@ class DmiObservationValues(TimeseriesValues):
         # margin is needed and none is added -- widening would only fetch extra data. Normalise
         # to UTC so the "Z" filter is true even for already-tz-aware, non-UTC callers.
         margin = dt.timedelta(0) if resolution == Resolution.HOURLY else dt.timedelta(days=1)
-        start = (start_date.astimezone(_UTC) - margin).strftime("%Y-%m-%dT%H:%M:%SZ")
-        end = (end_date.astimezone(_UTC) + margin).strftime("%Y-%m-%dT%H:%M:%SZ")
+        start = start_date.astimezone(_UTC) - margin
+        end = end_date.astimezone(_UTC) + margin
 
         # DMI returns every parameter for the station in one response; keep only the ones
         # mapped in this dataset's metadata (their raw parameterId is name_original).
         known_parameters = {parameter.name_original for parameter in dataset.parameters}
 
-        records = list(self._iter_station_value_pages(station_id, time_resolution, start, end, settings))
+        # a long range is read as consecutive windows, DMI refusing offsets above _MAX_OFFSET; the
+        # windows share their boundary instant (DMI's datetime filter includes both ends), so a
+        # record at it is read twice and the identical rows are dropped
+        span = _WINDOW_SPAN.get(resolution)
+        window_start = start
+        records: list[pl.DataFrame] = []
+        while True:
+            window_end = min(window_start + span, end) if span else end
+            records.extend(
+                self._fetch_station_value_pages(station_id, time_resolution, window_start, window_end, settings)
+            )
+            if window_end >= end:
+                break
+            window_start = window_end
         if not records:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
-        df = pl.concat(records)
+        df = pl.concat(records).unique(maintain_order=True)
         df = df.filter(pl.col("parameterId").is_in(known_parameters))
         if df.is_empty():
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
