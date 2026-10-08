@@ -208,7 +208,7 @@ def test_iter_value_pages_no_internet_is_silent(
     with caplog.at_level(logging.WARNING, logger=rmi_api.log.name):
         dfs = _iter_pages(object.__new__(rmi_api.RmiObservationValues))
     assert dfs == []
-    assert not any("Failed to acquire RMI data" in record.message for record in caplog.records)
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
 
 
 def test_collect_reshapes_wide_features_to_long_utc_values() -> None:

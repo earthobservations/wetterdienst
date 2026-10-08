@@ -149,6 +149,15 @@ _SITES = [
 ]
 
 
+def _gives_nothing(result: object) -> bool:
+    """Say whether a site's answer holds no data: `None`, no items, or a frame without rows."""
+    if result is None:
+        return True
+    if isinstance(result, pl.DataFrame):
+        return result.is_empty()
+    return not result
+
+
 @pytest.fixture
 def serve(monkeypatch: pytest.MonkeyPatch) -> Callable[[Any, Exception, int], None]:
     """Make every download of a provider module answer with a failure."""
@@ -210,7 +219,7 @@ def test_a_404_is_dropped_where_the_file_is_simply_not_there(
     serve(module, FileNotFoundError("404 Not Found"), 404)
 
     if drops_404:
-        driver(module)
+        assert _gives_nothing(driver(module))
     else:
         with pytest.raises(DownloadError, match="404 Not Found"):
             driver(module)
@@ -228,6 +237,5 @@ def test_no_connection_at_all_stays_quiet(
     serve(module, NoInternetError("offline"), 503)
     caplog.set_level(logging.WARNING)
 
-    driver(module)
-
+    assert _gives_nothing(driver(module))
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]

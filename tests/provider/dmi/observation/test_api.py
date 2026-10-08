@@ -165,7 +165,7 @@ def test_iter_station_value_pages_no_internet_is_silent(
     with caplog.at_level(logging.WARNING, logger=dmi_api.log.name):
         dfs = _iter_pages(object.__new__(dmi_api.DmiObservationValues))
     assert dfs == []
-    assert not any("Failed to acquire DMI data" in record.message for record in caplog.records)
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
 
 
 @pytest.mark.remote
