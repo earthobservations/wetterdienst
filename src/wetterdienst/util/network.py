@@ -1277,7 +1277,7 @@ def download_file(
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=408)
     except ClientSSLError as e:
         # a certificate that does not verify, or a TLS protocol failure such as an alert: the host
-        # answered, so this is not being offline. (A connection reset or timed out mid-handshake is
+        # answered, so this is not being offline. (A connection the server drops mid-handshake is
         # a plain `ClientConnectorError` and stays the offline answer.) A subclass of
         # `ClientConnectorError`, hence before it. What is stored is the `ssl.SSLError` underneath,
         # not `e`: that holds the connection key, which renders the password of a proxy named in
