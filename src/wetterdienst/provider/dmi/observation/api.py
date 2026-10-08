@@ -39,7 +39,8 @@ _UTC = ZoneInfo("UTC")
 # returns a "next" link regardless, so pagination stops on a short page.
 _PAGE_LIMIT = 300_000
 # DMI answers a request whose offset is above 500000 with a 400 ("Offset cannot be greater than
-# 500000"), so a window of more than two full pages (600000 records) cannot be paged through.
+# 500000"). Pages start at offsets 0 and 300000, so a window of 600000 records or more is not
+# paged through but halved.
 _MAX_OFFSET = 500_000
 # The span a request covers at most, per resolution, so that a long range is fetched as a series
 # of windows each far below that cap: an hourly station answers about 300 records a day, a daily
