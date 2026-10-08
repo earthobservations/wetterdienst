@@ -54,7 +54,8 @@ Three properties of the CLI matter for a scheduler:
   `file://` is the path, so `file:///var/lib/wetterdienst/kl.csv` is absolute and
   `file://kl.csv` names a file in the working directory. Both paths are
   percent-decoded, so `duckdb:////home/me/my%20data/obs.duckdb` opens
-  `/home/me/my data/obs.duckdb`; write a literal `%` as `%25`.
+  `/home/me/my data/obs.duckdb`; write a literal `%` as `%25`. A `duckdb://` path also ends at a
+  `?` or `#`, so write those as `%3F` and `%23`.
 
 ## systemd timer (Linux)
 

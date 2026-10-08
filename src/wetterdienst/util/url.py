@@ -105,9 +105,10 @@ class ConnectionString:
     SQLAlchemy decodes them. A DuckDB target is a path, and is read with `urlparse`: its path
     is a URI path, percent-decoded as a file target's is, so `duckdb:////home/me/my%20data/obs.duckdb`
     opens `/home/me/my data/obs.duckdb`, and a literal `%` followed by two hex digits is written
-    `%25`. The slash after `duckdb://` separates the host from the path, so `duckdb:///obs.duckdb`
-    is relative and `duckdb:////data/obs.duckdb` absolute. A file target's path is everything after
-    `file://`, percent-decoded (`file_target_path`), so `file://out/data.csv` is relative and
+    `%25`. The path ends at a `?` or `#`, which are written `%3F` and `%23` in it. The slash after
+    `duckdb://` separates the host from the path, so `duckdb:///obs.duckdb` is relative and
+    `duckdb:////data/obs.duckdb` absolute. A file target's path is everything after `file://`,
+    percent-decoded (`file_target_path`), so `file://out/data.csv` is relative and
     `file:///data/out.csv` absolute.
 
     Raises:
