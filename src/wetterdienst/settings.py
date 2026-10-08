@@ -630,28 +630,18 @@ class Settings(BaseSettings):
         """
         return self.ts_drop_nulls and self.ts_tidy
 
-    @field_validator("ts_shape", mode="after")
-    @classmethod
-    def log_ts_drop_nulls_ignored(cls, value: str) -> str:
-        """Say that `ts_drop_nulls` has no effect in the wide shape, each time the shape is given.
+    def model_post_init(self, _context: object, /) -> None:
+        """Log what the settings were built with, once, as they are built.
 
-        A field validator rather than a model one: a model validator runs again for every
-        assignment to any field (`validate_assignment`) and logged this notice each time, whichever
-        field changed. This runs when `ts_shape` itself is given -- at construction or by assignment.
+        Not a model validator: those run again for every assignment (`validate_assignment`) and for
+        `Settings.model_validate(settings)`, and logged these lines each time. So a field assigned
+        afterwards -- `ts_shape` included -- logs nothing; the lines say how the settings began.
         """
-        if value != "long":
+        if self.ts_shape != "long":
             log.info(
                 "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and "
                 "is thus ignored in this request.",
             )
-        return value
-
-    def model_post_init(self, _context: object, /) -> None:
-        """Log which cache the settings use, once, as they are built.
-
-        Not a model validator: those run again for every assignment (`validate_assignment`) and for
-        `Settings.model_validate(settings)`, and logged this line each time.
-        """
         if self.cache_disable:
             log.info("Wetterdienst cache is disabled")
         else:
