@@ -798,8 +798,8 @@ def test_dmo_one_station_in_common_is_enough_to_narrow_by(monkeypatch: pytest.Mo
 def test_dmo_the_coverage_listing_is_read_once_per_product_per_request(monkeypatch: pytest.MonkeyPatch) -> None:
     """`all()` is not memoized and a request calls it once per filter, and again for each lookup.
 
-    `interpolate_by_station_id` calls it more than once: for the station's position, and again for
-    the stations near it. Without this the 640 KB index is fetched once per call -- and
+    A caller that filters the stations and then asks for values calls it again. Without this the
+    640 KB index is fetched once per call -- and
     `cache_disable`, which a caller sets to get fresh data, turns fsspec's listings cache off too,
     so nothing else deduplicates it.
     """

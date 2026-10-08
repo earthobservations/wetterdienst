@@ -750,6 +750,7 @@ class TimeseriesRequest:
         self,
         latlon: tuple[float, float],
         elevation: float | None,
+        *,
         df_all: pl.DataFrame | None = None,
     ) -> InterpolatedValuesResult:
         """Do `interpolate` with the station list `all()` gave, where the caller has it already.
@@ -803,8 +804,7 @@ class TimeseriesRequest:
             pl.col("distance_mean"),
             pl.col("taken_station_ids"),
         )
-        df_stations_all = df_all
-        df_stations = df_stations_all.join(
+        df_stations = df_all.join(
             other=df_interpolated.select(pl.col("taken_station_ids").alias("station_id"))
             .explode("station_id", empty_as_null=True)
             .unique(),
@@ -813,7 +813,7 @@ class TimeseriesRequest:
         stations_result = StationsResult(
             stations=self,
             df=df_stations,
-            df_all=df_stations_all,
+            df_all=df_all,
             stations_filter=StationsFilter.BY_STATION_ID,
         )
         return InterpolatedValuesResult(
@@ -845,7 +845,7 @@ class TimeseriesRequest:
         return self._interpolate(
             (latitude, longitude),
             elevation if elevation is not None else station_elevation,
-            df_all,
+            df_all=df_all,
         )
 
     def summarize(self, latlon: tuple[float, float], elevation: float | None = None) -> SummarizedValuesResult:
@@ -875,6 +875,7 @@ class TimeseriesRequest:
         self,
         latlon: tuple[float, float],
         elevation: float | None,
+        *,
         df_all: pl.DataFrame | None = None,
     ) -> SummarizedValuesResult:
         """Do `summarize` with the station list `all()` gave, where the caller has it already.
@@ -920,8 +921,7 @@ class TimeseriesRequest:
             pl.col("distance"),
             pl.col("taken_station_id"),
         )
-        df_stations_all = df_all
-        df_stations = df_stations_all.join(
+        df_stations = df_all.join(
             other=summarized_values.select(pl.col("taken_station_id")).unique(),
             left_on="station_id",
             right_on="taken_station_id",
@@ -929,7 +929,7 @@ class TimeseriesRequest:
         stations_result = StationsResult(
             stations=self,
             df=df_stations,
-            df_all=df_stations_all,
+            df_all=df_all,
             stations_filter=StationsFilter.BY_STATION_ID,
         )
         return SummarizedValuesResult(
@@ -959,7 +959,7 @@ class TimeseriesRequest:
         return self._summarize(
             (latitude, longitude),
             elevation if elevation is not None else station_elevation,
-            df_all,
+            df_all=df_all,
         )
 
     def _for_estimating(self) -> TimeseriesRequest:

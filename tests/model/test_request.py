@@ -678,11 +678,12 @@ def test_estimates_build_the_station_index_once(
     method: str,
     kwargs: dict,
 ) -> None:
-    """Test interpolate and summarize build the station index once, where they built it six times (GH-2506).
+    """Test interpolate and summarize build the station index once, where they built it twice (GH-2506).
 
     The real core runs, with the stations' values read as none. It ranks the stations with
     `filter_by_distance` and the request builds its frame of the stations taken (`df_all`) off the
-    same station list, which each used to build on its own (GH-2475 took six builds to two).
+    same station list, which each used to build on its own (GH-2475 took six builds to two, and
+    `_by_station_id` read the position off a third).
     """
     from wetterdienst.model.values import TimeseriesValues  # noqa: PLC0415
 
