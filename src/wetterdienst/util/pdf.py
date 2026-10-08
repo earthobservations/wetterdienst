@@ -23,10 +23,10 @@ def read_pdf(url: str) -> str:
         cache_disable=default_settings.cache_disable,
         use_certifi=default_settings.use_certifi,
     )
-    if file.is_no_internet_error:
-        return ""
+    file.raise_if_exception()
     if isinstance(file.content, Exception):
-        raise file.content
+        # `raise_if_exception` lets a NoInternetError through silently, for the empty text
+        return ""
     pdf = pypdf.PdfReader(file.content)
     for page_number in range(len(pdf.pages)):
         page = pdf.pages[page_number]

@@ -18,6 +18,11 @@ Types of changes:
 
 ### Fixed
 
+- `wsv/pegel` values, the DWD field descriptions read from PDFs and the script that regenerates the
+  packaged OPERA radar sites raise `DownloadError` for a failed download, as
+  `File.raise_if_exception` does elsewhere, where they raised the stored error itself: a timeout
+  there had an empty message and answered the REST API with `{"detail": ""}`. Catch
+  `DownloadError` and read `__cause__` for the original (GH-2507)
 - A `WD_*` value in the environment or `.env` that is nested too deeply to decode as JSON, such
   as `WD_AUTH__CEDA` set to 100000 opening brackets, is treated as text that is not JSON is:
   `check_settings()` names the variable and `Settings()` raises a `ValidationError` or

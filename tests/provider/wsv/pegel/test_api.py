@@ -7,6 +7,7 @@ import json
 import polars as pl
 import pytest
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.provider.wsv.pegel import WsvPegelRequest
 from wetterdienst.provider.wsv.pegel.api import _SOURCE_UNIT_FACTORS
 from wetterdienst.util.network import File
@@ -490,3 +491,61 @@ def test_wsv_station_list_names_the_vertical_datum_of_the_gauge_zero(monkeypatch
         "austria": (235.98, "m ü. A."),
         "none": (None, None),
     }
+
+
+def test_wsv_a_failed_values_download_names_the_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a values download that timed out raises an error naming the file (GH-2507).
+
+    A timeout's own message is empty, so raising the stored `FSTimeoutError` itself answered the
+    REST API with a 500 and `{"detail": ""}`.
+    """
+    from fsspec.exceptions import FSTimeoutError  # noqa: PLC0415
+
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+
+    _stub_values_download(monkeypatch, FSTimeoutError(), 408)
+
+    with pytest.raises(DownloadError, match=r"Failed to download .*measurements\.json: FSTimeoutError") as caught:
+        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
+    assert isinstance(caught.value.__cause__, FSTimeoutError)
+
+
+@pytest.mark.parametrize(
+    ("failure", "status"),
+    [(NoInternetError("offline"), 503), (FileNotFoundError("gone"), 404)],
+    ids=["offline", "404"],
+)
+def test_wsv_a_values_download_that_is_offline_or_missing_returns_no_data(
+    monkeypatch: pytest.MonkeyPatch, failure: Exception, status: int
+) -> None:
+    """Test that being offline, or a 404, still gives an empty frame rather than an error."""
+    _stub_values_download(monkeypatch, failure, status)
+
+    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
+    assert values.df.is_empty()
+
+
+def _stub_values_download(monkeypatch: pytest.MonkeyPatch, measurements: Exception, status: int) -> None:
+    """Serve a one-station listing, and fail the measurements request with the given error."""
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
+
+    station = {
+        "number": "slow",
+        "shortname": "slow",
+        "km": 1.0,
+        "latitude": 50.0,
+        "longitude": 10.0,
+        "water": {"shortname": "TEST"},
+        "timeseries": [{"shortname": "W", "equidistance": 15, "unit": "cm", "characteristicValues": []}],
+    }
+    listing = json.dumps([station]).encode()
+
+    def _download(**kwargs: object) -> File:
+        url = str(kwargs["url"])
+        if url.endswith("measurements.json"):
+            return File(url=url, content=measurements, status=status)
+        return File(url=url, content=BytesIO(listing), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)

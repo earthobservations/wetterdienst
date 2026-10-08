@@ -121,10 +121,10 @@ class OperaRadarSitesGenerator:
             cache_disable=default_settings.cache_disable,
             use_certifi=default_settings.use_certifi,
         )
-        if payload.is_no_internet_error:
-            return []
+        payload.raise_if_exception()
         if isinstance(payload.content, Exception):
-            raise payload.content
+            # `raise_if_exception` lets a NoInternetError through silently, for the empty list
+            return []
         data = json.loads(payload.content.read())
 
         # Filter empty elements and convert data types.

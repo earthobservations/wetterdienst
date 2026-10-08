@@ -367,12 +367,12 @@ class WsvPegelValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        if file.is_no_internet_error:
-            return pl.DataFrame()
         if isinstance(file.content, FileNotFoundError):
             return pl.DataFrame()
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            raise file.content
+            # `raise_if_exception` lets a NoInternetError through silently, for the empty frame
+            return pl.DataFrame()
         df = pl.read_json(file.content)
         if df.is_empty():
             # a listed timeseries between measurements answers `[]` with HTTP 200, and polars reads
