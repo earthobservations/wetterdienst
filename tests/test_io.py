@@ -3641,9 +3641,10 @@ def test_sql_sink_keeps_a_sql_server_insert_within_2099_parameters(
 
     A multi-row insert carries one parameter per cell, and SQL Server refuses a request of more
     than 2100 ("The incoming request has too many parameters"), so a values frame of 7 columns
-    failed from 301 rows on, in the first chunk of 5000. No server is needed: the engine carries
-    the target's dialect over a stand-in driver, and the chunk size the sink hands `to_sql` is read
-    off a stubbed call.
+    failed from 301 rows on, in the first chunk of 5000. The cap is 2099, one under the limit,
+    for drivers that count one more parameter than the statement binds. No server is needed: the
+    engine carries the target's dialect over a stand-in driver, and the chunk size the sink hands
+    `to_sql` is read off a stubbed call.
     """
     sqlalchemy = pytest.importorskip("sqlalchemy")
     pd = pytest.importorskip("pandas")

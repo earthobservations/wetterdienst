@@ -26,9 +26,9 @@ Types of changes:
 
 ### Fixed
 
-- An `mssql://` export writes in inserts of at most 2099 values and 1000 rows, SQL Server's limits
-  per request, about 299 rows of a 7-column values frame. It sent 5000 rows at a time, so any
-  export of more than a few hundred rows failed with "too many parameters" (GH-2268)
+- An `mssql://` export writes in inserts within SQL Server's limits of 2100 parameters and 1000
+  rows, about 299 rows of a 7-column values frame. It sent 5000 rows at a time, so any export of
+  more than a few hundred rows failed with "too many parameters" (GH-2268)
 - A file the cache downloads is written beside its blob and renamed onto it once whole, so a
   concurrent request for the same URL, from another thread or process, no longer truncates a copy
   another reader is serving, and a body cut short leaves no partial file in the cache directory.
