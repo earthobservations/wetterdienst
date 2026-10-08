@@ -42,6 +42,7 @@ from wetterdienst.ui.core import (
     _get_stripes_stations,
     _is_caller_refusal,
     _plot_stripes,
+    check_timeseries_api,
     describe_fields,
     get_glossary,
     get_interpolate,
@@ -346,6 +347,9 @@ def station_distance_opts(kind: str) -> Callable[[_CommandT], _CommandT]:
     return apply
 
 
+_COVERAGE_HINT = "`wetterdienst about coverage`, without --provider and --network, lists the available ones."
+
+
 def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
     """Get API for provider and network.
 
@@ -355,8 +359,26 @@ def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
     try:
         return Wetterdienst(provider, network)
     except ApiNotFoundError as e:
-        msg = f"{e} `wetterdienst about coverage`, without --provider and --network, lists the available ones."
+        msg = f"{e} {_COVERAGE_HINT}"
         raise click.UsageError(msg) from e
+
+
+def get_timeseries_api(provider: str, network: str, *, history: bool = False) -> type[TimeseriesRequest]:
+    """Get the API of a network the timeseries commands serve, refusing one they cannot.
+
+    A standalone network (dwd/radar, dwd/alerts) or, with `history`, a network without station
+    history is the command line's mistake, so a usage error naming the cause, as the REST API answers
+    it with a 404.
+    """
+    api = get_api(provider, network)
+    try:
+        check_timeseries_api(api, provider, network, history=history)
+    except ApiNotFoundError as e:
+        msg = f"{e} {_COVERAGE_HINT}"
+        raise click.UsageError(msg) from e
+    except NotImplementedError as e:
+        raise click.UsageError(str(e)) from e
+    return api
 
 
 def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _RequestT:
@@ -1102,7 +1124,7 @@ def stations(
     )
     set_logging_level(debug=debug)
 
-    api = get_api(provider=provider, network=network)
+    api = get_timeseries_api(provider=provider, network=network)
 
     # built outside the catch-all below, so that a malformed `WD_*` setting is told by its variable
     settings = Settings()
@@ -1281,7 +1303,7 @@ def history(
 
     set_logging_level(debug=debug)
 
-    api = get_api(provider=provider, network=network)
+    api = get_timeseries_api(provider=provider, network=network, history=True)
 
     # built outside the catch-all below, so that a malformed `WD_*` setting is told by its variable
     settings = Settings()
@@ -1294,11 +1316,7 @@ def history(
         log.exception("Failed to get stations for history.")
         sys.exit(1)
 
-    try:
-        history_provider = stations_.history
-    except NotImplementedError as e:
-        # a network without station history, which the message names: `/api/history` answers a 404
-        raise click.UsageError(str(e)) from e
+    history_provider = stations_.history
 
     data: dict[str, Any] = {}
     if request.with_metadata:
@@ -1490,7 +1508,7 @@ def values(
     )
     set_logging_level(debug=debug)
 
-    api = get_api(request.provider, request.network)
+    api = get_timeseries_api(request.provider, request.network)
 
     # a unit target given for a quantity the unit converter does not know is a usage error
     settings = _build_settings(
@@ -1632,7 +1650,7 @@ def interpolate(
 
     set_logging_level(debug=debug)
 
-    api = get_api(request.provider, request.network)
+    api = get_timeseries_api(request.provider, request.network)
 
     # a distance given for a name that is not a canonical parameter, or a negative one, or a unit
     # target for a quantity the unit converter does not know is a usage error
@@ -1778,7 +1796,7 @@ def summarize(
     )
     set_logging_level(debug=debug)
 
-    api = get_api(request.provider, request.network)
+    api = get_timeseries_api(request.provider, request.network)
 
     # a distance given for a name that is not a canonical parameter, or a negative one, or a unit
     # target for a quantity the unit converter does not know is a usage error

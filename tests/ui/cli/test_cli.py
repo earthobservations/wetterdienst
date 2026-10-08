@@ -1158,3 +1158,41 @@ def test_cli_date_is_refused_naming_timestamp(args: list[str]) -> None:
     help_ = CliRunner().invoke(cli, [args[0], "--help"])
     assert "--timestamp" in help_.output
     assert "--date " not in help_.output
+
+
+@pytest.mark.parametrize("network", ["alerts", "radar"])
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(["stations", "--all"], id="stations"),
+        pytest.param(["values", "--station=1"], id="values"),
+        pytest.param(["history", "--all"], id="history"),
+        pytest.param(["interpolate", "--station=1", "--timestamp=2020-01-01"], id="interpolate"),
+        pytest.param(["summarize", "--station=1", "--timestamp=2020-01-01"], id="summarize"),
+    ],
+)
+def test_cli_timeseries_command_refuses_a_standalone_network(args: list[str], network: str) -> None:
+    """A network without a metadata model has no stations or values: a usage error, not a traceback (GH-2492)."""
+    result = CliRunner().invoke(cli, [args[0], "--provider=dwd", f"--network={network}", "--parameters=x", *args[1:]])
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(
+        f"\n\nError: Provider 'dwd' and network '{network}' have no stations or values to request. "
+        "`wetterdienst about coverage`, without --provider and --network, lists the available ones.\n"
+    )
+
+
+def test_cli_history_refuses_a_network_without_history_before_the_station_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A network without station history is refused before its catalogue is downloaded to find out (GH-2492)."""
+
+    def get_stations(*_args: object, **_kwargs: object) -> None:
+        msg = "the station lookup was reached"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", get_stations)
+    result = CliRunner().invoke(
+        cli, ["history", "--provider=dwd", "--network=mosmix", "--parameters=hourly/small", "--all"]
+    )
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith("\n\nError: History not implemented for DwdMosmixRequest\n")

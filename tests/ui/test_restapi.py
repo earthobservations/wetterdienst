@@ -7047,3 +7047,46 @@ def test_glossary_mcp_tool_refuses_a_limit_below_one(limit: int) -> None:
     with pytest.raises(ToolError, match="HTTP error 422") as error:
         asyncio.run(_call())
     assert "limit" in str(error.value)
+
+
+@pytest.mark.parametrize("network", ["alerts", "radar"])
+@pytest.mark.parametrize(
+    ("endpoint", "selection"),
+    [
+        ("stations", {"all": "true"}),
+        ("values", {"station": "1"}),
+        ("history", {"all": "true"}),
+        ("interpolate", {"station": "1", "timestamp": "2020-01-01"}),
+        ("summarize", {"station": "1", "timestamp": "2020-01-01"}),
+    ],
+)
+def test_timeseries_endpoint_refuses_a_standalone_network(
+    client: TestClient, endpoint: str, selection: dict, network: str
+) -> None:
+    """A network without a metadata model has no stations or values: a 404, not an AttributeError's 500 (GH-2492)."""
+    response = client.get(
+        f"/api/{endpoint}", params={"provider": "dwd", "network": network, "parameters": "x", **selection}
+    )
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == (
+        f"Provider 'dwd' and network '{network}' have no stations or values to request. "
+        "Use /api/coverage to discover available providers and networks."
+    )
+
+
+def test_history_refuses_a_network_without_history_before_the_station_lookup(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A network without station history is refused before its catalogue is downloaded to find out (GH-2492)."""
+
+    def lookup(*_args: object, **_kwargs: object) -> None:
+        msg = "the station lookup was reached"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(restapi, "get_stations", lookup)
+    response = client.get(
+        "/api/history",
+        params={"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "all": "true"},
+    )
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "History not implemented for DwdMosmixRequest"

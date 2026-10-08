@@ -81,6 +81,11 @@ Types of changes:
 
 ### Fixed
 
+- `stations`, `values`, `interpolate`, `summarize` and `history` on `dwd/radar` or `dwd/alerts`,
+  which have no stations or parameters to select, are refused with a 404 naming `/api/coverage` in
+  the REST API and a usage error (exit 2) in the CLI, where they failed with an AttributeError: a
+  500 and a traceback. `history` on a network without station history (`dwd/mosmix`) is refused
+  before its station catalogue is downloaded, so an upstream failure no longer hides it (GH-2492)
 - `/api/glossary` and the MCP `glossary` tool refuse a `limit` below 1 with a 422, as the CLI's
   `--limit` already does; a limit of 0 or below answered one entry with a 200 (GH-2497)
 - `geosphere/observation` values without dates, at 10 minutes or hourly, and long windows no
