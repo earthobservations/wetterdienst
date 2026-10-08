@@ -19,6 +19,7 @@ from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
+    DateRequiredError,
     InvalidTimeIntervalError,
     MissingTimeIntervalError,
     NoStationsWithElevationError,
@@ -1079,10 +1080,13 @@ def _refusal_detail(e: Exception, what: str) -> str:
     """Word a refusal for a caller of this API, who passes the window as one `timestamp`.
 
     A request refuses a window that is missing or ends before it starts in terms of its `start` and
-    `end`, which a REST or MCP caller cannot pass. Any other refusal is worded the request's way.
+    `end`, and so does `_get_stations_request` for a dataset that is queried by a window and given
+    none. A REST or MCP caller cannot pass either. Any other refusal is worded the request's way.
     """
     if isinstance(e, ReversedTimeIntervalError):
         return "the interval in timestamp ends before it starts"
+    if isinstance(e, DateRequiredError):
+        return "timestamp is required for this dataset"
     if isinstance(e, MissingTimeIntervalError):
         return f"timestamp is required to {what}"
     return str(e)

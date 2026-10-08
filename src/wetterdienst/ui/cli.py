@@ -21,6 +21,7 @@ from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
+    DateRequiredError,
     ExportRefusedError,
     InvalidTimeIntervalError,
     NoStationsWithElevationError,
@@ -731,13 +732,17 @@ def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     exit 2, as a mistyped option is (GH-2426). Anything else -- an upstream failure or a defect -- is
     left to the handler, and keeps its traceback and exit 1.
 
-    A request refuses a window that ends before it starts in terms of its `start` and `end`, which
-    the command line spells `--timestamp` or `--start` / `--end`.
+    A request refuses a window that ends before it starts, or one that a dataset needs and is not
+    given, in terms of its `start` and `end`, which the command line spells `--timestamp` or
+    `--start` / `--end`.
     """
     if not _is_caller_refusal(e, request):
         return
     if isinstance(e, ReversedTimeIntervalError):
         msg = "the interval in --timestamp or --start / --end ends before it starts"
+        raise click.UsageError(msg) from e
+    if isinstance(e, DateRequiredError):
+        msg = "--timestamp or --start / --end is required for this dataset"
         raise click.UsageError(msg) from e
     raise click.UsageError(str(e)) from e
 

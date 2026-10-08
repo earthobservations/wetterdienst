@@ -20,6 +20,7 @@ from typing_extensions import LiteralString, TypedDict
 
 from wetterdienst.exceptions import (
     ApiNotFoundError,
+    DateRequiredError,
     InvalidBoundingBoxError,
     InvalidEnumerationError,
     InvalidTimeIntervalError,
@@ -1284,7 +1285,10 @@ def _get_stations_request(
     any_date_required = any(parameter.dataset.date_required for parameter in parameters)
     if any_date_required and (not start_date or not end_date) and not isinstance(request, StationsRequest):
         msg = "Start and end date required for single period datasets"
-        raise StartDateEndDateError(msg)
+        # a history request takes no window at all, so there is no option to tell its caller to pass
+        if isinstance(request, HistoryRequest):
+            raise StartDateEndDateError(msg)
+        raise DateRequiredError(msg)
 
     kwargs: dict[str, Any] = {
         "parameters": parameters,

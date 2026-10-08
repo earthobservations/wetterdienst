@@ -1206,3 +1206,22 @@ def test_cli_refuses_a_reversed_window_in_terms_of_its_options(
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith("\n\nError: the interval in --timestamp or --start / --end ends before it starts\n")
     assert not caplog.records
+
+
+def test_cli_refuses_a_dataset_queried_by_a_window_given_none_naming_its_options(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test a dataset queried by a window, given none, is refused naming the options, once (GH-2514).
+
+    The request words it in terms of "start and end date"; the command line spells the window
+    `--timestamp` or `--start` / `--end`.
+    """
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            ["values", "--station=x", "--provider=eccc", "--network=observation", "--parameters=hourly/data"],
+        )
+
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith("\n\nError: --timestamp or --start / --end is required for this dataset\n")
+    assert not caplog.records

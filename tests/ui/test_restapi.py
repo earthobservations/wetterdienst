@@ -3674,7 +3674,7 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
         pytest.param(
             "/api/values",
             {"provider": "eccc", "network": "observation", "parameters": "hourly/data", "all": "true"},
-            "Start and end date required for single period datasets",
+            "timestamp is required for this dataset",
             id="values-dataset-listed-only-for-a-date",
         ),
         pytest.param(
@@ -7097,6 +7097,62 @@ def test_glossary_mcp_tool_refuses_a_limit_below_one(limit: int) -> None:
     with pytest.raises(ToolError, match="HTTP error 422") as error:
         asyncio.run(_call())
     assert "limit" in str(error.value)
+
+
+_WINDOWED_DATASET = {"provider": "eccc", "network": "observation", "parameters": "hourly/data"}
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "params"),
+    [
+        pytest.param("/api/values", {"station": "x"}, id="values"),
+        pytest.param("/api/interpolate", {"latitude": 50.0, "longitude": 10.0, "timestamp": ""}, id="interpolate"),
+        pytest.param("/api/summarize", {"latitude": 50.0, "longitude": 10.0, "timestamp": ""}, id="summarize"),
+    ],
+)
+def test_a_dataset_queried_by_a_window_without_a_timestamp_names_timestamp(
+    client: TestClient, endpoint: str, params: dict[str, object]
+) -> None:
+    """A dataset queried by a window, requested without a `timestamp`, is refused naming it (GH-2514).
+
+    It was "Start and end date required for single period datasets", which names things a REST
+    caller cannot set. Refused before anything is downloaded, so these are real requests.
+    """
+    response = client.get(endpoint, params={**_WINDOWED_DATASET, **params})
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "timestamp is required for this dataset"}
+
+
+@pytest.mark.parametrize(
+    ("tool", "arguments"),
+    [
+        pytest.param("values", {"station": "x"}, id="values"),
+        pytest.param("interpolate", {"latitude": 50.0, "longitude": 10.0, "timestamp": ""}, id="interpolate"),
+        pytest.param("summarize", {"latitude": 50.0, "longitude": 10.0, "timestamp": ""}, id="summarize"),
+    ],
+)
+def test_mcp_a_dataset_queried_by_a_window_without_a_timestamp_names_timestamp(
+    tool: str, arguments: dict[str, object]
+) -> None:
+    """The MCP tools refuse such a request as the REST routes do (GH-2514)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(tool, {**_WINDOWED_DATASET, **arguments})
+
+    with pytest.raises(ToolError, match="HTTP error 400") as error:
+        asyncio.run(_call())
+    assert "timestamp is required for this dataset" in str(error.value)
 
 
 def _the_restapi_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
