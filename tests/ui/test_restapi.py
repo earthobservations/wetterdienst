@@ -7392,7 +7392,8 @@ def test_a_provider_whose_extra_is_missing_is_a_404_and_one_info_line_without_a_
     """A provider that cannot be imported is a 404 with the exception's advice, not a bare 500 (GH-2545)."""
 
     def resolve(_provider: str, _network: str) -> None:
-        raise ImportError(_MISSING_EXTRA)
+        # as `Wetterdienst.resolve` raises it for a dependency that is not installed
+        raise ImportError(_MISSING_EXTRA) from ModuleNotFoundError(name="h5py")
 
     monkeypatch.setattr(restapi.Wetterdienst, "resolve", staticmethod(resolve))
     with caplog.at_level(logging.INFO, logger=restapi.log.name):
@@ -7404,3 +7405,24 @@ def test_a_provider_whose_extra_is_missing_is_a_404_and_one_info_line_without_a_
         (logging.INFO, f"Refused a provider and network that cannot be imported: {_MISSING_EXTRA}")
     ]
     assert records[0].exc_info is None
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "params"),
+    [
+        pytest.param("issues", {"station": "00011"}, id="issues"),
+        pytest.param("stations", _NO_API_ENDPOINTS["stations"], id="stations"),
+    ],
+)
+def test_an_import_error_that_is_not_a_missing_module_is_not_a_404(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str, params: dict[str, object]
+) -> None:
+    """A library that fails to load is a broken deployment: its message names server paths (GH-2545)."""
+
+    def resolve(_provider: str, _network: str) -> None:
+        msg = "libhdf5.so: cannot open shared object file (/opt/venv/lib/libhdf5.so)"
+        raise ImportError(msg)
+
+    monkeypatch.setattr(restapi.Wetterdienst, "resolve", staticmethod(resolve))
+    with pytest.raises(ImportError, match="libhdf5"):
+        client.get(f"/api/{endpoint}", params={"provider": "knmi", "network": "observation", **params})

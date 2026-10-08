@@ -830,7 +830,13 @@ def _refuse_unavailable_provider(e: ImportError) -> HTTPException:
 
     `Wetterdienst.resolve` words what is missing and which extra installs it, so the caller gets that
     message as it is; pointing at the list of providers, as for an unknown one, would not say why.
+
+    Only a module that is not there is this: `resolve` words that one itself. Any other `ImportError`
+    (a library that fails to load, a circular import) is a broken deployment whose message names
+    server paths, so it is raised again for the 500 and traceback it was.
     """
+    if not isinstance(e.__cause__, ModuleNotFoundError):
+        raise e
     msg = str(e)
     log.info(f"Refused a provider and network that cannot be imported: {msg}")
     return HTTPException(status_code=404, detail=msg)
