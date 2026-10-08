@@ -202,10 +202,14 @@ class DwdSwsmosValues(TimeseriesValues):
         served whatever the listing says by now. It decides because a 404 alone does not: a run the
         listing names is the server's to serve, and refusing it would have `available_issues` offer
         a run this then called the caller's mistake; a listing naming no run is a directory moved or
-        the host offline, which says nothing about the issue. Both are warned about as any other
-        failed fetch. `LATEST` names no run of its own and asks only for runs the listing has just
-        named, so a 404 there is a run gone since, never the caller's. A listing that fails after
-        the 404 raises, as it does for `LATEST`.
+        the host offline, which says nothing about the issue. Both are warned about, as the 404 is.
+        `LATEST` names no run of its own and asks only for runs the listing has just named, so a 404
+        there is a run gone since, never the caller's. A listing that fails after the 404 raises, as
+        it does for `LATEST`.
+
+        A fetch that fails otherwise -- a timeout, a 5xx after the retries -- raises a
+        `DownloadError`, as `dwd/observation` does: answered with `None` it read as a run holding
+        nothing for the station (GH-2461). A connection that cannot be made at all stays quiet.
         """
         file = download_file(
             url=url,
@@ -222,6 +226,11 @@ class DwdSwsmosValues(TimeseriesValues):
                 if runs and url.rsplit("/", 1)[-1] not in names:
                     msg = f"Unable to find SWSMOS run {url}"
                     raise IssueNotFoundError(msg) from file.content
+            # a 404 is a run that is not there, which the caller falls back from or reads as empty;
+            # any other failure is an outage, which swallowed would read as a run holding nothing
+            # for the station (GH-2461)
+            if file.status != HTTPStatus.NOT_FOUND:
+                file.raise_if_exception()
             if not file.is_no_internet_error:
                 log.warning(f"Failed to fetch SWSMOS run {url}: {file.content}")
             return None
@@ -261,14 +270,16 @@ class DwdSwsmosValues(TimeseriesValues):
         answers the stations after that point from the new one -- a frame quietly mixing two model
         runs, with no cache entry in the way to make it rare.
 
-        A run that cannot be fetched is kept as an empty frame, where `ipma` deliberately leaves a
-        failed fetch uncached to be retried: there, a feed that fails costs that feed's stations,
-        while here one file is the whole request, so asking again per station cannot answer a
-        different question. `download_file` has already asked twice by then -- `_worth_retrying_download`
-        governs what a blip is -- and 1,836 stations asking 3,672 times is a herd against a server
-        that has just failed, not a recovery. The warning naming the run says what happened. The
-        exception is a pinned `issue` the server does not hold, which `_run_content` raises as
-        `IssueNotFoundError`; nothing is cached then, so every station is refused alike.
+        A run the server does not have (a 404), or none that can be reached, is kept as an empty
+        frame, where `ipma` deliberately leaves a failed fetch uncached to be retried: there, a
+        feed that fails costs that feed's stations, while here one file is the whole request, so
+        asking again per station cannot answer a different question. `download_file` has already
+        asked twice by then -- `_worth_retrying_download` governs what a blip is -- and 1,836
+        stations asking 3,672 times is a herd against a server that has just failed, not a
+        recovery. The warning naming the run says what happened. The exceptions are a pinned
+        `issue` the server does not hold, which `_run_content` raises as `IssueNotFoundError`
+        (nothing is cached then, so every station is refused alike), and a run whose fetch failed
+        otherwise, which `_run_content` raises as a `DownloadError` (GH-2461).
         """
         if self._run_frame_cache is None:
             frame = pl.DataFrame()

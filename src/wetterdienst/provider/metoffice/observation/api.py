@@ -111,7 +111,14 @@ class MetOfficeObservationValues(TimeseriesValues):
         # re-minting per station (see download.py).
         return get_ceda_token(settings)
 
-    def _download(self, url: str, settings: Settings, token: str | None) -> bytes | None:
+    def _download(
+        self,
+        url: str,
+        settings: Settings,
+        token: str | None,
+        *,
+        missing_ok: bool = True,
+    ) -> bytes | None:
         headers = {**settings.fsspec_client_kwargs.get("headers", {})}
         if token:
             headers["Authorization"] = f"Bearer {token}"
@@ -123,6 +130,12 @@ class MetOfficeObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a station-year the archive lacks is routine (its coverage is patchy, and a QC'd file may be
+        # absent where the raw one is not) and is a 404; any other failure -- a timeout, a 5xx, a
+        # refused token -- is an outage, which swallowed would read as a year without data (GH-2461).
+        # A file every station depends on is not routine to lack, so its caller asks for the 404 too
+        if file.status != 404 or not missing_ok:
+            file.raise_if_exception()
         if isinstance(file.content, Exception):
             if not file.is_no_internet_error:
                 log.debug(f"No MetOffice file {url}: {file.content}")
@@ -143,7 +156,7 @@ class MetOfficeObservationValues(TimeseriesValues):
         ``_all()`` -- ``_base_columns`` only keeps the framework's fixed station columns, so
         provider-specific fields like the MIDAS path components don't survive into ``self.sr.df``.
         """
-        content = self._download(_station_metadata_url(midas_dataset, version), settings, token)
+        content = self._download(_station_metadata_url(midas_dataset, version), settings, token, missing_ok=False)
         if content is None:
             return None
         stations = parse_station_metadata(content)

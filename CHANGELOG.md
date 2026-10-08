@@ -60,7 +60,7 @@ Types of changes:
   operator still in use was null already. Read a null `valid_to` as a position that still applies
   (GH-2474)
 - **Breaking**: a download that failed raises `wetterdienst.exceptions.DownloadError` through
-  `File.raise_if_exception`, which 13 providers use, where it raised the stored error itself
+  `File.raise_if_exception`, which most providers use, where it raised the stored error itself
   (`FSTimeoutError`, `ClientResponseError`, `FileNotFoundError`, aiohttp's connection errors). Its
   message is `Failed to download <url>: <reason>` with the URL stripped of query, fragment and user
   information, so the REST API's `detail` and the CLI name the file. Catch `DownloadError` and read
@@ -69,6 +69,15 @@ Types of changes:
   of `eaufrance/hubeau` (every station it lists) and of `dwd/observation` 1-minute precipitation
   from the historical period, where it was the time of the call or the day before. Read a null
   `end_timestamp` there as a station the provider has not closed (GH-2482)
+- Values of `dwd/phenology`, `dwd/poi`, `dwd/swsmos`, `chmi`, `fmi`, `ipma`, `dmi`, `rmi`,
+  `metoffice`, `lhmt`, `meteofrance/synop` and `meteofrance/observation` raise a data download that
+  failed -- a timeout, a 5xx -- as `DownloadError`, where they logged it and returned no data for
+  the station, or went on to the next file: the REST API answers a 500 and the CLI fails, and so
+  do interpolate and summarize where a station they read fails. A 404 still gives no data at
+  `dwd/poi`, `dwd/swsmos`, `chmi`, `lhmt`, `metoffice`, `meteofrance/observation` and, for the
+  current year, `meteofrance/synop`, and raises at the others. `fmi` gives no data for a 400, which
+  it answers for a station it does not know. A connection that cannot be made at all still gives
+  no data (GH-2461)
 
 ### Fixed
 

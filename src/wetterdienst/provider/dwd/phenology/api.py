@@ -238,10 +238,11 @@ class DwdPhenologyValues(TimeseriesValues):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
-            if isinstance(file.content, Exception):
-                if not file.is_no_internet_error:
-                    log.warning(f"Failed to download {url}: {file.content}")
-            else:
+            # one file holds every station, at a fixed name or one just listed, so any failure of it
+            # -- a 404 included -- is an outage, which swallowed would read as every station without
+            # observations (GH-2461). NoInternetError returns silently, to give an empty frame
+            file.raise_if_exception()
+            if not isinstance(file.content, Exception):
                 df = _parse_values(file.content.read(), DWD_PHENOLOGY_OBJECT_IDS[dataset.name])
                 df = df.filter(pl.col("station_id").is_in(self._requested_station_ids()))
         self._files[key] = df

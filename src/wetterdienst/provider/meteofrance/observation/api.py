@@ -799,14 +799,17 @@ class MeteoFranceObservationValues(TimeseriesValues):
         parameter_columns = [parameter.name_original for parameter in dataset]
         read_columns = ["NUM_POSTE", date_column, *parameter_columns]
         files_by_url = _download_climate_resources(matches, settings)
+        # _download_climate_resources already retried each once; a failure other than a 404 surviving
+        # that is an outage, and is raised rather than leaving the bucket out of a result that reads
+        # as complete (GH-2461). Raised before any bucket is parsed, as each can run to 100+ MB
+        for file in files_by_url.values():
+            if file.status != 404:
+                file.raise_if_exception()
         dfs = []
         for resource in matches:
             file = files_by_url[resource["url"]]
             if isinstance(file.content, Exception):
                 if not file.is_no_internet_error:
-                    # _download_climate_resources already retried this once; a failure surviving
-                    # that is unexpected, so log it instead of silently treating this bucket as
-                    # having no data, but keep processing the remaining buckets
                     log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
             with gzip.GzipFile(fileobj=file.content) as gz:

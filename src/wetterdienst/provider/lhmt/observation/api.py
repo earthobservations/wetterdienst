@@ -113,8 +113,12 @@ class LhmtObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a day before the station's record is a 404 and simply contributes no rows; any other
+        # failure -- a timeout, a 5xx after the retries -- is an outage, which swallowed would read as
+        # a day without observations (GH-2461)
+        if file.status != 404:
+            file.raise_if_exception()
         if isinstance(file.content, Exception):
-            # a day before the station's record (or an outage) simply contributes no rows
             if not file.is_no_internet_error:
                 log.debug(f"No LHMT data for {station_id} on {day}: {file.content}")
             return None

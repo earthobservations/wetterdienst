@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import datetime as dt
 import itertools
-import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
 from zoneinfo import ZoneInfo
@@ -32,7 +31,6 @@ if TYPE_CHECKING:
 
     from wetterdienst.settings import Settings
 
-log = logging.getLogger(__name__)
 
 _BASE_URL = "https://opendataapi.dmi.dk/v2/climateData/collections"
 _UTC = ZoneInfo("UTC")
@@ -145,7 +143,7 @@ class DmiObservationValues(TimeseriesValues):
 
         DMI paginates via limit/offset and always emits a "next" link, so pages are walked
         until a short (or empty) page marks the end. Yields the parsed ``properties`` of each
-        non-empty page; stops on the first download error.
+        non-empty page; raises on the first download error, and stops quietly where no connection can be made.
         """
         for offset in itertools.count(0, _PAGE_LIMIT):
             url = (
@@ -161,11 +159,11 @@ class DmiObservationValues(TimeseriesValues):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
+            # a station with no data for the window answers an empty (200) page, so any failure here
+            # is an outage, a 404 included, and is raised: swallowed it read as a station without
+            # data (GH-2461). NoInternetError, an expected offline condition, ends the paging quietly
+            file.raise_if_exception()
             if isinstance(file.content, Exception):
-                # NoInternetError is already logged at debug by download_file and is an expected
-                # offline condition, so don't add a warning for it; warn only on real failures.
-                if not file.is_no_internet_error:
-                    log.warning(f"Failed to acquire DMI data for station {station_id}: {file.content}")
                 return
             df = pl.read_json(file.content, schema=_STATION_VALUE_SCHEMA)
             df = df.select(pl.col("features").explode(empty_as_null=True).struct.field("properties")).unnest(

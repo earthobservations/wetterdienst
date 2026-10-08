@@ -13,7 +13,7 @@ import polars as pl
 import pytest
 
 import wetterdienst.provider.rmi.observation.api as rmi_api
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import File
 
@@ -180,11 +180,8 @@ def test_iter_value_pages_single_short_page_stops_immediately(monkeypatch: pytes
     assert [df.height for df in dfs] == [3]
 
 
-def test_iter_value_pages_stops_on_download_error(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """A download error ends pagination without raising, keeps prior pages, and logs a warning."""
+def test_iter_value_pages_raises_on_download_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A download error raises, rather than ending pagination with the pages so far read as the whole answer."""
     monkeypatch.setattr(rmi_api, "_PAGE_LIMIT", 2)
 
     def fake_download_file(*, url: str, **_: object) -> File:
@@ -193,10 +190,8 @@ def test_iter_value_pages_stops_on_download_error(
         return File(url=url, content=RuntimeError("boom"), status=500)
 
     monkeypatch.setattr(rmi_api, "download_file", fake_download_file)
-    with caplog.at_level(logging.WARNING, logger=rmi_api.log.name):
-        dfs = _iter_pages(object.__new__(rmi_api.RmiObservationValues))
-    assert [df.height for df in dfs] == [2]
-    assert any("Failed to acquire RMI data" in record.message for record in caplog.records)
+    with pytest.raises(DownloadError, match="boom"):
+        _iter_pages(object.__new__(rmi_api.RmiObservationValues))
 
 
 def test_iter_value_pages_no_internet_is_silent(
@@ -213,7 +208,7 @@ def test_iter_value_pages_no_internet_is_silent(
     with caplog.at_level(logging.WARNING, logger=rmi_api.log.name):
         dfs = _iter_pages(object.__new__(rmi_api.RmiObservationValues))
     assert dfs == []
-    assert not any("Failed to acquire RMI data" in record.message for record in caplog.records)
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
 
 
 def test_collect_reshapes_wide_features_to_long_utc_values() -> None:

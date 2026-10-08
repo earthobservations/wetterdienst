@@ -119,7 +119,7 @@ class RmiObservationValues(TimeseriesValues):
         empty). This is robust to a server-side page cap below ``_PAGE_LIMIT``: relying on a
         "short page" alone would stop early and silently drop rows if the server ever returns
         fewer features than requested. The loop is bounded by ``_MAX_PAGES`` as a runaway guard.
-        Stops on the first download error.
+        Raises on the first download error, and stops quietly where no connection can be made.
         """
         start_index = 0
         number_matched: int | None = None
@@ -141,11 +141,11 @@ class RmiObservationValues(TimeseriesValues):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
+            # a filter matching nothing answers an empty (200) page, so any failure here is an
+            # outage, a 404 included, and is raised: swallowed it read as a station without data
+            # (GH-2461). NoInternetError, an expected offline condition, ends the paging quietly
+            file.raise_if_exception()
             if isinstance(file.content, Exception):
-                # NoInternetError is already logged at debug by download_file and is an expected
-                # offline condition, so don't add a warning for it; warn only on real failures.
-                if not file.is_no_internet_error:
-                    log.warning(f"Failed to acquire RMI data (filter {cql_filter!r}): {file.content}")
                 return
             page = pl.read_json(file.content, schema=schema)
             if number_matched is None:
