@@ -19,8 +19,8 @@ Types of changes:
 ### Fixed
 
 - `WD_AUTH__METNO_FROST` (and `Settings(auth={"metno_frost": ...})`) written as `id:secret`,
-  `id,secret`, `id secret` or `("id", "secret")` is refused, as is any other lone text holding a
-  character but an ASCII letter, digit or `-`, with a message naming the form
+  `id,secret`, `id secret` or the text `("id", "secret")` is refused, as is any other lone text
+  holding a character but an ASCII letter, digit or `-`, with a message naming the form
   `["client_id", "secret"]`; it was taken whole as the client id, secret included, and Frost
   refused the credential later. `check_settings()` reports it too (GH-2487)
 
