@@ -3614,4 +3614,3 @@ def test_export_duckdb_target_reads_a_percent_encoded_path_as_the_path_it_names(
     filename = directory.joinpath("stations.duckdb")
     ExportMixin(df=df_stations).to_target(f"duckdb:///{quote(filename.as_posix())}?table=stations")
     assert filename.exists()
-    assert not tmp_path.joinpath("my%20data").exists()

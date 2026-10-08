@@ -143,9 +143,9 @@ class ConnectionString:
             parsed = urlparse(url)
             self._name = parsed.scheme
             # the path is a URI path, percent-decoded as a `file://` one is
-            self._database = unquote(parsed.path[1:]) if parsed.path.startswith("/") else None
-            self._query = parsed.query
             self._path = unquote(parsed.path or parsed.netloc)
+            self._database = self._path[1:] if parsed.path.startswith("/") else None
+            self._query = parsed.query
             return
         match = _URL_PATTERN.match(url)
         if match is None:

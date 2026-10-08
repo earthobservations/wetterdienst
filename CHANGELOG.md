@@ -20,8 +20,8 @@ Types of changes:
 
 - **Breaking**: the path of a `duckdb://` target is read as the path of a URI, as a `file://` one
   is: `duckdb:////home/me/my%20data/obs.duckdb` opens `/home/me/my data/obs.duckdb`, where it
-  opened a directory named `my%20data`. A
-  path holding a literal `%` followed by two hex digits, such as `%20`, must now write that `%` as
+  opened `obs.duckdb` in a directory named `my%20data` and failed if there was none. A path
+  holding a literal `%` followed by two hex digits, such as `%20`, must now write that `%` as
   `%25` (`%2520`); a `%` not followed by two hex digits is read as before (GH-2515)
 
 ## [0.142.0] - 2026-10-08
