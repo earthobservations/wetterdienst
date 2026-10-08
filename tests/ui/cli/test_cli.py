@@ -1181,8 +1181,10 @@ def test_coverage_refuses_one_of_provider_and_network(args: list[str], message: 
     assert result.stdout == ""
 
 
-def test_coverage_without_provider_and_network_lists_every_provider() -> None:
+def test_coverage_without_provider_and_network_lists_every_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test coverage without --provider and --network still lists every provider (GH-2498)."""
+    # the real catalogue validates the credentials a provider is configured with against its upstream
+    monkeypatch.setattr(Wetterdienst, "discover", classmethod(lambda _cls: {"dwd": {"observation": {}}}))
     result = CliRunner().invoke(cli, ["about", "coverage"])
     assert result.exit_code == 0, result.output
-    assert "dwd" in json.loads(result.stdout)
+    assert json.loads(result.stdout) == {"dwd": {"observation": {}}}
