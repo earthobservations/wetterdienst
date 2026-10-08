@@ -294,8 +294,8 @@ def test_collect_windows_a_long_range_below_the_offset_cap(monkeypatch: pytest.M
     # three windows of 10 days (241 records, so pages at offsets 0, 100, 200) and a short last one
     monkeypatch.setattr(dmi_api, "_WINDOW_SPAN", {Resolution.HOURLY: dt.timedelta(days=10)})
     df = _collect_hourly(monkeypatch, server, first, first + dt.timedelta(days=35))
-    assert max(server.offsets) <= 200
-    assert sorted(set(server.offsets)) == [0, 100, 200]
+    # three windows of three pages each, then the last of two: none had to be halved
+    assert server.offsets == [0, 100, 200] * 3 + [0, 100]
     timestamps = df.get_column("timestamp").sort().to_list()
     assert timestamps == [first + dt.timedelta(hours=hour) for hour in range(24 * 35)]
 
