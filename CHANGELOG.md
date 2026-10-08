@@ -26,6 +26,20 @@ Types of changes:
 
 ### Fixed
 
+- `metno/frost` values read a failed download's status before treating it as empty. A 404 now
+  reaches the fallbacks written for it (each parameter alone, then its time series discovered),
+  where the request returned no data; a 401, 403 or 500 is logged as `Failed to download <url>`
+  where it passed as "no data" without a word (GH-2494)
+- KNMI and AEMET stations and values requested with no network, or with a connection that cannot
+  be made (refused, DNS or TLS handshake failure), no longer wait through two more attempts per
+  URL, 2 s and more apart, before returning empty: `download_file`'s own two attempts are all
+  there are. The retries for an HTTP 503 and for a 429 are unchanged (GH-2499)
+- `dwd/road` raises a `DownloadError` when every file of a station group fails with an error
+  response or a timeout (403, 5xx); the request used to return an empty frame. When only some
+  files fail, the readings of the others are returned and a warning names how many of how many
+  failed; the same warning accompanies an empty result when all are 404 (withdrawn since the
+  listing). A failure to connect, a refused certificate included, still gives an empty result,
+  now with that warning (GH-2495, GH-2553)
 - `interpolate`, `summarize` and their `_by_station_id` variants build a provider's station list
   once, not two or three times: on a cold cache that is a round of upstream requests fewer, for
   DWD observation the station description files and the file index per period. `filter_by_rank`
@@ -55,6 +69,11 @@ Types of changes:
   are read in windows (a year for hourly, ten for daily) that stay below DMI's offset cap of
   500000: a request reaching offset 600000 was cut off there, and failed with a 400 since failed
   downloads are raised. No offset above the cap is asked for any more (GH-2520)
+- A lone `WD_AUTH__METNO_FROST` client id is kept without the whitespace around it, such as a
+  newline in a `.env` value, the `\r` of a CRLF file, an NBSP or U+2028; it was sent to Frost with
+  the padding and refused there. Text of nothing but whitespace, or `""` given in Python, reads as
+  unset, as an empty value in the environment does, where it counted as a configured client id
+  (GH-2542)
 
 ## [0.142.0] - 2026-10-08
 
