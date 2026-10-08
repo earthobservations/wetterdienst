@@ -75,11 +75,49 @@ def quiet_eccodes_version_advice() -> None:
     )
 
 
+def import_pyproj_before_eccodes() -> None:
+    """Import pyproj, where it is installed, before the eccodes bindings load their library.
+
+    On Linux, the eccodes wheel pulls in the eckitlib wheel, which bundles its own PROJ, and
+    findlibs loads it with `RTLD_GLOBAL`. pyproj bundles another. A process that loads eccodes and
+    then imports pyproj aborts at exit (`double free or corruption`, exit 134 or 139), while one
+    that imports pyproj first exits cleanly: ecmwf/eckit#354, GH-2441. pyproj comes with the
+    `radarplus` extra and with libraries such as geopandas, so a caller reading DWD road or radar
+    BUFR could not tell what they had done to get a failing exit status (GH-2468). Drop this once
+    the floor requires an eckitlib with the upstream fix.
+
+    Called by both probes, and by `read_radar_bufr`, the one reader that can run without asking
+    them first; DWD road's reader asks `require_bufr` before it imports pdbufr. Where the bindings
+    are loaded already the order is settled, and importing pyproj then would only make the abort
+    reachable for a process that never imports it. Where the bindings are not installed there is
+    nothing to put pyproj ahead of, and where pyproj is not -- a `bufr` install without
+    `radarplus` -- nothing to import, which is the ordinary case and not logged. A pyproj that is
+    installed and does not import is left to whoever imports it next: reading BUFR does not need it.
+
+    pyproj is imported even where `sys.modules` has it already: another thread may be part way
+    through that import, and the import statement waits for it to finish where a look at
+    `sys.modules` would not.
+    """
+    if "gribapi" in sys.modules or importlib.util.find_spec("gribapi") is None:
+        return
+    try:
+        # inside, as `find_spec` raises for a module in `sys.modules` whose `__spec__` is None
+        if importlib.util.find_spec("pyproj") is None:
+            return
+        import pyproj  # noqa: F401, PLC0415
+    except Exception:
+        # installed and does not import -- a broken install, or, under `-W error`, the warning
+        # pyproj gives on import where it finds no PROJ data directory. Not this function's to
+        # report: the caller hears of it on their own import of pyproj, if they make one
+        log.debug("pyproj did not import ahead of eccodes", exc_info=True)
+
+
 @lru_cache
 def ensure_eccodes() -> bool:
     """Ensure that eccodes is loaded."""
     try:
         # inside, as everything on the way to the import is: this question is answered, not raised
+        import_pyproj_before_eccodes()
         quiet_eccodes_version_advice()
         import eccodes  # noqa: PLC0415
 
@@ -123,6 +161,7 @@ def ensure_pdbufr() -> bool:
     try:
         # pdbufr imports eccodes, so where this is asked first the import of eccodes is this one.
         # The version is left to `ensure_eccodes`, which `bufr_is_available` asks first
+        import_pyproj_before_eccodes()
         quiet_eccodes_version_advice()
         import pdbufr  # noqa: F401, PLC0415
     except ModuleNotFoundError as e:

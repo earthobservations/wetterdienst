@@ -4,10 +4,13 @@ import json
 import logging
 from pathlib import Path
 
+import polars as pl
 import pytest
 from click.testing import CliRunner, Result
 from dirty_equals import IsApprox, IsStr
 
+from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.ui.cli import cli
 
 
@@ -339,3 +342,26 @@ def test_history_target_with_other_scheme_is_refused_before_the_fetch(
     )
     assert result.exit_code == 2, result.output
     assert "--target only supports a local path or a file:// URI for history." in result.output
+
+
+def test_history_network_without_history_is_a_usage_error(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test a network without station history is a one-line usage error, not a traceback (GH-2465)."""
+
+    def get_stations(**_kwargs: object) -> StationsResult:
+        # the station lookup succeeds; MOSMIX has no history to collect for it
+        request = DwdMosmixRequest(parameters=[("hourly", "large")])
+        return StationsResult(
+            stations=request, df=pl.DataFrame(), df_all=pl.DataFrame(), stations_filter=StationsFilter.BY_STATION_ID
+        )
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", get_stations)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli, ["history", "--provider=dwd", "--network=mosmix", "--parameters=hourly/large", "--station=01001"]
+        )
+
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith("\n\nError: History not implemented for DwdMosmixRequest\n")
+    assert not caplog.records
