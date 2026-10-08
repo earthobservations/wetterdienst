@@ -73,11 +73,11 @@ Types of changes:
   `metoffice`, `lhmt`, `meteofrance/synop` and `meteofrance/observation` raise a data download that
   failed -- a timeout, a 5xx -- as `DownloadError`, where they logged it and returned no data for
   the station, or went on to the next file: the REST API answers a 500 and the CLI fails, and so
-  do interpolate and summarize where a station they read fails. A 404 still gives no data where the
-  network lets a file be absent, such as a station's month at CHMI or a year at Met Office. It
-  raises at `dwd/phenology` and `ipma`, whose one file holds every station, at `dmi` and `rmi`,
-  which answer an empty 200 for no data, and at `fmi` except for its 400 on a station it does not
-  know. A connection that cannot be made at all still gives no data (GH-2461)
+  do interpolate and summarize where a station they read fails. A 404 still gives no data at
+  `dwd/poi`, `dwd/swsmos`, `chmi`, `lhmt`, `metoffice`, `meteofrance/observation` and, for the
+  current year, `meteofrance/synop`, and raises at the others. `fmi` gives no data for a 400, which
+  it answers for a station it does not know. A connection that cannot be made at all still gives
+  no data (GH-2461)
 
 ### Fixed
 

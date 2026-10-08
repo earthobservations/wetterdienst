@@ -256,3 +256,14 @@ def test_fmi_drops_the_400_for_a_station_it_does_not_know(serve: Callable[[Any, 
     serve(fmi_api, OSError("400 Bad Request"), 400)
 
     assert _gives_nothing(_fmi(fmi_api))
+
+
+def test_metoffice_raises_a_404_for_a_station_metadata_file_every_station_depends_on(
+    serve: Callable[[Any, Exception, int], None],
+) -> None:
+    """A station-year can be absent from the archive, but the dataset's station-metadata file cannot."""
+    serve(metoffice_api, FileNotFoundError("404 Not Found"), 404)
+    values = _values(metoffice_api.MetOfficeObservationValues)
+
+    with pytest.raises(DownloadError, match="404 Not Found"):
+        values._station_slug_and_county("00009", "uk-daily-rain-obs", "202407", _settings(), None)  # noqa: SLF001

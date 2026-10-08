@@ -780,7 +780,7 @@ def test_swsmos_available_issues_remote() -> None:
     assert all((issue.minute, issue.second) == (0, 0) for issue in issues)
 
 
-def test_swsmos_issue_the_listing_names_is_not_refused_when_its_fetch_fails(
+def test_swsmos_issue_the_listing_names_is_not_refused_when_its_fetch_404s(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
