@@ -4,11 +4,9 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import logging
 from io import StringIO
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfo
 
 import polars as pl
 from fsspec.implementations.zip import ZipFileSystem
@@ -295,13 +293,10 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
         for file, (_, station_id) in zip(files, urls_and_station_ids, strict=False)
     ]
     df = pl.concat(dfs)
-    df = df.with_columns(
-        pl.when(pl.col("end_timestamp").str.strip_chars().eq(""))
-        .then(pl.lit((dt.datetime.now(ZoneInfo("UTC")).date() - dt.timedelta(days=1)).strftime("%Y%m%d")))
-        .otherwise(pl.col("end_timestamp"))
-        .alias("end_timestamp"),
-    )
     df = df.with_columns(pl.all().str.strip_chars())
+    # DWD leaves `bis_datum` blank for the position a station still stands at, so a station still
+    # reporting has no end: null, as other providers give it, rather than the day before the call
+    df = df.with_columns(pl.when(pl.col("end_timestamp").ne("")).then(pl.col("end_timestamp")).alias("end_timestamp"))
     # Make station id str
     return df.with_columns(pl.col("station_id").cast(str).str.pad_start(5, "0"))
 

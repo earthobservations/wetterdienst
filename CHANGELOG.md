@@ -44,6 +44,17 @@ Types of changes:
   database table you append stations to; a `sql` filter on a station's old name fails naming the
   new one. The app reads the new names from its next release, so upgrade the app with the backend
   (GH-2439)
+- **Breaking**: `/api/auth`, `/api/coverage`, `/api/glossary`, `/api/stripes/stations` and
+  `/api/alerts` refuse a query parameter they do not take with a 422, as `/api/stations` and
+  `/api/values` do, and every MCP tool refuses an argument it does not take, naming the ones it
+  does. Both used to answer as if it had not been given, so a misspelt `limit` returned every
+  match. Drop parameters an endpoint or tool does not take, such as a cache buster (GH-2479)
+- CLI: `stations` reports a request the caller can rephrase -- an unknown parameter, a bad
+  bounding box, a `--sql` DuckDB refuses -- as a one-line usage error with exit code 2, where it
+  printed a traceback. `history` on a network whose stations have no history, such as
+  `dwd/mosmix`, and `about coverage` on a standalone network such as `dwd/radar` are usage errors
+  too, where they exited 1. Scripts checking for exit 1 on these now see 2; an upstream failure
+  still exits 1 with its traceback (GH-2465)
 - **Breaking**: in a DWD observation station's history, the current position in `geography` has a
   null `valid_to`, where it was the time the history was read and changed on every call. A name or
   operator still in use was null already. Read a null `valid_to` as a position that still applies
@@ -54,9 +65,21 @@ Types of changes:
   message is `Failed to download <url>: <reason>` with the URL stripped of query, fragment and user
   information, so the REST API's `detail` and the CLI name the file. Catch `DownloadError` and read
   `__cause__` for the original error (GH-2460)
+- **Breaking**: a station the provider gives no end has a null `end_timestamp` in the station list
+  of `eaufrance/hubeau` (every station it lists) and of `dwd/observation` 1-minute precipitation
+  from the historical period, where it was the time of the call or the day before. Read a null
+  `end_timestamp` there as a station the provider has not closed (GH-2482)
 
 ### Fixed
 
+- `/api/values` and the MCP `values` tool log a request they refuse with a 400 -- an unparseable
+  timestamp, an unknown parameter or period -- as one info line, as `/api/interpolate` and
+  `/api/summarize` do. Each was logged as an error with its traceback; the status is unchanged
+  (GH-2459)
+- `WD_USE_CERTIFI=true` now reaches every download of `geosphere/observation` values,
+  `ea/hydrology` values, `metno/frost` stations, values and credential check, and `dwd/road`
+  values. They went out with the system CA store, so where that store cannot verify the upstream
+  they failed SSL verification even with the setting on (GH-2463)
 - A `WD_AUTH__METNO_FROST` pair that is not valid JSON, such as `[myid, mysecret]` with its
   elements unquoted, is refused, and `check_settings()` names it. It was taken whole as the client
   id, secret included, and sent to Frost, which refused it. Quote each element:
@@ -69,6 +92,20 @@ Types of changes:
   derived's months, skipped them too. KNMI's and AEMET's own retry of a 429 or 5xx now
   applies through the cache too. A cache miss is one GET instead of two, and a body that ends
   before its `Content-Length` is no longer read back from the cache by the retry (GH-2467)
+- `filter_by_name`, `filter_by_rank` and `filter_by_bbox` build the station list once, where they
+  built it twice, `filter_by_distance` once instead of four times, and `interpolate` and
+  `summarize` twice instead of six times: that much less parsing, and with `WD_CACHE_DISABLE` or a
+  provider that does not cache its station list, that many fewer downloads. `filter_by_distance`
+  on a request with no stations finds none, where it raised "'rank' has to be at least 1."
+  (GH-2475)
+- A request built from a `Settings` object, as the CLI builds its requests, uses it as it is rather
+  than validating it again, so the cache line and the `ts_drop_nulls` notice of a wide shape are
+  logged once, when the settings are built, rather than twice. Settings given as a dict are
+  validated as before (GH-2476)
+- DWD road values and radar BUFR reads import `pyproj`, where it is installed, before they load
+  `eccodes`. On Linux, with the `eckitlib` wheel pip installs beside `eccodes`, a process that used
+  `pyproj` or wradlib after such a read aborted at exit with status 134 or 139 (ecmwf/eckit#354);
+  it now exits cleanly, unless something imported `eccodes` before wetterdienst did (GH-2468)
 
 ## [0.141.0] - 2026-10-06
 

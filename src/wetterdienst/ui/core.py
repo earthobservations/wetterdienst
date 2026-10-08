@@ -371,9 +371,9 @@ def _raise_rule_errors(request: BaseModel, errors: list[InitErrorDetails]) -> No
         raise ValidationError.from_exception_data(type(request).__name__, errors)
 
 
-#: query parameters renamed on the way to 1.0, old name to new. The values, interpolation and
-#: summary requests, and each MCP tool taking the new name, refuse the old one with an error naming
-#: the new one, rather than one about a parameter they do not know (GH-2438)
+#: query parameters renamed on the way to 1.0, old name to new. The values, interpolation, summary
+#: and alerts requests, and each MCP tool taking the new name, refuse the old one with an error
+#: naming the new one, rather than one about a parameter they do not know (GH-2438)
 RENAMED_REQUEST_PARAMETERS: dict[str, str] = {"date": "timestamp"}
 
 
@@ -1014,6 +1014,57 @@ class IssuesRequest(BaseModel):
     debug: _DebugField = False
 
 
+# the query parameters of `/api/auth`, `/api/coverage`, `/api/glossary` and `/api/alerts`, and of
+# `/api/stripes/stations` below, each a model forbidding others as the other endpoints' requests
+# are: taken loose, a parameter the endpoint does not know was passed over, and the request answered
+# as if it had not been given it (GH-2479)
+class AuthRequest(BaseModel):
+    """Request model for checking the credentials of a provider and network."""
+
+    model_config = {"extra": "forbid"}
+
+    provider: str
+    network: str
+    debug: _DebugField = False
+
+
+class CoverageRequest(BaseModel):
+    """Request model for listing providers and networks, or the resolutions, datasets and parameters of one."""
+
+    model_config = {"extra": "forbid"}
+
+    provider: str | None = None
+    network: str | None = None
+    resolutions: str | None = None
+    datasets: str | None = None
+    pretty: _PrettyField = False
+    debug: _DebugField = False
+
+
+class GlossaryRequest(BaseModel):
+    """Request model for looking up the canonical parameters."""
+
+    model_config = {"extra": "forbid"}
+
+    parameter: str | None = None
+    unit_type: UnitType | None = None
+    limit: int | None = None
+    debug: _DebugField = False
+
+
+class AlertsRequest(_RefusesRenamedParameters):
+    """Request model for the DWD weather alerts."""
+
+    model_config = {"extra": "forbid"}
+
+    granularity: Literal["community", "district"] = "community"
+    language: Literal["de", "en", "es", "fr", "mul"] = "en"
+    timestamp: str | None = None
+    format: Literal["json", "geojson", "csv"] = "json"
+    pretty: _PrettyField = False
+    debug: _DebugField = False
+
+
 # what a request can provoke on its way through `get_values`, `get_interpolate` and
 # `get_summarize` besides the refusals the REST API's handlers name: a date, period, parameter,
 # bounding box, point or issue that cannot be served as given, or a station the lookup does not
@@ -1422,6 +1473,18 @@ class StripesData(BaseModel):
 
 # Type definitions for CLIMATE_STRIPES_CONFIG
 StripesKind = Literal["temperature", "precipitation"]
+
+
+class StripesStationsRequest(BaseModel):
+    """Request model for listing the stations climate stripes are made for, forbidding other parameters (GH-2479)."""
+
+    model_config = {"extra": "forbid"}
+
+    kind: StripesKind
+    active: bool = True
+    format: Literal["json", "geojson", "csv"] = "json"
+    pretty: _PrettyField = False
+    debug: _DebugField = False
 
 
 class StripesRequest(BaseModel):

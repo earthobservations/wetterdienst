@@ -556,11 +556,11 @@ class Settings(BaseSettings):
         Built here rather than in the field's default so that the two radii, which are fields of
         their own and may themselves be overridden, are already known.
 
-        Runs more than once on the same instance -- `Settings.model_validate(settings)` re-runs
-        every after-validator, and `TimeseriesRequest` does exactly that -- so the overrides are
+        Runs more than once on the same instance -- every assignment to a field re-runs it
+        (`validate_assignment`), as does `Settings.model_validate(settings)` -- so the overrides are
         captured only the first time. Expanding the expansion would take the whole table for
-        overrides the user never wrote, which would then outrank a radius set afterwards. Every
-        assignment to a field runs it again too, so a radius assigned reaches the mapping at once.
+        overrides the user never wrote, which would then outrank a radius set afterwards. Re-running
+        on assignment is also what makes a radius assigned reach the mapping at once.
 
         The mapping is written past validation: assigning it would validate it, which runs this
         validator again without end.
