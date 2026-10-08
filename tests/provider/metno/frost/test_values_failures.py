@@ -186,3 +186,17 @@ def test_metno_frost_values_discovery_failure_is_warned_about(
     assert all(message.startswith("Failed to download ") for message in warned)
     assert all("availableTimeSeries" in message for message in warned)
     assert not any("timeseriesids=" in url for url in seen)
+
+
+@pytest.mark.parametrize("status", [404, 412])
+def test_metno_frost_values_no_time_series_is_no_data(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    status: int,
+) -> None:
+    """Test that a 404 or 412 for the available time series, Frost's answer for none, goes unwarned."""
+    values, _seen = _values(monkeypatch, lambda url: _failed(url, status if "availableTimeSeries" in url else 404))
+    with caplog.at_level("WARNING", logger=LOGGER):
+        df = values.all().df
+    assert df.is_empty()
+    assert [record for record in caplog.records if record.name == LOGGER] == []

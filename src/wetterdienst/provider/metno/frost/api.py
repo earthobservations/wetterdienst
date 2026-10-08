@@ -647,7 +647,8 @@ class MetnoFrostValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        if avail_file.is_no_internet_error:
+        # as for the observations below, a 404 or 412 says there is nothing, not that the request failed
+        if avail_file.is_no_internet_error or avail_file.status in (404, 412):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         if isinstance(avail_file.content, Exception):
             log.warning(f"Failed to download {avail_url}: {avail_file.content}")
