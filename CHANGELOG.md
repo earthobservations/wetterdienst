@@ -26,6 +26,10 @@ Types of changes:
 
 ### Fixed
 
+- `/api/stations`, `/api/values`, `/api/interpolate`, `/api/summarize`, `/api/history` and
+  `/api/issues` log an unknown provider or network as one info line, as do the first five for a
+  network without stations or values (`dwd/radar`, `dwd/alerts`), and `/api/history` one without
+  station history. They logged an error with its traceback; the 404 is unchanged (GH-2532)
 - `WD_AUTH__CEDA` written as a pair that is not valid JSON (`[user, pa:ss]`) is refused by
   `check_settings()` and `Settings()`; with a colon in it, it was split there into a username and
   password still holding the brackets, and failed at CEDA. A pair given in Python as valid JSON
