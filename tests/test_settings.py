@@ -1751,3 +1751,171 @@ def test_settings_auth_metno_frost_reads_whitespace_only_text_as_unset(
     settings = Settings()
     settings.auth.metno_frost = value
     assert settings.auth.metno_frost is None
+
+
+_PADDINGS = ["\n", " ", "\t", "\r\n", "\xa0", "\N{LINE SEPARATOR}", "\x1f"]
+_PADDING_IDS = ["newline", "space", "tab", "crlf", "nbsp", "line-separator", "unit-separator"]
+
+
+def _revealed_pair(pair: tuple[SecretStr, SecretStr] | None) -> tuple[str | None, ...] | None:
+    return None if pair is None else tuple(reveal(part) for part in pair)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("name", ["knmi", "aemet"])
+@pytest.mark.parametrize("padding", _PADDINGS, ids=_PADDING_IDS)
+def test_settings_auth_key_is_kept_without_its_padding(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    padding: str,
+) -> None:
+    """A KNMI or AEMET key is kept without the whitespace around it, as it came from a `.env` value (GH-2557)."""
+    padded = f"{padding}DUMMY-KEY{padding}"
+    monkeypatch.setenv(f"WD_AUTH__{name.upper()}", padded)
+    assert check_settings() == []
+    assert reveal(getattr(Settings().auth, name)) == "DUMMY-KEY"
+    monkeypatch.delenv(f"WD_AUTH__{name.upper()}")
+    assert reveal(getattr(Settings(auth={name: padded}).auth, name)) == "DUMMY-KEY"
+    assert reveal(getattr(Settings(auth={name: SecretStr(padded)}).auth, name)) == "DUMMY-KEY"
+    settings = Settings()
+    setattr(settings.auth, name, padded)
+    assert reveal(getattr(settings.auth, name)) == "DUMMY-KEY"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("name", ["knmi", "aemet"])
+@pytest.mark.parametrize("value", ["", "   ", "\n", "\t \r\n", "\xa0", "\x1f"])
+def test_settings_auth_key_of_whitespace_only_reads_as_unset(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    value: str,
+) -> None:
+    """A KNMI or AEMET key of nothing but whitespace is unset, as an empty value is (GH-2557)."""
+    monkeypatch.setenv(f"WD_AUTH__{name.upper()}", value)
+    assert check_settings() == []
+    assert getattr(Settings().auth, name) is None
+    monkeypatch.delenv(f"WD_AUTH__{name.upper()}")
+    assert getattr(Settings(auth={name: value}).auth, name) is None
+    assert getattr(Settings(auth={name: SecretStr(value)}).auth, name) is None
+    settings = Settings()
+    setattr(settings.auth, name, value)
+    assert getattr(settings.auth, name) is None
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("name", ["knmi", "aemet"])
+def test_settings_auth_key_still_refuses_a_padded_mask(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
+    """A mask with whitespace around it is still the mask a dumped credential leaves behind (GH-2557)."""
+    monkeypatch.setenv(f"WD_AUTH__{name.upper()}", f"{'*' * 10}\n")
+    assert len(check_settings()) == 1
+    with pytest.raises(ValidationError, match="mask a dumped credential"):
+        Settings(auth={name: f" {'*' * 10} "})
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("padding", _PADDINGS, ids=_PADDING_IDS)
+def test_settings_auth_ceda_is_kept_without_the_padding_of_either_half(
+    monkeypatch: pytest.MonkeyPatch,
+    padding: str,
+) -> None:
+    """A CEDA username and password are each kept without their padding, in text and in a pair (GH-2557)."""
+    text = f"{padding}DUMMY-USER{padding}:{padding}DUMMY:PASSWORD{padding}"
+    padded_pair = [f"{padding}DUMMY-USER{padding}", f"{padding}DUMMY:PASSWORD{padding}"]
+    expected = ("DUMMY-USER", "DUMMY:PASSWORD")
+    monkeypatch.setenv("WD_AUTH__CEDA", text)
+    assert check_settings() == []
+    assert _revealed_pair(Settings().auth.ceda) == expected
+    monkeypatch.setenv("WD_AUTH__CEDA", json.dumps(padded_pair))
+    assert _revealed_pair(Settings().auth.ceda) == expected
+    monkeypatch.delenv("WD_AUTH__CEDA")
+    for given in (text, SecretStr(text), tuple(padded_pair), [SecretStr(part) for part in padded_pair]):
+        assert _revealed_pair(Settings(auth={"ceda": given}).auth.ceda) == expected
+    settings = Settings()
+    settings.auth.ceda = text
+    assert _revealed_pair(settings.auth.ceda) == expected
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "value",
+    ["   ", "\n", ":secret", "  :secret", "\n:secret\n", '["", "secret"]', '[" ", "secret"]'],
+)
+def test_settings_auth_ceda_reads_a_blank_username_as_unset(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    """CEDA text of nothing but whitespace, or a pair whose username is blank, is unset (GH-2557)."""
+    monkeypatch.setenv("WD_AUTH__CEDA", value)
+    assert check_settings() == []
+    assert Settings().auth.ceda is None
+    monkeypatch.delenv("WD_AUTH__CEDA")
+    assert Settings(auth={"ceda": value}).auth.ceda is None
+    assert Settings(auth={"ceda": SecretStr(value)}).auth.ceda is None
+    assert Settings(auth={"ceda": ("", "secret")}).auth.ceda is None
+    assert Settings(auth={"ceda": (" \n", "secret")}).auth.ceda is None
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_ceda_keeps_a_blank_password(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A blank password is still a password, as it was: only a blank username reads as unset (GH-2557)."""
+    monkeypatch.setenv("WD_AUTH__CEDA", "DUMMY-USER: \n")
+    assert _revealed_pair(Settings().auth.ceda) == ("DUMMY-USER", "")
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("padding", _PADDINGS, ids=_PADDING_IDS)
+def test_settings_auth_metno_frost_pair_is_kept_without_the_padding_of_its_elements(
+    monkeypatch: pytest.MonkeyPatch,
+    padding: str,
+) -> None:
+    """Each element of a Frost pair is kept without its padding, as a lone client id is (GH-2557)."""
+    client_id = "8e1b6a2c-3f4d-4c5e-9a7b-0d1e2f3a4b5c"
+    expected = (client_id, "DUMMY-SECRET")
+    padded_id, padded_secret = f"{padding}{client_id}{padding}", f"{padding}DUMMY-SECRET{padding}"
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", json.dumps([padded_id, padded_secret]))
+    assert check_settings() == []
+    assert _revealed_pair(Settings().auth.metno_frost) == expected
+    monkeypatch.delenv("WD_AUTH__METNO_FROST")
+    for given in (
+        (padded_id, padded_secret),
+        [SecretStr(padded_id), SecretStr(padded_secret)],
+        json.dumps([padded_id, padded_secret]),
+    ):
+        assert _revealed_pair(Settings(auth={"metno_frost": given}).auth.metno_frost) == expected
+    assert _revealed_pair(Settings(auth={"metno_frost": (padded_id, None)}).auth.metno_frost) == (client_id, "")
+    settings = Settings()
+    settings.auth.metno_frost = (padded_id, padded_secret)
+    assert _revealed_pair(settings.auth.metno_frost) == expected
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "given",
+    [
+        ("", ""),
+        ("", None),
+        (" ", "secret"),
+        ("\n", "secret"),
+        (SecretStr(" "), SecretStr("secret")),
+        '["", ""]',
+        '[" ", ""]',
+        '["\\n", "secret"]',
+    ],
+)
+def test_settings_auth_metno_frost_reads_a_pair_with_a_blank_client_id_as_unset(
+    monkeypatch: pytest.MonkeyPatch,
+    given: object,
+) -> None:
+    """A Frost pair with a blank client id is unset, as a lone blank one is, not empty Basic auth (GH-2557)."""
+    assert Settings(auth={"metno_frost": given}).auth.metno_frost is None
+    settings = Settings()
+    settings.auth.metno_frost = given
+    assert settings.auth.metno_frost is None
+    if isinstance(given, str):
+        monkeypatch.setenv("WD_AUTH__METNO_FROST", given)
+        assert check_settings() == []
+        assert Settings().auth.metno_frost is None
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_metno_frost_pair_still_refuses_a_null_client_id() -> None:
+    """A client id that is no text at all is refused as it was, not read as a blank one (GH-2557)."""
+    with pytest.raises(ValidationError, match="metno_frost"):
+        Settings(auth={"metno_frost": (None, "secret")})

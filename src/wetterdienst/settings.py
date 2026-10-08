@@ -71,6 +71,19 @@ def _as_given(value: object) -> object:
     return value
 
 
+def _stripped(value: object) -> object:
+    """Pass a credential, or an element of a pair, on without the whitespace around its text (GH-2557).
+
+    A secret is read out for it, and the field wraps the text again. An element that is no text is
+    passed on as `_as_given` does, for the field to refuse or take.
+    """
+    if isinstance(value, SecretStr):
+        value = value.get_secret_value()
+    if isinstance(value, str):
+        return value.strip()
+    return _as_given(value)
+
+
 def reveal(secret: SecretStr | None) -> str | None:
     """Return what a secret holds, or None where there is no secret.
 
@@ -121,6 +134,18 @@ class Auth(BaseModel):
                 raise ValueError(msg)
         return value
 
+    @field_validator("aemet", "knmi", mode="before")
+    @classmethod
+    def strip_a_key(cls, value: object) -> object:
+        """Keep a key without the whitespace around it, text of nothing but whitespace reading as unset.
+
+        The padding arrives from a `.env` value or a file saved with CRLF endings, and was sent to the
+        provider as part of the key, which refused it with nothing to say why (GH-2557). Anything that
+        is not text is left for the field to refuse.
+        """
+        value = _stripped(value)
+        return None if value == "" else value
+
     @field_validator("metno_frost", mode="before")
     @classmethod
     def validate_metno_frost(
@@ -134,7 +159,9 @@ class Auth(BaseModel):
         decoded as JSON, and refused where it does not decode (GH-2464). Other text is refused, before
         any decoding, where it holds a character a client id cannot, such as `id:secret` (GH-2487). A
         lone client id is the text stripped of the whitespace around it, and text of nothing but
-        whitespace, or an empty one, is no client id but unset (GH-2542). A mapping, or any other
+        whitespace, or an empty one, is no client id but unset (GH-2542). The same goes for the
+        elements of a pair: each is kept without its padding, and a pair whose client id is blank is
+        unset, as a lone one is, where it sent empty Basic auth (GH-2557). A mapping, or any other
         value that is not iterable -- a float, `true`, a JSON object -- is left for the field to
         refuse, which names it, where reading it as a pair failed with a bare `TypeError` or took
         the object's keys (GH-2379).
@@ -184,9 +211,11 @@ class Auth(BaseModel):
         if len(as_tuple) != 2:
             msg = f"metno_frost must be a (client_id, secret) pair, got {len(as_tuple)} element(s)"
             raise ValueError(msg)
-        client_id, secret = as_tuple
+        client_id, secret = _stripped(as_tuple[0]), as_tuple[1]
+        if client_id == "":
+            return None
         # a client id with no secret, as a lone client id gives (GH-2434)
-        return _as_given(client_id), "" if secret is None else _as_given(secret)
+        return client_id, "" if secret is None else _stripped(secret)
 
     @field_validator("ceda", mode="before")
     @classmethod
@@ -200,7 +229,9 @@ class Auth(BaseModel):
         object, which the environment decodes as JSON -- is left for the field to refuse, which names
         it, where reading it as a pair failed with a bare `TypeError` or took the object's keys
         (GH-2379). Text starting with `[` is a pair, not `username:password`: it is decoded as JSON,
-        and refused where it does not decode (GH-2483).
+        and refused where it does not decode (GH-2483). Each half is kept without the whitespace
+        around it, and text of nothing but whitespace, or a pair with a blank username, is unset
+        (GH-2557).
         """
         if value is None:
             return None
@@ -209,6 +240,8 @@ class Auth(BaseModel):
             # again by the field
             value = value.get_secret_value()
         if isinstance(value, str):
+            if not value.strip():
+                return None
             # an account name is not expected to start with `[`, so such text is a pair: the
             # environment hands one on as its raw text where it is not valid JSON, and it was split
             # at the first colon in it, brackets and quotes kept in both halves. One given as text in
@@ -230,14 +263,16 @@ class Auth(BaseModel):
                 if not sep:
                     msg = "ceda must be given as 'username:password'"
                     raise ValueError(msg)
-                return username, password
+                username = username.strip()
+                return (username, password.strip()) if username else None
         if isinstance(value, Mapping) or not isinstance(value, Iterable):
             return value
         as_tuple = tuple(value)
         if len(as_tuple) != 2:
             msg = f"ceda must be a (username, password) pair, got {len(as_tuple)} element(s)"
             raise ValueError(msg)
-        return _as_given(as_tuple[0]), _as_given(as_tuple[1])
+        username = _stripped(as_tuple[0])
+        return (username, _stripped(as_tuple[1])) if username != "" else None
 
 
 #: how far a station may be from the target point to still be used, in km
