@@ -442,3 +442,22 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
         ("hourly", "rf", 49),
         ("hourly", "tl", 49),
     ]
+
+
+@pytest.mark.parametrize("resolution", ["daily", "monthly"])
+@freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
+def test_geosphere_observation_values_of_one_daily_or_monthly_parameter_are_one_request(
+    monkeypatch: pytest.MonkeyPatch,
+    resolution: str,
+) -> None:
+    """Test that one parameter at a resolution that never needs windows still asks for the whole record (GH-2517).
+
+    The window is 400,000 timestamps, as many as the API would take, and for months that is 30,000
+    years, beyond what a date can hold when added to the start.
+    """
+    start = datetime(1900, 1, 1, tzinfo=ZoneInfo("UTC"))
+    requests = _serve_archive_of_parameters(monkeypatch, timedelta(days=30), start, start + timedelta(days=90))
+    request = GeosphereObservationRequest(parameters=[(resolution, "data", "temperature_air_mean_2m")])
+    df = request.filter_by_station_id("4821").values.all().df
+    assert len(requests) == 1
+    assert df.height == 4
