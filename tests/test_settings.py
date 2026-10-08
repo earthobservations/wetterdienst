@@ -1701,3 +1701,53 @@ def test_settings_auth_metno_frost_names_a_lone_mask_as_one(monkeypatch: pytest.
         assert len(check_settings()) == 1
         with pytest.raises(ValidationError, match="is not a client id"):
             Settings(auth={"metno_frost": padded})
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "padding",
+    ["\n", " ", "\t", "\r\n", "\xa0", "\N{LINE SEPARATOR}", "\x1f"],
+    ids=["newline", "space", "tab", "crlf", "nbsp", "line-separator", "unit-separator"],
+)
+def test_settings_auth_metno_frost_keeps_a_lone_client_id_without_its_padding(
+    monkeypatch: pytest.MonkeyPatch,
+    padding: str,
+) -> None:
+    r"""A lone client id is kept as the stripped text that was checked, not with its padding (GH-2542).
+
+    A newline arrives from a `.env` value, a `\r` from a file saved with CRLF endings. `str.strip()` also removes NBSP,
+    U+2028 and the control characters \x1c-\x1f, which are no more part of a client id.
+    """
+    client_id = "8e1b6a2c-3f4d-4c5e-9a7b-0d1e2f3a4b5c"
+    padded = f"{padding}{client_id}{padding}"
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", padded)
+    assert check_settings() == []
+    assert tuple(reveal(part) for part in Settings().auth.metno_frost) == (client_id, "")
+    monkeypatch.delenv("WD_AUTH__METNO_FROST")
+    builds: list[Callable[[], Settings]] = [
+        lambda: Settings(auth={"metno_frost": padded}),
+        lambda: Settings(auth={"metno_frost": SecretStr(padded)}),
+    ]
+    for build in builds:
+        assert tuple(reveal(part) for part in build().auth.metno_frost) == (client_id, "")
+    settings = Settings()
+    settings.auth.metno_frost = padded
+    assert tuple(reveal(part) for part in settings.auth.metno_frost) == (client_id, "")
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("value", ["", "   ", "\n", "\t \r\n", "\xa0", "\N{LINE SEPARATOR}", "\x1f"])
+def test_settings_auth_metno_frost_reads_whitespace_only_text_as_unset(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    """Text of nothing but whitespace is no client id, and reads as unset as an empty value does (GH-2542)."""
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", value)
+    assert check_settings() == []
+    assert Settings().auth.metno_frost is None
+    monkeypatch.delenv("WD_AUTH__METNO_FROST")
+    assert Settings(auth={"metno_frost": value}).auth.metno_frost is None
+    assert Settings(auth={"metno_frost": SecretStr(value)}).auth.metno_frost is None
+    settings = Settings()
+    settings.auth.metno_frost = value
+    assert settings.auth.metno_frost is None
