@@ -26,6 +26,10 @@ Types of changes:
 
 ### Fixed
 
+- KNMI and AEMET stations and values requested with no network, or with a connection that cannot
+  be made (refused, DNS or TLS handshake failure), no longer wait through two more attempts per
+  URL, 2 s and more apart, before returning empty: `download_file`'s own two attempts are all
+  there are. The retries for an HTTP 503 and for a 429 are unchanged (GH-2499)
 - `dwd/road` raises a `DownloadError` when every file of a station group fails with an error
   response or a timeout (403, 5xx); the request used to return an empty frame. When only some
   files fail, the readings of the others are returned and a warning names how many of how many
