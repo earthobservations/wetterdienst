@@ -19,6 +19,8 @@ from wetterdienst.util.network import File
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from wetterdienst.provider.metno.frost.api import MetnoFrostValues
+
 START = dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))
 END = dt.datetime(2020, 1, 2, tzinfo=ZoneInfo("UTC"))
 LOGGER = "wetterdienst.provider.metno.frost.api"
@@ -64,7 +66,7 @@ def _failed(url: str, status: int) -> File:
     return File(url=url, content=OSError(f"upstream answered {status}"), status=status)
 
 
-def _values(monkeypatch: pytest.MonkeyPatch, observations: Callable[[str], File]) -> tuple[object, list[str]]:
+def _values(monkeypatch: pytest.MonkeyPatch, observations: Callable[[str], File]) -> tuple[MetnoFrostValues, list[str]]:
     """Give the values of one station, the stations and the observations answered as stubbed."""
     monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
     seen: list[str] = []
@@ -165,7 +167,7 @@ def test_metno_frost_values_discovered_series_failure_is_warned_about(
         df = values.all().df
     assert df.is_empty()
     warned = [record.getMessage() for record in caplog.records if record.name == LOGGER]
-    assert warned
+    assert len(warned) == len(values.sr.parameters[0].dataset.parameters)
     assert all(
         message.startswith("Failed to download ") and message.endswith(": upstream answered 500") for message in warned
     )
@@ -182,7 +184,7 @@ def test_metno_frost_values_discovery_failure_is_warned_about(
         df = values.all().df
     assert df.is_empty()
     warned = [record.getMessage() for record in caplog.records if record.name == LOGGER]
-    assert warned
+    assert len(warned) == len(values.sr.parameters[0].dataset.parameters)
     assert all(message.startswith("Failed to download ") for message in warned)
     assert all("availableTimeSeries" in message for message in warned)
     assert not any("timeseriesids=" in url for url in seen)
