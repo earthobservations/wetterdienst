@@ -51,10 +51,11 @@ Types of changes:
   holding a character but an ASCII letter, digit or `-`, with a message naming the form
   `["client_id", "secret"]`; it was taken whole as the client id, secret included, and Frost
   refused the credential later. `check_settings()` reports it too (GH-2487)
-- A lone `WD_AUTH__METNO_FROST` client id is kept without the whitespace around it, such as the
-  newline `$(cat file)` leaves, an NBSP or U+2028; it was sent to Frost with the padding and
-  refused there. Text of nothing but whitespace reads as unset, as an empty value does, where it
-  counted as a configured client id (GH-2542)
+- A lone `WD_AUTH__METNO_FROST` client id is kept without the whitespace around it, such as a
+  newline in a `.env` value, the `\r` of a CRLF file, an NBSP or U+2028; it was sent to Frost with
+  the padding and refused there. Text of nothing but whitespace, or `""` given in Python, reads as
+  unset, as an empty value in the environment does, where it counted as a configured client id
+  (GH-2542)
 
 ## [0.142.0] - 2026-10-08
 

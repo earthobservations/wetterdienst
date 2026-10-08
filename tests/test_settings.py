@@ -1715,7 +1715,7 @@ def test_settings_auth_metno_frost_keeps_a_lone_client_id_without_its_padding(
 ) -> None:
     r"""A lone client id is kept as the stripped text that was checked, not with its padding (GH-2542).
 
-    A trailing newline arrives from `$(cat file)` or a `.env` line. `str.strip()` also removes NBSP,
+    A newline arrives from a `.env` value, a `\r` from a file saved with CRLF endings. `str.strip()` also removes NBSP,
     U+2028 and the control characters \x1c-\x1f, which are no more part of a client id.
     """
     client_id = "8e1b6a2c-3f4d-4c5e-9a7b-0d1e2f3a4b5c"
@@ -1736,7 +1736,7 @@ def test_settings_auth_metno_frost_keeps_a_lone_client_id_without_its_padding(
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("value", ["   ", "\n", "\t \r\n", "\xa0", "\N{LINE SEPARATOR}", "\x1f"])
+@pytest.mark.parametrize("value", ["", "   ", "\n", "\t \r\n", "\xa0", "\N{LINE SEPARATOR}", "\x1f"])
 def test_settings_auth_metno_frost_reads_whitespace_only_text_as_unset(
     monkeypatch: pytest.MonkeyPatch,
     value: str,

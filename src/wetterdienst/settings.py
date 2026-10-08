@@ -133,6 +133,8 @@ class Auth(BaseModel):
         where it parses, and is still an id. Text starting with `[` is a pair, not a client id: it is
         decoded as JSON, and refused where it does not decode (GH-2464). Other text is refused, before
         any decoding, where it holds a character a client id cannot, such as `id:secret` (GH-2487). A
+        lone client id is the text stripped of the whitespace around it, and text of nothing but
+        whitespace, or an empty one, is no client id but unset (GH-2542). A
         mapping, or any other value that is not iterable -- a float, `true`, a JSON object -- is left
         for the field to refuse, which names it, where reading it as a pair failed with a bare
         `TypeError` or took the object's keys (GH-2379).
@@ -160,10 +162,10 @@ class Auth(BaseModel):
                         'write a pair as ["client_id", "secret"]'
                     )
                     raise ValueError(msg)
-                # the client id is the stripped text, as it is the text that was checked: a trailing
-                # newline from `$(cat file)` or a `.env` line, or an NBSP, was sent on as part of the
-                # id. Text with nothing but whitespace is no client id, and reads as unset, as an
-                # empty value does (GH-2542)
+                # the client id is the stripped text, as it is the text that was checked: a newline
+                # from a `.env` value, a `\r` from a file saved with CRLF endings, or an NBSP was
+                # sent on as part of the id. Text with nothing but whitespace, or none, is no client
+                # id, and reads as unset, as an empty value in the environment does (GH-2542)
                 return (text, "") if text else None
             # decoding text that starts with `[` gives a list or fails: a `JSONDecodeError`, a
             # `ValueError` for an integer too long to convert, a `RecursionError` for nesting too
