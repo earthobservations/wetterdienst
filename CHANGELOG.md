@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.142.0] - 2026-10-08
+
 ### Changed
 
 - **Breaking**: a station history's records -- station and operator names, parameters, devices,
@@ -4011,7 +4013,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.141.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.142.0...HEAD
+[0.142.0]: https://github.com/earthobservations/wetterdienst/compare/v0.141.0...v0.142.0
 [0.141.0]: https://github.com/earthobservations/wetterdienst/compare/v0.140.0...v0.141.0
 [0.140.0]: https://github.com/earthobservations/wetterdienst/compare/v0.139.0...v0.140.0
 [0.139.0]: https://github.com/earthobservations/wetterdienst/compare/v0.138.0...v0.139.0
