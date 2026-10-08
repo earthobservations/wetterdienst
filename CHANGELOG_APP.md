@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-08
+
 ### Changed
 
 - `[History]` The page reads each record's span from `valid_from` and `valid_to`, as the backend now
@@ -1055,7 +1057,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.1...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.19.0...HEAD
+[0.19.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.1...app-v0.19.0
 [0.18.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.0...app-v0.18.1
 [0.18.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.17.0...app-v0.18.0
 [0.17.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.16.0...app-v0.17.0
