@@ -128,8 +128,12 @@ class TimeseriesRequest:
         if not self._values:
             msg = f"{self.__class__.__name__}._values not implemented"
             raise NotImplementedError(msg)
-        # Convert settings to a validated model
-        self.settings = Settings.model_validate(self.settings)
+        # Convert settings given as a dict to a validated model. A `Settings` object is used as it is:
+        # one built the usual way was validated at construction and on every assignment since, and
+        # validating it again only re-ran its after-validators, which logged the cache line a second
+        # time (GH-2476). One built with `model_construct` skipped validation on purpose
+        if not isinstance(self.settings, Settings):
+            self.settings = Settings.model_validate(self.settings)
         # Convert timestamps
         self.start, self.end = self.convert_timestamps(self.start, self.end)
         # Parse parameters
@@ -515,7 +519,7 @@ class TimeseriesRequest:
             msg = "threshold must be between 0.0 and 1.0"
             raise ValueError(msg)
 
-        df = self.all().df
+        df_all = self.all().df
 
         # WRatio (rapidfuzz's weighted composite of ratio/partial/token-sort/token-set with
         # length-ratio guards) so a short place query matches longer station names: "Kiel" ->
@@ -526,7 +530,7 @@ class TimeseriesRequest:
         # otherwise defaults to its own limit (5) and the rank argument would be silently ignored.
         station_match = process.extract(
             query=name,
-            choices=df.get_column("name"),
+            choices=df_all.get_column("name"),
             scorer=fuzz.WRatio,
             score_cutoff=threshold * 100,
             processor=fuzz_utils.default_process,
@@ -535,9 +539,9 @@ class TimeseriesRequest:
 
         if station_match:
             station_name = [station[0] for station in station_match]
-            df = df.filter(pl.col("name").is_in(station_name))
+            df = df_all.filter(pl.col("name").is_in(station_name))
         else:
-            df = pl.DataFrame(schema=df.schema)
+            df = pl.DataFrame(schema=df_all.schema)
 
         if df.is_empty():
             log.info(f"No weather stations were found for name {name}")
@@ -545,7 +549,7 @@ class TimeseriesRequest:
         return StationsResult(
             stations=self,
             df=df,
-            df_all=self.all().df,
+            df_all=df_all,
             stations_filter=StationsFilter.BY_NAME,
             rank=rank,
         )
@@ -588,9 +592,9 @@ class TimeseriesRequest:
             raise ValueError(msg)
         # setup spatial parameters
         q_lat, q_lon = latlon
-        df = self.all().df
-        latitudes = df.get_column("latitude").to_arrow()
-        longitudes = df.get_column("longitude").to_arrow()
+        df_all = self.all().df
+        latitudes = df_all.get_column("latitude").to_arrow()
+        longitudes = df_all.get_column("longitude").to_arrow()
         distances = derive_nearest_neighbours(
             latitudes=latitudes,
             longitudes=longitudes,
@@ -600,7 +604,7 @@ class TimeseriesRequest:
         # add distances and sort by distance. A station without a position has none, and a null
         # sorts first, ahead of the nearest station: it is left out, as `filter_by_distance` and
         # `filter_by_bbox` leave it out (GH-2380)
-        df = df.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias("distance"))
+        df = df_all.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias("distance"))
         located = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"])
         if located.is_empty() and not df.is_empty():
             log.info("None of the stations has a position to be ranked by")
@@ -608,7 +612,7 @@ class TimeseriesRequest:
         return StationsResult(
             stations=self,
             df=df,
-            df_all=self.all().df,
+            df_all=df_all,
             stations_filter=StationsFilter.BY_RANK,
             rank=rank,
         )
@@ -636,9 +640,11 @@ class TimeseriesRequest:
 
         distance_in_km = guess(distance, unit, [Distance]).km
 
-        all_nearby_stations = self.filter_by_rank(latlon, self.all().df.shape[0]).df
+        # the rank only limits value collection later on: `df` holds every located station whatever
+        # it is, so asking for one spares building the station index again just to count it
+        ranked = self.filter_by_rank(latlon, rank=1)
 
-        df = all_nearby_stations.filter(pl.col("distance").le(distance_in_km))
+        df = ranked.df.filter(pl.col("distance").le(distance_in_km))
 
         if df.is_empty():
             log.info("No weather stations were found for the provided coordinates")
@@ -646,7 +652,7 @@ class TimeseriesRequest:
         return StationsResult(
             stations=self,
             df=df,
-            df_all=self.all().df,
+            df_all=ranked.df_all,
             stations_filter=StationsFilter.BY_DISTANCE,
         )
 
@@ -673,9 +679,9 @@ class TimeseriesRequest:
             msg = "bbox bottom border should be smaller then top"
             raise InvalidBoundingBoxError(msg)
 
-        df = self.all().df
+        df_all = self.all().df
 
-        df = df.filter(
+        df = df_all.filter(
             pl.col("latitude").is_between(bottom, top, closed="both")
             & pl.col("longitude").is_between(left, right, closed="both"),
         )
@@ -683,7 +689,7 @@ class TimeseriesRequest:
         if df.is_empty():
             log.info(f"No weather stations were found for bbox {left}/{bottom}/{top}/{right}")
 
-        return StationsResult(stations=self, df=df, df_all=self.all().df, stations_filter=StationsFilter.BY_BBOX)
+        return StationsResult(stations=self, df=df, df_all=df_all, stations_filter=StationsFilter.BY_BBOX)
 
     def filter_by_sql(self, sql: str) -> StationsResult:
         """Filter stations by SQL query.
@@ -774,7 +780,7 @@ class TimeseriesRequest:
         stations_result = StationsResult(
             stations=self,
             df=df_stations,
-            df_all=self.all().df,
+            df_all=df_stations_all,
             stations_filter=StationsFilter.BY_STATION_ID,
         )
         return InterpolatedValuesResult(
@@ -871,7 +877,7 @@ class TimeseriesRequest:
         stations_result = StationsResult(
             stations=self,
             df=df_stations,
-            df_all=self.all().df,
+            df_all=df_stations_all,
             stations_filter=StationsFilter.BY_STATION_ID,
         )
         return SummarizedValuesResult(

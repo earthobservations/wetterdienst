@@ -11,6 +11,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.imgw.meteorology.api import (
     _ABSENT_DAY_NO_PHENOMENON,
@@ -1049,7 +1050,7 @@ def test_imgw_meteorology_raises_a_failed_download_and_drops_a_missing_file(monk
     monkeypatch.setattr(values, "_get_urls", lambda _dataset, _station_id: ["unused"])
     dataset = ImgwMeteorologyMetadata.daily.climate
     monkeypatch.setattr(imgw_meteorology_api, "download_files", lambda **_kwargs: [missing, failed])
-    with pytest.raises(ConnectionError):
+    with pytest.raises(DownloadError):
         values._collect_station_parameter_or_dataset("249180010", dataset)  # noqa: SLF001
     monkeypatch.setattr(imgw_meteorology_api, "download_files", lambda **_kwargs: [missing])
     assert values._collect_station_parameter_or_dataset("249180010", dataset).is_empty()  # noqa: SLF001

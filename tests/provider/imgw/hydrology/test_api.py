@@ -9,6 +9,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyRequest
 
 
@@ -252,7 +253,7 @@ def test_imgw_hydrology_raises_a_failed_download_and_drops_a_missing_file(monkey
     monkeypatch.setattr(values, "_get_urls", lambda _dataset: ["unused"])
     dataset = ImgwHydrologyMetadata.daily.hydrology
     monkeypatch.setattr(imgw_hydrology_api, "download_files", lambda **_kwargs: [missing, failed])
-    with pytest.raises(ConnectionError):
+    with pytest.raises(DownloadError):
         values._collect_station_parameter_or_dataset("149180020", dataset)  # noqa: SLF001
     monkeypatch.setattr(imgw_hydrology_api, "download_files", lambda **_kwargs: [missing])
     assert values._collect_station_parameter_or_dataset("149180020", dataset).is_empty()  # noqa: SLF001

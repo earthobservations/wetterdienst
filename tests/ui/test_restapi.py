@@ -6458,7 +6458,7 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
     )
 
     assert response.status_code == 500
-    assert response.json()["detail"] == f"503, message='Service Unavailable', url='{url}'"
+    assert response.json()["detail"] == f"Failed to download {url}: 503, message='Service Unavailable'"
 
 
 _GEO_REFUSALS = [
@@ -6715,6 +6715,53 @@ def test_stations_output_schemas_name_the_span_as_the_frame_does(client: TestCli
     assert not {"start_date", "end_date"} & set(schema["properties"])
 
 
+def test_values_a_timed_out_download_names_the_file(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A download that timed out answers a 500 naming the file, where its `detail` was empty (GH-2460)."""
+    from fsspec.exceptions import FSTimeoutError  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import api as dwd_observation_api  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import download as dwd_observation_download  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    station = {
+        "resolution": "annual",
+        "dataset": "climate_summary",
+        "station_id": "01048",
+        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
+        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "latitude": 51.1278,
+        "longitude": 13.7543,
+        "elevation": 228.0,
+        "name": "Dresden-Klotzsche",
+        "region": "Sachsen",
+    }
+    url = "https://example.invalid/jahreswerte_KL_01048_19340101_20231231_hist.zip"
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame([station]))
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "create_file_list_for_climate_observations",
+        lambda *_args, **_kwargs: pl.Series([url]),
+    )
+    # what `download_file` hands back for a timeout that outlasted its retries
+    failed = File(url=url, content=FSTimeoutError(), status=408)
+    monkeypatch.setattr(dwd_observation_download, "download_files", lambda **_kwargs: [failed])
+
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "annual/climate_summary",
+            "periods": "historical",
+            "station": "01048",
+        },
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == f"Failed to download {url}: FSTimeoutError"
+
+
 # each endpoint whose query parameters were taken loose, with a request it would otherwise serve,
 # and what of it a refused request must not reach (GH-2479)
 _LOOSE_ENDPOINTS = [
@@ -6854,3 +6901,72 @@ def test_every_endpoint_refuses_an_unknown_parameter(client: TestClient, endpoin
         "msg": "Extra inputs are not permitted",
         "input": "1",
     } in (response.json()["detail"])
+
+
+@pytest.mark.parametrize(
+    ("params", "detail"),
+    [
+        pytest.param(
+            {**_OBSERVATION, "station": "01048", "timestamp": "foo"},
+            "date_string foo could not be parsed",
+            id="unparseable-date",
+        ),
+        pytest.param(
+            {**_OBSERVATION, "station": "01048", "timestamp": "2020/2021/2022"},
+            "Invalid ISO 8601 time interval",
+            id="three-part-interval",
+        ),
+        pytest.param(
+            {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
+            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            id="unknown-parameter",
+        ),
+        pytest.param(
+            {**_OBSERVATION, "station": "01048", "periods": "foo"},
+            "foo could not be parsed from Period.",
+            id="unknown-period",
+        ),
+    ],
+)
+def test_values_every_refusal_of_the_request_is_logged_as_info(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+    params: dict[str, str],
+    detail: str,
+) -> None:
+    """A request `/api/values` refuses is a 400 and one info line, as the geo endpoints log it (GH-2459).
+
+    Only a parameter the run does not carry and a window the wrong way round earned an info line;
+    every other refusal the endpoint answers with a 400 was logged as an error with its traceback.
+    """
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get("/api/values", params=params)
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+    records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [
+        (logging.INFO, f"Failed to get values: {detail}")
+    ]
+    assert not any(record.exc_info for record in records)
+
+
+def test_values_a_failure_that_is_not_a_refusal_is_still_logged_with_its_traceback(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """What is not the caller's to fix stays a 500 and an error with its traceback (GH-2459)."""
+    msg = "can only call '.item()' if the dataframe has a single element"
+
+    def fail() -> None:
+        raise ValueError(msg)
+
+    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get("/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
+    assert response.status_code == 500
+    assert response.json()["detail"] == msg
+    records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
+    assert [(record.levelno, record.getMessage()) for record in records] == [(logging.ERROR, "Failed to get values.")]
+    assert records[0].exc_info

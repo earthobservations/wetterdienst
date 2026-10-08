@@ -14,6 +14,9 @@ from the `hydrometrie/referentiel/stations` endpoint and each station's elevatio
 its hydrometric site, from `hydrometrie/referentiel/sites`. The API is key-less; no authentication
 is required.
 
+A station's `end_timestamp` is the closing date the referential gives it, and null where it gives
+none. Only stations in service are listed, and none of them had a closing date on 2026-10-07.
+
 A site publishes no altitude for about a quarter of the stations, and a few publish 0 or a value
 no ground in France lies at (-999 m, or 12 km and more); their `elevation` is null. The altitude
 of the gauge's zero, the datum a stage is read from, is listed separately as `gauge_zero`, and the
