@@ -16,12 +16,32 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the path of a `duckdb://` target is read as the path of a URI, as a `file://` one
+  is: `duckdb:////home/me/my%20data/obs.duckdb` opens `/home/me/my data/obs.duckdb`, where it
+  opened `obs.duckdb` in a directory named `my%20data` and failed if there was none. A path
+  holding a literal `%` followed by two hex digits, such as `%20`, must now write that `%` as
+  `%25` (`%2520`); a `%` not followed by two hex digits is read as before (GH-2515)
+
 ### Fixed
 
 - `/api/stations`, `/api/values`, `/api/interpolate`, `/api/summarize`, `/api/history` and
   `/api/issues` log an unknown provider or network as one info line, as do the first five for a
   network without stations or values (`dwd/radar`, `dwd/alerts`), and `/api/history` one without
   station history. They logged an error with its traceback; the 404 is unchanged (GH-2532)
+- `WD_AUTH__CEDA` written as a pair that is not valid JSON (`[user, pa:ss]`) is refused by
+  `check_settings()` and `Settings()`; with a colon in it, it was split there into a username and
+  password still holding the brackets, and failed at CEDA. A pair given in Python as valid JSON
+  text (`'["user", "pa:ss"]'`) is read as the pair. A `username:password` whose username starts
+  with `[` is read as a pair too, and refused; write it as `["username", "password"]` (GH-2483)
+- `wetterdienst about coverage --resolutions=...` or `--datasets=...` without `--provider` and
+  `--network` printed the catalogue of every provider with the filter dropped; it is now a usage
+  error (exit 2) naming the options it needs, as `/api/coverage` and the MCP `coverage` tool already
+  answer it with a 400. Add both options, or drop the filter (GH-2527)
+- `Settings` logs its `Wetterdienst cache is ...` line, and the `ts_drop_nulls` notice for a wide
+  shape, once when built, no longer again on every field assignment or
+  `Settings.model_validate(settings)`. A `ts_shape` assigned later logs nothing (GH-2504)
 
 ## [0.142.0] - 2026-10-08
 

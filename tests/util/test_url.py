@@ -3,6 +3,7 @@
 """Tests for URL utilities."""
 
 from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 
@@ -320,3 +321,31 @@ def test_file_target_path_round_trips_path_as_uri(tmp_path: Path) -> None:
     """The URI `Path.as_uri()` gives for a local path with a space, `%` and `#` names that path."""
     filepath = tmp_path.joinpath("my data", "100% #1.csv")
     assert Path(file_target_path(filepath.as_uri())) == filepath
+
+
+@pytest.mark.parametrize(
+    ("target", "database"),
+    [
+        pytest.param("duckdb:////home/me/my%20data/obs.duckdb", "/home/me/my data/obs.duckdb", id="absolute-encoded"),
+        pytest.param("duckdb:///out/my%20data/obs.duckdb?table=t", "out/my data/obs.duckdb", id="relative-encoded"),
+        pytest.param("duckdb:///obs.duckdb", "obs.duckdb", id="relative-stays-relative"),
+        pytest.param("duckdb:////data/obs.duckdb", "/data/obs.duckdb", id="absolute-stays-absolute"),
+        pytest.param("duckdb:///100%25/obs.duckdb", "100%/obs.duckdb", id="encoded-percent"),
+        pytest.param("duckdb:///100%/obs.duckdb", "100%/obs.duckdb", id="bare-percent-left"),
+        pytest.param("duckdb:///a%3Fb%23c.duckdb", "a?b#c.duckdb", id="encoded-query-and-fragment-delimiters"),
+        pytest.param("duckdb:///100%2520.duckdb", "100%20.duckdb", id="literal-percent-twenty"),
+        pytest.param(r"duckdb:///C:\data\my%20data.duckdb", r"C:\data\my data.duckdb", id="windows-path"),
+    ],
+)
+def test_connectionstring_reads_a_duckdb_path_as_a_uri_path(target: str, database: str) -> None:
+    """A `duckdb://` target's path is percent-decoded as a `file://` one is, and its slashes keep their meaning (GH-2515)."""  # noqa: E501
+    cs = ConnectionString(target)
+    assert cs.database == database
+    assert cs.path == f"/{database}"
+
+
+def test_connectionstring_duckdb_path_round_trips_path_as_uri(tmp_path: Path) -> None:
+    """A local path with a space, `%` and `#`, percent-encoded after `duckdb:///`, names that path."""
+    filepath = tmp_path.joinpath("my data", "100% #1.duckdb")
+    target = "duckdb:///" + quote(filepath.as_posix())
+    assert Path(ConnectionString(target).database) == filepath
