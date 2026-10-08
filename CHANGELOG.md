@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `wetterdienst about coverage --resolutions=...` or `--datasets=...` without `--provider` and
+  `--network` printed the catalogue of every provider with the filter dropped; it is now a usage
+  error (exit 2) naming the options it needs, as `/api/coverage` and the MCP `coverage` tool already
+  answer it with a 400 (GH-2527)
+
 ## [0.142.0] - 2026-10-08
 
 ### Changed

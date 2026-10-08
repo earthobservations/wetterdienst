@@ -1226,3 +1226,36 @@ def test_coverage_without_provider_and_network_lists_every_provider(monkeypatch:
     result = CliRunner().invoke(cli, ["about", "coverage"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout) == {"dwd": {"observation": {}}}
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        pytest.param(
+            ["--resolutions=daily"],
+            "Error: Missing options '--provider' and '--network'. Required with '--resolutions'.\n",
+            id="resolutions",
+        ),
+        pytest.param(
+            ["--datasets=climate_summary"],
+            "Error: Missing options '--provider' and '--network'. Required with '--datasets'.\n",
+            id="datasets",
+        ),
+        pytest.param(
+            ["--resolutions=daily", "--datasets=climate_summary"],
+            "Error: Missing options '--provider' and '--network'. Required with '--resolutions' and '--datasets'.\n",
+            id="both",
+        ),
+        pytest.param(
+            ["--network=observation", "--datasets=climate_summary"],
+            "Error: Missing option '--provider'. Required with '--network'.\n",
+            id="network-and-datasets",
+        ),
+    ],
+)
+def test_coverage_refuses_a_filter_without_provider_and_network(args: list[str], message: str) -> None:
+    """Test coverage with --resolutions / --datasets but no provider and network is a usage error (GH-2527)."""
+    result = CliRunner().invoke(cli, ["about", "coverage", *args])
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(f"\n\n{message}")
+    assert result.stdout == ""
