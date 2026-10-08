@@ -836,10 +836,10 @@ def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -
         check_timeseries_api(api, provider, network, history=history)
     except ApiNotFoundError as e:
         msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
-        log.exception(msg)
+        log.info(f"Failed to resolve the provider and network: {msg}")
         raise HTTPException(status_code=404, detail=msg) from e
     except NotImplementedError as e:
-        log.exception("History not implemented for provider/network")
+        log.info(f"Failed to resolve the provider and network: {e}")
         raise HTTPException(status_code=404, detail=str(e)) from e
     return api
 
@@ -923,7 +923,7 @@ def issues(
         api = Wetterdienst(request.provider, request.network)
     except ApiNotFoundError as e:
         msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
-        log.exception(msg)
+        log.info(f"Failed to resolve the provider and network: {msg}")
         raise HTTPException(status_code=404, detail=msg) from e
 
     # outside the handler below, as for `/api/stations`

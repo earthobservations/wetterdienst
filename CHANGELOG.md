@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `/api/stations`, `/api/values`, `/api/interpolate`, `/api/summarize`, `/api/history` and
+  `/api/issues` log an unknown provider or network, and `/api/history` a network without station
+  history, as one info line, where they logged an error with its traceback; the 404 is unchanged
+  (GH-2532)
+
 ## [0.142.0] - 2026-10-08
 
 ### Changed

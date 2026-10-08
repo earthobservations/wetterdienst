@@ -7300,3 +7300,47 @@ def test_history_refuses_a_network_without_history_before_the_station_lookup(
     )
     assert response.status_code == 404, response.text
     assert response.json()["detail"] == "History not implemented for DwdMosmixRequest"
+
+
+_POINT_ON_A_DAY = {"latitude": 50.0, "longitude": 10.0, "timestamp": "2020-06-30"}
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "params"),
+    [
+        pytest.param("stations", {"parameters": "daily/kl", "all": "true"}, id="stations"),
+        pytest.param("values", {"parameters": "daily/kl", "station": "1"}, id="values"),
+        pytest.param("interpolate", {**_POINT_ON_A_DAY, "parameters": "daily/kl"}, id="interpolate"),
+        pytest.param("summarize", {**_POINT_ON_A_DAY, "parameters": "daily/kl"}, id="summarize"),
+        pytest.param("history", {"parameters": "daily/kl", "all": "true"}, id="history"),
+        pytest.param("issues", {"station": "00011"}, id="issues"),
+    ],
+)
+def test_an_unknown_provider_or_network_is_logged_as_info_without_a_traceback(
+    client: TestClient, caplog: pytest.LogCaptureFixture, endpoint: str, params: dict[str, object]
+) -> None:
+    """An unknown provider and network is a 404 and one info line, not an error with a traceback (GH-2532)."""
+    with caplog.at_level(logging.INFO, logger=restapi.log.name):
+        response = client.get(f"/api/{endpoint}", params={"provider": "foo", "network": "bar", **params})
+    assert response.status_code == 404, response.text
+    assert "No API available for provider foo and network bar" in response.json()["detail"]
+    records = [r for r in caplog.records if r.name == restapi.log.name]
+    assert [r.levelno for r in records] == [logging.INFO]
+    assert all(r.exc_info is None for r in records)
+    assert "No API available for provider foo and network bar" in records[0].getMessage()
+
+
+def test_a_history_not_implemented_is_logged_as_info_without_a_traceback(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A network without station history is a 404 and one info line, not an error with a traceback (GH-2532)."""
+    with caplog.at_level(logging.INFO, logger=restapi.log.name):
+        response = client.get(
+            "/api/history",
+            params={"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "all": "true"},
+        )
+    assert response.status_code == 404, response.text
+    records = [r for r in caplog.records if r.name == restapi.log.name]
+    assert [r.levelno for r in records] == [logging.INFO]
+    assert all(r.exc_info is None for r in records)
+    assert "History not implemented for DwdMosmixRequest" in records[0].getMessage()
