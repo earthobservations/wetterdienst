@@ -49,43 +49,33 @@ For more information, see the [settings documentation](usage/settings.md).
 
 On Linux, installing `eccodes` (from the `bufr` or `eccodes` extra) with pip, `uv pip` or another
 installer that reads its wheel's dependencies pulls in the `eccodeslib` and `eckitlib` wheels, and
-`eckitlib` bundles its own copy of PROJ. `pyproj` bundles another, and comes with the `radarplus`
-extra (through wradlib and xradar) as well as with libraries such as geopandas or cartopy. A process
-that loads `eccodes` and then imports `pyproj` crashes at interpreter exit (`double free or
-corruption`, `free(): invalid pointer` or a segmentation fault, exit status 134 or 139):
+`eckitlib` bundles its own copy of PROJ. A process that loads `eccodes` and then imports `pyproj`
+(which the `radarplus` extra brings, as do geopandas or cartopy) crashes at interpreter exit with
+`double free or corruption`, `free(): invalid pointer` or a segmentation fault, exit status 134 or
+139. Files your code wrote and closed are complete, but the exit status fails scripts and CI jobs.
+This is the upstream bug [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
+[#2441](https://github.com/earthobservations/wetterdienst/issues/2441).
+
+wetterdienst imports `pyproj`, where it is installed, before it loads `eccodes` for DWD road and
+radar BUFR, so its own reads do not set this off. Code that imports `eccodes` before wetterdienst
+does, itself or through a library such as `pdbufr` or `cfgrib`, still can:
 
 ```bash
 python -c "import eccodes; import pyproj"; echo $?   # 134
 python -c "import pyproj; import eccodes"; echo $?   # 0
 ```
 
-wetterdienst loads `eccodes` when you ask for DWD road values (as soon as `.values` is built,
-before any data is read) and when it fetches DWD radar BUFR data with the `read_bufr` setting. The
-crash comes after your code has finished, so files it wrote and closed are complete, but the
-non-zero exit status fails scripts and CI jobs. This is the upstream bug
-[ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
-[#2441](https://github.com/earthobservations/wetterdienst/issues/2441). The Docker image does not
-install the `eccodeslib` wheel and is not affected. To check your own installation, run
-`python -c "import importlib.metadata as m; print(m.version('eckitlib'))"` with the Python that runs
-wetterdienst: if it raises `PackageNotFoundError`, you are not affected.
+Import `pyproj` first. Where you cannot, install your distribution's ecCodes library and set
+`FINDLIBS_DISABLE_PACKAGE=yes` for the command that runs your code, so that `findlibs` loads that
+library instead of the `eccodeslib` wheel's (on Debian 13,
+`sudo apt-get install libeccodes0 libeccodes-data`). Both are needed: with the variable and no
+system library, `eccodes` does not load at all. The variable applies to every library `findlibs`
+looks up, so another package that relies on it to find a library in its wheel no longer finds it:
+scope it to the one command, as in `FINDLIBS_DISABLE_PACKAGE=yes python my_script.py`.
 
-Until it is fixed, install your distribution's ecCodes library and set
-`FINDLIBS_DISABLE_PACKAGE=yes` in the environment of the process that runs wetterdienst (the shell,
-the CI job, the service unit), so that `findlibs` loads that library instead of the wheel's. On
-Debian 13:
-
-```bash
-sudo apt-get install libeccodes0 libeccodes-data
-FINDLIBS_DISABLE_PACKAGE=yes python my_script.py
-```
-
-Both are needed: with only the variable set and no system library, `eccodes` cannot load at all.
-The variable applies to every library `findlibs` looks up, not only ecCodes, and in every process
-that inherits it, so another package that relies on `findlibs` to find a library in its wheel will
-no longer find it. Scope it to the one command, as above, where you can.
-
-Alternatively, import `pyproj` (or wradlib, which imports it) before `eccodes` is first loaded, by
-wetterdienst or by anything else.
+Only installs with the `eckitlib` wheel are affected: where
+`python -c "import importlib.metadata as m; print(m.version('eckitlib'))"` raises
+`PackageNotFoundError`, yours is not. The Docker image does not install it.
 
 ## Raspberry Pi / Linux ARM
 
