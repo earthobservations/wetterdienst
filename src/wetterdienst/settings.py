@@ -151,8 +151,8 @@ class Auth(BaseModel):
         """Keep a key without the whitespace around it, text of nothing but whitespace reading as unset.
 
         The padding arrives from a `.env` value or a file saved with CRLF endings, and was sent to the
-        provider as part of the key, which refused it with nothing to say why (GH-2557). Anything that
-        is not text is left for the field to refuse.
+        provider as part of the key, which refused it with nothing to say why (GH-2557). Only text is
+        stripped: any other value is passed on as it is, for the field to take or refuse.
         """
         if isinstance(value, SecretStr):
             value = value.get_secret_value()
@@ -225,7 +225,7 @@ class Auth(BaseModel):
         if len(as_tuple) != 2:
             msg = f"metno_frost must be a (client_id, secret) pair, got {len(as_tuple)} element(s)"
             raise ValueError(msg)
-        client_id, secret = _stripped(as_tuple[0]), None if as_tuple[1] is None else _stripped(as_tuple[1])
+        client_id, secret = _stripped(as_tuple[0]), _stripped(as_tuple[1])
         if _blank_first(client_id, secret, none_ok=True):
             return None
         # a client id with no secret, as a lone client id gives (GH-2434)
