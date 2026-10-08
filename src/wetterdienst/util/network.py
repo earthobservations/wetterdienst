@@ -5,14 +5,17 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import json
 import logging
+import os
 import re
 import shutil
 import ssl
 import threading
 import time
+import uuid
 from collections.abc import Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -802,8 +805,9 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         The entry is recorded once the whole body has arrived, where fsspec records it first. A
         download that fails before the body neither refreshes an expired entry nor touches the blob
         behind it, and one that aiohttp sees cut short leaves no entry claiming a fresh copy of what
-        it wrote for a retry to read back. What it wrote stays on disk until the next download of
-        the file overwrites it: the body is written in place, as fsspec writes it (GH-2493).
+        it wrote for a retry to read back. The body is written to a file of its own and renamed onto
+        the blob once whole, so a concurrent fetch of the same file never finds it half-written and
+        a failed one removes what it wrote (GH-2493).
 
         The copy fetched is the one opened, rather than handing back to fsspec's `_open` to find it
         again: if it had gone in between, that would probe and record-first all over.
@@ -822,9 +826,30 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             # the directory since `_check_file` made it
             self._mkcache()
             blob = str(Path(self.storage[-1]) / self._mapper(path))
-            self.fs.get_file(path, blob)
-            self._make_local_details(path)
-            self.save_cache()
+            # a file of its own beside the blob, renamed onto it once the body is whole: a fetch of
+            # the same url in another thread or process never sees this one's half-written file,
+            # and a body that fails part-way leaves nothing behind (GH-2493)
+            temp = f"{blob}.{uuid.uuid4().hex}.tmp"
+            try:
+                self.fs.get_file(path, temp)
+                try:
+                    os.replace(temp, blob)  # noqa: PTH105
+                except PermissionError:
+                    # Windows refuses to replace a blob another handle holds open. That blob is a
+                    # whole copy, put there by the same kind of rename, so it is left alone and
+                    # this read is served from the file just fetched, in memory because that file
+                    # cannot be removed while open. No entry is recorded: it would call the blob,
+                    # which still holds the older copy, fresh, so the next read fetches again
+                    log.debug(f"Could not replace {blob}, serving {path} from the fetched copy", exc_info=True)
+                    # `open` has turned a text mode into a binary one by now and wraps the handle itself
+                    return BytesIO(Path(temp).read_bytes())
+                self._make_local_details(path)
+                self.save_cache()
+            finally:
+                # best effort: an unlink that fails must not replace the bytes in hand or the error
+                # the download met, which is what the caller's status and retry go by
+                with contextlib.suppress(OSError):
+                    Path(temp).unlink(missing_ok=True)
         return Path(blob).open(mode)
 
 

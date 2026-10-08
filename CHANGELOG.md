@@ -26,6 +26,11 @@ Types of changes:
 
 ### Fixed
 
+- A file the cache downloads is written beside its blob and renamed onto it once whole, so a
+  concurrent request for the same URL, from another thread or process, no longer truncates a copy
+  another reader is serving, and a body cut short leaves no partial file in the cache directory.
+  Where Windows refuses the rename because the blob is open, that read is served from the file
+  just fetched, the blob is kept and the next read fetches again (GH-2493)
 - `metno/frost` values read a failed download's status before treating it as empty. A 404 now
   reaches the fallbacks written for it (each parameter alone, then its time series discovered),
   where the request returned no data; a 401, 403 or 500 is logged as `Failed to download <url>`
