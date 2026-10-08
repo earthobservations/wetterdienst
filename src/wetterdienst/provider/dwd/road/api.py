@@ -954,6 +954,22 @@ class DwdRoadValues(TimeseriesValues):
             cache_disable=self.sr.settings.cache_disable,
             use_certifi=self.sr.settings.use_certifi,
         )
+        # a failed download carries its exception and no bytes, so the size filter below would drop it
+        # as it drops an empty file, and a group whose every download failed -- a refused certificate,
+        # a 403, an outage -- would read as a group with nothing published
+        failed = [file for file in files if isinstance(file.content, Exception)]
+        if failed and len(failed) == len(files):
+            # raises the first failure, but for a `NoInternetError`, which it logs and lets through
+            for file in failed:
+                file.raise_if_exception()
+        elif failed:
+            # some files of the window arrived: their readings are returned and the minutes of the
+            # others are missing, which the stuck-sensor check already reads as a gap rather than a run
+            log.warning(
+                f"{len(failed)} of {len(files)} files of {road_weather_station_group.value} could not be "
+                f"downloaded and their readings are missing (first: {failed[0].filename}, "
+                f"{type(failed[0].content).__name__})",
+            )
         # files may be empty, see https://github.com/earthobservations/wetterdienst/issues/1526
         # -> those files had only 142 bytes
         # -> skip empty files with equal or less size
