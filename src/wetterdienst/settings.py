@@ -150,9 +150,13 @@ class Auth(BaseModel):
                 # nor does it hold a character a UUID cannot -- anything but letters, digits and `-`.
                 # Text that does is a pair written as `id:secret` (the shape WD_AUTH__CEDA takes),
                 # `id,secret`, `id;secret` or `("id", "secret")`, which was taken whole as the client
-                # id. The message stays constant, as the text holds the secret (GH-2487)
-                if re.search(r"[^0-9A-Za-z-]", text):
-                    msg = 'metno_frost looks like a pair but is not a client id: write it as ["client_id", "secret"]'
+                # id. The message stays constant, as the text holds the secret (GH-2487). The mask a
+                # dumped credential leaves behind is left for the check that names it
+                if text != _MASK and re.search(r"[^0-9A-Za-z-]", text):
+                    msg = (
+                        'metno_frost is not a client id (letters, digits and "-" only); '
+                        'write a pair as ["client_id", "secret"]'
+                    )
                     raise ValueError(msg)
                 return value, ""
             # decoding text that starts with `[` gives a list or fails: a `JSONDecodeError`, a

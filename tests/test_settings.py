@@ -1510,7 +1510,7 @@ def test_settings_auth_metno_frost_refuses_a_pair_written_as_a_lone_text(
     but a letter, digit or `-` -- all a UUID holds -- is refused, whichever joins the pair. The
     message is the same for each and neither it nor `check_settings()` repeats the text.
     """
-    message = 'metno_frost looks like a pair but is not a client id: write it as ["client_id", "secret"]'
+    message = 'metno_frost is not a client id (letters, digits and "-" only); write a pair as ["client_id", "secret"]'
     monkeypatch.setenv("WD_AUTH__METNO_FROST", value)
     assert check_settings() == [f"WD_AUTH__METNO_FROST is invalid: {message}"]
     with pytest.raises(ValidationError, match=re.escape(message)) as excinfo:
@@ -1544,3 +1544,14 @@ def test_settings_auth_metno_frost_still_takes_a_uuid_client_id_even_padded_with
     client, secret = Settings().auth.metno_frost
     assert reveal(client).strip() == client_id
     assert reveal(secret) == ""
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_auth_metno_frost_names_a_lone_mask_as_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A lone mask, as a dumped credential leaves it, is still named as one, not refused as a pair (GH-2487)."""
+    message = "the value is the mask a dumped credential leaves behind, not a credential"
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", "*" * 10)
+    assert check_settings() == [f"WD_AUTH__METNO_FROST is invalid: {message}"]
+    monkeypatch.delenv("WD_AUTH__METNO_FROST")
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        Settings(auth={"metno_frost": "*" * 10})
