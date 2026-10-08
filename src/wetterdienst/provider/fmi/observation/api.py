@@ -191,12 +191,11 @@ class FmiObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a station reporting no data for a window yields an empty (200) response, so any exception
+        # here is a real transport/HTTP failure, a 404 included, and is raised: swallowed it read as
+        # a station without data (GH-2461). NoInternetError returns silently, to give an empty frame.
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            # a station reporting no data for a window yields an empty (200) response, so any
-            # exception here is a real transport/HTTP failure; NoInternetError is already logged
-            # at debug upstream.
-            if not file.is_no_internet_error:
-                log.warning(f"Failed to fetch FMI data for station {station_id}: {file.content}")
             return pl.DataFrame(
                 schema={
                     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),

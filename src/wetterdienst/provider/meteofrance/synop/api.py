@@ -139,12 +139,13 @@ class MeteoFranceSynopValues(TimeseriesValues):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
+            # the year range above is already clamped to the archive's known coverage, so a failure
+            # other than a missing-year 404 is an outage, and is raised rather than leaving the year
+            # out of a result that reads as complete (GH-2461)
+            if file.status != 404:
+                file.raise_if_exception()
             if isinstance(file.content, Exception):
                 if not file.is_no_internet_error:
-                    # the year range above is already clamped to the archive's known coverage,
-                    # so a failure here (unlike a missing-year 404) is unexpected; log it instead
-                    # of silently treating this year as having no data, but keep processing the
-                    # remaining years rather than aborting the whole multi-year request
                     log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
             with gzip.GzipFile(fileobj=file.content) as gz:

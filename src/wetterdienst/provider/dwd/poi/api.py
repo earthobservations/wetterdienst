@@ -109,6 +109,11 @@ class DwdPoiValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a 404 is a station whose file DWD has withdrawn since the catalogue was read, and is warned
+        # about; any other failure is an outage, which swallowed would read as a station without
+        # a report (GH-2461)
+        if file.status != 404:
+            file.raise_if_exception()
         if isinstance(file.content, Exception):
             if not file.is_no_internet_error:
                 log.warning(f"Failed to fetch POI report for station {station_id}: {file.content}")

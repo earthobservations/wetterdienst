@@ -60,7 +60,8 @@ class IpmaObservationValues(TimeseriesValues):
         A single ``observations.json`` holds every station, so parsing it per station (once per
         ``_collect_station_parameter_or_dataset`` call in a rank loop) would re-run ``json.loads`` over
         the whole payload N times. The parsed feed is cached here so it is deserialised exactly once
-        per query; ``None`` signals a fetch failure and is intentionally not cached so it is retried.
+        per query; ``None`` signals that no connection could be made and is intentionally not cached so
+        it is retried. Any other failure to fetch the feed raises.
         """
         cached = getattr(self, "_feed_cache", None)
         if cached is not None:
@@ -76,9 +77,10 @@ class IpmaObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # one feed holds every station, so any failure of it -- a 404 included -- is an outage, not
+        # a station without data, and is raised (GH-2461). NoInternetError returns silently
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            if not file.is_no_internet_error:
-                log.warning(f"Failed to fetch IPMA observations: {file.content}")
             return None
         feed = parse_ipma_observations_feed(file.content.read())
         self._feed_cache = feed

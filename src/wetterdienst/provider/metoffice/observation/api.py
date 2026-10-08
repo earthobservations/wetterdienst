@@ -123,6 +123,11 @@ class MetOfficeObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a station-year the archive lacks is routine (its coverage is patchy, and a QC'd file may be
+        # absent where the raw one is not) and is a 404; any other failure -- a timeout, a 5xx, a
+        # refused token -- is an outage, which swallowed would read as a year without data (GH-2461)
+        if file.status != 404:
+            file.raise_if_exception()
         if isinstance(file.content, Exception):
             if not file.is_no_internet_error:
                 log.debug(f"No MetOffice file {url}: {file.content}")

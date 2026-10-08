@@ -146,8 +146,12 @@ class ChmiObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a station that does not measure an element (or has no data for a month) has no file, which
+        # is a 404 and routine; any other failure -- a timeout, a 5xx after the retries -- is an
+        # outage, which swallowed would read as a station that does not measure the element (GH-2461)
+        if file.status != 404:
+            file.raise_if_exception()
         if isinstance(file.content, Exception):
-            # a station that does not measure an element (or has no data for a month) has no file
             if not file.is_no_internet_error:
                 log.debug(f"No CHMI file {url} for station {station_id}: {file.content}")
             return None

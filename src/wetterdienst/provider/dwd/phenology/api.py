@@ -238,6 +238,11 @@ class DwdPhenologyValues(TimeseriesValues):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
+            # a 404 is a file that is not there, and is warned about; any other failure -- a timeout,
+            # a 5xx after the retries -- is an outage, which swallowed would read as a station
+            # without observations (GH-2461)
+            if file.status != 404:
+                file.raise_if_exception()
             if isinstance(file.content, Exception):
                 if not file.is_no_internet_error:
                     log.warning(f"Failed to download {url}: {file.content}")

@@ -13,6 +13,7 @@ import polars as pl
 import pytest
 
 from wetterdienst import Settings
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest, api
@@ -779,20 +780,11 @@ def test_swsmos_available_issues_remote() -> None:
     assert all((issue.minute, issue.second) == (0, 0) for issue in issues)
 
 
-@pytest.mark.parametrize(
-    ("status", "error"),
-    [
-        pytest.param(404, FileNotFoundError("404 Not Found"), id="not-found"),
-        pytest.param(500, OSError("500 Internal Server Error"), id="server-error"),
-    ],
-)
 def test_swsmos_issue_the_listing_names_is_not_refused_when_its_fetch_fails(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
-    status: int,
-    error: Exception,
 ) -> None:
-    """A run the listing names is the server's to serve, so a failed fetch is warned about, not refused (GH-2324).
+    """A run the listing names is the server's to serve, so a 404 on it is warned about, not refused (GH-2324).
 
     The listing alone decides whether a run exists; refusing a listed run would have `wetterdienst issues` offer a run
     that `values` then calls the caller's mistake.
@@ -806,7 +798,7 @@ def test_swsmos_issue_the_listing_names_is_not_refused_when_its_fetch_fails(
     monkeypatch.setattr(
         api,
         "download_file",
-        lambda **kwargs: File(url=kwargs["url"], content=error, status=status),
+        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError("404 Not Found"), status=404),
     )
     stations = _stub_stations()
     stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
@@ -873,12 +865,11 @@ def test_swsmos_issue_whose_run_is_served_asks_no_listing(monkeypatch: pytest.Mo
     assert df.get_column("value").to_list() == [17.9]
 
 
-def test_swsmos_issue_whose_fetch_fails_otherwise_is_not_refused(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Only a 404 says the server lacks the run; a server error is warned about, listed or not (GH-2324)."""
-    caplog.set_level(logging.WARNING)
+def test_swsmos_issue_whose_fetch_fails_otherwise_is_not_refused_but_raised(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only a 404 says the server lacks the run; a server error is no refusal of the issue but an outage (GH-2461).
+
+    It used to be warned about and answered with an empty frame, which read as a run holding nothing for the station.
+    """
     monkeypatch.setattr(
         api,
         "list_remote_files_fsspec",
@@ -892,13 +883,11 @@ def test_swsmos_issue_whose_fetch_fails_otherwise_is_not_refused(
     stations = _stub_stations()
     stations.stations.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
 
-    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
-        "A006",
-        DwdSwsmosRequest.metadata["hourly"]["data"],
-    )
-
-    assert df.is_empty()
-    assert "Failed to fetch SWSMOS run" in caplog.text
+    with pytest.raises(DownloadError, match=r"swsmos_20200101000000_opendata\.csv\.bz2: 500 Internal Server Error"):
+        stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+            "A006",
+            DwdSwsmosRequest.metadata["hourly"]["data"],
+        )
 
 
 def test_swsmos_latest_run_pruned_since_the_listing_is_not_refused(
@@ -926,3 +915,36 @@ def test_swsmos_latest_run_pruned_since_the_listing_is_not_refused(
 
     assert df.is_empty()
     assert "Failed to fetch SWSMOS run" in caplog.text
+
+
+def test_swsmos_latest_run_failing_with_a_server_error_is_raised_not_fallen_back_from(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The run before ``LATEST`` answers for a newest run that is gone (a 404), not for one that fails (GH-2461).
+
+    A 5xx after the retries is an outage; falling back would answer with an hour-old forecast and read as healthy.
+    """
+    good = _run_file(("A006", "202607310700", "17.9"))
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [
+            f"{api._BASE_URL}/swsmos_20260731060000_opendata.csv.bz2",  # noqa: SLF001
+            f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2",  # noqa: SLF001
+        ],
+    )
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: (
+            File(url=kwargs["url"], content=OSError("503 Service Unavailable"), status=503)
+            if "2026073107" in kwargs["url"]
+            else File(url=kwargs["url"], content=BytesIO(good), status=200)
+        ),
+    )
+
+    with pytest.raises(DownloadError, match=r"swsmos_20260731070000_opendata\.csv\.bz2: 503 Service Unavailable"):
+        _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+            "A006",
+            DwdSwsmosRequest.metadata["hourly"]["data"],
+        )
