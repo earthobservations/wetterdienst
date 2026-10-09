@@ -13,7 +13,6 @@ See ``metadata.py`` for the field/unit background and ``parser.py`` for the (win
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
@@ -33,8 +32,6 @@ from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
-
-log = logging.getLogger(__name__)
 
 _BASE_URL = "https://api.ipma.pt/open-data/observation/meteorology/stations"
 _STATIONS_URL = f"{_BASE_URL}/stations.json"
@@ -132,8 +129,11 @@ class IpmaObservationRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # the catalogue is one required file, so any failure of it -- a 404 included -- is an outage,
+        # which swallowed would read as a network without stations (GH-2519). NoInternetError returns
+        # silently, to give an empty frame
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            log.warning(f"Failed to fetch IPMA station catalogue: {file.content}")
             return pl.LazyFrame()
         stations = parse_ipma_stations(file.content.read())
         if stations.is_empty():

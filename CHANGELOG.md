@@ -18,6 +18,11 @@ Types of changes:
 
 ### Fixed
 
+- The station catalogues of `fmi`, `chmi`, `ipma`, `lhmt`, `metoffice`, `dwd/swsmos` and
+  `dwd/phenology`, and the `metoffice` release listing, raise `DownloadError` for a download that
+  failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no stations: the REST API
+  answers a 500 and the CLI fails, where a station request had an empty result with a success
+  status. No connection at all still gives no stations (GH-2519)
 - `Wetterdienst.discover()`, `GET /api/coverage` and `GET /api/auth` list a provider that needs a
   credential as not configured when a `WD_*` variable is invalid, such as `WD_AUTH__CEDA` that is
   no `username:password`, and log the problem once; one malformed credential raised for the whole
