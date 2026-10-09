@@ -55,6 +55,9 @@ Types of changes:
   station, and return what was read before it (an empty frame if nothing), logged at debug as
   elsewhere. Every KNMI moment (720 for an hourly month) and every AEMET chunk was requested
   again before, and each skip logged a warning (GH-2558)
+- LHMT values requested with no network stop at the first day whose download finds none (a missing
+  day is still skipped), per station, and return the days read before it (an empty frame if
+  nothing), where every day of the range was requested again (GH-2591)
 
 ## [0.143.0] - 2026-10-08
 
