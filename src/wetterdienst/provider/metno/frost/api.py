@@ -494,8 +494,7 @@ class MetnoFrostValues(TimeseriesValues):
             use_certifi=settings.use_certifi,
         )
         # the status is read before the body: `download_file` hands a failed request back as an
-        # exception with no body, which `is_empty` also reports, so asking that first would
-        # answer every failure as "no data" and skip the checks below it
+        # exception with no body, and the checks below are written for those failures
         # 412: no data for this station/elements/period combination
         if file.is_no_internet_error or file.status == 412:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
