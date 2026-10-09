@@ -28,8 +28,6 @@ from wetterdienst.provider.metoffice.observation.metadata import MetOfficeObserv
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import File
 
-_URL = "https://example.invalid/catalogue?key=secret"
-
 
 def _settings() -> Settings:
     return Settings(cache_disable=True)
@@ -105,10 +103,9 @@ def _gives_nothing(result: object) -> bool:
     """Say whether a site's answer holds no data: `None`, or a frame without rows."""
     if result is None:
         return True
-    if isinstance(result, (pl.DataFrame, pl.LazyFrame)):
-        frame = result.collect() if isinstance(result, pl.LazyFrame) else result
-        return frame.is_empty()
-    return not result
+    assert isinstance(result, (pl.DataFrame, pl.LazyFrame)), type(result)
+    frame = result.collect() if isinstance(result, pl.LazyFrame) else result
+    return frame.is_empty()
 
 
 @pytest.fixture
@@ -116,7 +113,7 @@ def serve(monkeypatch: pytest.MonkeyPatch) -> Callable[[list[Any], Exception, in
     """Make every download of the given provider modules answer with a failure."""
 
     def serve(modules: list[Any], error: Exception, status: int) -> None:
-        def download_file(*, url: str = _URL, **_: object) -> File:
+        def download_file(*, url: str, **_: object) -> File:
             return File(url=url, content=error, status=status)
 
         for module in modules:
@@ -159,7 +156,10 @@ def test_no_connection_at_all_stays_quiet(
     modules: list[Any],
     driver: Callable[[pytest.MonkeyPatch], object],
 ) -> None:
-    """A `NoInternetError` gives no stations and no warning, as before, so working offline still returns empty."""
+    """A `NoInternetError` gives no stations and no warning, so working offline still returns empty.
+
+    The catalogues used to warn here as for any failure; `raise_if_exception` logs it at debug, as `dmi` and `rmi` do.
+    """
     serve(modules, NoInternetError("offline"), 503)
     caplog.set_level(logging.WARNING)
 
