@@ -18,10 +18,10 @@ Types of changes:
 
 ### Fixed
 
-- A retried download or post that fails to connect through a proxy no longer logs the proxy's
-  password: stamina's retry warning rendered the aiohttp error's connection key, which holds
-  `proxy_auth` and the `user:secret@` of a proxy URL, whether the proxy came from `HTTPS_PROXY` or
-  from `client_kwargs`. The key is logged with both removed (GH-2582)
+- A retried download or post that fails TLS through a proxy no longer logs the proxy's password:
+  stamina's retry warning rendered the aiohttp error's connection key, which holds `proxy_auth`
+  and the `user:secret@` of a proxy URL, whether the proxy came from `HTTPS_PROXY` or from
+  `client_kwargs`. The key is logged with both removed (GH-2582)
 - `wsv/pegel` values, the DWD field descriptions read from PDFs and the script that regenerates the
   packaged OPERA radar sites raise `DownloadError` for a failed download, as
   `File.raise_if_exception` does elsewhere, where they raised the stored error itself: a timeout
