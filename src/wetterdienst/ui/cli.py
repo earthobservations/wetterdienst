@@ -948,6 +948,9 @@ def coverage(
         )
 
     if not provider and not network:
+        # the listing marks a provider unconfigured where the settings are invalid, but a command
+        # tells them, and exits 1, like every other (GH-2335)
+        Settings()
         print(json.dumps(Wetterdienst.discover(), indent=2))  # noqa: T201
         return
 
