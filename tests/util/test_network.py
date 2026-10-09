@@ -3272,3 +3272,63 @@ def test_an_authorization_header_aiohttp_adds_itself_is_kept_out_of_the_error(
     assert secret in requests[0]["headers"]["Authorization"]
     assert result.status == 401
     assert secret not in _every_carrier_of(result.content)
+
+
+@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
+@pytest.mark.parametrize("kind", ["certificate", "handshake"])
+def test_a_directory_listing_that_fails_on_tls_raises_the_bare_ssl_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    kind: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A TLS failure in a directory listing leaves as the `ssl.SSLError` underneath, not the aiohttp error (GH-2590).
+
+    The aiohttp error's repr renders the connection key, and with it the password of a proxy named in
+    `HTTPS_PROXY`; stamina logs that repr on a retry and providers format it into their own messages.
+    Raised as `list_remote_files_fsspec` raises it, with nothing on the chain leading back to it.
+    """
+    error = _tls_failure(kind, proxy=URL("http://user:secret@proxy:3128"), proxy_auth=BasicAuth("user", "secret"))
+    assert "secret" in repr(error), "the error would not have leaked, so this test would pass for the wrong reason"
+    attempts = []
+
+    def ls(_self: object, url: str, **_kwargs: object) -> list[dict]:
+        attempts.append(url)
+        raise error
+
+    monkeypatch.setattr(HTTPFileSystem, "ls", ls)
+
+    with (
+        stamina.set_testing(True, attempts=2),
+        caplog.at_level(logging.DEBUG),
+        pytest.raises(ssl.SSLError) as raised,
+    ):
+        list_remote_directory_fsspec("https://example.com/tls/", Settings(cache_dir=tmp_path))
+
+    assert raised.value is error.os_error
+    assert "secret" not in repr(raised.value)
+    assert raised.value.__cause__ is None
+    assert raised.value.__context__ is None
+    # the SSL error names no host, so the log does
+    assert "Failed to list https://example.com/tls/." in caplog.text
+    # the retry that wraps this call sees it, as it sees any failure to read
+    assert len(attempts) == 2
+
+
+def test_a_directory_listing_leaves_other_errors_as_they_were(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Only a TLS failure is changed: a refused connection still leaves a directory listing as it did (GH-2590)."""
+    key = _tls_failure("handshake").args[0]
+    refused = ClientConnectorError(key, ConnectionRefusedError(61, "Connection refused"))
+
+    def ls(_self: object, _url: str, **_kwargs: object) -> list[dict]:
+        raise refused
+
+    monkeypatch.setattr(HTTPFileSystem, "ls", ls)
+
+    with stamina.set_testing(True, attempts=1), pytest.raises(ClientConnectorError) as raised:
+        list_remote_directory_fsspec("https://example.com/refused/", Settings(cache_dir=tmp_path))
+
+    assert raised.value is refused
