@@ -3322,7 +3322,7 @@ def test_a_directory_listing_leaves_other_errors_as_they_were(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """A refused connection that names no proxy credential still leaves a directory listing as a ClientConnectorError (GH-2590)."""
+    """A refused connection naming no proxy credential still leaves a listing as a ClientConnectorError (GH-2590)."""
     key = _tls_failure("handshake").args[0]
     refused = ClientConnectorError(key, ConnectionRefusedError(61, "Connection refused"))
 
