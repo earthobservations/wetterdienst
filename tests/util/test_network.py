@@ -3138,20 +3138,33 @@ def refusing_proxy() -> Iterator[tuple[str, list[str]]]:
     server = socket.socket()
     server.bind(("127.0.0.1", 0))
     server.listen(8)
+    # a timeout rather than a close from another thread, which does not wake a blocked ``accept``
+    server.settimeout(0.1)
+    stop = threading.Event()
     received: list[str] = []
 
     def serve() -> None:
-        while True:
+        while not stop.is_set():
             try:
                 connection, _ = server.accept()
-            except OSError:
-                return
+            except TimeoutError:
+                continue
             with connection:
-                received.append(connection.recv(65536).decode("latin-1"))
+                request = b""
+                # the whole head of the request: one ``recv`` may return only a part of it
+                while b"\r\n\r\n" not in request:
+                    chunk = connection.recv(65536)
+                    if not chunk:
+                        break
+                    request += chunk
+                received.append(request.decode("latin-1"))
                 connection.sendall(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
 
-    threading.Thread(target=serve, daemon=True).start()
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
     yield f"127.0.0.1:{server.getsockname()[1]}", received
+    stop.set()
+    thread.join(timeout=5)
     server.close()
 
 
@@ -3222,3 +3235,55 @@ def test_a_response_error_that_carries_no_credential_keeps_its_traceback() -> No
     assert scrubbed is raised
     assert raised.__traceback__ is not None
     assert "<redacted>" not in repr(raised)
+
+
+@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:The 'auth' parameter is deprecated:DeprecationWarning")
+def test_an_authorization_header_aiohttp_adds_itself_is_kept_out_of_the_error(
+    http_server: tuple[str, list],
+    tmp_path: Path,
+) -> None:
+    """A session ``auth`` sends ``Authorization`` where `_sends_credentials` does not look (GH-2592)."""
+    import base64  # noqa: PLC0415
+
+    base_url, requests = http_server
+    secret = base64.b64encode(b"user:secret").decode()
+
+    result = download_file(
+        f"{base_url}/denied",
+        cache_dir=tmp_path,
+        ttl=CacheExpiry.NO_CACHE,
+        client_kwargs={"auth": BasicAuth("user", "secret")},
+        cache_disable=True,
+    )
+
+    assert secret in requests[0]["headers"]["Authorization"]
+    assert result.status == 401
+    assert secret not in _every_carrier_of(result.content)
+
+
+def test_a_credential_in_the_redirect_history_alone_is_scrubbed() -> None:
+    """A proxied hop that redirected to a tunnelled one: only the first request carried the header (GH-2592)."""
+    from aiohttp import RequestInfo  # noqa: PLC0415
+    from multidict import CIMultiDict, CIMultiDictProxy  # noqa: PLC0415
+
+    hop = SimpleNamespace(
+        request_info=RequestInfo(
+            URL("http://example.com/a"),
+            "GET",
+            CIMultiDictProxy(CIMultiDict({"Proxy-Authorization": "Basic dXNlcjpzZWNyZXQ="})),
+            URL("http://example.com/a"),
+        ),
+    )
+    final = _response_error(_FAILED_URL, 503)
+    final.history = (hop,)  # ty: ignore[invalid-assignment]
+    try:
+        raise final
+    except ClientResponseError as error:
+        raised = error
+
+    scrubbed = network._without_credentials(raised, sent_credentials=False)  # noqa: SLF001
+
+    assert scrubbed.history == ()
+    assert scrubbed.__traceback__ is None
+    assert "dXNlcjpzZWNyZXQ=" not in _every_carrier_of(scrubbed)
