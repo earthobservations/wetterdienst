@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- `katex`, a development-only dependency of the lint toolchain, is updated to 0.19.0 (was 0.16.47,
+  below the fixed 0.18.2) through a `pnpm-workspace.yaml` override. It is not part of the built
+  app, so users see no change (GH-2605)
+
 ## [0.19.0] - 2026-10-08
 
 ### Changed
