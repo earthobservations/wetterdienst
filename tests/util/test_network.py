@@ -30,6 +30,7 @@ from aiohttp import (
     ClientConnectorSSLError,
     ClientOSError,
     ClientPayloadError,
+    ClientProxyConnectionError,
     ClientResponseError,
     ClientSSLError,
     ClientTimeout,
@@ -3402,25 +3403,29 @@ def test_a_directory_listing_that_cannot_connect_raises_a_connector_error_withou
     assert "secret" not in "".join(record.getMessage() + str(record.__dict__) for record in caplog.records)
 
 
-@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
-def test_a_directory_listing_through_an_unreachable_proxy_raises_a_clean_connector_error(
+@pytest.mark.skipif(os.name == "nt", reason="proxy lookup differs on Windows")
+def test_a_directory_listing_through_an_unreachable_proxy_keeps_the_password_out_of_the_frames(
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """The real aiohttp error of a proxy that refuses the connection, not a stand-in for it (GH-2602).
 
-    aiohttp builds this one's key from the proxy request, which names no proxy, so it carries no
-    password to begin with; the test pins the type that is retried and caught, and the cut chain.
+    aiohttp builds this one's key from the proxy request, which names no proxy, so the scrub finds
+    nothing to remove from it; but the frames of its traceback hold `proxy_auth` and a key that
+    does, as locals, which is what `--showlocals` and an error reporter's frame capture read. The
+    proxy comes from `HTTPS_PROXY` as the docs set it up, so that the caller's own settings hold no
+    password for those frames to show.
     """
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
-    # closed again: nothing listens on the port, so connecting to the "proxy" is refused
-    settings = Settings(
-        cache_dir=tmp_path,
-        cache_disable=True,
-        fsspec_client_kwargs={"proxy": f"http://user:secret@127.0.0.1:{port}"},
-    )
+    # closed again, so nothing listens and connecting to the "proxy" is refused (a socket left bound
+    # but not listening makes macOS hang instead)
+    monkeypatch.setenv("HTTPS_PROXY", f"http://user:secret@127.0.0.1:{port}")
+    for name in ("https_proxy", "NO_PROXY", "no_proxy"):
+        monkeypatch.delenv(name, raising=False)
+    settings = Settings(cache_dir=tmp_path, cache_disable=True, fsspec_client_kwargs={"trust_env": True})
 
     with (
         stamina.set_testing(True, attempts=2),
@@ -3429,13 +3434,15 @@ def test_a_directory_listing_through_an_unreachable_proxy_raises_a_clean_connect
     ):
         list_remote_directory_fsspec("https://example.com/dir/", settings)
 
-    # the caller's own settings, password included, are a local of the frames above this one
-    rendered = "".join(traceback.format_exception(raised.value))
-    assert "secret" not in repr(raised.value) + str(raised.value) + rendered
+    # computed first and compared as a bool: an assertion that names the secret leaves it in this frame's locals
+    with_locals = "".join(traceback.TracebackException.from_exception(raised.value, capture_locals=True).format())
+    leaks = "secret" in repr(raised.value) + str(raised.value) + with_locals
+    assert not leaks
+    assert type(raised.value) is ClientProxyConnectionError
     assert raised.value.__cause__ is None
     assert raised.value.__context__ is None
-    # stamina's own `args` field would show the settings the caller built, proxy included: what is
-    # read is the repr of the error it logs
+    # stamina's own `args` field would show the settings the caller built: what is read is the
+    # repr of the error it logs
     retried = [record.__dict__["stamina.caused_by"] for record in caplog.records if record.name == "stamina"]
     assert retried, "stamina logged nothing"
-    assert "secret" not in "".join(retried)
+    assert not [text for text in retried if "secret" in text]
