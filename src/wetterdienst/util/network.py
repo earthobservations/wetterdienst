@@ -1221,6 +1221,9 @@ def list_remote_directory_fsspec(
 
     Raises:
         ssl.SSLError: If a certificate does not verify or a TLS handshake fails, after the retries.
+        Exception: If the listing could not be read for another reason, after the retries: a missing
+            directory (``FileNotFoundError``), an offline connection (``ClientConnectorError``) or an
+            HTTP error status. Unlike ``list_remote_files_fsspec``, none of these returns no entries.
 
     """
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)

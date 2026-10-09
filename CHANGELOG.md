@@ -30,7 +30,8 @@ Types of changes:
 - Listing the contents of one directory (the DWD DMO and alerts indexes, IMGW) on a host whose
   certificate does not verify, or that fails a TLS handshake, raises an `ssl.SSLError` after the
   retries instead of the aiohttp error, whose repr rendered the password of a proxy named in
-  `HTTPS_PROXY` into the retry log and into messages that format it (GH-2590)
+  `HTTPS_PROXY` into the retry log and into messages that format it. Both are `OSError`s, so
+  `except OSError` keeps catching it; `except aiohttp.ClientError` no longer does (GH-2590)
 - A retried download or post that fails TLS through a proxy no longer logs the proxy's password:
   stamina's retry warning rendered the aiohttp error's connection key, which holds `proxy_auth`
   and the `user:secret@` of a proxy URL, whether the proxy came from `HTTPS_PROXY` or from
