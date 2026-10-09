@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- A retried download or post that fails TLS through a proxy no longer logs the proxy's password:
+  stamina's retry warning rendered the aiohttp error's connection key, which holds `proxy_auth`
+  and the `user:secret@` of a proxy URL, whether the proxy came from `HTTPS_PROXY` or from
+  `client_kwargs`. The key is logged with both removed (GH-2582)
 - Exporting a frame of 7 or more columns to a `sqlite://` target no longer fails with "too many
   SQL variables" once it has more than 32766 / columns rows (from 4681 rows for 7 columns) on
   SQLite 3.32 and later: the rows per insert now follow the 32766 variables a statement may
