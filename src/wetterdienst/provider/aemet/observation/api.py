@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import stamina
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -285,6 +286,9 @@ class AemetObservationValues(TimeseriesValues):
 
         url = self._endpoint_realtime.format(station_id=station_id)
         payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
+        if isinstance(payload, NoInternetError):
+            log.debug(f"No internet connection available for AEMET station {station_id}, returning no values.")
+            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         if isinstance(payload, Exception):
             log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
@@ -331,6 +335,11 @@ class AemetObservationValues(TimeseriesValues):
                 end_date=chunk_end.strftime("%Y-%m-%dT%H:%M:%SUTC"),
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
+            if isinstance(payload, NoInternetError):
+                # offline, every remaining chunk would fail the same way: stop, and log it as
+                # `File.raise_if_exception` does
+                log.debug(f"No internet connection available for AEMET station {station_id}, stopping at {url}.")
+                break
             if isinstance(payload, Exception):
                 # rate-limit retries (if applicable) are already exhausted at this point,
                 # so this chunk's data is genuinely missing from the result.
@@ -397,6 +406,9 @@ class AemetObservationValues(TimeseriesValues):
                 end_year=end_year,
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
+            if isinstance(payload, NoInternetError):
+                log.debug(f"No internet connection available for AEMET station {station_id}, stopping at {url}.")
+                break
             if isinstance(payload, Exception):
                 log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
                 continue

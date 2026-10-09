@@ -34,6 +34,7 @@ from aiohttp import (
     ClientResponseError,
     ClientSSLError,
 )
+from aiohttp.client_reqrep import ConnectionKey
 from fsspec.asyn import sync, sync_wrapper
 from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
@@ -48,6 +49,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 _E = TypeVar("_E", bound=BaseException)
+_C = TypeVar("_C", bound=ClientConnectorError)
 
 
 def _create_ssl_context(*, use_certifi: bool) -> ssl.SSLContext | None:
@@ -116,15 +118,20 @@ class File:
 
     @property
     def nbytes(self) -> int:
-        """Return the number of bytes in the file content."""
+        """Return the number of bytes in the file content, `0` when there is no body (a failed download)."""
         if isinstance(self.content, BytesIO):
             return self.content.getbuffer().nbytes
         return 0
 
     @property
     def is_empty(self) -> bool:
-        """Check if the file content is empty."""
-        return self.nbytes == 0
+        """Check if the file has a body of zero bytes.
+
+        A failed download has no body at all, so it is not empty: `content` is the exception and
+        this is `False`. A caller that wants "failed or empty" asks for both,
+        `isinstance(file.content, Exception) or file.is_empty` (GH-2563).
+        """
+        return isinstance(self.content, BytesIO) and self.nbytes == 0
 
 
 def _without_url_secrets(url: str) -> str:
@@ -1126,7 +1133,13 @@ def list_remote_files_fsspec(
         cache_expiry: The cache expiration time.
 
     Returns:
-        A list of all files on the server
+        A list of all files on the server, or no files if the directory is not there or the
+        library is offline
+
+    Raises:
+        ssl.SSLError: If a certificate does not verify or a TLS handshake fails, after the retries.
+        Exception: If the listing could not be read for another reason, after the retries: an
+            ``OSError`` such as a connection reset, or an HTTP error status other than 404.
 
     """
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
@@ -1150,6 +1163,19 @@ def list_remote_files_fsspec(
         return fs.find(url, on_error="raise")
     except FileNotFoundError:
         return []
+    except ClientSSLError as e:
+        # a certificate that does not verify, or a TLS protocol failure: the host answered, so this
+        # is not being offline, and `[]` would hand the caller an empty directory with no hint of
+        # why (see `download_file`, GH-2553). A subclass of `ClientConnectorError`, hence before it.
+        # What is raised is the `ssl.SSLError` underneath, as a download stores it: the aiohttp
+        # error holds the connection key, which renders the password of a proxy named in
+        # `HTTPS_PROXY`, and its traceback frames hold the request as locals. Raised below, outside
+        # this block, because raising in it would set the aiohttp error as `__context__`, which
+        # `from None` hides from a printed traceback but not from anything that walks the chain
+        log.info(f"Failed to list {url}.")
+        tls_failure = e.os_error.with_traceback(None)
+        tls_failure.__cause__ = None
+        tls_failure.__context__ = None
     except ClientConnectorError:
         # the one `OSError` that is not a failure to read this listing: it is the whole library
         # being offline, which every other path here degrades on rather than reports -- a download
@@ -1159,6 +1185,8 @@ def list_remote_files_fsspec(
         # of an aiohttp traceback from the one path that lists
         log.debug(f"No internet connection available for {url}, returning no files.")
         return []
+    # raising lets the retry above ask again, as it does for any failure to read
+    raise tls_failure
 
 
 @stamina.retry(on=Exception, attempts=3)
@@ -1357,7 +1385,13 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     The error is handed back to a caller to log, raise or store, so both are dealt with before it
     travels. The traceback is dropped only for a request that carried credentials: for every other
     one it is worth more than it costs.
+
+    A third place is the connection key of a ``ClientConnectorError``, which holds the password of
+    a proxy. That one is scrubbed whatever ``sent_credentials`` says: it is not a header the caller
+    passed, and a proxy named in ``HTTPS_PROXY`` is read by aiohttp where this cannot see it.
     """
+    if isinstance(error, ClientConnectorError):
+        error = _without_proxy_credentials(error)
     if not sent_credentials:
         return error
     error = error.with_traceback(None)
@@ -1388,6 +1422,35 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     if error.args and error.args[0] is request_info:
         error.args = (scrubbed, (), *error.args[2:])
     return error
+
+
+def _without_proxy_credentials(error: _C) -> _C:
+    """Strip the proxy's userinfo and ``proxy_auth`` from the connection key of a connector error.
+
+    aiohttp raises ``ClientConnectorError(connection_key, os_error)``, so the key is in its ``args``
+    and an exception's ``repr`` renders them: ``proxy_auth=BasicAuth(login=..., password=...)``,
+    and ``proxy`` as a URL that keeps the ``user:secret@`` it was given. Stamina logs that repr on
+    the first failure of a retried download or post, at WARNING (GH-2582).
+
+    Rewritten in place, as the request info of a response error is, because the subclasses
+    (``ClientConnectorCertificateError`` among them) are built from differing arguments. A key that
+    names no proxy credentials is left alone, traceback included. One that does loses its
+    traceback, whose frames hold that key as a local.
+    """
+    key = getattr(error, "_conn_key", None)
+    if not isinstance(key, ConnectionKey):
+        return error
+    proxy = key.proxy
+    if key.proxy_auth is None and (proxy is None or (proxy.user is None and proxy.password is None)):
+        return error
+    scrubbed = key._replace(
+        proxy=None if proxy is None else proxy.with_user(None),  # also drops the password
+        proxy_auth=None,
+    )
+    error._conn_key = scrubbed  # noqa: SLF001
+    if error.args and error.args[0] is key:
+        error.args = (scrubbed, *error.args[1:])
+    return error.with_traceback(None)
 
 
 # How long a post waits on a silent server when the caller's ``client_kwargs`` does not say.
