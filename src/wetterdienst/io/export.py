@@ -846,16 +846,7 @@ class ExportMixin:
                 sqlite3 dwd.sqlite "SELECT * FROM weather;"
 
             """
-            # Honour SQLite's SQLITE_MAX_VARIABLE_NUMBER, which defaults to 999 for SQLite versions
-            # prior to 3.32.0 (2020-05-22) and to 32766 from then on, see
-            # https://www.sqlite.org/limits.html#max_variable_number. A multi-row insert carries one
-            # variable per cell, so the rows per insert follow from the columns
             chunk_size = 5000
-            if target.startswith("sqlite://"):
-                import sqlite3  # noqa: PLC0415
-
-                max_variables = 999 if sqlite3.sqlite_version_info < (3, 32, 0) else 32766
-                chunk_size = min(chunk_size, max_variables // len(self.df.columns))
 
             log.info("Writing to SQL database")
             import sqlalchemy  # noqa: PLC0415
@@ -870,6 +861,17 @@ class ExportMixin:
             # SQLAlchemy's own reading, which `ConnectionString` copies; read here by SQLAlchemy
             # itself because 2.0 leaves the database as written and 2.1 decodes it
             url = sqlalchemy.make_url(target).difference_update_query(["table"])
+            if url.get_backend_name() == "sqlite":
+                # Honour SQLite's SQLITE_MAX_VARIABLE_NUMBER, which defaults to 999 for SQLite
+                # versions prior to 3.32.0 (2020-05-22) and to 32766 from then on, see
+                # https://www.sqlite.org/limits.html#max_variable_number. A multi-row insert
+                # carries one variable per cell, so the rows per insert follow from the columns.
+                # Decided on the parsed URL, not the string: `sqlite+pysqlite://` and
+                # `sqlite+pysqlcipher://` name their driver and are SQLite all the same
+                import sqlite3  # noqa: PLC0415
+
+                max_variables = 999 if sqlite3.sqlite_version_info < (3, 32, 0) else 32766
+                chunk_size = min(chunk_size, max_variables // len(self.df.columns))
             if url.get_backend_name() == "postgresql":
                 # a bare `postgresql://` means psycopg2 to SQLAlchemy 2.0 and psycopg 3 to 2.1,
                 # which needs Python 3.11, so both are allowed. The `postgresql` extra installs

@@ -1119,6 +1119,20 @@ def _worth_retrying_download(error: Exception) -> bool:
     return isinstance(error, FileNotFoundError) or _worth_retrying(error)
 
 
+def _bare_tls_failure(error: ClientSSLError) -> OSError:
+    """Return the ``ssl.SSLError`` under an aiohttp TLS failure, with nothing on it that leads back to ``error``.
+
+    The aiohttp error holds the connection key, which renders the password of a proxy named in
+    ``HTTPS_PROXY``, and its traceback frames hold the request as locals. So the traceback is dropped
+    and ``__cause__`` and ``__context__`` are cleared. The caller raises the result outside its
+    ``except`` block, because raising in it would set ``error`` as ``__context__`` again.
+    """
+    failure = error.os_error.with_traceback(None)
+    failure.__cause__ = None
+    failure.__context__ = None
+    return failure
+
+
 @stamina.retry(on=Exception, attempts=3)
 def list_remote_files_fsspec(
     url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
@@ -1173,9 +1187,7 @@ def list_remote_files_fsspec(
         # this block, because raising in it would set the aiohttp error as `__context__`, which
         # `from None` hides from a printed traceback but not from anything that walks the chain
         log.info(f"Failed to list {url}.")
-        tls_failure = e.os_error.with_traceback(None)
-        tls_failure.__cause__ = None
-        tls_failure.__context__ = None
+        tls_failure = _bare_tls_failure(e)
     except ClientConnectorError:
         # the one `OSError` that is not a failure to read this listing: it is the whole library
         # being offline, which every other path here degrades on rather than reports -- a download
@@ -1207,6 +1219,12 @@ def list_remote_directory_fsspec(
     Returns:
         A list of fsspec detail dicts (with "name" and "type" keys, among others) for each entry.
 
+    Raises:
+        ssl.SSLError: If a certificate does not verify or a TLS handshake fails, after the retries.
+        Exception: If the listing could not be read for another reason, after the retries: a missing
+            directory (``FileNotFoundError``), an offline connection (``ClientConnectorError``) or an
+            HTTP error status. Unlike ``list_remote_files_fsspec``, none of these returns no entries.
+
     """
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
     fs = HTTPFileSystem(
@@ -1216,7 +1234,17 @@ def list_remote_directory_fsspec(
         client_kwargs=settings.fsspec_client_kwargs,
         use_certifi=settings.use_certifi,
     )
-    return fs.ls(url, detail=True)
+    try:
+        return fs.ls(url, detail=True)
+    except ClientSSLError as e:
+        # as in `list_remote_files_fsspec`: the host answered, so a failing certificate or handshake
+        # is raised as the bare `ssl.SSLError` underneath rather than let out as the aiohttp error,
+        # whose repr renders the password of a proxy named in `HTTPS_PROXY`. Any other error keeps
+        # leaving as it did. Raised below, outside this block, so `e` is not its `__context__`
+        log.info(f"Failed to list {url}.")
+        tls_failure = _bare_tls_failure(e)
+    # raising lets the retry above ask again, as it does for any failure to read
+    raise tls_failure
 
 
 def download_file(
@@ -1388,13 +1416,17 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
 
     A third place is the connection key of a ``ClientConnectorError``, which holds the password of
     a proxy. That one is scrubbed whatever ``sent_credentials`` says: it is not a header the caller
-    passed, and a proxy named in ``HTTPS_PROXY`` is read by aiohttp where this cannot see it.
+    passed, and a proxy named in ``HTTPS_PROXY`` is read by aiohttp where this cannot see it. The
+    same goes for a credential header that aiohttp adds to the request info of a response error
+    itself (``Proxy-Authorization`` on a ``ClientHttpProxyError``, or on a 5xx from an ``http://``
+    target behind a proxy; ``Authorization`` from an ``auth=`` or the userinfo of the target): a
+    response error whose request info holds one is scrubbed, and its traceback dropped, whatever
+    ``sent_credentials`` says (GH-2592).
     """
     if isinstance(error, ClientConnectorError):
         error = _without_proxy_credentials(error)
-    if not sent_credentials:
-        return error
-    error = error.with_traceback(None)
+    if sent_credentials:
+        error = error.with_traceback(None)
     # only a response error carries request info; a timeout or a dropped connection has none, and
     # for those the traceback was the whole of the exposure
     if not isinstance(error, ClientResponseError):
@@ -1405,12 +1437,19 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     carried = [name for name in request_info.headers if str(name).lower() in _CREDENTIAL_HEADERS]
     if not carried:
         return error
+    # kept for a failure with nothing to scrub; here its frames hold the request, header included
+    error = error.with_traceback(None)
     headers = request_info.headers.copy()
     for name in carried:
         # assignment replaces every entry of that name rather than adding one
         headers[name] = "<redacted>"
-    # rebuilt as the same (immutable) mapping type the request info was given, without naming it
-    scrubbed = request_info._replace(headers=type(request_info.headers)(headers))
+    # rebuilt as the same (immutable) mapping type the request info was given, without naming it.
+    # The userinfo goes from the urls too: for a CONNECT the real url is the proxy's, password included
+    scrubbed = request_info._replace(
+        headers=type(request_info.headers)(headers),
+        url=request_info.url.with_user(None),
+        real_url=request_info.real_url.with_user(None),
+    )
     error.request_info = scrubbed
     # the history is the responses of a redirect chain, each holding its own copy of the request and
     # so of the header. Dropped rather than rebuilt: what a redirected request has to say is that it

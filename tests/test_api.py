@@ -1267,7 +1267,7 @@ def test_discover_marks_providers_unconfigured_for_a_malformed_credential(caplog
         for network, entry in networks.items()
         if entry["auth"]
     }
-    assert {provider for provider, _ in auth} == {"aemet", "knmi", "metno"}
+    assert {provider for provider, _ in auth} == {"aemet", "knmi", "metno", "metoffice"}
     assert all(entry["configured"] is False and entry["valid"] is False for entry in auth.values())
     assert discovered["dwd"]["observation"]["configured"] is True
     assert [record.getMessage() for record in caplog.records if record.name == "wetterdienst.api"] == [
@@ -1332,3 +1332,20 @@ def _settings_error() -> ValidationError:
         return e
     msg = "the settings were built"
     raise AssertionError(msg)
+
+
+def test_discover_lists_metoffice_as_needing_a_credential(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The Met Office metadata says it needs a CEDA credential, so the listing follows `WD_AUTH__CEDA` (GH-2594)."""
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+    assert Wetterdienst.discover()["metoffice"]["observation"] == {
+        "auth": True,
+        "configured": False,
+        "valid": False,
+        "date_required": False,
+    }
+    monkeypatch.setenv("WD_AUTH__CEDA", "user:password")
+    entry = Wetterdienst.discover()["metoffice"]["observation"]
+    assert (entry["auth"], entry["configured"]) == (True, True)

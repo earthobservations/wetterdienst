@@ -3,16 +3,20 @@
 """Tests for LHMT (Lithuania) observation provider."""
 
 import datetime as dt
+import logging
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
 from wetterdienst.provider.lhmt.observation.parser import (
     parse_lhmt_observations,
     parse_lhmt_stations,
 )
+from wetterdienst.util.network import File
 
 UTC = ZoneInfo("UTC")
 VILNIUS = "vilniaus-ams"
@@ -188,3 +192,85 @@ def test_lhmt_observation_values() -> None:
     assert value_at("pressure_air_sea_level", 12) == pytest.approx(1007.4)
     # humidity is converted from percent to the default decimal target (52 % -> 0.52)
     assert value_at("humidity_relative", 12) == pytest.approx(0.52)
+
+
+_STATIONS_JSON = (
+    b'[{"code": "vilniaus-ams", "name": "Vilniaus AMS", '
+    b'"coordinates": {"latitude": 54.625992, "longitude": 25.107064}}]'
+)
+_DAY_JSON = (
+    b'{"station": {"code": "vilniaus-ams"}, "observations": ['
+    b'{"observationTimeUtc": "2020-07-01 12:00:00", "airTemperature": 22.3}]}'
+)
+
+
+def _fake_download_file(monkeypatch: pytest.MonkeyPatch, *answers: bytes | Exception, status: int = 503) -> list[str]:
+    """Serve the station list, answer the day requests with `answers` in order, the last for all after.
+
+    A bytes answer is a body (status 200), an exception a failed download with `status`. Returns the
+    day URLs requested.
+    """
+    attempted: list[str] = []
+
+    def fake_download_file(url: str, *_args: object, **_kwargs: object) -> File:
+        if url.endswith("/stations"):
+            return File(url=url, content=BytesIO(_STATIONS_JSON), status=200)
+        attempted.append(url)
+        answer = answers[min(len(attempted), len(answers)) - 1]
+        if isinstance(answer, Exception):
+            return File(url=url, content=answer, status=status)
+        return File(url=url, content=BytesIO(answer), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.lhmt.observation.api.download_file", fake_download_file)
+    return attempted
+
+
+def _lhmt_values(days: int) -> pl.DataFrame:
+    start = dt.datetime(2020, 7, 1, tzinfo=UTC)
+    return (
+        LhmtObservationRequest(
+            parameters=[("hourly", "data")],
+            start=start,
+            end=start + dt.timedelta(days=days - 1),
+        )
+        .filter_by_station_id(VILNIUS)
+        .values.all()
+        .df
+    )
+
+
+def test_lhmt_observation_values_offline_stop_at_first_day_without_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Offline, the day loop stops after one request, returns nothing and logs no warning."""
+    attempted = _fake_download_file(monkeypatch, NoInternetError("no route to host"))
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.provider.lhmt"):
+        df = _lhmt_values(days=30)
+    assert df.is_empty()
+    assert len(attempted) == 1
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+def test_lhmt_observation_values_going_offline_midway_keeps_what_was_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A network lost after the first day ends the loop there, with that day's values."""
+    attempted = _fake_download_file(monkeypatch, _DAY_JSON, NoInternetError("no route to host"))
+    df = _lhmt_values(days=30)
+    assert len(attempted) == 2
+    assert df.get_column("value").drop_nulls().to_list() == [22.3]
+
+
+def test_lhmt_observation_values_missing_day_does_not_stop_the_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 404 (a day before the station's record) contributes no rows; the next days are still read."""
+    attempted = _fake_download_file(monkeypatch, Exception("not found"), status=404)
+    df = _lhmt_values(days=5)
+    assert df.is_empty()
+    assert len(attempted) == 5
+
+
+def test_lhmt_observation_values_failed_day_still_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A failure that is neither a missing day nor a missing network raises, as before (GH-2461)."""
+    attempted = _fake_download_file(monkeypatch, Exception("server error"), status=500)
+    with pytest.raises(DownloadError):
+        _lhmt_values(days=5)
+    assert len(attempted) == 1
