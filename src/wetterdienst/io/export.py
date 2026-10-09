@@ -913,9 +913,11 @@ class ExportMixin:
                     # a naive datetime would be SQL Server's `DATETIME`, which starts in 1753 and
                     # rounds to 1/300 s; `DATETIME2` holds every year a Python datetime can
                     dtype = {name: DATETIME2() for name in frame.select(cs.datetime()).columns}
-                    # pandas declares text as `Text`, which is `VARCHAR(max)` here: stored in the
-                    # column's code page, so under the default collation (Windows-1252) a name
-                    # such as `Łódź` or `Třeboň` loses every character outside it to a `?`.
+                    # pandas declares text as `Text`, which is `VARCHAR(max)` here (`TEXT` before
+                    # SQL Server 2012): stored in the column's code page, so under a collation
+                    # such as `SQL_Latin1_General_CP1_CI_AS` (Windows-1252, the default of an
+                    # English install) a name like `Łódź` or `Třeboň` loses every character
+                    # outside it to a `?`.
                     # `NVARCHAR(max)` holds Unicode. Read off the frame after the Enum cast, and
                     # with a column of nothing but nulls, which pandas also declares as `Text`
                     dtype |= {

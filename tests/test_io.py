@@ -3751,7 +3751,11 @@ def test_sql_sink_caps_a_sqlite_insert_for_a_target_that_names_its_driver(target
 @pytest.mark.parametrize(
     ("target", "text_type"),
     [
-        pytest.param("mssql+pyodbc://u:p@localhost/dwd?table=stations", "NVARCHAR(max)", id="mssql+pyodbc"),
+        pytest.param(
+            "mssql+pyodbc://u:p@localhost/dwd?driver=ODBC+Driver+18+for+SQL+Server&table=stations",
+            "NVARCHAR(max)",
+            id="mssql+pyodbc",
+        ),
         pytest.param("mssql+pymssql://u:p@localhost/dwd?table=stations", "NVARCHAR(max)", id="mssql+pymssql"),
         # the control: another dialect keeps pandas' `Text`
         pytest.param("mysql+pymysql://u:p@localhost/dwd?table=stations", "TEXT", id="mysql+pymysql"),
