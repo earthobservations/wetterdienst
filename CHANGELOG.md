@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- Listing a directory of files on a host whose certificate does not verify, or that fails a TLS
+  handshake, raises that failure (an `ssl.SSLError`) after the retries, where it returned no
+  files as if offline: providers that list first returned an empty result with no hint of why
+  (GH-2581)
 - A retried download or post that fails TLS through a proxy no longer logs the proxy's password:
   stamina's retry warning rendered the aiohttp error's connection key, which holds `proxy_auth`
   and the `user:secret@` of a proxy URL, whether the proxy came from `HTTPS_PROXY` or from
