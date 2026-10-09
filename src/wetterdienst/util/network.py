@@ -1119,6 +1119,20 @@ def _worth_retrying_download(error: Exception) -> bool:
     return isinstance(error, FileNotFoundError) or _worth_retrying(error)
 
 
+def _bare_tls_failure(error: ClientSSLError) -> OSError:
+    """Return the ``ssl.SSLError`` under an aiohttp TLS failure, with nothing on it that leads back to ``error``.
+
+    The aiohttp error holds the connection key, which renders the password of a proxy named in
+    ``HTTPS_PROXY``, and its traceback frames hold the request as locals. So the traceback is dropped
+    and ``__cause__`` and ``__context__`` are cleared. The caller raises the result outside its
+    ``except`` block, because raising in it would set ``error`` as ``__context__`` again.
+    """
+    failure = error.os_error.with_traceback(None)
+    failure.__cause__ = None
+    failure.__context__ = None
+    return failure
+
+
 @stamina.retry(on=Exception, attempts=3)
 def list_remote_files_fsspec(
     url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
@@ -1173,9 +1187,7 @@ def list_remote_files_fsspec(
         # this block, because raising in it would set the aiohttp error as `__context__`, which
         # `from None` hides from a printed traceback but not from anything that walks the chain
         log.info(f"Failed to list {url}.")
-        tls_failure = e.os_error.with_traceback(None)
-        tls_failure.__cause__ = None
-        tls_failure.__context__ = None
+        tls_failure = _bare_tls_failure(e)
     except ClientConnectorError:
         # the one `OSError` that is not a failure to read this listing: it is the whole library
         # being offline, which every other path here degrades on rather than reports -- a download
@@ -1207,6 +1219,9 @@ def list_remote_directory_fsspec(
     Returns:
         A list of fsspec detail dicts (with "name" and "type" keys, among others) for each entry.
 
+    Raises:
+        ssl.SSLError: If a certificate does not verify or a TLS handshake fails, after the retries.
+
     """
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
     fs = HTTPFileSystem(
@@ -1216,7 +1231,17 @@ def list_remote_directory_fsspec(
         client_kwargs=settings.fsspec_client_kwargs,
         use_certifi=settings.use_certifi,
     )
-    return fs.ls(url, detail=True)
+    try:
+        return fs.ls(url, detail=True)
+    except ClientSSLError as e:
+        # as in `list_remote_files_fsspec`: the host answered, so a failing certificate or handshake
+        # is raised as the bare `ssl.SSLError` underneath rather than let out as the aiohttp error,
+        # whose repr renders the password of a proxy named in `HTTPS_PROXY`. Any other error keeps
+        # leaving as it did. Raised below, outside this block, so `e` is not its `__context__`
+        log.info(f"Failed to list {url}.")
+        tls_failure = _bare_tls_failure(e)
+    # raising lets the retry above ask again, as it does for any failure to read
+    raise tls_failure
 
 
 def download_file(
