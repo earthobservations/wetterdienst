@@ -3663,3 +3663,49 @@ def test_sql_sink_keeps_a_sql_server_insert_within_2099_parameters(
     ):
         frame.to_target(target)
     assert to_sql.call_args.kwargs["chunksize"] == rows_per_insert
+
+
+def test_sql_sink_writes_more_rows_to_sqlite_than_one_insert_may_carry_variables(tmp_path: Path) -> None:
+    """A frame of 7 columns and 6000 rows reaches a sqlite file whole (GH-2579).
+
+    A multi-row insert carries one variable per cell and SQLite 3.32 and later refuses a statement
+    of more than 32766, so the first chunk of 5000 rows of 7 columns (35000) failed with "too many
+    SQL variables". The chunk follows the columns instead.
+    """
+    pytest.importorskip("sqlalchemy")
+    pytest.importorskip("pandas")
+    rows = 6000
+    frame = ExportMixin(df=pl.DataFrame({f"column_{i}": list(range(rows)) for i in range(7)}))
+    database = tmp_path / "wide.sqlite"
+    frame.to_target(f"sqlite:///{database}?table=weather")
+    connection = sqlite3.connect(database)
+    try:
+        assert connection.execute("SELECT COUNT(*) FROM weather").fetchone() == (rows,)
+    finally:
+        connection.close()
+
+
+@pytest.mark.parametrize(
+    ("sqlite_version", "columns", "rows_per_insert"),
+    [
+        pytest.param((3, 31, 1), 7, 142, id="before-3.32"),
+        pytest.param((3, 32, 0), 7, 4680, id="from-3.32"),
+        # a narrow frame is held by the 5000 rows of a chunk
+        pytest.param((3, 32, 0), 2, 5000, id="narrow"),
+    ],
+)
+def test_sql_sink_keeps_a_sqlite_insert_within_the_variable_limit(
+    sqlite_version: tuple[int, int, int],
+    columns: int,
+    rows_per_insert: int,
+) -> None:
+    """The rows per insert are 999 or 32766 variables over the columns, by SQLite's version (GH-2579)."""
+    pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    frame = ExportMixin(df=pl.DataFrame({f"column_{i}": [i] for i in range(columns)}))
+    with (
+        mock.patch("sqlite3.sqlite_version_info", sqlite_version),
+        mock.patch.object(pd.DataFrame, "to_sql", autospec=True) as to_sql,
+    ):
+        frame.to_target("sqlite://?table=weather")
+    assert to_sql.call_args.kwargs["chunksize"] == rows_per_insert

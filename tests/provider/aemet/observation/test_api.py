@@ -5,6 +5,7 @@
 import contextlib
 import datetime as dt
 import json
+import logging
 from io import BytesIO
 from itertools import pairwise
 from zoneinfo import ZoneInfo
@@ -496,3 +497,87 @@ def test_aemet_observation_plain_503_still_retried(monkeypatch: pytest.MonkeyPat
     )
     assert not result.is_no_internet_error
     assert len(calls) == 3
+
+
+def _fake_fetch_datos(monkeypatch: pytest.MonkeyPatch, *answers: bytes | Exception) -> list[str]:
+    """Serve the station list, answer the values requests with `answers` in order, the last for all after.
+
+    Returns the values URLs requested.
+    """
+    attempted: list[str] = []
+    station_payload = json.dumps(
+        [
+            {
+                "indicativo": MADRID_RETIRO,
+                "nombre": "MADRID, RETIRO",
+                "provincia": "MADRID",
+                "altitud": "667",
+                "latitud": "402941N",
+                "longitud": "34041W",
+            },
+        ],
+    ).encode("latin-1")
+
+    def fake_fetch_datos(url: str, *_args: object, **_kwargs: object) -> bytes | Exception:
+        if "todasestaciones" in url:
+            return station_payload
+        attempted.append(url)
+        return answers[min(len(attempted), len(answers)) - 1]
+
+    monkeypatch.setattr("wetterdienst.provider.aemet.observation.api._fetch_datos", fake_fetch_datos)
+    return attempted
+
+
+def _values(resolution: str, years: int) -> pl.DataFrame:
+    start = dt.datetime(2010, 1, 1, tzinfo=UTC)
+    return (
+        AemetObservationRequest(
+            parameters=[(resolution, "data")],
+            start=start,
+            end=start.replace(year=start.year + years),
+            settings=Settings(auth={"aemet": "dummy-key-for-test"}),
+        )
+        .filter_by_station_id(MADRID_RETIRO)
+        .values.all()
+        .df
+    )
+
+
+@pytest.mark.parametrize("resolution", ["daily", "monthly", "annual", "hourly"])
+def test_aemet_observation_values_offline_stop_at_first_chunk_without_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    resolution: str,
+) -> None:
+    """Offline, the per-chunk loops stop after one request and log no warning."""
+    attempted = _fake_fetch_datos(monkeypatch, NoInternetError("no route to host"))
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.provider.aemet"):
+        df = _values(resolution, years=10)
+    assert df.is_empty()
+    assert len(attempted) == 1
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+def test_aemet_observation_values_going_offline_midway_keeps_what_was_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A network lost after the first chunk ends the loop there, with that chunk's values."""
+    records = json.dumps([{"fecha": "2010-01-01", "tmed": "5,5"}]).encode("latin-1")
+    attempted = _fake_fetch_datos(monkeypatch, records, NoInternetError("no route to host"))
+    df = _values("daily", years=10)
+    assert len(attempted) == 2
+    assert df.get_column("value").drop_nulls().to_list() == [5.5]
+
+
+@pytest.mark.parametrize(("resolution", "chunks"), [("daily", 21), ("monthly", 4), ("annual", 4)])
+def test_aemet_observation_values_failed_chunk_is_skipped_and_logged(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    resolution: str,
+    chunks: int,
+) -> None:
+    """A failure that is not a missing network still skips only its own chunk, with a warning."""
+    attempted = _fake_fetch_datos(monkeypatch, Exception("server error"))
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.aemet"):
+        df = _values(resolution, years=10)
+    assert df.is_empty()
+    assert len(attempted) == chunks
+    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == chunks

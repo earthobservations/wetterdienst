@@ -11,6 +11,7 @@ naming / date stepping, the NetCDF parser, the retry loop, and the auth guard.
 """
 
 import datetime as dt
+import logging
 from io import BytesIO
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -482,3 +483,72 @@ def test_knmi_download_no_internet_not_retried(monkeypatch: pytest.MonkeyPatch) 
     result = _download_with_retry("https://example.org", Settings(), CacheExpiry.NO_CACHE)
     assert result.is_no_internet_error
     assert len(calls) == 1
+
+
+def _fake_downloads(monkeypatch: pytest.MonkeyPatch, *answers: bytes | Exception) -> list[str]:
+    """Answer the KNMI file downloads with `answers` in order, the last for all after; return the filenames."""
+    attempted: list[str] = []
+
+    def fake_fetch_netcdf(_dataset: str, _version: str, filename: str, _settings: Settings) -> bytes | Exception:
+        attempted.append(filename)
+        return answers[min(len(attempted), len(answers)) - 1]
+
+    monkeypatch.setattr(
+        "wetterdienst.provider.knmi.observation.api.KnmiObservationRequest._station_frame",
+        staticmethod(lambda *_args: pl.DataFrame({"station_id": [DE_BILT], "name": ["De Bilt"]})),
+    )
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._fetch_netcdf", fake_fetch_netcdf)
+    return attempted
+
+
+def _hourly_values(days: int) -> pl.DataFrame:
+    start = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    return (
+        _request([("hourly", "data", "temperature_air_mean_2m")], start, start + dt.timedelta(days=days))
+        .filter_by_station_id(DE_BILT)
+        .values.all()
+        .df
+    )
+
+
+def test_knmi_values_offline_stop_at_first_moment_without_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Offline, the per-moment loop stops after one download and logs no warning."""
+    attempted = _fake_downloads(monkeypatch, NoInternetError("no route to host"))
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.provider.knmi"):
+        df = _hourly_values(days=30)
+    assert df.is_empty()
+    assert len(attempted) == 1
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+def test_knmi_values_going_offline_midway_keeps_what_was_read(
+    monkeypatch: pytest.MonkeyPatch,
+    netcdf_payload: bytes,
+) -> None:
+    """A network lost after the first file ends the loop there, with that file's values."""
+    attempted = _fake_downloads(monkeypatch, netcdf_payload, NoInternetError("no route to host"))
+    start = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    df = (
+        _request([("daily", "data", "temperature_air_mean_2m")], start, start + dt.timedelta(days=5))
+        .filter_by_station_id(DE_BILT)
+        .values.all()
+        .df
+    )
+    assert len(attempted) == 2
+    assert df.get_column("value").to_list() == [6.6]
+
+
+def test_knmi_values_failed_moment_is_skipped_and_logged(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failure that is not a missing network still skips only its own moment, with a warning."""
+    attempted = _fake_downloads(monkeypatch, Exception("not found"))
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.knmi"):
+        df = _hourly_values(days=1)
+    assert df.is_empty()
+    assert len(attempted) == 25
+    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 25

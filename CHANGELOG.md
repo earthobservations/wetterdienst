@@ -22,6 +22,14 @@ Types of changes:
   handshake, raises that failure (an `ssl.SSLError`) after the retries, where it returned no
   files as if offline: providers that list first returned an empty result with no hint of why
   (GH-2581)
+- A retried download or post that fails TLS through a proxy no longer logs the proxy's password:
+  stamina's retry warning rendered the aiohttp error's connection key, which holds `proxy_auth`
+  and the `user:secret@` of a proxy URL, whether the proxy came from `HTTPS_PROXY` or from
+  `client_kwargs`. The key is logged with both removed (GH-2582)
+- Exporting a frame of 7 or more columns to a `sqlite://` target no longer fails with "too many
+  SQL variables" once it has more than 32766 / columns rows (from 4681 rows for 7 columns) on
+  SQLite 3.32 and later: the rows per insert now follow the 32766 variables a statement may
+  carry, where only the older limit of 999 was honoured (GH-2579)
 - `wsv/pegel` values, the DWD field descriptions read from PDFs and the script that regenerates the
   packaged OPERA radar sites raise `DownloadError` for a failed download, as
   `File.raise_if_exception` does elsewhere, where they raised the stored error itself: a timeout
@@ -33,6 +41,10 @@ Types of changes:
   `SettingsError`; text for a key of a dict setting is kept as it is. All three raised a
   `RecursionError` before: `check_settings()`, `Settings()` and so a provider's `is_configured()`,
   which now raises the `ValidationError` (GH-2543)
+- KNMI and AEMET values requested with no network stop at the first download that finds none, per
+  station, and return what was read before it (an empty frame if nothing), logged at debug as
+  elsewhere. Every KNMI moment (720 for an hourly month) and every AEMET chunk was requested
+  again before, and each skip logged a warning (GH-2558)
 
 ## [0.143.0] - 2026-10-08
 
