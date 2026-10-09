@@ -107,8 +107,13 @@ def _metoffice(module: Any) -> object:  # noqa: ANN401
 
 
 def _lhmt(module: Any) -> object:  # noqa: ANN401
-    values = _values(module.LhmtObservationValues)
-    return values._download_day("vilniaus-ams", dt.date(2020, 1, 1), _settings())  # noqa: SLF001
+    # the read as a whole: `_download_day` hands `NoInternetError` to the collect, which ends the days quietly
+    start = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    values = _values(module.LhmtObservationValues, start=start, end=start)
+    return values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        "vilniaus-ams",
+        module.LhmtObservationMetadata["hourly"]["data"],
+    )
 
 
 def _meteofrance_synop(module: Any, year: int | None = None) -> object:  # noqa: ANN401

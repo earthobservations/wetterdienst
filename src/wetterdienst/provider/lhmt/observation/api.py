@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, cast
 
 import polars as pl
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
@@ -80,6 +81,10 @@ class LhmtObservationValues(TimeseriesValues):
         frames = []
         for day in _days(self.sr.start, self.sr.end):
             content = self._download_day(station_id, day, settings)
+            if isinstance(content, NoInternetError):
+                # offline, every remaining day would fail the same way: stop, and keep the days read
+                log.debug(f"No internet connection available for LHMT {station_id} on {day}, returning what was read.")
+                break
             if content is None:
                 continue
             df = parse_lhmt_observations(content)
@@ -99,7 +104,7 @@ class LhmtObservationValues(TimeseriesValues):
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
-    def _download_day(self, station_id: str, day: dt.date, settings: Settings) -> bytes | None:
+    def _download_day(self, station_id: str, day: dt.date, settings: Settings) -> bytes | NoInternetError | None:
         url = f"{_BASE_URL}/stations/{station_id}/observations/{day.isoformat()}"
         # a settled past day is immutable, so it can be cached indefinitely; only the current (still
         # filling) day needs a short cache. This keeps repeated historical queries off the network
@@ -113,14 +118,16 @@ class LhmtObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # no network is handed to the caller, which stops the loop: every later day would fail alike
+        if isinstance(file.content, NoInternetError):
+            return file.content
         # a day before the station's record is a 404 and simply contributes no rows; any other
         # failure -- a timeout, a 5xx after the retries -- is an outage, which swallowed would read as
         # a day without observations (GH-2461)
         if file.status != 404:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
-            if not file.is_no_internet_error:
-                log.debug(f"No LHMT data for {station_id} on {day}: {file.content}")
+            log.debug(f"No LHMT data for {station_id} on {day}: {file.content}")
             return None
         return file.content.read()
 
