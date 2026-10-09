@@ -1247,12 +1247,15 @@ def list_remote_directory_fsspec(
         failure = _bare_tls_failure(e)
     except ClientConnectorError as e:
         # any other connector failure -- an unreachable or refusing proxy, a DNS failure, a reset --
-        # keeps its type, which the retry above and callers such as `dwd/dmo` know it by. Only the
-        # proxy's credentials leave its connection key, and the traceback and chain are cut so that
-        # nothing on it leads back to the unscrubbed key or the frames that held it: a refusing
-        # proxy's key names no credentials, so the helper leaves that error's frames, whose locals
-        # hold `proxy_auth`, in place (GH-2602). Raised below for the same reason as above
+        # keeps its type, so a caller that catches aiohttp's errors still does, and the retry above
+        # treats it as any failure to read. The proxy's credentials leave its connection key. The
+        # traceback goes too, and that of `os_error`: a refusing proxy's key names no credentials,
+        # so the helper leaves that error's frames alone, and their locals hold `proxy_auth` and the
+        # encoded `Proxy-Authorization` header. So does the chain. Plain offline errors lose theirs
+        # as well, which costs little: the message names the host, and `os_error` is still there
+        # (GH-2602). Raised below for the same reason as above
         failure = _without_proxy_credentials(e).with_traceback(None)
+        failure.os_error.with_traceback(None)
         failure.__cause__ = None
         failure.__context__ = None
     # raising lets the retry above ask again, as it does for any failure to read

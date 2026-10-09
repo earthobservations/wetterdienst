@@ -3322,7 +3322,7 @@ def test_a_directory_listing_leaves_other_errors_as_they_were(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """A refused connection that names no proxy credential still leaves a directory listing as it did (GH-2590)."""
+    """A refused connection that names no proxy credential still leaves a directory listing as that error (GH-2590)."""
     key = _tls_failure("handshake").args[0]
     refused = ClientConnectorError(key, ConnectionRefusedError(61, "Connection refused"))
 
@@ -3359,8 +3359,8 @@ def test_a_directory_listing_that_cannot_connect_raises_a_connector_error_withou
     """A connector failure that is not TLS keeps its type and loses the proxy's password (GH-2602).
 
     Its repr renders the connection key, and stamina logs that repr on a retry. It stays a
-    `ClientConnectorError` -- what stamina retries and `dwd/dmo` catches, with or without a proxy --
-    and nothing on its chain leads back to the unscrubbed key.
+    `ClientConnectorError`, with or without a proxy, as callers that catch aiohttp's errors expect,
+    and nothing on its chain or in the frames it carries leads back to the unscrubbed key.
     """
     error = ClientConnectorError(
         _tls_failure(
@@ -3371,10 +3371,14 @@ def test_a_directory_listing_that_cannot_connect_raises_a_connector_error_withou
         os_error,
     )
     try:
-        # as aiohttp raises it, so the chain and the traceback are the real ones
-        raise error from os_error
+        # as aiohttp raises it, so the chain and the tracebacks are the real ones
+        try:
+            raise os_error
+        except OSError as exc:
+            raise error from exc
     except ClientConnectorError:
         pass
+    assert os_error.__traceback__ is not None, "nothing to drop, so the check below would pass for the wrong reason"
     assert ("secret" in repr(error)) is with_proxy, "the repr would not have leaked, so this would pass vacuously"
     attempts = []
 
@@ -3393,6 +3397,7 @@ def test_a_directory_listing_that_cannot_connect_raises_a_connector_error_withou
 
     assert type(raised.value) is ClientConnectorError
     assert raised.value.os_error is os_error
+    assert raised.value.os_error.__traceback__ is None
     rendered = "".join(traceback.format_exception(raised.value))
     assert "secret" not in repr(raised.value) + str(raised.value) + rendered
     assert raised.value.__cause__ is None
@@ -3439,6 +3444,8 @@ def test_a_directory_listing_through_an_unreachable_proxy_keeps_the_password_out
     leaks = "secret" in repr(raised.value) + str(raised.value) + with_locals
     assert not leaks
     assert type(raised.value) is ClientProxyConnectionError
+    # the encoded `Proxy-Authorization` header sits in the frames of the OS error underneath
+    assert raised.value.os_error.__traceback__ is None
     assert raised.value.__cause__ is None
     assert raised.value.__context__ is None
     # stamina's own `args` field would show the settings the caller built: what is read is the
