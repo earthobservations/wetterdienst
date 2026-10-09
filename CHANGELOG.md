@@ -36,6 +36,11 @@ Types of changes:
   stamina's retry warning rendered the aiohttp error's connection key, which holds `proxy_auth`
   and the `user:secret@` of a proxy URL, whether the proxy came from `HTTPS_PROXY` or from
   `client_kwargs`. The key is logged with both removed (GH-2582)
+- A download or post refused by a proxy (the proxy answered CONNECT with an error status, or
+  an `http://` target behind it failed) no longer logs the proxy's `Proxy-Authorization` header, nor
+  stores it in `File.content`: it and the `user:secret@` of the proxy URL are redacted from the
+  error's request info, as is an `Authorization` header added by `auth=`; only a caller's own
+  `headers` were before (GH-2592)
 - Exporting a frame of 7 or more columns to a `sqlite://` target no longer fails with "too many
   SQL variables" once it has more than 32766 / columns rows (from 4681 rows for 7 columns) on
   SQLite 3.32 and later: the rows per insert now follow the 32766 variables a statement may

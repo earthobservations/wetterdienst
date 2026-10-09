@@ -1416,13 +1416,17 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
 
     A third place is the connection key of a ``ClientConnectorError``, which holds the password of
     a proxy. That one is scrubbed whatever ``sent_credentials`` says: it is not a header the caller
-    passed, and a proxy named in ``HTTPS_PROXY`` is read by aiohttp where this cannot see it.
+    passed, and a proxy named in ``HTTPS_PROXY`` is read by aiohttp where this cannot see it. The
+    same goes for a credential header that aiohttp adds to the request info of a response error
+    itself (``Proxy-Authorization`` on a ``ClientHttpProxyError``, or on a 5xx from an ``http://``
+    target behind a proxy; ``Authorization`` from an ``auth=`` or the userinfo of the target): a
+    response error whose request info holds one is scrubbed, and its traceback dropped, whatever
+    ``sent_credentials`` says (GH-2592).
     """
     if isinstance(error, ClientConnectorError):
         error = _without_proxy_credentials(error)
-    if not sent_credentials:
-        return error
-    error = error.with_traceback(None)
+    if sent_credentials:
+        error = error.with_traceback(None)
     # only a response error carries request info; a timeout or a dropped connection has none, and
     # for those the traceback was the whole of the exposure
     if not isinstance(error, ClientResponseError):
@@ -1433,12 +1437,19 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     carried = [name for name in request_info.headers if str(name).lower() in _CREDENTIAL_HEADERS]
     if not carried:
         return error
+    # kept for a failure with nothing to scrub; here its frames hold the request, header included
+    error = error.with_traceback(None)
     headers = request_info.headers.copy()
     for name in carried:
         # assignment replaces every entry of that name rather than adding one
         headers[name] = "<redacted>"
-    # rebuilt as the same (immutable) mapping type the request info was given, without naming it
-    scrubbed = request_info._replace(headers=type(request_info.headers)(headers))
+    # rebuilt as the same (immutable) mapping type the request info was given, without naming it.
+    # The userinfo goes from the urls too: for a CONNECT the real url is the proxy's, password included
+    scrubbed = request_info._replace(
+        headers=type(request_info.headers)(headers),
+        url=request_info.url.with_user(None),
+        real_url=request_info.real_url.with_user(None),
+    )
     error.request_info = scrubbed
     # the history is the responses of a redirect chain, each holding its own copy of the request and
     # so of the header. Dropped rather than rebuilt: what a redirected request has to say is that it
