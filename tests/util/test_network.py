@@ -7,10 +7,12 @@ import json
 import logging
 import os
 import pickle
+import socket
 import ssl
 import tempfile
 import threading
 import time
+import traceback
 from collections.abc import Callable, Iterator, MutableMapping
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
@@ -28,6 +30,7 @@ from aiohttp import (
     ClientConnectorSSLError,
     ClientOSError,
     ClientPayloadError,
+    ClientProxyConnectionError,
     ClientResponseError,
     ClientSSLError,
     ClientTimeout,
@@ -3319,7 +3322,7 @@ def test_a_directory_listing_leaves_other_errors_as_they_were(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Only a TLS failure is changed: a refused connection still leaves a directory listing as it did (GH-2590)."""
+    """A refused connection naming no proxy credential still leaves a listing as a ClientConnectorError (GH-2590)."""
     key = _tls_failure("handshake").args[0]
     refused = ClientConnectorError(key, ConnectionRefusedError(61, "Connection refused"))
 
@@ -3332,3 +3335,121 @@ def test_a_directory_listing_leaves_other_errors_as_they_were(
         list_remote_directory_fsspec("https://example.com/refused/", Settings(cache_dir=tmp_path))
 
     assert raised.value is refused
+
+
+@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
+@pytest.mark.parametrize(
+    "os_error",
+    [
+        ConnectionResetError(54, "Connection reset by peer"),
+        ConnectionRefusedError(61, "Connection refused"),
+        socket.gaierror(-2, "Name or service not known"),
+    ],
+    ids=["reset", "refused", "dns"],
+)
+@pytest.mark.parametrize("with_proxy", [True, False], ids=["proxy", "no-proxy"])
+def test_a_directory_listing_that_cannot_connect_raises_a_connector_error_without_the_proxy_password(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    os_error: OSError,
+    *,
+    with_proxy: bool,
+) -> None:
+    """A connector failure that is not TLS keeps its type and loses the proxy's password (GH-2602).
+
+    Its repr renders the connection key, and stamina logs that repr on a retry. It stays a
+    `ClientConnectorError`, with or without a proxy, as callers that catch aiohttp's errors expect,
+    and nothing on its chain or in the frames it carries leads back to the unscrubbed key.
+    """
+    error = ClientConnectorError(
+        _tls_failure(
+            "handshake",
+            proxy=URL("http://user:secret@proxy:3128") if with_proxy else None,
+            proxy_auth=BasicAuth("user", "secret") if with_proxy else None,
+        ).args[0],
+        os_error,
+    )
+    try:
+        # as aiohttp raises it, so the chain and the tracebacks are the real ones
+        try:
+            raise os_error
+        except OSError as exc:
+            raise error from exc
+    except ClientConnectorError:
+        pass
+    assert os_error.__traceback__ is not None, "nothing to drop, so the check below would pass for the wrong reason"
+    assert ("secret" in repr(error)) is with_proxy, "the repr would not have leaked, so this would pass vacuously"
+    attempts = []
+
+    def ls(_self: object, url: str, **_kwargs: object) -> list[dict]:
+        attempts.append(url)
+        raise error
+
+    monkeypatch.setattr(HTTPFileSystem, "ls", ls)
+
+    with (
+        stamina.set_testing(True, attempts=2),
+        caplog.at_level(logging.DEBUG, logger="stamina"),
+        pytest.raises(ClientConnectorError) as raised,
+    ):
+        list_remote_directory_fsspec("https://example.com/down/", Settings(cache_dir=tmp_path))
+
+    assert type(raised.value) is ClientConnectorError
+    assert raised.value.os_error is os_error
+    assert raised.value.os_error.__traceback__ is None
+    rendered = "".join(traceback.format_exception(raised.value))
+    assert "secret" not in repr(raised.value) + str(raised.value) + rendered
+    assert raised.value.__cause__ is None
+    assert raised.value.__context__ is None
+    # still a failure to read for the retry that wraps the call
+    assert len(attempts) == 2
+    assert [record for record in caplog.records if record.name == "stamina"], "stamina logged nothing"
+    assert "secret" not in "".join(record.getMessage() + str(record.__dict__) for record in caplog.records)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="proxy lookup differs on Windows")
+def test_a_directory_listing_through_a_refusing_proxy_keeps_the_password_out_of_the_frames(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The real aiohttp error of a proxy that refuses the connection, not a stand-in for it (GH-2602).
+
+    aiohttp builds this one's key from the proxy request, which names no proxy, so the scrub finds
+    nothing to remove from it; but the frames of its traceback hold `proxy_auth` and a key that
+    does, as locals, which is what `--showlocals` and an error reporter's frame capture read. The
+    proxy comes from `HTTPS_PROXY` as the docs set it up, so that the caller's own settings hold no
+    password for those frames to show.
+    """
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    # closed again, so nothing listens and connecting to the "proxy" is refused (a socket left bound
+    # but not listening makes macOS hang instead)
+    monkeypatch.setenv("HTTPS_PROXY", f"http://user:secret@127.0.0.1:{port}")
+    for name in ("https_proxy", "NO_PROXY", "no_proxy"):
+        monkeypatch.delenv(name, raising=False)
+    settings = Settings(cache_dir=tmp_path, cache_disable=True, fsspec_client_kwargs={"trust_env": True})
+
+    with (
+        stamina.set_testing(True, attempts=2),
+        caplog.at_level(logging.DEBUG, logger="stamina"),
+        pytest.raises(ClientConnectorError) as raised,
+    ):
+        list_remote_directory_fsspec("https://example.com/dir/", settings)
+
+    # computed first and compared as a bool: an assertion that names the secret leaves it in this frame's locals
+    with_locals = "".join(traceback.TracebackException.from_exception(raised.value, capture_locals=True).format())
+    leaks = "secret" in repr(raised.value) + str(raised.value) + with_locals
+    assert not leaks
+    assert type(raised.value) is ClientProxyConnectionError
+    # the encoded `Proxy-Authorization` header sits in the frames of the OS error underneath
+    assert raised.value.os_error.__traceback__ is None
+    assert raised.value.__cause__ is None
+    assert raised.value.__context__ is None
+    # stamina's own `args` field would show the settings the caller built: what is read is the
+    # repr of the error it logs
+    retried = [record.__dict__["stamina.caused_by"] for record in caplog.records if record.name == "stamina"]
+    assert retried, "stamina logged nothing"
+    assert not [text for text in retried if "secret" in text]
