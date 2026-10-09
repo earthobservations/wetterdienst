@@ -18,6 +18,12 @@ Types of changes:
 
 ### Fixed
 
+- The station catalogues of `fmi`, `chmi`, `ipma`, `lhmt`, `metoffice`, `dwd/swsmos` and
+  `dwd/phenology`, and the `metoffice` release listing, raise `DownloadError` for a download that
+  failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no stations: the REST API
+  answers a 500 and the CLI fails, where a station request had an empty result with a success
+  status. A connection that cannot be made at all still gives no stations; the catalogues log
+  it at debug now, where they warned (GH-2519)
 - The station catalogues of `smhi/observation` and `metno/frost` raise `DownloadError` for a
   download that failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no
   stations (for `smhi/observation`, the stations of the other parameters only): the REST API

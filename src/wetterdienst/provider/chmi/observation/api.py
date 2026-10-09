@@ -260,8 +260,11 @@ class ChmiObservationRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # the catalogue is one required file, so any failure of it -- a 404 included -- is an outage,
+        # which swallowed would read as a network without stations (GH-2519). NoInternetError returns
+        # silently, to give an empty frame
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            log.warning(f"Failed to fetch CHMI station catalogue: {file.content}")
             return pl.LazyFrame()
         stations = parse_chmi_stations(file.content.read())
         if stations.is_empty():
