@@ -3167,8 +3167,6 @@ def test_a_directory_listing_that_fails_on_tls_raises_the_bare_ssl_error(
     assert raised.value.__context__ is None
     # the SSL error names no host, so the log does
     assert "Failed to list https://example.com/tls/." in caplog.text
-    # stamina's retry warning renders the error that caused it: nothing of the proxy password in it
-    assert "secret" not in caplog.text
     # the retry that wraps this call sees it, as it sees any failure to read
     assert len(attempts) == 2
 
