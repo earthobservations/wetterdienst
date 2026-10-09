@@ -820,8 +820,8 @@ class Settings(BaseSettings):
         """Return the settings as they are rendered: ``fsspec_client_kwargs`` without its credentials.
 
         stamina's retry log writes ``repr`` of every argument of a retried call, and the listings
-        take the settings (GH-2593). ``model_dump`` is left as it is, since it is what the
-        settings are used from.
+        take the settings (GH-2593). ``model_dump`` is left as it is, so that a dump
+        still round-trips into ``Settings(**dump)``.
         """
         rendered = self.model_dump(mode="json")
         rendered["fsspec_client_kwargs"] = _redacted_client_kwargs(rendered["fsspec_client_kwargs"])
