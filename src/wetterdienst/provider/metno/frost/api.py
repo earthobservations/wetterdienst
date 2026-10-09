@@ -828,14 +828,17 @@ class MetnoFrostRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        if isinstance(file.content, Exception) and file.status in {401, 403}:
+            msg = (
+                f"Frost API rejected the request with HTTP {file.status}. "
+                "Check that WD_AUTH__METNO_FROST contains a valid client ID."
+            )
+            raise PermissionError(msg)
+        # the catalogue is one required file, so any other failure of it -- a 404 included -- is an
+        # outage, which swallowed would read as a network without stations (GH-2599). NoInternetError
+        # returns silently, to give an empty frame
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            if file.status in {401, 403}:
-                msg = (
-                    f"Frost API rejected the request with HTTP {file.status}. "
-                    "Check that WD_AUTH__METNO_FROST contains a valid client ID."
-                )
-                raise PermissionError(msg)
-            log.warning(f"Failed to fetch Frost stations ({file.status}): {file.content}")
             return pl.LazyFrame()
 
         df = pl.read_json(file.content)
