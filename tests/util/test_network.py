@@ -2991,15 +2991,15 @@ def test_file_is_empty_only_for_a_body_of_zero_bytes() -> None:
 
 
 @pytest.mark.parametrize(
-    "error",
-    [FileNotFoundError("not found"), OSError("x"), NoInternetError("no internet")],
+    ("error", "status"),
+    [(FileNotFoundError("not found"), 404), (OSError("x"), 500), (NoInternetError("no internet"), 503)],
 )
-def test_file_is_not_empty_when_the_download_failed(error: Exception) -> None:
+def test_file_is_not_empty_when_the_download_failed(error: Exception, status: int) -> None:
     """A failed download has no body to be empty, so `is_empty` must not answer for it (GH-2563).
 
     It was true for these, so a check on it ahead of the status dropped every failure as if the
     server had sent nothing (metno/frost GH-2494, dwd/road GH-2495).
     """
-    f = File(url="http://example.com/file.txt", content=error, status=500)
+    f = File(url="http://example.com/file.txt", content=error, status=status)
     assert f.is_empty is False
     assert f.nbytes == 0
