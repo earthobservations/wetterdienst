@@ -268,17 +268,14 @@ def test_ceda_token_valid_until_falls_back_on_unreadable_payload() -> None:
 @pytest.mark.parametrize("body", [b"<html>temporary error</html>", b'["not", "a", "dict"]'])
 def test_latest_release_version_bad_listing_returns_none(body: bytes, monkeypatch: pytest.MonkeyPatch) -> None:
     """A non-JSON or unexpectedly-shaped archive listing reads as 'no release', not a crash."""
+    from io import BytesIO  # noqa: PLC0415
+
     from wetterdienst.provider.metoffice.observation import fileindex  # noqa: PLC0415
     from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
 
-    class _Content:
-        def read(self) -> bytes:
-            return body
-
-    class _File:
-        content = _Content()
-
-    monkeypatch.setattr(fileindex, "download_file", lambda **_kwargs: _File())
+    file = File(url=fileindex._RELEASE_LISTING_URL, content=BytesIO(body), status=200)  # noqa: SLF001
+    monkeypatch.setattr(fileindex, "download_file", lambda **_kwargs: file)
     assert fileindex.latest_release_version(Settings(), token="t") is None  # noqa: S106
 
 

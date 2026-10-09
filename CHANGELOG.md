@@ -18,6 +18,18 @@ Types of changes:
 
 ### Fixed
 
+- The station catalogues of `fmi`, `chmi`, `ipma`, `lhmt`, `metoffice`, `dwd/swsmos` and
+  `dwd/phenology`, and the `metoffice` release listing, raise `DownloadError` for a download that
+  failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no stations: the REST API
+  answers a 500 and the CLI fails, where a station request had an empty result with a success
+  status. A connection that cannot be made at all still gives no stations; the catalogues log
+  it at debug now, where they warned (GH-2519)
+- The station catalogues of `smhi/observation` and `metno/frost` raise `DownloadError` for a
+  download that failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no
+  stations (for `smhi/observation`, the stations of the other parameters only): the REST API
+  answers a 500 and the CLI fails. A connection that cannot be made at all still gives no
+  stations, logged at debug (for `smhi/observation`, when it fails for every list; for some
+  only, it raises); Frost's 401 and 403 stay a `PermissionError` (GH-2599)
 - `Wetterdienst.discover()`, `GET /api/coverage` and `GET /api/auth` list `metoffice/observation`
   as needing a credential (`auth: true`), so it is not configured, with `valid` false, until
   `WD_AUTH__CEDA` is set; it was listed as needing none and as configured and valid whether that
@@ -37,6 +49,12 @@ Types of changes:
   retries instead of the aiohttp error, whose repr rendered the password of a proxy named in
   `HTTPS_PROXY` into the retry log and into messages that format it. Both are `OSError`s, so
   `except OSError` keeps catching it; `except aiohttp.ClientError` no longer does (GH-2590)
+- Listing the contents of one directory (the DWD DMO and alerts indexes, IMGW) no longer leaves
+  the password of a proxy named in `HTTPS_PROXY` on the error when connecting fails some way other
+  than TLS (a proxy that refuses the connection, a DNS failure, a reset during the connect): it is
+  still a `ClientConnectorError`, retried as before, but its repr no longer renders the password,
+  and its traceback (whose frames held it), that of its `os_error` and its `__cause__` are dropped
+  (GH-2602)
 - A retried download or post that fails TLS through a proxy no longer logs the proxy's password:
   stamina's retry warning rendered the aiohttp error's connection key, which holds `proxy_auth`
   and the `user:secret@` of a proxy URL, whether the proxy came from `HTTPS_PROXY` or from

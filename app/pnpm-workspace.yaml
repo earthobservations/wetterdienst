@@ -25,6 +25,10 @@ overrides:
   # their patched backports (1.1.21, 2.1.7), with no floor.
   brace-expansion@>=4.0.0 <5.0.12: ^5.0.12
   esbuild@>=0.27.3 <0.28.1: ^0.28.1
+  # katex (dev-only, via @antfu/eslint-config -> @eslint/markdown -> micromark-extension-math):
+  # fixed in 0.18.2 (0.18.11 is deprecated in favour of 0.19.0), but micromark-extension-math
+  # asks for ^0.16.0 and has no newer release. Drop this once it admits the fixed line.
+  katex@<0.18.2: ^0.19.0
   # Without this, pnpm's trustPolicy: no-downgrade rejects semver@6.3.1 (a
   # long-standing transitive dep of @babel/core@7.x, pulled in via
   # nuxt-security -> unplugin-remove) because that specific release lacks
