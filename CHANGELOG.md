@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- Listing a directory of files on a host whose certificate does not verify, or that fails a TLS
+  handshake, raises that failure (an `ssl.SSLError`) after the retries, where it returned no
+  files as if offline: providers that list first returned an empty result with no hint of why
+  (GH-2581)
 - `wsv/pegel` values, the DWD field descriptions read from PDFs and the script that regenerates the
   packaged OPERA radar sites raise `DownloadError` for a failed download, as
   `File.raise_if_exception` does elsewhere, where they raised the stored error itself: a timeout

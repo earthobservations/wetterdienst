@@ -2982,3 +2982,36 @@ def test_a_tls_failure_is_stored_without_its_traceback() -> None:
     for result in results:
         assert isinstance(result.content, ssl.SSLError)
         assert result.content.__traceback__ is None
+
+
+@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
+@pytest.mark.parametrize("kind", ["certificate", "handshake"])
+def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    kind: str,
+) -> None:
+    """A certificate that does not verify, or a TLS protocol error, is not an offline listing (GH-2581).
+
+    Both are `ClientConnectorError`s, so they were caught with a refused connection and came back as
+    `[]`: an empty directory, and for a provider that lists first an empty result with no hint of why.
+    The host answered, so the failure is raised -- as the SSL error underneath, which says why and
+    holds neither the connection key's proxy password nor the request in its traceback.
+    """
+    error = _tls_failure(kind, proxy=URL("http://user:secret@proxy:3128"), proxy_auth=BasicAuth("user", "secret"))
+    attempts = []
+
+    def find(_self: object, url: str, **_kwargs: object) -> list[str]:
+        attempts.append(url)
+        raise error
+
+    monkeypatch.setattr(HTTPFileSystem, "find", find)
+
+    with stamina.set_testing(True, attempts=2), pytest.raises(ssl.SSLError) as raised:
+        list_remote_files_fsspec("https://example.com/tls/", Settings(cache_dir=tmp_path))
+
+    assert raised.value is error.os_error
+    assert "secret" not in repr(raised.value)
+    assert raised.value.__suppress_context__
+    # the retry that wraps this call sees it, as it sees any failure to read
+    assert len(attempts) == 2

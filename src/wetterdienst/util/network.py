@@ -1150,6 +1150,14 @@ def list_remote_files_fsspec(
         return fs.find(url, on_error="raise")
     except FileNotFoundError:
         return []
+    except ClientSSLError as e:
+        # a certificate that does not verify, or a TLS protocol failure: the host answered, so this
+        # is not being offline, and `[]` would hand the caller an empty directory with no hint of
+        # why (see `download_file`, GH-2553). A subclass of `ClientConnectorError`, hence before it.
+        # Raised as the `ssl.SSLError` underneath, as a download stores it: the aiohttp error holds
+        # the connection key, which renders the password of a proxy named in `HTTPS_PROXY`, and its
+        # traceback frames hold the request as locals. Raising lets the retry above ask again
+        raise e.os_error.with_traceback(None) from None
     except ClientConnectorError:
         # the one `OSError` that is not a failure to read this listing: it is the whole library
         # being offline, which every other path here degrades on rather than reports -- a download
