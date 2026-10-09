@@ -3403,11 +3403,15 @@ def test_a_directory_listing_that_cannot_connect_raises_a_connector_error_withou
 
 
 @pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
-def test_a_directory_listing_through_an_unreachable_proxy_keeps_the_password_out_of_the_error(
+def test_a_directory_listing_through_an_unreachable_proxy_raises_a_clean_connector_error(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """The real aiohttp error of a proxy that refuses the connection, not a stand-in for it (GH-2602)."""
+    """The real aiohttp error of a proxy that refuses the connection, not a stand-in for it (GH-2602).
+
+    aiohttp builds this one's key from the proxy request, which names no proxy, so it carries no
+    password to begin with; the test pins the type that is retried and caught, and the cut chain.
+    """
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
