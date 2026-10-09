@@ -20,8 +20,8 @@ Types of changes:
 
 - `[Build]` The `katex` advisory (low: prototype pollution) is resolved with 0.19.0 through a
   `pnpm-workspace.yaml` override; `katex` is lint tooling the built app does not ship.
-  `simple-git` (fixed only in 4.x, which `nuxt`'s devtools cannot load), `braces` and `node-forge`
-  (no fixed release) stay open in Dependabot (GH-2605)
+  `simple-git` and its `@simple-git/argv-parser` (fixed only in 4.x, which `nuxt`'s devtools
+  cannot load), `braces` and `node-forge` (no fixed release) stay open in Dependabot (GH-2605)
 
 ## [0.19.0] - 2026-10-08
 
