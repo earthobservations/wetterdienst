@@ -453,8 +453,11 @@ class DwdSwsmosRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # the catalogue is one required file, so any failure of it -- a 404 included -- is an outage,
+        # which swallowed would read as a network without stations (GH-2519). NoInternetError returns
+        # silently, to give an empty frame
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            log.warning(f"Failed to fetch SWSMOS station catalogue: {file.content}")
             return pl.LazyFrame()
         # the catalogue is latin-1 encoded (German station names carry umlauts)
         catalogue = bz2.decompress(file.content.read()).decode("latin-1").encode("utf-8")
