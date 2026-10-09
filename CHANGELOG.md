@@ -18,9 +18,10 @@ Types of changes:
 
 ### Fixed
 
-- Exporting more than about 4600 rows to a `sqlite://` target no longer fails with "too many SQL
-  variables" on SQLite 3.32 and later: the rows per insert now follow the 32766 variables a
-  statement may carry, where only the older limit of 999 was honoured (GH-2579)
+- Exporting a frame of more than 32766 cells (rows times columns, so 4681 rows of 7 columns) to a
+  `sqlite://` target no longer fails with "too many SQL variables" on SQLite 3.32 and later: the
+  rows per insert now follow the 32766 variables a statement may carry, where only the older
+  limit of 999 was honoured (GH-2579)
 - `wsv/pegel` values, the DWD field descriptions read from PDFs and the script that regenerates the
   packaged OPERA radar sites raise `DownloadError` for a failed download, as
   `File.raise_if_exception` does elsewhere, where they raised the stored error itself: a timeout
