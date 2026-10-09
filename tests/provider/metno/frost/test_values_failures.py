@@ -93,9 +93,9 @@ def _values(
 def test_metno_frost_values_404_reaches_the_discovery_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a 404 on the batched request resolves each parameter, and on that, discovers the time series.
 
-    `download_file` hands back a 404 as an exception with no body, which `File.is_empty` reports as
-    empty too. The values request returned on that before it read the status, so neither fallback
-    for an element that needs `timeseriesids` could run (GH-2494).
+    `download_file` hands back a 404 as an exception with no body. The values request used to
+    treat that as an empty file before it read the status, so neither fallback for an element
+    that needs `timeseriesids` could run (GH-2494).
     """
 
     def observations(url: str) -> File:
