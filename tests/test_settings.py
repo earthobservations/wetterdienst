@@ -2106,3 +2106,31 @@ def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
             # the message and everything stamina attaches to the record, as a formatter might render it
             carried = record.getMessage() + "".join(str(value) for value in record.__dict__.values())
             assert [secret for secret in _CLIENT_KWARGS_SECRETS if secret in carried] == []
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("client_kwargs", "kept"),
+    [
+        pytest.param({"proxy": "user:QSECRET@proxy.example:3128"}, None, id="proxy-without-scheme"),
+        pytest.param({"proxy": "http://proxy.example:3128/p?token=QSECRET"}, "http://proxy.example:3128", id="query"),
+        pytest.param({"proxy": "http://proxy.example:3128/#QSECRET"}, "http://proxy.example:3128", id="fragment"),
+        pytest.param({"proxy": "http://[::1:QSECRET"}, None, id="proxy-unparsable"),
+        pytest.param({"headers": {"X-Api-Key": 123456789}}, None, id="number-in-headers"),
+        pytest.param({"cookies": {"session": 123456789}}, None, id="number-in-cookies"),
+        pytest.param({"proxy_auth": ["user", "QSECRET"]}, None, id="proxy-auth-pair"),
+    ],
+)
+def test_settings_render_masks_what_is_not_a_known_safe_value(client_kwargs: dict, kept: str | None) -> None:
+    """A proxy URL is cut to scheme, host and port, and a number counts as safe only as the timeout (GH-2593).
+
+    The proxy's path, query and fragment may hold a token, a URL without a scheme is read with its
+    userinfo as the scheme, and aiohttp sends a number in a header or a cookie as its text.
+    """
+    rendered = repr(Settings(fsspec_client_kwargs={**client_kwargs, "timeout": 7}))
+
+    assert "QSECRET" not in rendered
+    assert "123456789" not in rendered
+    assert json.loads(rendered)["fsspec_client_kwargs"]["timeout"] == 7
+    if kept:
+        assert json.loads(rendered)["fsspec_client_kwargs"]["proxy"] == kept
