@@ -18,6 +18,11 @@ Types of changes:
 
 ### Fixed
 
+- The station catalogues of `smhi/observation` and `metno/frost` raise `DownloadError` for a
+  download that failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no
+  stations, or those of the other parameters only for `smhi/observation`: the REST API answers a
+  500 and the CLI fails. A connection that cannot be made at all still gives no stations, logged
+  at debug; Frost's 401 and 403 stay a `PermissionError` (GH-2599)
 - `Wetterdienst.discover()`, `GET /api/coverage` and `GET /api/auth` list `metoffice/observation`
   as needing a credential (`auth: true`), so it is not configured, with `valid` false, until
   `WD_AUTH__CEDA` is set; it was listed as needing none and as configured and valid whether that
