@@ -118,11 +118,12 @@ class LhmtObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # no network is handed to the caller, which stops the loop: every later day would fail alike
+        if isinstance(file.content, NoInternetError):
+            return file.content
         # a day before the station's record is a 404 and simply contributes no rows; any other
         # failure -- a timeout, a 5xx after the retries -- is an outage, which swallowed would read as
         # a day without observations (GH-2461)
-        if isinstance(file.content, NoInternetError):
-            return file.content
         if file.status != 404:
             file.raise_if_exception()
         if isinstance(file.content, Exception):

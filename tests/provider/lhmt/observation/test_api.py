@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
 from wetterdienst.provider.lhmt.observation.parser import (
     parse_lhmt_observations,
@@ -266,3 +266,11 @@ def test_lhmt_observation_values_missing_day_does_not_stop_the_loop(monkeypatch:
     df = _lhmt_values(days=5)
     assert df.is_empty()
     assert len(attempted) == 5
+
+
+def test_lhmt_observation_values_failed_day_still_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A failure that is neither a missing day nor a missing network raises, as before (GH-2461)."""
+    attempted = _fake_download_file(monkeypatch, Exception("server error"), status=500)
+    with pytest.raises(DownloadError):
+        _lhmt_values(days=5)
+    assert len(attempted) == 1
