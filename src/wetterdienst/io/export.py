@@ -846,15 +846,16 @@ class ExportMixin:
                 sqlite3 dwd.sqlite "SELECT * FROM weather;"
 
             """
-            # Honour SQLite's SQLITE_MAX_VARIABLE_NUMBER, which defaults to 999
-            # for SQLite versions prior to 3.32.0 (2020-05-22),
-            # see https://www.sqlite.org/limits.html#max_variable_number.
+            # Honour SQLite's SQLITE_MAX_VARIABLE_NUMBER, which defaults to 999 for SQLite versions
+            # prior to 3.32.0 (2020-05-22) and to 32766 from then on, see
+            # https://www.sqlite.org/limits.html#max_variable_number. A multi-row insert carries one
+            # variable per cell, so the rows per insert follow from the columns
             chunk_size = 5000
             if target.startswith("sqlite://"):
                 import sqlite3  # noqa: PLC0415
 
-                if sqlite3.sqlite_version_info < (3, 32, 0):
-                    chunk_size = int(999 / len(self.df.columns))
+                max_variables = 999 if sqlite3.sqlite_version_info < (3, 32, 0) else 32766
+                chunk_size = min(chunk_size, max_variables // len(self.df.columns))
 
             log.info("Writing to SQL database")
             import sqlalchemy  # noqa: PLC0415
