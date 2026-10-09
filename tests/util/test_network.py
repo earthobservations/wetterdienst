@@ -3128,3 +3128,97 @@ def test_file_is_not_empty_when_the_download_failed(error: Exception, status: in
     f = File(url="http://example.com/file.txt", content=error, status=status)
     assert f.is_empty is False
     assert f.nbytes == 0
+
+
+@pytest.fixture
+def refusing_proxy() -> Iterator[tuple[str, list[str]]]:
+    """Run a proxy that answers whatever it is sent, a CONNECT included, with a 502, and records it."""
+    import socket  # noqa: PLC0415
+
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(8)
+    received: list[str] = []
+
+    def serve() -> None:
+        while True:
+            try:
+                connection, _ = server.accept()
+            except OSError:
+                return
+            with connection:
+                received.append(connection.recv(65536).decode("latin-1"))
+                connection.sendall(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+
+    threading.Thread(target=serve, daemon=True).start()
+    yield f"127.0.0.1:{server.getsockname()[1]}", received
+    server.close()
+
+
+@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:The 'proxy_auth' parameter is deprecated:DeprecationWarning")
+@pytest.mark.parametrize("function", ["download_file", "post_file"])
+@pytest.mark.parametrize("target", ["https://example.com/f", "http://example.com/f"])
+@pytest.mark.parametrize("how", ["userinfo", "proxy_auth", "environment"])
+def test_a_proxy_authorization_header_is_kept_out_of_the_error_of_a_refused_request(
+    function: str,
+    target: str,
+    how: str,
+    refusing_proxy: tuple[str, list[str]],
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The header aiohttp adds for a proxy's credentials is not in the error, the log or the result (GH-2592).
+
+    A ``ClientHttpProxyError`` (the proxy answered CONNECT with a 502) and a 5xx from an ``http://``
+    target both carry the request info, ``Proxy-Authorization: Basic ...`` in it. The caller sent no
+    credential header, so it was left as it was, and stamina logged it on the retry.
+    """
+    import base64  # noqa: PLC0415
+
+    address, received = refusing_proxy
+    secret = base64.b64encode(b"user:secret").decode()
+    if how == "userinfo":
+        client_kwargs = {"proxy": f"http://user:secret@{address}"}
+    elif how == "environment":
+        # a proxy `_sends_credentials` has no way to see: aiohttp reads it from the environment
+        monkeypatch.setenv("HTTPS_PROXY", f"http://user:secret@{address}")
+        monkeypatch.setenv("HTTP_PROXY", f"http://user:secret@{address}")
+        monkeypatch.delenv("NO_PROXY", raising=False)
+        monkeypatch.delenv("no_proxy", raising=False)
+        client_kwargs = {"trust_env": True}
+    else:
+        client_kwargs = {"proxy": f"http://{address}", "proxy_auth": BasicAuth("user", "secret")}
+
+    with stamina.set_testing(True, attempts=2), caplog.at_level(logging.DEBUG, logger="stamina"):
+        if function == "download_file":
+            result = download_file(
+                target, cache_dir=tmp_path, ttl=CacheExpiry.NO_CACHE, client_kwargs=client_kwargs, cache_disable=True
+            )
+        else:
+            result = post_file(target, client_kwargs=client_kwargs)
+
+    # the proxy was sent the credential, so there was something to scrub
+    assert any(secret in request for request in received)
+    assert result.status == 502
+    assert isinstance(result.content, ClientResponseError)
+    retried = [record for record in caplog.records if record.name == "stamina"]
+    assert retried, "stamina logged nothing, so this test would pass for the wrong reason"
+    logged = "".join(record.getMessage() + str(record.__dict__) for record in caplog.records)
+    for hidden in (secret, "secret"):
+        assert hidden not in logged
+        assert hidden not in _every_carrier_of(result.content)
+    assert result.content.request_info.headers["Proxy-Authorization"] == "<redacted>"
+
+
+def test_a_response_error_that_carries_no_credential_keeps_its_traceback() -> None:
+    """Scrubbing the proxy's header is not a reason to drop the traceback of every failure (GH-2592)."""
+    try:
+        raise _response_error(_FAILED_URL, 503)
+    except ClientResponseError as error:
+        raised = error
+    scrubbed = network._without_credentials(raised, sent_credentials=False)  # noqa: SLF001
+    assert scrubbed is raised
+    assert raised.__traceback__ is not None
+    assert "<redacted>" not in repr(raised)
