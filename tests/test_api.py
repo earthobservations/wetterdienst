@@ -14,7 +14,7 @@ from typing import get_args
 
 import polars as pl
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from tests.conftest import BUFR_AVAILABLE, skip_if_upstream_unavailable
 from wetterdienst import Settings
@@ -1270,7 +1270,7 @@ def test_discover_marks_providers_unconfigured_for_a_malformed_credential(caplog
     assert {provider for provider, _ in auth} == {"aemet", "knmi", "metno"}
     assert all(entry["configured"] is False and entry["valid"] is False for entry in auth.values())
     assert discovered["dwd"]["observation"]["configured"] is True
-    assert [record.getMessage() for record in caplog.records] == [
+    assert [record.getMessage() for record in caplog.records if record.name == "wetterdienst.api"] == [
         (
             "The settings are invalid, so no credential is read: "
             "WD_AUTH__CEDA is invalid: ceda must be given as 'username:password'"
@@ -1285,3 +1285,50 @@ def test_is_configured_is_false_where_the_settings_cannot_be_built(provider: str
     """The check of a provider's credentials is false rather than raising, for every provider alike (GH-2580)."""
     network = {"metno": "frost"}.get(provider, "observation")
     assert Wetterdienst.is_configured(Wetterdienst(provider, network)) is False
+
+
+class _OtherModel(BaseModel):
+    value: int
+
+
+class _FailsWith:
+    """A provider whose credential check raises the error it is given."""
+
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    def is_configured(self) -> bool:
+        raise self.error
+
+
+@pytest.mark.usefixtures("_malformed_ceda_credential")
+def test_is_configured_raises_an_error_of_another_model() -> None:
+    """An error of another model is not the settings', so it is not told as a provider unconfigured (GH-2580)."""
+    try:
+        _OtherModel(value="x")  # ty: ignore[invalid-argument-type]
+    except ValidationError as e:
+        error = e
+    with pytest.raises(ValidationError, match="_OtherModel"):
+        Wetterdienst.is_configured(_FailsWith(error))
+
+
+def test_is_configured_raises_an_error_the_settings_do_not_reproduce(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An error that the settings built from the environment do not reproduce is raised, not hidden (GH-2580)."""
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValidationError, match="ceda must be given"):
+        # a credential given as an argument, not in the environment, so `check_settings()` finds none
+        Wetterdienst.is_configured(_FailsWith(_settings_error()))
+
+
+def _settings_error() -> ValidationError:
+    try:
+        Settings(auth={"ceda": "secret-ish"})
+    except ValidationError as e:
+        return e
+    msg = "the settings were built"
+    raise AssertionError(msg)

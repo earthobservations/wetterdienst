@@ -11,7 +11,7 @@ from pydantic_settings import SettingsError
 
 from wetterdienst.exceptions import ApiNotFoundError
 from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.settings import check_settings
+from wetterdienst.settings import Settings, check_settings
 from wetterdienst.util.extras import missing_dependency_message
 
 log = logging.getLogger(__name__)
@@ -164,7 +164,8 @@ class Wetterdienst:
         A `WD_*` variable that is invalid makes the settings unbuildable, and so every provider's
         credentials unreadable. That is told as the provider not being configured, and logged once,
         rather than raised: one malformed credential would otherwise take down a listing of all
-        providers (GH-2580). `check_settings()` reports the problem at CLI and REST start-up.
+        providers (GH-2580). The REST API refuses to start with such settings, and any other
+        command of the CLI still ends in `check_settings()`'s account of them.
 
         Args:
             api: Request class of the provider and network
@@ -176,8 +177,13 @@ class Wetterdienst:
         is_configured = getattr(api, "is_configured", lambda: True)
         try:
             return is_configured()
-        except (ValidationError, SettingsError):
+        except (ValidationError, SettingsError) as e:
+            # another model's error is not the settings'
+            if isinstance(e, ValidationError) and e.title != Settings.__name__:
+                raise
             problems = tuple(check_settings())
+            if not problems:
+                raise
             if problems not in _REPORTED_SETTINGS_PROBLEMS:
                 _REPORTED_SETTINGS_PROBLEMS.add(problems)
                 log.warning("The settings are invalid, so no credential is read: %s", "; ".join(problems))

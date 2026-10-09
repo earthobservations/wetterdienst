@@ -7374,6 +7374,7 @@ def test_a_history_not_implemented_is_logged_as_info_without_a_traceback(
 def test_coverage_and_auth_survive_a_malformed_credential(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """One invalid `WD_AUTH__*` leaves the credentialed providers unconfigured, not the answers 500 (GH-2580)."""
     monkeypatch.setenv("WD_AUTH__CEDA", "secret-ish")
+    monkeypatch.setattr("wetterdienst.api._REPORTED_SETTINGS_PROBLEMS", set())
     coverage = client.get("/api/coverage")
     assert coverage.status_code == 200
     assert coverage.json()["knmi"]["observation"]["configured"] is False

@@ -18,11 +18,11 @@ Types of changes:
 
 ### Fixed
 
-- `Wetterdienst.discover()`, `GET /api/coverage` and `GET /api/auth` list a provider that needs a
-  credential as not configured when a `WD_*` variable is invalid, such as `WD_AUTH__CEDA` that is
-  no `username:password`, and log the problem once; one malformed credential raised for the whole
-  listing and answered 500. `Wetterdienst.is_configured(api)` is that check for a single provider
-  (GH-2580)
+- `Wetterdienst.discover()`, `wetterdienst coverage`, `GET /api/coverage` and `GET /api/auth` list
+  a provider that needs a credential as not configured when a `WD_*` variable is invalid, such as
+  `WD_AUTH__CEDA` that is no `username:password`, and log the problem once; one malformed
+  credential raised for the whole listing, exited the CLI with 1 and answered 500.
+  `Wetterdienst.is_configured(api)` is that check for a single provider (GH-2580)
 - `wsv/pegel` values, the DWD field descriptions read from PDFs and the script that regenerates the
   packaged OPERA radar sites raise `DownloadError` for a failed download, as
   `File.raise_if_exception` does elsewhere, where they raised the stored error itself: a timeout

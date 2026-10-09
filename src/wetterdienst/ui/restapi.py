@@ -706,7 +706,8 @@ def auth(
 
     Returns `{"provider": ..., "network": ..., "auth": bool, "configured": bool, "valid": bool}`.
     For providers that do not require authentication, `auth` is false and `configured`/`valid` are true.
-    `configured` reflects whether credentials are present; `valid` whether a probe request succeeded.
+    `configured` reflects whether credentials are present (false as well while the settings are invalid);
+    `valid` whether a probe request succeeded.
     `valid` is false whenever `configured` is false (a probe cannot be performed without credentials).
     """
     set_logging_level(debug=request.debug)
