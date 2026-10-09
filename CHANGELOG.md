@@ -23,6 +23,12 @@ Types of changes:
   such as the `Ł` of `Łódź` or the `ř` of `Třeboň` under `SQL_Latin1_General_CP1_CI_AS`, is
   stored as it is and no longer as a `?`. A table that is appended to keeps its column types;
   alter them, or write to a new table (GH-2273)
+- The station catalogues of `fmi`, `chmi`, `ipma`, `lhmt`, `metoffice`, `dwd/swsmos` and
+  `dwd/phenology`, and the `metoffice` release listing, raise `DownloadError` for a download that
+  failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no stations: the REST API
+  answers a 500 and the CLI fails, where a station request had an empty result with a success
+  status. A connection that cannot be made at all still gives no stations; the catalogues log
+  it at debug now, where they warned (GH-2519)
 - `Wetterdienst.discover()`, `GET /api/coverage` and `GET /api/auth` list `metoffice/observation`
   as needing a credential (`auth: true`), so it is not configured, with `valid` false, until
   `WD_AUTH__CEDA` is set; it was listed as needing none and as configured and valid whether that

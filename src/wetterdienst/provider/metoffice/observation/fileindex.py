@@ -38,7 +38,13 @@ def _headers(settings: Settings, token: str | None) -> dict:
 
 
 def latest_release_version(settings: Settings, token: str | None) -> str | None:
-    """Return the most recent MIDAS Open release version tag, e.g. ``"202607"``."""
+    """Return the most recent MIDAS Open release version tag, e.g. ``"202607"``.
+
+    A listing that cannot be fetched raises a ``DownloadError`` -- a 404 included, for the listing is
+    the one file every request depends on -- where it read as no release and so as a network without
+    stations or values (GH-2519). ``None`` is for a listing that was read and names no release, and
+    for no connection at all, which stays quiet.
+    """
     file = download_file(
         url=_RELEASE_LISTING_URL,
         cache_dir=settings.cache_dir,
@@ -47,6 +53,7 @@ def latest_release_version(settings: Settings, token: str | None) -> str | None:
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
     )
+    file.raise_if_exception()
     if isinstance(file.content, Exception):
         return None
     try:

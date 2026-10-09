@@ -333,8 +333,11 @@ class DwdPhenologyRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a reporter group's catalogue is one required file, so any failure of it -- a 404 included --
+        # is an outage, which swallowed would read as a group without stations (GH-2519).
+        # NoInternetError returns silently, to give an empty frame
+        file.raise_if_exception()
         if isinstance(file.content, Exception):
-            log.warning(f"Failed to fetch DWD phenology station catalogue {url}: {file.content}")
             return pl.DataFrame()
         # read positionally: the header carries a stray tab inside the "Naturraumgruppe" cell and
         # names the columns in German, so the position is the more reliable handle
