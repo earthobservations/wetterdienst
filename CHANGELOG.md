@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `Wetterdienst.discover()`, `GET /api/coverage` and `GET /api/auth` list `metoffice/observation`
+  as needing a credential (`auth: true`), so it is not configured, with `valid` false, until
+  `WD_AUTH__CEDA` is set; it was listed as needing none and as configured whether the token was
+  set, missing or malformed (GH-2594)
 - `Wetterdienst.discover()`, `GET /api/coverage` and `GET /api/auth` list a provider that needs a
   credential as not configured when a `WD_*` variable is invalid, such as `WD_AUTH__CEDA` that is
   no `username:password`, and log the problem once; one malformed credential raised for the whole
