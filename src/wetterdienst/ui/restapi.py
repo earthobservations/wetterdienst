@@ -722,9 +722,8 @@ def auth(
 
     metadata = getattr(api, "metadata", None)
     requires_auth = metadata.auth if metadata is not None else False
-    is_configured = getattr(api, "is_configured", lambda: True)
     is_valid = getattr(api, "is_valid", lambda: True)
-    configured = is_configured() if requires_auth else True
+    configured = Wetterdienst.is_configured(api) if requires_auth else True
     if not requires_auth:
         valid = True
     elif not configured:

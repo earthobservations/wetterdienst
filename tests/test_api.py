@@ -4,9 +4,12 @@
 
 import collections
 import importlib
+import logging
+import os
 import re
 import zoneinfo
 from datetime import datetime
+from pathlib import Path
 from typing import get_args
 
 import polars as pl
@@ -1234,3 +1237,51 @@ def test_metadata_monthly_and_annual_parameters_carry_no_hourly_window() -> None
     soil = DwdDerivedMetadata["monthly"]["soil"]
     assert soil["summe von vpgfao"].name == "evapotranspiration_potential_grass_fao"
     assert soil["summe von vpgh"].name == "evapotranspiration_potential_grass_haude"
+
+
+@pytest.fixture
+def _malformed_ceda_credential(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Set the only invalid `WD_*` variable there is: a CEDA credential that is no `username:password`."""
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("WD_AUTH__CEDA", "secret-ish")
+    monkeypatch.setattr("wetterdienst.api._REPORTED_SETTINGS_PROBLEMS", set())
+
+
+@pytest.mark.usefixtures("_malformed_ceda_credential")
+def test_discover_marks_providers_unconfigured_for_a_malformed_credential(caplog: pytest.LogCaptureFixture) -> None:
+    """A credential that cannot be read leaves the providers that need one unconfigured, not the listing raising.
+
+    `Settings()` raises for any invalid `WD_*` variable, and `is_configured()` builds it, so one
+    malformed CEDA credential took the listing of every provider down (GH-2580). The problem is
+    logged once however often the listing is asked for, and not with the value.
+    """
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.api"):
+        discovered = Wetterdienst.discover()
+        Wetterdienst.discover()
+    auth = {
+        (provider, network): entry
+        for provider, networks in discovered.items()
+        for network, entry in networks.items()
+        if entry["auth"]
+    }
+    assert {provider for provider, _ in auth} == {"aemet", "knmi", "metno"}
+    assert all(entry["configured"] is False and entry["valid"] is False for entry in auth.values())
+    assert discovered["dwd"]["observation"]["configured"] is True
+    assert [record.getMessage() for record in caplog.records] == [
+        (
+            "The settings are invalid, so no credential is read: "
+            "WD_AUTH__CEDA is invalid: ceda must be given as 'username:password'"
+        )
+    ]
+    assert "secret-ish" not in caplog.text
+
+
+@pytest.mark.usefixtures("_malformed_ceda_credential")
+@pytest.mark.parametrize("provider", ["aemet", "knmi", "metno", "metoffice"])
+def test_is_configured_is_false_where_the_settings_cannot_be_built(provider: str) -> None:
+    """The check of a provider's credentials is false rather than raising, for every provider alike (GH-2580)."""
+    network = {"metno": "frost"}.get(provider, "observation")
+    assert Wetterdienst.is_configured(Wetterdienst(provider, network)) is False

@@ -7368,3 +7368,22 @@ def test_a_history_not_implemented_is_logged_as_info_without_a_traceback(
         (logging.INFO, "Refused a request for station history: History not implemented for DwdMosmixRequest")
     ]
     assert records[0].exc_info is None
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_coverage_and_auth_survive_a_malformed_credential(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """One invalid `WD_AUTH__*` leaves the credentialed providers unconfigured, not the answers 500 (GH-2580)."""
+    monkeypatch.setenv("WD_AUTH__CEDA", "secret-ish")
+    coverage = client.get("/api/coverage")
+    assert coverage.status_code == 200
+    assert coverage.json()["knmi"]["observation"]["configured"] is False
+    assert coverage.json()["dwd"]["observation"]["configured"] is True
+    auth = client.get("/api/auth", params={"provider": "knmi", "network": "observation"})
+    assert auth.status_code == 200
+    assert auth.json() == {
+        "provider": "knmi",
+        "network": "observation",
+        "auth": True,
+        "configured": False,
+        "valid": False,
+    }
