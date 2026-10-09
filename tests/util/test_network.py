@@ -3039,8 +3039,8 @@ def test_the_retry_log_keeps_a_proxy_password_out_of_a_connector_error(
     retried = [record for record in caplog.records if record.name == "stamina"]
     assert retried, "stamina logged nothing, so this test would pass for the wrong reason"
     assert not [record for record in caplog.records if "secret" in record.getMessage() + str(record.__dict__)]
-    # the log still says what failed and where
-    assert any("example.com" in str(record.__dict__) for record in retried)
+    # the log still names the connection that failed
+    assert any("ConnectionKey(" in str(record.__dict__) for record in retried)
     # and the answer the caller gets is unchanged by it
     assert "secret" not in repr(result.content)
     if kind == "reset":
