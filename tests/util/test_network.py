@@ -3173,7 +3173,17 @@ def refusing_proxy() -> Iterator[tuple[str, list[str]]]:
 @pytest.mark.filterwarnings("ignore:The 'proxy_auth' parameter is deprecated:DeprecationWarning")
 @pytest.mark.parametrize("function", ["download_file", "post_file"])
 @pytest.mark.parametrize("target", ["https://example.com/f", "http://example.com/f"])
-@pytest.mark.parametrize("how", ["userinfo", "proxy_auth", "environment"])
+@pytest.mark.parametrize(
+    "how",
+    [
+        "userinfo",
+        "proxy_auth",
+        # on Windows the environment is not what aiohttp's proxy lookup reads (it went to example.com)
+        pytest.param(
+            "environment", marks=pytest.mark.skipif(os.name == "nt", reason="proxy lookup differs on Windows")
+        ),
+    ],
+)
 def test_a_proxy_authorization_header_is_kept_out_of_the_error_of_a_refused_request(
     function: str,
     target: str,
