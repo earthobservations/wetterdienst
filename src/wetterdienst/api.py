@@ -164,8 +164,8 @@ class Wetterdienst:
         A `WD_*` variable that is invalid makes the settings unbuildable, and so every provider's
         credentials unreadable. That is told as the provider not being configured, and logged once,
         rather than raised: one malformed credential would otherwise take down a listing of all
-        providers (GH-2580). The REST API refuses to start with such settings, and every command of
-        the CLI, `coverage` included, ends in `check_settings()`'s account of them.
+        providers (GH-2580). The REST API refuses to start with such settings, and the CLI's
+        `coverage` of all providers builds them before listing, so it tells them and exits 1.
 
         Args:
             api: Request class of the provider and network
