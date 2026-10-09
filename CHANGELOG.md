@@ -18,6 +18,11 @@ Types of changes:
 
 ### Fixed
 
+- `Wetterdienst.discover()`, `GET /api/coverage` and `GET /api/auth` list a provider that needs a
+  credential as not configured when a `WD_*` variable is invalid, such as `WD_AUTH__CEDA` that is
+  no `username:password`, and log the problem once; one malformed credential raised for the whole
+  listing and, where the REST API's start-up check is off, answered 500.
+  `Wetterdienst.is_configured(api)` is that check for a single provider (GH-2580)
 - Listing a directory of files on a host whose certificate does not verify, or that fails a TLS
   handshake, raises that failure (an `ssl.SSLError`) after the retries, where it returned no
   files as if offline: providers that list first returned an empty result with no hint of why

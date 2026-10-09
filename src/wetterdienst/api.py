@@ -3,11 +3,21 @@
 """API request factory."""
 
 import importlib
+import logging
 from typing import ClassVar
+
+from pydantic import ValidationError
+from pydantic_settings import SettingsError
 
 from wetterdienst.exceptions import ApiNotFoundError
 from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.settings import Settings, check_settings
 from wetterdienst.util.extras import missing_dependency_message
+
+log = logging.getLogger(__name__)
+
+#: the problems with the settings already logged, so a listing asked for again does not repeat them
+_REPORTED_SETTINGS_PROBLEMS: set[tuple[str, ...]] = set()
 
 
 class Wetterdienst:
@@ -147,6 +157,38 @@ class Wetterdienst:
         # Both provider and network should be fine (if not an exception is raised)
         return cls.resolve(provider, network)
 
+    @staticmethod
+    def is_configured(api: object) -> bool:
+        """Tell whether the credentials of an auth-requiring provider are present.
+
+        A `WD_*` variable that is invalid makes the settings unbuildable, and so every provider's
+        credentials unreadable. That is told as the provider not being configured, and logged once,
+        rather than raised: one malformed credential would otherwise take down a listing of all
+        providers (GH-2580). The REST API refuses to start with such settings, and the CLI's
+        `coverage` of all providers builds them before listing, so it tells them and exits 1.
+
+        Args:
+            api: Request class of the provider and network
+
+        Returns:
+            Whether the credentials are present
+
+        """
+        is_configured = getattr(api, "is_configured", lambda: True)
+        try:
+            return is_configured()
+        except (ValidationError, SettingsError) as e:
+            # another model's error is not the settings'
+            if isinstance(e, ValidationError) and e.title != Settings.__name__:
+                raise
+            problems = tuple(check_settings())
+            if not problems:
+                raise
+            if problems not in _REPORTED_SETTINGS_PROBLEMS:
+                _REPORTED_SETTINGS_PROBLEMS.add(problems)
+                log.warning("The settings are invalid, so no credential is read: %s", "; ".join(problems))
+            return False
+
     @classmethod
     def discover(cls) -> dict:
         """Discover all available providers and networks with their metadata."""
@@ -166,9 +208,8 @@ class Wetterdienst:
                     continue
                 metadata = getattr(api, "metadata", None)
                 auth = metadata.auth if metadata is not None else False
-                is_configured = getattr(api, "is_configured", lambda: True)
                 is_valid = getattr(api, "is_valid", lambda: True)
-                configured = is_configured() if auth else True
+                configured = cls.is_configured(api) if auth else True
                 if not auth:
                     valid = True
                 elif not configured:
