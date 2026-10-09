@@ -1407,7 +1407,7 @@ def _without_proxy_credentials(error: _C) -> _C:
     the first failure of a retried download or post, at WARNING (GH-2582).
 
     Rewritten in place, as the request info of a response error is, because the subclasses
-    (``ClientProxyConnectionError``, the TLS ones) are built from differing arguments. A key that
+    (``ClientConnectorCertificateError`` among them) are built from differing arguments. A key that
     names no proxy credentials is left alone, traceback included. One that does loses its
     traceback, whose frames hold that key as a local.
     """

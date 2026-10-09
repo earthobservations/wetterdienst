@@ -2986,7 +2986,7 @@ def test_a_tls_failure_is_stored_without_its_traceback() -> None:
 
 @pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
 @pytest.mark.parametrize("function", ["download_file", "post_file"])
-@pytest.mark.parametrize("kind", ["certificate", "handshake"])
+@pytest.mark.parametrize("kind", ["certificate", "handshake", "reset"])
 @pytest.mark.parametrize(
     ("proxy", "with_proxy_auth"),
     [
@@ -3010,7 +3010,17 @@ def test_the_retry_log_keeps_a_proxy_password_out_of_a_connector_error(
     no credential header is not scrubbed otherwise, and a proxy named in `HTTPS_PROXY` is not one the
     request can know of.
     """
-    error = _tls_failure(kind, proxy=URL(proxy), proxy_auth=BasicAuth("user", "secret") if with_proxy_auth else None)
+    if kind == "reset":
+        # a connection reset while the TLS to the target is started through the proxy: a plain
+        # `ClientConnectorError` built from the same key, and the offline answer
+        key = _tls_failure(
+            "handshake", proxy=URL(proxy), proxy_auth=BasicAuth("user", "secret") if with_proxy_auth else None
+        ).args[0]
+        error: ClientConnectorError = ClientConnectorError(key, ConnectionResetError(54, "Connection reset by peer"))
+    else:
+        error = _tls_failure(
+            kind, proxy=URL(proxy), proxy_auth=BasicAuth("user", "secret") if with_proxy_auth else None
+        )
     assert "secret" in repr(error), "the error would not have leaked, so this test would pass for the wrong reason"
     mock_fs = MagicMock()
     mock_fs.cat_file.side_effect = error
@@ -3033,8 +3043,12 @@ def test_the_retry_log_keeps_a_proxy_password_out_of_a_connector_error(
     assert any("example.com" in str(record.__dict__) for record in retried)
     # and the answer the caller gets is unchanged by it
     assert "secret" not in repr(result.content)
-    assert result.status == 500
-    assert isinstance(result.content, ssl.SSLError)
+    if kind == "reset":
+        assert result.status == 503
+        assert result.is_no_internet_error
+    else:
+        assert result.status == 500
+        assert isinstance(result.content, ssl.SSLError)
 
 
 def test_a_connector_error_without_proxy_credentials_is_returned_untouched() -> None:
