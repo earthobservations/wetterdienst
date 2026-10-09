@@ -3322,7 +3322,7 @@ def test_a_directory_listing_leaves_other_errors_as_they_were(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """A refused connection that names no proxy credential still leaves a directory listing as that error (GH-2590)."""
+    """A refused connection that names no proxy credential still leaves a directory listing as a ClientConnectorError (GH-2590)."""
     key = _tls_failure("handshake").args[0]
     refused = ClientConnectorError(key, ConnectionRefusedError(61, "Connection refused"))
 
@@ -3409,7 +3409,7 @@ def test_a_directory_listing_that_cannot_connect_raises_a_connector_error_withou
 
 
 @pytest.mark.skipif(os.name == "nt", reason="proxy lookup differs on Windows")
-def test_a_directory_listing_through_an_unreachable_proxy_keeps_the_password_out_of_the_frames(
+def test_a_directory_listing_through_a_refusing_proxy_keeps_the_password_out_of_the_frames(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
