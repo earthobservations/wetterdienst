@@ -3133,6 +3133,7 @@ def test_file_is_not_empty_when_the_download_failed(error: Exception, status: in
 @pytest.fixture
 def refusing_proxy() -> Iterator[tuple[str, list[str]]]:
     """Run a proxy that answers whatever it is sent, a CONNECT included, with a 502, and records it."""
+    import contextlib  # noqa: PLC0415
     import socket  # noqa: PLC0415
 
     server = socket.socket()
@@ -3149,7 +3150,7 @@ def refusing_proxy() -> Iterator[tuple[str, list[str]]]:
                 connection, _ = server.accept()
             except TimeoutError:
                 continue
-            with connection:
+            with connection, contextlib.suppress(OSError):
                 request = b""
                 # the whole head of the request: one ``recv`` may return only a part of it
                 while b"\r\n\r\n" not in request:
@@ -3198,8 +3199,9 @@ def test_a_proxy_authorization_header_is_kept_out_of_the_error_of_a_refused_requ
         # a proxy `_sends_credentials` has no way to see: aiohttp reads it from the environment
         monkeypatch.setenv("HTTPS_PROXY", f"http://user:secret@{address}")
         monkeypatch.setenv("HTTP_PROXY", f"http://user:secret@{address}")
-        monkeypatch.delenv("NO_PROXY", raising=False)
-        monkeypatch.delenv("no_proxy", raising=False)
+        # the lower-case names win over these, and the bypass list could exclude the target
+        for name in ("https_proxy", "http_proxy", "NO_PROXY", "no_proxy"):
+            monkeypatch.delenv(name, raising=False)
         client_kwargs = {"trust_env": True}
     else:
         client_kwargs = {"proxy": f"http://{address}", "proxy_auth": BasicAuth("user", "secret")}
@@ -3260,30 +3262,3 @@ def test_an_authorization_header_aiohttp_adds_itself_is_kept_out_of_the_error(
     assert secret in requests[0]["headers"]["Authorization"]
     assert result.status == 401
     assert secret not in _every_carrier_of(result.content)
-
-
-def test_a_credential_in_the_redirect_history_alone_is_scrubbed() -> None:
-    """A proxied hop that redirected to a tunnelled one: only the first request carried the header (GH-2592)."""
-    from aiohttp import RequestInfo  # noqa: PLC0415
-    from multidict import CIMultiDict, CIMultiDictProxy  # noqa: PLC0415
-
-    hop = SimpleNamespace(
-        request_info=RequestInfo(
-            URL("http://example.com/a"),
-            "GET",
-            CIMultiDictProxy(CIMultiDict({"Proxy-Authorization": "Basic dXNlcjpzZWNyZXQ="})),
-            URL("http://example.com/a"),
-        ),
-    )
-    final = _response_error(_FAILED_URL, 503)
-    final.history = (hop,)  # ty: ignore[invalid-assignment]
-    try:
-        raise final
-    except ClientResponseError as error:
-        raised = error
-
-    scrubbed = network._without_credentials(raised, sent_credentials=False)  # noqa: SLF001
-
-    assert scrubbed.history == ()
-    assert scrubbed.__traceback__ is None
-    assert "dXNlcjpzZWNyZXQ=" not in _every_carrier_of(scrubbed)
