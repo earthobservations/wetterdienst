@@ -3709,3 +3709,40 @@ def test_sql_sink_keeps_a_sqlite_insert_within_the_variable_limit(
     ):
         frame.to_target("sqlite://?table=weather")
     assert to_sql.call_args.kwargs["chunksize"] == rows_per_insert
+
+
+@pytest.mark.parametrize(
+    ("target", "rows_per_insert"),
+    [
+        pytest.param("sqlite+pysqlite:///a.sqlite?table=weather", 4680, id="pysqlite"),
+        pytest.param("sqlite+pysqlcipher://:key@/a.sqlite?table=weather", 4680, id="pysqlcipher"),
+        # the control: a target of another dialect is not held to SQLite's limit
+        pytest.param("mysql+pymysql://u:p@localhost/dwd?table=weather", 5000, id="mysql"),
+    ],
+)
+def test_sql_sink_caps_a_sqlite_insert_for_a_target_that_names_its_driver(target: str, rows_per_insert: int) -> None:
+    """A `sqlite+<driver>://` target is held to SQLite's variable limit as `sqlite://` is (GH-2589).
+
+    The cap was decided on the string `sqlite://`, so a target naming its driver was SQLite to
+    SQLAlchemy but kept the 5000 rows of a chunk: 7 columns and 4681 rows or more failed with "too
+    many SQL variables". The cap follows the dialect of the parsed URL. No driver is needed: the
+    engine carries the target's dialect over a stand-in driver, and the chunk size the sink hands
+    `to_sql` is read off a stubbed call.
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    frame = ExportMixin(df=pl.DataFrame({f"column_{i}": [i] for i in range(7)}))
+    create_engine = sqlalchemy.create_engine
+
+    def engine_for(url: object, **kwargs: object) -> object:
+        # SQLite's dialects read the driver's SQLite version as they are built
+        driver = mock.MagicMock(sqlite_version_info=(3, 45, 0), sqlite_version="3.45.0")
+        return create_engine(url, module=driver, **kwargs)
+
+    with (
+        mock.patch("sqlite3.sqlite_version_info", (3, 32, 0)),
+        mock.patch("sqlalchemy.create_engine", side_effect=engine_for),
+        mock.patch.object(pd.DataFrame, "to_sql", autospec=True) as to_sql,
+    ):
+        frame.to_target(target)
+    assert to_sql.call_args.kwargs["chunksize"] == rows_per_insert
