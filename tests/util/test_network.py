@@ -2990,6 +2990,7 @@ def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     kind: str,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A certificate that does not verify, or a TLS protocol error, is not an offline listing (GH-2581).
 
@@ -3007,7 +3008,11 @@ def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
 
     monkeypatch.setattr(HTTPFileSystem, "find", find)
 
-    with stamina.set_testing(True, attempts=2), pytest.raises(ssl.SSLError) as raised:
+    with (
+        stamina.set_testing(True, attempts=2),
+        caplog.at_level(logging.INFO, logger="wetterdienst.util.network"),
+        pytest.raises(ssl.SSLError) as raised,
+    ):
         list_remote_files_fsspec("https://example.com/tls/", Settings(cache_dir=tmp_path))
 
     assert raised.value is error.os_error
@@ -3015,5 +3020,7 @@ def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
     # nothing to walk to the aiohttp error, whose repr and traceback hold the proxy password and the request
     assert raised.value.__cause__ is None
     assert raised.value.__context__ is None
+    # the SSL error names no host, so the log does
+    assert "Failed to list https://example.com/tls/." in caplog.text
     # the retry that wraps this call sees it, as it sees any failure to read
     assert len(attempts) == 2

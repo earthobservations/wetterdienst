@@ -1131,7 +1131,8 @@ def list_remote_files_fsspec(
 
     Raises:
         ssl.SSLError: If a certificate does not verify or a TLS handshake fails, after the retries.
-        OSError: If the listing could not be read for another reason, after the retries.
+        Exception: If the listing could not be read for another reason, after the retries: an
+            ``OSError`` such as a connection reset, or an HTTP error status other than 404.
 
     """
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
@@ -1164,6 +1165,7 @@ def list_remote_files_fsspec(
         # `HTTPS_PROXY`, and its traceback frames hold the request as locals. Raised below, outside
         # this block, because raising in it would set the aiohttp error as `__context__`, which
         # `from None` hides from a printed traceback but not from anything that walks the chain
+        log.info(f"Failed to list {url}.")
         tls_failure = e.os_error.with_traceback(None)
         tls_failure.__cause__ = None
         tls_failure.__context__ = None
