@@ -2982,3 +2982,91 @@ def test_a_tls_failure_is_stored_without_its_traceback() -> None:
     for result in results:
         assert isinstance(result.content, ssl.SSLError)
         assert result.content.__traceback__ is None
+
+
+def _connector_failure(kind: str, proxy: URL | None, proxy_auth: BasicAuth | None) -> ClientConnectorError:
+    """Build an aiohttp connector error behind a proxy: refused, or one of the TLS kinds."""
+    if kind == "refused":
+        connection_key = ConnectionKey(
+            host="example.com",
+            port=443,
+            is_ssl=True,
+            ssl=True,
+            proxy=proxy,
+            proxy_auth=proxy_auth,
+            proxy_headers_hash=None,
+        )
+        return ClientConnectorError(connection_key, ConnectionRefusedError(61, "Connection refused"))
+    return _tls_failure(kind, proxy=proxy, proxy_auth=proxy_auth)
+
+
+@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
+@pytest.mark.parametrize("function", ["download_file", "post_file"])
+@pytest.mark.parametrize("kind", ["refused", "certificate", "handshake"])
+@pytest.mark.parametrize(
+    ("proxy", "with_proxy_auth"),
+    [
+        ("http://user:secret@proxy:3128", False),
+        ("http://proxy:3128", True),
+        ("http://user:secret@proxy:3128", True),
+    ],
+)
+def test_the_retry_log_keeps_a_proxy_password_out_of_a_connector_error(
+    function: str,
+    kind: str,
+    proxy: str,
+    with_proxy_auth: bool,  # noqa: FBT001
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Stamina logs ``repr`` of the error that caused a retry, and that renders the connection key (GH-2582).
+
+    The key holds the proxy as the URL it was given, userinfo included, and its `proxy_auth` with the
+    password. A request that sends no credential header is not scrubbed otherwise, and a proxy named
+    in `HTTPS_PROXY` is not one the request can know of.
+    """
+    error = _connector_failure(kind, URL(proxy), BasicAuth("user", "secret") if with_proxy_auth else None)
+    assert "secret" in repr(error), "the error would not have leaked, so this test would pass for the wrong reason"
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = error
+
+    with (
+        stamina.set_testing(True, attempts=2),
+        caplog.at_level(logging.DEBUG, logger="stamina"),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+        patch("wetterdienst.util.network.sync", side_effect=error),
+    ):
+        if function == "download_file":
+            result = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+        else:
+            result = post_file("https://example.com/token")
+
+    retried = [record for record in caplog.records if record.name == "stamina"]
+    assert retried, "stamina logged nothing, so this test would pass for the wrong reason"
+    assert not [record for record in caplog.records if "secret" in record.getMessage() + str(record.__dict__)]
+    # the log still says what failed and where
+    assert any("example.com" in str(record.__dict__) for record in retried)
+    # and the answer the caller gets is unchanged by it
+    assert "secret" not in repr(result.content)
+    if kind == "refused":
+        assert result.status == 503
+        assert result.is_no_internet_error
+    else:
+        assert result.status == 500
+        assert isinstance(result.content, ssl.SSLError)
+
+
+def test_a_connector_error_without_proxy_credentials_is_returned_untouched() -> None:
+    """A proxy with no userinfo, or none at all, has nothing to scrub, and the traceback stays (GH-2582)."""
+    for proxy in (None, URL("http://proxy:3128")):
+        failure = _connector_failure("refused", proxy, None)
+        raised = None
+        try:
+            raise failure
+        except ClientConnectorError as error:
+            raised = error
+        assert raised is not None
+        key = raised.args[0]
+        scrubbed = network._without_credentials(raised, sent_credentials=False)  # noqa: SLF001
+        assert scrubbed is raised
+        assert raised.args[0] is key
+        assert raised.__traceback__ is not None
