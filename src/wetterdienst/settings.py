@@ -19,6 +19,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
+from urllib.parse import urlsplit, urlunsplit
 
 import platformdirs
 from pydantic import (
@@ -441,6 +442,34 @@ def _merge_fsspec_client_kwargs(given: dict) -> dict:
     return merged
 
 
+def _redacted_client_kwargs(value: object, name: str = "") -> object:
+    """Return client kwargs as the settings render them, with what could be a credential masked.
+
+    ``fsspec_client_kwargs`` is handed to aiohttp as it is, so it may hold a proxy URL with its
+    ``user:password@``, ``proxy_auth``, or request headers such as ``Authorization``, ``Cookie`` or
+    ``X-Auth-Token``. Which header names carry a secret cannot be listed, so this fails closed: a
+    string is masked unless it is the User-Agent, or the proxy, which keeps its address and loses
+    its userinfo. Numbers, booleans and ``None`` (the timeout) stay, and so do the names of keys and
+    headers, which say what was configured.
+    """
+    if isinstance(value, Mapping):
+        return {key: _redacted_client_kwargs(item, str(key)) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_redacted_client_kwargs(item) for item in value]
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, str):
+        if name.lower() == "user-agent":
+            return value
+        if name == "proxy":
+            try:
+                parts = urlsplit(value)
+            except ValueError:
+                return _MASK
+            return urlunsplit(parts._replace(netloc=parts.netloc.rpartition("@")[2]))
+    return _MASK
+
+
 @functools.cache
 def _reading_nested_as_json_would(source_class: type[PydanticBaseSettingsSource]) -> type[PydanticBaseSettingsSource]:
     """Give a source class the reading of a value nested too deeply as of one that is not valid JSON (GH-2543).
@@ -783,13 +812,24 @@ class Settings(BaseSettings):
         else:
             log.info(f"Wetterdienst cache is enabled [CACHE_DIR:{self.cache_dir}]")
 
+    def _rendered(self) -> dict[str, Any]:
+        """Return the settings as they are rendered: ``fsspec_client_kwargs`` without its credentials.
+
+        stamina's retry log writes ``repr`` of every argument of a retried call, and the listings
+        take the settings (GH-2593). ``model_dump`` is left as it is, since it is what the
+        settings are used from.
+        """
+        rendered = self.model_dump(mode="json")
+        rendered["fsspec_client_kwargs"] = _redacted_client_kwargs(rendered["fsspec_client_kwargs"])
+        return rendered
+
     def __repr__(self) -> str:
-        """Return the settings as a JSON string."""
-        return json.dumps(self.model_dump(mode="json"))
+        """Return the settings as a JSON string, the client kwargs' credentials masked."""
+        return json.dumps(self._rendered())
 
     def __str__(self) -> str:
-        """Return the settings as a string."""
-        return f"""Settings({json.dumps(self.model_dump(mode="json"), indent=4)})"""
+        """Return the settings as a string, the client kwargs' credentials masked."""
+        return f"""Settings({json.dumps(self._rendered(), indent=4)})"""
 
 
 def _describe_settings_error(error: ValidationError | SettingsError) -> list[str]:

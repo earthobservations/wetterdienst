@@ -5,6 +5,7 @@
 import atexit
 import collections
 import copy
+import functools
 import json
 import logging
 import os
@@ -2014,3 +2015,94 @@ def test_settings_auth_pair_with_a_blank_first_element_still_refuses_its_second(
     """A pair reads as unset for a blank username or client id only where the rest of it is valid (GH-2557)."""
     with pytest.raises(ValidationError, match=name):
         Settings(auth={name: given})
+
+
+_CLIENT_KWARGS_WITH_CREDENTIALS = {
+    "proxy": "http://proxy-user:PROXY-SECRET@proxy.example:3128",
+    "headers": {"Authorization": "Bearer HEADER-SECRET", "X-Auth-Token": "TOKEN-SECRET", "User-Agent": "mine/1"},
+    "proxy_headers": {"Proxy-Authorization": "Basic PROXY-HEADER-SECRET"},
+    "timeout": 12,
+}
+_CLIENT_KWARGS_SECRETS = ["PROXY-SECRET", "HEADER-SECRET", "TOKEN-SECRET", "PROXY-HEADER-SECRET"]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_render_without_the_credentials_in_their_client_kwargs() -> None:
+    """A proxy's password and a request header's value are not printed with the settings (GH-2593).
+
+    `WD_FSSPEC_CLIENT_KWARGS` goes to aiohttp as it is, so it holds whatever the operator needs to
+    reach upstream: a proxy URL with its userinfo, or an `Authorization` header. What stays is what
+    says how the client was configured -- the proxy's address, the names of the headers, the timeout.
+    """
+    settings = Settings(fsspec_client_kwargs=_CLIENT_KWARGS_WITH_CREDENTIALS)
+
+    for rendered in (repr(settings), str(settings), f"{settings}"):
+        assert [secret for secret in _CLIENT_KWARGS_SECRETS if secret in rendered] == []
+        assert "proxy-user" not in rendered
+        assert "http://proxy.example:3128" in rendered
+        assert "X-Auth-Token" in rendered
+        assert "mine/1" in rendered
+    assert json.loads(repr(settings))["fsspec_client_kwargs"]["timeout"] == 12
+    # what the settings are used from is not touched: only the rendering is
+    assert settings.fsspec_client_kwargs["proxy"] == _CLIENT_KWARGS_WITH_CREDENTIALS["proxy"]
+    assert settings.model_dump()["fsspec_client_kwargs"]["headers"]["Authorization"] == "Bearer HEADER-SECRET"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_render_hides_headers_given_as_a_list_of_pairs() -> None:
+    """Headers aiohttp takes as a list of pairs are masked as a dict of them is (GH-2593)."""
+    settings = Settings(fsspec_client_kwargs={"headers": [("Authorization", "Bearer HEADER-SECRET")]})
+
+    assert "HEADER-SECRET" not in repr(settings) + str(settings)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("by_keyword", [False, True], ids=["positional", "keyword"])
+def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    *,
+    by_keyword: bool,
+) -> None:
+    """Stamina's retry log, which renders the arguments of the call it retries, holds no password (GH-2593).
+
+    `list_remote_files_fsspec` and `list_remote_directory_fsspec` take the settings, so a listing
+    that fails for any reason logs them at WARNING on its first retry. The failure here is a plain
+    `OSError`, which names no proxy, so the settings are the only place the password could come from.
+    """
+    import stamina  # noqa: PLC0415
+
+    from wetterdienst.util.network import (  # noqa: PLC0415
+        HTTPFileSystem,
+        list_remote_directory_fsspec,
+        list_remote_files_fsspec,
+    )
+
+    def fail(_self: object, _url: str, **_kwargs: object) -> list:
+        msg = "boom"
+        raise OSError(msg)
+
+    monkeypatch.setattr(HTTPFileSystem, "find", fail)
+    monkeypatch.setattr(HTTPFileSystem, "ls", fail)
+    settings = Settings(cache_dir=tmp_path, fsspec_client_kwargs=_CLIENT_KWARGS_WITH_CREDENTIALS)
+
+    for listing in (list_remote_files_fsspec, list_remote_directory_fsspec):
+        caplog.clear()
+        call = (
+            functools.partial(listing, "https://example.com/dir/", settings=settings)
+            if by_keyword
+            else functools.partial(listing, "https://example.com/dir/", settings)
+        )
+        with (
+            stamina.set_testing(True, attempts=2),
+            caplog.at_level(logging.DEBUG, logger="stamina"),
+            pytest.raises(OSError, match="boom"),
+        ):
+            call()
+
+        assert caplog.records, "stamina logged nothing, so this test would pass for the wrong reason"
+        for record in caplog.records:
+            # the message and everything stamina attaches to the record, as a formatter might render it
+            carried = record.getMessage() + "".join(str(value) for value in record.__dict__.values())
+            assert [secret for secret in _CLIENT_KWARGS_SECRETS if secret in carried] == []

@@ -72,6 +72,10 @@ Types of changes:
 - LHMT values requested with no network stop at the first day whose download finds none (a missing
   day is still skipped), per station, and return the days read before it (an empty frame if
   nothing), where every day of the range was requested again (GH-2591)
+- `repr()` and `str()` of `Settings` mask the credentials in `fsspec_client_kwargs`: the userinfo
+  of a `proxy` URL, and every string but the User-Agent, such as header values. stamina's retry
+  warning for a failed file listing rendered the settings, proxy password and `Authorization`
+  header included. `model_dump()` still returns the values as given (GH-2593)
 
 ## [0.143.0] - 2026-10-08
 
