@@ -308,8 +308,11 @@ class MetOfficeObservationRequest(TimeseriesRequest):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
+            # a dataset's station catalogue is one required file, so any failure of it -- a 404
+            # included -- is an outage, which swallowed would read as a dataset without stations
+            # (GH-2519). NoInternetError skips the dataset silently
+            file.raise_if_exception()
             if isinstance(file.content, Exception):
-                log.warning(f"Failed to fetch MetOffice station catalogue for {midas_dataset}: {file.content}")
                 continue
             content = file.content.read()
             stations = parse_station_metadata(content)

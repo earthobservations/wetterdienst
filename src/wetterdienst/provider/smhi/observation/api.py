@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, cast
 
 import polars as pl
 
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -59,8 +59,8 @@ def _fetch(url: str, settings: Settings, ttl: CacheExpiry = CacheExpiry.FIVE_MIN
     """Download an SMHI resource (CSV data or the station-list JSON), returning bytes or the error.
 
     Callers decide how to treat failures -- e.g. _collect_parameter suppresses a 404 (station
-    doesn't report the parameter) as routine, while _all logs a station-list failure -- and set
-    the cache TTL (short for rolling value data, long for the station registry).
+    doesn't report the parameter) as routine -- and set the cache TTL (short for rolling value
+    data, long for the station registry).
     """
     file: File = download_file(
         url=url,
@@ -175,11 +175,20 @@ class SmhiObservationRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # each parameter's station list is required, so any failure of one -- a 404 included -- is an
+        # outage, which swallowed would read as a parameter without stations, and the rest would
+        # answer as a catalogue that is partial (GH-2599). NoInternetError returns silently, so when
+        # it is every list the connection is down and the frame is empty
+        for file in files:
+            file.raise_if_exception()
+        if all(file.is_no_internet_error for file in files):
+            return pl.LazyFrame()
         frames_by_group: defaultdict[tuple[str, str], list[pl.DataFrame]] = defaultdict(list)
         for parameter, file in zip(parameters, files, strict=True):
             if isinstance(file.content, Exception):
-                log.warning(f"Failed to fetch SMHI stations for parameter {parameter.name_original}: {file.content}")
-                continue
+                # the connection failed for this list while the others arrived: no catalogue then
+                msg = str(file.content) or type(file.content).__name__
+                raise DownloadError(file.url, msg) from file.content
             stations = json.loads(file.content.read().decode("utf-8-sig")).get("station", [])
             if not stations:
                 continue
