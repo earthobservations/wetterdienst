@@ -2032,14 +2032,14 @@ def test_settings_render_without_the_credentials_in_their_client_kwargs() -> Non
 
     `WD_FSSPEC_CLIENT_KWARGS` goes to aiohttp as it is, so it holds whatever the operator needs to
     reach upstream: a proxy URL with its userinfo, or an `Authorization` header. What stays is what
-    says how the client was configured -- the proxy's address, the names of the headers, the timeout.
+    says how the client was configured -- the names of the keys and headers, the timeout.
     """
     settings = Settings(fsspec_client_kwargs=_CLIENT_KWARGS_WITH_CREDENTIALS)
 
     for rendered in (repr(settings), str(settings), f"{settings}"):
         assert [secret for secret in _CLIENT_KWARGS_SECRETS if secret in rendered] == []
         assert "proxy-user" not in rendered
-        assert "http://proxy.example:3128" in rendered
+        assert "proxy.example" not in rendered
         assert "X-Auth-Token" in rendered
         assert "mine/1" in rendered
     assert json.loads(repr(settings))["fsspec_client_kwargs"]["timeout"] == 12
@@ -2110,27 +2110,30 @@ def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
 
 @pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize(
-    ("client_kwargs", "kept"),
+    "client_kwargs",
     [
-        pytest.param({"proxy": "user:QSECRET@proxy.example:3128"}, None, id="proxy-without-scheme"),
-        pytest.param({"proxy": "http://proxy.example:3128/p?token=QSECRET"}, "http://proxy.example:3128", id="query"),
-        pytest.param({"proxy": "http://proxy.example:3128/#QSECRET"}, "http://proxy.example:3128", id="fragment"),
-        pytest.param({"proxy": "http://[::1:QSECRET"}, None, id="proxy-unparsable"),
-        pytest.param({"headers": {"X-Api-Key": 123456789}}, None, id="number-in-headers"),
-        pytest.param({"cookies": {"session": 123456789}}, None, id="number-in-cookies"),
-        pytest.param({"proxy_auth": ["user", "QSECRET"]}, None, id="proxy-auth-pair"),
+        pytest.param({"proxy": "user:QSECRET@proxy.example:3128"}, id="proxy-without-scheme"),
+        pytest.param({"proxy": "http://proxy.example:3128/p?token=QSECRET"}, id="proxy-query"),
+        pytest.param({"proxy": "http://user:pa/QSECRET@proxy.example:3128"}, id="proxy-slash-in-password"),
+        pytest.param({"proxy": "http://user:QSECRET"}, id="proxy-without-host"),
+        pytest.param({"proxy": "http://[::1:QSECRET"}, id="proxy-unparsable"),
+        pytest.param({"headers": {"X-Api-Key": 123456789}}, id="number-in-headers"),
+        pytest.param({"cookies": {"session": 123456789}}, id="number-in-cookies"),
+        pytest.param({"cookies": {"user-agent": "QSECRET"}}, id="user-agent-in-cookies"),
+        pytest.param({"proxy_headers": {"User-Agent": "QSECRET"}}, id="user-agent-in-proxy-headers"),
+        pytest.param({"proxy_auth": ["user", "QSECRET"]}, id="proxy-auth-pair"),
+        pytest.param({"headers": [["X-Token", "QSECRET"]]}, id="headers-as-pairs"),
     ],
 )
-def test_settings_render_masks_what_is_not_a_known_safe_value(client_kwargs: dict, kept: str | None) -> None:
-    """A proxy URL is cut to scheme, host and port, and a number counts as safe only as the timeout (GH-2593).
+def test_settings_render_masks_what_is_not_a_known_safe_value(client_kwargs: dict) -> None:
+    """Everything but the timeout, the User-Agent header, booleans and key names is masked (GH-2593).
 
-    The proxy's path, query and fragment may hold a token, a URL without a scheme is read with its
-    userinfo as the scheme, and aiohttp sends a number in a header or a cookie as its text.
+    A URL is masked whole, since cutting the userinfo from one takes a parser that agrees with the
+    client's; the User-Agent is exempt as a header only; and aiohttp sends a number in a header or a
+    cookie as its text, so a number is safe only as the timeout.
     """
     rendered = repr(Settings(fsspec_client_kwargs={**client_kwargs, "timeout": 7}))
 
     assert "QSECRET" not in rendered
     assert "123456789" not in rendered
     assert json.loads(rendered)["fsspec_client_kwargs"]["timeout"] == 7
-    if kept:
-        assert json.loads(rendered)["fsspec_client_kwargs"]["proxy"] == kept

@@ -19,7 +19,6 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
-from urllib.parse import urlsplit
 
 import platformdirs
 from pydantic import (
@@ -442,39 +441,37 @@ def _merge_fsspec_client_kwargs(given: dict) -> dict:
     return merged
 
 
-def _redacted_client_kwargs(value: object, key: str = "", name: str = "") -> object:
-    """Return client kwargs as the settings render them, with what could be a credential masked.
-
-    Takes ``model_dump(mode="json")`` of ``fsspec_client_kwargs``, so dicts, lists, strings, numbers,
-    booleans and ``None``; ``key`` is the top-level key a value sits under and ``name`` the key it
-    sits directly under. The kwargs are handed to aiohttp as they are, so they may hold a proxy URL
-    with its ``user:password@``, ``proxy_auth``, cookies, or request headers such as
-    ``Authorization`` or ``X-Auth-Token``. Which of those carry a secret cannot be listed, so this
-    fails closed: a string is masked unless it is the User-Agent, or a ``proxy`` URL, which keeps
-    its scheme, host and port and loses the rest, and a number is kept only under ``timeout``,
-    because aiohttp sends one under ``headers`` or ``cookies`` as its text. Booleans and ``None``
-    stay, and so do the names of keys and headers, which say what was configured.
-    """
+def _masked(value: object, *, keep_numbers: bool = False) -> object:
+    """Mask every leaf of a ``model_dump(mode="json")`` value, keeping dict keys, booleans and ``None``."""
     if isinstance(value, dict):
-        return {child: _redacted_client_kwargs(item, key or child, child) for child, item in value.items()}
+        return {key: _masked(item, keep_numbers=keep_numbers) for key, item in value.items()}
     if isinstance(value, list):
-        return [_redacted_client_kwargs(item, key, name) for item in value]
-    if value is None or isinstance(value, bool):
+        return [_masked(item, keep_numbers=keep_numbers) for item in value]
+    if value is None or isinstance(value, bool) or (keep_numbers and isinstance(value, (int, float))):
         return value
-    if isinstance(value, (int, float)):
-        return value if key == "timeout" else _MASK
-    if not isinstance(value, str):
-        return _MASK
-    if name.lower() == "user-agent":
-        return value
-    if name == "proxy" and key == "proxy":
-        try:
-            parts = urlsplit(value)
-        except ValueError:
-            return _MASK
-        if parts.scheme and parts.netloc:
-            return f"{parts.scheme}://{parts.netloc.rpartition('@')[2]}"
     return _MASK
+
+
+def _redacted_client_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Return ``fsspec_client_kwargs`` as the settings render them, every value masked but the harmless.
+
+    The kwargs are handed to aiohttp as they are, so they may hold a proxy URL with its
+    ``user:password@``, ``proxy_auth``, cookies, or request headers such as ``Authorization`` or
+    ``X-Auth-Token``. Which of those carry a secret cannot be listed, so this fails closed: all is
+    masked, a URL included, since cutting the userinfo from one takes a parser that agrees with the
+    client's. What stays is the timeout, the User-Agent header, booleans, ``None`` and the names of
+    keys and headers, which say what was configured.
+    """
+    redacted = {}
+    for key, value in kwargs.items():
+        if key == "headers" and isinstance(value, dict):
+            redacted[key] = {
+                name: item if name.lower() == "user-agent" and isinstance(item, str) else _masked(item)
+                for name, item in value.items()
+            }
+        else:
+            redacted[key] = _masked(value, keep_numbers=key == "timeout")
+    return redacted
 
 
 @functools.cache
