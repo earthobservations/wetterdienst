@@ -1126,7 +1126,12 @@ def list_remote_files_fsspec(
         cache_expiry: The cache expiration time.
 
     Returns:
-        A list of all files on the server
+        A list of all files on the server, or no files if the directory is not there or the
+        library is offline
+
+    Raises:
+        ssl.SSLError: If a certificate does not verify or a TLS handshake fails, after the retries.
+        OSError: If the listing could not be read for another reason, after the retries.
 
     """
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
@@ -1154,10 +1159,14 @@ def list_remote_files_fsspec(
         # a certificate that does not verify, or a TLS protocol failure: the host answered, so this
         # is not being offline, and `[]` would hand the caller an empty directory with no hint of
         # why (see `download_file`, GH-2553). A subclass of `ClientConnectorError`, hence before it.
-        # Raised as the `ssl.SSLError` underneath, as a download stores it: the aiohttp error holds
-        # the connection key, which renders the password of a proxy named in `HTTPS_PROXY`, and its
-        # traceback frames hold the request as locals. Raising lets the retry above ask again
-        raise e.os_error.with_traceback(None) from None
+        # What is raised is the `ssl.SSLError` underneath, as a download stores it: the aiohttp
+        # error holds the connection key, which renders the password of a proxy named in
+        # `HTTPS_PROXY`, and its traceback frames hold the request as locals. Raised below, outside
+        # this block, because raising in it would set the aiohttp error as `__context__`, which
+        # `from None` hides from a printed traceback but not from anything that walks the chain
+        tls_failure = e.os_error.with_traceback(None)
+        tls_failure.__cause__ = None
+        tls_failure.__context__ = None
     except ClientConnectorError:
         # the one `OSError` that is not a failure to read this listing: it is the whole library
         # being offline, which every other path here degrades on rather than reports -- a download
@@ -1167,6 +1176,8 @@ def list_remote_files_fsspec(
         # of an aiohttp traceback from the one path that lists
         log.debug(f"No internet connection available for {url}, returning no files.")
         return []
+    # raising lets the retry above ask again, as it does for any failure to read
+    raise tls_failure
 
 
 @stamina.retry(on=Exception, attempts=3)

@@ -2996,7 +2996,7 @@ def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
     Both are `ClientConnectorError`s, so they were caught with a refused connection and came back as
     `[]`: an empty directory, and for a provider that lists first an empty result with no hint of why.
     The host answered, so the failure is raised -- as the SSL error underneath, which says why and
-    holds neither the connection key's proxy password nor the request in its traceback.
+    chains to neither the connection key's proxy password nor the request in the aiohttp error.
     """
     error = _tls_failure(kind, proxy=URL("http://user:secret@proxy:3128"), proxy_auth=BasicAuth("user", "secret"))
     attempts = []
@@ -3012,6 +3012,8 @@ def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
 
     assert raised.value is error.os_error
     assert "secret" not in repr(raised.value)
-    assert raised.value.__suppress_context__
+    # nothing to walk to the aiohttp error, whose repr and traceback hold the proxy password and the request
+    assert raised.value.__cause__ is None
+    assert raised.value.__context__ is None
     # the retry that wraps this call sees it, as it sees any failure to read
     assert len(attempts) == 2
