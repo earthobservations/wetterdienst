@@ -7391,9 +7391,8 @@ def test_coverage_and_auth_survive_a_malformed_credential(client: TestClient, mo
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_auth_reports_metoffice_as_needing_a_credential(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_auth_reports_metoffice_as_needing_a_credential(client: TestClient) -> None:
     """Without `WD_AUTH__CEDA` the Met Office is a credentialed provider that is not configured (GH-2594)."""
-    monkeypatch.delenv("WD_AUTH__CEDA", raising=False)
     response = client.get("/api/auth", params={"provider": "metoffice", "network": "observation"})
     assert response.status_code == 200
     assert response.json() == {
