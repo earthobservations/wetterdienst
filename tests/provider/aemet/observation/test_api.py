@@ -499,8 +499,11 @@ def test_aemet_observation_plain_503_still_retried(monkeypatch: pytest.MonkeyPat
     assert len(calls) == 3
 
 
-def _fake_fetch_datos(monkeypatch: pytest.MonkeyPatch, answer: Exception) -> list[str]:
-    """Serve the station list, answer every values request with `answer`; return those URLs."""
+def _fake_fetch_datos(monkeypatch: pytest.MonkeyPatch, *answers: bytes | Exception) -> list[str]:
+    """Serve the station list, answer the values requests with `answers` in order, the last for all after.
+
+    Returns the values URLs requested.
+    """
     attempted: list[str] = []
     station_payload = json.dumps(
         [
@@ -519,7 +522,7 @@ def _fake_fetch_datos(monkeypatch: pytest.MonkeyPatch, answer: Exception) -> lis
         if "todasestaciones" in url:
             return station_payload
         attempted.append(url)
-        return answer
+        return answers[min(len(attempted), len(answers)) - 1]
 
     monkeypatch.setattr("wetterdienst.provider.aemet.observation.api._fetch_datos", fake_fetch_datos)
     return attempted
@@ -553,6 +556,15 @@ def test_aemet_observation_values_offline_stop_at_first_chunk_without_warning(
     assert df.is_empty()
     assert len(attempted) == 1
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+def test_aemet_observation_values_going_offline_midway_keeps_what_was_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A network lost after the first chunk ends the loop there, with that chunk's values."""
+    records = json.dumps([{"fecha": "2010-01-01", "tmed": "5,5"}]).encode("latin-1")
+    attempted = _fake_fetch_datos(monkeypatch, records, NoInternetError("no route to host"))
+    df = _values("daily", years=10)
+    assert len(attempted) == 2
+    assert df.get_column("value").drop_nulls().to_list() == [5.5]
 
 
 @pytest.mark.parametrize(("resolution", "chunks"), [("daily", 21), ("monthly", 4), ("annual", 4)])
