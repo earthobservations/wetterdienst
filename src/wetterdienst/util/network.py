@@ -1222,8 +1222,9 @@ def list_remote_directory_fsspec(
     Raises:
         ssl.SSLError: If a certificate does not verify or a TLS handshake fails, after the retries.
         Exception: If the listing could not be read for another reason, after the retries: a missing
-            directory (``FileNotFoundError``), an offline connection (``ClientConnectorError``) or an
-            HTTP error status. Unlike ``list_remote_files_fsspec``, none of these returns no entries.
+            directory (``FileNotFoundError``), an offline connection (``ClientConnectorError``, with
+            the credentials of a proxy removed from it) or an HTTP error status. Unlike
+            ``list_remote_files_fsspec``, none of these returns no entries.
 
     """
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
@@ -1234,17 +1235,26 @@ def list_remote_directory_fsspec(
         client_kwargs=settings.fsspec_client_kwargs,
         use_certifi=settings.use_certifi,
     )
+    failure: OSError
     try:
         return fs.ls(url, detail=True)
     except ClientSSLError as e:
         # as in `list_remote_files_fsspec`: the host answered, so a failing certificate or handshake
         # is raised as the bare `ssl.SSLError` underneath rather than let out as the aiohttp error,
-        # whose repr renders the password of a proxy named in `HTTPS_PROXY`. Any other error keeps
-        # leaving as it did. Raised below, outside this block, so `e` is not its `__context__`
+        # whose repr renders the password of a proxy named in `HTTPS_PROXY`. Raised below, outside this
+        # block, so `e` is not its `__context__`
         log.info(f"Failed to list {url}.")
-        tls_failure = _bare_tls_failure(e)
+        failure = _bare_tls_failure(e)
+    except ClientConnectorError as e:
+        # any other connector failure -- an unreachable or refusing proxy, a DNS failure, a reset --
+        # keeps its type, which the retry above and callers such as `dwd/dmo` know it by. Only the
+        # proxy's credentials leave its connection key, and the chain is cut so that nothing on it
+        # leads back to the unscrubbed key (GH-2602). Raised below for the same reason as above
+        failure = _without_proxy_credentials(e)
+        failure.__cause__ = None
+        failure.__context__ = None
     # raising lets the retry above ask again, as it does for any failure to read
-    raise tls_failure
+    raise failure
 
 
 def download_file(
