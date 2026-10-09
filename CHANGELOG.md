@@ -35,6 +35,10 @@ Types of changes:
   SQL variables" once it has more than 32766 / columns rows (from 4681 rows for 7 columns) on
   SQLite 3.32 and later: the rows per insert now follow the 32766 variables a statement may
   carry, where only the older limit of 999 was honoured (GH-2579)
+- Exporting a wide frame to a SQLite target that names its driver, such as
+  `sqlite+pysqlite:///a.sqlite?table=t`, no longer fails with "too many SQL variables": the cap on
+  the rows per insert was applied only to targets starting `sqlite://` and is now applied to every
+  SQLite target (GH-2589)
 - `wsv/pegel` values, the DWD field descriptions read from PDFs and the script that regenerates the
   packaged OPERA radar sites raise `DownloadError` for a failed download, as
   `File.raise_if_exception` does elsewhere, where they raised the stored error itself: a timeout
