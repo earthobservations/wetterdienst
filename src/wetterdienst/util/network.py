@@ -116,15 +116,20 @@ class File:
 
     @property
     def nbytes(self) -> int:
-        """Return the number of bytes in the file content."""
+        """Return the number of bytes in the file content, `0` when there is no body (a failed download)."""
         if isinstance(self.content, BytesIO):
             return self.content.getbuffer().nbytes
         return 0
 
     @property
     def is_empty(self) -> bool:
-        """Check if the file content is empty."""
-        return self.nbytes == 0
+        """Check if the file has a body of zero bytes.
+
+        A failed download has no body at all, so it is not empty: `content` is the exception and
+        this is `False`. A caller that wants "failed or empty" asks for both,
+        `isinstance(file.content, Exception) or file.is_empty` (GH-2563).
+        """
+        return isinstance(self.content, BytesIO) and self.nbytes == 0
 
 
 def _without_url_secrets(url: str) -> str:
