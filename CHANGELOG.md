@@ -39,9 +39,10 @@ Types of changes:
   `except OSError` keeps catching it; `except aiohttp.ClientError` no longer does (GH-2590)
 - Listing the contents of one directory (the DWD DMO and alerts indexes, IMGW) no longer leaves
   the password of a proxy named in `HTTPS_PROXY` on the error when connecting fails some way other
-  than TLS (an unreachable proxy, a DNS failure, a reset while connecting): it is still a
-  `ClientConnectorError`, retried as before, but its repr no longer renders the password, and its
-  traceback (whose frames held it), that of its `os_error` and its `__cause__` are dropped (GH-2602)
+  than TLS (a proxy that refuses the connection, a DNS failure, a reset during the connect): it is
+  still a `ClientConnectorError`, retried as before, but its repr no longer renders the password,
+  and its traceback (whose frames held it), that of its `os_error` and its `__cause__` are dropped
+  (GH-2602)
 - A retried download or post that fails TLS through a proxy no longer logs the proxy's password:
   stamina's retry warning rendered the aiohttp error's connection key, which holds `proxy_auth`
   and the `user:secret@` of a proxy URL, whether the proxy came from `HTTPS_PROXY` or from

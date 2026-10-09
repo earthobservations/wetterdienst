@@ -1222,9 +1222,9 @@ def list_remote_directory_fsspec(
     Raises:
         ssl.SSLError: If a certificate does not verify or a TLS handshake fails, after the retries.
         Exception: If the listing could not be read for another reason, after the retries: a missing
-            directory (``FileNotFoundError``), an offline connection (``ClientConnectorError``, with
-            the credentials of a proxy removed from it) or an HTTP error status. Unlike
-            ``list_remote_files_fsspec``, none of these returns no entries.
+            directory (``FileNotFoundError``), an offline connection (``ClientConnectorError``, its
+            connection key and traceback stripped of a proxy's credentials) or an HTTP error
+            status. Unlike ``list_remote_files_fsspec``, none of these returns no entries.
 
     """
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
@@ -1246,7 +1246,7 @@ def list_remote_directory_fsspec(
         log.info(f"Failed to list {url}.")
         failure = _bare_tls_failure(e)
     except ClientConnectorError as e:
-        # any other connector failure -- an unreachable or refusing proxy, a DNS failure, a reset --
+        # any other connector failure -- a refusing proxy, a DNS failure, a reset during the connect --
         # keeps its type, so a caller that catches aiohttp's errors still does, and the retry above
         # treats it as any failure to read. The proxy's credentials leave its connection key. The
         # traceback goes too, and that of `os_error`: a refusing proxy's key names no credentials,
