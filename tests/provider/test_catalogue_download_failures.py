@@ -158,7 +158,8 @@ def test_no_connection_at_all_stays_quiet(
 ) -> None:
     """A `NoInternetError` gives no stations and no warning, so working offline still returns empty.
 
-    The catalogues used to warn here as for any failure; `raise_if_exception` logs it at debug, as `dmi` and `rmi` do.
+    The catalogues used to warn here as for any failure (the release listing never did); `raise_if_exception`
+    logs it at debug, as `dmi` and `rmi` do.
     """
     serve(modules, NoInternetError("offline"), 503)
     caplog.set_level(logging.WARNING)
