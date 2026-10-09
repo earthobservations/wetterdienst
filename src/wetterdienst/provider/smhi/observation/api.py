@@ -59,8 +59,8 @@ def _fetch(url: str, settings: Settings, ttl: CacheExpiry = CacheExpiry.FIVE_MIN
     """Download an SMHI resource (CSV data or the station-list JSON), returning bytes or the error.
 
     Callers decide how to treat failures -- e.g. _collect_parameter suppresses a 404 (station
-    doesn't report the parameter) as routine, while _all raises a station-list failure -- and set
-    the cache TTL (short for rolling value data, long for the station registry).
+    doesn't report the parameter) as routine -- and set the cache TTL (short for rolling value
+    data, long for the station registry).
     """
     file: File = download_file(
         url=url,
