@@ -37,6 +37,10 @@ Types of changes:
   `SettingsError`; text for a key of a dict setting is kept as it is. All three raised a
   `RecursionError` before: `check_settings()`, `Settings()` and so a provider's `is_configured()`,
   which now raises the `ValidationError` (GH-2543)
+- KNMI and AEMET values requested with no network stop at the first download that finds none, per
+  station, and return what was read before it (an empty frame if nothing), logged at debug as
+  elsewhere. Every KNMI moment (720 for an hourly month) and every AEMET chunk was requested
+  again before, and each skip logged a warning (GH-2558)
 
 ## [0.143.0] - 2026-10-08
 

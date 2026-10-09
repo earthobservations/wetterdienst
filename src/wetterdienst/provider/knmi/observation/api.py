@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 import stamina
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -235,6 +236,11 @@ class KnmiObservationValues(TimeseriesValues):
         for moment in _moments(start_date, end_date, resolution):
             filename = _filename_for(resolution, moment)
             payload = _fetch_netcdf(dataset_name, version, filename, settings)
+            if isinstance(payload, NoInternetError):
+                # offline, every remaining moment would fail the same way (and an hourly month
+                # is 720 of them): stop, and log it as `File.raise_if_exception` does
+                log.debug(f"No internet connection available for KNMI file {filename}, returning what was read.")
+                break
             if isinstance(payload, Exception):
                 # a single missing/failed timestamp shouldn't sink the whole range --
                 # rate-limit/transient retries (if applicable) are already exhausted here.
