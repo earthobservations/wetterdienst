@@ -850,7 +850,7 @@ class ExportMixin:
 
             log.info("Writing to SQL database")
             import sqlalchemy  # noqa: PLC0415
-            from sqlalchemy.dialects.mssql.base import DATETIME2, MSDialect  # noqa: PLC0415
+            from sqlalchemy.dialects.mssql.base import DATETIME2, NVARCHAR, MSDialect  # noqa: PLC0415
             from sqlalchemy.dialects.mysql.base import MySQLDialect  # noqa: PLC0415
 
             # `table` is ours, read above to name the table; SQLAlchemy hands every query argument
@@ -905,14 +905,24 @@ class ExportMixin:
                     # SQL Server compiles it to `TIMESTAMP` too, which there is `rowversion`, a
                     # row counter that takes no value at all
                     columns.append(cs.datetime().dt.convert_time_zone("UTC").dt.replace_time_zone(None))
+                frame = self.df.with_columns(columns)
                 if isinstance(engine.dialect, MSDialect):
                     # SQL Server takes at most 2100 parameters a request, 2099 here to leave room
                     # for a driver that counts one more, and 1000 rows in a table value constructor
                     chunk_size = min(chunk_size, 1000, 2099 // len(self.df.columns))
                     # a naive datetime would be SQL Server's `DATETIME`, which starts in 1753 and
                     # rounds to 1/300 s; `DATETIME2` holds every year a Python datetime can
-                    dtype = {name: DATETIME2() for name in self.df.select(cs.datetime()).columns}
-                self.df.with_columns(columns).to_pandas().to_sql(
+                    dtype = {name: DATETIME2() for name in frame.select(cs.datetime()).columns}
+                    # pandas declares text as `Text`, which is `VARCHAR(max)` here: stored in the
+                    # column's code page, so under the default collation (Windows-1252) a name
+                    # such as `Łódź` or `Třeboň` loses every character outside it to a `?`.
+                    # `NVARCHAR(max)` holds Unicode. Read off the frame after the Enum cast, and
+                    # with a column of nothing but nulls, which pandas also declares as `Text`
+                    dtype |= {
+                        name: NVARCHAR()
+                        for name in frame.select(cs.string(include_categorical=True), cs.by_dtype(pl.Null)).columns
+                    }
+                frame.to_pandas().to_sql(
                     name=tablename,
                     con=engine,
                     if_exists=if_exists if if_exists != "skip" else "fail",

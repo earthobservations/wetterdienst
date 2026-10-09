@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- Writing to a `mssql://` target creates text columns as `NVARCHAR(max)` instead of
+  `VARCHAR(max)`, so a character outside the server's code page, such as the `Ł` of `Łódź` or the
+  `ř` of `Třeboň` under the default collation, is stored as it is and no longer as a `?`. A table
+  that is appended to keeps its column types; alter them, or write to a new table (GH-2273)
 - `Wetterdienst.discover()`, `GET /api/coverage` and `GET /api/auth` list `metoffice/observation`
   as needing a credential (`auth: true`), so it is not configured, with `valid` false, until
   `WD_AUTH__CEDA` is set; it was listed as needing none and as configured and valid whether that
