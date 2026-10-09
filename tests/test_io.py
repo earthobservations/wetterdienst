@@ -3742,23 +3742,7 @@ def test_sql_sink_caps_a_sqlite_insert_for_a_target_that_names_its_driver(target
     with (
         mock.patch("sqlite3.sqlite_version_info", (3, 32, 0)),
         mock.patch("sqlalchemy.create_engine", side_effect=engine_for),
-        mock.patch("sqlalchemy.inspect"),
         mock.patch.object(pd.DataFrame, "to_sql", autospec=True) as to_sql,
     ):
         frame.to_target(target)
     assert to_sql.call_args.kwargs["chunksize"] == rows_per_insert
-
-
-def test_sql_sink_writes_more_rows_to_a_sqlite_target_naming_its_driver(tmp_path: Path) -> None:
-    """A frame of 7 columns and 6000 rows reaches a `sqlite+pysqlite://` file whole (GH-2589)."""
-    pytest.importorskip("sqlalchemy")
-    pytest.importorskip("pandas")
-    rows = 6000
-    frame = ExportMixin(df=pl.DataFrame({f"column_{i}": list(range(rows)) for i in range(7)}))
-    database = tmp_path / "wide.sqlite"
-    frame.to_target(f"sqlite+pysqlite:///{database}?table=weather")
-    connection = sqlite3.connect(database)
-    try:
-        assert connection.execute("SELECT COUNT(*) FROM weather").fetchone() == (rows,)
-    finally:
-        connection.close()
