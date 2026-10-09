@@ -127,12 +127,11 @@ def test_smhi_station_lists_that_all_arrive_are_read(monkeypatch: pytest.MonkeyP
     assert _smhi().collect()["station_id"].to_list() == ["1"]
 
 
-@pytest.mark.parametrize("failing", [{0, 1}, {1}])
 def test_smhi_no_connection_at_all_stays_quiet(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, failing: set[int]
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """A `NoInternetError` gives no stations and no warning, whether it hit every list or only one."""
-    _serve_smhi(monkeypatch, {i: (NoInternetError("offline"), 503) for i in failing})
+    """A `NoInternetError` on every list gives no stations and no warning, the connection being down."""
+    _serve_smhi(monkeypatch, {i: (NoInternetError("offline"), 503) for i in (0, 1)})
     caplog.set_level(logging.WARNING)
 
     result = _smhi()
@@ -140,3 +139,15 @@ def test_smhi_no_connection_at_all_stays_quiet(
     assert isinstance(result, pl.LazyFrame)
     assert result.collect().is_empty()
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+@pytest.mark.parametrize("failing", [0, 1])
+def test_smhi_connection_lost_for_one_list_is_raised(monkeypatch: pytest.MonkeyPatch, failing: int) -> None:
+    """A connection that fails for one list while the others arrive raises, not an empty or partial catalogue."""
+    error = NoInternetError("connection reset")
+    _serve_smhi(monkeypatch, {failing: (error, 503)})
+
+    with pytest.raises(DownloadError) as excinfo:
+        _smhi()
+
+    assert excinfo.value.__cause__ is error

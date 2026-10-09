@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, cast
 
 import polars as pl
 
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -177,16 +177,18 @@ class SmhiObservationRequest(TimeseriesRequest):
         )
         # each parameter's station list is required, so any failure of one -- a 404 included -- is an
         # outage, which swallowed would read as a parameter without stations, and the rest would
-        # answer as a catalogue that is partial (GH-2599). NoInternetError returns silently, so it
-        # gives an empty frame, the connection being down for every list
+        # answer as a catalogue that is partial (GH-2599). NoInternetError returns silently, so when
+        # it is every list the connection is down and the frame is empty
         for file in files:
             file.raise_if_exception()
-        if any(file.is_no_internet_error for file in files):
+        if all(file.is_no_internet_error for file in files):
             return pl.LazyFrame()
         frames_by_group: defaultdict[tuple[str, str], list[pl.DataFrame]] = defaultdict(list)
         for parameter, file in zip(parameters, files, strict=True):
             if isinstance(file.content, Exception):
-                continue
+                # the connection failed for this list while the others arrived: no catalogue then
+                msg = str(file.content) or type(file.content).__name__
+                raise DownloadError(file.url, msg) from file.content
             stations = json.loads(file.content.read().decode("utf-8-sig")).get("station", [])
             if not stations:
                 continue
