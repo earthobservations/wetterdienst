@@ -3128,3 +3128,207 @@ def test_file_is_not_empty_when_the_download_failed(error: Exception, status: in
     f = File(url="http://example.com/file.txt", content=error, status=status)
     assert f.is_empty is False
     assert f.nbytes == 0
+
+
+@pytest.fixture
+def refusing_proxy() -> Iterator[tuple[str, list[str]]]:
+    """Run a proxy that answers whatever it is sent, a CONNECT included, with a 502, and records it."""
+    import contextlib  # noqa: PLC0415
+    import socket  # noqa: PLC0415
+
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(8)
+    # a timeout rather than a close from another thread, which does not wake a blocked ``accept``
+    server.settimeout(0.1)
+    stop = threading.Event()
+    received: list[str] = []
+
+    def serve() -> None:
+        while not stop.is_set():
+            try:
+                connection, _ = server.accept()
+            except TimeoutError:
+                continue
+            with connection, contextlib.suppress(OSError):
+                request = b""
+                # the whole head of the request: one ``recv`` may return only a part of it
+                while b"\r\n\r\n" not in request:
+                    chunk = connection.recv(65536)
+                    if not chunk:
+                        break
+                    request += chunk
+                received.append(request.decode("latin-1"))
+                connection.sendall(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    yield f"127.0.0.1:{server.getsockname()[1]}", received
+    stop.set()
+    thread.join(timeout=5)
+    server.close()
+
+
+@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:The 'proxy_auth' parameter is deprecated:DeprecationWarning")
+@pytest.mark.parametrize("function", ["download_file", "post_file"])
+@pytest.mark.parametrize("target", ["https://example.com/f", "http://example.com/f"])
+@pytest.mark.parametrize(
+    "how",
+    [
+        "userinfo",
+        "proxy_auth",
+        # on Windows the environment is not what aiohttp's proxy lookup reads (it went to example.com)
+        pytest.param(
+            "environment", marks=pytest.mark.skipif(os.name == "nt", reason="proxy lookup differs on Windows")
+        ),
+    ],
+)
+def test_a_proxy_authorization_header_is_kept_out_of_the_error_of_a_refused_request(
+    function: str,
+    target: str,
+    how: str,
+    refusing_proxy: tuple[str, list[str]],
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The header aiohttp adds for a proxy's credentials is not in the error, the log or the result (GH-2592).
+
+    A ``ClientHttpProxyError`` (the proxy answered CONNECT with a 502) and a 5xx from an ``http://``
+    target both carry the request info, ``Proxy-Authorization: Basic ...`` in it. The caller sent no
+    credential header, so it was left as it was, and stamina logged it on the retry.
+    """
+    import base64  # noqa: PLC0415
+
+    address, received = refusing_proxy
+    secret = base64.b64encode(b"user:secret").decode()
+    if how == "userinfo":
+        client_kwargs = {"proxy": f"http://user:secret@{address}"}
+    elif how == "environment":
+        # a proxy `_sends_credentials` has no way to see: aiohttp reads it from the environment
+        monkeypatch.setenv("HTTPS_PROXY", f"http://user:secret@{address}")
+        monkeypatch.setenv("HTTP_PROXY", f"http://user:secret@{address}")
+        # the lower-case names win over these, and the bypass list could exclude the target
+        for name in ("https_proxy", "http_proxy", "NO_PROXY", "no_proxy"):
+            monkeypatch.delenv(name, raising=False)
+        client_kwargs = {"trust_env": True}
+    else:
+        client_kwargs = {"proxy": f"http://{address}", "proxy_auth": BasicAuth("user", "secret")}
+
+    with stamina.set_testing(True, attempts=2), caplog.at_level(logging.DEBUG, logger="stamina"):
+        if function == "download_file":
+            result = download_file(
+                target, cache_dir=tmp_path, ttl=CacheExpiry.NO_CACHE, client_kwargs=client_kwargs, cache_disable=True
+            )
+        else:
+            result = post_file(target, client_kwargs=client_kwargs)
+
+    # the proxy was sent the credential, so there was something to scrub
+    assert any(secret in request for request in received)
+    assert result.status == 502
+    assert isinstance(result.content, ClientResponseError)
+    retried = [record for record in caplog.records if record.name == "stamina"]
+    assert retried, "stamina logged nothing, so this test would pass for the wrong reason"
+    logged = "".join(record.getMessage() + str(record.__dict__) for record in caplog.records)
+    for hidden in (secret, "secret"):
+        assert hidden not in logged
+        assert hidden not in _every_carrier_of(result.content)
+    assert result.content.request_info.headers["Proxy-Authorization"] == "<redacted>"
+
+
+def test_a_response_error_that_carries_no_credential_keeps_its_traceback() -> None:
+    """Scrubbing the proxy's header is not a reason to drop the traceback of every failure (GH-2592)."""
+    try:
+        raise _response_error(_FAILED_URL, 503)
+    except ClientResponseError as error:
+        raised = error
+    scrubbed = network._without_credentials(raised, sent_credentials=False)  # noqa: SLF001
+    assert scrubbed is raised
+    assert raised.__traceback__ is not None
+    assert "<redacted>" not in repr(raised)
+
+
+@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:The 'auth' parameter is deprecated:DeprecationWarning")
+def test_an_authorization_header_aiohttp_adds_itself_is_kept_out_of_the_error(
+    http_server: tuple[str, list],
+    tmp_path: Path,
+) -> None:
+    """A session ``auth`` sends ``Authorization`` where `_sends_credentials` does not look (GH-2592)."""
+    import base64  # noqa: PLC0415
+
+    base_url, requests = http_server
+    secret = base64.b64encode(b"user:secret").decode()
+
+    result = download_file(
+        f"{base_url}/denied",
+        cache_dir=tmp_path,
+        ttl=CacheExpiry.NO_CACHE,
+        client_kwargs={"auth": BasicAuth("user", "secret")},
+        cache_disable=True,
+    )
+
+    assert secret in requests[0]["headers"]["Authorization"]
+    assert result.status == 401
+    assert secret not in _every_carrier_of(result.content)
+
+
+@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
+@pytest.mark.parametrize("kind", ["certificate", "handshake"])
+def test_a_directory_listing_that_fails_on_tls_raises_the_bare_ssl_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    kind: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A TLS failure in a directory listing leaves as the `ssl.SSLError` underneath, not the aiohttp error (GH-2590).
+
+    The aiohttp error's repr renders the connection key, and with it the password of a proxy named in
+    `HTTPS_PROXY`; stamina logs that repr on a retry and providers format it into their own messages.
+    Raised as `list_remote_files_fsspec` raises it, with nothing on the chain leading back to it.
+    """
+    error = _tls_failure(kind, proxy=URL("http://user:secret@proxy:3128"), proxy_auth=BasicAuth("user", "secret"))
+    assert "secret" in repr(error), "the error would not have leaked, so this test would pass for the wrong reason"
+    attempts = []
+
+    def ls(_self: object, url: str, **_kwargs: object) -> list[dict]:
+        attempts.append(url)
+        raise error
+
+    monkeypatch.setattr(HTTPFileSystem, "ls", ls)
+
+    with (
+        stamina.set_testing(True, attempts=2),
+        caplog.at_level(logging.DEBUG),
+        pytest.raises(ssl.SSLError) as raised,
+    ):
+        list_remote_directory_fsspec("https://example.com/tls/", Settings(cache_dir=tmp_path))
+
+    assert raised.value is error.os_error
+    assert "secret" not in repr(raised.value)
+    assert raised.value.__cause__ is None
+    assert raised.value.__context__ is None
+    # the SSL error names no host, so the log does
+    assert "Failed to list https://example.com/tls/." in caplog.text
+    # the retry that wraps this call sees it, as it sees any failure to read
+    assert len(attempts) == 2
+
+
+def test_a_directory_listing_leaves_other_errors_as_they_were(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Only a TLS failure is changed: a refused connection still leaves a directory listing as it did (GH-2590)."""
+    key = _tls_failure("handshake").args[0]
+    refused = ClientConnectorError(key, ConnectionRefusedError(61, "Connection refused"))
+
+    def ls(_self: object, _url: str, **_kwargs: object) -> list[dict]:
+        raise refused
+
+    monkeypatch.setattr(HTTPFileSystem, "ls", ls)
+
+    with stamina.set_testing(True, attempts=1), pytest.raises(ClientConnectorError) as raised:
+        list_remote_directory_fsspec("https://example.com/refused/", Settings(cache_dir=tmp_path))
+
+    assert raised.value is refused

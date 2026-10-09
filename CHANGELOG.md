@@ -18,6 +18,11 @@ Types of changes:
 
 ### Fixed
 
+- `Wetterdienst.discover()`, `GET /api/coverage` and `GET /api/auth` list `metoffice/observation`
+  as needing a credential (`auth: true`), so it is not configured, with `valid` false, until
+  `WD_AUTH__CEDA` is set; it was listed as needing none and as configured and valid whether that
+  variable was set, missing or malformed. The Explorer app hides it while it is not configured
+  (GH-2594)
 - `Wetterdienst.discover()`, `GET /api/coverage` and `GET /api/auth` list a provider that needs a
   credential as not configured when a `WD_*` variable is invalid, such as `WD_AUTH__CEDA` that is
   no `username:password`, and log the problem once; one malformed credential raised for the whole
@@ -27,10 +32,20 @@ Types of changes:
   handshake, raises that failure (an `ssl.SSLError`) after the retries, where it returned no
   files as if offline: providers that list first returned an empty result with no hint of why
   (GH-2581)
+- Listing the contents of one directory (the DWD DMO and alerts indexes, IMGW) on a host whose
+  certificate does not verify, or that fails a TLS handshake, raises an `ssl.SSLError` after the
+  retries instead of the aiohttp error, whose repr rendered the password of a proxy named in
+  `HTTPS_PROXY` into the retry log and into messages that format it. Both are `OSError`s, so
+  `except OSError` keeps catching it; `except aiohttp.ClientError` no longer does (GH-2590)
 - A retried download or post that fails TLS through a proxy no longer logs the proxy's password:
   stamina's retry warning rendered the aiohttp error's connection key, which holds `proxy_auth`
   and the `user:secret@` of a proxy URL, whether the proxy came from `HTTPS_PROXY` or from
   `client_kwargs`. The key is logged with both removed (GH-2582)
+- A download or post refused by a proxy (the proxy answered CONNECT with an error status, or
+  an `http://` target behind it failed) no longer logs the proxy's `Proxy-Authorization` header, nor
+  stores it in `File.content`: it and the `user:secret@` of the proxy URL are redacted from the
+  error's request info, as is an `Authorization` header added by `auth=`; only a caller's own
+  `headers` were before (GH-2592)
 - Exporting a frame of 7 or more columns to a `sqlite://` target no longer fails with "too many
   SQL variables" once it has more than 32766 / columns rows (from 4681 rows for 7 columns) on
   SQLite 3.32 and later: the rows per insert now follow the 32766 variables a statement may
@@ -54,6 +69,9 @@ Types of changes:
   station, and return what was read before it (an empty frame if nothing), logged at debug as
   elsewhere. Every KNMI moment (720 for an hourly month) and every AEMET chunk was requested
   again before, and each skip logged a warning (GH-2558)
+- LHMT values requested with no network stop at the first day whose download finds none (a missing
+  day is still skipped), per station, and return the days read before it (an empty frame if
+  nothing), where every day of the range was requested again (GH-2591)
 
 ## [0.143.0] - 2026-10-08
 
