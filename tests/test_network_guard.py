@@ -357,3 +357,34 @@ def test_the_teardown_check_stands_down_where_remote_tests_are_running_too(
         """,
     )
     result.assert_outcomes(passed=2, errors=0)
+
+
+def test_a_refusal_inside_an_exception_group_is_reported_once(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Several connections refused at once arrive as a group, and the refusal in it is still seen.
+
+    An `asyncio` gather or task group raises the refusals together, so the teardown check has to
+    look inside the group, or it reports a second time for a refusal the reader already has.
+    """
+    result = _run_one(
+        pytester,
+        pytestconfig,
+        monkeypatch,
+        """
+        import socket
+
+        def test_a_group_of_connections():
+            errors = []
+            for _ in range(2):
+                try:
+                    socket.socket().connect(("example.org", 80))
+                except Exception as exc:
+                    errors.append(exc)
+            raise ExceptionGroup("could not read the indexes", errors)
+        """,
+    )
+    result.assert_outcomes(failed=1, errors=0)
+    assert "Neither the setup nor the call phase reported it" not in result.stdout.str()
