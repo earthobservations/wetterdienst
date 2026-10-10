@@ -35,6 +35,34 @@ Types of changes:
   `temperature_air_max_2m` and `temperature_air_min_2m`. Request the new names; the old ones are
   not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
   parameter is requested) (GH-2614)
+- **Breaking**: `dwd/observation` 10-minute `tt_10` and `tm5_10`, which DWD describes as the
+  instant air temperature at 2 m and 5 cm, are named `temperature_air_2m` and
+  `temperature_air_0_05m`, no longer `temperature_air_mean_2m` and `temperature_air_mean_0_05m`,
+  which name the mean over the interval. Request the new names; the old ones are not found in
+  `10_minutes/temperature_air` (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested) (GH-2651)
+- **Breaking**: `meteoswiss/observation` 10-minute `tre200s0`, `tre005s0`, `tso005s0`, `tso010s0`,
+  `tso020s0`, `tde200s0` and hourly `tso005hs`, `tso010hs`, `tso020hs`, which MeteoSwiss calls
+  the current value, are named `temperature_air_2m`, `temperature_air_0_05m`,
+  `temperature_soil_0_05m`, `_0_1m`, `_0_2m` and `temperature_dew_point_2m`, no longer the
+  `_mean_` names. Request the new names; the old ones are not found in these datasets (logged and
+  dropped, or `NoParametersFoundError` when no other parameter is requested). The hourly means
+  `tre200h0`, `tre005h0` and `tde200h0` keep their `_mean_` names (GH-2651)
+- **Breaking**: `smhi/observation` 1-minute `45` and hourly `1` and `39`, which SMHI calls
+  instantaneous values, are named `temperature_air_2m` and `temperature_dew_point_2m`, no longer
+  `temperature_air_mean_2m` and `temperature_dew_point_mean_2m`. Request the new names; the old
+  ones are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no
+  other parameter is requested). The daily and monthly means keep theirs (GH-2651)
+- **Breaking**: `aemet/observation` hourly `ta` and `tpr`, `meteofrance/observation` hourly `T`
+  and `metno/frost` hourly `air_temperature`, which their sources describe as an instantaneous,
+  present or observation-time value, are named `temperature_air_2m` and, for `tpr`,
+  `temperature_dew_point_2m`, no longer the `_mean_` names. Request the new names; the old ones
+  are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested). Where a source says a mean or nothing about the statistic, the
+  `_mean_` name stays (GH-2651)
+- **Breaking**: a `ts_geo_station_distance` override keyed by an old `_mean_` name no longer
+  applies to a row moved to a spot name by the entries above: the row takes the default radius.
+  Key the override by the new name (GH-2651)
 
 ### Fixed
 

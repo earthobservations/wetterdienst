@@ -76,8 +76,8 @@ Codes (precipitation_indicator_wr):
 |---------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------|------|-------------|
 | {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`pressure_air_site` | pp_10 | Air pressure at station altitude. | hPa | >=0 |
-| {term}`temperature_air_mean_2m` | tt_10 | Air temperature 2 m above ground, instant. | °C | - |
-| {term}`temperature_air_mean_0_05m` | tm5_10 | Air temperature 5 cm above ground, instant. | °C | - |
+| {term}`temperature_air_2m` | tt_10 | Air temperature 2 m above ground, instant. | °C | - |
+| {term}`temperature_air_0_05m` | tm5_10 | Air temperature 5 cm above ground, instant. | °C | - |
 | {term}`humidity_relative` | rf_10 | Relative humidity 2 m above ground. | % | >=0,<=100 |
 | {term}`temperature_dew_point_mean_2m` | td_10 | Dew point. The dew point temperature is calculated from the air temperature 2 m above ground and the relative humidity measurement. | °C | - |
 

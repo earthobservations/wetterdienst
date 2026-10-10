@@ -15,8 +15,8 @@
 
 | name                                  | original name | description                                                                          | unit |
 |---------------------------------------|---------------|--------------------------------------------------------------------------------------|------|
-| {term}`temperature_air_mean_2m`       | 1             | Air temperature. Instantaneous value, once per hour.                                 | °C   |
-| {term}`temperature_dew_point_mean_2m` | 39            | Dew point temperature. Instantaneous value, once per hour.                           | °C   |
+| {term}`temperature_air_2m`            | 1             | Air temperature. Instantaneous value, once per hour.                                 | °C   |
+| {term}`temperature_dew_point_2m`      | 39            | Dew point temperature. Instantaneous value, once per hour.                           | °C   |
 | {term}`wind_speed`                    | 4             | Wind speed. Mean over 10 minutes, once per hour.                                     | m/s  |
 | {term}`wind_direction`                | 3             | Wind direction. Mean over 10 minutes, once per hour.                                 | °    |
 | {term}`wind_gust_max`                 | 21            | Wind gust. Maximum, once per hour.                                                   | m/s  |
