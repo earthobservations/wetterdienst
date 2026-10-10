@@ -1228,6 +1228,14 @@ def test_cli_refuses_a_dataset_queried_by_a_window_given_none_naming_its_options
 
 
 @pytest.mark.parametrize(
+    ("provider", "network", "parameters", "setting"),
+    [
+        ("knmi", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__KNMI"),
+        ("aemet", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__AEMET"),
+        ("metno", "frost", "hourly/data/temperature_air_2m", "WD_AUTH__METNO_FROST"),
+    ],
+)
+@pytest.mark.parametrize(
     ("command", "options"),
     [
         ("stations", ["--all"]),
@@ -1241,26 +1249,24 @@ def test_cli_without_a_credential_says_which_setting_to_change(
     tmp_path: Path,
     command: str,
     options: list[str],
+    provider: str,
+    network: str,
+    parameters: str,
+    setting: str,
 ) -> None:
     """A provider that needs a key none is configured for is told in one line, exit 1 (GH-2638).
 
     The command line's user is the one who can set the variable, so the provider's message is the
     answer. It arrived as a traceback; it is not a usage error either, the options were right.
     """
-    monkeypatch.delenv("WD_AUTH__KNMI", raising=False)
+    monkeypatch.delenv(setting, raising=False)
     monkeypatch.chdir(tmp_path)
     result = CliRunner().invoke(
         cli,
-        [
-            command,
-            "--provider=knmi",
-            "--network=observation",
-            "--parameters=daily/data/temperature_air_mean_2m",
-            *options,
-        ],
+        [command, f"--provider={provider}", f"--network={network}", f"--parameters={parameters}", *options],
     )
     assert result.exit_code == 1, result.output
-    assert "WD_AUTH__KNMI" in result.stderr
+    assert setting in result.stderr
     assert "Traceback" not in result.stderr
-    assert result.stderr.startswith("Error: KNMI Data Platform requires authentication.")
+    assert result.stderr.startswith("Error: ")
     assert len(result.stderr.splitlines()) == 1

@@ -7583,9 +7583,10 @@ _CREDENTIAL_PROVIDERS = [
         ("/api/stations", {"all": "true"}),
         ("/api/values", {"station": "1", "timestamp": "2020-01-01/2020-01-02"}),
         ("/api/interpolate", {"station": "1", "timestamp": "2020-01-01/2020-01-02"}),
+        ("/api/summarize", {"station": "1", "timestamp": "2020-01-01/2020-01-02"}),
     ],
 )
-def test_a_missing_credential_is_a_503_that_does_not_name_the_setting(
+def test_a_missing_credential_is_a_501_that_does_not_name_the_setting(
     client: TestClient,
     caplog: pytest.LogCaptureFixture,
     provider: str,
@@ -7595,19 +7596,20 @@ def test_a_missing_credential_is_a_503_that_does_not_name_the_setting(
     endpoint: str,
     extra: dict[str, str],
 ) -> None:
-    """A provider this server has no key for is the server's lack: 503, not a 500 telling the caller to set a variable.
+    """A provider this server has no key for is the server's lack: 501, not a 500 telling the caller to set a variable.
 
     The detail was the provider's message, which instructs whoever runs the process to set an
     environment variable (GH-2638). Nothing of the caller's is wrong, and a caller of a server it does
-    not administer cannot act on it. The message reaches the server log instead.
+    not administer cannot act on it. The message reaches the server log instead. Not a 503, which the
+    app asks once more.
     """
-    with caplog.at_level(logging.ERROR):
+    with caplog.at_level(logging.WARNING):
         response = client.get(
             endpoint,
             params={"provider": provider, "network": network, "parameters": parameters, **extra},
         )
 
-    assert response.status_code == 503, response.text
+    assert response.status_code == 501, response.text
     detail = response.json()["detail"]
     assert f"for {provider}/{network}" in detail
     assert "WD_AUTH" not in detail

@@ -110,7 +110,7 @@ Types of changes:
   longitude +-180, as it does for the `BOGUS` placeholders (GH-2616)
 - A request to `knmi/observation`, `aemet/observation` or `metno/frost` without a credential raises
   `CredentialMissingError`, a `ValueError` as before, with the same message. The REST API and the
-  MCP tools answer it with a 503 and a fixed sentence, no longer a 500 that tells the caller to set
+  MCP tools answer it with a 501 and a fixed sentence, no longer a 500 that tells the caller to set
   an environment variable on the server (the message goes to the server log), and the command line
   prints it in one line and exits 1, no longer with a traceback (GH-2638)
 

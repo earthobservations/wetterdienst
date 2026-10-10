@@ -729,6 +729,9 @@ STRIPES_EXAMPLES = r"""
 def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     """Raise a failure caught from a request as a usage error if it is the caller's own mistake.
 
+    Also the one place the catch-alls below tell a provider whose credential is missing, which is
+    the environment's lack and no mistake of the command line's, as the last paragraph says.
+
     A refusal the caller can rephrase -- one the REST API answers with a 4xx -- is told in one line,
     exit 2, as a mistyped option is (GH-2426). Anything else -- an upstream failure or a defect -- is
     left to the handler, and keeps its traceback and exit 1.
