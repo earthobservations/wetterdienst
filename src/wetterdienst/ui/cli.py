@@ -21,6 +21,7 @@ from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
+    CredentialMissingError,
     DateRequiredError,
     ExportRefusedError,
     InvalidTimeIntervalError,
@@ -728,6 +729,9 @@ STRIPES_EXAMPLES = r"""
 def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     """Raise a failure caught from a request as a usage error if it is the caller's own mistake.
 
+    Also the one place the catch-alls below tell a provider whose credential is missing, which is
+    the environment's lack and no mistake of the command line's, as the last paragraph says.
+
     A refusal the caller can rephrase -- one the REST API answers with a 4xx -- is told in one line,
     exit 2, as a mistyped option is (GH-2426). Anything else -- an upstream failure or a defect -- is
     left to the handler, and keeps its traceback and exit 1.
@@ -735,7 +739,13 @@ def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     A request refuses a window that ends before it starts, or one that a dataset needs and is not
     given, in terms of its `start` and `end`, which the command line spells `--timestamp` or
     `--start` / `--end`.
+
+    A provider that needs a credential none is configured for is told in one line, exit 1: the
+    message names the setting to change, which is what the person at the command line can do, and
+    the command line was right, so it is no usage error.
     """
+    if isinstance(e, CredentialMissingError):
+        raise click.ClickException(str(e)) from e
     if not _is_caller_refusal(e, request):
         return
     if isinstance(e, ReversedTimeIntervalError):

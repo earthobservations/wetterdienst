@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlparse
 import polars as pl
 from aiohttp import encode_basic_auth
 
+from wetterdienst.exceptions import CredentialMissingError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, ParameterModel, build_metadata_model
 from wetterdienst.model.request import TimeseriesRequest
@@ -807,7 +808,7 @@ class MetnoFrostRequest(TimeseriesRequest):
                 "and set WD_AUTH__METNO_FROST=<client_id> (env var) "
                 "or Settings(auth={'metno_frost': '<client_id>'}) (Python)."
             )
-            raise ValueError(msg)
+            raise CredentialMissingError(msg)
 
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
