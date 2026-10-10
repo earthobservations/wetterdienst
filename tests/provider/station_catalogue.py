@@ -325,13 +325,17 @@ def assert_sound(
     accepted: Iterable[Accepted] = (),
     now: dt.datetime | None = None,
     limit: int = 20,
+    fail_on_stale: bool = True,
 ) -> None:
     """Raise an `AssertionError` that lists the provider, station and rule of every violation left after `accepted`.
 
-    A stale exception fails as well, and an empty catalogue does: a rule over no stations passes whatever is wrong.
+    A stale exception fails as well, unless `fail_on_stale` is False, and an empty catalogue does: a rule over no
+    stations passes whatever is wrong. A live catalogue turns `fail_on_stale` off, as a source that fixes a defect is
+    no failure of ours.
     """
     assert not df.is_empty(), f"{catalogue}: the catalogue is empty, so no rule was applied"
     left, stale = unaccepted(check_catalogue(df, catalogue, bbox=bbox, now=now), accepted)
+    stale = stale if fail_on_stale else []
     problems = [str(violation) for violation in left[:limit]]
     if len(left) > limit:
         problems.append(f"... and {len(left) - limit} more")

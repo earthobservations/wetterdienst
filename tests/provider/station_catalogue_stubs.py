@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import bz2
 import datetime as dt
+import json
 from dataclasses import dataclass, field
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
@@ -35,6 +36,10 @@ from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest
 from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
 from wetterdienst.provider.imgw.meteorology import api as imgw_meteorology_api
+from wetterdienst.provider.ipma.observation import IpmaObservationRequest
+from wetterdienst.provider.ipma.observation import api as ipma_api
+from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
+from wetterdienst.provider.lhmt.observation import api as lhmt_api
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 from wetterdienst.provider.noaa.ghcn import api as ghcn_api
 from wetterdienst.util.network import File
@@ -220,44 +225,66 @@ def _ghcn_daily(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(NoaaGhcnRequest, ("daily", "data"))
 
 
-_GHCN_NO_POSITION = (
+def _ipma(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    def feature(station_id: int, name: str, lon: float, lat: float) -> dict[str, Any]:
+        return {
+            "geometry": {"type": "Point", "coordinates": [lon, lat]},
+            "type": "Feature",
+            "properties": {"idEstacao": station_id, "localEstacao": name},
+        }
+
+    catalogue = [
+        feature(1210881, "Olhão, EPPO", -7.821, 37.033),
+        feature(1210883, "Tavira", -7.62050375, 37.12166968),
+        feature(6210817, "Ponte de Sôr / Aeródromo", -8.05417, 39.21536),
+    ]
+    _serve(monkeypatch, ipma_api, {"stations.json": json.dumps(catalogue).encode("utf8")})
+    return _stations(IpmaObservationRequest, ("hourly", "data"))
+
+
+def _lhmt(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    catalogue = [
+        {"code": "akmenes-ams", "name": "Akmenės AMS", "coordinates": {"latitude": 56.24992, "longitude": 22.73081}},
+        {"code": "alytaus-ams", "name": "Alytaus AMS", "coordinates": {"latitude": 54.412435, "longitude": 24.063274}},
+        {"code": "anyksciu-ams", "name": "Anykščių AMS", "coordinates": {"latitude": 55.51735, "longitude": 25.1178}},
+    ]
+    _serve(monkeypatch, lhmt_api, {"/stations": json.dumps(catalogue).encode("utf8")})
+    return _stations(LhmtObservationRequest, ("hourly", "data"))
+
+
+def question_mark_in_the_name(row: dict[str, Any]) -> bool:
+    """Say whether a name is damaged by a question mark and by nothing worse."""
+    return "?" in row["name"] and not any(damage in row["name"] for damage in ("\ufffd", "Ã", "Â", "â€"))
+
+
+# a source that writes a character it cannot encode as a question mark leaves a name such as NAR?JAN-MAR or IPIRANGA(?)
+QUESTION_MARK = "the source writes a character it could not encode as a question mark"
+GHCN_NO_POSITION = Accepted(
+    "coordinates_missing",
     "the list gives the BOGUS and the NAME AND LOC UNKN placeholders 0, 0 and the two historic Russian stations "
-    "latitudes of 135 and 104; none has a position (GH-2380), and a station without one is picked by no distance search"
+    "latitudes of 135 and 104; none has a position (GH-2380), and a station without one is picked by no search",
+    where=lambda row: row["name"].startswith(("BOGUS ", "NAME AND LOC")) or row["station_id"].startswith("RUU71-"),
+)
+GHCN_NAMES = Accepted(
+    "name_encoding", f"the list names stations IPIRANGA(?) and alike: {QUESTION_MARK}", question_mark_in_the_name
+)
+GHCN_DAILY_END = Accepted(
+    "date_in_the_future",
+    "the end of a station that reports this year is 31 December of this year (GH-2643)",
+    where=lambda row: row["end_timestamp"].year == dt.datetime.now(dt.UTC).year,
 )
 
 STUBS = [
-    Stub(
-        "noaa/ghcn hourly/data",
-        _ghcn_hourly,
-        (
-            Accepted(
-                "coordinates_missing",
-                _GHCN_NO_POSITION,
-                where=lambda row: (
-                    row["name"].startswith(("BOGUS ", "NAME AND LOC")) or row["station_id"].startswith("RUU71-")
-                ),
-            ),
-            Accepted(
-                "name_encoding",
-                "the list spells the name IPIRANGA(?) with a question mark",
-                where=lambda row: row["name"] == "IPIRANGA(?)",
-            ),
-        ),
-    ),
+    Stub("ipma/observation hourly/data", _ipma),
+    Stub("lhmt/observation hourly/data", _lhmt),
+    Stub("noaa/ghcn hourly/data", _ghcn_hourly, (GHCN_NO_POSITION, GHCN_NAMES)),
     Stub(
         "noaa/ghcn daily/data",
         _ghcn_daily,
         (
-            Accepted(
-                "date_in_the_future",
-                "the end of a station that reports this year is 31 December of this year (GH-2643)",
-                where=lambda row: row["end_timestamp"].year == 2026,
-            ),
-            Accepted(
-                "name_encoding",
-                "the list spells the name IPIRANGA(?) with a question mark",
-                where=lambda row: row["name"] == "IPIRANGA(?)",
-            ),
+            # the end the stub's rows get is 31 December 2026, which is in the future only before then
+            Accepted(GHCN_DAILY_END.rule, GHCN_DAILY_END.reason, where=lambda row: row["end_timestamp"].year == 2026),
+            GHCN_NAMES,
         ),
         now=dt.datetime(2026, 10, 10, tzinfo=dt.UTC),
     ),
