@@ -793,9 +793,14 @@ class CoverageResolution(TypedDict):
 # credentials; the answer for one: its resolutions, which a filter that matches none of leaves out
 CoverageProviders = dict[str, dict[str, CoverageNetwork]]
 CoverageResolutions = dict[Resolution, CoverageResolution]
+# What the route declares: one object holding either, as a union of the two would make the
+# schema's top level `anyOf`, and the MCP `coverage` tool, which takes its output schema from
+# this, would wrap its result in `{"result": ...}` and drop `pretty`. The two above are the exact
+# shapes, which the tests hold the answers to
+CoverageAnswer = dict[str, dict[str, CoverageNetwork] | CoverageResolution]
 
 
-@app.get("/api/coverage", response_model=CoverageProviders | CoverageResolutions)
+@app.get("/api/coverage", response_model=CoverageAnswer)
 def coverage(
     request: Annotated[CoverageRequest, Query()],
 ) -> Response:

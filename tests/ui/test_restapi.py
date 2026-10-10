@@ -7407,12 +7407,8 @@ def test_auth_reports_metoffice_as_needing_a_credential(client: TestClient) -> N
     assert client.get("/api/coverage").json()["metoffice"]["observation"]["configured"] is False
 
 
-# the networks with coverage: the standalone ones (dwd/radar, dwd/alerts) have no metadata model
 _COVERAGE_NETWORKS = [
-    (provider, network)
-    for provider, networks in Wetterdienst.registry.items()
-    for network in networks
-    if (provider, network) not in {("dwd", "radar"), ("dwd", "alerts")}
+    (provider, network) for provider, networks in Wetterdienst.registry.items() for network in networks
 ]
 
 
@@ -7420,19 +7416,14 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
     """`/openapi.json` describes both answers of `/api/coverage`, down to the parameter (GH-2090)."""
     schema = client.get("/openapi.json").json()
     answer = schema["paths"]["/api/coverage"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
-    assert answer["anyOf"] == [
+    # one object, not an `anyOf` of the two: that would wrap the MCP tool's result in `result`
+    assert answer["type"] == "object"
+    assert answer["additionalProperties"]["anyOf"] == [
         {
             "type": "object",
-            "additionalProperties": {
-                "type": "object",
-                "additionalProperties": {"$ref": "#/components/schemas/CoverageNetwork"},
-            },
+            "additionalProperties": {"$ref": "#/components/schemas/CoverageNetwork"},
         },
-        {
-            "type": "object",
-            "additionalProperties": {"$ref": "#/components/schemas/CoverageResolution"},
-            "propertyNames": {"$ref": "#/components/schemas/Resolution"},
-        },
+        {"$ref": "#/components/schemas/CoverageResolution"},
     ]
     components = schema["components"]["schemas"]
 
@@ -7461,7 +7452,11 @@ def test_coverage_of_a_network_matches_its_model(provider: str, network: str) ->
     The models forbid other keys, so a key added to or renamed in `discover()` fails here, which
     is the check the app's hand-written coverage types had no way to get.
     """
-    discovered = Wetterdienst(provider, network).discover()
+    api = Wetterdienst(provider, network)
+    if not hasattr(api, "discover"):
+        # a standalone network (dwd/radar, dwd/alerts) has no metadata model; the route answers it a 404
+        pytest.skip(f"{provider}/{network} has no coverage")
+    discovered = api.discover()
     assert discovered
     validated = TypeAdapter(restapi.CoverageResolutions).validate_python(discovered)
     assert {resolution.value for resolution in validated} == discovered.keys()
@@ -7541,3 +7536,33 @@ def test_coverage_of_every_provider_matches_its_model(client: TestClient) -> Non
     assert response.text == json.dumps(Wetterdienst.discover())
     validated = TypeAdapter(restapi.CoverageProviders).validate_python(response.json())
     assert validated.keys() == Wetterdienst.registry.keys()
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_mcp_coverage_tool_returns_the_coverage_unwrapped() -> None:
+    """The MCP coverage tool answers what the REST route does, not that inside a `result` key (GH-2090).
+
+    The tool's output schema comes from the route's response model, and one whose top level is not
+    an object, such as an `anyOf` of the two answers, has the result wrapped.
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> tuple[dict, dict]:
+        async with Client(mcp) as client:
+            every = await client.call_tool("coverage", {})
+            one = await client.call_tool(
+                "coverage",
+                {"provider": "dwd", "network": "observation", "resolutions": "daily"},
+            )
+            return every.structured_content, one.structured_content
+
+    every, one = asyncio.run(_call())
+    assert every == json.loads(json.dumps(Wetterdienst.discover()))
+    assert one == json.loads(json.dumps(Wetterdienst("dwd", "observation").discover(resolutions="daily")))
