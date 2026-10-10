@@ -34,10 +34,10 @@
 | {term}`precipitation_amount_last_1h`            | rr1           | Total precipitation during the last hour       | kg/m² | >=0         |
 | {term}`pressure_air_site_reduced`               | pppp          | Surface pressure, reduced                      | Pa    | >=0         |
 | {term}`radiation_global`                        | rad1h         | Global Irradiance                              | kJ/m² | >=0         |
-| {term}`temperature_air_max_2m`                  | tx            | Maximum temperature - within the last 12 hours | K     | -           |
+| {term}`temperature_air_max_2m_last_12h`                  | tx            | Maximum temperature - within the last 12 hours | K     | -           |
 | {term}`temperature_air_mean_0_05m`              | t5cm          | Temperature 5cm above surface                  | K     | -           |
 | {term}`temperature_air_mean_2m`                 | ttt           | Temperature 2m above surface                   | K     | -           |
-| {term}`temperature_air_min_2m`                  | tn            | Minimum temperature - within the last 12 hours | K     | -           |
+| {term}`temperature_air_min_2m_last_12h`                  | tn            | Minimum temperature - within the last 12 hours | K     | -           |
 | {term}`temperature_dew_point_mean_2m`           | td            | Dewpoint 2m above surface                      | K     | -           |
 | {term}`water_equivalent_snow_depth_new_last_1h` | rrs1c         | Snow-Rain-Equivalent during the last hour      | kg/m² | >=0         |
 | {term}`weather_last_6h`                         | w1w2          | Past weather during the last 6 hours           | -     | -           |
@@ -73,10 +73,10 @@
 | {term}`radiation_global`                        | rad1h         | Global Irradiance                                    | kJ/m² | >=0         |
 | {term}`radiation_global_last_3h`                | rads3         | Short wave radiation balance during the last 3 hours | kJ/m² | -           |
 | {term}`radiation_sky_long_wave_last_3h`         | radl3         | Long wave radiation balance during the last 3 hours  | kJ/m² | -           |
-| {term}`temperature_air_max_2m`                  | tx            | Maximum temperature - within the last 12 hours       | K     | -           |
+| {term}`temperature_air_max_2m_last_12h`                  | tx            | Maximum temperature - within the last 12 hours       | K     | -           |
 | {term}`temperature_air_mean_0_05m`              | t5cm          | Temperature 5cm above surface                        | K     | -           |
 | {term}`temperature_air_mean_2m`                 | ttt           | Temperature 2m above surface                         | K     | -           |
-| {term}`temperature_air_min_2m`                  | tn            | Minimum temperature - within the last 12 hours       | K     | -           |
+| {term}`temperature_air_min_2m_last_12h`                  | tn            | Minimum temperature - within the last 12 hours       | K     | -           |
 | {term}`temperature_dew_point_mean_2m`           | td            | Dewpoint 2m above surface                            | K     | -           |
 | {term}`water_equivalent_snow_depth_new_last_1h` | rrs1c         | Snow-Rain-Equivalent during the last hour            | kg/m² | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_3h` | rrs3c         | Snow-Rain-Equivalent during the last 3 hours         | kg/m² | >=0         |
