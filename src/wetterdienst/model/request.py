@@ -50,7 +50,7 @@ from wetterdienst.model.result import (
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
-from wetterdienst.util.extras import missing_dependency_message
+from wetterdienst.util.extras import import_optional
 from wetterdienst.util.python import to_list
 
 try:
@@ -758,11 +758,9 @@ class TimeseriesRequest:
         The core ranks the stations near the point and the result names the stations taken, both off
         this one frame, so that the provider builds its station list once.
         """
-        try:
-            from wetterdienst.core.interpolate import get_interpolated_df, place_in_utm  # noqa: PLC0415
-        except ImportError as e:
-            msg = missing_dependency_message("Interpolation", e.name, extra="interpolation")
-            raise ImportError(msg) from e
+        # scipy, shapely and utm are imported by the module, so a missing one surfaces from this
+        interpolate = import_optional("wetterdienst.core.interpolate", "Interpolation", extra="interpolation")
+        get_interpolated_df, place_in_utm = interpolate.get_interpolated_df, interpolate.place_in_utm
 
         if not self.start:
             msg = "start and end are required for interpolation"

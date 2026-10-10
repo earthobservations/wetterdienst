@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 import stamina
 
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import CredentialMissingError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -302,7 +302,7 @@ class KnmiObservationRequest(TimeseriesRequest):
                 "and set WD_AUTH__KNMI=<api_key> (env var) "
                 "or Settings(auth={'knmi': '<api_key>'}) (Python)."
             )
-            raise ValueError(msg)
+            raise CredentialMissingError(msg)
         # KNMI's files are keyed by UTC (filenames encode the UTC date/hour/minute). The base
         # convert_timestamps only tags *naive* inputs as UTC -- a tz-aware non-UTC datetime is
         # kept as-is -- so normalize to UTC here before any flooring or filename formatting,

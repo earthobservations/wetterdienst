@@ -9,7 +9,7 @@ from typing import ClassVar
 from pydantic import ValidationError
 from pydantic_settings import SettingsError
 
-from wetterdienst.exceptions import ApiNotFoundError
+from wetterdienst.exceptions import ApiNotFoundError, MissingDependencyError
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.settings import Settings, check_settings
 from wetterdienst.util.extras import missing_dependency_message
@@ -134,8 +134,12 @@ class Wetterdienst:
             # a dependency of the provider module raises this just as readily as the module itself
             # being absent, and the two want different advice. The name says which happened, and
             # the provider modules all ship with the package -- so in practice it is the former
-            if e.name and module_path != e.name and not module_path.startswith(f"{e.name}."):
+            # (a module of ours that does not exist is a defect, and is not an instruction to install)
+            if e.name and "." not in e.name:
                 msg = missing_dependency_message(f"Module {module_path}", e.name)
+                raise MissingDependencyError(msg) from e
+            if e.name and e.name != module_path:
+                msg = f"Module {module_path} failed to import: {e.name} not found."
             else:
                 msg = f"Module {module_path} not found."
             raise ImportError(msg) from e

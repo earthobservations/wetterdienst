@@ -2556,7 +2556,7 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
             {
                 "provider": "dwd",
                 "network": "road",
-                "parameters": "15_minutes/data/temperature_air_mean_2m",
+                "parameters": "15_minutes/data/temperature_air_2m",
                 "station": "A006",
                 "timestamp": "2024-01-01/2024-01-02",
             },
@@ -2567,7 +2567,7 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
             {
                 "provider": "dwd",
                 "network": "road",
-                "parameters": "15_minutes/data/temperature_air_mean_2m",
+                "parameters": "15_minutes/data/temperature_air_2m",
                 "station": "A006",
                 "timestamp": "2024-01-01",
             },
@@ -2578,7 +2578,7 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
             {
                 "provider": "dwd",
                 "network": "road",
-                "parameters": "15_minutes/data/temperature_air_mean_2m",
+                "parameters": "15_minutes/data/temperature_air_2m",
                 "station": "A006",
                 "timestamp": "2024-01-01",
             },
@@ -7566,3 +7566,183 @@ def test_mcp_coverage_tool_returns_the_coverage_unwrapped() -> None:
     every, one = asyncio.run(_call())
     assert every == json.loads(json.dumps(Wetterdienst.discover()))
     assert one == json.loads(json.dumps(Wetterdienst("dwd", "observation").discover(resolutions="daily")))
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point", "params"),
+    [
+        (
+            "/api/stations",
+            "get_stations",
+            {"provider": "dwd", "network": "observation", "parameters": "daily/kl", "all": "true"},
+        ),
+        (
+            "/api/values",
+            "get_values",
+            {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/kl",
+                "station": "00011",
+                "periods": "recent",
+            },
+        ),
+        (
+            "/api/interpolate",
+            "get_interpolate",
+            {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/kl/temperature_air_mean_2m",
+                "station": "00071",
+                "timestamp": "1986-10-31",
+            },
+        ),
+    ],
+)
+def test_an_optional_dependency_missing_on_the_server_is_a_501(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    entry_point: str,
+    params: dict[str, str],
+) -> None:
+    """Any optional package the deployment lacks is a 501, as the BUFR reader is (GH-2637).
+
+    A `sql` filter without DuckDB ended in a bare `ModuleNotFoundError`, a 500 with no instruction
+    in it. `MissingDependencyError` is the one class every optional import raises, so one decision
+    covers them all: the request was well formed, the instance cannot serve it, and the install
+    line goes to the log rather than to a caller who does not administer the machine.
+
+    Raised from a stubbed entry point rather than by masking the package: what is under test is the
+    status and the body, and the real path downloads a station list on the way to the error.
+    """
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    msg = "Filtering with SQL requires duckdb, which is not installed. Install it with: pip install wetterdienst[sql]"
+
+    def refuse(**_kwargs: object) -> None:
+        raise MissingDependencyError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
+    with caplog.at_level(logging.ERROR):
+        response = client.get(endpoint, params=params)
+
+    assert response.status_code == 501
+    detail = response.json()["detail"]
+    assert "optional dependency" in detail
+    assert "pip install" not in detail
+    assert "pip install wetterdienst[sql]" in caplog.text
+
+
+def test_an_optional_dependency_missing_outside_the_endpoint_handlers_is_a_501_too(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Rendering an image without plotly is a 501 as well, though no endpoint handler wraps it (GH-2637).
+
+    `to_format` runs after the values were collected, outside the `try` that `_failure` serves, and
+    answered a bare 500. The app's own handler for `MissingDependencyError` covers every such place.
+    """
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    msg = "Plotting requires plotly, which is not installed. Install it with: pip install wetterdienst[plotting]"
+
+    def render() -> None:
+        raise MissingDependencyError(msg)
+
+    routes = list(restapi.app.router.routes)
+    restapi.app.add_api_route("/api/_test_render", render, include_in_schema=False)
+    try:
+        with caplog.at_level(logging.ERROR):
+            response = client.get("/api/_test_render")
+    finally:
+        restapi.app.router.routes[:] = routes
+
+    assert response.status_code == 501
+    assert "pip install" not in response.json()["detail"]
+    assert msg in caplog.text
+
+
+_CREDENTIAL_PROVIDERS = [
+    pytest.param("knmi", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__KNMI", id="knmi"),
+    pytest.param("aemet", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__AEMET", id="aemet"),
+    pytest.param("metno", "frost", "hourly/data/temperature_air_2m", "WD_AUTH__METNO_FROST", id="frost"),
+]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(("provider", "network", "parameters", "setting"), _CREDENTIAL_PROVIDERS)
+@pytest.mark.parametrize(
+    ("endpoint", "extra"),
+    [
+        ("/api/stations", {"all": "true"}),
+        ("/api/values", {"station": "1", "timestamp": "2020-01-01/2020-01-02"}),
+        ("/api/interpolate", {"station": "1", "timestamp": "2020-01-01/2020-01-02"}),
+        ("/api/summarize", {"station": "1", "timestamp": "2020-01-01/2020-01-02"}),
+    ],
+)
+def test_a_missing_credential_is_a_501_that_does_not_name_the_setting(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+    provider: str,
+    network: str,
+    parameters: str,
+    setting: str,
+    endpoint: str,
+    extra: dict[str, str],
+) -> None:
+    """A provider this server has no key for is the server's lack: 501, not a 500 telling the caller to set a variable.
+
+    The detail was the provider's message, which instructs whoever runs the process to set an
+    environment variable (GH-2638). Nothing of the caller's is wrong, and a caller of a server it does
+    not administer cannot act on it. The message reaches the server log instead. Not a 503, which the
+    app asks once more.
+    """
+    with caplog.at_level(logging.WARNING):
+        response = client.get(
+            endpoint,
+            params={"provider": provider, "network": network, "parameters": parameters, **extra},
+        )
+
+    assert response.status_code == 501, response.text
+    detail = response.json()["detail"]
+    assert f"for {provider}/{network}" in detail
+    assert "WD_AUTH" not in detail
+    assert "Settings(" not in detail
+    # a route the MCP tools have too, which `/api/auth` is not
+    assert "/api/coverage" in detail
+    assert setting in caplog.text
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_mcp_tool_without_a_credential_is_refused_without_naming_the_setting() -> None:
+    """The MCP tools are this API's routes, so a provider the server has no key for is refused the same way."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> str:
+        async with Client(mcp) as client:
+            with pytest.raises(ToolError) as excinfo:
+                await client.call_tool(
+                    "stations",
+                    {
+                        "provider": "knmi",
+                        "network": "observation",
+                        "parameters": "daily/data/temperature_air_mean_2m",
+                        "all": True,
+                    },
+                )
+            return str(excinfo.value)
+
+    message = asyncio.run(_call())
+    assert "no credential for knmi/observation" in message
+    assert "WD_AUTH" not in message

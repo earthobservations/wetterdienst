@@ -19,8 +19,10 @@ from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
+    CredentialMissingError,
     DateRequiredError,
     InvalidTimeIntervalError,
+    MissingDependencyError,
     MissingTimeIntervalError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
@@ -155,24 +157,66 @@ REQUEST_EXAMPLES = {
 }
 
 
-def _reader_missing_on_the_server(e: BufrReaderMissingError, what: str) -> HTTPException:
-    """Report a reader this deployment does not have as the server's lack, not the caller's error.
+def _dependency_missing_on_the_server(e: MissingDependencyError, what: str) -> HTTPException:
+    """Report a dependency this deployment does not have as the server's lack, not the caller's error.
 
     The blanket handlers answered it with a 400 carrying `pip install wetterdienst[bufr]` -- an
     instruction for a machine the caller does not administer, about a request that was perfectly
     well formed. Over HTTP the missing half is a property of the deployment, and 501 is what says
-    so: this server does not implement the networks published as BUFR. The install line is not
-    lost, it moves to where someone can act on it -- the server log, carried there by the message
-    itself rather than by a traceback, since a dependency that was never installed has no incident
-    to show.
+    so: this server does not implement what needs the package, such as the networks published as
+    BUFR, a `sql` filter or an image. The install line is not lost, it moves to where someone can
+    act on it -- the server log, carried there by the message itself rather than by a traceback,
+    since a dependency that was never installed has no incident to show.
     """
-    log.error(f"Failed to {what}, this deployment cannot decode BUFR: {e}")
-    return HTTPException(
-        status_code=501,
-        detail=(
+    log.error(f"Failed to {what}, this deployment lacks an optional dependency: {e}")
+    if isinstance(e, BufrReaderMissingError):
+        detail = (
             "This server cannot decode BUFR, which the requested network is published as. The "
             "request was valid; the deployment is missing the eccodes and pdbufr readers that "
             "read it. Ask whoever runs this instance to install them."
+        )
+    else:
+        detail = (
+            "This server lacks an optional dependency that the request needs. The request was valid; "
+            "ask whoever runs this instance to install it."
+        )
+    return HTTPException(status_code=501, detail=detail)
+
+
+@app.exception_handler(MissingDependencyError)
+async def _missing_dependency_handler(request: Request, exc: MissingDependencyError) -> JSONResponse:
+    """Answer a dependency the deployment lacks with a 501 wherever it was reached.
+
+    The endpoints turn it into one inside their own handlers (`_failure`); this is for the rest,
+    such as rendering an image after the values were collected.
+    """
+    error = _dependency_missing_on_the_server(exc, f"serve {request.url.path}")
+    return JSONResponse(status_code=error.status_code, content={"detail": error.detail})
+
+
+def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseModel, what: str) -> HTTPException:
+    """Report a credential this deployment lacks as the server's lack, not the caller's error or a crash.
+
+    The provider's message tells whoever runs the process which setting to change, which is no
+    instruction for a caller of this API: it answered it as a 500, the server broken, with the
+    environment variable named in the body. The provider exists and this instance has no key for it,
+    which is a 501 as for the BUFR reader: this server does not serve the network. Not a 503, which
+    the app asks once more (`RETRY_TRANSIENT` keeps it for a proxy's), and a missing key does not
+    pass by itself. This is what `configured: false` reports, without the setting's name; the body
+    points at `coverage` for it, as the MCP tools do not include `/api/auth`. The request's window
+    and parameters are parsed by the time this is raised, its stations are not, so the body does
+    not vouch for the request. The message is not lost, it moves to the server log, as a warning:
+    a state that lasts until someone configures the key is no incident.
+    """
+    log.warning(f"Failed to {what}, no credential is configured for the provider: {e}")
+    provider, network = getattr(request, "provider", None), getattr(request, "network", None)
+    of = f" for {provider}/{network}" if provider and network else ""
+    return HTTPException(
+        status_code=501,
+        detail=(
+            f"This server has no credential{of}, which the provider requires, so it cannot serve the "
+            f"request. {app.url_path_for('coverage')} tells whether a provider is "
+            "configured; otherwise ask whoever runs this instance."
         ),
     )
 
@@ -1152,8 +1196,13 @@ def _failure(e: Exception, request: BaseModel, what: str, *, refusal_status: int
 
     One decision for every catch-all that tells a caller's refusal from a failure of ours: a request
     the caller phrased wrong is theirs to fix, so an info line without a traceback and a 400 (or
-    `refusal_status`); anything else is a logged traceback and a 500.
+    `refusal_status`); a credential or an optional dependency the server lacks is a 501; anything
+    else is a logged traceback and a 500.
     """
+    if isinstance(e, MissingDependencyError):
+        return _dependency_missing_on_the_server(e, what)
+    if isinstance(e, CredentialMissingError):
+        return _credential_missing_on_the_server(e, request, what)
     if not _is_caller_refusal(e, request):
         log.error(f"Failed to {what}.", exc_info=e)
         return HTTPException(status_code=500, detail=str(e))
@@ -1179,8 +1228,6 @@ def _values(
         # the message is the whole of it: which parameters, and the lead time that carries them
         log.info(f"Failed to get values: {e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
-    except BufrReaderMissingError as e:
-        raise _reader_missing_on_the_server(e, "get values") from e
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
         # as a 500, not the caller's to fix
@@ -1216,8 +1263,6 @@ def _geo_values(
         # lead time that does
         log.info(f"Failed to {what}: {e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
-    except BufrReaderMissingError as e:
-        raise _reader_missing_on_the_server(e, what) from e
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
         # as a 500, not the caller's to fix

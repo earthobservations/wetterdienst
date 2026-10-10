@@ -39,12 +39,12 @@ FmiObservationMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "t2m",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "td",
                             "unit": "degree_celsius",
                         },
