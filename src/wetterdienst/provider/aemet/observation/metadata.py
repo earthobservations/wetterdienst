@@ -8,7 +8,10 @@ from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_mod
 
 # Monthly and annual values come from the same AEMET endpoint (mensualesanuales) and share
 # the same field names — the response is split by resolution based on the "fecha" suffix
-# ("YYYY-01".."YYYY-12" for months, "YYYY-13" for the year total).
+# ("YYYY-01".."YYYY-12" for months, "YYYY-13" for the year total). `tm_max` and `tm_min` are the
+# means of the daily maxima and minima; `ta_max` and `ta_min` are the absolute extremes of the
+# period, with the day they occurred on, and so are the plain maximum and minimum -- not the
+# `_multiday` names, which are for an extreme a station reports over several days.
 _MONTHLY_ANNUAL_PARAMETERS = [
     {
         "name": "temperature_air_mean_2m",
@@ -26,12 +29,12 @@ _MONTHLY_ANNUAL_PARAMETERS = [
         "unit": "degree_celsius",
     },
     {
-        "name": "temperature_air_max_2m_multiday",
+        "name": "temperature_air_max_2m",
         "name_original": "ta_max",
         "unit": "degree_celsius",
     },
     {
-        "name": "temperature_air_min_2m_multiday",
+        "name": "temperature_air_min_2m",
         "name_original": "ta_min",
         "unit": "degree_celsius",
     },
