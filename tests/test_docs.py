@@ -1227,10 +1227,11 @@ TIME_REFERENCE = ROOT / "docs" / "data" / "time_reference.md"
 # brackets behind it as an observation.
 _REFERENCE_TIMES = frozenset(["start", "end", "middle", "instant", "mixed", "unverified"])
 
-# Networks that declare no resolutions and so have a row with the resolution `n/a` instead. `dwd/radar`
-# is left out of the other docs pages on purpose, but its stamps are file names and BUFR times that
-# can be read wrongly like any other, so the table has a row for it.
-_TIME_REFERENCE_WITHOUT_RESOLUTION = NETWORKS_WITHOUT_A_METADATA_MODEL | {("dwd", "radar")}
+# `dwd/radar` is left out of the other docs pages and of `_resolution_pages` on purpose, but its stamps
+# are file names and BUFR times that can be read wrongly like any other, so the table has a row for it,
+# with the resolution `n/a` as for the networks that declare none (`NETWORKS_WITHOUT_A_METADATA_MODEL`).
+# The day radar gains a metadata model, its resolutions need rows and this entry has to go.
+_TIME_REFERENCE_WITHOUT_RESOLUTION = {("dwd", "radar")}
 
 
 def _unescape(cell: str) -> str:
@@ -1270,8 +1271,6 @@ def test_time_reference_has_a_row_for_every_resolution() -> None:
     (GH-2617). The reverse is checked as well: a row for something the model no longer declares is
     read by nothing else.
     """
-    from wetterdienst import Wetterdienst  # noqa: PLC0415
-
     rows, _ = _time_reference_tables()
     documented: dict[tuple[str, str, str], set[str]] = {}
     errors = []
@@ -1283,31 +1282,27 @@ def test_time_reference_has_a_row_for_every_resolution() -> None:
         documented.setdefault((provider, network, resolution), set()).update(
             name.strip() for name in datasets.split(",")
         )
-    declared: set[tuple[str, str, str]] = set()
-    for provider, networks in Wetterdienst.registry.items():
-        if EXCLUDE_PROVIDER_NETWORKS.get(provider) == "*":
+    pages, skipped = _resolution_pages()
+    declared = {(provider, network, "n/a") for provider, network in skipped | _TIME_REFERENCE_WITHOUT_RESOLUTION}
+    for provider, network, resolution, _ in pages:
+        key = (provider, network, resolution.name)
+        declared.add(key)
+        shown = documented.get(key)
+        if shown is None:
+            errors.append(f"{provider}/{network}/{resolution.name} has no row")
             continue
-        for network in networks:
-            if (provider, network) in _TIME_REFERENCE_WITHOUT_RESOLUTION:
-                declared.add((provider, network, "n/a"))
-                continue
-            for resolution in Wetterdienst(provider, network).metadata:
-                key = (provider, network, resolution.name)
-                declared.add(key)
-                shown = documented.get(key)
-                if shown is None:
-                    errors.append(f"{provider}/{network}/{resolution.name} has no row")
-                    continue
-                names = {dataset.name for dataset in resolution}
-                errors.extend(
-                    f"{provider}/{network}/{resolution.name} names the dataset {name!r}, which it does not declare"
-                    for name in sorted(shown - names - {"all"})
-                )
-                if "all" not in shown:
-                    errors.extend(
-                        f"{provider}/{network}/{resolution.name} has no row for the dataset {name!r}"
-                        for name in sorted(names - shown)
-                    )
+        names = {dataset.name for dataset in resolution}
+        errors.extend(
+            f"{provider}/{network}/{resolution.name} names the dataset {name!r}, which it does not declare"
+            for name in sorted(shown - names - {"all"})
+        )
+        if "all" not in shown:
+            errors.extend(
+                f"{provider}/{network}/{resolution.name} has no row for the dataset {name!r}"
+                for name in sorted(names - shown)
+            )
+    for key in sorted(declared - set(documented)):
+        errors.append(f"{'/'.join(key)} has no row")
     errors.extend(f"{'/'.join(key)} has a row but is not declared" for key in sorted(set(documented) - declared))
     assert not errors, "\n".join(_capped(errors, 40, "the report"))
 
@@ -1377,6 +1372,8 @@ def test_time_reference_links_match_the_issues_it_lists() -> None:
     _, notes = _time_reference_tables()
     linked = {number for bullets in notes.values() for note in bullets for number, _ in re.findall(pattern, note)}
     assert listed, "the page lists no issue"
+    wrong = [f"{number} links to issue {url}" for number, url in re.findall(pattern, text) if number[1:] != url]
+    assert not wrong, "\n".join(wrong)
     assert listed == linked, (
         f"listed but not linked: {sorted(listed - linked)}; linked but not listed: {sorted(linked - listed)}"
     )
