@@ -20,10 +20,10 @@ from pydantic_settings import SettingsError
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
-    BufrReaderMissingError,
     DateRequiredError,
     ExportRefusedError,
     InvalidTimeIntervalError,
+    MissingDependencyError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
     ReversedTimeIntervalError,
@@ -735,7 +735,14 @@ def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     A request refuses a window that ends before it starts, or one that a dataset needs and is not
     given, in terms of its `start` and `end`, which the command line spells `--timestamp` or
     `--start` / `--end`.
+
+    An optional dependency that is not installed (`MissingDependencyError`) is the environment's to
+    fix, not the command line's: its message names what to install, and is printed as the one line it
+    is, exit 1, as `_collect_or_exit` prints it.
     """
+    if isinstance(e, MissingDependencyError):
+        log.error(str(e))
+        sys.exit(1)
     if not _is_caller_refusal(e, request):
         return
     if isinstance(e, ReversedTimeIntervalError):
@@ -766,7 +773,7 @@ def _collect_or_exit(
     """
     try:
         values_ = get(api=api, request=request, settings=settings)
-    except BufrReaderMissingError as e:
+    except MissingDependencyError as e:
         # the message names what to install: the whole of what is to be done about it. Narrow on
         # purpose -- a bare `ImportError` would swallow a cycle or a typo inside a provider module,
         # which is a defect and wants its traceback, not an instruction. The command line was right,
@@ -805,7 +812,8 @@ def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: 
     """
     try:
         result.to_target(target, if_exists=if_exists)
-    except ExportRefusedError as e:
+    except (ExportRefusedError, MissingDependencyError) as e:
+        # a refusal, or a sink whose package is not installed: the message is the whole of it
         log.error(str(e))  # noqa: TRY400
         sys.exit(1)
     except Exception:

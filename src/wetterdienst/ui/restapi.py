@@ -21,6 +21,7 @@ from wetterdienst.exceptions import (
     BufrReaderMissingError,
     DateRequiredError,
     InvalidTimeIntervalError,
+    MissingDependencyError,
     MissingTimeIntervalError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
@@ -155,26 +156,30 @@ REQUEST_EXAMPLES = {
 }
 
 
-def _reader_missing_on_the_server(e: BufrReaderMissingError, what: str) -> HTTPException:
-    """Report a reader this deployment does not have as the server's lack, not the caller's error.
+def _dependency_missing_on_the_server(e: MissingDependencyError, what: str) -> HTTPException:
+    """Report a dependency this deployment does not have as the server's lack, not the caller's error.
 
     The blanket handlers answered it with a 400 carrying `pip install wetterdienst[bufr]` -- an
     instruction for a machine the caller does not administer, about a request that was perfectly
     well formed. Over HTTP the missing half is a property of the deployment, and 501 is what says
-    so: this server does not implement the networks published as BUFR. The install line is not
-    lost, it moves to where someone can act on it -- the server log, carried there by the message
-    itself rather than by a traceback, since a dependency that was never installed has no incident
-    to show.
+    so: this server does not implement what needs the package, such as the networks published as
+    BUFR, a `sql` filter or an image. The install line is not lost, it moves to where someone can
+    act on it -- the server log, carried there by the message itself rather than by a traceback,
+    since a dependency that was never installed has no incident to show.
     """
-    log.error(f"Failed to {what}, this deployment cannot decode BUFR: {e}")
-    return HTTPException(
-        status_code=501,
-        detail=(
+    log.error(f"Failed to {what}, this deployment lacks an optional dependency: {e}")
+    if isinstance(e, BufrReaderMissingError):
+        detail = (
             "This server cannot decode BUFR, which the requested network is published as. The "
             "request was valid; the deployment is missing the eccodes and pdbufr readers that "
             "read it. Ask whoever runs this instance to install them."
-        ),
-    )
+        )
+    else:
+        detail = (
+            f"This server cannot {what}. The request was valid; the deployment is missing an "
+            "optional dependency that it needs. Ask whoever runs this instance to install it."
+        )
+    return HTTPException(status_code=501, detail=detail)
 
 
 def _refuse_sql_unless_enabled(
@@ -1152,8 +1157,11 @@ def _failure(e: Exception, request: BaseModel, what: str, *, refusal_status: int
 
     One decision for every catch-all that tells a caller's refusal from a failure of ours: a request
     the caller phrased wrong is theirs to fix, so an info line without a traceback and a 400 (or
-    `refusal_status`); anything else is a logged traceback and a 500.
+    `refusal_status`); anything else is a logged traceback and a 500. A dependency this deployment
+    lacks is neither, and is a 501.
     """
+    if isinstance(e, MissingDependencyError):
+        return _dependency_missing_on_the_server(e, what)
     if not _is_caller_refusal(e, request):
         log.error(f"Failed to {what}.", exc_info=e)
         return HTTPException(status_code=500, detail=str(e))
@@ -1179,8 +1187,6 @@ def _values(
         # the message is the whole of it: which parameters, and the lead time that carries them
         log.info(f"Failed to get values: {e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
-    except BufrReaderMissingError as e:
-        raise _reader_missing_on_the_server(e, "get values") from e
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
         # as a 500, not the caller's to fix
@@ -1216,8 +1222,6 @@ def _geo_values(
         # lead time that does
         log.info(f"Failed to {what}: {e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
-    except BufrReaderMissingError as e:
-        raise _reader_missing_on_the_server(e, what) from e
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
         # as a 500, not the caller's to fix

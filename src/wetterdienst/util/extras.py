@@ -10,7 +10,14 @@ instruction behind.
 
 from __future__ import annotations
 
+import importlib
 import re
+from typing import TYPE_CHECKING
+
+from wetterdienst.exceptions import MissingDependencyError
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 
 def extras_installing(module_name: str) -> list[str]:
@@ -70,3 +77,38 @@ def missing_dependency_message(what: str, module_name: str | None, *, extra: str
         extras = [extra]
     options = " or ".join(f"pip install wetterdienst[{name}]" for name in extras)
     return f"{message} Install it with: {options}"
+
+
+def import_optional(module_name: str, what: str, *, extra: str | None = None) -> ModuleType:
+    """Import a module of an optional dependency, or say what to install.
+
+    The one way the library imports a package that only an extra installs, so that its absence is
+    always the same exception: a `MissingDependencyError`, whose message is the whole of what there
+    is to say and which the command line prints as one line and the REST API answers with a 501.
+    Without it the absence arrives as whatever the import raised -- a bare `ModuleNotFoundError`
+    from DuckDB, an `ImportError` with a hint of its own from plotly -- and each reader of the
+    error has to guess which of them is an instruction and which a defect.
+
+    Only a package that is not installed counts. A module of wetterdienst's own that fails to
+    import, and an `ImportError` that is not an absence (a name the installed version lacks, a
+    cycle), are defects and keep their traceback.
+
+    Args:
+        module_name: the module to import, dotted where it is a submodule (`plotly.express`).
+        what: what the caller was trying to do, as it should read at the start of a sentence.
+        extra: the extra the caller belongs to, where several install the package; see
+            `missing_dependency_message`.
+
+    Returns:
+        The imported module.
+
+    Raises:
+        MissingDependencyError: the module, or a package it needs, is not installed.
+
+    """
+    try:
+        return importlib.import_module(module_name)
+    except ModuleNotFoundError as e:
+        if e.name is not None and (e.name == "wetterdienst" or e.name.startswith("wetterdienst.")):
+            raise
+        raise MissingDependencyError(missing_dependency_message(what, e.name or module_name, extra=extra)) from e

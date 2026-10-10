@@ -7566,3 +7566,71 @@ def test_mcp_coverage_tool_returns_the_coverage_unwrapped() -> None:
     every, one = asyncio.run(_call())
     assert every == json.loads(json.dumps(Wetterdienst.discover()))
     assert one == json.loads(json.dumps(Wetterdienst("dwd", "observation").discover(resolutions="daily")))
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point", "params"),
+    [
+        (
+            "/api/stations",
+            "get_stations",
+            {"provider": "dwd", "network": "observation", "parameters": "daily/kl", "all": "true"},
+        ),
+        (
+            "/api/values",
+            "get_values",
+            {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/kl",
+                "station": "00011",
+                "periods": "recent",
+            },
+        ),
+        (
+            "/api/interpolate",
+            "get_interpolate",
+            {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/kl/temperature_air_mean_2m",
+                "station": "00071",
+                "timestamp": "1986-10-31",
+            },
+        ),
+    ],
+)
+def test_an_optional_dependency_missing_on_the_server_is_a_501(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    entry_point: str,
+    params: dict[str, str],
+) -> None:
+    """Any optional package the deployment lacks is a 501, as the BUFR reader is (GH-2637).
+
+    A `sql` filter without DuckDB ended in a bare `ModuleNotFoundError`, a 500 with no instruction
+    in it. `MissingDependencyError` is the one class every optional import raises, so one decision
+    covers them all: the request was well formed, the instance cannot serve it, and the install
+    line goes to the log rather than to a caller who does not administer the machine.
+
+    Raised from a stubbed entry point rather than by masking the package: what is under test is the
+    status and the body, and the real path downloads a station list on the way to the error.
+    """
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    msg = "Filtering with SQL requires duckdb, which is not installed. Install it with: pip install wetterdienst[sql]"
+
+    def refuse(**_kwargs: object) -> None:
+        raise MissingDependencyError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
+    with caplog.at_level(logging.ERROR):
+        response = client.get(endpoint, params=params)
+
+    assert response.status_code == 501
+    detail = response.json()["detail"]
+    assert "optional dependency" in detail
+    assert "pip install" not in detail
+    assert "pip install wetterdienst[sql]" in caplog.text

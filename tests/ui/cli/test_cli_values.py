@@ -5,6 +5,7 @@
 import datetime as dt
 import json
 import logging
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -1225,3 +1226,101 @@ def test_cli_refuses_a_dataset_queried_by_a_window_given_none_naming_its_options
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith("\n\nError: --timestamp or --start / --end is required for this dataset\n")
     assert not caplog.records
+
+
+def test_cli_values_without_an_optional_package_says_what_to_install(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Any optional package that is not installed is one logged line and exit 1, as the BUFR reader is (GH-2637).
+
+    `--sql` without DuckDB ended in a traceback out of `filter_by_sql`. `MissingDependencyError` is
+    the base of the BUFR reader's error and of every other optional import's, so the command catches
+    the one class.
+
+    Raised from a stubbed `get_values`, as the BUFR test above does, to test what the command makes
+    of the error and not how it arrives.
+    """
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    msg = "Filtering with SQL requires duckdb, which is not installed. Install it with: pip install wetterdienst[sql]"
+
+    def refuse(**_kwargs: object) -> None:
+        raise MissingDependencyError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_values", refuse)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            [
+                "values",
+                "--provider=dwd",
+                "--network=observation",
+                "--parameters=daily/kl",
+                "--station=00011",
+                "--periods=recent",
+            ],
+        )
+
+    assert result.exit_code == 1
+    assert [record.getMessage() for record in caplog.records] == [msg]
+    assert all(record.exc_info is None for record in caplog.records)
+    assert isinstance(result.exception, SystemExit)
+
+
+def test_cli_stations_without_an_optional_package_says_what_to_install(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`stations --sql` without DuckDB is one logged line and exit 1, not a traceback (GH-2637)."""
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    msg = "Filtering with SQL requires duckdb, which is not installed. Install it with: pip install wetterdienst[sql]"
+
+    def refuse(**_kwargs: object) -> None:
+        raise MissingDependencyError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", refuse)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            ["stations", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--sql=true"],
+        )
+
+    assert result.exit_code == 1
+    assert [record.getMessage() for record in caplog.records] == [msg]
+    assert all(record.exc_info is None for record in caplog.records)
+    assert isinstance(result.exception, SystemExit)
+
+
+@pytest.mark.parametrize(
+    ("target", "expected"),
+    [
+        pytest.param("ftp://host/out.csv", "Unknown export protocol 'ftp'", id="protocol-nothing-writes"),
+        pytest.param("sqlite:///out.sqlite?table=t", "requires sqlalchemy, which is not installed", id="no-sqlalchemy"),
+    ],
+)
+def test_cli_target_nothing_can_write_is_one_logged_line(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    target: str,
+    expected: str,
+) -> None:
+    """A target that cannot be written for want of a protocol or a package is one line, not a traceback (GH-2637).
+
+    `--target=ftp://...` ended in SQLAlchemy's `NoSuchModuleError` and its traceback, though the docs
+    promise a refusal for "a protocol nothing here writes".
+    """
+    from wetterdienst.io.export import ExportMixin  # noqa: PLC0415
+    from wetterdienst.ui.cli import _export_or_exit  # noqa: PLC0415
+
+    if target.startswith("sqlite"):
+        monkeypatch.setitem(sys.modules, "sqlalchemy", None)
+
+    with caplog.at_level(logging.ERROR), pytest.raises(SystemExit) as excinfo:
+        _export_or_exit(ExportMixin(df=pl.DataFrame({"station_id": ["01048"], "value": [1.0]})), target, "replace")
+
+    assert excinfo.value.code == 1
+    assert len(caplog.records) == 1
+    assert expected in caplog.records[0].getMessage()
+    assert caplog.records[0].exc_info is None
