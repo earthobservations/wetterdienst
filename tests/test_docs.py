@@ -1297,12 +1297,13 @@ def test_time_reference_has_a_row_for_every_resolution() -> None:
                 shown = documented.get(key)
                 if shown is None:
                     errors.append(f"{provider}/{network}/{resolution.name} has no row")
-                elif "all" not in shown:
-                    names = {dataset.name for dataset in resolution}
-                    errors.extend(
-                        f"{provider}/{network}/{resolution.name} names the dataset {name!r}, which it does not declare"
-                        for name in sorted(shown - names)
-                    )
+                    continue
+                names = {dataset.name for dataset in resolution}
+                errors.extend(
+                    f"{provider}/{network}/{resolution.name} names the dataset {name!r}, which it does not declare"
+                    for name in sorted(shown - names - {"all"})
+                )
+                if "all" not in shown:
                     errors.extend(
                         f"{provider}/{network}/{resolution.name} has no row for the dataset {name!r}"
                         for name in sorted(names - shown)
@@ -1325,8 +1326,17 @@ def _time_reference_row_problems(provider: str, cells: list[str], note: str) -> 
         problems.append(f"{tag}: no source time zone")
     if reference.split(" ")[0] not in _REFERENCE_TIMES:
         problems.append(f"{tag}: the reference time {reference!r} starts with none of {sorted(_REFERENCE_TIMES)}")
+    unverified = sum(cell.startswith("unverified") for cell in (zone, reference))
     if verified not in ("yes", "partly", "no"):
         problems.append(f"{tag}: verified is {verified!r}")
+    elif (
+        (verified == "yes" and unverified)
+        or (verified == "no" and unverified != 2)
+        or (verified == "partly" and unverified == 2)
+    ):
+        problems.append(
+            f"{tag}: verified is {verified!r} but {unverified} of the zone and the reference time are unverified"
+        )
     if "Library:" not in note or "Source:" not in note:
         problems.append(f"{tag}: the note lacks what the library does or its source")
     elif "http" not in note.split("Source:", 1)[1] and verified != "no":
@@ -1351,3 +1361,22 @@ def test_time_reference_rows_are_complete() -> None:
         for cells, note in zip(provider_rows, notes[provider], strict=False):
             errors.extend(_time_reference_row_problems(provider, cells, note))
     assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+def test_time_reference_links_match_the_issues_it_lists() -> None:
+    """Test that the issues the page lists are the ones its rows link, and the other way round.
+
+    A row that deviates from its source says so by linking the issue that tracks it, so a reader takes
+    a row without a link as correct. An issue listed but linked from no row would be a deviation the
+    table does not show, and a link to an issue the list does not name would be one nobody explains.
+    """
+    pattern = r"\[(#\d+)\]\(https://github\.com/earthobservations/wetterdienst/issues/(\d+)\)"
+    text = TIME_REFERENCE.read_text(encoding="utf8")
+    intro, _, _tables = text.partition("\n## ")
+    listed = {number for number, _ in re.findall(rf"^- {pattern}", intro, flags=re.MULTILINE)}
+    _, notes = _time_reference_tables()
+    linked = {number for bullets in notes.values() for note in bullets for number, _ in re.findall(pattern, note)}
+    assert listed, "the page lists no issue"
+    assert listed == linked, (
+        f"listed but not linked: {sorted(listed - linked)}; linked but not listed: {sorted(linked - listed)}"
+    )

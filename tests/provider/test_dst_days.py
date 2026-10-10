@@ -98,8 +98,8 @@ def test_wsv_readings_of_a_clock_change_day_are_distinct_utc_instants(
     assert stamps.min() == midnight.astimezone(UTC)
 
 
-def test_dmi_stamps_of_the_clock_change_days_are_unique_utc_instants() -> None:
-    """Test that DMI's hourly and daily stamps stay distinct over the 23 and 25 hour days.
+def test_dmi_stamps_of_the_clock_change_days_name_the_instants_they_say() -> None:
+    """Test that DMI's hourly and daily stamps come out as the instants they name over both clock changes.
 
     DMI writes hourly aggregates in UTC (`+00:00`), and the parse converts whatever offset a stamp
     carries, so the hours around both clock changes are given in UTC and, for one of each, as the

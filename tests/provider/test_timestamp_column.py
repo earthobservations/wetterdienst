@@ -16,8 +16,6 @@ import pytest
 
 from tests.provider.timestamps import TIMESTAMP_DTYPE, timestamp_problem
 from wetterdienst import Settings
-from wetterdienst.core.interpolate import get_interpolated_df
-from wetterdienst.core.summarize import get_summarized_df
 from wetterdienst.model import result as results
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.values import TimeseriesValues
@@ -73,6 +71,9 @@ def test_interpolated_and_summarized_timestamps_are_utc_microseconds(
     The stations and their readings are stubbed, so nothing leaves the machine. The readings are
     stamped on the day the clocks went back in Germany, the 26th of October 2025.
     """
+    from wetterdienst.core.interpolate import get_interpolated_df  # noqa: PLC0415
+    from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+
     latitude, longitude = 50.0, 8.9
     offsets = {"00001": (-0.03, -0.03), "00002": (-0.03, 0.03), "00003": (0.03, 0.03), "00004": (0.03, -0.03)}
     stations = pl.DataFrame(
