@@ -636,7 +636,7 @@ def test_api_dwd_dmo_icon_eu_all_stations(default_settings: Settings) -> None:
 def test_api_dwd_road(default_settings: Settings) -> None:
     """Test dwd road API."""
     request = DwdRoadRequest(
-        parameters=[("15_minutes", "data", "temperature_air_mean_2m")],
+        parameters=[("15_minutes", "data", "temperature_air_2m")],
         settings=default_settings,
     ).all()
     assert not request.df.is_empty()

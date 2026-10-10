@@ -41,7 +41,10 @@ are taken as they come:
 
 The AEMET, SMHI, LHMT and Météo-France translations are ours, as are the Geosphere temperature rows
 (the ``description`` of each parameter in the API's metadata), IPMA ``temperatura`` (api.ipma.pt)
-and the DWD SWSMOS ``TS`` row (``swis_swsmos_beschreibung.pdf``). The rest of this table is meant to
+and the DWD SWSMOS ``TS`` row (``swis_swsmos_beschreibung.pdf``). Where a source gives no
+description of a field, the entry names what it does give: NWS ``temperature`` and ``dewpoint``
+(api.weather.gov documents neither), the DWD road temperatures (the BUFR element they decode
+from) and WSV ``LT`` (the Pegelonline ``longname``). The rest of this table is meant to
 be the source's own wording, so that a sentence here can be checked against what the provider says,
 but the older entries were written for the docs tables and not every one was checked against the
 source; the sub-daily temperature rows listed in GH-2660 were. ``tests/metadata/test_parameter_statistics.py``

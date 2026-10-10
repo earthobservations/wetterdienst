@@ -16,7 +16,8 @@ The rules about spot and mean names read only what the source says: a descriptio
 `DERIVED_DESCRIPTIONS` is written from the row's canonical name, so it would agree with whatever name
 the row has, and is left out (`_source_description`, GH-2660). The field's own name counts, as RMI's
 `temp_dry_shelter_avg` does. A mean over a window shorter than the row's interval, KNMI's "1 Min Mean"
-in a 10-minute row, is a reading at one moment (`_states_a_mean`).
+in a 10-minute row, is a reading at one moment (`_states_a_mean`). What this leaves out is a
+generated description that disagrees with its row's name: nothing reads it any more.
 """
 
 import re
@@ -231,8 +232,9 @@ _INTERVAL_MINUTES = {
     "6_minutes": 6,
     "10_minutes": 10,
     "15_minutes": 15,
-    "30_minutes": 30,
     "hourly": 60,
+    # the shortest step of a subdaily dataset (Météo-France SYNOP is three-hourly)
+    "subdaily": 180,
     "6_hour": 360,
     "daily": 1440,
 }
@@ -354,6 +356,7 @@ def test_the_regexes_for_a_spot_value_read_the_sources_wording() -> None:
         # a window shorter than the row's interval
         ("Air temperature. Mean over 1 minute.", "hourly"),
         ("Air Temperature 1 Min Mean", "10_minutes"),
+        ("Air temperature. Mean over 1 minute.", "subdaily"),
         ("Dew Point Temperature 1 Min Mean", "10_minutes"),
         # a mean that is not a statistic of the value
         ("Air pressure reduced to mean sea level", "hourly"),
