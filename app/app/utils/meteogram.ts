@@ -138,10 +138,10 @@ export function classifyPrecip(temperature: number, humidity?: number): 'rain' |
 export const METEOGRAM_SERIES = {
   weather: ['weather_significant', 'significant_weather', 'ww', 'weather'],
   precipitation: ['precipitation_amount_significant_weather_last_1h', 'precipitation_amount_last_1h', 'rr1', 'rr1c'],
-  temperature: ['temperature_air_mean_2m', 'ttt'],
+  temperature: ['temperature_air_2m', 'temperature_air_mean_2m', 'ttt'],
   temperatureMax: ['temperature_air_max_2m_last_12h', 'temperature_air_max_2m', 'tx', 'tx12', 'tx6'],
   temperatureMin: ['temperature_air_min_2m_last_12h', 'temperature_air_min_2m', 'tn', 'tn12', 'tn6'],
-  dewPoint: ['temperature_dew_point_mean_2m', 'dew_point', 'td', 'tdt', 'dew_point_2m'],
+  dewPoint: ['temperature_dew_point_2m', 'temperature_dew_point_mean_2m', 'dew_point', 'td', 'tdt', 'dew_point_2m'],
   humidity: ['humidity_relative', 'relative_humidity', 'rh', 'r'],
   windSpeed: ['wind_speed', 'ff'],
   windDirection: ['wind_direction', 'dd'],

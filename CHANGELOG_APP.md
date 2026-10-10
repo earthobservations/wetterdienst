@@ -18,6 +18,11 @@ Types of changes:
 
 ### Changed
 
+- `[Meteogram]` The temperature and dew point panels read MOSMIX `temperature_air_2m` and
+  `temperature_dew_point_2m`, the names the backend gives `ttt` and `td` after the release following
+  0.144.0, and keep `temperature_air_mean_2m` and `temperature_dew_point_mean_2m` as a fallback:
+  against an older backend it works as before, but an app older than this one against the new
+  backend draws neither panel (GH-2657)
 - `[Meteogram]` The Tx/Tn band reads `temperature_air_max_2m_last_12h` and
   `temperature_air_min_2m_last_12h`, the names the backend gives MOSMIX `tx` and `tn` after the
   release following 0.144.0, and keeps the old names as a fallback: against an older backend it
