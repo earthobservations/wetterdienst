@@ -38,6 +38,10 @@ Types of changes:
 
 ### Fixed
 
+- Listing a directory (`list_remote_files_fsspec`, `list_remote_directory_fsspec`) through a proxy
+  that answers with an error status no longer raises or logs the proxy's `Proxy-Authorization`
+  header: the `ClientResponseError` is redacted like a download's is, retry warning included
+  (GH-2603)
 - `dwd/derived` hourly `sunshine_duration_uncertainty` is returned: it was declared with the global
   radiation's column `fg_un_duett`, which the sunshine duration file does not have, and so never
   came back; it is read from `sd_un_duett` (GH-2614)
@@ -113,10 +117,6 @@ Types of changes:
   stores it in `File.content`: it and the `user:secret@` of the proxy URL are redacted from the
   error's request info, as is an `Authorization` header added by `auth=`; only a caller's own
   `headers` were before (GH-2592)
-- Listing a directory (`list_remote_files_fsspec`, `list_remote_directory_fsspec`) through a proxy
-  that answers with an error status no longer raises or logs the proxy's `Proxy-Authorization`
-  header: the `ClientResponseError` is redacted like a download's is, retry warning included
-  (GH-2603)
 - Exporting a frame of 7 or more columns to a `sqlite://` target no longer fails with "too many
   SQL variables" once it has more than 32766 / columns rows (from 4681 rows for 7 columns) on
   SQLite 3.32 and later: the rows per insert now follow the 32766 variables a statement may
