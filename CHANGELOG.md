@@ -40,9 +40,7 @@ Types of changes:
   `temperature_air_0_05m`, no longer `temperature_air_mean_2m` and `temperature_air_mean_0_05m`,
   which name the mean over the interval. Request the new names; the old ones are not found in
   `10_minutes/temperature_air` (logged and dropped, or `NoParametersFoundError` when no other
-  parameter is requested). The same holds for every entry below: a `ts_geo_station_distance`
-  override keyed by an old name no longer applies to a moved row, which takes the default radius
-  until it is keyed by the new name (GH-2651)
+  parameter is requested) (GH-2651)
 - **Breaking**: `meteoswiss/observation` 10-minute `tre200s0`, `tre005s0`, `tso005s0`, `tso010s0`,
   `tso020s0`, `tde200s0` and hourly `tso005hs`, `tso010hs`, `tso020hs`, which MeteoSwiss calls
   the current value, are named `temperature_air_2m`, `temperature_air_0_05m`,
@@ -62,6 +60,9 @@ Types of changes:
   are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
   parameter is requested). Where a source says a mean or nothing about the statistic, the
   `_mean_` name stays (GH-2651)
+- **Breaking**: a `ts_geo_station_distance` override keyed by an old `_mean_` name no longer
+  applies to a row moved to a spot name by the entries above: the row takes the default radius.
+  Key the override by the new name (GH-2651)
 
 ### Fixed
 
