@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `chmi/observation` monthly and annual `TMA` and `TMI` are named
+  `temperature_air_max_2m_mean` and `temperature_air_min_2m_mean`, no longer
+  `temperature_air_max_2m` and `temperature_air_min_2m`: the files hold the mean of the daily
+  maxima and minima, not the extremes of the period (3.7 °C, not the 12.9 °C of the warmest day,
+  for Cheb in January 2020). Request the new names; the daily names are unchanged (GH-2614)
+
 ### Fixed
 
 - The station catalogues of `fmi`, `chmi`, `ipma`, `lhmt`, `metoffice`, `dwd/swsmos` and
