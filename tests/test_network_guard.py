@@ -366,7 +366,7 @@ def test_a_refusal_inside_an_exception_group_is_reported_once(
 ) -> None:
     """Several connections refused at once arrive as a group, and the refusal in it is still seen.
 
-    An `asyncio` gather or task group raises the refusals together, so the teardown check has to
+    An `asyncio.TaskGroup` raises the refusals together, so the teardown check has to
     look inside the group, or it reports a second time for a refusal the reader already has.
     """
     result = _run_one(
@@ -387,4 +387,5 @@ def test_a_refusal_inside_an_exception_group_is_reported_once(
         """,
     )
     result.assert_outcomes(failed=1, errors=0)
+    result.stdout.fnmatch_lines(["*network access blocked: ('example.org', 80)*"])
     assert "Neither the setup nor the call phase reported it" not in result.stdout.str()

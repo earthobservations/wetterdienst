@@ -5,7 +5,7 @@
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
-# Read metadata from the installed package, so the version cannot drift from pyproject.toml.
+# Read metadata from the installed package.
 import sys
 from importlib.metadata import metadata
 from pathlib import Path

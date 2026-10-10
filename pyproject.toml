@@ -331,8 +331,8 @@ sync = "uv sync"
 lock = "uv lock"
 
 [tool.ty.environment]
-# the oldest supported Python, so that every CI interpreter is judged against it (and not
-# against whichever one happens to run the check)
+# the oldest supported Python, which is what `requires-python` already implies: named here so that
+# raising the floor there is a decision made again in ruff's and ty's settings, not a side effect
 python-version = "3.11"
 
 [tool.ty.rules]
@@ -343,7 +343,7 @@ allowed-unresolved-imports = ["lxml.*", "tabula.*"]
 
 [tool.ruff]
 line-length = 120
-# the oldest supported Python, not whatever `requires-python` implies
+# the oldest supported Python: keep in step with `requires-python` and `[tool.ty.environment]`
 target-version = "py311"
 include = [
     "benchmarks/**/*.py",

@@ -181,10 +181,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
-      # the guard reasons about interpreter differences, so the versions it names are the ones run
-      # here: 3.12 is the one that calls a v4-mapped loopback address not a loopback, and 3.11 and
-      # 3.14 are the oldest and newest the project supports. The matrix above covers all four, but
-      # it is `continue-on-error`, so a regression in either branch would block nothing
+      # the guard reasons about an interpreter difference, so the version it names is run here: 3.12
+      # is the one that calls a v4-mapped loopback address not a loopback. 3.11 and 3.14 are the
+      # oldest and newest the project supports. The matrix above covers all four, but it is
+      # `continue-on-error`, so a regression in that branch would block nothing
       fail-fast: false
       matrix:
         os: [ "ubuntu-latest" ]

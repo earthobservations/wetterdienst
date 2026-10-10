@@ -18,10 +18,10 @@ Types of changes:
 
 ### Changed
 
-- **Breaking**: Python 3.10 is no longer supported (end of life October 2026); `wetterdienst`
-  requires Python 3.11 or newer. Install on 3.11 or newer; pip on an older Python keeps resolving
-  the last release that supports it. The `backports-datetime-fromisoformat` dependency, which
-  only Python 3.10 installed, is dropped (GH-2568)
+- **Breaking**: Python 3.10 is no longer supported; `wetterdienst` requires Python 3.11 or newer.
+  Install on 3.11 or newer; pip on an older Python keeps resolving the last release that supports
+  it. The `backports-datetime-fromisoformat` dependency, which only Python 3.10 installed, is
+  dropped (GH-2568)
 - **Breaking**: `chmi/observation` monthly and annual `TMA` and `TMI` are named
   `temperature_air_max_2m_mean` and `temperature_air_min_2m_mean`, no longer
   `temperature_air_max_2m` and `temperature_air_min_2m`: the files hold the mean of the daily
