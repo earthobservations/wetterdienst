@@ -11,7 +11,7 @@ from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_mod
 # ("YYYY-01".."YYYY-12" for months, "YYYY-13" for the year total). `tm_max` and `tm_min` are the
 # means of the daily maxima and minima; `ta_max` and `ta_min` are the absolute extremes of the
 # period, with the day they occurred on, and so are the plain maximum and minimum -- not the
-# `_multiday` names, which are for a total a station reports over several days.
+# `_multiday` names, which are for an extreme a station reports over several days.
 _MONTHLY_ANNUAL_PARAMETERS = [
     {
         "name": "temperature_air_mean_2m",

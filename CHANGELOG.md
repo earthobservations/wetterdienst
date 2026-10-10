@@ -21,18 +21,18 @@ Types of changes:
 - **Breaking**: `chmi/observation` monthly and annual `TMA` and `TMI` are named
   `temperature_air_max_2m_mean` and `temperature_air_min_2m_mean`, no longer
   `temperature_air_max_2m` and `temperature_air_min_2m`: the files hold the mean of the daily
-  maxima and minima, not the extremes of the period (3.7 °C, not the 12.9 °C of the warmest day,
-  for Cheb in January 2020). Request the new names; the daily names are unchanged (GH-2614)
+  maxima and minima, not the extremes of the period. Request the new names; the old ones are not
+  found in these datasets, and a request for them is logged and dropped. The daily names are
+  unchanged (GH-2614)
 - **Breaking**: `aemet/observation` monthly and annual `ta_max` and `ta_min`, the absolute maximum
   and minimum of the month or year, are named `temperature_air_max_2m` and
-  `temperature_air_min_2m`, no longer `temperature_air_max_2m_multiday` and
-  `temperature_air_min_2m_multiday`, which are for an extreme a station reports over several days.
-  Request the plain names; the values are unchanged (GH-2614)
+  `temperature_air_min_2m`, no longer the `_multiday` names. Request the plain names; the old ones
+  are not found in these datasets, and a request for them is logged and dropped (GH-2614)
 - **Breaking**: `dwd/mosmix` (`small`, `large`) and `dwd/dmo` (`icon`, `icon_eu`) `tx` and `tn`,
   the maximum and minimum temperature within the last 12 hours, are named
   `temperature_air_max_2m_last_12h` and `temperature_air_min_2m_last_12h`, no longer
-  `temperature_air_max_2m` and `temperature_air_min_2m`, which read as the extreme of the hour in
-  an hourly dataset. Request the new names; the values are unchanged (GH-2614)
+  `temperature_air_max_2m` and `temperature_air_min_2m`. Request the new names; the old ones are
+  not found in these datasets, and a request for them is logged and dropped (GH-2614)
 
 ### Fixed
 

@@ -17,17 +17,20 @@ from collections.abc import Iterator
 
 from tests.test_api import ALL_METADATA
 from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.provider.aemet.observation import AemetObservationMetadata
+from wetterdienst.provider.dwd.dmo import DwdDmoMetadata
+from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata
 
 # a dataset whose own interval is one of these needs no qualifier for a window of that many hours
-_RESOLUTION_HOURS = {"hourly": 1, "6_hour": 6, "12_hour": 12, "daily": 24}
+_RESOLUTION_HOURS = {"hourly": 1, "6_hour": 6, "daily": 24}
 
 _WINDOW = re.compile(
     r"\b(?:within|during|over|in|for|of) the (?:last|previous|preceding|past) (\d+)[ -]?(?:hours?|h)\b",
     re.IGNORECASE,
 )
-# "mean of the daily maximum", "monthly mean of the maximum temperatures", "average minimum"
+# "mean of the daily maximum", "monthly mean of daily temperature maxima", "average minimum"
 _MEAN_OF_EXTREMES = re.compile(
-    r"\b(?:mean|average) of (?:the )?(?:daily )?(?:maximum|minimum|max|min)\b"
+    r"\b(?:mean|average) of (?:the )?(?:daily )?(?:\w+ )?(?:maxima|minima|maximum|minimum|max|min)\b"
     r"|\b(?:mean|average) (?:daily )?(?:maximum|minimum)\b",
     re.IGNORECASE,
 )
@@ -63,8 +66,7 @@ def test_a_window_the_source_states_is_in_the_name() -> None:
         if not match:
             continue
         hours = int(match.group(1))
-        # one hour is every hourly dataset's own interval and no name carries it for the hourly datasets
-        if hours == 1 or hours == _RESOLUTION_HOURS.get(resolution):
+        if hours == _RESOLUTION_HOURS.get(resolution):
             continue
         if f"_last_{hours}h" not in parameter.name:
             wrong.append(f"{site}: {parameter.description!r} but the name has no `_last_{hours}h`")
@@ -109,3 +111,38 @@ def test_the_special_statistics_in_a_name_are_the_ones_the_source_states() -> No
             if token in parameter.name and not pattern.search(text):
                 wrong.append(f"{site}: named `{token}`, but the source says {parameter.description!r}")
     assert not wrong, "\n".join(wrong)
+
+
+def test_the_regex_for_a_mean_of_extremes_reads_dwds_wording() -> None:
+    """DWD writes "Monthly mean of daily temperature maxima", with the quantity between the words."""
+    for description in (
+        "Monthly mean of daily temperature maxima at 2 m above ground.",
+        "Annual mean of daily temperature minima in 2m height.",
+        "Monthly mean of the maximum temperatures.",
+    ):
+        assert _MEAN_OF_EXTREMES.search(description), description
+    assert not _MEAN_OF_EXTREMES.search("Monthly maximum of daily temperature maxima in 2 m above ground.")
+
+
+def test_mosmix_and_dmo_name_tx_and_tn_for_their_twelve_hours() -> None:
+    """MOSMIX and DMO `TX` and `TN` are `temperature_air_{max,min}_2m_last_12h` in every dataset that has them."""
+    for metadata in (DwdMosmixMetadata, DwdDmoMetadata):
+        seen = 0
+        for dataset in metadata["hourly"]:
+            names = {parameter.name_original: parameter.name for parameter in dataset.parameters}
+            if "tx" in names:
+                seen += 1
+                assert names["tx"] == "temperature_air_max_2m_last_12h"
+                assert names["tn"] == "temperature_air_min_2m_last_12h"
+        assert seen == 2
+
+
+def test_aemet_names_the_absolute_period_extremes_as_extremes() -> None:
+    """AEMET monthly and annual `ta_max` and `ta_min` are the month's or year's extremes, not a `_multiday` total."""
+    for resolution in ("monthly", "annual"):
+        names = {parameter.name_original: parameter.name for parameter in AemetObservationMetadata[resolution]["data"]}
+        assert names["ta_max"] == "temperature_air_max_2m"
+        assert names["ta_min"] == "temperature_air_min_2m"
+        # the means of the daily extremes are a different statistic with their own names
+        assert names["tm_max"] == "temperature_air_max_2m_mean"
+        assert names["tm_min"] == "temperature_air_min_2m_mean"

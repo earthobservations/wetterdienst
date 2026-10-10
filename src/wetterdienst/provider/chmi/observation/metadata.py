@@ -36,10 +36,8 @@ _DAILY_CLIMATE_PARAMETERS = [
 ]
 
 _PERIOD_CLIMATE_PARAMETERS = [
-    {"name": "temperature_air_mean_2m", "name_original": "T", **_TEMPERATURE},
-    {"name": "temperature_air_max_2m_mean", "name_original": "TMA", **_TEMPERATURE},
-    {"name": "temperature_air_min_2m_mean", "name_original": "TMI", **_TEMPERATURE},
-    {"name": "precipitation_amount", "name_original": "SRA", **_PRECIPITATION},
+    {**parameter, "name": f"{parameter['name']}_mean"} if parameter["name_original"] in ("TMA", "TMI") else parameter
+    for parameter in _DAILY_CLIMATE_PARAMETERS
 ]
 
 _DAILY_PARAMETERS = [
