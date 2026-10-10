@@ -63,6 +63,11 @@ Types of changes:
 - **Breaking**: a `ts_geo_station_distance` override keyed by an old `_mean_` name no longer
   applies to a row moved to a spot name by the entries above: the row takes the default radius.
   Key the override by the new name (GH-2651)
+- `GET /api/coverage` declares its response in the OpenAPI document: the list of every provider
+  and its networks, and the resolutions, datasets and parameters of one (`CoverageNetwork`,
+  `CoverageResolution`, `CoverageDataset`, `CoverageParameter`), so a client can be generated from
+  or checked against it. The JSON sent is unchanged; the MCP `coverage` tool takes it as its
+  output schema and returns the same result (GH-2090)
 
 ### Fixed
 
