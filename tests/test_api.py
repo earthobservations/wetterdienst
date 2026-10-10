@@ -898,7 +898,7 @@ def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
 def test_api_metno_frost(default_settings: Settings) -> None:
     """Test metno frost API."""
     request = MetnoFrostRequest(
-        parameters=[("hourly", "data", "temperature_air_mean_2m")],
+        parameters=[("hourly", "data", "temperature_air_2m")],
         start="2020-01-01",
         end="2020-01-02",
         settings=default_settings,
