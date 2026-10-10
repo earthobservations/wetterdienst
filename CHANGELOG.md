@@ -19,8 +19,8 @@ Types of changes:
 ### Fixed
 
 - Station names of `dwd/swsmos` and `dwd/road` no longer carry the trailing blank the catalogue
-  pads some with (`Darup `, `AD Südost `: 38 and 33 stations), so a name filter on `Darup` finds
-  them (GH-2616)
+  pads some with (`Darup `, `AD Südost `: 38 and 33 stations), so an exact comparison of the name,
+  such as `name = 'Darup'` in an SQL filter, matches them (GH-2616)
 - Station names of `imgw/meteorology` and `imgw/hydrology` no longer carry the trailing blank the
   lists pad some with (`RADZIECHOWY `, `Tuliszków `, `LUDŹMIERZ `) (GH-2616)
 - The station name of `chmi/observation` `Třinec  Oldřichovice  Javorový` no longer ends in the

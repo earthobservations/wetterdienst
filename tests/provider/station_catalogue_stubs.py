@@ -281,7 +281,9 @@ GHCN_NO_POSITION = Accepted(
     "coordinates_missing",
     "the list gives the BOGUS and the NAME AND LOC UNKN placeholders 0, 0 and the two historic Russian stations "
     "latitudes of 135 and 104; none has a position (GH-2380), and a station without one is picked by no search",
-    where=lambda row: row["name"].startswith(("BOGUS ", "NAME AND LOC")) or row["station_id"].startswith("RUU71-"),
+    where=lambda row: (
+        (row["name"] or "").startswith(("BOGUS ", "NAME AND LOC")) or row["station_id"].startswith("RUU71-")
+    ),
 )
 GHCN_NAMES = Accepted(
     "name_encoding", f"the list names stations IPIRANGA(?) and alike: {QUESTION_MARK}", question_mark_in_the_name
@@ -289,7 +291,9 @@ GHCN_NAMES = Accepted(
 GHCN_DAILY_END = Accepted(
     "date_in_the_future",
     "the end of a station that reports this year is 31 December of this year (GH-2643)",
-    where=lambda row: row["end_timestamp"].year == dt.datetime.now(dt.timezone.utc).year,
+    where=lambda row: (
+        row["end_timestamp"] is not None and row["end_timestamp"].year == dt.datetime.now(dt.timezone.utc).year
+    ),
 )
 
 STUBS = [

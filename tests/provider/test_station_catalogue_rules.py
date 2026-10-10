@@ -68,7 +68,7 @@ def test_a_sound_catalogue_breaks_no_rule() -> None:
         # a station on the Greenwich meridian is not a missing longitude
         _station(station_id="07621", latitude=43.188, longitude=0.0),
         # a capital A with a tilde is a letter in Portuguese, and Å and Ä are letters elsewhere
-        _station(station_id="SP1", name="SÃO JOÃO ÅKERSBERGA ÄNGELHOLM"),
+        _station(station_id="SP1", name="SÃO JOÃO ÅKERSBERGA ÄNGELHOLM ÄÄNEKOSKI"),
     ]
     assert_sound(_frame(*stations), "test", now=_NOW)
     assert check_catalogue(_frame(*stations), "test", now=_NOW) == []
@@ -114,6 +114,9 @@ _CASES = [
     ("name_encoding", [_station(name="GroÃŸenkneten")]),
     ("name_encoding", [_station(name="Gro\ufffdenkneten")]),
     ("name_encoding", [_station(name="Gro?enkneten")]),
+    ("name_encoding", [_station(name="DzierÅ¼kowice")]),  # ż, which is C5 BC in UTF-8
+    ("name_encoding", [_station(name="LUDÅ¹MIERZ")]),  # Ź
+    ("name_encoding", [_station(name="Anykšči\u00c5\u00b3")]),  # ų
 ]
 
 
@@ -200,3 +203,13 @@ def test_failures_beyond_the_limit_are_counted_not_listed() -> None:
     stations = _frame(*[_station(station_id=f"{index:05d}", name="Bad ") for index in range(5)])
     with pytest.raises(AssertionError, match="and 3 more"):
         assert_sound(stations, "test", now=_NOW, limit=2)
+
+
+def test_every_exception_that_covers_a_violation_is_used() -> None:
+    """Two exceptions for the same rule that overlap are both in use, so neither is reported as stale."""
+    violations = check_catalogue(_frame(_station(name="Bad ")), "test", now=_NOW)
+    broad = Accepted("name_padding", "the source pads every name")
+    narrow = Accepted("name_padding", "the source pads this one", where=lambda row: row["station_id"] == "00044")
+    left, stale = unaccepted(violations, [broad, narrow])
+    assert left == []
+    assert stale == []

@@ -78,10 +78,45 @@ RULES = (
     "name_encoding",
 )
 
-# what a UTF-8 text read as Latin-1 or Windows-1252 turns into (Ã¼ for ü, Ã\u0178 for ß, â€ for a dash), the replacement
-# character, and the question mark a lossy conversion leaves for a character it could not encode. A capital Ã or Â
-# followed by a letter is Portuguese (SÃO PAULO), so only one followed by anything else counts
-_ENCODING_DAMAGE = r"\x{FFFD}|[ÃÂ][^A-Za-z]|â€|\?"
+# what a UTF-8 text read as Latin-1 or Windows-1252 turns into: the lead byte of a two-byte character (Ã, Â for the
+# Latin-1 letters, Å, Ä for Latin Extended-A such as ż and č) followed by a continuation byte read as a control
+# character, a symbol or one of the Windows-1252 punctuation marks (Ã¼ for ü, Ã\u0178 for ß, Å¼ for ż), â€ for a dash,
+# the replacement character, and the question mark a lossy conversion leaves for a character it could not encode.
+# A capital Ã, Â, Å or Ä followed by a letter is a letter of Portuguese, Finnish or Swedish (SÃO PAULO, ÄÄNEKOSKI)
+# the Windows-1252 punctuation that stands in for the bytes 0x82 to 0x9F
+_CP1252_PUNCTUATION = "".join(
+    rf"\x{{{c}}}"
+    for c in (
+        "201A",
+        "0192",
+        "201E",
+        "2026",
+        "2020",
+        "2021",
+        "02C6",
+        "2030",
+        "0160",
+        "2039",
+        "0152",
+        "017D",
+        "2018",
+        "2019",
+        "201C",
+        "201D",
+        "2022",
+        "2013",
+        "2014",
+        "02DC",
+        "2122",
+        "0161",
+        "203A",
+        "0153",
+        "017E",
+        "0178",
+    )
+)
+_CONTINUATION = rf"\x{{80}}-\x{{BF}}{_CP1252_PUNCTUATION}"
+_ENCODING_DAMAGE = rf"\x{{FFFD}}|[ÃÂÅÄ][{_CONTINUATION}]|â€|\?"
 
 
 class Violation(NamedTuple):
@@ -307,11 +342,12 @@ def unaccepted(
     used: set[int] = set()
     left = []
     for violation in violations:
+        covered = False
         for index, exception in enumerate(accepted):
             if exception.covers(violation):
                 used.add(index)
-                break
-        else:
+                covered = True
+        if not covered:
             left.append(violation)
     stale = [exception for index, exception in enumerate(accepted) if index not in used]
     return left, stale

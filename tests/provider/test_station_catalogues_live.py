@@ -5,7 +5,8 @@
 The stubs of `test_station_catalogue_stubs.py` hold a reader to the rules on a few rows. What only the whole list shows
 is here: a swapped pair of coordinates in row 10,000, an id listed twice by a source that changed, a station in the
 wrong country. A rule a live list breaks by the source's own doing is named in `ACCEPTED` with its reason; one that
-would hide a new defect is narrowed to the stations it is about.
+would hide a new defect is narrowed to the stations it is about. The gauges of `wsv/pegel` without a position cannot
+be told from one that lost it, so that exception covers all of them.
 
 This pass holds one catalogue per resolution of a provider and network, the first dataset of it, and every dataset of
 the networks whose catalogue differs from one to the next. The one-time run of GH-2616 held all 62 datasets of
@@ -20,17 +21,19 @@ import pytest
 
 from tests.conftest import skip_if_upstream_unavailable
 from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, assert_sound
-from tests.provider.station_catalogue_stubs import GHCN_DAILY_END, GHCN_NAMES, GHCN_NO_POSITION, QUESTION_MARK
+from tests.provider.station_catalogue_stubs import (
+    GHCN_DAILY_END,
+    GHCN_NAMES,
+    GHCN_NO_POSITION,
+    QUESTION_MARK,
+    question_mark_in_the_name,
+)
 from wetterdienst import Wetterdienst
 
 # the networks whose station list is not the same for every dataset of a resolution
 _EVERY_DATASET = {"dwd/dmo", "dwd/mosmix"}
 # the resolutions of a network that are held, where it is not every one
 _RESOLUTIONS = {"eaufrance/hubeau": {"hourly"}}
-
-
-def _name_has_a_question_mark(row: dict[str, object]) -> bool:
-    return "?" in str(row["name"])
 
 
 ACCEPTED: dict[str, tuple[Accepted, ...]] = {
@@ -54,10 +57,10 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
         ),
     ),
     "dwd/dmo": (
-        Accepted("name_encoding", f"the station catalogue of DWD: {QUESTION_MARK}", _name_has_a_question_mark),
+        Accepted("name_encoding", f"the station catalogue of DWD: {QUESTION_MARK}", question_mark_in_the_name),
     ),
     "dwd/mosmix": (
-        Accepted("name_encoding", f"the station catalogue of DWD: {QUESTION_MARK}", _name_has_a_question_mark),
+        Accepted("name_encoding", f"the station catalogue of DWD: {QUESTION_MARK}", question_mark_in_the_name),
     ),
     "fmi/observation": (
         Accepted(
