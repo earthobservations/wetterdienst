@@ -1650,14 +1650,14 @@ def test_dwd_road_weather_warns_for_files_that_failed_among_files_that_arrived(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A window with some files missing returns the readings it has and says how many it lacks."""
-    reading = _flat({"#1#shortStationName": "A006", "#1#airTemperature": 12.0})
+    reading = _flat({"#1#shortStationName": "A006", "#1#airTemperature": 285.0})
     monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
     _stub_downloads(monkeypatch, [BytesIO(b"x" * 500), ConnectionError("x")])
     with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.road.api"):
         df = _stub_stations().values.all().df
 
     # the one file that arrived is read, converted from the kelvin DWD publishes
-    assert df.drop_nulls("value").get_column("value").to_list() == [pytest.approx(12.0 - 273.15)]
+    assert df.drop_nulls("value").get_column("value").to_list() == [pytest.approx(285.0 - 273.15)]
     assert "1 of 2 files of DD could not be downloaded" in caplog.text
     assert _FAILED_DOWNLOAD_FILES[1] in caplog.text
 

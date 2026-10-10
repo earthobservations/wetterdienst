@@ -434,6 +434,7 @@ markers = [
     "sql: All tests related to SQL.",
     "explorer: All tests related to the explorer UI.",
     "cflake: Tests which are flaky under concurrency",
+    "synthetic_values: Provider tests served numbers that are no readings, so the physical range check stands aside.",
 ]
 minversion = "2.0"
 testpaths = ["tests"]
