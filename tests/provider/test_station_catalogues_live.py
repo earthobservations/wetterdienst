@@ -73,7 +73,10 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
     "metoffice/observation": (
         Accepted("name_padding", "the reader passes on the blanks the list pads names with (GH-2654)"),
     ),
-    "metno/frost": (Accepted("coordinates_missing", "Frost lists 26 sources without a position (GH-2655)"),),
+    "metno/frost": (
+        Accepted("coordinates_missing", "Frost lists 26 sources without a position (GH-2655)"),
+        Accepted("name_padding", "the reader passes on the blanks the list pads names with (GH-2654)"),
+    ),
     "noaa/ghcn": (GHCN_NO_POSITION, GHCN_NAMES, GHCN_DAILY_END),
     "wsv/pegel": (
         Accepted(
