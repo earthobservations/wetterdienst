@@ -444,6 +444,7 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
     ]
 
 
+@pytest.mark.synthetic_values  # the archive's readings count timestamps and parameters, they are no temperatures
 @pytest.mark.parametrize("resolution", ["daily", "monthly"])
 @freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
 def test_geosphere_observation_values_of_one_daily_or_monthly_parameter_are_one_request(
