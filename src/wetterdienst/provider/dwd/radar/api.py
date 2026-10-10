@@ -12,12 +12,11 @@ import re
 import tarfile
 from dataclasses import dataclass
 from io import BytesIO
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Self, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
 from fsspec.implementations.tar import TarFileSystem
-from typing_extensions import Self
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.extension import Extension
@@ -48,19 +47,13 @@ from wetterdienst.util.eccodes import (
     bufr_is_available,
     import_pyproj_before_eccodes,
     quiet_eccodes_version_advice,
+    require_bufr,
 )
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-
-try:
-    from backports.datetime_fromisoformat import MonkeyPatch
-except ImportError:
-    pass
-else:
-    MonkeyPatch.patch_fromisoformat()
 
 log = logging.getLogger(__name__)
 
@@ -120,6 +113,7 @@ def read_radar_bufr(data: BytesIO, parameter: DwdRadarParameter) -> pl.DataFrame
     """
     import_pyproj_before_eccodes()
     quiet_eccodes_version_advice()
+    require_bufr("DWD radar site products")
     import pdbufr  # noqa: PLC0415
 
     value_field = _BUFR_VALUE_FIELD[parameter]

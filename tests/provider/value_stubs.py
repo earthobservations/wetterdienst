@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 
     import pytest
 
-_UTC = dt.timezone.utc
+_UTC = dt.UTC
 
 
 @dataclass(frozen=True)

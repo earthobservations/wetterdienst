@@ -29,6 +29,7 @@ export const parameters: Record<string, string> = {
   temperature_soil_0_5m: 'Buedemtemperatur (50 cm)',
   temperature_soil_mean_1m: 'Buedemtemperatur (1 m)',
   temperature_soil_1m: 'Buedemtemperatur (1 m)',
+  temperature_soil_2m: 'Buedemtemperatur (2 m)',
   humidity_relative: 'Relativ Loftfiichtegkeet',
   humidity_absolute: 'Absolut Loftfiichtegkeet',
   pressure_vapor: 'Damppdrock',

@@ -116,7 +116,8 @@ test.describe('API Stripes Endpoints', () => {
   test('should fetch stripes image', async ({ request }) => {
     const response = await request.get(`${BACKEND_URL}/api/stripes/image?kind=temperature&station=1048`)
 
-    // May return 400 (bad request), 404 (not found), 500 (DWD could not be read), or 200 with data
-    expect([200, 400, 404, 500]).toContain(response.status())
+    // May return 400 (bad request), 404 (not found), 500 (DWD could not be read), 501 (the backend
+    // has no plotly, as in this job's restapi-only install), or 200 with data
+    expect([200, 400, 404, 500, 501]).toContain(response.status())
   })
 })

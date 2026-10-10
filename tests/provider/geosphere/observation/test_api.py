@@ -424,7 +424,7 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
     requests = _serve_archive_of_parameters(monkeypatch, timedelta(hours=1), start, end)
     request = GeosphereObservationRequest(
         parameters=[
-            ("hourly", "data", "temperature_air_mean_2m"),
+            ("hourly", "data", "temperature_air_2m"),
             ("10_minutes", "data", "humidity_relative"),
             ("hourly", "data", "humidity_relative"),
         ],

@@ -30,7 +30,7 @@ def _frame(parameter: str, *values: float | None) -> pl.DataFrame:
             "parameter": [parameter] * len(values),
             "value": list(values),
             "timestamp": [
-                dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc) + dt.timedelta(hours=i) for i in range(len(values))
+                dt.datetime(2026, 1, 1, tzinfo=dt.UTC) + dt.timedelta(hours=i) for i in range(len(values))
             ],
         },
         schema={"parameter": pl.String, "value": pl.Float64, "timestamp": pl.Datetime(time_zone="UTC")},
@@ -92,8 +92,8 @@ def test_a_value_is_named_by_parameter_and_timestamp() -> None:
     found = out_of_range(_frame("temperature_air_mean_2m", 4.0, -999.0, None, 99.9, 5.0))
     assert found.get_column("value").to_list() == [-999.0, 99.9]
     assert found.get_column("timestamp").to_list() == [
-        dt.datetime(2026, 1, 1, 1, tzinfo=dt.timezone.utc),
-        dt.datetime(2026, 1, 1, 3, tzinfo=dt.timezone.utc),
+        dt.datetime(2026, 1, 1, 1, tzinfo=dt.UTC),
+        dt.datetime(2026, 1, 1, 3, tzinfo=dt.UTC),
     ]
 
 
@@ -186,7 +186,7 @@ def _lhmt_values(
         return File(url=url, content=BytesIO(stations if url.endswith("/stations") else day), status=200)
 
     monkeypatch.setattr("wetterdienst.provider.lhmt.observation.api.download_file", download_file)
-    start = dt.datetime(2020, 7, 1, tzinfo=dt.timezone.utc)
+    start = dt.datetime(2020, 7, 1, tzinfo=dt.UTC)
     request = LhmtObservationRequest(
         parameters=[("hourly", "data")], start=start, end=start + dt.timedelta(days=1), settings=settings
     )

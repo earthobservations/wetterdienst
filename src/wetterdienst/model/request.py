@@ -10,7 +10,7 @@ import logging
 from abc import abstractmethod
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar, Self, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -18,7 +18,6 @@ from measurement.measures import Distance
 from measurement.utils import guess
 from rapidfuzz import fuzz, process
 from rapidfuzz import utils as fuzz_utils
-from typing_extensions import Self
 
 from wetterdienst.exceptions import (
     InvalidBoundingBoxError,
@@ -50,15 +49,8 @@ from wetterdienst.model.result import (
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
-from wetterdienst.util.extras import missing_dependency_message
+from wetterdienst.util.extras import import_optional
 from wetterdienst.util.python import to_list
-
-try:
-    from backports.datetime_fromisoformat import MonkeyPatch
-except ImportError:
-    pass
-else:
-    MonkeyPatch.patch_fromisoformat()
 
 if TYPE_CHECKING:
     from wetterdienst.model.history import TimeseriesHistory
@@ -758,11 +750,9 @@ class TimeseriesRequest:
         The core ranks the stations near the point and the result names the stations taken, both off
         this one frame, so that the provider builds its station list once.
         """
-        try:
-            from wetterdienst.core.interpolate import get_interpolated_df, place_in_utm  # noqa: PLC0415
-        except ImportError as e:
-            msg = missing_dependency_message("Interpolation", e.name, extra="interpolation")
-            raise ImportError(msg) from e
+        # scipy, shapely and utm are imported by the module, so a missing one surfaces from this
+        interpolate = import_optional("wetterdienst.core.interpolate", "Interpolation", extra="interpolation")
+        get_interpolated_df, place_in_utm = interpolate.get_interpolated_df, interpolate.place_in_utm
 
         if not self.start:
             msg = "start and end are required for interpolation"
@@ -1062,6 +1052,5 @@ class TimeseriesRequest:
 # inspect, and with it help() and IPython, read a class's arguments off its __new__ where the class
 # defines one beside its __init__, and the variadic refusal above names none: point it at the
 # arguments __init__ takes, which a direct subclass that is no dataclass of its own inherits as they
-# are. Python 3.10's inspect prefers an inherited __new__ to a nearer __init__, so there a plain
-# subclass of a provider's request shows these base arguments rather than the provider's own
+# are
 TimeseriesRequest.__new__.__wrapped__ = TimeseriesRequest.__init__  # ty: ignore[unresolved-attribute]

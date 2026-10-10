@@ -8,7 +8,7 @@ import json
 import logging
 import sys
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, LiteralString, cast
 
 import polars as pl
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
@@ -16,7 +16,7 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 
 # pydantic refuses typing.TypedDict as a response model on Python below 3.12, and GlossaryEntry
 # is one; model/result.py imports it from here for the same reason
-from typing_extensions import LiteralString, TypedDict
+from typing_extensions import TypedDict
 
 from wetterdienst.exceptions import (
     ApiNotFoundError,
@@ -38,6 +38,7 @@ from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import Settings, SkipThreshold
 from wetterdienst.util.datetime import parse_date_window
+from wetterdienst.util.extras import import_optional
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
@@ -1735,7 +1736,7 @@ def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
 
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
     """
-    import plotly.graph_objects as go  # noqa: PLC0415
+    go = import_optional("plotly.graph_objects", "Plotting warming stripes", extra="plotting")
 
     kind = stripes.kind
     show_title, show_years, show_data_availability = (

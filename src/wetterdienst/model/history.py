@@ -21,13 +21,6 @@ if TYPE_CHECKING:
 
     from wetterdienst.model.metadata import DatasetModel
 
-try:
-    from backports.datetime_fromisoformat import MonkeyPatch
-except ImportError:
-    pass
-else:
-    MonkeyPatch.patch_fromisoformat()
-
 log = logging.getLogger(__name__)
 
 

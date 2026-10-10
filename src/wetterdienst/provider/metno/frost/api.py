@@ -6,13 +6,14 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 from urllib.parse import parse_qs, urlparse
 
 import polars as pl
 from aiohttp import encode_basic_auth
 
+from wetterdienst.exceptions import CredentialMissingError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, ParameterModel, build_metadata_model
 from wetterdienst.model.request import TimeseriesRequest
@@ -685,12 +686,10 @@ class MetnoFrostValues(TimeseriesValues):
         ts_list = json.loads(avail_file.content.read()).get("data", [])
         frames = []
         for ts in ts_list:
-            valid_from = datetime.fromisoformat(ts["validFrom"].rstrip("Z")).replace(tzinfo=timezone.utc)
+            valid_from = datetime.fromisoformat(ts["validFrom"].rstrip("Z")).replace(tzinfo=UTC)
             valid_to_str = ts.get("validTo")
             valid_to = (
-                datetime.fromisoformat(valid_to_str.rstrip("Z")).replace(tzinfo=timezone.utc)
-                if valid_to_str
-                else end_date
+                datetime.fromisoformat(valid_to_str.rstrip("Z")).replace(tzinfo=UTC) if valid_to_str else end_date
             )
             range_start = max(start_date, valid_from)
             range_end = min(end_date, valid_to)
@@ -809,7 +808,7 @@ class MetnoFrostRequest(TimeseriesRequest):
                 "and set WD_AUTH__METNO_FROST=<client_id> (env var) "
                 "or Settings(auth={'metno_frost': '<client_id>'}) (Python)."
             )
-            raise ValueError(msg)
+            raise CredentialMissingError(msg)
 
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)

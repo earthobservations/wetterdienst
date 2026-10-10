@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 import stamina
 
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import CredentialMissingError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -302,16 +302,16 @@ class KnmiObservationRequest(TimeseriesRequest):
                 "and set WD_AUTH__KNMI=<api_key> (env var) "
                 "or Settings(auth={'knmi': '<api_key>'}) (Python)."
             )
-            raise ValueError(msg)
+            raise CredentialMissingError(msg)
         # KNMI's files are keyed by UTC (filenames encode the UTC date/hour/minute). The base
         # convert_timestamps only tags *naive* inputs as UTC -- a tz-aware non-UTC datetime is
         # kept as-is -- so normalize to UTC here before any flooring or filename formatting,
         # otherwise a start like 10:00 Europe/Amsterdam (08:00 UTC) would fetch the 10:00
         # UTC file. Mirrors AEMET's UTC normalization.
         if self.start:
-            self.start = cast("dt.datetime", self.start).astimezone(dt.timezone.utc)
+            self.start = cast("dt.datetime", self.start).astimezone(dt.UTC)
         if self.end:
-            self.end = cast("dt.datetime", self.end).astimezone(dt.timezone.utc)
+            self.end = cast("dt.datetime", self.end).astimezone(dt.UTC)
         # When the whole request targets a single hourly/daily resolution, snap start down
         # to that resolution's interval boundary. Those are period aggregates labelled at the
         # period start, so a query beginning mid-period should include that period; flooring

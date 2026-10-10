@@ -14,7 +14,7 @@ from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
 def test_meteofrance_synop_api_stations() -> None:
     """Test that station metadata can be retrieved and is complete."""
     request = MeteoFranceSynopRequest(
-        parameters=[("subdaily", "data", "temperature_air_mean_2m")],
+        parameters=[("subdaily", "data", "temperature_air_2m")],
     ).filter_by_station_id("07005")
     df = request.df
     assert not df.is_empty()
@@ -25,7 +25,7 @@ def test_meteofrance_synop_api_stations() -> None:
 def test_meteofrance_synop_api_values() -> None:
     """Test subdaily (3-hourly synop) values, including unit conversion from source Kelvin."""
     request = MeteoFranceSynopRequest(
-        parameters=[("subdaily", "data", "temperature_air_mean_2m")],
+        parameters=[("subdaily", "data", "temperature_air_2m")],
         start=datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=datetime(2024, 1, 2, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("07005")

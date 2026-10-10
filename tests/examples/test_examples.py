@@ -8,7 +8,7 @@ from pathlib import Path, PureWindowsPath
 
 import pytest
 
-from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_LINUX, IS_PYTHON_3_10, IS_WINDOWS
+from tests.conftest import BUFR_AVAILABLE, IS_CI, IS_LINUX, IS_WINDOWS
 from wetterdienst.util.url import ConnectionString
 
 
@@ -62,13 +62,9 @@ def test_examples() -> None:
 
 
 @pytest.mark.remote
-@pytest.mark.skipif(IS_PYTHON_3_10, reason="zarr not supported in Python 3.10")
 @pytest.mark.cflake
 def test_examples_zarr() -> None:
-    """Test DWD observation examples with Zarr.
-
-    Zarr is not supported in Python 3.10, so this test is skipped.
-    """
+    """Test DWD observation examples with Zarr."""
     from examples.provider.dwd.observation import dwd_obs_climate_summary_zarr_dump  # noqa: PLC0415
 
     with _leaves_untouched(dwd_obs_climate_summary_zarr_dump.ZARR_OUTPUT_PATH):

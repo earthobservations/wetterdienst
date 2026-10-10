@@ -123,7 +123,7 @@ def test_parse_fmi_stations_active_station_end_timestamp_null() -> None:
 def test_fmi_observation_stations() -> None:
     """Station metadata for Helsinki Kaisaniemi matches the FMI station catalogue."""
     request = FmiObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_mean_2m")],
+        parameters=[("hourly", "data", "temperature_air_2m")],
     ).filter_by_station_id(HELSINKI_KAISANIEMI)
     df = request.df
     assert df.select(
@@ -163,8 +163,8 @@ def test_fmi_observation_values_hourly() -> None:
         date = dt.datetime(2024, 1, 1, hour, tzinfo=UTC)
         return df.filter(pl.col("parameter").eq(parameter), pl.col("timestamp").eq(date)).get_column("value").item()
 
-    assert value_at("temperature_air_mean_2m", 0) == pytest.approx(-14.6)
-    assert value_at("temperature_dew_point_mean_2m", 0) == pytest.approx(-16.6)
+    assert value_at("temperature_air_2m", 0) == pytest.approx(-14.6)
+    assert value_at("temperature_dew_point_2m", 0) == pytest.approx(-16.6)
     assert value_at("wind_speed", 0) == pytest.approx(2.7)
     assert value_at("wind_gust_max", 0) == pytest.approx(5.0)
     assert value_at("wind_direction", 0) == pytest.approx(36.0)

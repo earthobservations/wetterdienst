@@ -784,8 +784,10 @@ position. A frame that is a *subset* of the table's columns is accepted, with nu
 
 Every refusal — a mode the sink does not do, a target that already holds data under `fail`, or a
 format or protocol nothing here writes — raises `ExportRefusedError` (from `wetterdienst.exceptions`),
-whose message is the whole of what there is to know. Anything else out of `to_target` is a defect or
-an environment problem and keeps its own class and traceback.
+whose message is the whole of what there is to know. A package a sink needs that is not installed
+(DuckDB, SQLAlchemy, xarray) raises `MissingDependencyError`, an `ImportError` naming the extra
+that installs it. Anything else out of `to_target` is a defect or an environment problem and keeps
+its own class and traceback.
 
 The CLI takes the same argument as `--if_exists`, which is what a scheduled acquisition needs —
 see [Scheduling](scheduling.md):

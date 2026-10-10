@@ -45,12 +45,12 @@ NwsObservationMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "dewpoint",
                             "unit": "degree_celsius",
                         },
@@ -151,8 +151,8 @@ class NwsObservationValues(TimeseriesValues):
             return url
         query = urlencode(
             {
-                "start": self.sr.start.astimezone(dt.timezone.utc).strftime(self._date_format),
-                "end": self.sr.end.astimezone(dt.timezone.utc).strftime(self._date_format),
+                "start": self.sr.start.astimezone(dt.UTC).strftime(self._date_format),
+                "end": self.sr.end.astimezone(dt.UTC).strftime(self._date_format),
             },
         )
         return f"{url}?{query}"
