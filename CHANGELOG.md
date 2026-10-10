@@ -108,6 +108,12 @@ Types of changes:
   position, where the list puts them at latitudes of 135.117 and 104.367, off the globe, with
   latitude and longitude swapped; the hourly list drops any position outside latitude +-90 or
   longitude +-180, as it does for the `BOGUS` placeholders (GH-2616)
+- `to_target` with a protocol nothing here writes (`ftp://x/y.csv`) raises `ExportRefusedError`, as
+  documented, no longer SQLAlchemy's `NoSuchModuleError`, and the command line prints one line. An
+  optional package that is not installed (DuckDB for `sql`, `duckdb://` and `sqlalchemy`
+  targets, xarray, plotly, scipy, pdbufr, h5py) raises `MissingDependencyError`, an `ImportError`
+  naming the extra to install, no longer a bare `ModuleNotFoundError`; the command line prints it
+  as one line, and the REST API answers 501 (GH-2637)
 
 
 ## [0.144.0] - 2026-10-10

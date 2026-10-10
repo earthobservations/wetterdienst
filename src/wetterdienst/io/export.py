@@ -18,6 +18,7 @@ import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError
 from wetterdienst.metadata.renamed import renamed_column
+from wetterdienst.util.extras import import_optional
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
@@ -110,7 +111,7 @@ class ExportMixin:
         and the `datetime64` encoding that turns them back into the epoch nanoseconds a reader of
         an existing store expects, which is a contract this must not break.
         """
-        import xarray  # noqa: PLC0415
+        xarray = import_optional("xarray", "Writing Zarr and NetCDF", extra="export")
 
         engine = _netcdf_engine() if netcdf else None
         if netcdf and not engine:
@@ -255,7 +256,7 @@ class ExportMixin:
             Filtered DataFrame
 
         """
-        import duckdb  # noqa: PLC0415
+        duckdb = import_optional("duckdb", "Filtering with SQL", extra="sql")
 
         # every timestamp the frame carries, not the values column alone (then `date`): a stations
         # frame has `start_timestamp` and `end_timestamp` and no `timestamp` at all, so the CLI's own
@@ -462,8 +463,7 @@ class ExportMixin:
 
             """  # noqa:E501
             log.info(f"Writing to DuckDB. database={database}, table={tablename}")
-            import duckdb  # noqa: PLC0415
-            from duckdb import CatalogException  # noqa: PLC0415
+            duckdb = import_optional("duckdb", "Writing to DuckDB", extra="duckdb")
 
             df = copy(self.df)
 
@@ -497,7 +497,7 @@ class ExportMixin:
                     # Will fail if table exists
                     try:
                         connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
-                    except CatalogException as e:
+                    except duckdb.CatalogException as e:
                         msg = (
                             f"Table '{tablename}' already exists in the database, "
                             f"aborting write due to if_exists='fail'."
@@ -783,9 +783,9 @@ class ExportMixin:
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
             # Rebuilt from the reading above, with the password encoded again, so SQLAlchemy reads
             # it back as the same password whatever it holds
-            from sqlalchemy.engine import URL  # noqa: PLC0415
+            sqlalchemy = import_optional("sqlalchemy", "Writing to CrateDB", extra="cratedb")
 
-            cratedb_target = URL.create(
+            cratedb_target = sqlalchemy.engine.URL.create(
                 "crate",
                 username=connspec.username,
                 password=connspec.password,
@@ -801,8 +801,6 @@ class ExportMixin:
                 pl.col(pl.Enum).cast(pl.String),
             )
             if if_exists in ("skip", "fail"):
-                import sqlalchemy  # noqa: PLC0415
-
                 engine = sqlalchemy.create_engine(cratedb_target)
                 insp = sqlalchemy.inspect(engine)
                 if insp.has_table(tablename, schema=database):
@@ -849,7 +847,7 @@ class ExportMixin:
             chunk_size = 5000
 
             log.info("Writing to SQL database")
-            import sqlalchemy  # noqa: PLC0415
+            sqlalchemy = import_optional("sqlalchemy", "Writing to a SQL database", extra="export")
             from sqlalchemy.dialects.mssql.base import DATETIME2, NVARCHAR, MSDialect  # noqa: PLC0415
             from sqlalchemy.dialects.mysql.base import MySQLDialect  # noqa: PLC0415
 
@@ -861,6 +859,18 @@ class ExportMixin:
             # SQLAlchemy's own reading, which `ConnectionString` copies; read here by SQLAlchemy
             # itself because 2.0 leaves the database as written and 2.1 decodes it
             url = sqlalchemy.make_url(target).difference_update_query(["table"])
+            # the protocols this sink writes are the dialects SQLAlchemy has, so it is asked, and
+            # before an engine is made: an unknown one would come out of `create_engine` as
+            # SQLAlchemy's `NoSuchModuleError`, a failure of ours to the CLI and a traceback to a caller
+            try:
+                url.get_dialect()
+            except sqlalchemy.exc.NoSuchModuleError as e:
+                msg = (
+                    f"Unknown export protocol '{url.drivername}': nothing here writes it. Supported are "
+                    f"file://, duckdb://, influxdb://, crate:// and the SQLAlchemy dialects that are installed, "
+                    f"such as sqlite://, postgresql:// and mysql://."
+                )
+                raise ExportRefusedError(msg) from e
             if url.get_backend_name() == "sqlite":
                 # Honour SQLite's SQLITE_MAX_VARIABLE_NUMBER, which defaults to 999 for SQLite
                 # versions prior to 3.32.0 (2020-05-22) and to 32766 from then on, see
