@@ -26,6 +26,8 @@ from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted
 from wetterdienst import Settings
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation import api as chmi_api
+from wetterdienst.provider.dwd import catalogue as dwd_catalogue
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.road import DwdRoadRequest
 from wetterdienst.provider.dwd.road import api as road_api
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
@@ -252,6 +254,22 @@ def _lhmt(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(LhmtObservationRequest, ("hourly", "data"))
 
 
+def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # positions are degrees and minutes (`44.50` is 44°50'), west and south signed
+    catalogue = (
+        "ID    ICAO NAME                 LAT    LON     ELEV\n"
+        "----- ---- -------------------- -----  ------- -----\n"
+        "01001 ENJA JAN MAYEN             70.56   -8.40    10\n"
+        "03772 EGLL LONDON                51.29   -0.27    24\n"
+        "07510 LFBD BORDEAUX              44.50   -0.42    49\n"
+        "10147 EDDH HAMBURG-FU.           53.38   10.00    16\n"
+        "23205 ---- NAR?JAN-MAR           67.38   53.01   139\n"
+        "72520 KPIT PITTSBURGH INT.       40.30  -80.13   367\n"
+    )
+    _serve(monkeypatch, dwd_catalogue, {"mosmix_stationskatalog": catalogue.encode("latin-1")})
+    return _stations(DwdMosmixRequest, ("hourly", "small"))
+
+
 def question_mark_in_the_name(row: dict[str, Any]) -> bool:
     """Say whether a name is damaged by a question mark and by nothing worse."""
     return "?" in row["name"] and not any(damage in row["name"] for damage in ("\ufffd", "Ã", "Â", "â€"))
@@ -275,6 +293,11 @@ GHCN_DAILY_END = Accepted(
 )
 
 STUBS = [
+    Stub(
+        "dwd/mosmix hourly/small",
+        _dwd_mosmix,
+        (Accepted("name_encoding", f"the station catalogue of DWD: {QUESTION_MARK}", question_mark_in_the_name),),
+    ),
     Stub("ipma/observation hourly/data", _ipma),
     Stub("lhmt/observation hourly/data", _lhmt),
     Stub("noaa/ghcn hourly/data", _ghcn_hourly, (GHCN_NO_POSITION, GHCN_NAMES)),
