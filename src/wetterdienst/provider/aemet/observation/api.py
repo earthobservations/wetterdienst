@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import stamina
 
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import CredentialMissingError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -484,7 +484,7 @@ class AemetObservationRequest(TimeseriesRequest):
                 "and set WD_AUTH__AEMET=<api_key> (env var) "
                 "or Settings(auth={'aemet': '<api_key>'}) (Python)."
             )
-            raise ValueError(msg)
+            raise CredentialMissingError(msg)
 
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
