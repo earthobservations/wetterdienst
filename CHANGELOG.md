@@ -16,8 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.144.0] - 2026-10-10
+
 ### Fixed
 
+- Writing to a `mssql://` target creates text columns as `NVARCHAR(max)` instead of
+  `VARCHAR(max)` (`TEXT` before SQL Server 2012), so a character outside the column's code page,
+  such as the `Ł` of `Łódź` or the `ř` of `Třeboň` under `SQL_Latin1_General_CP1_CI_AS`, is
+  stored as it is and no longer as a `?`. A table that is appended to keeps its column types;
+  alter them, or write to a new table (GH-2273)
 - The station catalogues of `fmi`, `chmi`, `ipma`, `lhmt`, `metoffice`, `dwd/swsmos` and
   `dwd/phenology`, and the `metoffice` release listing, raise `DownloadError` for a download that
   failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no stations: the REST API
@@ -4178,7 +4185,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.144.0...HEAD
+[0.144.0]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...v0.144.0
 [0.143.0]: https://github.com/earthobservations/wetterdienst/compare/v0.142.0...v0.143.0
 [0.142.0]: https://github.com/earthobservations/wetterdienst/compare/v0.141.0...v0.142.0
 [0.141.0]: https://github.com/earthobservations/wetterdienst/compare/v0.140.0...v0.141.0
