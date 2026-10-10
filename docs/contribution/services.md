@@ -99,7 +99,8 @@ resolution is the exception: whether the service calls it an instant, a mean or 
 the spot name (`temperature_air_2m`, `temperature_dew_point_2m`, `temperature_soil_0_05m`), because
 most services do not say which it is and the names would otherwise differ by what a description
 happens to mention (GH-2651, GH-2657). The `_mean_` temperature names are for daily and coarser
-resolutions, and the test refuses one below them.
+resolutions (a window such as `_last_24h` aside), and the test refuses one below them. From daily
+on, keep the `_mean_` name unless the service says the value is an instant or current value.
 
 `unit` stays mandatory even where a service already publishes canonical units, since silently
 defaulting it is how values end up wrong by a factor of ten with nothing to catch it. Note that it is

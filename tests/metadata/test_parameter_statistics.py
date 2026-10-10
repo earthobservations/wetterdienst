@@ -184,18 +184,39 @@ def test_a_spot_value_the_source_states_is_not_named_a_mean() -> None:
 
 
 def test_a_sub_daily_temperature_is_not_named_a_mean() -> None:
-    """A temperature below daily resolution is `temperature_<medium>_<height>`, never `_mean_`.
+    """A temperature below daily resolution is `temperature_<medium>_<height>`, not `_mean_`.
 
     Most sources do not say whether a 10-minute or hourly reading is an instant or the mean of the
     interval, and some say a mean (MeteoSwiss `tre200h0` "hourly mean", FMI "Mean over 1 minute", NWS
     "Average", RMI "Mean", WSV "average"), so at these resolutions the names do not tell the two
     apart and the table cannot back the promise of a `_mean_` name. A sub-daily row is named for a
-    reading at one moment, and the interval's mean is a name for daily and coarser (GH-2657).
+    reading at one moment, and the interval's mean is a name for daily and coarser (GH-2657). The
+    windowed names (`temperature_air_mean_2m_last_24h`, `_yesterday`) are not `_MEAN_NAME`s and are
+    not this rule's.
     """
     wrong = []
     for site, resolution, parameter in _parameters():
         if resolution not in _COARSE_RESOLUTIONS and _MEAN_NAME.match(parameter.name):
             wrong.append(f"{site}: a mean name below daily resolution")
+    assert not wrong, "\n".join(wrong)
+
+
+def test_a_spot_name_at_daily_or_coarser_resolution_needs_a_spot_description() -> None:
+    """Where the mean is a name of its own, a spot name needs the source to say it is a reading at one moment.
+
+    Below daily resolution every temperature is a spot name whatever the source says; from daily on,
+    a source that says a mean or nothing keeps the `_mean_` name, so a spot name on such a row would
+    claim more than the source states (NOAA GHCN daily `tobs`, "at the time of observation", is the
+    one that does).
+    """
+    wrong = []
+    for site, resolution, parameter in _parameters():
+        if (
+            resolution in _COARSE_RESOLUTIONS
+            and _SPOT_NAME.match(parameter.name)
+            and not _SPOT_VALUE.search(parameter.description or "")
+        ):
+            wrong.append(f"{site}: named a spot value, described {parameter.description!r}")
     assert not wrong, "\n".join(wrong)
 
 

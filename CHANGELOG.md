@@ -68,10 +68,10 @@ Types of changes:
   were the `_mean_` names. Request the new names; the old ones are not found (logged and dropped, or
   `NoParametersFoundError` when no other parameter is requested) (GH-2657)
 - **Breaking**: the same for the sub-daily temperatures of `chmi`, `eccc`, `knmi` hourly, `lhmt`,
-  `metoffice`, `noaa/ghcn` hourly, `meteofrance/observation` hourly `TD` and `metno/frost` hourly
-  dew point, whose sources say nothing about the statistic. Request the spot names; the old ones
-  are not found (logged and dropped, or `NoParametersFoundError` when no other parameter is
-  requested) (GH-2657)
+  `metoffice`, `noaa/ghcn` hourly, `meteofrance/observation` hourly `TD`, `meteofrance/synop` `td`
+  and `metno/frost` hourly dew point, whose sources say nothing about the statistic. Request the
+  spot names; the old ones are not found (logged and dropped, or `NoParametersFoundError` when no
+  other parameter is requested) (GH-2657)
 - **Breaking**: the same for sub-daily temperatures whose source calls them a mean or an average:
   `dmi` hourly, `fmi`, `knmi` 10-minute, `geosphere`, `ipma`, `rmi`, `nws`, `wsv`, `meteoswiss`
   hourly `tre200h0`, `tre005h0` and `tde200h0`, `meteofrance/synop` `t`, `dwd/road` `airTemperature`
