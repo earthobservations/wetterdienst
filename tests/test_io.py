@@ -9,10 +9,9 @@ import logging
 import math
 import re
 import sqlite3
+import sys
 import time
 import tomllib
-
-
 from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
@@ -3844,6 +3843,7 @@ def test_netcdf_engine_is_named_as_xarray_names_it(
     assert _netcdf_engine() == engine
 
 
+@pytest.mark.parametrize(
     "target",
     [
         "ftp://x/y.csv",
