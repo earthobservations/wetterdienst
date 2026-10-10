@@ -18,6 +18,31 @@ Types of changes:
 
 ### Fixed
 
+- Station names of `dwd/swsmos` and `dwd/road` no longer carry the trailing blank the catalogue
+  pads some with (`Darup `, `AD Südost `: 38 and 33 stations), so a name filter on `Darup` finds
+  them (GH-2616)
+- Station names of `imgw/meteorology` and `imgw/hydrology` no longer carry the trailing blank the
+  lists pad some with (`RADZIECHOWY `, `Tuliszków `, `LUDŹMIERZ `) (GH-2616)
+- The station name of `chmi/observation` `Třinec  Oldřichovice  Javorový` no longer ends in the
+  blank the catalogue gives it (GH-2616)
+- `geosphere/observation` stations that still report have no `end_timestamp` (null), as for
+  `chmi/observation`; it was 2100-12-31, the date the list gives them, for about 470 stations. A
+  filter for the stations still reporting tests for null instead of for a date in the future
+  (GH-2616)
+- `noaa/ghcn` hourly stations `RUU71-00102` (CHABAROWKA) and `RUU71-00113` (IRKUTSK) have no
+  position, where the list puts them at latitudes of 135.117 and 104.367, off the globe, with
+  latitude and longitude swapped; any position outside latitude +-90 or longitude +-180 is
+  dropped, as the `BOGUS` placeholders already are (GH-2616)
+
+## [0.144.0] - 2026-10-10
+
+### Fixed
+
+- Writing to a `mssql://` target creates text columns as `NVARCHAR(max)` instead of
+  `VARCHAR(max)` (`TEXT` before SQL Server 2012), so a character outside the column's code page,
+  such as the `Ł` of `Łódź` or the `ř` of `Třeboň` under `SQL_Latin1_General_CP1_CI_AS`, is
+  stored as it is and no longer as a `?`. A table that is appended to keeps its column types;
+  alter them, or write to a new table (GH-2273)
 - The station catalogues of `fmi`, `chmi`, `ipma`, `lhmt`, `metoffice`, `dwd/swsmos` and
   `dwd/phenology`, and the `metoffice` release listing, raise `DownloadError` for a download that
   failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no stations: the REST API
@@ -94,21 +119,6 @@ Types of changes:
   but the timeout, the User-Agent header and booleans is masked, a `proxy` URL included. stamina's
   retry warning for a failed file listing rendered the settings, proxy password and
   `Authorization` header included. `model_dump()` still returns the values as given (GH-2593)
-- Station names of `dwd/swsmos` and `dwd/road` no longer carry the trailing blank the catalogue
-  pads some with (`Darup `, `AD Südost `: 38 and 33 stations), so a name filter on `Darup` finds
-  them (GH-2616)
-- Station names of `imgw/meteorology` and `imgw/hydrology` no longer carry the trailing blank the
-  lists pad some with (`RADZIECHOWY `, `Tuliszków `, `LUDŹMIERZ `) (GH-2616)
-- The station name of `chmi/observation` `Třinec  Oldřichovice  Javorový` no longer ends in the
-  blank the catalogue gives it (GH-2616)
-- `geosphere/observation` stations that still report have no `end_timestamp` (null), as for
-  `chmi/observation`; it was 2100-12-31, the date the list gives them, for about 470 stations. A
-  filter for the stations still reporting tests for null instead of for a date in the future
-  (GH-2616)
-- `noaa/ghcn` hourly stations `RUU71-00102` (CHABAROWKA) and `RUU71-00113` (IRKUTSK) have no
-  position, where the list puts them at latitudes of 135.117 and 104.367, off the globe, with
-  latitude and longitude swapped; any position outside latitude +-90 or longitude +-180 is
-  dropped, as the `BOGUS` placeholders already are (GH-2616)
 
 ## [0.143.0] - 2026-10-08
 
@@ -4189,7 +4199,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.144.0...HEAD
+[0.144.0]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...v0.144.0
 [0.143.0]: https://github.com/earthobservations/wetterdienst/compare/v0.142.0...v0.143.0
 [0.142.0]: https://github.com/earthobservations/wetterdienst/compare/v0.141.0...v0.142.0
 [0.141.0]: https://github.com/earthobservations/wetterdienst/compare/v0.140.0...v0.141.0
