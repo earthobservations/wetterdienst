@@ -58,7 +58,8 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
     )
     return df.select(
         pl.col("WSI").cast(pl.String).alias("station_id"),
-        pl.col("name").cast(pl.String),
+        # some names end in a blank (`Třinec  Oldřichovice  Javorový `), which an exact name filter then misses
+        pl.col("name").cast(pl.String).str.strip_chars(),
         pl.col("latitude").cast(pl.Float64, strict=False),
         pl.col("longitude").cast(pl.Float64, strict=False),
         pl.col("elevation").cast(pl.Float64, strict=False),

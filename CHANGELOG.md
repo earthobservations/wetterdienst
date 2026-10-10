@@ -99,6 +99,8 @@ Types of changes:
   them (GH-2616)
 - Station names of `imgw/meteorology` and `imgw/hydrology` no longer carry the trailing blank the
   lists pad some with (`RADZIECHOWY `, `Tuliszków `, `LUDŹMIERZ `) (GH-2616)
+- The station name of `chmi/observation` `Třinec  Oldřichovice  Javorový` no longer ends in the
+  blank the catalogue gives it (GH-2616)
 
 ## [0.143.0] - 2026-10-08
 

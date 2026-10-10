@@ -22,6 +22,8 @@ import polars as pl
 
 from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted
 from wetterdienst import Settings
+from wetterdienst.provider.chmi.observation import ChmiObservationRequest
+from wetterdienst.provider.chmi.observation import api as chmi_api
 from wetterdienst.provider.dwd.road import DwdRoadRequest
 from wetterdienst.provider.dwd.road import api as road_api
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
@@ -140,7 +142,35 @@ def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(ImgwHydrologyRequest, ("daily", "hydrology"))
 
 
+def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    catalogue = (
+        "WSI,GH_ID,BEGIN_DATE,END_DATE,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,\n"
+        "0-20000-0-11406,L3CHEB01,1863-10-01T00:00Z,1919-12-31T23:59Z,Cheb,12.362892,50.076212,458,\n"
+        "0-20000-0-11406,L3CHEB01,1933-05-07T00:00Z,1938-04-30T23:59Z,Cheb,12.3889,50.0739,471,\n"
+        "0-20000-0-11406,L3CHEB01,2001-01-01T00:00Z,3999-12-31T23:59Z,Cheb,12.391389,50.068333,483,\n"
+        "0-203-0-20303032003,O1JAVR01,2010-12-09T00:00Z,2023-03-22T10:20Z,Třinec  Oldřichovice  Javorový ,"
+        "18.627222,49.628333,930,\n"
+        "0-203-0-20303032003,O1JAVR01,2025-04-03T16:00Z,3999-12-31T23:59Z,Třinec  Oldřichovice  Javorový ,"
+        "18.627222,49.628333,930,\n"
+        "0-203-0-41302035001,B1NLHO01,1957-02-01T00:00Z,1959-11-30T23:59Z,Nová Lhota,17.5947,48.8614,500,\n"
+        "0-203-0-41302035001,B1NLHO01,1976-07-20T00:00Z,1980-06-30T23:59Z,Nová Lhota  ?,17.6133,48.8736,420,\n"
+    )
+    _serve(monkeypatch, chmi_api, {"meta1.csv": catalogue.encode("utf8")})
+    return _stations(ChmiObservationRequest, ("daily", "data"))
+
+
 STUBS = [
+    Stub(
+        "chmi/observation daily/data",
+        _chmi,
+        (
+            Accepted(
+                "name_encoding",
+                "the list names the station `Nová Lhota  ?` in its last period (1976 to 1980), the source's own value",
+                where=lambda row: row["station_id"] == "0-203-0-41302035001",
+            ),
+        ),
+    ),
     Stub("dwd/road 15_minutes/data", _dwd_road),
     Stub("dwd/swsmos hourly/data", _dwd_swsmos),
     Stub("imgw/hydrology daily/hydrology", _imgw_hydrology),
