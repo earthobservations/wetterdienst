@@ -133,10 +133,15 @@ PREFIX_RANGES: tuple[tuple[str, Bounds | None], ...] = (
     ("thawing_thickness_", Bounds(0.0, 1_000.0)),  # cm
 )
 
-# what a sum over a month or a year of daily readings may reach, for the parameters that are summed that way: DWD's
-# monthly and annual `snow_depth` are the sum of the daily depths, and an Alpine station adds up to thousands of cm
+# what a sum over a month or a year of daily readings may reach, for the parameters that some provider sums that way
+# (DWD's monthly and annual `snow_depth` are the sum of the daily depths, `snow_depth_new` the sum of the new snow of
+# the days; an Alpine station adds up to thousands of cm). By exact name: a maximum or a reading of the day, such as
+# `snow_depth_max`, is no sum, and stays held to the range of one reading
 LONG_PERIOD_RESOLUTIONS = frozenset({"monthly", "annual"})
-LONG_PERIOD_RANGES: tuple[tuple[str, Bounds], ...] = (("snow_depth", Bounds(-50.0, 200_000.0)),)
+LONG_PERIOD_RANGES: dict[str, Bounds] = {
+    "snow_depth": Bounds(-50.0, 200_000.0),
+    "snow_depth_new": Bounds(0.0, 200_000.0),
+}
 
 
 def bounds_for(name: str, resolution: str | None = None) -> Bounds | None:
@@ -145,10 +150,8 @@ def bounds_for(name: str, resolution: str | None = None) -> Bounds | None:
     Raises a `KeyError` for a name that is not a canonical parameter, as that is a defect of the provider and not
     of the check.
     """
-    if resolution in LONG_PERIOD_RESOLUTIONS:
-        for prefix, bounds in LONG_PERIOD_RANGES:
-            if name.startswith(prefix) and name not in PARAMETER_RANGES:
-                return bounds
+    if resolution in LONG_PERIOD_RESOLUTIONS and name in LONG_PERIOD_RANGES:
+        return LONG_PERIOD_RANGES[name]
     if name in PARAMETER_RANGES:
         return PARAMETER_RANGES[name]
     unit_type = PARAMETERS[name].unit_type
@@ -158,13 +161,19 @@ def bounds_for(name: str, resolution: str | None = None) -> Bounds | None:
     return UNIT_TYPE_RANGES[unit_type]
 
 
+def _canonical(parameter: str, names: dict[str, str] | None) -> str:
+    """Give the canonical name of a `parameter` column string, read through `names` in either case."""
+    return (names or {}).get(parameter) or (names or {}).get(parameter.lower()) or parameter
+
+
 def out_of_range(df: pl.DataFrame, names: dict[str, str] | None = None, resolution: str | None = None) -> pl.DataFrame:
     """Give the rows of a tidy values frame whose value lies outside the range of its parameter.
 
     The frame needs the columns `parameter` and `value`; `resolution`, `dataset`, `station_id` and `timestamp` are
     carried along if it has them. `names` maps the strings of the `parameter` column to canonical names, for a frame
     that has not been humanized and so carries the source's own, whatever the case it is written in; without it the
-    column is read as canonical names. `resolution` is that of the frame, where the frame has no such column.
+    column is read as canonical names. `resolution` is that of the frame, where the frame has no such column; a frame
+    of several resolutions is read at none of them unless it is given.
     """
     if df.is_empty() or "parameter" not in df.columns or "value" not in df.columns:
         return pl.DataFrame()
@@ -175,8 +184,7 @@ def out_of_range(df: pl.DataFrame, names: dict[str, str] | None = None, resoluti
     if resolution is None and len(resolutions) == 1:
         resolution = resolutions[0]
     for parameter in parameters:
-        canonical = (names or {}).get(parameter) or (names or {}).get(parameter.lower()) or parameter
-        bounds = bounds_for(canonical, resolution)
+        bounds = bounds_for(_canonical(parameter, names), resolution)
         if bounds is not None:
             low[parameter], high[parameter] = bounds
     if not low:
@@ -201,7 +209,7 @@ def describe(
     lines = []
     for (parameter,), rows in found.group_by(["parameter"], maintain_order=True):
         name = str(parameter)
-        canonical = (names or {}).get(name) or (names or {}).get(name.lower()) or name
+        canonical = _canonical(name, names)
         values = rows.get_column("value").sort().to_list()
         shown = values[:limit] if len(values) <= 2 * limit else [*values[:limit], "...", *values[-limit:]]
         bounds = tuple(bounds_for(canonical, resolution) or ())

@@ -55,7 +55,7 @@ def test_a_stub_source_leaves_no_sentinel_in_the_values(
             f"{stub.provider}: {stub.leak} is fixed for {sorted(set(stub.sentinels) - set(carried))}, "
             "remove it from `sentinels`, and `leak` when none is left"
         )
-        # the range check has seen what it can of the leak too
+        # the hook has recorded whatever of the leak lies outside a range, and the stub has accounted for it above
         physical_range_findings.clear()
         return
     assert carried == [], f"{stub.provider}: the sentinel {carried} reached the output"

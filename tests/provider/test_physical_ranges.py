@@ -146,10 +146,16 @@ def test_a_sum_over_a_month_or_a_year_may_exceed_the_depth_of_one_reading() -> N
     assert not out_of_range(_frame("snow_depth", 2194.0), resolution="daily").is_empty()
     assert out_of_range(_frame("snow_depth", 2194.0), resolution="annual").is_empty()
     assert out_of_range(_frame("snow_depth", 2194.0), resolution="monthly").is_empty()
+    assert out_of_range(_frame("snow_depth_new", 1500.0), resolution="annual").is_empty()
+    assert not out_of_range(_frame("snow_depth_new", 1500.0), resolution="daily").is_empty()
+    # a maximum or a reading of the day is no sum, and keeps the range of one reading
+    assert not out_of_range(_frame("snow_depth_max", 9999.0), resolution="annual").is_empty()
     assert not out_of_range(_frame("snow_depth", -999.0), resolution="annual").is_empty()
 
 
-def _lhmt_values(monkeypatch: pytest.MonkeyPatch, temperature: float, settings: Settings) -> pl.DataFrame:
+def _lhmt_values(
+    monkeypatch: pytest.MonkeyPatch, temperature: float, settings: Settings, pressure: float = 1007.4
+) -> pl.DataFrame:
     """Give the values of one LHMT station for a day with one reading, as its reader and the framework make them."""
     stations = (
         b'[{"code": "vilniaus-ams", "name": "Vilniaus AMS", '
@@ -157,7 +163,8 @@ def _lhmt_values(monkeypatch: pytest.MonkeyPatch, temperature: float, settings: 
     )
     day = (
         b'{"station": {"code": "vilniaus-ams"}, "observations": ['
-        b'{"observationTimeUtc": "2020-07-01 12:00:00", "airTemperature": %f}]}' % temperature
+        b'{"observationTimeUtc": "2020-07-01 12:00:00", "airTemperature": %f, "seaLevelPressure": %f}]}'
+        % (temperature, pressure)
     )
 
     def download_file(url: str, *_args: object, **_kwargs: object) -> File:
@@ -179,7 +186,7 @@ def test_the_check_sees_a_frame_a_provider_hands_back(
     # LHMT publishes `null` for a missing reading, so a -999 here is what a sentinel that got through would be
     df = _lhmt_values(monkeypatch, -999.0, Settings(cache_disable=True))
 
-    assert df.get_column("value").to_list() == [-999.0]
+    assert sorted(df.get_column("value").to_list()) == [-999.0, 1007.4]
     assert len(physical_range_findings) == 1
     assert "lhmt.observation.api hourly/data: temperature_air_2m: 1 outside" in physical_range_findings[0]
     physical_range_findings.clear()
@@ -193,8 +200,22 @@ def test_a_frame_converted_to_other_units_than_the_default_is_left_alone(
     settings = Settings(cache_disable=True, ts_unit_targets={"temperature": "degree_fahrenheit"})
     df = _lhmt_values(monkeypatch, 22.3, settings)
 
-    assert df.get_column("value").to_list() == [pytest.approx(72.14)]
+    assert sorted(df.get_column("value").to_list()) == [pytest.approx(72.14), 1007.4]
     assert physical_range_findings == []
+
+
+def test_only_the_unit_type_converted_to_other_units_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch,
+    physical_range_findings: list[str],
+) -> None:
+    """A temperature in degrees Fahrenheit is not checked, the pressure beside it still is."""
+    settings = Settings(cache_disable=True, ts_unit_targets={"temperature": "degree_fahrenheit"})
+    _lhmt_values(monkeypatch, 22.3, settings, pressure=-999.0)
+
+    assert len(physical_range_findings) == 1
+    assert "pressure_air_sea_level" in physical_range_findings[0]
+    assert "temperature" not in physical_range_findings[0]
+    physical_range_findings.clear()
 
 
 def test_a_frame_that_is_not_converted_is_left_alone(
@@ -204,5 +225,5 @@ def test_a_frame_that_is_not_converted_is_left_alone(
     """With the unit conversion off a value is in the source's own unit, which the ranges do not describe."""
     df = _lhmt_values(monkeypatch, -999.0, Settings(cache_disable=True, ts_convert_units=False))
 
-    assert df.get_column("value").to_list() == [-999.0]
+    assert sorted(df.get_column("value").to_list()) == [-999.0, 1007.4]
     assert physical_range_findings == []
