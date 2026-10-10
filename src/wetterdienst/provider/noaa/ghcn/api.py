@@ -315,10 +315,17 @@ class NoaaGhcnRequest(TimeseriesRequest):
         # BOGUS CHINESE, is a placeholder whose identity, so whose position, was not established. Both
         # stay in the list and can be fetched by id, but without a position no distance search,
         # interpolation or summary picks them (GH-2380). Only this list: every name in it starting
-        # BOGUS is such a placeholder, while the daily list's BOGUS CREEK is a real place in Idaho
+        # BOGUS is such a placeholder, while the daily list's BOGUS CREEK is a real place in Idaho.
+        # Nor is a position off the globe one: the historic Russian CHABAROWKA and IRKUTSK (RUU71-) are
+        # listed at latitude 135.117 and 104.367, with their latitude and longitude swapped. They are
+        # given no position rather than a guessed one
+        latitude, longitude = pl.col("latitude").cast(pl.Float64), pl.col("longitude").cast(pl.Float64)
         no_position = (
-            pl.col("latitude").cast(pl.Float64).eq(0.0) & pl.col("longitude").cast(pl.Float64).eq(0.0)
-        ) | pl.col("name").str.starts_with("BOGUS ")
+            (latitude.eq(0.0) & longitude.eq(0.0))
+            | pl.col("name").str.starts_with("BOGUS ")
+            | (latitude.abs() > 90)
+            | (longitude.abs() > 180)
+        )
         df = df.with_columns(
             pl.when(no_position).then(None).otherwise(pl.col(column)).alias(column)
             for column in ("latitude", "longitude")

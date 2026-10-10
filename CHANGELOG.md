@@ -45,6 +45,22 @@ Types of changes:
 - `dwd/derived` hourly `sunshine_duration_uncertainty` is returned: it was declared with the global
   radiation's column `fg_un_duett`, which the sunshine duration file does not have, and so never
   came back; it is read from `sd_un_duett` (GH-2614)
+- Station names of `dwd/swsmos` and `dwd/road` no longer carry the trailing blank the catalogue
+  pads some with (`Darup `, `AD Südost `: 38 and 33 stations), so an exact comparison of the name,
+  such as `name = 'Darup'` in an SQL filter, matches them (GH-2616)
+- Station names of `imgw/meteorology` and `imgw/hydrology` no longer carry the trailing blank the
+  lists pad some with (`RADZIECHOWY `, `Tuliszków `, `LUDŹMIERZ `) (GH-2616)
+- The station name of `chmi/observation` `Třinec  Oldřichovice  Javorový` no longer ends in the
+  blank the catalogue gives it (GH-2616)
+- `geosphere/observation` stations that still report have no `end_timestamp` (null), as for
+  `chmi/observation`; it was 2100-12-31, the date the list gives them, for about 470 stations. A
+  filter for the stations still reporting tests for null instead of for a date in the future
+  (GH-2616)
+- `noaa/ghcn` hourly stations `RUU71-00102` (CHABAROWKA) and `RUU71-00113` (IRKUTSK) have no
+  position, where the list puts them at latitudes of 135.117 and 104.367, off the globe, with
+  latitude and longitude swapped; the hourly list drops any position outside latitude +-90 or
+  longitude +-180, as it does for the `BOGUS` placeholders (GH-2616)
+
 
 ## [0.144.0] - 2026-10-10
 

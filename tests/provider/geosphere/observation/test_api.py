@@ -461,3 +461,21 @@ def test_geosphere_observation_values_of_one_daily_or_monthly_parameter_are_one_
     df = request.filter_by_station_id("4821").values.all().df
     assert len(requests) == 1
     assert df.height == 4
+
+
+def test_geosphere_observation_stations_that_still_report_have_no_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the 2100-12-31 the list gives a station that still reports is no end, and a real end is kept."""
+    stations = (
+        "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
+        "1,Aflenz,15.24069,47.54594,783.2,1983-05-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,Steiermark,True,True\n"
+        "12,Baden,16.235556,48.011391,244.8,1954-04-01 00:00:00+00:00,2012-05-31 23:59:59+00:00,Niederösterreich,"
+        "True,False\n"
+    ).encode()
+    monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=BytesIO(stations), status=200))
+
+    df = GeosphereObservationRequest(parameters=[("daily", "data", "temperature_air_mean_2m")]).all().df
+
+    assert dict(zip(df["station_id"], df["end_timestamp"], strict=True)) == {
+        "1": None,
+        "12": datetime(2012, 5, 31, 23, 59, 59, tzinfo=ZoneInfo("UTC")),
+    }
