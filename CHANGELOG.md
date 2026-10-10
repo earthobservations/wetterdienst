@@ -73,17 +73,34 @@ Types of changes:
   `roadSurfaceTemperature`. Request `temperature_air_2m`, `temperature_air_0_05m`,
   `temperature_dew_point_2m`, `temperature_wet_2m`, `temperature_radiant_2m`, `temperature_surface`
   or `temperature_soil_0_02m` to `_1m`; the old names are not found (logged and dropped, or
-  `NoParametersFoundError` when no other parameter is requested). Road `airTemperature`,
-  `dewpointTemperature`, SWSMOS `TS` (a mean) and windowed names keep theirs (GH-2657)
+  `NoParametersFoundError` when no other parameter is requested). Windowed names keep theirs; road
+  `airTemperature` and `dewpointTemperature` and SWSMOS `TS` follow below (GH-2657)
 - **Breaking**: the same for the sub-daily temperatures of `chmi`, `eccc`, `knmi` hourly, `lhmt`,
   `metoffice`, `noaa/ghcn` hourly, `meteofrance/observation` hourly `TD`, `meteofrance/synop` `td`
   and `metno/frost` hourly dew point, whose sources say nothing about the statistic. Request the
   spot names; the old ones are not found (logged and dropped, or `NoParametersFoundError` when no
-  other parameter is requested). Rows whose source says a mean or average (DMI, FMI, KNMI 10-minute,
-  NWS, RMI, WSV, ...) keep their `_mean_` names (GH-2657)
+  other parameter is requested). Rows whose source says a mean or average of the row's interval
+  (IPMA, MeteoSwiss hourly, KNMI 10-minute `tg` and `tb`; DMI and RMI in the field name) keep
+  their `_mean_` names (GH-2657, GH-2660)
+- **Breaking**: `dwd/road` `airTemperature` and `dewpointTemperature` and `dwd/swsmos` `TS`, which
+  DWD gives without a statistic, are named `temperature_air_2m`,
+  `temperature_dew_point_2m` and `temperature_surface`, no longer `temperature_air_mean_2m`,
+  `temperature_dew_point_mean_2m` and `temperature_surface_mean`. Request the new names; the old
+  ones are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no
+  other parameter is requested). `dwd/road` `roadSurfaceTemperature` was already
+  `temperature_surface` (GH-2660)
+- **Breaking**: sub-daily temperatures whose "mean" was not the source's are named for a reading at
+  one moment, no longer `temperature_air_mean_2m`, `temperature_dew_point_mean_2m` or the
+  `_mean_` soil and 0.05 m names: `geosphere/observation` 10-minute `tl`, `ts`, `tb10` to `tb50`
+  and hourly `tl`, `tb10` to `tb200`, `wsv/pegel` `LT`, `meteofrance/synop` `t`,
+  `nws/observation` `temperature` and `dewpoint`, `fmi/observation` hourly `t2m` and `td` and
+  `knmi/observation` 10-minute `ta` and `td`. Request `temperature_air_2m`, `temperature_air_0_05m`,
+  `temperature_dew_point_2m` or `temperature_soil_0_1m` to `_2m` (`_2m` is new); the old names are
+  not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested). KNMI `tg` and `tb` keep their `_mean_` names (GH-2660)
 - **Breaking**: a `ts_geo_station_distance` override keyed by an old `_mean_` name no longer
   applies to a row moved to a spot name by the entries above: the row takes the default radius.
-  Key the override by the new name (GH-2651, GH-2657)
+  Key the override by the new name (GH-2651, GH-2657, GH-2660)
 - `GET /api/coverage` declares its response in the OpenAPI document: the list of every provider
   and its networks, and the resolutions, datasets and parameters of one (`CoverageNetwork`,
   `CoverageResolution`, `CoverageDataset`, `CoverageParameter`), so a client can be generated from
@@ -117,6 +134,12 @@ Types of changes:
   position, where the list puts them at latitudes of 135.117 and 104.367, off the globe, with
   latitude and longitude swapped; the hourly list drops any position outside latitude +-90 or
   longitude +-180, as it does for the `BOGUS` placeholders (GH-2616)
+- `to_target` with a protocol nothing here writes (`ftp://x/y.csv`) raises `ExportRefusedError`, as
+  documented, no longer SQLAlchemy's `NoSuchModuleError`, and the command line prints one line. An
+  optional package that is not installed (DuckDB for `sql` and `duckdb://`, SQLAlchemy for
+  database targets, xarray, plotly, scipy, h5py) raises `MissingDependencyError`, an
+  `ImportError` naming the extra to install, no longer a bare `ModuleNotFoundError`; the command
+  line prints it as one line, and the REST API answers 501 (GH-2637)
 - A request to `knmi/observation`, `aemet/observation` or `metno/frost` without a credential raises
   `CredentialMissingError`, a `ValueError` as before, with the same message. The REST API and the
   MCP tools answer it with a 501 and a fixed sentence, no longer a 500 that tells the caller to set

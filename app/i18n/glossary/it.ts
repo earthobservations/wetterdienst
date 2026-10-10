@@ -29,6 +29,7 @@ export const parameters: Record<string, string> = {
   temperature_soil_0_5m: 'Temperatura del suolo (50 cm)',
   temperature_soil_mean_1m: 'Temperatura del suolo (1 m)',
   temperature_soil_1m: 'Temperatura del suolo (1 m)',
+  temperature_soil_2m: 'Temperatura del suolo (2 m)',
   humidity_relative: 'Umidità relativa',
   humidity_absolute: 'Umidità assoluta',
   pressure_vapor: 'Pressione di vapore',

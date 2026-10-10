@@ -20,11 +20,11 @@ from pydantic_settings import SettingsError
 from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
-    BufrReaderMissingError,
     CredentialMissingError,
     DateRequiredError,
     ExportRefusedError,
     InvalidTimeIntervalError,
+    MissingDependencyError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
     ReversedTimeIntervalError,
@@ -740,10 +740,16 @@ def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     given, in terms of its `start` and `end`, which the command line spells `--timestamp` or
     `--start` / `--end`.
 
+    An optional dependency that is not installed (`MissingDependencyError`) is the environment's to
+    fix, not the command line's: it is let through, to `_Cli.invoke`, which prints its message -- what
+    to install -- as the one line it is, exit 1.
+
     A provider that needs a credential none is configured for is told in one line, exit 1: the
     message names the setting to change, which is what the person at the command line can do, and
     the command line was right, so it is no usage error.
     """
+    if isinstance(e, MissingDependencyError):
+        raise e
     if isinstance(e, CredentialMissingError):
         raise click.ClickException(str(e)) from e
     if not _is_caller_refusal(e, request):
@@ -776,7 +782,7 @@ def _collect_or_exit(
     """
     try:
         values_ = get(api=api, request=request, settings=settings)
-    except BufrReaderMissingError as e:
+    except MissingDependencyError as e:
         # the message names what to install: the whole of what is to be done about it. Narrow on
         # purpose -- a bare `ImportError` would swallow a cycle or a typo inside a provider module,
         # which is a defect and wants its traceback, not an instruction. The command line was right,
@@ -815,7 +821,8 @@ def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: 
     """
     try:
         result.to_target(target, if_exists=if_exists)
-    except ExportRefusedError as e:
+    except (ExportRefusedError, MissingDependencyError) as e:
+        # a refusal, or a sink whose package is not installed: the message is the whole of it
         log.error(str(e))  # noqa: TRY400
         sys.exit(1)
     except Exception:
@@ -849,6 +856,11 @@ class _Cli(click.Group):
     def invoke(self, ctx: click.Context) -> Any:  # noqa: ANN401
         try:
             return super().invoke(ctx)
+        except MissingDependencyError as e:
+            # whatever the command was doing when it reached for a package that is not installed,
+            # such as rendering an image: the message names what to install, and is the whole of it
+            log.error(str(e))  # noqa: TRY400
+            sys.exit(1)
         except (ValidationError, SettingsError) as e:
             # another model's error is not the settings', even beside a malformed variable an
             # option overrode

@@ -397,9 +397,12 @@ scikit-learn = "sklearn"
 
 [tool.deptry.per_rule_ignores]
 DEP002 = [
+    # imported by name through `util.extras.import_optional`, which deptry does not read as an import
+    "duckdb",
     "kaleido",
     "mysqlclient",
     "pandas",
+    "plotly",
     "psycopg",
     "pybufrkit",
     "sqlalchemy-cratedb",
@@ -407,6 +410,7 @@ DEP002 = [
     # self-referential extra: the `mcp` extra pulls in `wetterdienst[restapi]`, which is never imported
     "wetterdienst",
     "wradlib",
+    "xarray",
     "xlsxwriter",
     "xradar",
     "zarr"

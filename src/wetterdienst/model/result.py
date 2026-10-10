@@ -18,6 +18,7 @@ from typing_extensions import TypedDict
 
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
+from wetterdienst.util.extras import import_optional
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -343,15 +344,8 @@ class StationsResult(ExportMixin):
 
     def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the stations DataFrame."""
-        try:
-            import plotly.express as px  # noqa: PLC0415
-            import plotly.graph_objects as go  # noqa: PLC0415
-        except ImportError as e:
-            msg = (
-                "To use this method, please install the optional dependencies for plotly: "
-                "pip install wetterdienst[plotting]"
-            )
-            raise ImportError(msg) from e
+        px = import_optional("plotly.express", "Plotting", extra="plotting")
+        go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
 
         df = self.df
         if df.is_empty():
@@ -697,15 +691,8 @@ class ValuesResult(_ValuesResult):
 
     def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
-        try:
-            import plotly.express as px  # noqa: PLC0415
-            import plotly.graph_objects as go  # noqa: PLC0415
-        except ImportError as e:
-            msg = (
-                "To use this method, please install the optional dependencies for plotly: "
-                "pip install wetterdienst[plotting]"
-            )
-            raise ImportError(msg) from e
+        px = import_optional("plotly.express", "Plotting", extra="plotting")
+        go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
 
         df = self.df
         if "parameter" not in df.columns:
@@ -978,15 +965,8 @@ class InterpolatedValuesResult(_ValuesResult):
 
     def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
-        try:
-            import plotly.express as px  # noqa: PLC0415
-            import plotly.graph_objects as go  # noqa: PLC0415
-        except ImportError as e:
-            msg = (
-                "To use this method, please install the optional dependencies for plotly: "
-                "pip install wetterdienst[plotting]"
-            )
-            raise ImportError(msg) from e
+        px = import_optional("plotly.express", "Plotting", extra="plotting")
+        go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
 
         df = self.df
         if df.is_empty():
@@ -1181,15 +1161,8 @@ class SummarizedValuesResult(_ValuesResult):
 
     def to_plot(self, **_kwargs: dict) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
-        try:
-            import plotly.express as px  # noqa: PLC0415
-            import plotly.graph_objects as go  # noqa: PLC0415
-        except ImportError as e:
-            msg = (
-                "To use this method, please install the optional dependencies for plotly: "
-                "pip install wetterdienst[plotting]"
-            )
-            raise ImportError(msg) from e
+        px = import_optional("plotly.express", "Plotting", extra="plotting")
+        go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
 
         df = self.df
         if df.is_empty():

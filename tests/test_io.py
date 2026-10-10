@@ -11,6 +11,9 @@ import re
 import sqlite3
 import time
 import tomllib
+
+
+from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
 from urllib.parse import quote
@@ -21,7 +24,7 @@ import pytest
 
 from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Settings
-from wetterdienst.exceptions import ExportRefusedError
+from wetterdienst.exceptions import ExportRefusedError, MissingDependencyError
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.request import TimeseriesRequest
@@ -3839,3 +3842,78 @@ def test_netcdf_engine_is_named_as_xarray_names_it(
 
     monkeypatch.setattr(importlib.util, "find_spec", lambda name: object() if name in installed else None)
     assert _netcdf_engine() == engine
+
+
+    "target",
+    [
+        "ftp://x/y.csv",
+        "ftp://user:hunter2-secret@host/db?table=t",
+        "postgres://user:hunter2-secret@host/db?table=t",
+        "nosuchdialect+nodriver://host/db?table=t",
+    ],
+)
+def test_to_target_refuses_a_protocol_nothing_writes_without_leaking_sqlalchemys_error(target: str) -> None:
+    """A protocol nothing here writes is `ExportRefusedError`, as the docs promise, not SQLAlchemy's (GH-2637).
+
+    The generic sink handed any URL it did not dispatch to `create_engine`, so `ftp://x/y.csv` came
+    out as `sqlalchemy.exc.NoSuchModuleError: Can't load plugin: sqlalchemy.dialects:ftp` and the
+    command line printed a traceback. The refusal names the protocol and none of the rest of the
+    target, which may hold a password.
+    """
+    from sqlalchemy.exc import SQLAlchemyError  # noqa: PLC0415
+
+    with pytest.raises(ExportRefusedError, match="Unknown export protocol") as excinfo:
+        _one_row().to_target(target)
+
+    assert not isinstance(excinfo.value, SQLAlchemyError)
+    assert "secret" not in str(excinfo.value)
+    assert "host" not in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    ("module", "extra", "call"),
+    [
+        pytest.param("duckdb", "sql", lambda _tmp: _one_row().filter_by_sql("true"), id="filter_by_sql"),
+        pytest.param(
+            "duckdb",
+            "duckdb",
+            lambda tmp: _one_row().to_target(f"duckdb:///{tmp}/obs.duckdb?table=weather"),
+            id="duckdb-target",
+        ),
+        pytest.param(
+            "sqlalchemy",
+            "export",
+            lambda tmp: _one_row().to_target(f"sqlite:///{tmp}/obs.sqlite?table=weather"),
+            id="sqlalchemy-target",
+        ),
+        pytest.param(
+            "xarray",
+            "export",
+            lambda tmp: _one_row().to_target(f"file://{tmp}/obs.zarr"),
+            id="zarr-target",
+        ),
+    ],
+)
+def test_an_optional_package_that_is_not_installed_never_reaches_the_caller_as_a_bare_import_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    module: str,
+    extra: str,
+    call: Callable[[Path], object],
+) -> None:
+    """Without DuckDB, SQLAlchemy or xarray the export says which extra installs them (GH-2637).
+
+    The extension of the rule that no public function leaks a third-party exception to the two
+    packages the exports import. `filter_by_sql` without DuckDB raised a bare `ModuleNotFoundError`,
+    where interpolation without scipy raised an `ImportError` with an install hint; the CLI's `--sql`
+    printed a traceback. Masked in `sys.modules`, which is how an uninstalled package looks to an
+    import.
+    """
+    monkeypatch.setitem(sys.modules, module, None)
+
+    with pytest.raises(MissingDependencyError) as excinfo:
+        call(tmp_path)
+
+    assert f"requires {module}, which is not installed. Install it with: pip install wetterdienst[{extra}]" in str(
+        excinfo.value
+    )
