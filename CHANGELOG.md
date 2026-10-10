@@ -90,6 +90,9 @@ Types of changes:
 
 ### Fixed
 
+- Writing a NetCDF file no longer fails with `ValueError: unrecognized engine for to_netcdf:
+  'netCDF4'` where `netCDF4` is installed and `h5netcdf` is not: the engine is named as xarray
+  names it, `netcdf4` (GH-2666)
 - Listing a directory (`list_remote_files_fsspec`, `list_remote_directory_fsspec`) through a proxy
   that answers with an error status no longer raises or logs the proxy's `Proxy-Authorization`
   header: the `ClientResponseError` is redacted like a download's is, retry warning included

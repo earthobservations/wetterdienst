@@ -3820,3 +3820,22 @@ def test_sql_sink_writes_sql_server_text_as_nvarchar(target: str, text_type: str
     assert frame["name"].tolist() == ["Łódź"]
     assert frame["kind"].tolist() == ["Třeboň"]
 
+
+@pytest.mark.parametrize(
+    ("installed", "engine"),
+    [
+        ({"h5netcdf", "netCDF4"}, "h5netcdf"),
+        ({"netCDF4"}, "netcdf4"),
+        (set(), None),
+    ],
+)
+def test_netcdf_engine_is_named_as_xarray_names_it(
+    installed: set[str], engine: str | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test the NetCDF engine is the one xarray knows, `netcdf4` for the `netCDF4` module (GH-2666)."""
+    import importlib.util  # noqa: PLC0415
+
+    from wetterdienst.io.export import _netcdf_engine  # noqa: PLC0415
+
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: object() if name in installed else None)
+    assert _netcdf_engine() == engine
