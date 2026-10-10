@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.144.0] - 2026-10-10
+
 ### Fixed
 
 - Writing to a `mssql://` target creates text columns as `NVARCHAR(max)` instead of
@@ -4179,7 +4181,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.144.0...HEAD
+[0.144.0]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...v0.144.0
 [0.143.0]: https://github.com/earthobservations/wetterdienst/compare/v0.142.0...v0.143.0
 [0.142.0]: https://github.com/earthobservations/wetterdienst/compare/v0.141.0...v0.142.0
 [0.141.0]: https://github.com/earthobservations/wetterdienst/compare/v0.140.0...v0.141.0
