@@ -172,12 +172,12 @@ DwdObservationMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "tt_10",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_0_05m",
+                            "name": "temperature_air_0_05m",
                             "name_original": "tm5_10",
                             "unit": "degree_celsius",
                         },

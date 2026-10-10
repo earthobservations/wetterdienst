@@ -153,7 +153,7 @@ def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> Seen:
         return File(url=url, content=FileNotFoundError(url), status=404)
 
     seen = _record(monkeypatch, frost_api, answer)
-    request = MetnoFrostRequest(parameters=[("hourly", "data", "temperature_air_mean_2m")], start=START, end=END)
+    request = MetnoFrostRequest(parameters=[("hourly", "data", "temperature_air_2m")], start=START, end=END)
     request.filter_by_station_id("SN18700").values.all()
     MetnoFrostRequest.is_valid()
     return seen

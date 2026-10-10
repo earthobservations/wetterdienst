@@ -101,7 +101,7 @@ def test_meteofrance_observation_api_monthly(parameter: str) -> None:
 @pytest.mark.parametrize(
     ("dataset", "parameter"),
     [
-        ("core", "temperature_air_mean_2m"),
+        ("core", "temperature_air_2m"),
         ("core", "precipitation_amount"),
         ("core", "wind_direction_gust_max"),
         ("others", "cloud_cover_total"),

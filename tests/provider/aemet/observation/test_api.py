@@ -238,7 +238,7 @@ def test_aemet_observation_values_hourly_realtime() -> None:
     def latest(parameter: str) -> float:
         return df.filter(pl.col("parameter").eq(parameter)).sort("timestamp").get_column("value")[-1]
 
-    assert -40 < latest("temperature_air_mean_2m") < 50
+    assert -40 < latest("temperature_air_2m") < 50
     assert 0.0 <= latest("humidity_relative") <= 1.0
     # unlike the daily endpoint's coded 0-36 direction, real-time direction is already in
     # plain degrees — this would fail if the daily parser's *10 scaling was wrongly reused.

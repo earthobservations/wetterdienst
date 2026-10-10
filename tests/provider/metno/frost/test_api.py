@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 def test_metno_frost_stations() -> None:
     """Station metadata for Oslo/Blindern matches the Frost registry."""
     request = MetnoFrostRequest(
-        parameters=[("hourly", "data", "temperature_air_mean_2m")],
+        parameters=[("hourly", "data", "temperature_air_2m")],
         start=dt.datetime(2020, 1, 1, tzinfo=UTC),
         end=dt.datetime(2020, 1, 2, tzinfo=UTC),
     ).filter_by_station_id(OSLO_BLINDERN)
@@ -65,7 +65,7 @@ def test_metno_frost_values_hourly() -> None:
     """Hourly air temperature at Oslo/Blindern returns 24 rows for a one-day window."""
     df = (
         MetnoFrostRequest(
-            parameters=[("hourly", "data", "temperature_air_mean_2m")],
+            parameters=[("hourly", "data", "temperature_air_2m")],
             start=dt.datetime(2020, 1, 1, tzinfo=UTC),
             end=dt.datetime(2020, 1, 2, tzinfo=UTC),
         )
@@ -76,7 +76,7 @@ def test_metno_frost_values_hourly() -> None:
     assert len(df) == 24
     assert df["station_id"].unique().to_list() == [OSLO_BLINDERN]
     assert df["resolution"].unique().to_list() == ["hourly"]
-    assert df["parameter"].unique().to_list() == ["temperature_air_mean_2m"]
+    assert df["parameter"].unique().to_list() == ["temperature_air_2m"]
     first = df.row(0, named=True)
     assert first["timestamp"] == dt.datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
     assert first["value"] == pytest.approx(3.4)
@@ -135,7 +135,7 @@ def test_metno_frost_values_hourly_multi_parameter_batched(caplog: pytest.LogCap
         df = (
             MetnoFrostRequest(
                 parameters=[
-                    ("hourly", "data", "temperature_air_mean_2m"),
+                    ("hourly", "data", "temperature_air_2m"),
                     ("hourly", "data", "humidity_relative"),
                     ("hourly", "data", "wind_speed"),
                 ],
@@ -152,8 +152,8 @@ def test_metno_frost_values_hourly_multi_parameter_batched(caplog: pytest.LogCap
     assert "air_temperature" in acquisitions[0]
     assert "relative_humidity" in acquisitions[0]
     assert "wind_speed" in acquisitions[0]
-    assert sorted(df["parameter"].unique().to_list()) == ["humidity_relative", "temperature_air_mean_2m", "wind_speed"]
-    assert len(df.filter(pl.col("parameter") == "temperature_air_mean_2m")) == 24
+    assert sorted(df["parameter"].unique().to_list()) == ["humidity_relative", "temperature_air_2m", "wind_speed"]
+    assert len(df.filter(pl.col("parameter") == "temperature_air_2m")) == 24
 
 
 @pytest.mark.remote

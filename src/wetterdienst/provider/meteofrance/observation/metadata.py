@@ -162,7 +162,7 @@ MeteoFranceObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "T",
                             "unit": "degree_celsius",
                         },
