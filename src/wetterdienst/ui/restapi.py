@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, WithJsonSchema
-from typing_extensions import NotRequired
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, WithJsonSchema, with_config
+from typing_extensions import NotRequired, TypedDict
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (
@@ -28,6 +28,7 @@ from wetterdienst.exceptions import (
     StationNotFoundError,
 )
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -745,7 +746,56 @@ def auth(
     )
 
 
-@app.get("/api/coverage")
+# What `/api/coverage` answers, as `Wetterdienst.discover()` and `TimeseriesRequest.discover()` build
+# it. The answer is still sent as those return it, so the models only describe it: the tests check a
+# real answer of every provider against them, and `extra="forbid"` makes a key added there fail.
+# `typing_extensions.TypedDict`, as pydantic refuses `typing.TypedDict` below Python 3.12 (GH-2090)
+@with_config(ConfigDict(extra="forbid"))
+class CoverageNetwork(TypedDict):
+    """A network in the list of every provider and its networks."""
+
+    auth: bool
+    configured: bool
+    valid: bool
+    date_required: bool
+
+
+@with_config(ConfigDict(extra="forbid"))
+class CoverageParameter(TypedDict):
+    """A parameter of a dataset, with `unit` as the source publishes it, which is not always the unit values come in."""
+
+    name: str
+    name_original: str
+    unit_type: UnitType
+    unit: str
+    description: str | None
+    # `dwd/dmo` only: the lead times whose run carries the parameter, `short` before `long`
+    lead_times: NotRequired[list[Literal["short", "long"]]]
+
+
+@with_config(ConfigDict(extra="forbid"))
+class CoverageDataset(TypedDict):
+    """A dataset of a resolution."""
+
+    description: str | None
+    parameters: list[CoverageParameter]
+
+
+@with_config(ConfigDict(extra="forbid"))
+class CoverageResolution(TypedDict):
+    """A resolution of a network."""
+
+    description: str | None
+    datasets: dict[str, CoverageDataset]
+
+
+# the answer without a provider and network: every provider, its networks and whether each needs
+# credentials; the answer for one: its resolutions, which a filter that matches none of leaves out
+CoverageProviders = dict[str, dict[str, CoverageNetwork]]
+CoverageResolutions = dict[Resolution, CoverageResolution]
+
+
+@app.get("/api/coverage", response_model=CoverageProviders | CoverageResolutions)
 def coverage(
     request: Annotated[CoverageRequest, Query()],
 ) -> Response:

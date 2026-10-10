@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `GET /api/coverage` declares its response in the OpenAPI document: the list of every provider
+  and its networks, and the resolutions, datasets and parameters of one (`CoverageNetwork`,
+  `CoverageResolution`, `CoverageDataset`, `CoverageParameter`), so a client can be generated from
+  or checked against it. The JSON sent is unchanged (GH-2090)
+
 ### Fixed
 
 - The station catalogues of `fmi`, `chmi`, `ipma`, `lhmt`, `metoffice`, `dwd/swsmos` and

@@ -17,10 +17,12 @@ from typing import TYPE_CHECKING, get_args
 import polars as pl
 import pytest
 from dirty_equals import IsApprox, IsNumber, IsStr
+from pydantic import TypeAdapter, ValidationError
 from starlette.testclient import TestClient
 
-from wetterdienst import Settings, __version__
+from wetterdienst import Settings, Wetterdienst, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
+from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
 from wetterdienst.ui.mcp import _TOOL_NAMES
@@ -7403,3 +7405,139 @@ def test_auth_reports_metoffice_as_needing_a_credential(client: TestClient) -> N
         "valid": False,
     }
     assert client.get("/api/coverage").json()["metoffice"]["observation"]["configured"] is False
+
+
+# the networks with coverage: the standalone ones (dwd/radar, dwd/alerts) have no metadata model
+_COVERAGE_NETWORKS = [
+    (provider, network)
+    for provider, networks in Wetterdienst.registry.items()
+    for network in networks
+    if (provider, network) not in {("dwd", "radar"), ("dwd", "alerts")}
+]
+
+
+def test_coverage_schema_in_openapi(client: TestClient) -> None:
+    """`/openapi.json` describes both answers of `/api/coverage`, down to the parameter (GH-2090)."""
+    schema = client.get("/openapi.json").json()
+    answer = schema["paths"]["/api/coverage"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert answer["anyOf"] == [
+        {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": {"$ref": "#/components/schemas/CoverageNetwork"},
+            },
+        },
+        {
+            "type": "object",
+            "additionalProperties": {"$ref": "#/components/schemas/CoverageResolution"},
+            "propertyNames": {"$ref": "#/components/schemas/Resolution"},
+        },
+    ]
+    components = schema["components"]["schemas"]
+
+    def shape(name: str) -> tuple[set[str], set[str]]:
+        # a model closed to other keys, so that a key added to `discover()` fails here
+        assert components[name]["additionalProperties"] is False
+        return set(components[name]["properties"]), set(components[name].get("required", []))
+
+    network = {"auth", "configured", "valid", "date_required"}
+    assert shape("CoverageNetwork") == (network, network)
+    assert shape("CoverageResolution") == ({"description", "datasets"}, {"description", "datasets"})
+    assert shape("CoverageDataset") == ({"description", "parameters"}, {"description", "parameters"})
+    # lead_times is `dwd/dmo`'s alone: sent there, absent elsewhere
+    required = {"name", "name_original", "unit_type", "unit", "description"}
+    assert shape("CoverageParameter") == (required | {"lead_times"}, required)
+    parameter = components["CoverageParameter"]["properties"]
+    assert parameter["lead_times"]["items"] == {"enum": ["short", "long"], "type": "string"}
+    assert parameter["unit_type"]["enum"] == list(get_args(UnitType))
+    assert parameter["description"]["anyOf"] == [{"type": "string"}, {"type": "null"}]
+
+
+@pytest.mark.parametrize(("provider", "network"), _COVERAGE_NETWORKS, ids=[f"{p}/{n}" for p, n in _COVERAGE_NETWORKS])
+def test_coverage_of_a_network_matches_its_model(provider: str, network: str) -> None:
+    """What `discover()` builds for every network validates against the model the schema is built from (GH-2090).
+
+    The models forbid other keys, so a key added to or renamed in `discover()` fails here, which
+    is the check the app's hand-written coverage types had no way to get.
+    """
+    discovered = Wetterdienst(provider, network).discover()
+    assert discovered
+    validated = TypeAdapter(restapi.CoverageResolutions).validate_python(discovered)
+    assert {resolution.value for resolution in validated} == discovered.keys()
+
+
+@pytest.mark.parametrize(
+    ("provider", "network", "params"),
+    [
+        ("dwd", "observation", {}),
+        ("dwd", "observation", {"resolutions": "daily", "datasets": "climate_summary"}),
+        ("dwd", "dmo", {}),
+        ("eccc", "observation", {}),
+        ("knmi", "observation", {}),
+        ("noaa", "ghcn", {"resolutions": "daily"}),
+    ],
+)
+def test_coverage_of_a_network_is_sent_as_discover_builds_it(
+    client: TestClient,
+    provider: str,
+    network: str,
+    params: dict[str, str],
+) -> None:
+    """The response model describes the answer without changing a byte of it (GH-2090)."""
+    expected = Wetterdienst(provider, network).discover(
+        resolutions=params.get("resolutions"),
+        datasets=params.get("datasets"),
+    )
+    response = client.get("/api/coverage", params={"provider": provider, "network": network, **params})
+    assert response.status_code == 200
+    assert response.text == json.dumps(expected)
+    TypeAdapter(restapi.CoverageResolutions).validate_python(response.json())
+
+
+def test_coverage_of_dmo_carries_the_lead_times_the_others_leave_out(client: TestClient) -> None:
+    """`lead_times` is part of the model and sent only where `discover()` builds it (GH-2090)."""
+    adapter = TypeAdapter(restapi.CoverageResolutions)
+
+    def parameters_of(network: str) -> list[dict]:
+        response = client.get("/api/coverage", params={"provider": "dwd", "network": network})
+        coverage = adapter.validate_python(response.json())
+        return [
+            parameter
+            for resolution in coverage.values()
+            for dataset in resolution["datasets"].values()
+            for parameter in dataset["parameters"]
+        ]
+
+    dmo = parameters_of("dmo")
+    assert dmo
+    assert all(parameter["lead_times"] for parameter in dmo)
+    assert not any("lead_times" in parameter for parameter in parameters_of("observation"))
+
+
+def test_coverage_model_refuses_a_key_discover_does_not_have() -> None:
+    """A key `discover()` gains, or loses, is a validation error, not silently accepted (GH-2090)."""
+    discovered = Wetterdienst("dwd", "observation").discover(resolutions="daily", datasets="climate_summary")
+    adapter = TypeAdapter(restapi.CoverageResolutions)
+    adapter.validate_python(discovered)
+    parameter = discovered["daily"]["datasets"]["climate_summary"]["parameters"][0]
+    added = {**parameter, "unit_original": "degree_kelvin"}
+    renamed = {("unit_symbol" if key == "unit" else key): value for key, value in parameter.items()}
+    for changed in (added, renamed):
+        dataset = {"description": None, "parameters": [changed]}
+        broken = {"daily": {"description": None, "datasets": {"climate_summary": dataset}}}
+        with pytest.raises(ValidationError):
+            adapter.validate_python(broken)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_coverage_of_every_provider_matches_its_model(client: TestClient) -> None:
+    """The list of every provider and its networks validates, and is sent as `discover()` builds it (GH-2090).
+
+    With no credential set, no credentialed provider is probed, so nothing reaches upstream.
+    """
+    response = client.get("/api/coverage")
+    assert response.status_code == 200
+    assert response.text == json.dumps(Wetterdienst.discover())
+    validated = TypeAdapter(restapi.CoverageProviders).validate_python(response.json())
+    assert validated.keys() == Wetterdienst.registry.keys()
