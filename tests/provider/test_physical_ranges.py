@@ -65,7 +65,7 @@ def test_a_sentinel_is_outside_the_range_of_the_common_parameters(parameter: str
 @pytest.mark.parametrize(
     ("parameter", "value"),
     [
-        ("temperature_air_mean_2m", -45.9),  # the German record low, ten degrees inside the range
+        ("temperature_air_mean_2m", -45.9),  # the German record low, well inside the range
         ("temperature_air_mean_2m", 56.7),  # Death Valley
         ("temperature_dew_point_2m", -80.0),
         ("pressure_air_site", 870.0),  # the lowest sea level pressure, in a typhoon
@@ -144,7 +144,7 @@ def test_a_prefix_holds_one_unit_type_unless_a_name_is_taken_out() -> None:
     """
     for prefix, _ in PREFIX_RANGES:
         matched = {name: PARAMETERS[name].unit_type for name in PARAMETERS if name.startswith(prefix)}
-        family = max(set(matched.values()), key=list(matched.values()).count)
+        family = max(sorted(set(matched.values())), key=list(matched.values()).count)
         odd = {name for name, unit_type in matched.items() if unit_type != family and name not in PARAMETER_RANGES}
         assert odd == set(), f"{prefix} holds {sorted(odd)} to the range of {family}: add them to PARAMETER_RANGES"
 

@@ -433,7 +433,7 @@ NO_STUB = {
     "lhmt/observation": "no sentinel: the source writes null",
     "meteofrance/observation": "no stub yet",
     "meteoswiss/observation": "no stub yet",
-    "metno/frost": "needs an API key; the -1 and -3 rules are pinned by tests/provider/metno",
+    "metno/frost": "needs an API key; the -1 and -3 rules are pinned by tests/provider/metno, which run with a key",
     "metoffice/observation": "needs an API key; no offline test pins its NA rule",
     "nws/observation": "no stub yet",
     "rmi/observation": "no stub yet",
