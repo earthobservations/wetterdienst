@@ -66,6 +66,10 @@ Types of changes:
 
 ### Fixed
 
+- Listing a directory (`list_remote_files_fsspec`, `list_remote_directory_fsspec`) through a proxy
+  that answers with an error status no longer raises or logs the proxy's `Proxy-Authorization`
+  header: the `ClientResponseError` is redacted like a download's is, retry warning included
+  (GH-2603)
 - `dwd/derived` hourly `sunshine_duration_uncertainty` is returned: it was declared with the global
   radiation's column `fg_un_duett`, which the sunshine duration file does not have, and so never
   came back; it is read from `sd_un_duett` (GH-2614)
