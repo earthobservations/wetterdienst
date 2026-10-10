@@ -244,7 +244,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "soil", "ztumi"): "thawing thickness under bare soil",
         ("hourly", "radiation_global", "fg_duett"): "global radiation",
         ("hourly", "radiation_global", "fg_un_duett"): "uncertainty of global radiation",
-        ("hourly", "sunshine_duration", "fg_un_duett"): "uncertainty of sunshine duration",
+        ("hourly", "sunshine_duration", "sd_un_duett"): "uncertainty of sunshine duration",
         ("hourly", "sunshine_duration", "sd_duett"): "sunshine duration",
         ("monthly", "climate_correction_factor", "KF"): (
             "quotient of yearly degree days of reference station in Potsdam and postal code"

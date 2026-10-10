@@ -36,6 +36,9 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/derived` hourly `sunshine_duration_uncertainty` is returned: it was declared with the global
+  radiation's column `fg_un_duett`, which the sunshine duration file does not have, and so never
+  came back; it is read from `sd_un_duett` (GH-2614)
 - The station catalogues of `fmi`, `chmi`, `ipma`, `lhmt`, `metoffice`, `dwd/swsmos` and
   `dwd/phenology`, and the `metoffice` release listing, raise `DownloadError` for a download that
   failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no stations: the REST API

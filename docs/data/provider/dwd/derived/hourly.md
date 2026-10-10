@@ -46,4 +46,4 @@
 |---------------------------------------|---------------|----------------------------------|---------------|-------------|
 | {term}`quality`                       | qn_952        | Quality flag.                    | dimensionless | -           |
 | {term}`sunshine_duration`             | sd_duett      | sunshine duration                | minute        | >=0         |
-| {term}`sunshine_duration_uncertainty` | fg_un_duett   | uncertainty of sunshine duration | minute        | >=0         |
+| {term}`sunshine_duration_uncertainty` | sd_un_duett   | uncertainty of sunshine duration | minute        | >=0         |
