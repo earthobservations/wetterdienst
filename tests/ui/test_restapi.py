@@ -7614,6 +7614,8 @@ def test_a_missing_credential_is_a_501_that_does_not_name_the_setting(
     assert f"for {provider}/{network}" in detail
     assert "WD_AUTH" not in detail
     assert "Settings(" not in detail
+    # a route the MCP tools have too, which `/api/auth` is not
+    assert "/api/coverage" in detail
     assert setting in caplog.text
 
 

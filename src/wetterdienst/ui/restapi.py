@@ -186,10 +186,11 @@ def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseMo
     environment variable named in the body. The provider exists and this instance has no key for it,
     which is a 501 as for the BUFR reader: this server does not serve the network. Not a 503, which
     the app asks once more (`RETRY_TRANSIENT` keeps it for a proxy's), and a missing key does not
-    pass by itself. What `/api/auth` reports as `configured: false` is told the same way here,
-    without the setting's name. Nothing else of the request has been checked when this is raised,
-    so the body does not vouch for it. The message is not lost, it moves to the server log, as a
-    warning: a state that lasts until someone configures the key is no incident.
+    pass by itself. This is what `configured: false` reports, without the setting's name; the body
+    points at `coverage` for it, as the MCP tools do not include `/api/auth`. The request's window
+    and parameters are parsed by the time this is raised, its stations are not, so the body does
+    not vouch for the request. The message is not lost, it moves to the server log, as a warning:
+    a state that lasts until someone configures the key is no incident.
     """
     log.warning(f"Failed to {what}, no credential is configured for the provider: {e}")
     provider, network = getattr(request, "provider", None), getattr(request, "network", None)
@@ -198,7 +199,7 @@ def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseMo
         status_code=501,
         detail=(
             f"This server has no credential{of}, which the provider requires, so it cannot serve the "
-            f"request. {app.url_path_for('auth')} tells whether a provider is "
+            f"request. {app.url_path_for('coverage')} tells whether a provider is "
             "configured; otherwise ask whoever runs this instance."
         ),
     )
