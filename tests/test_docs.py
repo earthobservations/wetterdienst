@@ -1218,3 +1218,133 @@ def _capped(lines: list[str], limit: int, what: str) -> list[str]:
     if len(lines) <= limit:
         return lines
     return [*lines[:limit], f"{what}: ... and {len(lines) - limit} more"]
+
+
+TIME_REFERENCE = ROOT / "docs" / "data" / "time_reference.md"
+
+# The answers a `reference time` cell may begin with. `unverified` is for a position the provider's
+# documentation does not state: the cell holds no guess, and a comparison with a second source goes in
+# brackets behind it as an observation.
+_REFERENCE_TIMES = frozenset(["start", "end", "middle", "instant", "mixed", "unverified"])
+
+# Networks that declare no resolutions and so have a row with the resolution `n/a` instead.
+_TIME_REFERENCE_WITHOUT_RESOLUTION = {("dwd", "alerts"), ("dwd", "radar")}
+
+
+def _unescape(cell: str) -> str:
+    """Undo the backslash escapes a cell of the time reference tables is written with."""
+    return re.sub(r"\\(.)", r"\1", cell.strip())
+
+
+def _time_reference_tables() -> tuple[list[tuple[str, list[str]]], dict[str, list[str]]]:
+    """Read the rows of the time reference tables and the notes written below each of them.
+
+    Returns the rows as (provider, cells) in page order, and per provider the bullet points of its
+    notes. A provider is a ``##`` heading; its table is the one below it.
+    """
+    rows: list[tuple[str, list[str]]] = []
+    notes: dict[str, list[str]] = {}
+    provider = None
+    for line in _prose_lines(TIME_REFERENCE):
+        if line.startswith("## "):
+            provider = line[3:].strip()
+            notes[provider] = []
+        elif provider is None:
+            continue
+        elif line.startswith("|"):
+            cells = [_unescape(cell) for cell in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
+            if cells[0] != "network" and not all(set(cell) <= {"-", ":"} for cell in cells):
+                rows.append((provider, cells))
+        elif line.startswith("- "):
+            notes[provider].append(_unescape(line[2:]))
+    return rows, notes
+
+
+def test_time_reference_has_a_row_for_every_resolution() -> None:
+    """Test that the time reference table covers every provider, network, resolution and dataset.
+
+    A timestamp that is an hour off is never an error, so the table of what each provider's stamp
+    means is only worth anything if a resolution cannot be added without being asked the question
+    (GH-2617). The reverse is checked as well: a row for something the model no longer declares is
+    read by nothing else.
+    """
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+
+    rows, _ = _time_reference_tables()
+    documented: dict[tuple[str, str, str], set[str]] = {}
+    errors = []
+    for provider, cells in rows:
+        if len(cells) != 6:
+            errors.append(f"{provider}: a row has {len(cells)} cells, not 6: {cells[:3]}")
+            continue
+        network, resolution, datasets = cells[:3]
+        documented.setdefault((provider, network, resolution), set()).update(
+            name.strip() for name in datasets.split(",")
+        )
+    declared: set[tuple[str, str, str]] = set()
+    for provider, networks in Wetterdienst.registry.items():
+        if EXCLUDE_PROVIDER_NETWORKS.get(provider) == "*":
+            continue
+        for network in networks:
+            if (provider, network) in _TIME_REFERENCE_WITHOUT_RESOLUTION:
+                declared.add((provider, network, "n/a"))
+                continue
+            for resolution in Wetterdienst(provider, network).metadata:
+                key = (provider, network, resolution.name)
+                declared.add(key)
+                shown = documented.get(key)
+                if shown is None:
+                    errors.append(f"{provider}/{network}/{resolution.name} has no row")
+                elif "all" not in shown:
+                    names = {dataset.name for dataset in resolution}
+                    errors.extend(
+                        f"{provider}/{network}/{resolution.name} names the dataset {name!r}, which it does not declare"
+                        for name in sorted(shown - names)
+                    )
+                    errors.extend(
+                        f"{provider}/{network}/{resolution.name} has no row for the dataset {name!r}"
+                        for name in sorted(names - shown)
+                    )
+    errors.extend(f"{'/'.join(key)} has a row but is not declared" for key in sorted(set(documented) - declared))
+    assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+def _time_reference_row_problems(provider: str, cells: list[str], note: str) -> list[str]:
+    """Return what is missing from one row of the time reference tables and from its note."""
+    if len(cells) != 6:
+        return [f"{provider}: a row has {len(cells)} cells, not 6: {cells[:3]}"]
+    network, resolution, _, zone, reference, verified = cells
+    tag = f"{provider}/{network}/{resolution}"
+    problems = []
+    if not note.startswith(f"**{network}/{resolution}"):
+        problems.append(f"{tag}: the note {note[:40]!r} does not belong to the row")
+    if not zone:
+        problems.append(f"{tag}: no source time zone")
+    if reference.split(" ")[0] not in _REFERENCE_TIMES:
+        problems.append(f"{tag}: the reference time {reference!r} starts with none of {sorted(_REFERENCE_TIMES)}")
+    if verified not in ("yes", "partly", "no"):
+        problems.append(f"{tag}: verified is {verified!r}")
+    if "Library:" not in note or "Source:" not in note:
+        problems.append(f"{tag}: the note lacks what the library does or its source")
+    elif "http" not in note.split("Source:", 1)[1] and verified != "no":
+        problems.append(f"{tag}: the note gives no address for a row that is {verified!r}")
+    return problems
+
+
+def test_time_reference_rows_are_complete() -> None:
+    """Test that every row states its zone and reference time, or says `unverified`, and has its notes.
+
+    The notes below a table hold one bullet per row, in the order of the rows: what the library does,
+    and the provider's own sentence with its address. A row that is `no` quotes nothing it could give
+    an address for.
+    """
+    rows, notes = _time_reference_tables()
+    errors = []
+    for provider in dict.fromkeys(provider for provider, _ in rows):
+        provider_rows = [cells for p, cells in rows if p == provider]
+        if len(provider_rows) != len(notes[provider]):
+            errors.append(f"{provider}: {len(provider_rows)} rows but {len(notes[provider])} notes")
+            continue
+        for cells, note in zip(provider_rows, notes[provider], strict=True):
+            errors.extend(_time_reference_row_problems(provider, cells, note))
+    assert not errors, "\n".join(_capped(errors, 40, "the report"))
