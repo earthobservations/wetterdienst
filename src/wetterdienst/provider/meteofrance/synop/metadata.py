@@ -43,7 +43,7 @@ MeteoFranceSynopMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "t",
                             "unit": "degree_kelvin",
                         },

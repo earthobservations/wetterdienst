@@ -39,8 +39,13 @@ are taken as they come:
   their names while publishing different units -- MOSMIX `TD` is Kelvin, swsmos `TD` is Celsius -- so
   its wording is used only where it says nothing about the unit
 
-The AEMET, SMHI, LHMT and Météo-France translations are ours. Everything else in this table is the
-source's own wording, so a sentence here can be checked against what the provider says.
+The AEMET, SMHI, LHMT and Météo-France translations are ours, as are the Geosphere temperature rows
+(the ``description`` of each parameter in the API's metadata), IPMA ``temperatura`` (api.ipma.pt)
+and the DWD SWSMOS ``TS`` row (``swis_swsmos_beschreibung.pdf``). The rest of this table is meant to
+be the source's own wording, so that a sentence here can be checked against what the provider says,
+but the older entries were written for the docs tables and not every one was checked against the
+source; the sub-daily temperature rows listed in GH-2660 were. ``tests/metadata/test_parameter_statistics.py``
+reads a statistic out of an entry only if it is not in ``DERIVED_DESCRIPTIONS``.
 
 Keyed by metadata model name, then ``(resolution, dataset, name_original)``. Applied by
 ``build_metadata_model``.
@@ -62,7 +67,7 @@ _WSV_PEGEL_PARAMETERS = {
     "GRU": "average groundwater level during time scale",
     "HL": "average relative humidity of the air during time scale",
     "LF": "average electric conductivity during time scale",
-    "LT": "average air temperature during time scale",
+    "LT": "air temperature (LUFTTEMPERATUR; LUFTTEMPERATUR ROHDATEN for the raw series)",
     "MAXH": "max wave height during time scale",
     "NIEDERSCHLAG": "average precipitation height during time scale",
     "NIEDERSCHLAGSINTENSITÄT": "average precipitation intensity during time scale",
@@ -134,6 +139,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Total liquid precipitation during the last hour consistent with significant weather"
         ),
         ("hourly", "data", "TD"): "Dew point temperature 2m above surface.",
+        ("hourly", "data", "TS"): "Temperature of the road surface.",
         ("hourly", "data", "WWL6"): "Probability: Occurrence of liquid precipitation within the last 6 hours",
     },
     "DwdPoiMetadata": {
@@ -908,8 +914,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "wind_extreme", "fx_911_6"): "Wind gust max 6h.",
     },
     "DwdRoadMetadata": {
-        ("15_minutes", "data", "airTemperature"): "mean air temperature in 2m",
-        ("15_minutes", "data", "dewpointTemperature"): "mean dew point temperature in 2m",
+        (
+            "15_minutes",
+            "data",
+            "airTemperature",
+        ): "air temperature (BUFR 0 12 101, no time period or statistic attached)",
+        (
+            "15_minutes",
+            "data",
+            "dewpointTemperature",
+        ): "dew point temperature (BUFR 0 12 103, no time period or statistic attached)",
         ("15_minutes", "data", "horizontalVisibility"): "visibility range",
         ("15_minutes", "data", "intensityOfPrecipitation"): "precipitation intensity",
         ("15_minutes", "data", "maximumWindGustDirection"): "direction of maximum wind gust",
@@ -990,13 +1004,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("10_minutes", "data", "rrm"): "precipitation duration",
         ("10_minutes", "data", "sh"): "snow depth",
         ("10_minutes", "data", "so"): "sunshine duration",
-        ("10_minutes", "data", "tb10"): "soil temperature mean at 0.1m",
-        ("10_minutes", "data", "tb20"): "soil temperature mean at 0.2m",
-        ("10_minutes", "data", "tb50"): "soil temperature mean at 0.5m",
-        ("10_minutes", "data", "tl"): "air temperature mean at 2m",
+        ("10_minutes", "data", "tb10"): "Soil temperature at 10 cm depth, 10-minute measured value",
+        ("10_minutes", "data", "tb20"): "Soil temperature at 20 cm depth, 10-minute measured value",
+        ("10_minutes", "data", "tb50"): "Soil temperature at 50 cm depth, 10-minute measured value",
+        ("10_minutes", "data", "tl"): "Air temperature at 2 m height, 10-minute measured value",
         ("10_minutes", "data", "tlmax"): "air temperature max at 2m",
         ("10_minutes", "data", "tlmin"): "air temperature min at 2m",
-        ("10_minutes", "data", "ts"): "air temperature mean at 0.05m",
+        ("10_minutes", "data", "ts"): "Air temperature at 5 cm height, 10-minute measured value",
         ("10_minutes", "data", "tsmax"): "air temperature max at 0.05m",
         ("10_minutes", "data", "tsmin"): "air temperature min at 0.05m",
         ("daily", "data", "bewm_mittel"): "total cloud cover",
@@ -1027,12 +1041,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "rrm"): "precipitation duration",
         ("hourly", "data", "sh"): "snow depth",
         ("hourly", "data", "so_h"): "sunshine duration",
-        ("hourly", "data", "tb10"): "soil temperature mean at 0.1m",
-        ("hourly", "data", "tb100"): "soil temperature mean at 1m",
-        ("hourly", "data", "tb20"): "soil temperature mean at 0.2m",
-        ("hourly", "data", "tb200"): "soil temperature mean at 2m",
-        ("hourly", "data", "tb50"): "soil temperature mean at 0.5m",
-        ("hourly", "data", "tl"): "air temperature mean at 2m",
+        ("hourly", "data", "tb10"): "Soil temperature at 10 cm depth, hourly measured value",
+        ("hourly", "data", "tb100"): "Soil temperature at 100 cm depth, hourly measured value",
+        ("hourly", "data", "tb20"): "Soil temperature at 20 cm depth, hourly measured value",
+        ("hourly", "data", "tb200"): "Soil temperature at 200 cm depth, hourly measured value",
+        ("hourly", "data", "tb50"): "Soil temperature at 50 cm depth, hourly measured value",
+        ("hourly", "data", "tl"): "Air temperature at 2 m height, hourly measured value",
         ("hourly", "data", "tsmin"): "air temperature min at 0.05m",
         ("monthly", "data", "bet0"): "concrete temperature mean at 0m",
         ("monthly", "data", "bet0_max"): "concrete temperature max at 0m",
@@ -1458,7 +1472,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "NwsObservationMetadata": {
         ("hourly", "data", "barometricpressure"): "air pressure at station height",
-        ("hourly", "data", "dewpoint"): "Average dew point temperature in 2m",
+        ("hourly", "data", "dewpoint"): "dew point temperature",
         ("hourly", "data", "maxtemperaturelast24hours"): "maximum air temperature in the last 24 hours",
         ("hourly", "data", "mintemperaturelast24hours"): "minimum air temperature in the last 24 hours",
         ("hourly", "data", "precipitationlast3hours"): "precipitation height of last three hours",
@@ -1466,7 +1480,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "precipitationlasthour"): "precipitation height of last hour",
         ("hourly", "data", "relativehumidity"): "relative humidity",
         ("hourly", "data", "sealevelpressure"): "air pressure at sea level",
-        ("hourly", "data", "temperature"): "Average air temperature in 2m",
+        ("hourly", "data", "temperature"): "air temperature",
         ("hourly", "data", "visibility"): "visibility range",
         ("hourly", "data", "windchill"): (
             "wind chill temperature calculated by NWS (https://www.weather.gov/gjt/windchill)"
@@ -1997,6 +2011,17 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "22"): "Air temperature. Mean, once per month.",
         ("monthly", "data", "23"): "Precipitation amount. Sum, once per month.",
     },
+    # the field list on api.ipma.pt: "temperatura : temperatura do ar registada a 1.5 metros de
+    # altura, média da hora (°C)", translated
+    "IpmaObservationMetadata": {
+        ("hourly", "data", "temperatura"): "Air temperature recorded at 1.5 m height, hourly mean.",
+    },
+    # `t` is "température" in the technical description of the SYNOP product
+    # (OBSERVATIONS_Descriptif_Technique_Données_SYNOP_OMM.pdf), with no window; the 12 and 24 hour
+    # extremes are the ones that state one
+    "MeteoFranceSynopMetadata": {
+        ("subdaily", "data", "t"): "Temperature.",
+    },
 }
 
 
@@ -2445,7 +2470,6 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "DwdSwsmosMetadata": {
         ("hourly", "data", "RC"): "Coded condition of the road surface, such as dry, wet or icy.",
         ("hourly", "data", "TL"): "Temperature 2m above surface.",
-        ("hourly", "data", "TS"): "Mean temperature of the ground surface.",
     },
     "DmiObservationMetadata": {
         ("annual", "data", "acc_heating_degree_days_17"): (
@@ -2564,7 +2588,6 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "radiacao"): (
             "Global radiation received on a horizontal surface, accumulated as energy over the interval."
         ),
-        ("hourly", "data", "temperatura"): "Mean air temperature at 2 m above ground.",
     },
     "MeteoFranceSynopMetadata": {
         ("subdaily", "data", "dd"): "Direction the wind is blowing from, clockwise from true north.",
@@ -2580,7 +2603,6 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "data", "rr24"): "Depth of precipitation collected over the preceding 24 hours.",
         ("subdaily", "data", "rr3"): "Depth of precipitation collected over the preceding 3 hours.",
         ("subdaily", "data", "rr6"): "Depth of precipitation collected over the preceding 6 hours.",
-        ("subdaily", "data", "t"): "Mean air temperature at 2 m above ground.",
         ("subdaily", "data", "td"): (
             "Dew point at 2 m above ground, the temperature at which the air would become saturated."
         ),

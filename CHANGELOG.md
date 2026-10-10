@@ -67,17 +67,36 @@ Types of changes:
   `roadSurfaceTemperature`. Request `temperature_air_2m`, `temperature_air_0_05m`,
   `temperature_dew_point_2m`, `temperature_wet_2m`, `temperature_radiant_2m`, `temperature_surface`
   or `temperature_soil_0_02m` to `_1m`; the old names are not found (logged and dropped, or
-  `NoParametersFoundError` when no other parameter is requested). Road `airTemperature`,
-  `dewpointTemperature`, SWSMOS `TS` (a mean) and windowed names keep theirs (GH-2657)
+  `NoParametersFoundError` when no other parameter is requested). Windowed names keep theirs; road
+  `airTemperature` and `dewpointTemperature` and SWSMOS `TS` follow below (GH-2657)
 - **Breaking**: the same for the sub-daily temperatures of `chmi`, `eccc`, `knmi` hourly, `lhmt`,
   `metoffice`, `noaa/ghcn` hourly, `meteofrance/observation` hourly `TD`, `meteofrance/synop` `td`
   and `metno/frost` hourly dew point, whose sources say nothing about the statistic. Request the
   spot names; the old ones are not found (logged and dropped, or `NoParametersFoundError` when no
-  other parameter is requested). Rows whose source says a mean or average (DMI, FMI, KNMI 10-minute,
-  NWS, RMI, WSV, ...) keep their `_mean_` names (GH-2657)
+  other parameter is requested). Rows whose source says a mean or average of the row's interval
+  (DMI, IPMA, KNMI 10-minute `tg` and `tb`, MeteoSwiss hourly, RMI, ...) keep their `_mean_` names
+  (GH-2657)
+- **Breaking**: `dwd/road` `airTemperature` and `dewpointTemperature` (BUFR 0 12 101 and 0 12 103,
+  which carry no time period or statistic) and `dwd/swsmos` `TS` (DWD: "Temperatur der
+  Fahrbahnoberfläche", a road model forecast for the hour) are named `temperature_air_2m`,
+  `temperature_dew_point_2m` and `temperature_surface`, no longer `temperature_air_mean_2m`,
+  `temperature_dew_point_mean_2m` and `temperature_surface_mean`. Request the new names; the old
+  ones are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no
+  other parameter is requested). `dwd/road` `roadSurfaceTemperature` was already
+  `temperature_surface` (GH-2660)
+- **Breaking**: sub-daily temperatures whose "mean" was not the source's are named for a reading at
+  one moment, no longer `temperature_air_mean_2m`, `temperature_dew_point_mean_2m` or the
+  `_mean_` soil and 0.05 m names: `geosphere/observation` 10-minute and hourly `tl`, `ts`, `tb10`
+  to `tb200` (Geosphere: "Messwert"; its wind rows say "Mittelwert"), `wsv/pegel` `LT`,
+  `meteofrance/synop` `t`, `nws/observation` `temperature` and `dewpoint` (api.weather.gov states no
+  statistic), `fmi/observation` hourly `t2m` and `td` and `knmi/observation` 10-minute `ta` and `td`
+  (a 1-minute mean in a longer row). Request `temperature_air_2m`, `temperature_air_0_05m`,
+  `temperature_dew_point_2m` or `temperature_soil_0_1m` to `_2m` (`_2m` is new); the old names are
+  not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested). KNMI `tg` and `tb` keep their `_mean_` names (GH-2660)
 - **Breaking**: a `ts_geo_station_distance` override keyed by an old `_mean_` name no longer
   applies to a row moved to a spot name by the entries above: the row takes the default radius.
-  Key the override by the new name (GH-2651, GH-2657)
+  Key the override by the new name (GH-2651, GH-2657, GH-2660)
 - `GET /api/coverage` declares its response in the OpenAPI document: the list of every provider
   and its networks, and the resolutions, datasets and parameters of one (`CoverageNetwork`,
   `CoverageResolution`, `CoverageDataset`, `CoverageParameter`), so a client can be generated from
