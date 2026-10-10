@@ -94,6 +94,9 @@ Types of changes:
   but the timeout, the User-Agent header and booleans is masked, a `proxy` URL included. stamina's
   retry warning for a failed file listing rendered the settings, proxy password and
   `Authorization` header included. `model_dump()` still returns the values as given (GH-2593)
+- Station names of `dwd/swsmos` and `dwd/road` no longer carry the trailing blank the catalogue
+  pads some with (`Darup `, `AD Südost `: 38 and 33 stations), so a name filter on `Darup` finds
+  them (GH-2616)
 
 ## [0.143.0] - 2026-10-08
 

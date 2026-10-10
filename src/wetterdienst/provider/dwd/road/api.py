@@ -1249,6 +1249,8 @@ class DwdRoadRequest(TimeseriesRequest):
             pl.lit(self.metadata[0].datasets[0].name, dtype=pl.String).alias("dataset"),
             pl.col("longitude").str.replace(",", "."),
             pl.col("latitude").str.replace(",", "."),
+            # the sheet pads some names with a trailing blank (`Darup `), which an exact name filter then misses
+            pl.col("name").str.strip_chars(),
             pl.when(~pl.col("road_type").str.contains("x")).then(pl.col("road_type")),
             pl.when(~pl.col("road_surroundings_type").str.contains("x")).then(
                 pl.col("road_surroundings_type"),

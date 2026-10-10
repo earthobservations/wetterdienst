@@ -472,7 +472,8 @@ class DwdSwsmosRequest(TimeseriesRequest):
             df = df.filter(pl.col("Inaktiv").is_null() | (pl.col("Inaktiv").str.strip_chars() == ""))
         return df.select(
             pl.col("Kennung").alias("station_id"),
-            pl.col("Name").alias("name"),
+            # the catalogue pads some names with a trailing blank (`Darup `), which an exact name filter then misses
+            pl.col("Name").str.strip_chars().alias("name"),
             pl.col("Breite").str.replace(",", ".").cast(pl.Float64, strict=False).alias("latitude"),
             pl.col("Laenge").str.replace(",", ".").cast(pl.Float64, strict=False).alias("longitude"),
             pl.col("Hoehe").str.replace(",", ".").cast(pl.Float64, strict=False).alias("elevation"),
