@@ -22,11 +22,11 @@ import pytest
 from tests.conftest import skip_if_upstream_unavailable
 from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, assert_sound
 from tests.provider.station_catalogue_stubs import (
+    CHMI_NAME,
+    DWD_NAMES,
     GHCN_DAILY_END,
     GHCN_NAMES,
     GHCN_NO_POSITION,
-    QUESTION_MARK,
-    question_mark_in_the_name,
 )
 from wetterdienst import Wetterdienst
 
@@ -37,13 +37,7 @@ _RESOLUTIONS = {"eaufrance/hubeau": {"hourly"}}
 
 
 ACCEPTED: dict[str, tuple[Accepted, ...]] = {
-    "chmi/observation": (
-        Accepted(
-            "name_encoding",
-            "the list names the station `Nová Lhota  ?` in its last period (1976 to 1980), the source's own value",
-            where=lambda row: row["station_id"] == "0-203-0-41302035001",
-        ),
-    ),
+    "chmi/observation": (CHMI_NAME,),
     "dwd/derived": (
         Accepted(
             "coordinates_missing",
@@ -56,12 +50,8 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
             where=lambda row: row["dataset"] == "climate_correction_factor",
         ),
     ),
-    "dwd/dmo": (
-        Accepted("name_encoding", f"the station catalogue of DWD: {QUESTION_MARK}", question_mark_in_the_name),
-    ),
-    "dwd/mosmix": (
-        Accepted("name_encoding", f"the station catalogue of DWD: {QUESTION_MARK}", question_mark_in_the_name),
-    ),
+    "dwd/dmo": (DWD_NAMES,),
+    "dwd/mosmix": (DWD_NAMES,),
     "fmi/observation": (
         Accepted(
             "coordinates_outside_country",
@@ -99,6 +89,17 @@ def _cases() -> list[object]:
             try:
                 api = Wetterdienst(provider, network)
             except ImportError:
+                # an optional extra that is not installed
+                cases.append(
+                    pytest.param(
+                        provider,
+                        network,
+                        "",
+                        "",
+                        marks=pytest.mark.skip(reason=f"{key} needs an extra that is not installed"),
+                        id=f"{key} (not installed)",
+                    )
+                )
                 continue
             metadata = getattr(api, "metadata", None)
             if metadata is None:  # radar and alerts have no station catalogue

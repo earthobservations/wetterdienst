@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
-from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted
+from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, has_encoding_damage
 from wetterdienst import Settings
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation import api as chmi_api
@@ -272,7 +272,7 @@ def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
 def question_mark_in_the_name(row: dict[str, Any]) -> bool:
     """Say whether a name is damaged by a question mark and by nothing worse."""
-    return "?" in row["name"] and not any(damage in row["name"] for damage in ("\ufffd", "Ã", "Â", "â€"))
+    return "?" in row["name"] and not has_encoding_damage(row["name"], question_marks=False)
 
 
 # a source that writes a character it cannot encode as a question mark leaves a name such as NAR?JAN-MAR or IPIRANGA(?)
@@ -288,20 +288,22 @@ GHCN_NO_POSITION = Accepted(
 GHCN_NAMES = Accepted(
     "name_encoding", f"the list names stations IPIRANGA(?) and alike: {QUESTION_MARK}", question_mark_in_the_name
 )
+_THIS_YEAR = dt.datetime.now(dt.timezone.utc).year
 GHCN_DAILY_END = Accepted(
     "date_in_the_future",
     "the end of a station that reports this year is 31 December of this year (GH-2643)",
-    where=lambda row: (
-        row["end_timestamp"] is not None and row["end_timestamp"].year == dt.datetime.now(dt.timezone.utc).year
-    ),
+    where=lambda row: row["end_timestamp"] is not None and row["end_timestamp"].year == _THIS_YEAR,
+)
+
+DWD_NAMES = Accepted("name_encoding", f"the station catalogue of DWD: {QUESTION_MARK}", question_mark_in_the_name)
+CHMI_NAME = Accepted(
+    "name_encoding",
+    "the list names the station `Nová Lhota  ?` in its last period (1976 to 1980), the source's own value",
+    where=lambda row: row["station_id"] == "0-203-0-41302035001",
 )
 
 STUBS = [
-    Stub(
-        "dwd/mosmix hourly/small",
-        _dwd_mosmix,
-        (Accepted("name_encoding", f"the station catalogue of DWD: {QUESTION_MARK}", question_mark_in_the_name),),
-    ),
+    Stub("dwd/mosmix hourly/small", _dwd_mosmix, (DWD_NAMES,)),
     Stub("ipma/observation hourly/data", _ipma),
     Stub("lhmt/observation hourly/data", _lhmt),
     Stub("noaa/ghcn hourly/data", _ghcn_hourly, (GHCN_NO_POSITION, GHCN_NAMES)),
@@ -310,7 +312,11 @@ STUBS = [
         _ghcn_daily,
         (
             # the end the stub's rows get is 31 December 2026, which is in the future only before then
-            Accepted(GHCN_DAILY_END.rule, GHCN_DAILY_END.reason, where=lambda row: row["end_timestamp"].year == 2026),
+            Accepted(
+                GHCN_DAILY_END.rule,
+                GHCN_DAILY_END.reason,
+                where=lambda row: row["end_timestamp"] is not None and row["end_timestamp"].year == 2026,
+            ),
             GHCN_NAMES,
         ),
         now=dt.datetime(2026, 10, 10, tzinfo=dt.timezone.utc),
@@ -319,13 +325,7 @@ STUBS = [
     Stub(
         "chmi/observation daily/data",
         _chmi,
-        (
-            Accepted(
-                "name_encoding",
-                "the list names the station `Nová Lhota  ?` in its last period (1976 to 1980), the source's own value",
-                where=lambda row: row["station_id"] == "0-203-0-41302035001",
-            ),
-        ),
+        (CHMI_NAME,),
     ),
     Stub("dwd/road 15_minutes/data", _dwd_road),
     Stub("dwd/swsmos hourly/data", _dwd_swsmos),

@@ -10,7 +10,8 @@ by `test_station_catalogue_stubs.py` (offline, to a stub of each provider's list
 `test_station_catalogues_live.py` (against the live lists, which show what a stub cannot).
 
 A rule that a catalogue breaks on purpose or by the source's own doing is named in `Accepted` with its reason, never
-skipped, and an `Accepted` that matches nothing fails the test, so a fixed defect cannot leave its exception behind.
+skipped, and in the offline test an `Accepted` that matches nothing fails, so a fixed defect cannot leave its
+exception behind. The live test cannot hold to that, as a source that fixes a defect is no failure of ours.
 
 To hold a new provider to the rules, add a stub of its catalogue to `station_catalogue_stubs.py` and, if it is
 published for one country, its bounding box to `COUNTRY_BBOX`.
@@ -83,6 +84,7 @@ RULES = (
 # character, a symbol or one of the Windows-1252 punctuation marks (Ã¼ for ü, Ã\u0178 for ß, Å¼ for ż), â€ for a dash,
 # the replacement character, and the question mark a lossy conversion leaves for a character it could not encode.
 # A capital Ã, Â, Å or Ä followed by a letter is a letter of Portuguese, Finnish or Swedish (SÃO PAULO, ÄÄNEKOSKI)
+
 # the Windows-1252 punctuation that stands in for the bytes 0x82 to 0x9F
 _CP1252_PUNCTUATION = "".join(
     rf"\x{{{c}}}"
@@ -117,6 +119,12 @@ _CP1252_PUNCTUATION = "".join(
 )
 _CONTINUATION = rf"\x{{80}}-\x{{BF}}{_CP1252_PUNCTUATION}"
 _ENCODING_DAMAGE = rf"\x{{FFFD}}|[ÃÂÅÄ][{_CONTINUATION}]|â€|\?"
+
+
+def has_encoding_damage(text: str, *, question_marks: bool = True) -> bool:
+    """Say whether a name has damaged characters, leaving the question marks out of it if `question_marks` is False."""
+    series = pl.Series([text if question_marks else text.replace("?", "")], dtype=pl.String)
+    return bool(series.str.contains(_ENCODING_DAMAGE)[0])
 
 
 class Violation(NamedTuple):
@@ -303,8 +311,8 @@ def check_catalogue(
         df,
         catalogue,
         "date_implausible",
-        start < EARLIEST_START,
-        lambda row: f"starts {row['start_timestamp']}",
+        (start < EARLIEST_START) | (end < EARLIEST_START),
+        lambda row: f"starts {row['start_timestamp']} and ends {row['end_timestamp']}",
     )
 
     found += _violations(

@@ -14,6 +14,7 @@ from tests.provider.station_catalogue import (
     Accepted,
     assert_sound,
     check_catalogue,
+    has_encoding_damage,
     unaccepted,
 )
 
@@ -107,6 +108,7 @@ _CASES = [
         [_station(start_timestamp=dt.datetime(2027, 1, 1, tzinfo=dt.timezone.utc), end_timestamp=None)],
     ),
     ("date_implausible", [_station(start_timestamp=dt.datetime(1066, 1, 1, tzinfo=dt.timezone.utc))]),
+    ("date_implausible", [_station(start_timestamp=None, end_timestamp=dt.datetime(1, 1, 1, tzinfo=dt.timezone.utc))]),
     ("name_empty", [_station(name="")]),
     ("name_empty", [_station(name=None)]),
     ("name_padding", [_station(name="Großenkneten ")]),
@@ -213,3 +215,11 @@ def test_every_exception_that_covers_a_violation_is_used() -> None:
     left, stale = unaccepted(violations, [broad, narrow])
     assert left == []
     assert stale == []
+
+
+def test_a_question_mark_excuses_no_other_damage() -> None:
+    """A name with a question mark and mojibake is damaged beyond the question mark."""
+    assert has_encoding_damage("NAR?JAN-MAR")
+    assert not has_encoding_damage("NAR?JAN-MAR", question_marks=False)
+    assert has_encoding_damage("DzierÅ¼kowice?", question_marks=False)
+    assert not has_encoding_damage("SÃO PAULO?", question_marks=False)
