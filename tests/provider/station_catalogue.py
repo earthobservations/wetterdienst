@@ -57,7 +57,7 @@ ELEVATION_RANGE = (-430.0, 8849.0)
 # the numbers sources use for a missing height
 ELEVATION_SENTINELS = (-99999.0, -9999.0, -999.9, -999.0, -99.0, 9999.0, 99999.0)
 # no station catalogue lists a station that began before this
-EARLIEST_START = dt.datetime(1600, 1, 1, tzinfo=dt.UTC)
+EARLIEST_START = dt.datetime(1600, 1, 1, tzinfo=dt.timezone.utc)
 
 RULES = (
     "id_empty",
@@ -154,7 +154,7 @@ def check_catalogue(
         now: the time the end of a station is held against, the present when None
 
     """
-    now = now or dt.datetime.now(dt.UTC)
+    now = now or dt.datetime.now(dt.timezone.utc)
     tomorrow = now + dt.timedelta(days=1)
     station = pl.col("station_id")
     lat, lon, elevation = pl.col("latitude"), pl.col("longitude"), pl.col("elevation")

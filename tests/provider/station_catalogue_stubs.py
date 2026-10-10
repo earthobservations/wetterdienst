@@ -289,7 +289,7 @@ GHCN_NAMES = Accepted(
 GHCN_DAILY_END = Accepted(
     "date_in_the_future",
     "the end of a station that reports this year is 31 December of this year (GH-2643)",
-    where=lambda row: row["end_timestamp"].year == dt.datetime.now(dt.UTC).year,
+    where=lambda row: row["end_timestamp"].year == dt.datetime.now(dt.timezone.utc).year,
 )
 
 STUBS = [
@@ -309,7 +309,7 @@ STUBS = [
             Accepted(GHCN_DAILY_END.rule, GHCN_DAILY_END.reason, where=lambda row: row["end_timestamp"].year == 2026),
             GHCN_NAMES,
         ),
-        now=dt.datetime(2026, 10, 10, tzinfo=dt.UTC),
+        now=dt.datetime(2026, 10, 10, tzinfo=dt.timezone.utc),
     ),
     Stub("geosphere/observation daily/data", _geosphere),
     Stub(
