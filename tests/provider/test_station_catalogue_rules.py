@@ -204,7 +204,7 @@ def test_an_empty_catalogue_is_not_sound() -> None:
 def test_failures_beyond_the_limit_are_counted_not_listed() -> None:
     """A catalogue that breaks a rule everywhere fails with a short list, not a page of stations."""
     stations = _frame(*[_station(station_id=f"{index:05d}", name="Bad ") for index in range(5)])
-    with pytest.raises(AssertionError, match="and 3 more"):
+    with pytest.raises(AssertionError, match=r"name_padding: \.\.\. and 3 more"):
         assert_sound(stations, "test", now=_NOW, limit=2)
 
 
@@ -231,3 +231,13 @@ def test_the_question_mark_exception_covers_a_name_with_that_damage_only() -> No
     assert question_mark_in_the_name({"name": "NAR?JAN-MAR"})
     assert not question_mark_in_the_name({"name": "DzierÅ¼kowice?"})
     assert not question_mark_in_the_name({"name": "Großenkneten"})
+
+
+def test_a_rule_broken_everywhere_does_not_hide_the_others() -> None:
+    """The limit is for each rule, so a second rule's violations are listed even after thousands of the first."""
+    stations = _frame(
+        *[_station(station_id=f"{index:05d}", name="Bad ") for index in range(5)],
+        _station(station_id="x", elevation=9999.0),
+    )
+    with pytest.raises(AssertionError, match="elevation_sentinel: station 'x'"):
+        assert_sound(stations, "test", now=_NOW, limit=2)

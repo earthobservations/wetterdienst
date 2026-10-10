@@ -367,7 +367,7 @@ def assert_sound(
     bbox: tuple[float, float, float, float] | None = None,
     accepted: Iterable[Accepted] = (),
     now: dt.datetime | None = None,
-    limit: int = 20,
+    limit: int = 10,
     fail_on_stale: bool = True,
 ) -> None:
     """Raise an `AssertionError` that lists the provider, station and rule of every violation left after `accepted`.
@@ -379,9 +379,13 @@ def assert_sound(
     assert not df.is_empty(), f"{catalogue}: the catalogue is empty, so no rule was applied"
     left, stale = unaccepted(check_catalogue(df, catalogue, bbox=bbox, now=now), accepted)
     stale = stale if fail_on_stale else []
-    problems = [str(violation) for violation in left[:limit]]
-    if len(left) > limit:
-        problems.append(f"... and {len(left) - limit} more")
+    # at most `limit` of each rule, so that a rule broken by thousands of stations does not hide the others
+    problems = []
+    for rule in dict.fromkeys(violation.rule for violation in left):
+        broken = [violation for violation in left if violation.rule == rule]
+        problems += [str(violation) for violation in broken[:limit]]
+        if len(broken) > limit:
+            problems.append(f"{catalogue}: {rule}: ... and {len(broken) - limit} more")
     problems += [
         f"{catalogue}: the exception for {exception.rule} matches no station: {exception.reason}" for exception in stale
     ]
