@@ -149,7 +149,7 @@ DwdMosmixMetadata = {
                             "unit": "second",
                         },
                         {
-                            "name": "temperature_air_max_2m",
+                            "name": "temperature_air_max_2m_last_12h",
                             "name_original": "tx",
                             "unit": "degree_kelvin",
                         },
@@ -164,7 +164,7 @@ DwdMosmixMetadata = {
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_air_min_2m",
+                            "name": "temperature_air_min_2m_last_12h",
                             "name_original": "tn",
                             "unit": "degree_kelvin",
                         },
@@ -726,7 +726,7 @@ DwdMosmixMetadata = {
                             "unit": "second",
                         },
                         {
-                            "name": "temperature_air_max_2m",
+                            "name": "temperature_air_max_2m_last_12h",
                             "name_original": "tx",
                             "unit": "degree_kelvin",
                         },
@@ -751,7 +751,7 @@ DwdMosmixMetadata = {
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_air_min_2m",
+                            "name": "temperature_air_min_2m_last_12h",
                             "name_original": "tn",
                             "unit": "degree_kelvin",
                         },

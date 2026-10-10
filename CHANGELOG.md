@@ -16,8 +16,31 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `chmi/observation` monthly and annual `TMA` and `TMI` are named
+  `temperature_air_max_2m_mean` and `temperature_air_min_2m_mean`, no longer
+  `temperature_air_max_2m` and `temperature_air_min_2m`: the files hold the mean of the daily
+  maxima and minima, not the extremes of the period. Request the new names; the old ones are not
+  found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested). The daily names are unchanged (GH-2614)
+- **Breaking**: `aemet/observation` monthly and annual `ta_max` and `ta_min`, the absolute maximum
+  and minimum of the month or year, are named `temperature_air_max_2m` and
+  `temperature_air_min_2m`, no longer the `_multiday` names. Request the plain names; the old ones
+  are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested) (GH-2614)
+- **Breaking**: `dwd/mosmix` (`small`, `large`) and `dwd/dmo` (`icon`, `icon_eu`) `tx` and `tn`,
+  the maximum and minimum temperature within the last 12 hours, are named
+  `temperature_air_max_2m_last_12h` and `temperature_air_min_2m_last_12h`, no longer
+  `temperature_air_max_2m` and `temperature_air_min_2m`. Request the new names; the old ones are
+  not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested) (GH-2614)
+
 ### Fixed
 
+- `dwd/derived` hourly `sunshine_duration_uncertainty` is returned: it was declared with the global
+  radiation's column `fg_un_duett`, which the sunshine duration file does not have, and so never
+  came back; it is read from `sd_un_duett` (GH-2614)
 - Station names of `dwd/swsmos` and `dwd/road` no longer carry the trailing blank the catalogue
   pads some with (`Darup `, `AD Südost `: 38 and 33 stations), so an exact comparison of the name,
   such as `name = 'Darup'` in an SQL filter, matches them (GH-2616)
@@ -33,6 +56,7 @@ Types of changes:
   position, where the list puts them at latitudes of 135.117 and 104.367, off the globe, with
   latitude and longitude swapped; the hourly list drops any position outside latitude +-90 or
   longitude +-180, as it does for the `BOGUS` placeholders (GH-2616)
+
 
 ## [0.144.0] - 2026-10-10
 
@@ -89,6 +113,10 @@ Types of changes:
   stores it in `File.content`: it and the `user:secret@` of the proxy URL are redacted from the
   error's request info, as is an `Authorization` header added by `auth=`; only a caller's own
   `headers` were before (GH-2592)
+- Listing a directory (`list_remote_files_fsspec`, `list_remote_directory_fsspec`) through a proxy
+  that answers with an error status no longer raises or logs the proxy's `Proxy-Authorization`
+  header: the `ClientResponseError` is redacted like a download's is, retry warning included
+  (GH-2603)
 - Exporting a frame of 7 or more columns to a `sqlite://` target no longer fails with "too many
   SQL variables" once it has more than 32766 / columns rows (from 4681 rows for 7 columns) on
   SQLite 3.32 and later: the rows per insert now follow the 32766 variables a statement may

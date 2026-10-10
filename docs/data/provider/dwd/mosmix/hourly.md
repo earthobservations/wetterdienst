@@ -51,10 +51,10 @@
 | {term}`probability_wind_gust_ge_55kn_last_12h`             | fxh55         | Probability of wind gusts >= 55kn within the last 12 hours                      | %     | >=0,<=100   |
 | {term}`radiation_global`                                   | rad1h         | Global Irradiance                                                               | kJ/m² | >=0         |
 | {term}`sunshine_duration`                                  | sund1         | Sunshine duration during the last Hour                                          | s     | >=0         |
-| {term}`temperature_air_max_2m`                             | tx            | Maximum temperature - within the last 12 hours                                  | K     | -           |
+| {term}`temperature_air_max_2m_last_12h`                             | tx            | Maximum temperature - within the last 12 hours                                  | K     | -           |
 | {term}`temperature_air_mean_0_05m`                         | t5cm          | Temperature 5cm above surface                                                   | K     | -           |
 | {term}`temperature_air_mean_2m`                            | ttt           | Temperature 2m above surface                                                    | K     | -           |
-| {term}`temperature_air_min_2m`                             | tn            | Minimum temperature - within the last 12 hours                                  | K     | -           |
+| {term}`temperature_air_min_2m_last_12h`                             | tn            | Minimum temperature - within the last 12 hours                                  | K     | -           |
 | {term}`temperature_dew_point_mean_2m`                      | td            | Dewpoint 2m above surface                                                       | K     | -           |
 | {term}`visibility`                                         | vv            | Visibility                                                                      | m     | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_1h`            | rrs1c         | Snow-Rain-Equivalent during the last hour                                       | kg/m² | >=0         |
@@ -182,12 +182,12 @@
 | {term}`sunshine_duration_last_3h`                                | sund3         | Sunshine duration during the last 3 hours                                           | s     | >=0         |
 | {term}`sunshine_duration_relative_last_24h`                      | rsund         | Relative sunshine duration within the last 24 hours                                 | %     | >=0,<=100   |
 | {term}`sunshine_duration_yesterday`                              | sund          | Yesterdays total sunshine duration                                                  | s     | >=0         |
-| {term}`temperature_air_max_2m`                                   | tx            | Maximum temperature - within the last 12 hours                                      | K     | -           |
+| {term}`temperature_air_max_2m_last_12h`                                   | tx            | Maximum temperature - within the last 12 hours                                      | K     | -           |
 | {term}`temperature_air_mean_0_05m`                               | t5cm          | Temperature 5cm above surface                                                       | K     | -           |
 | {term}`temperature_air_mean_2m`                                  | ttt           | Temperature 2m above surface                                                        | K     | -           |
 | {term}`temperature_air_mean_2m_last_24h`                         | tm            | Mean temperature during the last 24 hours                                           | K     | -           |
 | {term}`temperature_air_min_0_05m_last_12h`                       | tg            | Minimum surface temperature at 5cm within the last 12 hours                         | K     | -           |
-| {term}`temperature_air_min_2m`                                   | tn            | Minimum temperature - within the last 12 hours                                      | K     | -           |
+| {term}`temperature_air_min_2m_last_12h`                                   | tn            | Minimum temperature - within the last 12 hours                                      | K     | -           |
 | {term}`temperature_dew_point_mean_2m`                            | td            | Dewpoint 2m above surface                                                           | K     | -           |
 | {term}`visibility`                                               | vv            | Visibility                                                                          | m     | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_1h`                  | rrs1c         | Snow-Rain-Equivalent during the last hour                                           | kg/m² | >=0         |

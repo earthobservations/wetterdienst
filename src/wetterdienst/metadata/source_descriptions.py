@@ -96,8 +96,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("annual", "data", "T"): (
             "Air temperature at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
         ),
-        ("annual", "data", "TMA"): "Maximum air temperature at 2 m, read at 20:00 each day.",
-        ("annual", "data", "TMI"): "Minimum air temperature at 2 m, read at 20:00 each day.",
+        ("annual", "data", "TMA"): "Annual mean of the daily maximum air temperature at 2 m, read at 20:00.",
+        ("annual", "data", "TMI"): "Annual mean of the daily minimum air temperature at 2 m, read at 20:00.",
         ("daily", "data", "F"): (
             "Wind speed at 10 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
         ),
@@ -124,8 +124,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "T"): (
             "Air temperature at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
         ),
-        ("monthly", "data", "TMA"): "Maximum air temperature at 2 m, read at 20:00 each day.",
-        ("monthly", "data", "TMI"): "Minimum air temperature at 2 m, read at 20:00 each day.",
+        ("monthly", "data", "TMA"): "Monthly mean of the daily maximum air temperature at 2 m, read at 20:00.",
+        ("monthly", "data", "TMI"): "Monthly mean of the daily minimum air temperature at 2 m, read at 20:00.",
     },
     "DwdSwsmosMetadata": {
         ("hourly", "data", "R650"): "Probability of precipitation > 5.0mm during the last 6 hours",
@@ -244,7 +244,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "soil", "ztumi"): "thawing thickness under bare soil",
         ("hourly", "radiation_global", "fg_duett"): "global radiation",
         ("hourly", "radiation_global", "fg_un_duett"): "uncertainty of global radiation",
-        ("hourly", "sunshine_duration", "fg_un_duett"): "uncertainty of sunshine duration",
+        ("hourly", "sunshine_duration", "sd_un_duett"): "uncertainty of sunshine duration",
         ("hourly", "sunshine_duration", "sd_duett"): "sunshine duration",
         ("monthly", "climate_correction_factor", "KF"): (
             "quotient of yearly degree days of reference station in Potsdam and postal code"
