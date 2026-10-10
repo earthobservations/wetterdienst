@@ -18,6 +18,11 @@ Types of changes:
 
 ### Fixed
 
+- Writing to a `mssql://` target creates text columns as `NVARCHAR(max)` instead of
+  `VARCHAR(max)` (`TEXT` before SQL Server 2012), so a character outside the column's code page,
+  such as the `Ł` of `Łódź` or the `ř` of `Třeboň` under `SQL_Latin1_General_CP1_CI_AS`, is
+  stored as it is and no longer as a `?`. A table that is appended to keeps its column types;
+  alter them, or write to a new table (GH-2273)
 - The station catalogues of `fmi`, `chmi`, `ipma`, `lhmt`, `metoffice`, `dwd/swsmos` and
   `dwd/phenology`, and the `metoffice` release listing, raise `DownloadError` for a download that
   failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no stations: the REST API
