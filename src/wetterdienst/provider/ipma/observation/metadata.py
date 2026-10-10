@@ -41,7 +41,7 @@ IpmaObservationMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "temperatura",
                             "unit": "degree_celsius",
                         },

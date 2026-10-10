@@ -33,13 +33,13 @@
 | {term}`radiation_global_intensity` | cglo          | global radiation              | W/m² | >=0         |
 | {term}`snow_depth`                 | sh            | snow depth                    | cm   | >=0         |
 | {term}`sunshine_duration`          | so_h          | sunshine duration             | h    | >=0         |
-| {term}`temperature_air_mean_2m`    | tl            | air temperature mean at 2m    | °C   | -           |
+| {term}`temperature_air_2m`         | tl            | air temperature mean at 2m    | °C   | -           |
 | {term}`temperature_air_min_0_05m`  | tsmin         | air temperature min at 0.05m  | °C   | -           |
-| {term}`temperature_soil_mean_0_1m` | tb10          | soil temperature mean at 0.1m | °C   | -           |
-| {term}`temperature_soil_mean_0_2m` | tb20          | soil temperature mean at 0.2m | °C   | -           |
-| {term}`temperature_soil_mean_0_5m` | tb50          | soil temperature mean at 0.5m | °C   | -           |
-| {term}`temperature_soil_mean_1m`   | tb100         | soil temperature mean at 1m   | °C   | -           |
-| {term}`temperature_soil_mean_2m`   | tb200         | soil temperature mean at 2m   | °C   | -           |
+| {term}`temperature_soil_0_1m`      | tb10          | soil temperature mean at 0.1m | °C   | -           |
+| {term}`temperature_soil_0_2m`      | tb20          | soil temperature mean at 0.2m | °C   | -           |
+| {term}`temperature_soil_0_5m`      | tb50          | soil temperature mean at 0.5m | °C   | -           |
+| {term}`temperature_soil_1m`        | tb100         | soil temperature mean at 1m   | °C   | -           |
+| {term}`temperature_soil_2m`        | tb200         | soil temperature mean at 2m   | °C   | -           |
 | {term}`wind_direction`             | dd            | wind direction                | °    | >=0,<=360   |
 | {term}`wind_direction_gust_max`    | ddx           | wind direction gust max       | °    | >=0,<=360   |
 | {term}`wind_gust_max`              | ffx           | wind gust max                 | m/s  | >=0         |

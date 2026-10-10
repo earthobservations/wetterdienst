@@ -15,13 +15,13 @@
 
 | name                                | original name            | description                                                                                   | unit |
 |-------------------------------------|--------------------------|-----------------------------------------------------------------------------------------------|------|
-| {term}`temperature_air_mean_2m`     | temp_dry_shelter_avg     | Mean air temperature at 2 m above ground.                                                     | °C   |
+| {term}`temperature_air_2m`          | temp_dry_shelter_avg     | Mean air temperature at 2 m above ground.                                                     | °C   |
 | {term}`precipitation_amount`        | precip_quantity          | Depth of precipitation collected over the period.                                             | mm   |
-| {term}`temperature_air_mean_0_05m`  | temp_grass_pt100_avg     | Mean air temperature at 0.05 m above ground.                                                  | °C   |
-| {term}`temperature_soil_mean_0_05m` | temp_soil_avg_5cm        | Mean soil temperature at 0.05 m depth.                                                        | °C   |
-| {term}`temperature_soil_mean_0_1m`  | temp_soil_avg_10cm       | Mean soil temperature at 0.1 m depth.                                                         | °C   |
-| {term}`temperature_soil_mean_0_2m`  | temp_soil_avg_20cm       | Mean soil temperature at 0.2 m depth.                                                         | °C   |
-| {term}`temperature_soil_mean_0_5m`  | temp_soil_avg_50cm       | Mean soil temperature at 0.5 m depth.                                                         | °C   |
+| {term}`temperature_air_0_05m`       | temp_grass_pt100_avg     | Mean air temperature at 0.05 m above ground.                                                  | °C   |
+| {term}`temperature_soil_0_05m`      | temp_soil_avg_5cm        | Mean soil temperature at 0.05 m depth.                                                        | °C   |
+| {term}`temperature_soil_0_1m`       | temp_soil_avg_10cm       | Mean soil temperature at 0.1 m depth.                                                         | °C   |
+| {term}`temperature_soil_0_2m`       | temp_soil_avg_20cm       | Mean soil temperature at 0.2 m depth.                                                         | °C   |
+| {term}`temperature_soil_0_5m`       | temp_soil_avg_50cm       | Mean soil temperature at 0.5 m depth.                                                         | °C   |
 | {term}`wind_speed`                  | wind_speed_10m           | Mean speed of the wind over the period.                                                       | m/s  |
 | {term}`wind_gust_max`               | wind_gusts_speed         | Speed of the strongest gust of the period.                                                    | m/s  |
 | {term}`humidity_relative`           | humidity_rel_shelter_avg | Relative humidity of the air, the fraction of the moisture it could hold at that temperature. | %    |

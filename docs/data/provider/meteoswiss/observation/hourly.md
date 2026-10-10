@@ -36,14 +36,14 @@
 | {term}`radiation_sky_long_wave_intensity`          | oli000h0      | Longwave incoming radiation; hourly mean                       | watt_per_square_meter |
 | {term}`sunshine_duration`                          | sre000h0      | Sunshine duration; hourly total                                | minute                |
 | {term}`snow_depth`                                 | htoauths      | Snow depth (automatic measurement); hourly current value       | centimeter            |
-| {term}`temperature_air_mean_2m`                    | tre200h0      | Air temperature 2 m above ground; hourly mean                  | degree_celsius        |
+| {term}`temperature_air_2m`                         | tre200h0      | Air temperature 2 m above ground; hourly mean                  | degree_celsius        |
 | {term}`temperature_air_min_2m`                     | tre200hn      | Air temperature 2 m above ground; hourly minimum               | degree_celsius        |
 | {term}`temperature_air_max_2m`                     | tre200hx      | Air temperature 2 m above ground; hourly maximum               | degree_celsius        |
-| {term}`temperature_air_mean_0_05m`                 | tre005h0      | Air temperature at 5 cm above grass; hourly mean               | degree_celsius        |
+| {term}`temperature_air_0_05m`                      | tre005h0      | Air temperature at 5 cm above grass; hourly mean               | degree_celsius        |
 | {term}`temperature_air_min_0_05m`                  | tre005hn      | Air temperature at 5 cm above grass; hourly minimum            | degree_celsius        |
 | {term}`temperature_soil_0_05m`                     | tso005hs      | Soil temperature at 5 cm depth; hourly current value           | degree_celsius        |
 | {term}`temperature_soil_0_1m`                      | tso010hs      | Soil temperature at 10 cm depth; hourly current value          | degree_celsius        |
 | {term}`temperature_soil_0_2m`                      | tso020hs      | Soil temperature at 20 cm depth; hourly current value          | degree_celsius        |
 | {term}`humidity_relative`                          | ure200h0      | Relative air humidity 2 m above ground; hourly mean            | percent               |
-| {term}`temperature_dew_point_mean_2m`              | tde200h0      | Dew point 2 m above ground; hourly mean                        | degree_celsius        |
+| {term}`temperature_dew_point_2m`                   | tde200h0      | Dew point 2 m above ground; hourly mean                        | degree_celsius        |
 

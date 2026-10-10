@@ -76,8 +76,8 @@ _HOURLY_WEATHER_PARAMETERS = [
     {"name": "visibility", "name_original": "visibility", "unit": "meter"},
     {"name": "pressure_air_sea_level", "name_original": "msl_pressure", **_PRESSURE},
     {"name": "pressure_air_site", "name_original": "stn_pres", **_PRESSURE},
-    {"name": "temperature_air_mean_2m", "name_original": "air_temperature", **_TEMPERATURE},
-    {"name": "temperature_dew_point_mean_2m", "name_original": "dewpoint", **_TEMPERATURE},
+    {"name": "temperature_air_2m", "name_original": "air_temperature", **_TEMPERATURE},
+    {"name": "temperature_dew_point_2m", "name_original": "dewpoint", **_TEMPERATURE},
     {"name": "humidity_relative", "name_original": "rltv_hum", **_HUMIDITY},
     {"name": "sunshine_duration", "name_original": "wmo_hr_sun_dur", **_SUNSHINE},
     {"name": "snow_depth", "name_original": "snow_depth", **_SNOW_DEPTH},
@@ -99,11 +99,11 @@ _RADIATION_PARAMETERS = [
 ]
 
 _SOIL_TEMPERATURE_PARAMETERS = [
-    {"name": "temperature_soil_mean_0_05m", "name_original": "q5cm_soil_temp", **_TEMPERATURE},
-    {"name": "temperature_soil_mean_0_1m", "name_original": "q10cm_soil_temp", **_TEMPERATURE},
-    {"name": "temperature_soil_mean_0_2m", "name_original": "q20cm_soil_temp", **_TEMPERATURE},
-    {"name": "temperature_soil_mean_0_5m", "name_original": "q50cm_soil_temp", **_TEMPERATURE},
-    {"name": "temperature_soil_mean_1m", "name_original": "q100cm_soil_temp", **_TEMPERATURE},
+    {"name": "temperature_soil_0_05m", "name_original": "q5cm_soil_temp", **_TEMPERATURE},
+    {"name": "temperature_soil_0_1m", "name_original": "q10cm_soil_temp", **_TEMPERATURE},
+    {"name": "temperature_soil_0_2m", "name_original": "q20cm_soil_temp", **_TEMPERATURE},
+    {"name": "temperature_soil_0_5m", "name_original": "q50cm_soil_temp", **_TEMPERATURE},
+    {"name": "temperature_soil_1m", "name_original": "q100cm_soil_temp", **_TEMPERATURE},
 ]
 
 

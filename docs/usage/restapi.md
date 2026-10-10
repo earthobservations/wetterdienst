@@ -105,7 +105,7 @@ http localhost:7890/api/stations provider==dwd network==observation parameters==
 http localhost:7890/api/stations provider==dwd network==observation parameters==daily/kl periods==recent sql=="lower(name) LIKE lower('%dresden%');"
 
 # Acquire list of DWD DMO stations.
-http localhost:7890/api/stations provider==dwd network==dmo parameters==hourly/icon/temperature_air_mean_2m periods==recent all==true
+http localhost:7890/api/stations provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m periods==recent all==true
 ```
 
 ### Issues (available model-run datetimes)
@@ -145,7 +145,7 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 shape=="wide" sql_values=="temperature_air_max_2m < 2.0;"
 
 # Acquire ICON data.
-http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_mean_2m station==01001 timestamp==2024-05-27
+http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m station==01001 timestamp==2024-05-27
 ```
 
 ### SQL filters

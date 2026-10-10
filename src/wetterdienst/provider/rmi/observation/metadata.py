@@ -89,15 +89,27 @@ _COMMON = [
     },
 ]
 
+# Sub-daily temperatures are named for a reading at one moment, as every sub-daily temperature is
+# (GH-2657), although RMI's descriptions call them means over the interval ("Mean air temperature
+# at 2 m above ground"). Daily resolution keeps the `_mean_` names, so the parameters shared with it
+# are renamed here rather than where they are declared.
+_SPOT_NAMES = {
+    "temperature_air_mean_0_05m": "temperature_air_0_05m",
+    "temperature_soil_mean_0_05m": "temperature_soil_0_05m",
+    "temperature_soil_mean_0_1m": "temperature_soil_0_1m",
+    "temperature_soil_mean_0_2m": "temperature_soil_0_2m",
+    "temperature_soil_mean_0_5m": "temperature_soil_0_5m",
+}
+
 # The shelter (2 m) air temperature is reported as an interval mean at sub-daily resolution and
 # split into mean/max/min at daily resolution.
 _SUBDAILY = [
     {
-        "name": "temperature_air_mean_2m",
+        "name": "temperature_air_2m",
         "name_original": "temp_dry_shelter_avg",
         "unit": "degree_celsius",
     },
-    *_COMMON,
+    *({**parameter, "name": _SPOT_NAMES.get(parameter["name"], parameter["name"])} for parameter in _COMMON),
 ]
 
 # Wind direction is only published at 10-minute resolution.

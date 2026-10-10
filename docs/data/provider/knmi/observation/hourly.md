@@ -15,8 +15,8 @@
 
 | name                                  | original name | description                   | unit  |
 |---------------------------------------|---------------|-------------------------------|-------|
-| {term}`temperature_air_mean_2m`       | T             | Temperature                   | °C    |
-| {term}`temperature_dew_point_mean_2m` | TD            | Dew point temperature         | °C    |
+| {term}`temperature_air_2m`            | T             | Temperature                   | °C    |
+| {term}`temperature_dew_point_2m`      | TD            | Dew point temperature         | °C    |
 | {term}`humidity_relative`             | U             | Relative atmospheric humidity | %     |
 | {term}`wind_speed`                    | FH            | Mean wind speed               | m/s   |
 | {term}`wind_direction`                | DD            | Mean wind direction           | °     |

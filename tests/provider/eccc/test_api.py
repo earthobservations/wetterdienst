@@ -196,7 +196,7 @@ def test_eccc_hourly_returns_data(settings_convert_units_false: Settings) -> Non
     df = request.values.all().df
     assert not df.is_empty()
     values = dict(df.drop_nulls("value").select("parameter", "value").iter_rows())
-    assert "temperature_air_mean_2m" in values
+    assert "temperature_air_2m" in values
     # June has 720 hours; a single unpaged request returns 500 features for the whole *year*, so
     # truncation shows up here as a couple of dozen timestamps rather than a few hundred
     assert df.get_column("timestamp").unique().len() > 500

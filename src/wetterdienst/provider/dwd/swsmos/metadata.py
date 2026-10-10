@@ -46,9 +46,9 @@ DwdSwsmosMetadata = {
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
                     "parameters": [
-                        {"name": "temperature_air_mean_2m", "name_original": "TL", **_TEMPERATURE},
-                        {"name": "temperature_dew_point_mean_2m", "name_original": "TD", **_TEMPERATURE},
-                        {"name": "temperature_surface_mean", "name_original": "TS", **_TEMPERATURE},
+                        {"name": "temperature_air_2m", "name_original": "TL", **_TEMPERATURE},
+                        {"name": "temperature_dew_point_2m", "name_original": "TD", **_TEMPERATURE},
+                        {"name": "temperature_surface", "name_original": "TS", **_TEMPERATURE},
                         # RR6 is a 6-hour liquid precipitation total; there is no ``*_liquid_last_6h``
                         # parameter, so the (window-bearing) generic 6-hour amount is the closest fit
                         {"name": "precipitation_amount_liquid", "name_original": "RRL1c", **_PRECIPITATION},

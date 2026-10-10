@@ -47,7 +47,7 @@ DROPPABLE_PARAMETERS = {
     # ("Wetter wurde nicht gemeldet" for -1)
     "ww_text",
     # hourly urban_temperature_air: radiation temperature, an instrument diagnostic (the 10 minute
-    # dataset publishes it as `strahl_st_10` and declares it as temperature_radiant_mean_2m)
+    # dataset publishes it as `strahl_st_10` and declares it as temperature_radiant_2m)
     "strahlungstemperatur",
 }
 

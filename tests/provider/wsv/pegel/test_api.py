@@ -253,7 +253,7 @@ def test_wsv_station_mixing_intervals_serves_each_parameter_at_its_own_resolutio
     parameters = [
         (resolution, "data", parameter)
         for resolution in ("15_minutes", "hourly")
-        for parameter in ("stage", "temperature_air_mean_2m")
+        for parameter in ("stage", "temperature_air_2m")
     ]
     request = WsvPegelRequest(parameters=parameters).filter_by_station_id("10091008")
     assert set(request.df.get_column("resolution")) == {"15_minutes", "hourly"}
@@ -261,7 +261,7 @@ def test_wsv_station_mixing_intervals_serves_each_parameter_at_its_own_resolutio
     served = {
         (row["resolution"], row["parameter"]) for row in df.select("resolution", "parameter").unique().rows(named=True)
     }
-    assert served == {("15_minutes", "stage"), ("hourly", "temperature_air_mean_2m")}
+    assert served == {("15_minutes", "stage"), ("hourly", "temperature_air_2m")}
 
 
 def test_wsv_unmapped_equidistance_is_reported(
@@ -390,7 +390,7 @@ def test_wsv_station_list_pairs_each_resolution_with_the_parameters_asked_for_th
 
     df = (
         WsvPegelRequest(
-            parameters=[("15_minutes", "data", "stage"), ("hourly", "data", "temperature_air_mean_2m")],
+            parameters=[("15_minutes", "data", "stage"), ("hourly", "data", "temperature_air_2m")],
         )
         .all()
         .df

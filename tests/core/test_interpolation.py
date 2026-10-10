@@ -175,10 +175,10 @@ def df_interpolated_empty() -> pl.DataFrame:
 
 
 @pytest.mark.remote
-def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings: Settings) -> None:
+def test_interpolation_temperature_air_2m_hourly_by_coords(default_settings: Settings) -> None:
     """Test that the interpolation works with hourly data."""
     request = DwdObservationRequest(
-        parameters=[("hourly", "temperature_air", "temperature_air_mean_2m")],
+        parameters=[("hourly", "temperature_air", "temperature_air_2m")],
         start=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
@@ -193,7 +193,7 @@ def test_interpolation_temperature_air_mean_2m_hourly_by_coords(default_settings
                 "station_id": "f674568e",
                 "resolution": "hourly",
                 "dataset": "temperature_air",
-                "parameter": "temperature_air_mean_2m",
+                "parameter": "temperature_air_2m",
                 "timestamp": dt.datetime(2022, 1, 2, tzinfo=ZoneInfo("UTC")),
                 "value": 4.5644,
                 "distance_mean": 13.37,
@@ -675,7 +675,7 @@ def test_not_interpolatable_dataset(default_settings: Settings, df_interpolated_
 def test_provider_dwd_mosmix(default_settings: Settings) -> None:
     """Test a MOSMIX request with date filter."""
     request = DwdMosmixRequest(
-        parameters=[("hourly", "small", "temperature_air_mean_2m")],
+        parameters=[("hourly", "small", "temperature_air_2m")],
         start=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=1),
         end=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=8),
         settings=default_settings,
@@ -1421,6 +1421,8 @@ def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station
     latitude, longitude = 50.0, 8.9
     offsets = {"00001": (-0.03, -0.03), "00002": (-0.03, 0.03), "00003": (0.03, 0.03), "00004": (0.03, -0.03)}
     datasets = [("hourly", "temperature_air", None), ("daily", "climate_summary", 100.0)]
+    # the hourly reading is named for a moment, the daily one for the day's mean
+    parameter_of = {"hourly": "temperature_air_2m", "daily": "temperature_air_mean_2m"}
     if not hourly_first:
         datasets.reverse()
     stations = pl.DataFrame(
@@ -1469,7 +1471,7 @@ def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station
                             "station_id": station_id,
                             "resolution": resolution,
                             "dataset": dataset,
-                            "parameter": "temperature_air_mean_2m",
+                            "parameter": parameter_of[resolution],
                             "timestamp": timestamp,
                             "value": 5.0,
                             "quality": 10.0,
@@ -1482,7 +1484,7 @@ def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _filter_by_distance)
     monkeypatch.setattr(DwdObservationValues, "query", _query)
     request = DwdObservationRequest(
-        parameters=[(resolution, dataset, "temperature_air_mean_2m") for resolution, dataset, _ in datasets],
+        parameters=[(resolution, dataset, parameter_of[resolution]) for resolution, dataset, _ in datasets],
         start=timestamp,
         end=timestamp,
     )

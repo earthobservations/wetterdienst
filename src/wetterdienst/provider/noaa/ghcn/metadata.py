@@ -123,19 +123,19 @@ NoaaGhcnMetadata = {
                         },
                         # 2 meter (circa) Above Ground Level Air (dry bulb) Temperature (⁰C to tenths)
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "temperature",
                             "unit": "degree_celsius",
                         },
                         # Dew Point Temperature (⁰C to tenths)
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "dew_point_temperature",
                             "unit": "degree_celsius",
                         },
                         # Wet bulb temperature (⁰C to tenths)
                         {
-                            "name": "temperature_wet_mean_2m",
+                            "name": "temperature_wet_2m",
                             "name_original": "wet_bulb_temperature",
                             "unit": "degree_celsius",
                         },

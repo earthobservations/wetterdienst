@@ -51,8 +51,8 @@ def test_meteoswiss_observation_api_resolutions(resolution: str) -> None:
     Monthly and annual values are dated to the first of the month/year, so a full-year
     window is used to reliably capture a value regardless of resolution.
     """
-    # the 10-minute file holds the current value (tre200s0), every other resolution a mean
-    parameter = "temperature_air_2m" if resolution == "10_minutes" else "temperature_air_mean_2m"
+    # below daily resolution the temperature is named for a reading at one moment, from daily on for the mean
+    parameter = "temperature_air_2m" if resolution in ("10_minutes", "hourly") else "temperature_air_mean_2m"
     request = MeteoswissObservationRequest(
         parameters=[(resolution, "data", parameter)],
         start=datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),

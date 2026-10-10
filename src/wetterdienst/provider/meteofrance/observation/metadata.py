@@ -194,7 +194,7 @@ MeteoFranceObservationMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "TD",
                             "unit": "degree_celsius",
                         },

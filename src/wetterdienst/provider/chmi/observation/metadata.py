@@ -51,14 +51,14 @@ _DAILY_PARAMETERS = [
 ]
 
 _MINUTE_10_PARAMETERS = [
-    {"name": "temperature_air_mean_2m", "name_original": "T", **_TEMPERATURE},
+    {"name": "temperature_air_2m", "name_original": "T", **_TEMPERATURE},
     {"name": "humidity_relative", "name_original": "H", **_HUMIDITY},
     {"name": "pressure_air_site", "name_original": "P", **_PRESSURE},
     {"name": "wind_speed", "name_original": "F", **_WIND_SPEED},
 ]
 
 _HOURLY_PARAMETERS = [
-    {"name": "temperature_dew_point_mean_2m", "name_original": "Td", **_TEMPERATURE},
+    {"name": "temperature_dew_point_2m", "name_original": "Td", **_TEMPERATURE},
     {"name": "precipitation_amount", "name_original": "SRA1H", **_PRECIPITATION},
     {"name": "pressure_air_site", "name_original": "P", **_PRESSURE},
 ]

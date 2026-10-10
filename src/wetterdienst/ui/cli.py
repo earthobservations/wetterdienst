@@ -624,7 +624,7 @@ VALUES_EXAMPLES = r"""
 
     # two parameters from different datasets, hourly, one column each
     wetterdienst values --provider=dwd --network=observation \
-        --parameters=hourly/precipitation/precipitation_amount,hourly/air_temperature/temperature_air_mean_2m \
+        --parameters=hourly/precipitation/precipitation_amount,hourly/air_temperature/temperature_air_2m \
         --timestamp=2020-06-15T12/2020-06-16T12 --station=1048,4411 --shape=wide
 
     # the days with a wind gust above 20 m/s, one row per value or, filtering on the column, one per day

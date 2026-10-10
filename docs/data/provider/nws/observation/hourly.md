@@ -25,8 +25,8 @@
 
 | name                                    | original name             | description                                                                      | unit | constraints |
 |-----------------------------------------|---------------------------|----------------------------------------------------------------------------------|------|-------------|
-| {term}`temperature_air_mean_2m`         | temperature               | Average air temperature in 2m                                                    | °C   | -           |
-| {term}`temperature_dew_point_mean_2m`   | dewpoint                  | Average dew point temperature in 2m                                              | °C   | -           |
+| {term}`temperature_air_2m`              | temperature               | Average air temperature in 2m                                                    | °C   | -           |
+| {term}`temperature_dew_point_2m`        | dewpoint                  | Average dew point temperature in 2m                                              | °C   | -           |
 | {term}`wind_direction`                  | winddirection             | wind direction                                                                   | °    | >=0,<=360   |
 | {term}`wind_speed`                      | windspeed                 | wind speed                                                                       | km/h | >=0         |
 | {term}`wind_gust_max`                   | windgust                  | maximum wind gust                                                                | km/h | >=0         |

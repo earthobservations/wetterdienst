@@ -98,16 +98,16 @@ def test_widen_df_keeps_resolutions_on_their_own_rows() -> None:
         [
             ("15_minutes", "data", "stage", 0, 1.0),
             ("15_minutes", "data", "stage", 15, 2.0),
-            ("hourly", "data", "temperature_air_mean_2m", 0, 20.0),
+            ("hourly", "data", "temperature_air_2m", 0, 20.0),
         ],
     )
 
-    result = _values([("15_minutes", "data", "stage"), ("hourly", "data", "temperature_air_mean_2m")])._widen_df(df)  # noqa: SLF001
+    result = _values([("15_minutes", "data", "stage"), ("hourly", "data", "temperature_air_2m")])._widen_df(df)  # noqa: SLF001
 
     result = result.sort("resolution", "timestamp")
     assert result.get_column("resolution").to_list() == ["15_minutes", "15_minutes", "hourly"]
     assert result.get_column("stage").to_list() == [1.0, 2.0, None]
-    assert result.get_column("temperature_air_mean_2m").to_list() == [None, None, 20.0]
+    assert result.get_column("temperature_air_2m").to_list() == [None, None, 20.0]
 
 
 def test_widen_df_keeps_a_timestamp_one_parameter_is_missing() -> None:
@@ -198,7 +198,7 @@ def test_widen_df_keeps_the_dataset_name_where_a_resolution_has_one() -> None:
 def _hourly_values(start_date: dt.datetime, end_date: dt.datetime) -> TimeseriesValues:
     """Build an hourly DWD values object over the given window, without touching the network."""
     request = DwdObservationRequest(
-        parameters=[("hourly", "temperature_air", "temperature_air_mean_2m")],
+        parameters=[("hourly", "temperature_air", "temperature_air_2m")],
         start=start_date,
         end=end_date,
     )
@@ -320,7 +320,7 @@ def test_actual_percentage_is_zero_for_a_parameter_that_came_back_with_nothing()
     end_date = dt.datetime(2026, 1, 1, 1, tzinfo=ZoneInfo("UTC"))
     request = DwdObservationRequest(
         parameters=[
-            ("hourly", "temperature_air", "temperature_air_mean_2m"),
+            ("hourly", "temperature_air", "temperature_air_2m"),
             ("hourly", "temperature_air", "humidity_relative"),  # never arrives
         ],
         start=start_date,
@@ -355,7 +355,7 @@ def test_actual_percentage_falls_back_to_the_span_of_the_series() -> None:
             dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC")),
         ],
     )
-    request = DwdObservationRequest(parameters=[("hourly", "temperature_air", "temperature_air_mean_2m")])
+    request = DwdObservationRequest(parameters=[("hourly", "temperature_air", "temperature_air_2m")])
     values = DwdObservationValues(
         sr=StationsResult(
             stations=request,
@@ -395,7 +395,7 @@ def test_actual_percentage_reads_the_fallback_window_off_the_dataset_it_measures
     """
     request = DwdObservationRequest(
         parameters=[
-            ("hourly", "temperature_air", "temperature_air_mean_2m"),
+            ("hourly", "temperature_air", "temperature_air_2m"),
             ("daily", "climate_summary", "precipitation_amount"),
         ],
     )

@@ -94,11 +94,12 @@ timestamp or starts there. A monthly file that holds the mean of the daily maxim
 that holds the day's maximum are different parameters even though both are called `TMA`, and a
 service that does not say which statistic a field is must be asked rather than guessed. Where the
 service's description states the statistic or the window,
-`tests/metadata/test_parameter_statistics.py` holds the name to it. That includes a reading at one
-moment against the mean over the interval: a temperature the service calls an instant or current
-value takes the spot name (`temperature_air_2m`, `temperature_dew_point_2m`,
-`temperature_soil_0_05m`), and one it calls a mean takes the `_mean_` name. Where the service says
-neither, keep the `_mean_` name, as the neighbouring datasets of the same service do (GH-2651).
+`tests/metadata/test_parameter_statistics.py` holds the name to it. A temperature below daily
+resolution is the exception: whether the service calls it an instant, a mean or nothing, it takes
+the spot name (`temperature_air_2m`, `temperature_dew_point_2m`, `temperature_soil_0_05m`), because
+most services do not say which it is and the names would otherwise differ by what a description
+happens to mention (GH-2651, GH-2657). The `_mean_` temperature names are for daily and coarser
+resolutions, and the test refuses one below them.
 
 `unit` stays mandatory even where a service already publishes canonical units, since silently
 defaulting it is how values end up wrong by a factor of ten with nothing to catch it. Note that it is

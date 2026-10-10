@@ -19,10 +19,10 @@ values outside the requested `[start, end]` range are then trimmed as usual.
 
 | name                                  | original name | description                               | unit |
 |---------------------------------------|---------------|-------------------------------------------|------|
-| {term}`temperature_air_mean_2m`       | ta            | Air Temperature 1 Min Mean                | °C   |
-| {term}`temperature_air_mean_0_1m`     | tg            | Air Temperature 10 cm Mean                | °C   |
-| {term}`temperature_dew_point_mean_2m` | td            | Dew Point Temperature 1 Min Mean          | °C   |
-| {term}`temperature_wet_mean_2m`       | tb            | Wet Bulb Temperature Mean                 | °C   |
+| {term}`temperature_air_2m`            | ta            | Air Temperature 1 Min Mean                | °C   |
+| {term}`temperature_air_0_1m`          | tg            | Air Temperature 10 cm Mean                | °C   |
+| {term}`temperature_dew_point_2m`      | td            | Dew Point Temperature 1 Min Mean          | °C   |
+| {term}`temperature_wet_2m`            | tb            | Wet Bulb Temperature Mean                 | °C   |
 | {term}`humidity_relative`             | rh            | Relative Humidity 1 Min Mean              | %    |
 | {term}`wind_speed`                    | ff            | Wind Speed at 10 m Mean with MD           | m/s  |
 | {term}`wind_direction`                | dd            | Wind Direction Mean with MD               | °    |

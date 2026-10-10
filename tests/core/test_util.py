@@ -320,7 +320,7 @@ def test_count_stations_in_reach_asks_per_parameter_radius() -> None:
 
     metadata = DwdObservationRequest.metadata["hourly"]
     parameters = [
-        metadata["temperature_air"]["temperature_air_mean_2m"],
+        metadata["temperature_air"]["temperature_air_2m"],
         metadata["precipitation"]["precipitation_amount"],
     ]
     df_stations_ranked = pl.concat(
@@ -337,7 +337,7 @@ def test_count_stations_in_reach_asks_per_parameter_radius() -> None:
     )
     counts = count_stations_in_reach(df_stations_ranked, parameters, Settings(), INTERPOLATABLE)
     # 40 km for temperature: three stations, the furthest of them the only one with an elevation
-    assert counts[("hourly", "temperature_air", "temperature_air_mean_2m")] == (3, 1, 35.0)
+    assert counts[("hourly", "temperature_air", "temperature_air_2m")] == (3, 1, 35.0)
     # 20 km for precipitation: two stations, and the station that has an elevation is outside it
     assert counts[("hourly", "precipitation", "precipitation_amount")] == (2, 0, None)
 
@@ -405,7 +405,7 @@ def test_count_stations_in_reach_reads_the_nearest_row_of_a_station() -> None:
     """
     from wetterdienst.core.util import count_stations_in_reach  # noqa: PLC0415
 
-    parameters = [DwdObservationRequest.metadata["hourly"]["temperature_air"]["temperature_air_mean_2m"]]
+    parameters = [DwdObservationRequest.metadata["hourly"]["temperature_air"]["temperature_air_2m"]]
     df_stations_ranked = _ranked(
         "temperature_air",
         [
@@ -414,7 +414,7 @@ def test_count_stations_in_reach_reads_the_nearest_row_of_a_station() -> None:
         ],
     )
     assert count_stations_in_reach(df_stations_ranked, parameters, Settings(), INTERPOLATABLE) == {
-        ("hourly", "temperature_air", "temperature_air_mean_2m"): (1, 1, 5.0),
+        ("hourly", "temperature_air", "temperature_air_2m"): (1, 1, 5.0),
     }
 
 

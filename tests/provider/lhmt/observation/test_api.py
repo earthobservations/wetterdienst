@@ -186,7 +186,7 @@ def test_lhmt_observation_values() -> None:
             pl.col("timestamp") == dt.datetime(2020, 7, 1, hour, tzinfo=UTC),
         )["value"].item()
 
-    assert value_at("temperature_air_mean_2m", 12) == pytest.approx(22.3)
+    assert value_at("temperature_air_2m", 12) == pytest.approx(22.3)
     assert value_at("wind_speed", 12) == pytest.approx(4.7)
     assert value_at("wind_direction", 12) == pytest.approx(261.0)
     assert value_at("pressure_air_sea_level", 12) == pytest.approx(1007.4)

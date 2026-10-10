@@ -99,8 +99,8 @@ Code (cloud_cover_total_measurement_method):
 | name                                  | original name | description           | unit | constraints |
 |---------------------------------------|---------------|-----------------------|------|-------------|
 | {term}`quality` | qn_8 | Quality flag. | -             | - |
-| {term}`temperature_air_mean_2m` | tt | Air temperature. | °C | - |
-| {term}`temperature_dew_point_mean_2m` | td | Dew point temperature. | °C | - |
+| {term}`temperature_air_2m`      | tt | Air temperature. | °C | - |
+| {term}`temperature_dew_point_2m`      | td | Dew point temperature. | °C | - |
 
 ### moisture
 
@@ -120,11 +120,11 @@ Code (cloud_cover_total_measurement_method):
 | {term}`quality` | qn_4 | Quality flag. | -             | - |
 | {term}`humidity_absolute` | absf_std | Computed hourly value of absolute humidity. | g/m³ | >=0 |
 | {term}`pressure_vapor` | vp_std | Computed hourly value of vapour pressure. | hPa | >=0 |
-| {term}`temperature_wet_mean_2m` | tf_std | Computed hourly value of wet bulb temperature. | °C | - |
+| {term}`temperature_wet_2m`      | tf_std | Computed hourly value of wet bulb temperature. | °C | - |
 | {term}`pressure_air_site` | p_std | Hourly value of barometric pressure. | hPa | >=0 |
-| {term}`temperature_air_mean_2m` | tt_std | Air temperatur in 2m above ground. | °C | - |
+| {term}`temperature_air_2m`      | tt_std | Air temperatur in 2m above ground. | °C | - |
 | {term}`humidity_relative` | rf_std | Relative humidity. | % | >=0,<=100 |
-| {term}`temperature_dew_point_mean_2m` | td_std | Dew point temperature in 2m above ground. | °C | - |
+| {term}`temperature_dew_point_2m`      | td_std | Dew point temperature in 2m above ground. | °C | - |
 
 ### precipitation
 
@@ -237,7 +237,7 @@ Code (precipitation_form):
 
 | name                            | original name | description          | unit | constraints |
 |---------------------------------|---------------|----------------------|------|-------------|
-| {term}`temperature_air_mean_2m` | tt_tu | Air temperature 2 m above ground. | °C | - |
+| {term}`temperature_air_2m`      | tt_tu | Air temperature 2 m above ground. | °C | - |
 | {term}`humidity_relative` | rf_tu | Relative humidity. | % | >=0,<=100 |
 
 ### temperature_soil
@@ -255,12 +255,12 @@ Code (precipitation_form):
 
 | name                                | original name | description                      | unit | constraints |
 |-------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_soil_mean_0_02m` | v_te002 | Soil temperature in 2 cm depth. | °C | - |
-| {term}`temperature_soil_mean_0_05m` | v_te005 | Soil temperature in 5 cm depth. | °C | - |
-| {term}`temperature_soil_mean_0_1m` | v_te010 | Soil temperature in 10 cm depth. | °C | - |
-| {term}`temperature_soil_mean_0_2m` | v_te020 | Soil temperature in 20 cm depth. | °C | - |
-| {term}`temperature_soil_mean_0_5m` | v_te050 | Soil temperature in 50 cm depth. | °C | - |
-| {term}`temperature_soil_mean_1m` | v_te100 | Soil temperature in 100 cm depth. | °C | - |
+| {term}`temperature_soil_0_02m`      | v_te002 | Soil temperature in 2 cm depth. | °C | - |
+| {term}`temperature_soil_0_05m`      | v_te005 | Soil temperature in 5 cm depth. | °C | - |
+| {term}`temperature_soil_0_1m`      | v_te010 | Soil temperature in 10 cm depth. | °C | - |
+| {term}`temperature_soil_0_2m`      | v_te020 | Soil temperature in 20 cm depth. | °C | - |
+| {term}`temperature_soil_0_5m`      | v_te050 | Soil temperature in 50 cm depth. | °C | - |
+| {term}`temperature_soil_1m`      | v_te100 | Soil temperature in 100 cm depth. | °C | - |
 
 ### urban_precipitation
 
@@ -312,7 +312,7 @@ Code (precipitation_form):
 
 | name                            | original name  | description          | unit | constraints |
 |---------------------------------|----------------|----------------------|------|-------------|
-| {term}`temperature_air_mean_2m` | lufttemperatur | 2m air temperature   | °C   | -           |
+| {term}`temperature_air_2m`      | lufttemperatur | 2m air temperature   | °C   | -           |
 | {term}`humidity_relative`       | rel_feuchte    | 2m relative humidity | %    | >=0,<=100   |
 
 ### urban_temperature_soil
@@ -330,11 +330,11 @@ Code (precipitation_form):
 
 | name                                | original name | description                      | unit | constraints |
 |-------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_soil_mean_0_05m` | erdbt_005 | Soil temperature in 5 cm depth. | °C | - |
-| {term}`temperature_soil_mean_0_1m` | erdbt_010 | Soil temperature in 10 cm depth. | °C | - |
-| {term}`temperature_soil_mean_0_2m` | erdbt_020 | Soil temperature in 20 cm depth. | °C | - |
-| {term}`temperature_soil_mean_0_5m` | erdbt_050 | Soil temperature in 50 cm depth. | °C | - |
-| {term}`temperature_soil_mean_1m` | erdbt_100 | Soil temperature in 100 cm depth. | °C | - |
+| {term}`temperature_soil_0_05m`      | erdbt_005 | Soil temperature in 5 cm depth. | °C | - |
+| {term}`temperature_soil_0_1m`      | erdbt_010 | Soil temperature in 10 cm depth. | °C | - |
+| {term}`temperature_soil_0_2m`      | erdbt_020 | Soil temperature in 20 cm depth. | °C | - |
+| {term}`temperature_soil_0_5m`      | erdbt_050 | Soil temperature in 50 cm depth. | °C | - |
+| {term}`temperature_soil_1m`      | erdbt_100 | Soil temperature in 100 cm depth. | °C | - |
 
 ### urban_sun
 

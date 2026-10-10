@@ -83,12 +83,12 @@ GeosphereObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_0_05m",
+                            "name": "temperature_air_0_05m",
                             "name_original": "ts",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "tl",
                             "unit": "degree_celsius",
                         },
@@ -103,17 +103,17 @@ GeosphereObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_1m",
+                            "name": "temperature_soil_0_1m",
                             "name_original": "tb10",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_2m",
+                            "name": "temperature_soil_0_2m",
                             "name_original": "tb20",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_5m",
+                            "name": "temperature_soil_0_5m",
                             "name_original": "tb50",
                             "unit": "degree_celsius",
                         },
@@ -198,7 +198,7 @@ GeosphereObservationMetadata = {
                             "unit": "hour",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "tl",
                             "unit": "degree_celsius",
                         },
@@ -208,27 +208,27 @@ GeosphereObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_1m",
+                            "name": "temperature_soil_0_1m",
                             "name_original": "tb10",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_2m",
+                            "name": "temperature_soil_0_2m",
                             "name_original": "tb20",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_5m",
+                            "name": "temperature_soil_0_5m",
                             "name_original": "tb50",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_1m",
+                            "name": "temperature_soil_1m",
                             "name_original": "tb100",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_2m",
+                            "name": "temperature_soil_2m",
                             "name_original": "tb200",
                             "unit": "degree_celsius",
                         },

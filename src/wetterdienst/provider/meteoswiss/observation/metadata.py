@@ -198,7 +198,7 @@ MeteoswissObservationMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "tre200h0",
                             "unit": "degree_celsius",
                         },
@@ -213,7 +213,7 @@ MeteoswissObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_0_05m",
+                            "name": "temperature_air_0_05m",
                             "name_original": "tre005h0",
                             "unit": "degree_celsius",
                         },
@@ -243,7 +243,7 @@ MeteoswissObservationMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "tde200h0",
                             "unit": "degree_celsius",
                         },

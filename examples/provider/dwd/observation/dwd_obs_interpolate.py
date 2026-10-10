@@ -14,7 +14,7 @@ log = logging.getLogger()
 def interpolate_example() -> None:
     """Retrieve temperature data by DWD and filter by sql statement."""
     request = DwdObservationRequest(
-        parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
+        parameters=("hourly", "temperature_air", "temperature_air_2m"),
         start="2019-01-01",
         end="2020-01-01",
     )

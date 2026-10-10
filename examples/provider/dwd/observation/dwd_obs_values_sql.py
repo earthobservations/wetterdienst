@@ -33,7 +33,7 @@ def values_sql_example() -> None:
 
     print(stations.df)
 
-    sql = "parameter='temperature_air_mean_2m' AND value < -7.0;"
+    sql = "parameter='temperature_air_2m' AND value < -7.0;"
     log.info(f"Invoking SQL query '{sql}'")
 
     # Acquire observation values and filter with SQL.

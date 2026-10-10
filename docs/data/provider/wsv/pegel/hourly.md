@@ -30,7 +30,7 @@
 | {term}`temperature_water`       | WT                      | average water temperature during time scale            | °C    | -           |
 | {term}`electric_conductivity`   | LF                      | average electric conductivity during time scale        | μS/cm | -           |
 | {term}`clearance_height`        | DFH                     | average clearance height during time scale             | cm    | -           |
-| {term}`temperature_air_mean_2m` | LT                      | average air temperature during time scale              | °C    | -           |
+| {term}`temperature_air_2m`      | LT                      | average air temperature during time scale              | °C    | -           |
 | {term}`flow_speed`              | VA                      | average flow speed during time scale                   | m/s   | -           |
 | {term}`groundwater_level`       | GRU                     | average groundwater level during time scale            | m     | -           |
 | {term}`wind_speed`              | WG                      | average wind speed during time scale                   | m/s   | -           |

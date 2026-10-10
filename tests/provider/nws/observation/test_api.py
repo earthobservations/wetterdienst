@@ -40,7 +40,7 @@ def _values(request: NwsObservationRequest) -> NwsObservationValues:
 def _request(settings: Settings | None = None, **kwargs: object) -> NwsObservationRequest:
     """Build a request over a two-day window, which is what the endpoint is asked for."""
     return NwsObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_mean_2m")],
+        parameters=[("hourly", "data", "temperature_air_2m")],
         start=dt.datetime(2026, 8, 20, tzinfo=UTC),
         end=dt.datetime(2026, 8, 21, tzinfo=UTC),
         settings=settings or Settings(),
@@ -87,7 +87,7 @@ def test_nws_url_names_no_window_where_the_request_carries_no_dates() -> None:
     `date_required` is enforced at the CLI and the REST API but not in the Python API, so a
     request can reach the endpoint with nothing to narrow it to.
     """
-    request = NwsObservationRequest(parameters=[("hourly", "data", "temperature_air_mean_2m")])
+    request = NwsObservationRequest(parameters=[("hourly", "data", "temperature_air_2m")])
 
     url = _values(request)._build_url(DENVER)  # noqa: SLF001
 
@@ -154,7 +154,7 @@ def test_nws_values_returns_the_requested_window_only() -> None:
     end_date = dt.datetime.now(tz=UTC).replace(minute=0, second=0, microsecond=0)
     start_date = end_date - dt.timedelta(days=2)
     request = NwsObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_mean_2m")],
+        parameters=[("hourly", "data", "temperature_air_2m")],
         start=start_date,
         end=end_date,
     )

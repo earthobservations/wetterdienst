@@ -46,8 +46,7 @@ Types of changes:
   the current value, are named `temperature_air_2m`, `temperature_air_0_05m`,
   `temperature_soil_0_05m`, `_0_1m`, `_0_2m` and `temperature_dew_point_2m`, no longer the
   `_mean_` names. Request the new names; the old ones are not found in these datasets (logged and
-  dropped, or `NoParametersFoundError` when no other parameter is requested). The hourly means
-  `tre200h0`, `tre005h0` and `tde200h0` keep their `_mean_` names (GH-2651)
+  dropped, or `NoParametersFoundError` when no other parameter is requested) (GH-2651)
 - **Breaking**: `smhi/observation` 1-minute `45` and hourly `1` and `39`, which SMHI calls
   instantaneous values, are named `temperature_air_2m` and `temperature_dew_point_2m`, no longer
   `temperature_air_mean_2m` and `temperature_dew_point_mean_2m`. Request the new names; the old
@@ -58,11 +57,32 @@ Types of changes:
   present or observation-time value, are named `temperature_air_2m` and, for `tpr`,
   `temperature_dew_point_2m`, no longer the `_mean_` names. Request the new names; the old ones
   are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
-  parameter is requested). Where a source says a mean or nothing about the statistic, the
-  `_mean_` name stays (GH-2651)
+  parameter is requested) (GH-2651)
+- **Breaking**: the remaining DWD temperatures below daily resolution are named for a reading at one
+  moment, no longer for the mean: `dwd/observation` 10-minute `td_10` and `urban_temperature_*`,
+  hourly `dew_point`, `moisture`, `temperature_air`, `temperature_soil` and `urban_temperature_*`,
+  subdaily `moisture` and `temperature_air`; `dwd/mosmix` and `dwd/dmo` `ttt`, `t5cm` and `td`;
+  `dwd/swsmos` `TL` and `TD`; `dwd/poi`; and `dwd/road` `roadSurfaceTemperature`. They are
+  `temperature_air_2m`, `temperature_air_0_05m`, `temperature_dew_point_2m`, `temperature_wet_2m`,
+  `temperature_radiant_2m`, `temperature_surface` and `temperature_soil_0_02m` to `_1m`, where they
+  were the `_mean_` names. Request the new names; the old ones are not found (logged and dropped, or
+  `NoParametersFoundError` when no other parameter is requested) (GH-2657)
+- **Breaking**: the same for the sub-daily temperatures of `chmi`, `eccc`, `knmi` hourly, `lhmt`,
+  `metoffice`, `noaa/ghcn` hourly, `meteofrance/observation` hourly `TD` and `metno/frost` hourly
+  dew point, whose sources say nothing about the statistic. Request the spot names; the old ones
+  are not found (logged and dropped, or `NoParametersFoundError` when no other parameter is
+  requested) (GH-2657)
+- **Breaking**: the same for sub-daily temperatures whose source calls them a mean or an average:
+  `dmi` hourly, `fmi`, `knmi` 10-minute, `geosphere`, `ipma`, `rmi`, `nws`, `wsv`, `meteoswiss`
+  hourly `tre200h0`, `tre005h0` and `tde200h0`, `meteofrance/synop` `t`, `dwd/road` `airTemperature`
+  and `dewpointTemperature`, and `dwd/swsmos` `TS`. The names no longer tell whether a sub-daily
+  reading is an instant or the mean of its interval; the parameter's description in the docs does.
+  Request the spot names; the old ones are not found (logged and dropped, or
+  `NoParametersFoundError` when no other parameter is requested). The `_mean_` names remain for
+  daily and coarser (GH-2657)
 - **Breaking**: a `ts_geo_station_distance` override keyed by an old `_mean_` name no longer
   applies to a row moved to a spot name by the entries above: the row takes the default radius.
-  Key the override by the new name (GH-2651)
+  Key the override by the new name (GH-2651, GH-2657)
 
 ### Fixed
 

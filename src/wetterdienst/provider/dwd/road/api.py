@@ -100,17 +100,17 @@ DwdRoadMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "airTemperature",
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "dewpointTemperature",
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_surface_mean",
+                            "name": "temperature_surface",
                             "name_original": "roadSurfaceTemperature",
                             "unit": "degree_kelvin",
                         },

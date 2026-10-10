@@ -493,7 +493,7 @@ def test_noaa_ghcn_hourly_stations_without_position_fetched_by_id(
     """
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", _fake_ghcn_download_file_without_position)
     request = NoaaGhcnRequest(
-        parameters=[NoaaGhcnMetadata.hourly.data.temperature_air_mean_2m],
+        parameters=[NoaaGhcnMetadata.hourly.data.temperature_air_2m],
         start=dt.datetime(1938, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(1938, 1, 31, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
@@ -568,7 +568,7 @@ def test_noaa_ghcn_daily_values_time_zone_from_the_row_that_has_a_position(
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
     request = NoaaGhcnRequest(
         parameters=[
-            NoaaGhcnMetadata.hourly.data.temperature_air_mean_2m,
+            NoaaGhcnMetadata.hourly.data.temperature_air_2m,
             NoaaGhcnMetadata.daily.data.temperature_air_max_2m,
         ],
         settings=default_settings,

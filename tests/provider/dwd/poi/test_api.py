@@ -77,9 +77,9 @@ def test_metadata_is_hourly_and_now() -> None:
 
 def test_parameters_are_addressable() -> None:
     """A single parameter resolves through the public API."""
-    request = DwdPoiRequest(parameters=[("hourly", "data", "temperature_air_mean_2m")])
+    request = DwdPoiRequest(parameters=[("hourly", "data", "temperature_air_2m")])
     parameter = next(iter(request.parameters))
-    assert parameter.name == "temperature_air_mean_2m"
+    assert parameter.name == "temperature_air_2m"
     assert parameter.name_original == "dry_bulb_temperature_at_2_meter_above_ground"
 
 
@@ -119,7 +119,7 @@ def test_dwd_poi_values() -> None:
     assert dt.timedelta(hours=1) <= span <= dt.timedelta(hours=48)
     # the newest report is recent, which is the whole point of the network
     assert dt.datetime.now(tz=UTC) - dates.max() < dt.timedelta(hours=12)
-    temperature = df.filter(pl.col("parameter") == "temperature_air_mean_2m").drop_nulls("value")
+    temperature = df.filter(pl.col("parameter") == "temperature_air_2m").drop_nulls("value")
     assert not temperature.is_empty()
     assert temperature.get_column("value").is_between(-40.0, 50.0).all()
 

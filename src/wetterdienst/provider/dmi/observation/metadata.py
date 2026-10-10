@@ -72,6 +72,13 @@ _BASE_PARAMETERS = [
     },
 ]
 
+# The hourly mean_temp is "Mean air temperature at 2 m above ground" of one hour, named for a
+# reading at one moment like every sub-daily temperature (GH-2657); the coarser resolutions keep the mean.
+_HOURLY_PARAMETERS = [
+    {**parameter, "name": "temperature_air_2m"} if parameter["name_original"] == "mean_temp" else parameter
+    for parameter in _BASE_PARAMETERS
+]
+
 # Heating degree days (base 17 °C) are aggregated from day resolution upwards.
 _HEATING_DEGREE_DAY = {
     "name": "heating_degree_day",
@@ -156,7 +163,7 @@ DmiObservationMetadata = {
             "name_original": "hour",
             "periods": ["historical"],
             "date_required": True,
-            "datasets": [_default_dataset(_BASE_PARAMETERS)],
+            "datasets": [_default_dataset(_HOURLY_PARAMETERS)],
         },
         {
             "name": "daily",
