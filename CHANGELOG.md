@@ -110,8 +110,8 @@ Types of changes:
   longitude +-180, as it does for the `BOGUS` placeholders (GH-2616)
 - `to_target` with a protocol nothing here writes (`ftp://x/y.csv`) raises `ExportRefusedError`, as
   documented, no longer SQLAlchemy's `NoSuchModuleError`, and the command line prints one line. An
-  optional package that is not installed (DuckDB for `sql`, `duckdb://` and `sqlalchemy`
-  targets, xarray, plotly, scipy, pdbufr, h5py) raises `MissingDependencyError`, an `ImportError`
+  optional package that is not installed (DuckDB for `sql` and `duckdb://`, SQLAlchemy for
+  database targets, xarray, plotly, scipy, pdbufr, h5py) raises `MissingDependencyError`, an `ImportError`
   naming the extra to install, no longer a bare `ModuleNotFoundError`; the command line prints it
   as one line, and the REST API answers 501 (GH-2637)
 

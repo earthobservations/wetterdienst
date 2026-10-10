@@ -1324,3 +1324,40 @@ def test_cli_target_nothing_can_write_is_one_logged_line(
     assert len(caplog.records) == 1
     assert expected in caplog.records[0].getMessage()
     assert caplog.records[0].exc_info is None
+
+
+def test_cli_a_package_missing_after_the_values_were_collected_is_one_line(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Rendering an image without plotly is one logged line and exit 1, wherever the command reached for it (GH-2637).
+
+    `--format=png` calls `to_format` after the values were collected, outside every handler of the
+    command, so the error reached the user as a traceback.
+    """
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    msg = "Plotting requires plotly, which is not installed. Install it with: pip install wetterdienst[plotting]"
+
+    def render(**_kwargs: object) -> None:
+        raise MissingDependencyError(msg)
+
+    values = SimpleNamespace(df=pl.DataFrame({"value": [1.0]}), to_format=render)
+    monkeypatch.setattr("wetterdienst.ui.cli.get_values", lambda **_kwargs: values)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            [
+                "values",
+                "--provider=dwd",
+                "--network=observation",
+                "--parameters=daily/kl",
+                "--station=00011",
+                "--periods=recent",
+                "--format=png",
+            ],
+        )
+
+    assert result.exit_code == 1, result.output
+    assert [record.getMessage() for record in caplog.records] == [msg]
+    assert all(record.exc_info is None for record in caplog.records)

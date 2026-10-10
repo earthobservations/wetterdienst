@@ -224,7 +224,7 @@ def test_a_provider_module_of_ours_that_is_missing_stays_an_import_error(
 
     monkeypatch.setattr(importlib, "import_module", import_module)
 
-    with pytest.raises(ImportError, match="not found") as excinfo:
+    with pytest.raises(ImportError, match="nowhere not found") as excinfo:
         Wetterdienst.resolve("dwd", "observation")
 
     assert not isinstance(excinfo.value, MissingDependencyError)

@@ -783,7 +783,7 @@ class ExportMixin:
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
             # Rebuilt from the reading above, with the password encoded again, so SQLAlchemy reads
             # it back as the same password whatever it holds
-            sqlalchemy = import_optional("sqlalchemy", "Writing to CrateDB", extra="cratedb")
+            sqlalchemy = import_optional("sqlalchemy", "Writing to CrateDB", extra="export")
 
             cratedb_target = sqlalchemy.engine.URL.create(
                 "crate",

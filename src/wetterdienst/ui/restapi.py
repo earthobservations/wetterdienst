@@ -176,10 +176,21 @@ def _dependency_missing_on_the_server(e: MissingDependencyError, what: str) -> H
         )
     else:
         detail = (
-            f"This server cannot {what}. The request was valid; the deployment is missing an "
-            "optional dependency that it needs. Ask whoever runs this instance to install it."
+            "This server lacks an optional dependency that the request needs. The request was valid; "
+            "ask whoever runs this instance to install it."
         )
     return HTTPException(status_code=501, detail=detail)
+
+
+@app.exception_handler(MissingDependencyError)
+async def _missing_dependency_handler(request: Request, exc: MissingDependencyError) -> JSONResponse:
+    """Answer a dependency the deployment lacks with a 501 wherever it was reached.
+
+    The endpoints turn it into one inside their own handlers (`_failure`); this is for the rest,
+    such as rendering an image after the values were collected.
+    """
+    error = _dependency_missing_on_the_server(exc, f"serve {request.url.path}")
+    return JSONResponse(status_code=error.status_code, content={"detail": error.detail})
 
 
 def _refuse_sql_unless_enabled(

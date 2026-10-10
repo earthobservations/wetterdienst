@@ -48,9 +48,9 @@ from wetterdienst.util.eccodes import (
     bufr_is_available,
     import_pyproj_before_eccodes,
     quiet_eccodes_version_advice,
+    require_bufr,
 )
 from wetterdienst.util.enumeration import parse_enumeration_from_template
-from wetterdienst.util.extras import import_optional
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -121,7 +121,8 @@ def read_radar_bufr(data: BytesIO, parameter: DwdRadarParameter) -> pl.DataFrame
     """
     import_pyproj_before_eccodes()
     quiet_eccodes_version_advice()
-    pdbufr = import_optional("pdbufr", "Reading DWD radar BUFR", extra="bufr")
+    require_bufr("DWD radar site products")
+    import pdbufr  # noqa: PLC0415
 
     value_field = _BUFR_VALUE_FIELD[parameter]
     # getvalue() (not read()) leaves the caller's BytesIO position untouched, so result.data

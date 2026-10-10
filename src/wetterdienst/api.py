@@ -135,15 +135,13 @@ class Wetterdienst:
             # being absent, and the two want different advice. The name says which happened, and
             # the provider modules all ship with the package -- so in practice it is the former
             # (a module of ours that does not exist is a defect, and is not an instruction to install)
-            if (
-                e.name
-                and e.name.split(".")[0] != "wetterdienst"
-                and module_path != e.name
-                and not module_path.startswith(f"{e.name}.")
-            ):
+            if e.name and e.name.split(".")[0] != "wetterdienst":
                 msg = missing_dependency_message(f"Module {module_path}", e.name)
                 raise MissingDependencyError(msg) from e
-            msg = f"Module {module_path} not found."
+            if e.name and e.name != module_path:
+                msg = f"Module {module_path} failed to import: {e.name} not found."
+            else:
+                msg = f"Module {module_path} not found."
             raise ImportError(msg) from e
         except AttributeError as e:
             msg = f"Class {class_name} not found in module {module_path}."

@@ -7634,3 +7634,32 @@ def test_an_optional_dependency_missing_on_the_server_is_a_501(
     assert "optional dependency" in detail
     assert "pip install" not in detail
     assert "pip install wetterdienst[sql]" in caplog.text
+
+
+def test_an_optional_dependency_missing_outside_the_endpoint_handlers_is_a_501_too(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Rendering an image without plotly is a 501 as well, though no endpoint handler wraps it (GH-2637).
+
+    `to_format` runs after the values were collected, outside the `try` that `_failure` serves, and
+    answered a bare 500. The app's own handler for `MissingDependencyError` covers every such place.
+    """
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    msg = "Plotting requires plotly, which is not installed. Install it with: pip install wetterdienst[plotting]"
+
+    def render() -> None:
+        raise MissingDependencyError(msg)
+
+    routes = list(restapi.app.router.routes)
+    restapi.app.add_api_route("/api/_test_render", render, include_in_schema=False)
+    try:
+        with caplog.at_level(logging.ERROR):
+            response = client.get("/api/_test_render")
+    finally:
+        restapi.app.router.routes[:] = routes
+
+    assert response.status_code == 501
+    assert "pip install" not in response.json()["detail"]
+    assert msg in caplog.text
