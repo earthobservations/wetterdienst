@@ -125,8 +125,8 @@ dependencies = [
     "stamina>=25.1.0,<27",
     "tabulate>=0.9,<1",
     "tqdm>=4.64,<5",
-    # `TypedDict` for model/result.py and ui/core.py is imported from here, not from `typing`:
-    # pydantic refuses typing.TypedDict as a response model below Python 3.12
+    # every `TypedDict` in the package (model/result.py, ui/core.py, ui/restapi.py) comes from here, not from
+    # `typing`: pydantic refuses typing.TypedDict as a response model below Python 3.12
     "typing-extensions>=4.15.0,<5",
     "tzdata>=2024.2",
     "tzfpy>=0.15.2,<3",
