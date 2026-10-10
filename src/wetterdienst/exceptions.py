@@ -115,12 +115,24 @@ class DownloadError(Exception):
         return f"Failed to download {self.url}: {self.reason}"
 
 
-class BufrReaderMissingError(ImportError):
-    """Raised when data published as BUFR is asked for and the reader to decode it is unavailable.
+class MissingDependencyError(ImportError):
+    """Raised when something needs an optional dependency that is not installed.
 
     An `ImportError`, because that is what it is, and its own type because a caller reporting it
     as an instruction to the user must not report every other import failure that way -- a typo or
-    a cycle inside a provider module is a defect and wants its traceback.
+    a cycle inside a provider module is a defect and wants its traceback. The message names the
+    package and, where the installed metadata knows one, the extra that installs it; it is the
+    whole of what there is to say, so the command line prints it as one line and the REST API
+    answers 501, as the deployment's lack and not the request's fault. Raised through
+    `wetterdienst.util.extras.import_optional`.
+    """
+
+
+class BufrReaderMissingError(MissingDependencyError):
+    """Raised when data published as BUFR is asked for and the reader to decode it is unavailable.
+
+    The eccodes and pdbufr pair is one reader, so it is one dependency to the caller. Its own
+    type, as its message names a compiled library as well as the extra.
     """
 
 

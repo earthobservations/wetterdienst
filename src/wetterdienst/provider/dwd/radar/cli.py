@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from wetterdienst.util.extras import missing_dependency_message
+from wetterdienst.util.extras import import_optional
 
 if TYPE_CHECKING:
     from h5netcdf import Group
@@ -16,11 +16,7 @@ if TYPE_CHECKING:
 
 def hdf5dump(thing: str, *, compact: bool = False) -> None:
     """Like "h5dump -n 1", but better."""
-    try:
-        import h5py  # noqa: PLC0415
-    except ImportError as e:
-        msg = missing_dependency_message("Reading radar HDF5", e.name, extra="radar")
-        raise ImportError(msg) from e
+    h5py = import_optional("h5py", "Reading radar HDF5", extra="radar")
 
     blocklist = [
         "afc_status",
