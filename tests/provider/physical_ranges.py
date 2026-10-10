@@ -5,14 +5,20 @@
 Sources mark a missing value with a number: -999, -99, -9999, 99.9, 9999. One that survives parsing is a value to every
 caller, and the unit converter converts it: a mean over a column with a -999 in it is wrong without an error. The tests
 of a provider mostly assert that a known value arrives, not that no impossible one does, so the check lives here once.
-`conftest.py` applies it to every values frame a provider test produces, and `test_value_stubs.py` to the way each
-stubbed source writes a missing value.
+`conftest.py` applies it to every values frame an offline provider test produces, and `test_value_stubs.py` to the way
+each stubbed source writes a missing value. A remote test is left alone, since what a real source answers with changes
+and a known leak would turn the CI matrix red until it is fixed; `WD_CHECK_RANGES_REMOTE=1` applies the check to the
+remote tests as well, which is how a leak the offline fixtures do not hold is found.
 
-The ranges are in the unit a value is returned in (`UnitConverter.targets`, the default of `Settings`) and are
-generous on purpose. They catch -999, not a cold night and not a hot road: a value outside is a sentinel, a unit that
-was not converted or a column read from the wrong place, never a record. What they cannot catch is a sentinel that
-looks like data, such as 99.9 % relative humidity, a -1 for "no snow" in a depth that may be read from a gauge, or 0
-for "not measured"; that part of #2615 is read off the source's own documentation, not off the numbers.
+The ranges are in the unit a value is returned in (`UnitConverter.targets`, the default of `Settings`; a frame
+converted to other units is not checked) and are generous on purpose. They describe one reading, so they are widened
+for a sum over a month or a year where that matters (`snow_depth`). They catch -999, not a cold night and not a hot
+road: a value outside is a sentinel, a unit that was not converted or a column read from the wrong place, never a
+record. What they cannot catch is a sentinel that looks like data, such as 99.9 % relative humidity, a -1 for "no snow"
+in a depth that may be read from a gauge, or 0 for "not measured"; that part of #2615 is read off the source's own
+documentation, not off the numbers. Nor do they catch -999 where the range has to reach below it: a discharge (a tidal
+river runs backwards by thousands of cubic metres a second), and a value that is converted on its way, such as
+-999 kJ/m² of radiation (-99.9 J/cm²) or -9999 mm of a depth (-999.9 cm).
 
 A range is looked up by canonical parameter name: first the parameters that need their own, then a prefix, then the
 unit type. A parameter or unit type held to no range at all is named with `None`, never left out, so that a new unit
@@ -48,7 +54,7 @@ UNIT_TYPE_RANGES: dict[str, Bounds | None] = {
     "degree_day": Bounds(0.0, 20_000.0),  # °C·day; a year of heating in the cold north is below 10_000
     "degree_hour": Bounds(0.0, 20_000.0),  # °C·h
     "dimensionless": None,
-    "energy_per_area": Bounds(-100.0, 200_000.0),  # J/cm²; a year of global radiation is 60_000 to 100_000
+    "energy_per_area": Bounds(-100.0, 500_000.0),  # J/cm²; a year of global radiation is about 360_000
     "fraction": Bounds(0.0, 1.3),  # decimal; a hygrometer reads past 100 % now and then
     "length_long": Bounds(0.0, 5_000.0),  # km
     "length_medium": Bounds(-500.0, 50_000.0),  # m; a groundwater level or a cloud base is a height
@@ -94,6 +100,7 @@ PARAMETER_RANGES: dict[str, Bounds | None] = {
     "snow_depth_new": Bounds(0.0, 500.0),  # cm in a day
     "snow_depth_new_max": Bounds(0.0, 500.0),
     "snow_depth_new_normal": Bounds(0.0, 500.0),
+    "ice_on_water_thickness": Bounds(0.0, 500.0),  # cm
     "visibility": Bounds(0.0, 200_000.0),  # m
     "cloud_base_convective": Bounds(0.0, 25_000.0),  # m
     "temperature_humidex": Bounds(-90.0, 80.0),  # °C
@@ -122,15 +129,26 @@ PREFIX_RANGES: tuple[tuple[str, Bounds | None], ...] = (
     # be told from a reading here (the -1 of Geosphere's "no snow" is found by its stub)
     ("snow_depth", Bounds(-50.0, 1_500.0)),  # cm
     ("water_equivalent_snow_depth", Bounds(0.0, 5_000.0)),  # mm
+    ("frozen_ground_layer_thickness", Bounds(0.0, 1_000.0)),  # cm
+    ("thawing_thickness_", Bounds(0.0, 1_000.0)),  # cm
 )
 
+# what a sum over a month or a year of daily readings may reach, for the parameters that are summed that way: DWD's
+# monthly and annual `snow_depth` are the sum of the daily depths, and an Alpine station adds up to thousands of cm
+LONG_PERIOD_RESOLUTIONS = frozenset({"monthly", "annual"})
+LONG_PERIOD_RANGES: tuple[tuple[str, Bounds], ...] = (("snow_depth", Bounds(-50.0, 200_000.0)),)
 
-def bounds_for(name: str) -> Bounds | None:
+
+def bounds_for(name: str, resolution: str | None = None) -> Bounds | None:
     """Give the range a canonical parameter is held to, or `None` where it is held to none.
 
     Raises a `KeyError` for a name that is not a canonical parameter, as that is a defect of the provider and not
     of the check.
     """
+    if resolution in LONG_PERIOD_RESOLUTIONS:
+        for prefix, bounds in LONG_PERIOD_RANGES:
+            if name.startswith(prefix) and name not in PARAMETER_RANGES:
+                return bounds
     if name in PARAMETER_RANGES:
         return PARAMETER_RANGES[name]
     unit_type = PARAMETERS[name].unit_type
@@ -140,20 +158,25 @@ def bounds_for(name: str) -> Bounds | None:
     return UNIT_TYPE_RANGES[unit_type]
 
 
-def out_of_range(df: pl.DataFrame, names: dict[str, str] | None = None) -> pl.DataFrame:
+def out_of_range(df: pl.DataFrame, names: dict[str, str] | None = None, resolution: str | None = None) -> pl.DataFrame:
     """Give the rows of a tidy values frame whose value lies outside the range of its parameter.
 
     The frame needs the columns `parameter` and `value`; `resolution`, `dataset`, `station_id` and `timestamp` are
     carried along if it has them. `names` maps the strings of the `parameter` column to canonical names, for a frame
-    that has not been humanized and so carries the source's own; without it the column is read as canonical names.
+    that has not been humanized and so carries the source's own, whatever the case it is written in; without it the
+    column is read as canonical names. `resolution` is that of the frame, where the frame has no such column.
     """
     if df.is_empty() or "parameter" not in df.columns or "value" not in df.columns:
         return pl.DataFrame()
     parameters = [str(one) for one in df.get_column("parameter").cast(pl.String).unique().to_list()]
     low: dict[str, float] = {}
     high: dict[str, float] = {}
+    resolutions = df.get_column("resolution").cast(pl.String).unique().to_list() if "resolution" in df.columns else []
+    if resolution is None and len(resolutions) == 1:
+        resolution = resolutions[0]
     for parameter in parameters:
-        bounds = bounds_for((names or {}).get(parameter, parameter))
+        canonical = (names or {}).get(parameter) or (names or {}).get(parameter.lower()) or parameter
+        bounds = bounds_for(canonical, resolution)
         if bounds is not None:
             low[parameter], high[parameter] = bounds
     if not low:
@@ -171,12 +194,16 @@ def out_of_range(df: pl.DataFrame, names: dict[str, str] | None = None) -> pl.Da
     return df.filter(outside.fill_null(value=False)).select(keep)
 
 
-def describe(found: pl.DataFrame, names: dict[str, str] | None = None, limit: int = 3) -> str:
+def describe(
+    found: pl.DataFrame, names: dict[str, str] | None = None, limit: int = 3, resolution: str | None = None
+) -> str:
     """Say which parameters had values outside their range, with the lowest and the highest of each."""
     lines = []
     for (parameter,), rows in found.group_by(["parameter"], maintain_order=True):
-        canonical = (names or {}).get(str(parameter), str(parameter))
+        name = str(parameter)
+        canonical = (names or {}).get(name) or (names or {}).get(name.lower()) or name
         values = rows.get_column("value").sort().to_list()
         shown = values[:limit] if len(values) <= 2 * limit else [*values[:limit], "...", *values[-limit:]]
-        lines.append(f"{canonical}: {len(values)} outside {tuple(bounds_for(canonical) or ())}: {shown}")
+        bounds = tuple(bounds_for(canonical, resolution) or ())
+        lines.append(f"{canonical}: {len(values)} outside {bounds}: {shown}")
     return "; ".join(lines)

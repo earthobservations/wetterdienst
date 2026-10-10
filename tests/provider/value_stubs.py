@@ -65,6 +65,8 @@ class ValueStub:
     sentinels: tuple[tuple[str, float], ...]
     # the issue that tracks a sentinel the provider lets through
     leak: str | None = None
+    # an instant at which the source has no reading at all, so that the output has no row for it, whatever the unit
+    empty_at: dt.datetime | None = None
 
 
 def serve(monkeypatch: pytest.MonkeyPatch, module: Any, bodies: dict[str, bytes | Callable[[str], bytes]]) -> None:  # noqa: ANN401
@@ -330,19 +332,28 @@ STUBS = [
         "ipma/observation hourly/data",
         _ipma,
         reading=("temperature_air_mean_2m", 21.5),
-        sentinels=(("temperature_air_mean_2m", -99.0), ("humidity_relative", -99.0), ("precipitation_amount", -99.0)),
+        # the humidity is converted from percent to a decimal on its way
+        sentinels=(("temperature_air_mean_2m", -99.0), ("humidity_relative", -0.99), ("precipitation_amount", -99.0)),
+        empty_at=_day(2026, 10, 10, 13),
     ),
     ValueStub(
         "dwd/observation daily/climate_summary",
         _dwd_daily_climate_summary,
         reading=("temperature_air_mean_2m", 2.9),
         sentinels=(("temperature_air_mean_2m", -999.0), ("precipitation_height", -999.0)),
+        empty_at=_day(2025, 1, 2),
     ),
     ValueStub(
         "dwd/observation hourly/moisture",
         _dwd_hourly_moisture,
         reading=("temperature_air_2m", -0.7),
-        sentinels=(("temperature_wet_2m", -99.9), ("humidity_absolute", -99.9), ("humidity_relative", -0.999)),
+        sentinels=(
+            ("humidity_absolute", -99.9),
+            ("humidity_relative", -0.999),
+            ("pressure_vapor", -99.9),
+            ("temperature_dew_point_2m", -99.9),
+            ("temperature_wet_2m", -99.9),
+        ),
         leak="#2669",
     ),
     ValueStub(

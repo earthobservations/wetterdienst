@@ -141,19 +141,23 @@ def test_a_prefix_does_not_shadow_a_later_one() -> None:
         assert not any(prefix.startswith(earlier) for earlier in prefixes[:index]), prefix
 
 
-def test_the_check_sees_a_frame_a_provider_hands_back(
-    monkeypatch: pytest.MonkeyPatch,
-    physical_range_findings: list[str],
-) -> None:
-    """The hook the provider tests run under is armed: a value out of range in a returned frame is recorded."""
+def test_a_sum_over_a_month_or_a_year_may_exceed_the_depth_of_one_reading() -> None:
+    """DWD's monthly and annual snow depth are sums of the daily depths, which an Alpine station takes to thousands."""
+    assert not out_of_range(_frame("snow_depth", 2194.0), resolution="daily").is_empty()
+    assert out_of_range(_frame("snow_depth", 2194.0), resolution="annual").is_empty()
+    assert out_of_range(_frame("snow_depth", 2194.0), resolution="monthly").is_empty()
+    assert not out_of_range(_frame("snow_depth", -999.0), resolution="annual").is_empty()
+
+
+def _lhmt_values(monkeypatch: pytest.MonkeyPatch, temperature: float, settings: Settings) -> pl.DataFrame:
+    """Give the values of one LHMT station for a day with one reading, as its reader and the framework make them."""
     stations = (
         b'[{"code": "vilniaus-ams", "name": "Vilniaus AMS", '
         b'"coordinates": {"latitude": 54.625992, "longitude": 25.107064}}]'
     )
-    # LHMT publishes `null` for a missing reading, so a -999 here is what a sentinel that got through would be
     day = (
         b'{"station": {"code": "vilniaus-ams"}, "observations": ['
-        b'{"observationTimeUtc": "2020-07-01 12:00:00", "airTemperature": -999.0}]}'
+        b'{"observationTimeUtc": "2020-07-01 12:00:00", "airTemperature": %f}]}' % temperature
     )
 
     def download_file(url: str, *_args: object, **_kwargs: object) -> File:
@@ -162,14 +166,43 @@ def test_the_check_sees_a_frame_a_provider_hands_back(
     monkeypatch.setattr("wetterdienst.provider.lhmt.observation.api.download_file", download_file)
     start = dt.datetime(2020, 7, 1, tzinfo=dt.timezone.utc)
     request = LhmtObservationRequest(
-        parameters=[("hourly", "data")],
-        start=start,
-        end=start + dt.timedelta(days=1),
-        settings=Settings(cache_disable=True),
+        parameters=[("hourly", "data")], start=start, end=start + dt.timedelta(days=1), settings=settings
     )
-    df = request.filter_by_station_id("vilniaus-ams").values.all().df
+    return request.filter_by_station_id("vilniaus-ams").values.all().df
+
+
+def test_the_check_sees_a_frame_a_provider_hands_back(
+    monkeypatch: pytest.MonkeyPatch,
+    physical_range_findings: list[str],
+) -> None:
+    """The hook the provider tests run under is armed: a value out of range in a returned frame is recorded."""
+    # LHMT publishes `null` for a missing reading, so a -999 here is what a sentinel that got through would be
+    df = _lhmt_values(monkeypatch, -999.0, Settings(cache_disable=True))
 
     assert df.get_column("value").to_list() == [-999.0]
     assert len(physical_range_findings) == 1
     assert "lhmt.observation.api hourly/data: temperature_air_2m: 1 outside" in physical_range_findings[0]
     physical_range_findings.clear()
+
+
+def test_a_frame_converted_to_other_units_than_the_default_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch,
+    physical_range_findings: list[str],
+) -> None:
+    """The ranges are written in the default units, so 72 degrees Fahrenheit is no air temperature out of range."""
+    settings = Settings(cache_disable=True, ts_unit_targets={"temperature": "degree_fahrenheit"})
+    df = _lhmt_values(monkeypatch, 22.3, settings)
+
+    assert df.get_column("value").to_list() == [pytest.approx(72.14)]
+    assert physical_range_findings == []
+
+
+def test_a_frame_that_is_not_converted_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch,
+    physical_range_findings: list[str],
+) -> None:
+    """With the unit conversion off a value is in the source's own unit, which the ranges do not describe."""
+    df = _lhmt_values(monkeypatch, -999.0, Settings(cache_disable=True, ts_convert_units=False))
+
+    assert df.get_column("value").to_list() == [-999.0]
+    assert physical_range_findings == []

@@ -36,15 +36,29 @@ def test_a_stub_source_leaves_no_sentinel_in_the_values(
     parameter, value = stub.reading
     arrived = df.filter(pl.col("parameter").cast(pl.String) == parameter).get_column("value").to_list()
     assert value in arrived, f"{stub.provider}: the reading {parameter}={value} did not arrive, got {arrived}"
+    if stub.empty_at:
+        at = df.filter(pl.col("timestamp") == stub.empty_at)
+        assert at.is_empty(), f"{stub.provider}: {at.height} values at {stub.empty_at}, where the source has none"
     carried = _carried(df, stub)
+    # what is outside the range of its parameter, less the sentinels the stub names: a number that is neither
+    # a reading nor one of them is a sentinel the stub does not know of yet
+    outside = out_of_range(df)
+    unnamed = [
+        (str(row["parameter"]), row["value"])
+        for row in outside.to_dicts()
+        if (str(row["parameter"]), row["value"]) not in stub.sentinels
+    ]
+    assert unnamed == [], f"{stub.provider}: values outside the range of their parameter, not named: {unnamed[:5]}"
     if stub.leak:
-        assert carried, f"{stub.provider}: {stub.leak} is fixed, remove `leak` from its stub"
-        # the range check has seen the leak too, where the number is outside the range of its parameter
+        # all of them: a fix that is only partial changes what the stub holds, and the stub is to say so
+        assert carried == list(stub.sentinels), (
+            f"{stub.provider}: {stub.leak} is fixed for {sorted(set(stub.sentinels) - set(carried))}, "
+            "remove it from `sentinels`, and `leak` when none is left"
+        )
+        # the range check has seen what it can of the leak too
         physical_range_findings.clear()
         return
     assert carried == [], f"{stub.provider}: the sentinel {carried} reached the output"
-    outside = out_of_range(df)
-    assert outside.is_empty(), f"{stub.provider}: {outside.height} values outside the range of their parameter"
 
 
 def test_every_network_has_a_stub_or_a_reason() -> None:
