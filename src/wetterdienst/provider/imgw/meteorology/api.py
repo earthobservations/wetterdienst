@@ -874,6 +874,8 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             "elevation",
         ]
         df = df.with_columns(
+            # the list pads some names with a trailing blank (`RADZIECHOWY `), which an exact name filter then misses
+            pl.col("name").str.strip_chars(),
             pl.col("latitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
             pl.col("longitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
             pl.col("elevation").str.replace(" ", "").cast(pl.Float64, strict=False),

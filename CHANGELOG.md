@@ -97,6 +97,8 @@ Types of changes:
 - Station names of `dwd/swsmos` and `dwd/road` no longer carry the trailing blank the catalogue
   pads some with (`Darup `, `AD Südost `: 38 and 33 stations), so a name filter on `Darup` finds
   them (GH-2616)
+- Station names of `imgw/meteorology` and `imgw/hydrology` no longer carry the trailing blank the
+  lists pad some with (`RADZIECHOWY `, `Tuliszków `, `LUDŹMIERZ `) (GH-2616)
 
 ## [0.143.0] - 2026-10-08
 

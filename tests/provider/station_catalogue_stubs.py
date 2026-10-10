@@ -26,6 +26,10 @@ from wetterdienst.provider.dwd.road import DwdRoadRequest
 from wetterdienst.provider.dwd.road import api as road_api
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.provider.dwd.swsmos import api as swsmos_api
+from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest
+from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api
+from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
+from wetterdienst.provider.imgw.meteorology import api as imgw_meteorology_api
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
@@ -111,7 +115,34 @@ def _dwd_road(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(DwdRoadRequest, ("15_minutes", "data"))
 
 
+def _imgw_meteorology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    catalogue = (
+        "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
+        "Wysokość n.p.m.\r\n"
+        "1;249170080;Dzierżkowice;Opawa (112);2024;49 59 32;17 50 47;270\r\n"
+        "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
+        "84;249190890;RADZIECHOWY ;Soła (2132);2008;49 38 55;19 09 20;395\r\n"
+        "539;252180290;Tuliszków ;Powa (18352);2005;52 04 04;18 16 07;111\r\n"
+    )
+    _serve(monkeypatch, imgw_meteorology_api, {"kody_stacji": catalogue.encode("utf8")})
+    return _stations(ImgwMeteorologyRequest, ("daily", "climate"))
+
+
+def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    catalogue = (
+        "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
+        "Rzędna zera wodowskazu;Kilometr biegu rzeki\r\n"
+        "1;149180010;Krzyżanowice;Odra (1);1927;49 59 37;18 17 14;184.806;713.04\r\n"
+        "55;149190360;LUDŹMIERZ ;Lepietnica (2141156);1922;49 28 07;19 58 32;596.044;0.27\r\n"
+        "58;149190390;LUDŹMIERZ;Wielki Rogoźnik (214116);1924;49 27 34;19 59 12;592.828;0.4\r\n"
+    )
+    _serve(monkeypatch, imgw_hydrology_api, {"kody_stacji": catalogue.encode("utf8")})
+    return _stations(ImgwHydrologyRequest, ("daily", "hydrology"))
+
+
 STUBS = [
     Stub("dwd/road 15_minutes/data", _dwd_road),
     Stub("dwd/swsmos hourly/data", _dwd_swsmos),
+    Stub("imgw/hydrology daily/hydrology", _imgw_hydrology),
+    Stub("imgw/meteorology daily/climate", _imgw_meteorology),
 ]
