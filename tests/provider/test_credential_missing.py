@@ -12,7 +12,7 @@ from wetterdienst.provider.knmi.observation.api import KnmiObservationRequest
 from wetterdienst.provider.metno.frost.api import MetnoFrostRequest
 from wetterdienst.settings import Settings
 
-UTC = dt.timezone.utc
+UTC = dt.UTC
 
 
 @pytest.mark.parametrize(
