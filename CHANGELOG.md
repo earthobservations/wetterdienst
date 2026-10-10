@@ -101,6 +101,10 @@ Types of changes:
   lists pad some with (`RADZIECHOWY `, `Tuliszków `, `LUDŹMIERZ `) (GH-2616)
 - The station name of `chmi/observation` `Třinec  Oldřichovice  Javorový` no longer ends in the
   blank the catalogue gives it (GH-2616)
+- `geosphere/observation` stations that still report have no `end_timestamp` (null), as for
+  `chmi/observation`; it was 2100-12-31, the date the list gives them, for about 470 stations. A
+  filter for the stations still reporting tests for null instead of for a date in the future
+  (GH-2616)
 
 ## [0.143.0] - 2026-10-08
 

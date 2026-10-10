@@ -28,6 +28,8 @@ from wetterdienst.provider.dwd.road import DwdRoadRequest
 from wetterdienst.provider.dwd.road import api as road_api
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.provider.dwd.swsmos import api as swsmos_api
+from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
+from wetterdienst.provider.geosphere.observation import api as geosphere_api
 from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest
 from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
@@ -159,7 +161,24 @@ def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(ChmiObservationRequest, ("daily", "data"))
 
 
+def _geosphere(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    catalogue = (
+        "id,Synopstationsnummer,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,"
+        "Sonnenschein,Globalstrahlung,Synop,Verknüpfungsnummer,Startdatum Teilzeitreihe,Enddatum Teilzeitreihe,"
+        "zusammengesetzt\n"
+        "1,,Aflenz,15.24069,47.54594,783.2,1983-05-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,Steiermark,"
+        "True,True,,,,,ja\n"
+        "2,,Aigen im Ennstal,14.13826,47.53278,641.0,1939-03-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,"
+        "Steiermark,True,True,,,,,ja\n"
+        "12,,Baden,16.235556,48.011391,244.8,1954-04-01 00:00:00+00:00,2012-05-31 23:59:59+00:00,"
+        "Niederösterreich,True,False,,,,,ja\n"
+    )
+    _serve(monkeypatch, geosphere_api, {"metadata/stations": catalogue.encode("utf8")})
+    return _stations(GeosphereObservationRequest, ("daily", "data"))
+
+
 STUBS = [
+    Stub("geosphere/observation daily/data", _geosphere),
     Stub(
         "chmi/observation daily/data",
         _chmi,
