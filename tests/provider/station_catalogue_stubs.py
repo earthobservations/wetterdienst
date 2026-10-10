@@ -14,6 +14,7 @@ give the rows a fault the source really has if there is one, so that the rule is
 from __future__ import annotations
 
 import bz2
+import datetime as dt
 from dataclasses import dataclass, field
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
@@ -34,6 +35,8 @@ from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest
 from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
 from wetterdienst.provider.imgw.meteorology import api as imgw_meteorology_api
+from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
+from wetterdienst.provider.noaa.ghcn import api as ghcn_api
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
@@ -49,6 +52,9 @@ class Stub:
     catalogue: str
     build: Callable[[pytest.MonkeyPatch], pl.DataFrame]
     accepted: tuple[Accepted, ...] = field(default=())
+    # the time the dates of the stations are held against; a stub whose rows end around the present fixes it, so that
+    # it does not change its verdict with the calendar
+    now: dt.datetime | None = None
 
     @property
     def bbox(self) -> tuple[float, float, float, float] | None:
@@ -177,7 +183,84 @@ def _geosphere(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(GeosphereObservationRequest, ("daily", "data"))
 
 
+def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    catalogue = (
+        "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        "GMI0000EDDH,53.6304,9.9882,16.1,,HAMBURG,,,,EDDH,DE\n"
+        "FRU65344001,43.188,0.0,360.0,,TARBES-LOURDES-PYRENEES,,,,,FR\n"
+        "UKU68-00010,51.48,0.0,48.5,,GREENWICH ROYAL OBSERVATORY,,,,,GB\n"
+        "ARM00087500,0.0,0.0,-999.0,,BOGUS ARGENTINEAN,,,87500,,AR\n"
+        "ARM00087869,0.0,0.0,-999.0,,NAME AND LOC UNKN,,,87869,,AR\n"
+        "BRA00822001,-2.983,-69.583,-999.0,,IPIRANGA(?),,,,,BR\n"
+        "RUU71-00102,135.117,48.8,-999.9,,CHABAROWKA,,,,,XX\n"
+        "RUU71-00113,104.367,52.283,-999.9,,IRKUTSK,,,,,XX\n"
+    )
+    _serve(monkeypatch, ghcn_api, {"ghcnh-station-list": catalogue.encode("utf8")})
+    return _stations(NoaaGhcnRequest, ("hourly", "data"))
+
+
+def _ghcn_daily(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    stations = (
+        "BR000269000  -2.9830  -69.5830    0.0    IPIRANGA(?)                            82200\n"
+        "FRE00104116  43.1881    0.0000  360.0    TARBES - OSSUN                         07621\n"
+        "GM000010147  53.6350    9.9900   11.0    HAMBURG FUHLSBUETTEL           GSN     10147\n"
+        "GME00102292  51.4358   12.2414  131.0    LEIPZIG-SCHKEUDITZ                     10469\n"
+    )
+    inventory = (
+        "BR000269000  -2.9830  -69.5830 PRCP 1979 1996\n"
+        "FRE00104116  43.1881    0.0000 TMAX 1946 2026\n"
+        "GM000010147  53.6350    9.9900 TMAX 1891 2026\n"
+        "GME00102292  51.4358   12.2414 TMAX 1934 2026\n"
+    )
+    _serve(
+        monkeypatch,
+        ghcn_api,
+        {"ghcnd-stations": stations.encode("utf8"), "ghcnd-inventory": inventory.encode("utf8")},
+    )
+    return _stations(NoaaGhcnRequest, ("daily", "data"))
+
+
+_GHCN_NO_POSITION = (
+    "the list gives the BOGUS and the NAME AND LOC UNKN placeholders 0, 0 and the two historic Russian stations "
+    "latitudes of 135 and 104; none has a position (GH-2380), and a station without one is picked by no distance search"
+)
+
 STUBS = [
+    Stub(
+        "noaa/ghcn hourly/data",
+        _ghcn_hourly,
+        (
+            Accepted(
+                "coordinates_missing",
+                _GHCN_NO_POSITION,
+                where=lambda row: (
+                    row["name"].startswith(("BOGUS ", "NAME AND LOC")) or row["station_id"].startswith("RUU71-")
+                ),
+            ),
+            Accepted(
+                "name_encoding",
+                "the list spells the name IPIRANGA(?) with a question mark",
+                where=lambda row: row["name"] == "IPIRANGA(?)",
+            ),
+        ),
+    ),
+    Stub(
+        "noaa/ghcn daily/data",
+        _ghcn_daily,
+        (
+            Accepted(
+                "date_in_the_future",
+                "the end of a station that reports this year is 31 December of this year (GH-2643)",
+                where=lambda row: row["end_timestamp"].year == 2026,
+            ),
+            Accepted(
+                "name_encoding",
+                "the list spells the name IPIRANGA(?) with a question mark",
+                where=lambda row: row["name"] == "IPIRANGA(?)",
+            ),
+        ),
+        now=dt.datetime(2026, 10, 10, tzinfo=dt.UTC),
+    ),
     Stub("geosphere/observation daily/data", _geosphere),
     Stub(
         "chmi/observation daily/data",

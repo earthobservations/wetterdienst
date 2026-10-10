@@ -11,4 +11,4 @@ from tests.provider.station_catalogue_stubs import STUBS, Stub
 @pytest.mark.parametrize("stub", STUBS, ids=lambda stub: stub.catalogue)
 def test_a_stub_catalogue_is_sound(stub: Stub, monkeypatch: pytest.MonkeyPatch) -> None:
     """Hold the stations of every stubbed catalogue to the rules, naming the provider, station and rule that fails."""
-    assert_sound(stub.build(monkeypatch), stub.catalogue, bbox=stub.bbox, accepted=stub.accepted)
+    assert_sound(stub.build(monkeypatch), stub.catalogue, bbox=stub.bbox, accepted=stub.accepted, now=stub.now)

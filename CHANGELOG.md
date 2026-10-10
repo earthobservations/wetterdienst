@@ -105,6 +105,10 @@ Types of changes:
   `chmi/observation`; it was 2100-12-31, the date the list gives them, for about 470 stations. A
   filter for the stations still reporting tests for null instead of for a date in the future
   (GH-2616)
+- `noaa/ghcn` hourly stations `RUU71-00102` (CHABAROWKA) and `RUU71-00113` (IRKUTSK) have no
+  position, where the list puts them at latitudes of 135.117 and 104.367, off the globe, with
+  latitude and longitude swapped; any position outside latitude +-90 or longitude +-180 is
+  dropped, as the `BOGUS` placeholders already are (GH-2616)
 
 ## [0.143.0] - 2026-10-08
 
