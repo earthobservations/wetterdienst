@@ -8,12 +8,14 @@ import json
 import logging
 import math
 from textwrap import dedent
-from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, TypeVar
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, WithJsonSchema, with_config
-from typing_extensions import NotRequired, TypedDict
+
+# not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
+from typing_extensions import TypedDict
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (

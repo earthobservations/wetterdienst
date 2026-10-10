@@ -5,8 +5,7 @@
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
-# Read metadata from the installed package so this works on any supported Python
-# version (tomllib is only available on 3.11+, while the project supports 3.10+).
+# Read metadata from the installed package, so the version cannot drift from pyproject.toml.
 import sys
 from importlib.metadata import metadata
 from pathlib import Path

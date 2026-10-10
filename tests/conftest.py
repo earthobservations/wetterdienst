@@ -21,9 +21,7 @@ from wetterdienst.util.network import _worth_retrying
 
 IS_CI = bool(os.environ.get("CI"))
 IS_LINUX = platform.system() == "Linux"
-IS_LINUX_39 = IS_LINUX and sys.version_info[:2] == (3, 11)
 IS_WINDOWS = platform.system() == "Windows"
-IS_PYTHON_3_10 = sys.version_info[:2] == (3, 10)
 IS_PYTHON_3_14 = sys.version_info[:2] == (3, 14)
 BUFR_AVAILABLE = bufr_is_available()
 
@@ -103,8 +101,8 @@ def _is_local_address(address: object) -> bool:
     except ValueError:
         return False
     # a dual-stack socket reports a v4 peer as `::ffff:127.0.0.1`, and whether `is_loopback` looks
-    # through that mapping has moved about between interpreters -- 3.12 answers False where 3.10,
-    # 3.11, 3.13 and 3.14 answer True, and all five are in the CI matrix. Unwrapped here so the
+    # through that mapping has moved about between interpreters -- 3.12 answers False where 3.11,
+    # 3.13 and 3.14 answer True, and all four are in the CI matrix. Unwrapped here so the
     # answer is the same on all of them. The mapped address is asked the same question, so a mapped
     # `::ffff:8.8.8.8` stays refused
     parsed = getattr(parsed, "ipv4_mapped", None) or parsed
@@ -242,12 +240,8 @@ def _carries_refusal(exception: BaseException, seen: frozenset[int] = frozenset(
         return True
     seen = seen | {id(exception)}
     nested: tuple[BaseException | None, ...] = (exception.__cause__, exception.__context__)
-    # asked for rather than an `isinstance(exception, BaseExceptionGroup)`, which is a name 3.10
-    # does not have and 3.10 is supported here. Nothing else in the traceback carries a tuple of
-    # exceptions under this attribute
-    grouped = getattr(exception, "exceptions", None)
-    if isinstance(grouped, (tuple, list)):
-        nested = (*nested, *(one for one in grouped if isinstance(one, BaseException)))
+    if isinstance(exception, BaseExceptionGroup):
+        nested = (*nested, *exception.exceptions)
     return any(one is not None and _carries_refusal(one, seen) for one in nested)
 
 

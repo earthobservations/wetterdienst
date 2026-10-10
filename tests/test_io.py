@@ -9,8 +9,8 @@ import logging
 import math
 import re
 import sqlite3
-import sys
 import time
+import tomllib
 from pathlib import Path
 from unittest import mock
 from urllib.parse import quote
@@ -18,11 +18,6 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:  # pragma: no cover
-    import tomli as tomllib
 
 from tests.conftest import IS_CI, IS_WINDOWS
 from wetterdienst import Settings
@@ -3824,3 +3819,4 @@ def test_sql_sink_writes_sql_server_text_as_nvarchar(target: str, text_type: str
     assert "VARCHAR(max)" not in ddl.replace("NVARCHAR(max)", "")
     assert frame["name"].tolist() == ["Łódź"]
     assert frame["kind"].tolist() == ["Třeboň"]
+

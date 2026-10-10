@@ -1363,7 +1363,7 @@ def test_get_stations_request_mosmix_issue_is_forwarded() -> None:
     issue = stations_request.issue
     assert issue is not DwdForecastDate.LATEST
     assert isinstance(issue, dt.datetime)
-    assert issue == dt.datetime(2026, 6, 27, 9, 0, 0, tzinfo=dt.timezone.utc)
+    assert issue == dt.datetime(2026, 6, 27, 9, 0, 0, tzinfo=dt.UTC)
 
 
 def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
@@ -2746,8 +2746,8 @@ def test_stations_sql_cannot_read_files(client: TestClient, monkeypatch: pytest.
         "resolution": "daily",
         "dataset": "climate_summary",
         "station_id": "01048",
-        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
+        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.UTC),
         "latitude": 51.1278,
         "longitude": 13.7543,
         "elevation": 228.0,
@@ -2941,7 +2941,7 @@ def _year_10000_message() -> str:
     import datetime as dt  # noqa: PLC0415
 
     try:
-        dt.datetime(9999, 1, 1, tzinfo=dt.timezone.utc).replace(year=10000)
+        dt.datetime(9999, 1, 1, tzinfo=dt.UTC).replace(year=10000)
     except ValueError as e:
         return str(e)
     msg = "a datetime held year 10000"
@@ -3463,7 +3463,7 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
         orient="row",
     )
     stations = StationsResult(df=df_stations, df_all=df_stations, stations_filter=StationsFilter.ALL, stations=None)
-    row = {"station_id": "01048", "resolution": "daily", "timestamp": dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)}
+    row = {"station_id": "01048", "resolution": "daily", "timestamp": dt.datetime(2026, 1, 1, tzinfo=dt.UTC)}
     df_values = pl.DataFrame(
         [
             {
@@ -3724,8 +3724,7 @@ def _stub_stripes(monkeypatch: pytest.MonkeyPatch, stations: list[dict], values:
 
     frame = pl.DataFrame(
         {
-            # `dt.timezone.utc` rather than `dt.UTC`, which Python 3.10 does not have
-            "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.timezone.utc) for year in values],
+            "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.UTC) for year in values],
             "value": list(values.values()),
         },
         schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
@@ -4994,7 +4993,7 @@ def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str, station_name: s
         "resolution": "daily",
         "dataset": "climate_summary",
         "parameter": "temperature_air_mean_2m",
-        "timestamp": dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc),
+        "timestamp": dt.datetime(2026, 1, 1, tzinfo=dt.UTC),
         "value": 1.0,
     }
     if endpoint == "/api/values":
@@ -5988,8 +5987,8 @@ def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: li
                 "resolution": "annual",
                 "dataset": dataset,
                 "station_id": "01048",
-                "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-                "end_timestamp": dt.datetime(2025, 12, 31, tzinfo=dt.timezone.utc),
+                "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
+                "end_timestamp": dt.datetime(2025, 12, 31, tzinfo=dt.UTC),
                 "latitude": 51.1278,
                 "longitude": 13.7543,
                 "elevation": 228.0,
@@ -6015,7 +6014,7 @@ def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: li
                     "resolution": "annual",
                     "dataset": dataset,
                     "parameter": name_original,
-                    "timestamp": dt.datetime(2000 + offset, 1, 1, tzinfo=dt.timezone.utc),
+                    "timestamp": dt.datetime(2000 + offset, 1, 1, tzinfo=dt.UTC),
                     "value": value,
                     "quality": 10.0,
                 }
@@ -6121,8 +6120,8 @@ def _stub_a_station_without_position(monkeypatch: pytest.MonkeyPatch) -> None:
         "resolution": "daily",
         "dataset": "climate_summary",
         "station_id": "09999",
-        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
+        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.UTC),
         "latitude": None,
         "longitude": None,
         "elevation": 228.0,
@@ -6427,8 +6426,8 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
         "resolution": "annual",
         "dataset": "climate_summary",
         "station_id": "01048",
-        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
+        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.UTC),
         "latitude": 51.1278,
         "longitude": 13.7543,
         "elevation": 228.0,
@@ -6730,8 +6729,8 @@ def test_values_a_timed_out_download_names_the_file(client: TestClient, monkeypa
         "resolution": "annual",
         "dataset": "climate_summary",
         "station_id": "01048",
-        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
+        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
+        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.UTC),
         "latitude": 51.1278,
         "longitude": 13.7543,
         "elevation": 228.0,

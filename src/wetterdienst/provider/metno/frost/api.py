@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 from urllib.parse import parse_qs, urlparse
 
@@ -685,12 +685,10 @@ class MetnoFrostValues(TimeseriesValues):
         ts_list = json.loads(avail_file.content.read()).get("data", [])
         frames = []
         for ts in ts_list:
-            valid_from = datetime.fromisoformat(ts["validFrom"].rstrip("Z")).replace(tzinfo=timezone.utc)
+            valid_from = datetime.fromisoformat(ts["validFrom"].rstrip("Z")).replace(tzinfo=UTC)
             valid_to_str = ts.get("validTo")
             valid_to = (
-                datetime.fromisoformat(valid_to_str.rstrip("Z")).replace(tzinfo=timezone.utc)
-                if valid_to_str
-                else end_date
+                datetime.fromisoformat(valid_to_str.rstrip("Z")).replace(tzinfo=UTC) if valid_to_str else end_date
             )
             range_start = max(start_date, valid_from)
             range_end = min(end_date, valid_to)

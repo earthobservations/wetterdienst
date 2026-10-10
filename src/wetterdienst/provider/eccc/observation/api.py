@@ -41,8 +41,8 @@ def _localize(value: dt.datetime | None, timezone: str | None) -> dt.datetime | 
     """
     if value is None:
         return None
-    tz = ZoneInfo(timezone) if timezone else dt.timezone.utc
-    return value.replace(tzinfo=tz).astimezone(dt.timezone.utc)
+    tz = ZoneInfo(timezone) if timezone else dt.UTC
+    return value.replace(tzinfo=tz).astimezone(dt.UTC)
 
 
 class EcccObservationValues(TimeseriesValues):

@@ -8,11 +8,13 @@ import json
 import typing
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal, NotRequired, cast
 
 import polars as pl
 from pydantic import ConfigDict, with_config
-from typing_extensions import NotRequired, TypedDict
+
+# not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
+from typing_extensions import TypedDict
 
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date

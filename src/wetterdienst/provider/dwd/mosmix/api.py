@@ -30,13 +30,6 @@ if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
 
-try:
-    from backports.datetime_fromisoformat import MonkeyPatch
-except ImportError:
-    pass
-else:
-    MonkeyPatch.patch_fromisoformat()
-
 log = logging.getLogger(__name__)
 
 DWD_MOSMIX_S_PATH = "weather/local_forecasts/mos/MOSMIX_S/all_stations/kml/"
@@ -280,7 +273,7 @@ class DwdMosmixValues(TimeseriesValues):
             # converted only when it carries a zone, as in `dwd/dmo`: a naive date is UTC already,
             # which the run stamps compared below are, and `astimezone` would read it as the
             # host's local time (GH-2275)
-            date = date.astimezone(dt.timezone.utc).replace(tzinfo=None)
+            date = date.astimezone(dt.UTC).replace(tzinfo=None)
 
         df = pl.DataFrame({"url": urls}, orient="col")
 

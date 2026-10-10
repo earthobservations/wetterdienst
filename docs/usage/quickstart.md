@@ -11,7 +11,7 @@ For the full feature set, continue with the [Python API](python-api.md) chapter.
 
 ## Installation
 
-Wetterdienst is available on PyPI and requires Python 3.10 or newer:
+Wetterdienst is available on PyPI and requires Python 3.11 or newer:
 
 ```bash
 pip install wetterdienst

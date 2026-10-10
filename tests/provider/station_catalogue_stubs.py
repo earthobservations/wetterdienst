@@ -289,7 +289,7 @@ GHCN_NO_POSITION = Accepted(
 GHCN_NAMES = Accepted(
     "name_encoding", f"the list names stations IPIRANGA(?) and alike: {QUESTION_MARK}", question_mark_in_the_name
 )
-_THIS_YEAR = dt.datetime.now(dt.timezone.utc).year
+_THIS_YEAR = dt.datetime.now(dt.UTC).year
 GHCN_DAILY_END = Accepted(
     "date_in_the_future",
     "the end of a station that reports this year is 31 December of this year (GH-2643)",
@@ -320,7 +320,7 @@ STUBS = [
             ),
             GHCN_NAMES,
         ),
-        now=dt.datetime(2026, 10, 10, tzinfo=dt.timezone.utc),
+        now=dt.datetime(2026, 10, 10, tzinfo=dt.UTC),
     ),
     Stub("geosphere/observation daily/data", _geosphere),
     Stub(

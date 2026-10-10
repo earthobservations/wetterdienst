@@ -18,11 +18,10 @@ import json
 import logging
 import re
 import zipfile
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Never
 from zoneinfo import ZoneInfo
 
 import polars as pl
-from typing_extensions import Never
 
 from wetterdienst.exceptions import InvalidTimeIntervalError
 from wetterdienst.metadata.cache import CacheExpiry

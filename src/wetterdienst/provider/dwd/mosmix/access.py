@@ -32,13 +32,6 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
     from wetterdienst.util.network import HTTPFileSystem
 
-try:
-    from backports.datetime_fromisoformat import MonkeyPatch
-except ImportError:
-    pass
-else:
-    MonkeyPatch.patch_fromisoformat()
-
 log = logging.getLogger(__name__)
 
 

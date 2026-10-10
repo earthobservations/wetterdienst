@@ -10,13 +10,6 @@ import pytest
 from wetterdienst import Resolution
 from wetterdienst.util.datetime import mktimerange
 
-try:
-    from backports.datetime_fromisoformat import MonkeyPatch
-except ImportError:
-    pass
-else:
-    MonkeyPatch.patch_fromisoformat()
-
 
 def test_mktimerange_annual() -> None:
     """Test annual timerange."""

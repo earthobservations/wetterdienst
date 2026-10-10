@@ -263,7 +263,7 @@ def _stripes_of(monkeypatch: pytest.MonkeyPatch, values: dict[int, float | None]
 
     frame = pl.DataFrame(
         {
-            "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.timezone.utc) for year in values],
+            "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.UTC) for year in values],
             "value": list(values.values()),
         },
         schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
@@ -444,7 +444,7 @@ def test_swsmos_issue_is_forwarded(model: type[StationsRequest | ValuesRequest])
         timestamp=None,
         settings=Settings(),
     )
-    assert stations_request.issue == dt.datetime(2026, 10, 1, 11, tzinfo=dt.timezone.utc)
+    assert stations_request.issue == dt.datetime(2026, 10, 1, 11, tzinfo=dt.UTC)
 
 
 def test_swsmos_without_issue_reads_the_latest_run() -> None:
@@ -537,8 +537,8 @@ def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
                 "resolution": "annual",
                 "dataset": dataset,
                 "station_id": "01048",
-                "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-                "end_timestamp": dt.datetime(2025, 12, 31, tzinfo=dt.timezone.utc),
+                "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
+                "end_timestamp": dt.datetime(2025, 12, 31, tzinfo=dt.UTC),
                 "latitude": 51.1278,
                 "longitude": 13.7543,
                 "elevation": 228.0,
@@ -564,7 +564,7 @@ def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
                     "resolution": "annual",
                     "dataset": dataset,
                     "parameter": name_original,
-                    "timestamp": dt.datetime(year, 1, 1, tzinfo=dt.timezone.utc),
+                    "timestamp": dt.datetime(year, 1, 1, tzinfo=dt.UTC),
                     "value": value,
                     "quality": 10.0,
                 }
@@ -604,8 +604,8 @@ def test_stripes_of_a_station_that_returns_no_rows_are_refused(monkeypatch: pyte
                 "resolution": "annual",
                 "dataset": "climate_summary",
                 "station_id": "01048",
-                "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.timezone.utc),
-                "end_timestamp": dt.datetime(2025, 12, 31, tzinfo=dt.timezone.utc),
+                "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
+                "end_timestamp": dt.datetime(2025, 12, 31, tzinfo=dt.UTC),
                 "latitude": 51.1278,
                 "longitude": 13.7543,
                 "elevation": 228.0,
