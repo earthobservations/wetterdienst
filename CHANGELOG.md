@@ -114,6 +114,11 @@ Types of changes:
   database targets, xarray, plotly, scipy, h5py) raises `MissingDependencyError`, an
   `ImportError` naming the extra to install, no longer a bare `ModuleNotFoundError`; the command
   line prints it as one line, and the REST API answers 501 (GH-2637)
+- A request to `knmi/observation`, `aemet/observation` or `metno/frost` without a credential raises
+  `CredentialMissingError`, a `ValueError` as before, with the same message. The REST API and the
+  MCP tools answer it with a 501 and a fixed sentence, no longer a 500 that tells the caller to set
+  an environment variable on the server (the message goes to the server log), and the command line
+  prints it in one line and exits 1, no longer with a traceback (GH-2638)
 
 
 ## [0.144.0] - 2026-10-10

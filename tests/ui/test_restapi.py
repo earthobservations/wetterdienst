@@ -7663,3 +7663,86 @@ def test_an_optional_dependency_missing_outside_the_endpoint_handlers_is_a_501_t
     assert response.status_code == 501
     assert "pip install" not in response.json()["detail"]
     assert msg in caplog.text
+
+
+_CREDENTIAL_PROVIDERS = [
+    pytest.param("knmi", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__KNMI", id="knmi"),
+    pytest.param("aemet", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__AEMET", id="aemet"),
+    pytest.param("metno", "frost", "hourly/data/temperature_air_2m", "WD_AUTH__METNO_FROST", id="frost"),
+]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(("provider", "network", "parameters", "setting"), _CREDENTIAL_PROVIDERS)
+@pytest.mark.parametrize(
+    ("endpoint", "extra"),
+    [
+        ("/api/stations", {"all": "true"}),
+        ("/api/values", {"station": "1", "timestamp": "2020-01-01/2020-01-02"}),
+        ("/api/interpolate", {"station": "1", "timestamp": "2020-01-01/2020-01-02"}),
+        ("/api/summarize", {"station": "1", "timestamp": "2020-01-01/2020-01-02"}),
+    ],
+)
+def test_a_missing_credential_is_a_501_that_does_not_name_the_setting(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+    provider: str,
+    network: str,
+    parameters: str,
+    setting: str,
+    endpoint: str,
+    extra: dict[str, str],
+) -> None:
+    """A provider this server has no key for is the server's lack: 501, not a 500 telling the caller to set a variable.
+
+    The detail was the provider's message, which instructs whoever runs the process to set an
+    environment variable (GH-2638). Nothing of the caller's is wrong, and a caller of a server it does
+    not administer cannot act on it. The message reaches the server log instead. Not a 503, which the
+    app asks once more.
+    """
+    with caplog.at_level(logging.WARNING):
+        response = client.get(
+            endpoint,
+            params={"provider": provider, "network": network, "parameters": parameters, **extra},
+        )
+
+    assert response.status_code == 501, response.text
+    detail = response.json()["detail"]
+    assert f"for {provider}/{network}" in detail
+    assert "WD_AUTH" not in detail
+    assert "Settings(" not in detail
+    # a route the MCP tools have too, which `/api/auth` is not
+    assert "/api/coverage" in detail
+    assert setting in caplog.text
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_mcp_tool_without_a_credential_is_refused_without_naming_the_setting() -> None:
+    """The MCP tools are this API's routes, so a provider the server has no key for is refused the same way."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> str:
+        async with Client(mcp) as client:
+            with pytest.raises(ToolError) as excinfo:
+                await client.call_tool(
+                    "stations",
+                    {
+                        "provider": "knmi",
+                        "network": "observation",
+                        "parameters": "daily/data/temperature_air_mean_2m",
+                        "all": True,
+                    },
+                )
+            return str(excinfo.value)
+
+    message = asyncio.run(_call())
+    assert "no credential for knmi/observation" in message
+    assert "WD_AUTH" not in message
