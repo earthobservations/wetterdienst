@@ -108,6 +108,11 @@ Types of changes:
   position, where the list puts them at latitudes of 135.117 and 104.367, off the globe, with
   latitude and longitude swapped; the hourly list drops any position outside latitude +-90 or
   longitude +-180, as it does for the `BOGUS` placeholders (GH-2616)
+- A request to `knmi/observation`, `aemet/observation` or `metno/frost` without a credential raises
+  `CredentialMissingError`, a `ValueError` as before, with the same message. The REST API and the
+  MCP tools answer it with a 503 and a fixed sentence, no longer a 500 that tells the caller to set
+  an environment variable on the server (the message goes to the server log), and the command line
+  prints it in one line and exits 1, no longer with a traceback (GH-2638)
 
 
 ## [0.144.0] - 2026-10-10
