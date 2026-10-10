@@ -89,9 +89,9 @@ def import_optional(module_name: str, what: str, *, extra: str | None = None) ->
     from DuckDB, an `ImportError` with a hint of its own from plotly -- and each reader of the
     error has to guess which of them is an instruction and which a defect.
 
-    Only a package that is not installed counts. A module of wetterdienst's own that fails to
-    import, and an `ImportError` that is not an absence (a name the installed version lacks, a
-    cycle), are defects and keep their traceback.
+    Only a package that is not installed counts. A module missing inside a package that is
+    installed (`duckdb.duckdb`, or one of wetterdienst's own), and an `ImportError` that is not an
+    absence (a name the installed version lacks, a cycle), are defects and keep their traceback.
 
     Args:
         module_name: the module to import, dotted where it is a submodule (`plotly.express`).
@@ -109,6 +109,8 @@ def import_optional(module_name: str, what: str, *, extra: str | None = None) ->
     try:
         return importlib.import_module(module_name)
     except ModuleNotFoundError as e:
-        if e.name is not None and (e.name == "wetterdienst" or e.name.startswith("wetterdienst.")):
+        # a dotted name is a module missing inside a package that is installed (`duckdb.duckdb`, a
+        # module of our own): a broken install or a defect, not a package to install
+        if e.name is not None and "." in e.name:
             raise
         raise MissingDependencyError(missing_dependency_message(what, e.name or module_name, extra=extra)) from e

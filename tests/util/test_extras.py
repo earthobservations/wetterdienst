@@ -228,3 +228,17 @@ def test_a_provider_module_of_ours_that_is_missing_stays_an_import_error(
         Wetterdienst.resolve("dwd", "observation")
 
     assert not isinstance(excinfo.value, MissingDependencyError)
+
+
+def test_a_module_missing_inside_an_installed_package_keeps_its_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A broken install is not an instruction to install an extra (GH-2637)."""
+    (tmp_path / "optional_broken_inside.py").write_text("import json.no_such_submodule\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with pytest.raises(ModuleNotFoundError) as excinfo:
+        import_optional("optional_broken_inside", "Something")
+
+    assert not isinstance(excinfo.value, MissingDependencyError)

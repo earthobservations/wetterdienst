@@ -111,9 +111,9 @@ Types of changes:
 - `to_target` with a protocol nothing here writes (`ftp://x/y.csv`) raises `ExportRefusedError`, as
   documented, no longer SQLAlchemy's `NoSuchModuleError`, and the command line prints one line. An
   optional package that is not installed (DuckDB for `sql` and `duckdb://`, SQLAlchemy for
-  database targets, xarray, plotly, scipy, pdbufr, h5py) raises `MissingDependencyError`, an `ImportError`
-  naming the extra to install, no longer a bare `ModuleNotFoundError`; the command line prints it
-  as one line, and the REST API answers 501 (GH-2637)
+  database targets, xarray, plotly, scipy, h5py) raises `MissingDependencyError`, an
+  `ImportError` naming the extra to install, no longer a bare `ModuleNotFoundError`; the command
+  line prints it as one line, and the REST API answers 501 (GH-2637)
 
 
 ## [0.144.0] - 2026-10-10

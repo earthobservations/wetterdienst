@@ -737,12 +737,11 @@ def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     `--start` / `--end`.
 
     An optional dependency that is not installed (`MissingDependencyError`) is the environment's to
-    fix, not the command line's: its message names what to install, and is printed as the one line it
-    is, exit 1, as `_collect_or_exit` prints it.
+    fix, not the command line's: it is let through, to `_Cli.invoke`, which prints its message -- what
+    to install -- as the one line it is, exit 1.
     """
     if isinstance(e, MissingDependencyError):
-        log.error(str(e))
-        sys.exit(1)
+        raise e
     if not _is_caller_refusal(e, request):
         return
     if isinstance(e, ReversedTimeIntervalError):

@@ -135,7 +135,7 @@ class Wetterdienst:
             # being absent, and the two want different advice. The name says which happened, and
             # the provider modules all ship with the package -- so in practice it is the former
             # (a module of ours that does not exist is a defect, and is not an instruction to install)
-            if e.name and e.name.split(".")[0] != "wetterdienst":
+            if e.name and "." not in e.name:
                 msg = missing_dependency_message(f"Module {module_path}", e.name)
                 raise MissingDependencyError(msg) from e
             if e.name and e.name != module_path:
