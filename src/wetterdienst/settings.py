@@ -441,6 +441,39 @@ def _merge_fsspec_client_kwargs(given: dict) -> dict:
     return merged
 
 
+def _masked(value: object, *, keep_numbers: bool = False) -> object:
+    """Mask every leaf of a ``model_dump(mode="json")`` value, keeping dict keys, booleans and ``None``."""
+    if isinstance(value, dict):
+        return {key: _masked(item, keep_numbers=keep_numbers) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_masked(item, keep_numbers=keep_numbers) for item in value]
+    if value is None or isinstance(value, bool) or (keep_numbers and isinstance(value, (int, float))):
+        return value
+    return _MASK
+
+
+def _redacted_client_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Return ``fsspec_client_kwargs`` as the settings render them, every value masked but the harmless.
+
+    The kwargs are handed to aiohttp as they are, so they may hold a proxy URL with its
+    ``user:password@``, ``proxy_auth``, cookies, or request headers such as ``Authorization`` or
+    ``X-Auth-Token``. Which of those carry a secret cannot be listed, so this fails closed: all is
+    masked, a URL included, since cutting the userinfo from one takes a parser that agrees with the
+    client's. What stays is the timeout, the User-Agent header, booleans, ``None`` and the names of
+    keys and headers, which say what was configured.
+    """
+    redacted = {}
+    for key, value in kwargs.items():
+        if key == "headers" and isinstance(value, dict):
+            redacted[key] = {
+                name: item if name.lower() == "user-agent" and isinstance(item, str) else _masked(item)
+                for name, item in value.items()
+            }
+        else:
+            redacted[key] = _masked(value, keep_numbers=key == "timeout")
+    return redacted
+
+
 @functools.cache
 def _reading_nested_as_json_would(source_class: type[PydanticBaseSettingsSource]) -> type[PydanticBaseSettingsSource]:
     """Give a source class the reading of a value nested too deeply as of one that is not valid JSON (GH-2543).
@@ -783,13 +816,24 @@ class Settings(BaseSettings):
         else:
             log.info(f"Wetterdienst cache is enabled [CACHE_DIR:{self.cache_dir}]")
 
+    def _rendered(self) -> dict[str, Any]:
+        """Return the settings as they are rendered: ``fsspec_client_kwargs`` without its credentials.
+
+        stamina's retry log writes ``repr`` of every argument of a retried call, and the listings
+        take the settings (GH-2593). ``model_dump`` is left as it is, so that a dump
+        still round-trips into ``Settings(**dump)``.
+        """
+        rendered = self.model_dump(mode="json")
+        rendered["fsspec_client_kwargs"] = _redacted_client_kwargs(rendered["fsspec_client_kwargs"])
+        return rendered
+
     def __repr__(self) -> str:
-        """Return the settings as a JSON string."""
-        return json.dumps(self.model_dump(mode="json"))
+        """Return the settings as a JSON string, the client kwargs' credentials masked."""
+        return json.dumps(self._rendered())
 
     def __str__(self) -> str:
-        """Return the settings as a string."""
-        return f"""Settings({json.dumps(self.model_dump(mode="json"), indent=4)})"""
+        """Return the settings as a string, the client kwargs' credentials masked."""
+        return f"""Settings({json.dumps(self._rendered(), indent=4)})"""
 
 
 def _describe_settings_error(error: ValidationError | SettingsError) -> list[str]:
