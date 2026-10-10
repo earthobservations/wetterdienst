@@ -1869,6 +1869,18 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "temperature_radiant_2m",
+        "temperature",
+        "Radiant temperature at 2 m above ground, the temperature a body feels from surrounding surfaces.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_soil_0_02m",
+        "temperature",
+        "Soil temperature at 0.02 m depth.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "temperature_soil_0_05m",
         "temperature",
         "Soil temperature at 0.05 m depth.",
@@ -1884,6 +1896,18 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_soil_0_2m",
         "temperature",
         "Soil temperature at 0.2 m depth.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_soil_0_5m",
+        "temperature",
+        "Soil temperature at 0.5 m depth.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_soil_1m",
+        "temperature",
+        "Soil temperature at 1 m depth.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -2725,6 +2749,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Minimum soil temperature at 1 m depth under an unrecorded surface cover.",
     ),
     CanonicalParameter(
+        "temperature_surface",
+        "temperature",
+        "Temperature of the ground surface.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "temperature_surface_mean",
         "temperature",
         "Mean temperature of the ground surface.",
@@ -2750,9 +2780,15 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Whether ice had formed on the thermometer during the wet bulb measurement.",
     ),
     CanonicalParameter(
-        "temperature_wet_mean_2m",
+        "temperature_wet_2m",
         "temperature",
         "Wet-bulb temperature at 2 m above ground.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_wet_mean_2m",
+        "temperature",
+        "Mean wet-bulb temperature at 2 m above ground.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(

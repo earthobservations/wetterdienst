@@ -162,7 +162,7 @@ def test_chmi_observation_values_10_minutes() -> None:
     """10-minute values at Cheb for 2020-01-01 00:00 match the CHMI reference values."""
     df = _values("10_minutes", dt.datetime(2020, 1, 1, tzinfo=UTC), dt.datetime(2020, 1, 1, 0, 10, tzinfo=UTC))
     when = dt.datetime(2020, 1, 1, tzinfo=UTC)
-    assert _value_of(df, "temperature_air_mean_2m", when) == pytest.approx(-2.8)
+    assert _value_of(df, "temperature_air_2m", when) == pytest.approx(-2.8)
     assert _value_of(df, "humidity_relative", when) == pytest.approx(0.92)
     assert _value_of(df, "pressure_air_site", when) == pytest.approx(975.8)
     assert _value_of(df, "wind_speed", when) == pytest.approx(1.3)
@@ -174,7 +174,7 @@ def test_chmi_observation_values_hourly() -> None:
     """Hourly values at Cheb for 2020-01-01 00:00 match the CHMI reference values."""
     df = _values("hourly", dt.datetime(2020, 1, 1, tzinfo=UTC), dt.datetime(2020, 1, 1, 1, tzinfo=UTC))
     when = dt.datetime(2020, 1, 1, tzinfo=UTC)
-    assert _value_of(df, "temperature_dew_point_mean_2m", when) == pytest.approx(-3.9)
+    assert _value_of(df, "temperature_dew_point_2m", when) == pytest.approx(-3.9)
     assert _value_of(df, "pressure_air_site", when) == pytest.approx(975.8)
     assert _value_of(df, "precipitation_amount", when) == pytest.approx(0.0)
 

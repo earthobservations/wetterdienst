@@ -92,8 +92,8 @@ def test_swsmos_values() -> None:
     assert not df.is_empty()
     assert df["resolution"].unique().to_list() == ["hourly"]
     assert set(df["parameter"].unique().to_list()) <= {
-        "temperature_air_mean_2m",
-        "temperature_dew_point_mean_2m",
+        "temperature_air_2m",
+        "temperature_dew_point_2m",
         "temperature_surface_mean",
         "precipitation_amount_liquid",
         "precipitation_amount_last_6h",
@@ -107,12 +107,12 @@ def test_swsmos_values() -> None:
     deltas = dates.diff().drop_nulls().unique().to_list()
     assert deltas == [dt.timedelta(hours=1)]
     # air temperature in a physically plausible range
-    air = df.filter(pl.col("parameter") == "temperature_air_mean_2m")["value"].drop_nulls()
+    air = df.filter(pl.col("parameter") == "temperature_air_2m")["value"].drop_nulls()
     assert air.min() > -40.0
     assert air.max() < 55.0
     # dew point likewise -- swsmos publishes Celsius, unlike MOSMIX's Kelvin, and the whole of
     # Germany reading above 250 would mean we had silently inherited the MOSMIX unit
-    dew_point = df.filter(pl.col("parameter") == "temperature_dew_point_mean_2m")["value"].drop_nulls()
+    dew_point = df.filter(pl.col("parameter") == "temperature_dew_point_2m")["value"].drop_nulls()
     assert dew_point.min() > -40.0
     assert dew_point.max() < 40.0
     # and it cannot exceed the air temperature it is measured against

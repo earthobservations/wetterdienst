@@ -48,7 +48,7 @@ MeteoFranceSynopMetadata = {
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "td",
                             "unit": "degree_kelvin",
                         },

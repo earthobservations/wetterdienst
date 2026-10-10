@@ -503,7 +503,8 @@ def test_position_by_station_id_takes_an_elevation_any_resolution_knows(
         },
         orient="row",
     )
-    request = NoaaGhcnRequest(parameters=[(resolution, "data", "temperature_air_mean_2m") for resolution in order])
+    parameter_of = {"hourly": "temperature_air_2m", "daily": "temperature_air_mean_2m"}
+    request = NoaaGhcnRequest(parameters=[(resolution, "data", parameter_of[resolution]) for resolution in order])
     monkeypatch.setattr(NoaaGhcnRequest, "all", lambda _self: SimpleNamespace(df=stations))
     latitude, longitude, elevation = request._get_position_by_station_id("CAN01012475")  # noqa: SLF001
     assert elevation == 18.9

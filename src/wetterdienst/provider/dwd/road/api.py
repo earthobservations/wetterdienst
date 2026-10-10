@@ -110,7 +110,7 @@ DwdRoadMetadata = {
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_surface_mean",
+                            "name": "temperature_surface",
                             "name_original": "roadSurfaceTemperature",
                             "unit": "degree_kelvin",
                         },

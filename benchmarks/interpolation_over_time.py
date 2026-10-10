@@ -119,7 +119,7 @@ def visualize(
 
 def main() -> None:
     """Run example."""
-    parameter = ("hourly", "air_temperature", "temperature_air_mean_2m")
+    parameter = ("hourly", "air_temperature", "temperature_air_2m")
     unit = "K"
     start_date = dt.datetime(2022, 3, 1, tzinfo=ZoneInfo("UTC"))
     end_date = dt.datetime(2022, 3, 31, tzinfo=ZoneInfo("UTC"))

@@ -3287,7 +3287,7 @@ def test_values_to_ogc_feature_collection_merged_datasets_span_their_dates() -> 
     wide = {
         "climate_summary_temperature_air_mean_2m": 1.0,
         "precipitation_more_precipitation_height": 2.0,
-        "temperature_air_temperature_air_mean_2m": None,
+        "temperature_air_temperature_air_2m": None,
     }
     result = _values_result(
         StationsResult(df=stations, df_all=stations, stations_filter=StationsFilter.ALL, stations=None),
@@ -3300,7 +3300,7 @@ def test_values_to_ogc_feature_collection_merged_datasets_span_their_dates() -> 
                 "dataset": "temperature_air",
                 "timestamp": utc(2025),
                 **wide,
-                "temperature_air_temperature_air_mean_2m": 3.0,
+                "temperature_air_temperature_air_2m": 3.0,
             },
         ],
     )
@@ -3460,17 +3460,17 @@ def _plot_of(result: ValuesResult) -> tuple[list, list[tuple]]:
         pytest.param(
             {},
             [
-                "hourly/temperature_air/temperature_air_mean_2m",
+                "hourly/temperature_air/temperature_air_2m",
                 "daily/more_precip/precipitation_amount",
                 "daily/kl/precipitation_amount",
                 "daily/kl/temperature_air_mean_2m",
             ],
-            ["temperature_air_mean_2m", "precipitation_amount", "precipitation_amount", "temperature_air_mean_2m"],
+            ["temperature_air_2m", "precipitation_amount", "precipitation_amount", "temperature_air_mean_2m"],
             id="two-datasets-merged-in-one-resolution",
         ),
         pytest.param(
             {"ts_humanize": False},
-            ["daily/kl/temperature_air_mean_2m", "hourly/temperature_air/temperature_air_mean_2m"],
+            ["daily/kl/temperature_air_mean_2m", "hourly/temperature_air/temperature_air_2m"],
             ["tmk", "tt_tu"],
             id="original-names-two-resolutions",
         ),

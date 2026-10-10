@@ -171,7 +171,7 @@ def test_knmi_single_daily_request_floors_start_date_to_midnight() -> None:
 def test_knmi_single_hourly_request_floors_start_date_to_hour() -> None:
     """A single-resolution hourly request snaps an unaligned start_date down to the hour."""
     request = _request(
-        [("hourly", "data", "temperature_air_mean_2m")],
+        [("hourly", "data", "temperature_air_2m")],
         dt.datetime(2020, 1, 1, 10, 30, tzinfo=UTC),
         dt.datetime(2020, 1, 1, 12, tzinfo=UTC),
     )
@@ -504,7 +504,7 @@ def _fake_downloads(monkeypatch: pytest.MonkeyPatch, *answers: bytes | Exception
 def _hourly_values(days: int) -> pl.DataFrame:
     start = dt.datetime(2020, 1, 1, tzinfo=UTC)
     return (
-        _request([("hourly", "data", "temperature_air_mean_2m")], start, start + dt.timedelta(days=days))
+        _request([("hourly", "data", "temperature_air_2m")], start, start + dt.timedelta(days=days))
         .filter_by_station_id(DE_BILT)
         .values.all()
         .df

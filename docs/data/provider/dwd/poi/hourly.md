@@ -42,8 +42,8 @@
 | {term}`snow_depth_new`                             | depth_of_new_snow                                                | Depth of the snow that fell since the previous observation.             | cm   |
 | {term}`sunshine_duration`                          | total_time_of_sunshine_during_last_hour                          | Length of time the sun shone in the preceding hour.                     | min  |
 | {term}`sunshine_duration_yesterday`                | total_time_of_sunshine_past_day                                  | Length of time the sun shone on the previous day.                       | h    |
-| {term}`temperature_air_mean_2m`                    | dry_bulb_temperature_at_2_meter_above_ground                     | Air temperature at 2 m above ground.                                    | °C   |
-| {term}`temperature_air_mean_0_05m`                 | temperature_at_5_cm_above_ground                                 | Air temperature at 5 cm above ground.                                   | °C   |
+| {term}`temperature_air_2m`                         | dry_bulb_temperature_at_2_meter_above_ground                     | Air temperature at 2 m above ground.                                    | °C   |
+| {term}`temperature_air_0_05m`                      | temperature_at_5_cm_above_ground                                 | Air temperature at 5 cm above ground.                                   | °C   |
 | {term}`temperature_air_max_2m_last_12h`            | maximum_temperature_last_12_hours_2_meters_above_ground          | Maximum air temperature at 2 m above ground in the preceding 12 hours.  | °C   |
 | {term}`temperature_air_min_2m_last_12h`            | minimum_temperature_last_12_hours_2_meters_above_ground          | Minimum air temperature at 2 m above ground in the preceding 12 hours.  | °C   |
 | {term}`temperature_air_min_0_05m_last_12h`         | minimum_temperature_last_12_hours_5_cm_above_ground              | Minimum air temperature at 5 cm above ground in the preceding 12 hours. | °C   |
@@ -51,7 +51,7 @@
 | {term}`temperature_air_max_2m_yesterday`           | maximum_of_temperature_for_previous_day                          | Maximum air temperature at 2 m above ground on the previous day.        | °C   |
 | {term}`temperature_air_min_2m_yesterday`           | minimum_of_temperature_for_previous_day                          | Minimum air temperature at 2 m above ground on the previous day.        | °C   |
 | {term}`temperature_air_min_0_05m_yesterday`        | minimum_of_temperature_at_5_cm_above_ground_for_previous_day     | Minimum air temperature at 5 cm above ground on the previous day.       | °C   |
-| {term}`temperature_dew_point_mean_2m`              | dew_point_temperature_at_2_meter_above_ground                    | Dew point temperature at 2 m above ground.                              | °C   |
+| {term}`temperature_dew_point_2m`                   | dew_point_temperature_at_2_meter_above_ground                    | Dew point temperature at 2 m above ground.                              | °C   |
 | {term}`temperature_water`                          | sea/water_temperature                                            | Temperature of the sea or lake water at the station.                    | °C   |
 | {term}`visibility`                                 | horizontal_visibility                                            | Horizontal distance at which an object can still be made out.           | km   |
 | {term}`weather`                                    | present_weather                                                  | Coded present weather at the time of observation, on DWD's 1..31 scale. | -    |

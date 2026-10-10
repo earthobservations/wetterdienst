@@ -31,12 +31,12 @@ EcccObservationMetadata = {
                     # days -- none of which exists here, so the whole resolution returned nothing.
                     "parameters": [
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "temp",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "dew_point_temp",
                             "unit": "degree_celsius",
                         },

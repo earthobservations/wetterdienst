@@ -150,4 +150,11 @@ describe('meteogram series names', () => {
       .map(([series, names]) => `${series}: ${names[0]}`)
     expect(notCanonical, 'meteogram series whose first choice is not a canonical parameter').toEqual([])
   })
+
+  // the backend names MOSMIX air temperature and dew point for a reading at one moment (GH-2657); an
+  // older backend still serves the `_mean_` names, so those stay as the fallback behind them
+  it('draws the MOSMIX temperature and dew point under the spot names, and the older mean names', () => {
+    expect(METEOGRAM_SERIES.temperature.slice(0, 2)).toEqual(['temperature_air_2m', 'temperature_air_mean_2m'])
+    expect(METEOGRAM_SERIES.dewPoint.slice(0, 2)).toEqual(['temperature_dew_point_2m', 'temperature_dew_point_mean_2m'])
+  })
 })

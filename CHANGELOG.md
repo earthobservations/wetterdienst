@@ -58,11 +58,26 @@ Types of changes:
   present or observation-time value, are named `temperature_air_2m` and, for `tpr`,
   `temperature_dew_point_2m`, no longer the `_mean_` names. Request the new names; the old ones
   are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
-  parameter is requested). Where a source says a mean or nothing about the statistic, the
-  `_mean_` name stays (GH-2651)
+  parameter is requested). Where a source says a mean, the `_mean_` name stays (GH-2651)
+- **Breaking**: DWD temperatures below daily resolution whose source states no statistic are named
+  for a reading at one moment, no longer the mean: `dwd/observation` 10-minute `td_10` and
+  `urban_temperature_air`/`_soil`, hourly `dew_point`, `moisture`, `temperature_air`,
+  `temperature_soil` and `urban_temperature_air`/`_soil`, subdaily `moisture` and `temperature_air`;
+  `dwd/mosmix`, `dwd/dmo` `ttt`, `t5cm`, `td`; `dwd/swsmos` `TL`, `TD`; `dwd/poi`; `dwd/road`
+  `roadSurfaceTemperature`. Request `temperature_air_2m`, `temperature_air_0_05m`,
+  `temperature_dew_point_2m`, `temperature_wet_2m`, `temperature_radiant_2m`, `temperature_surface`
+  or `temperature_soil_0_02m` to `_1m`; the old names are not found (logged and dropped, or
+  `NoParametersFoundError` when no other parameter is requested). Road `airTemperature`,
+  `dewpointTemperature`, SWSMOS `TS` (a mean) and windowed names keep theirs (GH-2657)
+- **Breaking**: the same for the sub-daily temperatures of `chmi`, `eccc`, `knmi` hourly, `lhmt`,
+  `metoffice`, `noaa/ghcn` hourly, `meteofrance/observation` hourly `TD`, `meteofrance/synop` `td`
+  and `metno/frost` hourly dew point, whose sources say nothing about the statistic. Request the
+  spot names; the old ones are not found (logged and dropped, or `NoParametersFoundError` when no
+  other parameter is requested). Rows whose source says a mean or average (DMI, FMI, KNMI 10-minute,
+  NWS, RMI, WSV, ...) keep their `_mean_` names (GH-2657)
 - **Breaking**: a `ts_geo_station_distance` override keyed by an old `_mean_` name no longer
   applies to a row moved to a spot name by the entries above: the row takes the default radius.
-  Key the override by the new name (GH-2651)
+  Key the override by the new name (GH-2651, GH-2657)
 - `GET /api/coverage` declares its response in the OpenAPI document: the list of every provider
   and its networks, and the resolutions, datasets and parameters of one (`CoverageNetwork`,
   `CoverageResolution`, `CoverageDataset`, `CoverageParameter`), so a client can be generated from

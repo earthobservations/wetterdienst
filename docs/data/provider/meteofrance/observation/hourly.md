@@ -48,7 +48,7 @@
 
 | name                                  | original name | description                                                                                   | unit                        |
 |---------------------------------------|---------------|-----------------------------------------------------------------------------------------------|-----------------------------|
-| {term}`temperature_dew_point_mean_2m` | TD | Dew point temperature. | degree_celsius |
+| {term}`temperature_dew_point_2m`      | TD | Dew point temperature. | degree_celsius |
 | {term}`humidity_relative` | U | Relative humidity. | percent |
 | {term}`pressure_air_sea_level` | PMER | Sea level pressure, only for stations at an altitude of 750 m or less. | hectopascal |
 | {term}`pressure_air_site` | PSTAT | Station pressure. | hectopascal |

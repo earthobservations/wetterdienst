@@ -19,7 +19,7 @@ def find_observation_id(string: str) -> str:
     """Find the observation id for the given string."""
     query = f"SELECT * FROM station_data WHERE station_name LIKE '%{string}%'"  # noqa: S608
     observation_request = DwdObservationRequest(
-        parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
+        parameters=("hourly", "temperature_air", "temperature_air_2m"),
         periods="recent",
         start=dt.datetime.now(tz=ZoneInfo("UTC")) - dt.timedelta(days=2),
         end=dt.datetime.now(ZoneInfo("UTC")),
@@ -46,7 +46,7 @@ def get_earliest_issue() -> dt.datetime:
 def main(obs_id: str, for_id: str) -> None:
     """Compare the forecast with the observation by plotting them."""
     forecast_request = DwdMosmixRequest(
-        parameters=("hourly", "large", "temperature_air_mean_2m"),
+        parameters=("hourly", "large", "temperature_air_2m"),
         start=dt.datetime.now(tz=ZoneInfo("UTC")) - dt.timedelta(days=2),
         end=dt.datetime.now(tz=ZoneInfo("UTC")),
         issue=get_earliest_issue(),
@@ -55,7 +55,7 @@ def main(obs_id: str, for_id: str) -> None:
     forecast_values = forecast_request.values.all()
     print(forecast_values.df)
     observation_request = DwdObservationRequest(
-        parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
+        parameters=("hourly", "temperature_air", "temperature_air_2m"),
         periods="recent",
         start=dt.datetime.now(tz=ZoneInfo("UTC")) - dt.timedelta(days=2),
         end=dt.datetime.now(tz=ZoneInfo("UTC")),

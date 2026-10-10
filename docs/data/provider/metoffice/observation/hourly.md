@@ -44,8 +44,8 @@
 | {term}`visibility` | visibility | Visibility, decametres. | m |
 | {term}`pressure_air_sea_level` | msl_pressure | Mean sea level air pressure, to the nearest 0.1 hPa. | hPa |
 | {term}`pressure_air_site` | stn_pres | Station air pressure, as measured at station level. No correction for altitude is applied. | hPa |
-| {term}`temperature_air_mean_2m` | air_temperature | Air temperature, to the nearest 0.1 deg C. | °C |
-| {term}`temperature_dew_point_mean_2m` | dewpoint | Dewpoint temperature: the temperature to which the air must be cooled to produce saturation with respect to water at its existing pressure and humidity. | °C |
+| {term}`temperature_air_2m`      | air_temperature | Air temperature, to the nearest 0.1 deg C. | °C |
+| {term}`temperature_dew_point_2m`      | dewpoint | Dewpoint temperature: the temperature to which the air must be cooled to produce saturation with respect to water at its existing pressure and humidity. | °C |
 | {term}`humidity_relative` | rltv_hum | Calculated relative humidity. | % |
 | {term}`sunshine_duration` | wmo_hr_sun_dur | Readings from the newer automatic sun sensor, which has replaced the Campbell Stokes recorder. | h |
 | {term}`snow_depth` | snow_depth | Snow depth, cm. | cm |
@@ -100,8 +100,8 @@
 
 | name                                | original name    | description                            | unit |
 |-------------------------------------|------------------|----------------------------------------|------|
-| {term}`temperature_soil_mean_0_05m` | q5cm_soil_temp | 5 cm soil temperature, to the nearest 0.1 deg C. | °C |
-| {term}`temperature_soil_mean_0_1m` | q10cm_soil_temp | 10 cm soil temperature, to the nearest 0.1 deg C. | °C |
-| {term}`temperature_soil_mean_0_2m` | q20cm_soil_temp | 20 cm soil temperature, to the nearest 0.1 deg C. | °C |
-| {term}`temperature_soil_mean_0_5m` | q50cm_soil_temp | 50 cm soil temperature, to the nearest 0.1 deg C. | °C |
-| {term}`temperature_soil_mean_1m` | q100cm_soil_temp | 100 cm soil temperature, to the nearest 0.1 deg C. | °C |
+| {term}`temperature_soil_0_05m`      | q5cm_soil_temp | 5 cm soil temperature, to the nearest 0.1 deg C. | °C |
+| {term}`temperature_soil_0_1m`      | q10cm_soil_temp | 10 cm soil temperature, to the nearest 0.1 deg C. | °C |
+| {term}`temperature_soil_0_2m`      | q20cm_soil_temp | 20 cm soil temperature, to the nearest 0.1 deg C. | °C |
+| {term}`temperature_soil_0_5m`      | q50cm_soil_temp | 50 cm soil temperature, to the nearest 0.1 deg C. | °C |
+| {term}`temperature_soil_1m`      | q100cm_soil_temp | 100 cm soil temperature, to the nearest 0.1 deg C. | °C |

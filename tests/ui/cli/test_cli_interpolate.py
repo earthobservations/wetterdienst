@@ -628,7 +628,7 @@ def test_cli_estimate_at_a_station_without_position(
                 command,
                 "--provider=noaa",
                 "--network=ghcn",
-                "--parameters=hourly/data/temperature_air_mean_2m",
+                "--parameters=hourly/data/temperature_air_2m",
                 "--station=AUM00011158",
                 "--timestamp=1938-01-02",
             ],

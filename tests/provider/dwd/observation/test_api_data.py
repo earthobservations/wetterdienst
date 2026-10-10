@@ -235,7 +235,7 @@ def test_dwd_observation_data_result_missing_data(settings_drop_nulls_false: Set
     timestamp nothing was ever recorded at.
     """
     request = DwdObservationRequest(
-        parameters=[("hourly", "temperature_air", "temperature_air_mean_2m")],
+        parameters=[("hourly", "temperature_air", "temperature_air_2m")],
         start="2020-06-09 12:00:00",  # no data at this time (reason unknown)
         end="2020-06-09 12:00:00",
         settings=settings_drop_nulls_false,
@@ -802,7 +802,7 @@ def test_dwd_observations_urban_values(default_settings: Settings) -> None:
                 "station_id": "00399",
                 "resolution": "hourly",
                 "dataset": "urban_temperature_air",
-                "parameter": "temperature_air_mean_2m",
+                "parameter": "temperature_air_2m",
                 "timestamp": dt.datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 13.4,
                 "quality": 3.0,
@@ -813,7 +813,7 @@ def test_dwd_observations_urban_values(default_settings: Settings) -> None:
         pl.col("station_id").cast(pl.Enum(["00399"])),
         pl.col("resolution").cast(pl.Enum(["hourly"])),
         pl.col("dataset").cast(pl.Enum(["urban_temperature_air"])),
-        pl.col("parameter").cast(pl.Enum(["humidity_relative", "temperature_air_mean_2m"])),
+        pl.col("parameter").cast(pl.Enum(["humidity_relative", "temperature_air_2m"])),
     )
     assert_frame_equal(given_df, expected_df)
 

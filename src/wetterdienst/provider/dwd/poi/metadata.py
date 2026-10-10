@@ -150,12 +150,12 @@ DwdPoiMetadata = {
                             "unit": "hour",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "dry_bulb_temperature_at_2_meter_above_ground",
                             **_TEMPERATURE,
                         },
                         {
-                            "name": "temperature_air_mean_0_05m",
+                            "name": "temperature_air_0_05m",
                             "name_original": "temperature_at_5_cm_above_ground",
                             **_TEMPERATURE,
                         },
@@ -195,7 +195,7 @@ DwdPoiMetadata = {
                             **_TEMPERATURE,
                         },
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "dew_point_temperature_at_2_meter_above_ground",
                             **_TEMPERATURE,
                         },

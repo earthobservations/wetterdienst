@@ -79,7 +79,7 @@ Codes (precipitation_indicator_wr):
 | {term}`temperature_air_2m` | tt_10 | Air temperature 2 m above ground, instant. | °C | - |
 | {term}`temperature_air_0_05m` | tm5_10 | Air temperature 5 cm above ground, instant. | °C | - |
 | {term}`humidity_relative` | rf_10 | Relative humidity 2 m above ground. | % | >=0,<=100 |
-| {term}`temperature_dew_point_mean_2m` | td_10 | Dew point. The dew point temperature is calculated from the air temperature 2 m above ground and the relative humidity measurement. | °C | - |
+| {term}`temperature_dew_point_2m`      | td_10 | Dew point. The dew point temperature is calculated from the air temperature 2 m above ground and the relative humidity measurement. | °C | - |
 
 ### temperature_extreme
 
@@ -208,10 +208,10 @@ Codes (precipitation_indicator_wr):
 
 | name                                | original name | description                      | unit | constraints |
 |-------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_air_mean_2m` | tt_st_10 | Air temperature at 2m height. | °C | - |
+| {term}`temperature_air_2m`      | tt_st_10 | Air temperature at 2m height. | °C | - |
 | {term}`humidity_relative` | rf_st_10 | Relative humidity at 2m height. | % | >=0,<=100 |
-| {term}`temperature_radiant_mean_2m` | strahl_st_10 | Radiant temperature at 2m height. | °C | - |
-| {term}`temperature_air_mean_0_05m` | tt5_st_10 | Air temperature at 5cm height. | °C | - |
+| {term}`temperature_radiant_2m`      | strahl_st_10 | Radiant temperature at 2m height. | °C | - |
+| {term}`temperature_air_0_05m`      | tt5_st_10 | Air temperature at 5cm height. | °C | - |
 
 ### urban_temperature_extreme
 
@@ -247,10 +247,10 @@ Codes (precipitation_indicator_wr):
 
 | name                               | original name | description                      | unit | constraints |
 |------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_soil_mean_0_1m` | te_st_01m_10 | Soil temperature in 10 cm depth. | °C | - |
-| {term}`temperature_soil_mean_0_2m` | te_st_02m_10 | Soil temperature in 20 cm depth. | °C | - |
-| {term}`temperature_soil_mean_0_5m` | te_st_05m_10 | Soil temperature in 50 cm depth. | °C | - |
-| {term}`temperature_soil_mean_1m` | te_st_10m_10 | Soil temperature in 100 cm depth. | °C | - |
+| {term}`temperature_soil_0_1m`      | te_st_01m_10 | Soil temperature in 10 cm depth. | °C | - |
+| {term}`temperature_soil_0_2m`      | te_st_02m_10 | Soil temperature in 20 cm depth. | °C | - |
+| {term}`temperature_soil_0_5m`      | te_st_05m_10 | Soil temperature in 50 cm depth. | °C | - |
+| {term}`temperature_soil_1m`      | te_st_10m_10 | Soil temperature in 100 cm depth. | °C | - |
 
 ### urban_wind
 

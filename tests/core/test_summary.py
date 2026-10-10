@@ -127,7 +127,7 @@ def test_not_summarizable_parameter(default_settings: Settings) -> None:
 def test_provider_dwd_mosmix(default_settings: Settings) -> None:
     """Test a MOSMIX request with date filter."""
     request = DwdMosmixRequest(
-        parameters=[("hourly", "small", "temperature_air_mean_2m")],
+        parameters=[("hourly", "small", "temperature_air_2m")],
         start=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=1),
         end=dt.datetime.now(tz=ZoneInfo("UTC")) + dt.timedelta(days=8),
         settings=default_settings,

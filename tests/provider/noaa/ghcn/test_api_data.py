@@ -70,7 +70,7 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
 def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
     """Hourly (GHCNh) values parse with correct timestamps from the ISO date column."""
     request = NoaaGhcnRequest(
-        parameters=[NoaaGhcnMetadata.hourly.data.temperature_air_mean_2m],
+        parameters=[NoaaGhcnMetadata.hourly.data.temperature_air_2m],
         start=dt.datetime(1977, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(1977, 2, 1, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
@@ -82,7 +82,7 @@ def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
                 "station_id": "GMA00092791",
                 "resolution": "hourly",
                 "dataset": "data",
-                "parameter": "temperature_air_mean_2m",
+                "parameter": "temperature_air_2m",
                 "timestamp": dt.datetime(1977, 1, 10, 2, tzinfo=ZoneInfo("UTC")),
                 "value": 1.0,
                 "quality": None,
@@ -92,7 +92,7 @@ def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
             "station_id": pl.Enum(["GMA00092791"]),
             "resolution": pl.Enum(["hourly"]),
             "dataset": pl.Enum(["data"]),
-            "parameter": pl.Enum(["temperature_air_mean_2m"]),
+            "parameter": pl.Enum(["temperature_air_2m"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,

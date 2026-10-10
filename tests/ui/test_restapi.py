@@ -1549,7 +1549,7 @@ def test_values_dwd_mosmix(client: TestClient) -> None:
         "station_id": "01025",
         "resolution": "hourly",
         "dataset": "small",
-        "parameter": "temperature_air_mean_2m",
+        "parameter": "temperature_air_2m",
         "timestamp": IsStr,
         "value": IsNumber,
         "quality": None,
@@ -1575,7 +1575,7 @@ def test_values_dwd_dmo_lead_time_long(client: TestClient) -> None:
         "station_id": "01025",
         "resolution": "hourly",
         "dataset": "icon",
-        "parameter": "temperature_air_mean_2m",
+        "parameter": "temperature_air_2m",
         "timestamp": IsStr,
         "value": IsNumber,
         "quality": None,
@@ -3027,7 +3027,7 @@ def _year_10000_message() -> str:
             {
                 "provider": "dwd",
                 "network": "dmo",
-                "parameters": "hourly/icon/temperature_air_mean_2m",
+                "parameters": "hourly/icon/temperature_air_2m",
                 "station": "10382",
                 "issue": "foo",
                 "timestamp": "2026-10-01",
@@ -3090,7 +3090,7 @@ def _year_10000_message() -> str:
             {
                 "provider": "dwd",
                 "network": "dmo",
-                "parameters": "hourly/icon/temperature_air_mean_2m",
+                "parameters": "hourly/icon/temperature_air_2m",
                 "station": "10382",
                 "issue": "0001-01-01T00:00+01:00",
             },
@@ -3235,7 +3235,7 @@ def test_values_an_issue_the_source_does_not_list_keeps_its_400(
         {"resolution": ["hourly"], "dataset": ["icon"], "station_id": ["10382"], "name": ["Berlin-Tegel"]},
     )
     stations = StationsResult(
-        stations=DwdDmoRequest(parameters=["hourly/icon/temperature_air_mean_2m"], issue="2020-01-01T00:00"),
+        stations=DwdDmoRequest(parameters=["hourly/icon/temperature_air_2m"], issue="2020-01-01T00:00"),
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.BY_STATION_ID,
@@ -3247,7 +3247,7 @@ def test_values_an_issue_the_source_does_not_list_keeps_its_400(
         params={
             "provider": "dwd",
             "network": "dmo",
-            "parameters": "hourly/icon/temperature_air_mean_2m",
+            "parameters": "hourly/icon/temperature_air_2m",
             "station": "10382",
             "issue": "2020-01-01T00:00",
         },

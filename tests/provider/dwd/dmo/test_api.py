@@ -1462,7 +1462,7 @@ def _dmo_stations_for(parameters: list[str], lead_time: Literal["short", "long"]
     ("parameters", "lead_time", "refused"),
     [
         pytest.param(
-            ["hourly/icon/precipitation_amount_last_3h", "hourly/icon/temperature_air_mean_2m"],
+            ["hourly/icon/precipitation_amount_last_3h", "hourly/icon/temperature_air_2m"],
             "short",
             "hourly/icon/precipitation_amount_last_3h (carried by lead_time='long')",
             id="a-3-hourly-parameter-of-the-default-run",
@@ -1505,7 +1505,7 @@ def test_dmo_a_parameter_the_run_does_not_carry_is_refused(
         pytest.param(["hourly/icon"], "long", id="the-whole-dataset-long"),
         pytest.param(["hourly/icon/precipitation_amount_last_3h"], "long", id="a-3-hourly-parameter-long"),
         pytest.param(["hourly/icon/precipitation_amount_last_1h"], "short", id="a-1-hourly-parameter-short"),
-        pytest.param(["hourly/icon/temperature_air_mean_2m"], "long", id="a-parameter-both-carry"),
+        pytest.param(["hourly/icon/temperature_air_2m"], "long", id="a-parameter-both-carry"),
     ],
 )
 def test_dmo_a_parameter_the_run_carries_is_not_refused(
@@ -1828,4 +1828,4 @@ def test_dmo_coverage_names_the_lead_times_whose_run_carries_each_parameter() ->
     icon = {parameter["name"]: parameter["lead_times"] for parameter in datasets["icon"]["parameters"]}
     assert icon["precipitation_amount_last_3h"] == ["long"]
     assert icon["precipitation_amount_last_1h"] == ["short"]
-    assert icon["temperature_air_mean_2m"] == ["short", "long"]
+    assert icon["temperature_air_2m"] == ["short", "long"]

@@ -69,12 +69,12 @@ DwdDmoMetadata = {
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_air_mean_0_05m",
+                            "name": "temperature_air_0_05m",
                             "name_original": "t5cm",
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "ttt",
                             "unit": "degree_kelvin",
                         },
@@ -84,7 +84,7 @@ DwdDmoMetadata = {
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "td",
                             "unit": "degree_kelvin",
                         },
@@ -186,12 +186,12 @@ DwdDmoMetadata = {
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_air_mean_0_05m",
+                            "name": "temperature_air_0_05m",
                             "name_original": "t5cm",
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "ttt",
                             "unit": "degree_kelvin",
                         },
@@ -201,7 +201,7 @@ DwdDmoMetadata = {
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "td",
                             "unit": "degree_kelvin",
                         },

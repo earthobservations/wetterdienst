@@ -62,7 +62,7 @@ import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
+    parameters=("hourly", "temperature_air", "temperature_air_2m"),
     start=dt.datetime(2022, 1, 1),
     end=dt.datetime(2022, 1, 20),
 )
@@ -83,7 +83,7 @@ import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
+    parameters=("hourly", "temperature_air", "temperature_air_2m"),
     start=dt.datetime(2022, 1, 1),
     end=dt.datetime(2022, 1, 20),
 )
@@ -381,7 +381,7 @@ import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
+    parameters=("hourly", "temperature_air", "temperature_air_2m"),
     start=dt.datetime(2022, 1, 1),
     end=dt.datetime(2022, 1, 20),
 )
@@ -402,7 +402,7 @@ import datetime as dt
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air", "temperature_air_mean_2m"),
+    parameters=("hourly", "temperature_air", "temperature_air_2m"),
     start=dt.datetime(2022, 1, 1),
     end=dt.datetime(2022, 1, 20),
 )
@@ -423,14 +423,14 @@ Both features are also available as CLI commands. The reference location is give
 # Interpolate to a coordinate.
 wetterdienst interpolate \
   --provider dwd --network observation \
-  --parameters hourly/temperature_air/temperature_air_mean_2m \
+  --parameters hourly/temperature_air/temperature_air_2m \
   --latitude 50.0 --longitude 8.9 \
   --start 2022-01-01 --end 2022-01-20
 
 # Summarize around a reference station.
 wetterdienst summarize \
   --provider dwd --network observation \
-  --parameters hourly/temperature_air/temperature_air_mean_2m \
+  --parameters hourly/temperature_air/temperature_air_2m \
   --station 02480 \
   --start 2022-01-01 --end 2022-01-20
 ```
@@ -489,14 +489,14 @@ endpoints (examples use [httpie](https://github.com/httpie/cli)):
 # Interpolate to a coordinate.
 http localhost:7890/api/interpolate \
   provider==dwd network==observation \
-  parameters==hourly/temperature_air/temperature_air_mean_2m \
+  parameters==hourly/temperature_air/temperature_air_2m \
   latitude==50.0 longitude==8.9 \
   timestamp==2022-01-01/2022-01-20
 
 # Summarize around a reference station.
 http localhost:7890/api/summarize \
   provider==dwd network==observation \
-  parameters==hourly/temperature_air/temperature_air_mean_2m \
+  parameters==hourly/temperature_air/temperature_air_2m \
   station==02480 \
   timestamp==2022-01-01/2022-01-20
 ```

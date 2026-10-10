@@ -183,7 +183,7 @@ DwdObservationMetadata = {
                         },
                         {"name": "humidity_relative", "name_original": "rf_10", "unit": "percent"},
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "td_10",
                             "unit": "degree_celsius",
                         },
@@ -288,19 +288,19 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "tt_st_10",
                             "unit": "degree_celsius",
                         },
                         {"name": "humidity_relative", "name_original": "rf_st_10", "unit": "percent"},
                         {
                             # "Strahlungstemperatur" -- radiant temperature at 2 m
-                            "name": "temperature_radiant_mean_2m",
+                            "name": "temperature_radiant_2m",
                             "name_original": "strahl_st_10",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_0_05m",
+                            "name": "temperature_air_0_05m",
                             "name_original": "tt5_st_10",
                             "unit": "degree_celsius",
                         },
@@ -400,22 +400,22 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "temperature_soil_mean_0_1m",
+                            "name": "temperature_soil_0_1m",
                             "name_original": "te_st_01m_10",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_2m",
+                            "name": "temperature_soil_0_2m",
                             "name_original": "te_st_02m_10",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_5m",
+                            "name": "temperature_soil_0_5m",
                             "name_original": "te_st_05m_10",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_1m",
+                            "name": "temperature_soil_1m",
                             "name_original": "te_st_10m_10",
                             "unit": "degree_celsius",
                         },
@@ -589,12 +589,12 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "tt",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "td",
                             "unit": "degree_celsius",
                         },
@@ -621,7 +621,7 @@ DwdObservationMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "temperature_wet_mean_2m",
+                            "name": "temperature_wet_2m",
                             "name_original": "tf_std",
                             "unit": "degree_celsius",
                         },
@@ -631,13 +631,13 @@ DwdObservationMetadata = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "tt_std",
                             "unit": "degree_celsius",
                         },
                         {"name": "humidity_relative", "name_original": "rf_std", "unit": "percent"},
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "td_std",
                             "unit": "degree_celsius",
                         },
@@ -765,7 +765,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "tt_tu",
                             "unit": "degree_celsius",
                         },
@@ -783,32 +783,32 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "temperature_soil_mean_0_02m",
+                            "name": "temperature_soil_0_02m",
                             "name_original": "v_te002",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_05m",
+                            "name": "temperature_soil_0_05m",
                             "name_original": "v_te005",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_1m",
+                            "name": "temperature_soil_0_1m",
                             "name_original": "v_te010",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_2m",
+                            "name": "temperature_soil_0_2m",
                             "name_original": "v_te020",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_5m",
+                            "name": "temperature_soil_0_5m",
                             "name_original": "v_te050",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_1m",
+                            "name": "temperature_soil_1m",
                             "name_original": "v_te100",
                             "unit": "degree_celsius",
                         },
@@ -976,7 +976,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "lufttemperatur",
                             "unit": "degree_celsius",
                         },
@@ -998,27 +998,27 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "temperature_soil_mean_0_05m",
+                            "name": "temperature_soil_0_05m",
                             "name_original": "erdbt_005",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_1m",
+                            "name": "temperature_soil_0_1m",
                             "name_original": "erdbt_010",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_2m",
+                            "name": "temperature_soil_0_2m",
                             "name_original": "erdbt_020",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_5m",
+                            "name": "temperature_soil_0_5m",
                             "name_original": "erdbt_050",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_1m",
+                            "name": "temperature_soil_1m",
                             "name_original": "erdbt_100",
                             "unit": "degree_celsius",
                         },
@@ -1102,8 +1102,8 @@ DwdObservationMetadata = {
                         {
                             # Feuchttemperatur -- wet bulb, not air temperature. DWD's hourly
                             # moisture dataset already maps the same quantity (tf_std) to
-                            # temperature_wet_mean_2m; subdaily disagreed with it.
-                            "name": "temperature_wet_mean_2m",
+                            # temperature_wet_2m; subdaily disagreed with it.
+                            "name": "temperature_wet_2m",
                             "name_original": "tf_ter",
                             "unit": "degree_celsius",
                         },
@@ -1157,7 +1157,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "tt_ter",
                             "unit": "degree_celsius",
                         },

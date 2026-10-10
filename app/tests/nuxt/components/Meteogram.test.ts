@@ -19,7 +19,7 @@ const values = Array.from({ length: 24 }, (_, hour) => ({
   station_id: '10384',
   resolution: 'hourly',
   dataset: 'small',
-  parameter: 'temperature_air_mean_2m',
+  parameter: 'temperature_air_2m',
   timestamp: `2026-10-01T${String(hour).padStart(2, '0')}:00:00+00:00`,
   value: 10 + hour / 4,
   quality: null,
