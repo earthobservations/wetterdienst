@@ -5,7 +5,8 @@
 A stub is the catalogue a provider's own reader turns into stations, made from a few rows of the real list: the first
 stations of it and the ones that showed a defect, copied as they are published, with the source's own padding,
 encoding and decimal separator. Standing in for the download, it runs the provider's own reader (`_all()` and the
-frame handling of `all()`), so a reader that loses a sign or drops a column shows here without the network.
+frame handling of `all()`), so a reader that loses a sign or drops a column shows here without the network. The one
+exception is the workbook of `dwd/road`, whose sheet is served in place of the Excel read.
 
 To hold another provider to the rules, add a stub to `STUBS`: serve the rows through `_serve`, call the request, and
 give the rows a fault the source really has if there is one, so that the rule is seen to find it.
@@ -282,7 +283,7 @@ GHCN_NO_POSITION = Accepted(
     "the list gives the BOGUS and the NAME AND LOC UNKN placeholders 0, 0 and the two historic Russian stations "
     "latitudes of 135 and 104; none has a position (GH-2380), and a station without one is picked by no search",
     where=lambda row: (
-        (row["name"] or "").startswith(("BOGUS ", "NAME AND LOC")) or row["station_id"].startswith("RUU71-")
+        (row["name"] or "").startswith(("BOGUS ", "NAME AND LOC")) or (row["station_id"] or "").startswith("RUU71-")
     ),
 )
 GHCN_NAMES = Accepted(

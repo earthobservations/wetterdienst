@@ -10,9 +10,10 @@ be told from one that lost it, so that exception covers all of them.
 
 This pass holds one catalogue per resolution of a provider and network, the first dataset of it, and every dataset of
 the networks whose catalogue differs from one to the next. The one-time run of GH-2616 held all 62 datasets of
-`dwd/observation` and found them sound. `eaufrance/hubeau` is held at one resolution: its catalogue is made by reading
-a station list for each of the resolutions it could be, which takes minutes. The providers that need a credential
-(`aemet`, `knmi`, `metno`, `metoffice`) are held when the credential is set.
+`dwd/observation` and found them sound. `eaufrance/hubeau` is not held here: its catalogue is made by reading a
+station list for each of the resolutions it could be, which takes about 7 minutes, in every leg of the matrix; the
+one-time run found it sound. The providers that need a credential (`aemet`, `knmi`, `metno`, `metoffice`) are held
+when the credential is set.
 """
 
 from __future__ import annotations
@@ -31,9 +32,9 @@ from tests.provider.station_catalogue_stubs import (
 from wetterdienst import Wetterdienst
 
 # the networks whose station list is not the same for every dataset of a resolution
-_EVERY_DATASET = {"dwd/dmo", "dwd/mosmix"}
-# the resolutions of a network that are held, where it is not every one
-_RESOLUTIONS = {"eaufrance/hubeau": {"hourly"}}
+_EVERY_DATASET = {"dwd/derived", "dwd/dmo", "dwd/mosmix"}
+# the networks that are not held, with the reason
+_NOT_HELD = {"eaufrance/hubeau": "building its catalogue takes minutes"}
 
 
 ACCEPTED: dict[str, tuple[Accepted, ...]] = {
@@ -86,18 +87,19 @@ def _cases() -> list[object]:
     for provider, networks in Wetterdienst.registry.items():
         for network in networks:
             key = f"{provider}/{network}"
+            if key in _NOT_HELD:
+                continue
             try:
                 api = Wetterdienst(provider, network)
-            except ImportError:
-                # an optional extra that is not installed
+            except ImportError as error:
                 cases.append(
                     pytest.param(
                         provider,
                         network,
                         "",
                         "",
-                        marks=pytest.mark.skip(reason=f"{key} needs an extra that is not installed"),
-                        id=f"{key} (not installed)",
+                        marks=pytest.mark.skip(reason=f"{key} cannot be imported: {error}"),
+                        id=f"{key} (cannot be imported)",
                     )
                 )
                 continue
@@ -106,13 +108,9 @@ def _cases() -> list[object]:
                 continue
             unconfigured = bool(metadata.auth) and not Wetterdienst.is_configured(api)
             for resolution in metadata:
-                if key in _RESOLUTIONS and resolution.name not in _RESOLUTIONS[key]:
-                    continue
                 datasets = resolution.datasets if key in _EVERY_DATASET else resolution.datasets[:1]
                 for dataset in datasets:
                     marks = [pytest.mark.skipif(unconfigured, reason=f"{key} needs its credential")]
-                    if key == "eaufrance/hubeau":
-                        marks.append(pytest.mark.slow)
                     cases.append(
                         pytest.param(
                             provider,

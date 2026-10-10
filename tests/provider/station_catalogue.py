@@ -83,9 +83,8 @@ RULES = (
 # Latin-1 letters, Å, Ä for Latin Extended-A such as ż and č) followed by a continuation byte read as a control
 # character, a symbol or one of the Windows-1252 punctuation marks (Ã¼ for ü, Ã\u0178 for ß, Å¼ for ż), â€ for a dash,
 # the replacement character, and the question mark a lossy conversion leaves for a character it could not encode.
-# A capital Ã, Â, Å or Ä followed by a letter is a letter of Portuguese, Finnish or Swedish (SÃO PAULO, ÄÄNEKOSKI)
-
-# the Windows-1252 punctuation that stands in for the bytes 0x82 to 0x9F
+# A capital Ã, Â, Å or Ä followed by a letter is a letter of Portuguese, Finnish or Swedish (SÃO PAULO, ÄÄNEKOSKI).
+# The Windows-1252 punctuation stands in for the bytes 0x82 to 0x9F
 _CP1252_PUNCTUATION = "".join(
     rf"\x{{{c}}}"
     for c in (
@@ -123,7 +122,7 @@ _ENCODING_DAMAGE = rf"\x{{FFFD}}|[ÃÂÅÄ][{_CONTINUATION}]|â€|\?"
 
 def has_encoding_damage(text: str, *, question_marks: bool = True) -> bool:
     """Say whether a name has damaged characters, leaving the question marks out of it if `question_marks` is False."""
-    series = pl.Series([text if question_marks else text.replace("?", "")], dtype=pl.String)
+    series = pl.Series([text if question_marks else text.replace("?", " ")], dtype=pl.String)
     return bool(series.str.contains(_ENCODING_DAMAGE)[0])
 
 

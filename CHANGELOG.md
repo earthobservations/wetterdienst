@@ -31,8 +31,8 @@ Types of changes:
   (GH-2616)
 - `noaa/ghcn` hourly stations `RUU71-00102` (CHABAROWKA) and `RUU71-00113` (IRKUTSK) have no
   position, where the list puts them at latitudes of 135.117 and 104.367, off the globe, with
-  latitude and longitude swapped; any position outside latitude +-90 or longitude +-180 is
-  dropped, as the `BOGUS` placeholders already are (GH-2616)
+  latitude and longitude swapped; the hourly list drops any position outside latitude +-90 or
+  longitude +-180, as it does for the `BOGUS` placeholders (GH-2616)
 
 ## [0.144.0] - 2026-10-10
 

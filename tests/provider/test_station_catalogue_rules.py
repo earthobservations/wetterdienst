@@ -17,6 +17,7 @@ from tests.provider.station_catalogue import (
     has_encoding_damage,
     unaccepted,
 )
+from tests.provider.station_catalogue_stubs import question_mark_in_the_name
 
 _NOW = dt.datetime(2026, 10, 10, tzinfo=dt.timezone.utc)
 _SCHEMA = {
@@ -223,3 +224,10 @@ def test_a_question_mark_excuses_no_other_damage() -> None:
     assert not has_encoding_damage("NAR?JAN-MAR", question_marks=False)
     assert has_encoding_damage("DzierÅ¼kowice?", question_marks=False)
     assert not has_encoding_damage("SÃO PAULO?", question_marks=False)
+
+
+def test_the_question_mark_exception_covers_a_name_with_that_damage_only() -> None:
+    """The predicate of the exceptions covers NAR?JAN-MAR and not a name with mojibake as well."""
+    assert question_mark_in_the_name({"name": "NAR?JAN-MAR"})
+    assert not question_mark_in_the_name({"name": "DzierÅ¼kowice?"})
+    assert not question_mark_in_the_name({"name": "Großenkneten"})
