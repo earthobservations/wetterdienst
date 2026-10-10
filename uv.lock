@@ -6944,7 +6944,7 @@ requires-dist = [
     { name = "xarray", marker = "extra == 'export'", specifier = ">=2025.1.2,<2027" },
     { name = "xlsxwriter", marker = "extra == 'excel'", specifier = ">=3.0.9,<4" },
     { name = "xlsxwriter", marker = "extra == 'export'", specifier = ">=3.0.9,<4" },
-    { name = "xradar", marker = "extra == 'radarplus'", specifier = ">=0.2,<1" },
+    { name = "xradar", marker = "extra == 'radarplus'", specifier = ">=0.8,<1" },
     { name = "zarr", marker = "extra == 'export'", specifier = ">=3.1,<4" },
 ]
 provides-extras = ["bufr", "cratedb", "duckdb", "eccodes", "excel", "export", "influxdb", "knmi", "interpolation", "mysql", "pdf", "plotting", "postgresql", "radar", "radarplus", "restapi", "sql", "mcp"]

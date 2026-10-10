@@ -217,7 +217,7 @@ radar = [
 radarplus = [
     "pybufrkit>=0.2,<1",
     "wradlib>=2.0.1,<3",
-    "xradar>=0.2,<1",
+    "xradar>=0.8,<1",
 ]
 restapi = [
     # >=0.142: ui/restapi.py passes `FastAPI(telemetry=...)`, which 0.142 added

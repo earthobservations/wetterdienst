@@ -22,7 +22,8 @@ Types of changes:
   Install on 3.11 or newer; pip on an older Python keeps resolving the last release that supports
   it. The `backports-datetime-fromisoformat` dependency, which only Python 3.10 installed, is
   dropped. The `export` extra requires `xarray>=2025.1.2`: 2024.6 cannot write Zarr with the
-  `zarr>=3.1` the extra installs (GH-2568)
+  `zarr>=3.1` the extra installs, and with it the `radar` extra `xradar>=0.8`, as older releases
+  need the `datatree` package that 2025.1 no longer works with (GH-2568)
 - **Breaking**: `chmi/observation` monthly and annual `TMA` and `TMI` are named
   `temperature_air_max_2m_mean` and `temperature_air_min_2m_mean`, no longer
   `temperature_air_max_2m` and `temperature_air_min_2m`: the files hold the mean of the daily
