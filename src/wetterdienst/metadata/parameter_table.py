@@ -2794,7 +2794,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "temperature_wet_2m",
         "temperature",
-        "Wet-bulb temperature at 2 m above ground.",
+        "Wet-bulb temperature at 2 m above ground, as reported for one time step.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
