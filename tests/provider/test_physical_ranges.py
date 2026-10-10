@@ -29,9 +29,7 @@ def _frame(parameter: str, *values: float | None) -> pl.DataFrame:
         {
             "parameter": [parameter] * len(values),
             "value": list(values),
-            "timestamp": [
-                dt.datetime(2026, 1, 1, tzinfo=dt.UTC) + dt.timedelta(hours=i) for i in range(len(values))
-            ],
+            "timestamp": [dt.datetime(2026, 1, 1, tzinfo=dt.UTC) + dt.timedelta(hours=i) for i in range(len(values))],
         },
         schema={"parameter": pl.String, "value": pl.Float64, "timestamp": pl.Datetime(time_zone="UTC")},
     )
