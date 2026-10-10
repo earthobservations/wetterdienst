@@ -168,7 +168,7 @@ export = [
     "h5netcdf>=1.7.3,<2",
     "pandas>=2.2.2,<4",
     "sqlalchemy>=2,<3",
-    "xarray>=2024.6,<2027",
+    "xarray>=2025.1.2,<2027",
     "xlsxwriter>=3.0.9,<4",
     "zarr>=3.1,<4",
 ]
