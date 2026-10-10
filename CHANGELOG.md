@@ -75,7 +75,7 @@ Types of changes:
   spot names; the old ones are not found (logged and dropped, or `NoParametersFoundError` when no
   other parameter is requested). Rows whose source says a mean or average of the row's interval
   (IPMA, MeteoSwiss hourly, KNMI 10-minute `tg` and `tb`; DMI and RMI in the field name) keep
-  their `_mean_` names (GH-2657)
+  their `_mean_` names (GH-2657, GH-2660)
 - **Breaking**: `dwd/road` `airTemperature` and `dewpointTemperature` and `dwd/swsmos` `TS`, which
   DWD gives without a statistic, are named `temperature_air_2m`,
   `temperature_dew_point_2m` and `temperature_surface`, no longer `temperature_air_mean_2m`,
@@ -85,10 +85,10 @@ Types of changes:
   `temperature_surface` (GH-2660)
 - **Breaking**: sub-daily temperatures whose "mean" was not the source's are named for a reading at
   one moment, no longer `temperature_air_mean_2m`, `temperature_dew_point_mean_2m` or the
-  `_mean_` soil and 0.05 m names: `geosphere/observation` 10-minute and hourly `tl`, `ts`, `tb10`
-  to `tb200`, `wsv/pegel` `LT`, `meteofrance/synop` `t`, `nws/observation` `temperature` and
-  `dewpoint`, `fmi/observation` hourly `t2m` and `td` and `knmi/observation` 10-minute `ta` and
-  `td`. Request `temperature_air_2m`, `temperature_air_0_05m`,
+  `_mean_` soil and 0.05 m names: `geosphere/observation` 10-minute `tl`, `ts`, `tb10` to `tb50`
+  and hourly `tl`, `tb10` to `tb200`, `wsv/pegel` `LT`, `meteofrance/synop` `t`,
+  `nws/observation` `temperature` and `dewpoint`, `fmi/observation` hourly `t2m` and `td` and
+  `knmi/observation` 10-minute `ta` and `td`. Request `temperature_air_2m`, `temperature_air_0_05m`,
   `temperature_dew_point_2m` or `temperature_soil_0_1m` to `_2m` (`_2m` is new); the old names are
   not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
   parameter is requested). KNMI `tg` and `tb` keep their `_mean_` names (GH-2660)

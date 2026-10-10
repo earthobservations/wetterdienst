@@ -219,7 +219,7 @@ _SPOT_NAME = re.compile(r"^temperature_(?:(?:air|dew_point|wet|soil|radiant)_\d+
 _COARSE_RESOLUTIONS = {"daily", "monthly", "annual"}
 # a mean or an average, in a description ("hourly mean", "Average ...") or in the source's field name
 # (`temp_dry_shelter_avg`, `mean_temp`, where `_` separates words); "mean sea level" is not one
-_MEAN_WORD = re.compile(r"(?<![a-z])(?:mean(?!\s+sea\b)|averag\w*|avg)(?![a-z])", re.IGNORECASE)
+_MEAN_WORD = re.compile(r"(?<![a-z])(?:mean(?!(?:\s+|_)sea(?![a-z]))|averag\w*|avg)(?![a-z])", re.IGNORECASE)
 # a mean over a stated number of minutes: KNMI "1 Min Mean", FMI "Mean over 1 minute"
 _MEAN_WINDOW = re.compile(
     r"(?<![\d.])(\d+)[ -]?min(?:ute)?s?\b[ -]*(?:mean|average)|\b(?:mean|average) over (\d+)[ -]?min(?:ute)?s?\b",
@@ -361,6 +361,7 @@ def test_the_regexes_for_a_spot_value_read_the_sources_wording() -> None:
         # a mean that is not a statistic of the value
         ("Air pressure reduced to mean sea level", "hourly"),
         ("Pressure above mean sea level", "10_minutes"),
+        ("mean_sea_level_pressure", "hourly"),
         ("meaning", "hourly"),
     ):
         assert not _states_a_mean(description, resolution), description
