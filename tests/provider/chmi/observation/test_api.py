@@ -8,7 +8,10 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
+from wetterdienst.provider.chmi.observation.api import _RESOLUTION_CONFIG
+from wetterdienst.provider.chmi.observation.metadata import ChmiObservationMetadata
 from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_stations,
     parse_chmi_values_aggregate,
@@ -204,8 +207,9 @@ def test_chmi_observation_values_monthly() -> None:
     df = _values("monthly", dt.datetime(2020, 1, 1, tzinfo=UTC), dt.datetime(2020, 1, 2, tzinfo=UTC))
     when = dt.datetime(2020, 1, 1, tzinfo=UTC)
     assert _value_of(df, "temperature_air_mean_2m", when) == pytest.approx(1.1)
-    assert _value_of(df, "temperature_air_max_2m", when) == pytest.approx(3.7)
-    assert _value_of(df, "temperature_air_min_2m", when) == pytest.approx(-1.5)
+    # the mean of the daily maxima and minima, not the month's extremes (12.9 and -9.6 at Cheb)
+    assert _value_of(df, "temperature_air_max_2m_mean", when) == pytest.approx(3.7)
+    assert _value_of(df, "temperature_air_min_2m_mean", when) == pytest.approx(-1.5)
     # precipitation is the monthly total (MDFUNCTION SUM), not an average
     assert _value_of(df, "precipitation_amount", when) == pytest.approx(21.3)
 
@@ -217,6 +221,30 @@ def test_chmi_observation_values_annual() -> None:
     df = _values("annual", dt.datetime(2018, 1, 1, tzinfo=UTC), dt.datetime(2018, 1, 2, tzinfo=UTC))
     when = dt.datetime(2018, 1, 1, tzinfo=UTC)
     assert _value_of(df, "temperature_air_mean_2m", when) == pytest.approx(9.7)
-    assert _value_of(df, "temperature_air_max_2m", when) == pytest.approx(14.9)
-    assert _value_of(df, "temperature_air_min_2m", when) == pytest.approx(5.0)
+    assert _value_of(df, "temperature_air_max_2m_mean", when) == pytest.approx(14.9)
+    assert _value_of(df, "temperature_air_min_2m_mean", when) == pytest.approx(5.0)
     assert _value_of(df, "precipitation_amount", when) == pytest.approx(465.6)
+
+
+@pytest.mark.parametrize("resolution", ["monthly", "annual"])
+@pytest.mark.parametrize(("element", "extreme"), [("TMA", "max"), ("TMI", "min")])
+def test_chmi_observation_period_extremes_are_named_for_the_function_they_are_read_with(
+    resolution: str,
+    element: str,
+    extreme: str,
+) -> None:
+    """A monthly or annual TMA/TMI is the mean of the daily extremes, so it must not carry the extreme's name.
+
+    The daily files hold the day's extreme, read at 20:00. The monthly and annual files hold that
+    daily value combined over the period, and the series this provider reads is MDFUNCTION `AVG`, so
+    the number is the mean of the daily maxima (3.7 for Cheb in January 2020, whose warmest day
+    reached 12.9) -- `temperature_air_max_2m_mean`, not `temperature_air_max_2m`. The name follows
+    the function the series is pinned to, so pinning `MAX` instead would have to rename it back.
+    """
+    mdfunc = _RESOLUTION_CONFIG[Resolution(resolution)]["elements"][element][2]
+    name = f"temperature_air_{extreme}_2m" + ("_mean" if mdfunc == "AVG" else "")
+    names = {parameter.name_original: parameter.name for parameter in ChmiObservationMetadata[resolution]["data"]}
+    assert names[element] == name
+    # the daily files carry the extreme itself, whatever the period files do
+    daily = {parameter.name_original: parameter.name for parameter in ChmiObservationMetadata["daily"]["data"]}
+    assert daily[element] == f"temperature_air_{extreme}_2m"

@@ -16,6 +16,32 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `chmi/observation` monthly and annual `TMA` and `TMI` are named
+  `temperature_air_max_2m_mean` and `temperature_air_min_2m_mean`, no longer
+  `temperature_air_max_2m` and `temperature_air_min_2m`: the files hold the mean of the daily
+  maxima and minima, not the extremes of the period. Request the new names; the old ones are not
+  found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested). The daily names are unchanged (GH-2614)
+- **Breaking**: `aemet/observation` monthly and annual `ta_max` and `ta_min`, the absolute maximum
+  and minimum of the month or year, are named `temperature_air_max_2m` and
+  `temperature_air_min_2m`, no longer the `_multiday` names. Request the plain names; the old ones
+  are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested) (GH-2614)
+- **Breaking**: `dwd/mosmix` (`small`, `large`) and `dwd/dmo` (`icon`, `icon_eu`) `tx` and `tn`,
+  the maximum and minimum temperature within the last 12 hours, are named
+  `temperature_air_max_2m_last_12h` and `temperature_air_min_2m_last_12h`, no longer
+  `temperature_air_max_2m` and `temperature_air_min_2m`. Request the new names; the old ones are
+  not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested) (GH-2614)
+
+### Fixed
+
+- `dwd/derived` hourly `sunshine_duration_uncertainty` is returned: it was declared with the global
+  radiation's column `fg_un_duett`, which the sunshine duration file does not have, and so never
+  came back; it is read from `sd_un_duett` (GH-2614)
+
 ## [0.144.0] - 2026-10-10
 
 ### Fixed

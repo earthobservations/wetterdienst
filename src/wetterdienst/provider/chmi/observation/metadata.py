@@ -23,17 +23,25 @@ _PRESSURE = {"unit": "hectopascal"}
 _HUMIDITY = {"unit": "percent"}
 _WIND_SPEED = {"unit": "meter_per_second"}
 
-# daily/monthly/annual share the same climatological element codes and value-selection scheme;
-# only the file layout and date granularity differ (handled in api.py).
-_CLIMATE_PARAMETERS = [
+# daily/monthly/annual share the same climatological element codes; only the file layout, the date
+# granularity and what an element means differ (handled in api.py). TMA and TMI are the daily
+# extremes read at 20:00 in the daily files, but the monthly and annual files hold them combined
+# over the period with MDFUNCTION AVG (see ``_AGGREGATE_ELEMENTS``), i.e. the mean of the daily
+# maxima and minima -- a different statistic, so a different canonical name.
+_DAILY_CLIMATE_PARAMETERS = [
     {"name": "temperature_air_mean_2m", "name_original": "T", **_TEMPERATURE},
     {"name": "temperature_air_max_2m", "name_original": "TMA", **_TEMPERATURE},
     {"name": "temperature_air_min_2m", "name_original": "TMI", **_TEMPERATURE},
     {"name": "precipitation_amount", "name_original": "SRA", **_PRECIPITATION},
 ]
 
+_PERIOD_CLIMATE_PARAMETERS = [
+    {**parameter, "name": f"{parameter['name']}_mean"} if parameter["name_original"] in ("TMA", "TMI") else parameter
+    for parameter in _DAILY_CLIMATE_PARAMETERS
+]
+
 _DAILY_PARAMETERS = [
-    *_CLIMATE_PARAMETERS,
+    *_DAILY_CLIMATE_PARAMETERS,
     {"name": "humidity_relative", "name_original": "H", **_HUMIDITY},
     {"name": "pressure_air_site", "name_original": "P", **_PRESSURE},
     {"name": "wind_speed", "name_original": "F", **_WIND_SPEED},
@@ -86,8 +94,8 @@ ChmiObservationMetadata = {
         _resolution("10_minutes", _MINUTE_10_PARAMETERS, date_required=True),
         _resolution("hourly", _HOURLY_PARAMETERS, date_required=True),
         _resolution("daily", _DAILY_PARAMETERS, date_required=False),
-        _resolution("monthly", _CLIMATE_PARAMETERS, date_required=False),
-        _resolution("annual", _CLIMATE_PARAMETERS, date_required=False),
+        _resolution("monthly", _PERIOD_CLIMATE_PARAMETERS, date_required=False),
+        _resolution("annual", _PERIOD_CLIMATE_PARAMETERS, date_required=False),
     ],
 }
 ChmiObservationMetadata = build_metadata_model(ChmiObservationMetadata, "ChmiObservationMetadata")
