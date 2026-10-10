@@ -1227,8 +1227,10 @@ TIME_REFERENCE = ROOT / "docs" / "data" / "time_reference.md"
 # brackets behind it as an observation.
 _REFERENCE_TIMES = frozenset(["start", "end", "middle", "instant", "mixed", "unverified"])
 
-# Networks that declare no resolutions and so have a row with the resolution `n/a` instead.
-_TIME_REFERENCE_WITHOUT_RESOLUTION = {("dwd", "alerts"), ("dwd", "radar")}
+# Networks that declare no resolutions and so have a row with the resolution `n/a` instead. `dwd/radar`
+# is left out of the other docs pages on purpose, but its stamps are file names and BUFR times that
+# can be read wrongly like any other, so the table has a row for it.
+_TIME_REFERENCE_WITHOUT_RESOLUTION = NETWORKS_WITHOUT_A_METADATA_MODEL | {("dwd", "radar")}
 
 
 def _unescape(cell: str) -> str:
@@ -1313,10 +1315,11 @@ def _time_reference_row_problems(provider: str, cells: list[str], note: str) -> 
     """Return what is missing from one row of the time reference tables and from its note."""
     if len(cells) != 6:
         return [f"{provider}: a row has {len(cells)} cells, not 6: {cells[:3]}"]
-    network, resolution, _, zone, reference, verified = cells
+    network, resolution, datasets, zone, reference, verified = cells
     tag = f"{provider}/{network}/{resolution}"
     problems = []
-    if not note.startswith(f"**{network}/{resolution}"):
+    named = f"{network}/{resolution}" + ("" if datasets == "all" else f" ({datasets})")
+    if not note.startswith(f"**{named}**"):
         problems.append(f"{tag}: the note {note[:40]!r} does not belong to the row")
     if not zone:
         problems.append(f"{tag}: no source time zone")
@@ -1335,8 +1338,9 @@ def test_time_reference_rows_are_complete() -> None:
     """Test that every row states its zone and reference time, or says `unverified`, and has its notes.
 
     The notes below a table hold one bullet per row, in the order of the rows: what the library does,
-    and the provider's own sentence with its address. A row that is `no` quotes nothing it could give
-    an address for.
+    and the provider's own sentence with its address. A note is tied to its row by the network,
+    resolution and datasets it names; rows that share all three (a resolution whose parameters are
+    stamped differently) are told apart by their text alone.
     """
     rows, notes = _time_reference_tables()
     errors = []
@@ -1344,7 +1348,6 @@ def test_time_reference_rows_are_complete() -> None:
         provider_rows = [cells for p, cells in rows if p == provider]
         if len(provider_rows) != len(notes[provider]):
             errors.append(f"{provider}: {len(provider_rows)} rows but {len(notes[provider])} notes")
-            continue
-        for cells, note in zip(provider_rows, notes[provider], strict=True):
+        for cells, note in zip(provider_rows, notes[provider], strict=False):
             errors.extend(_time_reference_row_problems(provider, cells, note))
     assert not errors, "\n".join(_capped(errors, 40, "the report"))

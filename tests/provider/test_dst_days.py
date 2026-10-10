@@ -101,24 +101,37 @@ def test_wsv_readings_of_a_clock_change_day_are_distinct_utc_instants(
 def test_dmi_stamps_of_the_clock_change_days_are_unique_utc_instants() -> None:
     """Test that DMI's hourly and daily stamps stay distinct over the 23 and 25 hour days.
 
-    Hourly aggregates carry a `+00:00` offset and are taken as they are. Daily ones carry the
-    station's local offset, which changes on the transition day (`+01:00` at its start, `+02:00` at
-    the start of the next), and their civil date is taken from the string, so each day gets one
-    distinct stamp whatever its length.
+    DMI writes hourly aggregates in UTC (`+00:00`), and the parse converts whatever offset a stamp
+    carries, so the hours around both clock changes are given in UTC and, for one of each, as the
+    local stamp a mistaken source would write: they must name the same instants. Daily ones carry the
+    station's local offset, which changes on the transition day, and their civil date is taken from
+    the string, so each day gets one distinct stamp whatever its length.
     """
     hourly = pl.DataFrame(
         {
             "from": [
-                "2025-10-25T22:00:00+00:00",
-                "2025-10-25T23:00:00+00:00",
+                "2025-03-29T23:00:00+00:00",
+                "2025-03-30T00:00:00+00:00",
+                "2025-03-30T01:00:00+00:00",
+                "2025-03-30T02:00:00+00:00",
+                "2025-03-30T03:00:00+02:00",  # 01:00 UTC, written on the summer-time clock
                 "2025-10-26T00:00:00+00:00",
                 "2025-10-26T01:00:00+00:00",
-                "2025-10-26T02:00:00+00:00",
+                "2025-10-26T02:00:00+01:00",  # 01:00 UTC, written on the winter-time clock
+                "2025-10-26T02:00:00+02:00",  # 00:00 UTC, the first of the two 02:00
             ]
         }
     ).select(DmiObservationValues._date_expression(Resolution.HOURLY).alias("timestamp"))  # noqa: SLF001
     assert hourly.get_column("timestamp").to_list() == [
-        dt.datetime(2025, 10, 25, 22, tzinfo=UTC) + dt.timedelta(hours=hour) for hour in range(5)
+        dt.datetime(2025, 3, 29, 23, tzinfo=UTC),
+        dt.datetime(2025, 3, 30, 0, tzinfo=UTC),
+        dt.datetime(2025, 3, 30, 1, tzinfo=UTC),
+        dt.datetime(2025, 3, 30, 2, tzinfo=UTC),
+        dt.datetime(2025, 3, 30, 1, tzinfo=UTC),
+        dt.datetime(2025, 10, 26, 0, tzinfo=UTC),
+        dt.datetime(2025, 10, 26, 1, tzinfo=UTC),
+        dt.datetime(2025, 10, 26, 1, tzinfo=UTC),
+        dt.datetime(2025, 10, 26, 0, tzinfo=UTC),
     ]
 
     daily = pl.DataFrame(
