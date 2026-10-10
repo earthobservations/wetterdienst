@@ -21,6 +21,7 @@ from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
+    CredentialMissingError,
     DateRequiredError,
     ExportRefusedError,
     InvalidTimeIntervalError,
@@ -735,7 +736,13 @@ def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     A request refuses a window that ends before it starts, or one that a dataset needs and is not
     given, in terms of its `start` and `end`, which the command line spells `--timestamp` or
     `--start` / `--end`.
+
+    A provider that needs a credential none is configured for is told in one line, exit 1: the
+    message names the setting to change, which is what the person at the command line can do, and
+    the command line was right, so it is no usage error.
     """
+    if isinstance(e, CredentialMissingError):
+        raise click.ClickException(str(e)) from e
     if not _is_caller_refusal(e, request):
         return
     if isinstance(e, ReversedTimeIntervalError):

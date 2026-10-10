@@ -1225,3 +1225,42 @@ def test_cli_refuses_a_dataset_queried_by_a_window_given_none_naming_its_options
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith("\n\nError: --timestamp or --start / --end is required for this dataset\n")
     assert not caplog.records
+
+
+@pytest.mark.parametrize(
+    ("command", "options"),
+    [
+        ("stations", ["--all"]),
+        ("values", ["--station=1", "--start=2020-01-01", "--end=2020-01-02"]),
+        ("interpolate", ["--station=1", "--start=2020-01-01", "--end=2020-01-02"]),
+        ("summarize", ["--station=1", "--start=2020-01-01", "--end=2020-01-02"]),
+    ],
+)
+def test_cli_without_a_credential_says_which_setting_to_change(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    command: str,
+    options: list[str],
+) -> None:
+    """A provider that needs a key none is configured for is told in one line, exit 1 (GH-2638).
+
+    The command line's user is the one who can set the variable, so the provider's message is the
+    answer. It arrived as a traceback; it is not a usage error either, the options were right.
+    """
+    monkeypatch.delenv("WD_AUTH__KNMI", raising=False)
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(
+        cli,
+        [
+            command,
+            "--provider=knmi",
+            "--network=observation",
+            "--parameters=daily/data/temperature_air_mean_2m",
+            *options,
+        ],
+    )
+    assert result.exit_code == 1, result.output
+    assert "WD_AUTH__KNMI" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert result.stderr.startswith("Error: KNMI Data Platform requires authentication.")
+    assert len(result.stderr.splitlines()) == 1
