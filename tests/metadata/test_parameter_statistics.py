@@ -8,8 +8,9 @@ is a key of the table, not that it is the right one. What can be checked mechani
 source's own description, which every parameter carries from `metadata.source_descriptions`, states
 the statistic or the window in words the name has a slot for. Each rule below reads one such statement
 and asks the name to carry it. They hold for every provider today, so a new one is held to them
-without listing exceptions; a statement the source does not make (most do not say whether a reading is
-spot or mean) is out of their reach and is a question for review, see GH-2614.
+without listing exceptions; a statement the source does not make is out of their reach, except that
+below daily resolution a temperature the source says nothing about takes the spot name (GH-2657),
+and the rules for that are the ones about spot and mean names further down. See GH-2614.
 """
 
 import re
@@ -164,7 +165,7 @@ _SPOT_NAME = re.compile(r"^temperature_(?:(?:air|dew_point|wet|soil|radiant)_\d+
 # `_mean_` name; below them it is named for a reading at one moment (GH-2657)
 _COARSE_RESOLUTIONS = {"daily", "monthly", "annual"}
 # a description that states the interval's mean: "Mean air temperature", "hourly mean", "Average ..."
-_MEAN_STATED = re.compile(r"\b(?:mean|average)\b", re.IGNORECASE)
+_MEAN_STATED = re.compile(r"\b(?:mean|averag\w*|avg)\b", re.IGNORECASE)
 
 
 def test_a_spot_value_the_source_states_is_not_named_a_mean() -> None:
@@ -196,6 +197,24 @@ def test_a_spot_name_does_not_carry_a_description_that_states_a_mean() -> None:
     for site, _, parameter in _parameters():
         if _SPOT_NAME.match(parameter.name) and _MEAN_STATED.search(parameter.description or ""):
             wrong.append(f"{site}: named a spot value, described {parameter.description!r}")
+    assert not wrong, "\n".join(wrong)
+
+
+def test_a_sub_daily_mean_name_needs_a_description_that_states_a_mean() -> None:
+    """Below daily resolution a `_mean_` temperature name is for a source that says it is a mean.
+
+    A source that says nothing about the statistic there takes the spot name (GH-2657), so a
+    `_mean_` name on such a row would promise a mean the source does not state. Windowed names
+    (`temperature_air_mean_2m_last_24h`) are not `_MEAN_NAME`s and are not this rule's.
+    """
+    wrong = []
+    for site, resolution, parameter in _parameters():
+        if (
+            resolution not in _COARSE_RESOLUTIONS
+            and _MEAN_NAME.match(parameter.name)
+            and not _MEAN_STATED.search(parameter.description or "")
+        ):
+            wrong.append(f"{site}: named a mean, described {parameter.description!r}")
     assert not wrong, "\n".join(wrong)
 
 

@@ -59,15 +59,17 @@ Types of changes:
   `temperature_dew_point_2m`, no longer the `_mean_` names. Request the new names; the old ones
   are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
   parameter is requested). Where a source says a mean, the `_mean_` name stays (GH-2651)
-- **Breaking**: the remaining DWD temperatures below daily resolution are named for a reading at one
-  moment, no longer for the mean: `dwd/observation` 10-minute `td_10` and `urban_temperature_*`,
-  hourly `dew_point`, `moisture`, `temperature_air`, `temperature_soil` and `urban_temperature_*`,
-  subdaily `moisture` and `temperature_air`; `dwd/mosmix` and `dwd/dmo` `ttt`, `t5cm` and `td`;
-  `dwd/swsmos` `TL` and `TD`; `dwd/poi`; and `dwd/road` `roadSurfaceTemperature`. They are
-  `temperature_air_2m`, `temperature_air_0_05m`, `temperature_dew_point_2m`, `temperature_wet_2m`,
-  `temperature_radiant_2m`, `temperature_surface` and `temperature_soil_0_02m` to `_1m`, where they
-  were the `_mean_` names. Request the new names; the old ones are not found (logged and dropped, or
-  `NoParametersFoundError` when no other parameter is requested) (GH-2657)
+- **Breaking**: the DWD temperatures below daily resolution whose source says nothing about the
+  statistic are named for a reading at one moment, no longer for the mean: `dwd/observation`
+  10-minute `td_10` and `urban_temperature_*`, hourly `dew_point`, `moisture`, `temperature_air`,
+  `temperature_soil` and `urban_temperature_*`, subdaily `moisture` and `temperature_air`;
+  `dwd/mosmix` and `dwd/dmo` `ttt`, `t5cm` and `td`; `dwd/swsmos` `TL` and `TD`; `dwd/poi` hourly
+  temperatures; and `dwd/road` `roadSurfaceTemperature`. They are `temperature_air_2m`,
+  `temperature_air_0_05m`, `temperature_dew_point_2m`, `temperature_wet_2m`,
+  `temperature_radiant_2m`, `temperature_surface` and `temperature_soil_0_02m` to `_1m`. Request the
+  new names; the old ones are not found (logged and dropped, or `NoParametersFoundError` when no
+  other parameter is requested). `dwd/road` `airTemperature` and `dewpointTemperature` and
+  `dwd/swsmos` `TS`, which DWD calls a mean, and the windowed names keep theirs (GH-2657)
 - **Breaking**: the same for the sub-daily temperatures of `chmi`, `eccc`, `knmi` hourly, `lhmt`,
   `metoffice`, `noaa/ghcn` hourly, `meteofrance/observation` hourly `TD`, `meteofrance/synop` `td`
   and `metno/frost` hourly dew point, whose sources say nothing about the statistic. Request the
