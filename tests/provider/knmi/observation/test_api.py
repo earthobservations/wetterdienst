@@ -186,7 +186,7 @@ def test_knmi_single_10_minutes_request_does_not_floor_start_date() -> None:
     floors it to resolve filenames.
     """
     request = _request(
-        [("10_minutes", "data", "temperature_air_2m")],
+        [("10_minutes", "data", "temperature_air_mean_2m")],
         dt.datetime(2020, 1, 1, 10, 37, tzinfo=UTC),
         dt.datetime(2020, 1, 1, 11, tzinfo=UTC),
     )
@@ -198,7 +198,7 @@ def test_knmi_mixed_resolution_request_does_not_floor_start_date() -> None:
     request = _request(
         [
             ("daily", "data", "temperature_air_mean_2m"),
-            ("10_minutes", "data", "temperature_air_2m"),
+            ("10_minutes", "data", "temperature_air_mean_2m"),
         ],
         dt.datetime(2020, 1, 1, 6, 30, tzinfo=UTC),
         dt.datetime(2020, 1, 3, tzinfo=UTC),
@@ -215,7 +215,7 @@ def test_knmi_non_utc_start_end_normalized_to_utc() -> None:
     """
     ams = ZoneInfo("Europe/Amsterdam")
     request = _request(
-        [("10_minutes", "data", "temperature_air_2m")],
+        [("10_minutes", "data", "temperature_air_mean_2m")],
         dt.datetime(2020, 6, 1, 10, 7, tzinfo=ams),  # 10:07 CEST == 08:07 UTC
         dt.datetime(2020, 6, 1, 11, 0, tzinfo=ams),  # 11:00 CEST == 09:00 UTC
     )
@@ -466,7 +466,7 @@ def test_knmi_observation_values_10_minutes() -> None:
     def value_of(parameter: str) -> float:
         return df.filter(pl.col("parameter").eq(parameter)).get_column("value").item()
 
-    assert value_of("temperature_air_2m") == pytest.approx(23.2)
+    assert value_of("temperature_air_mean_2m") == pytest.approx(23.2)
     assert value_of("humidity_relative") == pytest.approx(0.32)
     assert value_of("wind_speed") == pytest.approx(3.01)
 

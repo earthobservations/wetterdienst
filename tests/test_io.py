@@ -3287,7 +3287,7 @@ def test_values_to_ogc_feature_collection_merged_datasets_span_their_dates() -> 
     wide = {
         "climate_summary_temperature_air_mean_2m": 1.0,
         "precipitation_more_precipitation_height": 2.0,
-        "temperature_air_temperature_air_mean_2m": None,
+        "temperature_air_temperature_air_2m": None,
     }
     result = _values_result(
         StationsResult(df=stations, df_all=stations, stations_filter=StationsFilter.ALL, stations=None),
@@ -3300,7 +3300,7 @@ def test_values_to_ogc_feature_collection_merged_datasets_span_their_dates() -> 
                 "dataset": "temperature_air",
                 "timestamp": utc(2025),
                 **wide,
-                "temperature_air_temperature_air_mean_2m": 3.0,
+                "temperature_air_temperature_air_2m": 3.0,
             },
         ],
     )

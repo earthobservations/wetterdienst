@@ -33,22 +33,22 @@ KnmiObservationMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "temperature_air_2m",
+                            "name": "temperature_air_mean_2m",
                             "name_original": "ta",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_0_1m",
+                            "name": "temperature_air_mean_0_1m",
                             "name_original": "tg",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_dew_point_2m",
+                            "name": "temperature_dew_point_mean_2m",
                             "name_original": "td",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_wet_2m",
+                            "name": "temperature_wet_mean_2m",
                             "name_original": "tb",
                             "unit": "degree_celsius",
                         },

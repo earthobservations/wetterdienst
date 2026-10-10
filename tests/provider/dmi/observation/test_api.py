@@ -203,7 +203,7 @@ def test_dmi_observation_values_daily() -> None:
 def test_dmi_observation_values_hourly_utc() -> None:
     """Hourly values are UTC-aligned to the start of each hour."""
     request = dmi_api.DmiObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_2m")],
+        parameters=[("hourly", "data", "temperature_air_mean_2m")],
         start=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end=dt.datetime(2023, 6, 1, 6, tzinfo=UTC),
     ).filter_by_station_id([COPENHAGEN_LANDBOHOJSKOLEN])

@@ -15,8 +15,8 @@
 
 | name                                  | original name | description                                    | unit |
 |---------------------------------------|---------------|------------------------------------------------|------|
-| {term}`temperature_air_2m`            | t2m           | Air temperature. Mean over 1 minute.           | °C   |
-| {term}`temperature_dew_point_2m`      | td            | Dew-point temperature. Mean over 1 minute.     | °C   |
+| {term}`temperature_air_mean_2m`       | t2m           | Air temperature. Mean over 1 minute.           | °C   |
+| {term}`temperature_dew_point_mean_2m` | td            | Dew-point temperature. Mean over 1 minute.     | °C   |
 | {term}`humidity_relative`             | rh            | Relative humidity. Mean over 1 minute.         | %    |
 | {term}`wind_speed`                    | ws_10min      | Wind speed. Mean over 10 minutes.              | m/s  |
 | {term}`wind_gust_max`                 | wg_10min      | Gust speed. Maximum over 10 minutes.           | m/s  |

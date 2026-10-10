@@ -250,7 +250,7 @@ def test_collect_reshapes_wide_features_to_long_utc_values() -> None:
 def test_rmi_observation_stations() -> None:
     """Station discovery returns one row per station with usable metadata."""
     request = rmi_api.RmiObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_2m")],
+        parameters=[("hourly", "data", "temperature_air_mean_2m")],
     ).all()
     assert not request.df.is_empty()
     assert request.df.get_column("station_id").n_unique() == request.df.height
@@ -266,7 +266,7 @@ def test_rmi_observation_stations() -> None:
 def test_rmi_observation_values_hourly_utc() -> None:
     """Hourly values include both range boundaries and are UTC-aligned to the start of the hour."""
     request = rmi_api.RmiObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_2m")],
+        parameters=[("hourly", "data", "temperature_air_mean_2m")],
         start=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end=dt.datetime(2023, 6, 1, 5, tzinfo=UTC),
     ).filter_by_station_id([UCCLE])
@@ -298,7 +298,7 @@ def test_rmi_observation_values_daily() -> None:
 def test_rmi_observation_values_10_minutes() -> None:
     """10-minute values are UTC-aligned to the start of each interval."""
     request = rmi_api.RmiObservationRequest(
-        parameters=[("10_minutes", "data", "temperature_air_2m")],
+        parameters=[("10_minutes", "data", "temperature_air_mean_2m")],
         start=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end=dt.datetime(2023, 6, 1, 0, 50, tzinfo=UTC),
     ).filter_by_station_id([UCCLE])
@@ -312,7 +312,7 @@ def test_rmi_observation_values_empty_for_unknown_station() -> None:
     """An unknown station id yields an empty, well-formed values frame."""
     settings = Settings(cache_disable=True)
     request = rmi_api.RmiObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_2m")],
+        parameters=[("hourly", "data", "temperature_air_mean_2m")],
         start=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end=dt.datetime(2023, 6, 1, 5, tzinfo=UTC),
         settings=settings,

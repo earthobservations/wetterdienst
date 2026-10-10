@@ -94,7 +94,7 @@ def test_swsmos_values() -> None:
     assert set(df["parameter"].unique().to_list()) <= {
         "temperature_air_2m",
         "temperature_dew_point_2m",
-        "temperature_surface",
+        "temperature_surface_mean",
         "precipitation_amount_liquid",
         "precipitation_amount_last_6h",
         "probability_precipitation_liquid_last_6h",

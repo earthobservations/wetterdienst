@@ -784,7 +784,7 @@ def test_cli_values_without_the_bufr_reader_says_what_to_install(
                 "values",
                 "--provider=dwd",
                 "--network=road",
-                "--parameters=15_minutes/data/temperature_air_2m",
+                "--parameters=15_minutes/data/temperature_air_mean_2m",
                 "--station=A006",
                 "--start=2024-01-01",
                 "--end=2024-01-02",

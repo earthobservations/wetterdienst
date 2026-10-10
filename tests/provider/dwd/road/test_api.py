@@ -32,7 +32,7 @@ _PARSED_SCHEMA_FOR_TEST = {
 @pytest.mark.remote
 def test_dwd_road_weather() -> None:
     """Test fetching of DWD road weather data."""
-    request = DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_2m")]).filter_by_station_id(
+    request = DwdRoadRequest(parameters=[("15_minutes", "data", "temperature_air_mean_2m")]).filter_by_station_id(
         "A006",
     )
     item = request.to_dict()["stations"][0]
@@ -90,7 +90,7 @@ def _stub_stations(
     Asked of the real index, a test about frame handling would find no station the day A006 leaves
     the network, walk no stations, and pass on an empty frame having exercised nothing.
     """
-    request = DwdRoadRequest(parameters=parameters or [("15_minutes", "data", "temperature_air_2m")])
+    request = DwdRoadRequest(parameters=parameters or [("15_minutes", "data", "temperature_air_mean_2m")])
     df_stations = pl.DataFrame(
         [
             {

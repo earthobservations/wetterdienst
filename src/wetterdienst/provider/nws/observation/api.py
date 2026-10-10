@@ -45,12 +45,12 @@ NwsObservationMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "temperature_air_2m",
+                            "name": "temperature_air_mean_2m",
                             "name_original": "temperature",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_dew_point_2m",
+                            "name": "temperature_dew_point_mean_2m",
                             "name_original": "dewpoint",
                             "unit": "degree_celsius",
                         },

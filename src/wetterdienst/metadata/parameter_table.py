@@ -1670,12 +1670,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "temperature_air_0_1m",
-        "temperature",
-        "Air temperature at 0.1 m above ground.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
         "temperature_air_2m",
         "temperature",
         "Air temperature at 2 m above ground, the standard screen height.",
@@ -1914,12 +1908,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_soil_1m",
         "temperature",
         "Soil temperature at 1 m depth.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
-        "temperature_soil_2m",
-        "temperature",
-        "Soil temperature at 2 m depth.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -2794,13 +2782,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "temperature_wet_2m",
         "temperature",
-        "Wet-bulb temperature at 2 m above ground, as reported for one time step.",
+        "Wet-bulb temperature at 2 m above ground.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_wet_mean_2m",
         "temperature",
-        "Wet-bulb temperature at 2 m above ground.",
+        "Mean wet-bulb temperature at 2 m above ground.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(

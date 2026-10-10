@@ -437,7 +437,7 @@ describe('explorer Page DWD DMO parameters per run', () => {
             parameters: [
               parameter('precipitation_amount_last_1h', ['short']),
               parameter('precipitation_amount_last_3h', ['long']),
-              parameter('temperature_air_mean_2m', ['short', 'long']),
+              parameter('temperature_air_2m', ['short', 'long']),
               parameter('wind_speed', ['short', 'long']),
             ],
           },
@@ -494,35 +494,35 @@ describe('explorer Page DWD DMO parameters per run', () => {
 
   it('offers and selects what the short run carries, and every one the long run carries once chosen', async () => {
     const { wrapper, vm, selection } = await mountAt('')
-    expect(selection.params).toEqual(['precipitation_amount_last_1h', 'temperature_air_mean_2m', 'wind_speed'])
+    expect(selection.params).toEqual(['precipitation_amount_last_1h', 'temperature_air_2m', 'wind_speed'])
     expect(await show(wrapper)).toEqual({
-      parameters: ['hourly/icon/precipitation_amount_last_1h', 'hourly/icon/temperature_air_mean_2m', 'hourly/icon/wind_speed'],
+      parameters: ['hourly/icon/precipitation_amount_last_1h', 'hourly/icon/temperature_air_2m', 'hourly/icon/wind_speed'],
       leadTime: 'short',
     })
 
     await button(wrapper, 'Long: 78 to 168 h, 3-hourly').trigger('click')
-    await vi.waitFor(() => expect(selection.params).toEqual(['precipitation_amount_last_3h', 'temperature_air_mean_2m', 'wind_speed']))
+    await vi.waitFor(() => expect(selection.params).toEqual(['precipitation_amount_last_3h', 'temperature_air_2m', 'wind_speed']))
     await vi.waitFor(() => expect(vm.canFetch).toBe(true))
     expect(await show(wrapper)).toEqual({
-      parameters: ['hourly/icon/precipitation_amount_last_3h', 'hourly/icon/temperature_air_mean_2m', 'hourly/icon/wind_speed'],
+      parameters: ['hourly/icon/precipitation_amount_last_3h', 'hourly/icon/temperature_air_2m', 'hourly/icon/wind_speed'],
       leadTime: 'long',
     })
   })
 
   it('drops from a partial selection the parameters the run chosen does not carry', async () => {
-    const { wrapper, vm } = await mountAt('&parameters=precipitation_amount_last_1h,temperature_air_mean_2m')
+    const { wrapper, vm } = await mountAt('&parameters=precipitation_amount_last_1h,temperature_air_2m')
     // the link's parameters are kept, the one only the short run carries among them
-    expect(vm.parameterSelectionState.selection.parameters).toEqual(['precipitation_amount_last_1h', 'temperature_air_mean_2m'])
+    expect(vm.parameterSelectionState.selection.parameters).toEqual(['precipitation_amount_last_1h', 'temperature_air_2m'])
     await button(wrapper, 'Long: 78 to 168 h, 3-hourly').trigger('click')
-    await vi.waitFor(() => expect(vm.parameterSelectionState.selection.parameters).toEqual(['temperature_air_mean_2m']))
+    await vi.waitFor(() => expect(vm.parameterSelectionState.selection.parameters).toEqual(['temperature_air_2m']))
     await vi.waitFor(() => expect(vm.canFetch).toBe(true))
-    expect(await show(wrapper)).toEqual({ parameters: ['hourly/icon/temperature_air_mean_2m'], leadTime: 'long' })
+    expect(await show(wrapper)).toEqual({ parameters: ['hourly/icon/temperature_air_2m'], leadTime: 'long' })
   })
 
   it('restores from a link only the parameters its run carries', async () => {
-    const { wrapper } = await mountAt('&parameters=precipitation_amount_last_1h,precipitation_amount_last_3h,temperature_air_mean_2m&leadTime=long')
+    const { wrapper } = await mountAt('&parameters=precipitation_amount_last_1h,precipitation_amount_last_3h,temperature_air_2m&leadTime=long')
     expect(await show(wrapper)).toEqual({
-      parameters: ['hourly/icon/precipitation_amount_last_3h', 'hourly/icon/temperature_air_mean_2m'],
+      parameters: ['hourly/icon/precipitation_amount_last_3h', 'hourly/icon/temperature_air_2m'],
       leadTime: 'long',
     })
   })

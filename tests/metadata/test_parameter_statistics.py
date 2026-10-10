@@ -160,9 +160,11 @@ _MEAN_NAME = re.compile(r"^temperature_[a-z_]+?_mean(?:_\d+(?:_\d+)?m)?$")
 # `temperature_air_2m`, `temperature_dew_point_2m`, `temperature_soil_0_05m`, `temperature_surface`: a
 # reading at one moment
 _SPOT_NAME = re.compile(r"^temperature_(?:(?:air|dew_point|wet|soil|radiant)_\d+(?:_\d+)?m|surface)$")
-# the resolutions that may name the mean over the interval; below them a temperature is named for a reading
-# at one moment (GH-2657)
+# daily and coarser: the resolutions from which a source that says nothing about the statistic keeps the
+# `_mean_` name; below them it is named for a reading at one moment (GH-2657)
 _COARSE_RESOLUTIONS = {"daily", "monthly", "annual"}
+# a description that states the interval's mean: "Mean air temperature", "hourly mean", "Average ..."
+_MEAN_STATED = re.compile(r"\b(?:mean|average)\b", re.IGNORECASE)
 
 
 def test_a_spot_value_the_source_states_is_not_named_a_mean() -> None:
@@ -171,10 +173,9 @@ def test_a_spot_value_the_source_states_is_not_named_a_mean() -> None:
     The table keeps `temperature_air_2m` for a reading at one moment and `temperature_air_mean_2m`
     for the mean over the interval, and a 10-minute or hourly dataset that said `_mean_` for
     DWD's `tt_10` ("instant"), MeteoSwiss' `tre200s0` ("current value") or SMHI's 45 ("Instantaneous
-    value") handed a caller a reading as though it averaged the interval (GH-2651). The rule holds at
-    every resolution, daily and coarser included; sub-daily rows are held to the stronger rule below.
-    A name other than a mean (`temperature_air_max_2m` of "the highest of the 60 instantaneous
-    values") is not this rule's.
+    value") handed a caller a reading as though it averaged the interval (GH-2651). Only the statement
+    is held: a name other than a mean (`temperature_air_max_2m` of "the highest of the 60
+    instantaneous values") is not this rule's.
     """
     wrong = []
     for site, _, parameter in _parameters():
@@ -183,31 +184,27 @@ def test_a_spot_value_the_source_states_is_not_named_a_mean() -> None:
     assert not wrong, "\n".join(wrong)
 
 
-def test_a_sub_daily_temperature_is_not_named_a_mean() -> None:
-    """A temperature below daily resolution is `temperature_<medium>_<height>`, not `_mean_`.
+def test_a_spot_name_does_not_carry_a_description_that_states_a_mean() -> None:
+    """A source that says the value is a mean or an average keeps the `_mean_` name, at every resolution.
 
-    Most sources do not say whether a 10-minute or hourly reading is an instant or the mean of the
-    interval, and some say a mean (MeteoSwiss `tre200h0` "hourly mean", FMI "Mean over 1 minute", NWS
-    "Average", RMI "Mean", WSV "average"), so at these resolutions the names do not tell the two
-    apart and the table cannot back the promise of a `_mean_` name. A sub-daily row is named for a
-    reading at one moment, and the interval's mean is a name for daily and coarser (GH-2657). The
-    windowed names (`temperature_air_mean_2m_last_24h`, `_yesterday`) are not `_MEAN_NAME`s and are
-    not this rule's.
+    Below daily resolution a source that says nothing about the statistic takes the spot name
+    (GH-2657), but one that says a mean (MeteoSwiss `tre200h0` "hourly mean", FMI "Mean over 1
+    minute", NWS "Average", RMI "Mean", WSV "average") would have the name claim the opposite of what
+    it states.
     """
     wrong = []
-    for site, resolution, parameter in _parameters():
-        if resolution not in _COARSE_RESOLUTIONS and _MEAN_NAME.match(parameter.name):
-            wrong.append(f"{site}: a mean name below daily resolution")
+    for site, _, parameter in _parameters():
+        if _SPOT_NAME.match(parameter.name) and _MEAN_STATED.search(parameter.description or ""):
+            wrong.append(f"{site}: named a spot value, described {parameter.description!r}")
     assert not wrong, "\n".join(wrong)
 
 
 def test_a_spot_name_at_daily_or_coarser_resolution_needs_a_spot_description() -> None:
-    """Where the mean is a name of its own, a spot name needs the source to say it is a reading at one moment.
+    """From daily on, a spot name needs the source to say it is a reading at one moment.
 
-    Below daily resolution every temperature is a spot name whatever the source says; from daily on,
-    a source that says a mean or nothing keeps the `_mean_` name, so a spot name on such a row would
-    claim more than the source states (NOAA GHCN daily `tobs`, "at the time of observation", is the
-    one that does).
+    Below daily resolution a source that says nothing takes the spot name, but from daily on it keeps
+    the `_mean_` name, so a spot name on such a row would claim more than the source states (NOAA GHCN
+    daily `tobs`, "at the time of observation", is the one that says it).
     """
     wrong = []
     for site, resolution, parameter in _parameters():
@@ -237,6 +234,14 @@ def test_the_regexes_for_a_spot_value_read_the_sources_wording() -> None:
         "Air temperature 2 m above ground.",
     ):
         assert not _SPOT_VALUE.search(description), description
+    for description in (
+        "Air temperature 2 m above ground; hourly mean",
+        "Average air temperature in 2m",
+        "Mean over 1 minute",
+    ):
+        assert _MEAN_STATED.search(description), description
+    for description in ("Air temperature 2 m above ground.", "Soil temperature in 10 cm depth.", "Instant value"):
+        assert not _MEAN_STATED.search(description), description
     for name in ("temperature_air_mean_2m", "temperature_soil_mean_0_05m", "temperature_surface_mean"):
         assert _MEAN_NAME.match(name), name
         assert not _SPOT_NAME.match(name), name
