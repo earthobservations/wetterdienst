@@ -28,7 +28,7 @@
 | {term}`wind_direction`                  | dd            | Direction the wind is blowing from, clockwise from true north.                                | degree           |
 | {term}`wind_speed`                      | ff            | Mean speed of the wind over the period.                                                       | meter_per_second |
 | {term}`wind_gust_max`                   | raf10         | Speed of the strongest gust of the period.                                                    | meter_per_second |
-| {term}`temperature_air_mean_2m`         | t             | Mean air temperature at 2 m above ground.                                                     | degree_kelvin    |
+| {term}`temperature_air_2m`              | t             | Temperature.                                                                                  | degree_kelvin    |
 | {term}`temperature_dew_point_2m`        | td            | Dew point at 2 m above ground, the temperature at which the air would become saturated.       | degree_kelvin    |
 | {term}`temperature_air_min_2m_last_24h` | tn24          | Minimum air temperature at 2 m above ground over the preceding 24 hours.                      | degree_kelvin    |
 | {term}`temperature_air_max_2m_last_24h` | tx24          | Maximum air temperature at 2 m above ground over the preceding 24 hours.                      | degree_kelvin    |

@@ -636,7 +636,7 @@ def test_api_dwd_dmo_icon_eu_all_stations(default_settings: Settings) -> None:
 def test_api_dwd_road(default_settings: Settings) -> None:
     """Test dwd road API."""
     request = DwdRoadRequest(
-        parameters=[("15_minutes", "data", "temperature_air_mean_2m")],
+        parameters=[("15_minutes", "data", "temperature_air_2m")],
         settings=default_settings,
     ).all()
     assert not request.df.is_empty()
@@ -853,7 +853,7 @@ def test_api_ea_hydrology(default_settings: Settings) -> None:
 def test_api_nws_observation(default_settings: Settings) -> None:
     """Test nws observation API."""
     request = NwsObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_mean_2m")],
+        parameters=[("hourly", "data", "temperature_air_2m")],
         settings=default_settings,
     ).filter_by_station_id("KBHM")
     assert not request.df.is_empty()
@@ -942,7 +942,7 @@ def test_api_meteofrance_synop(default_settings: Settings) -> None:
     # bounded to a few days: without a date range, values would default to downloading and
     # parsing every yearly archive since 1996, which is unnecessarily slow for a smoke test
     request = MeteoFranceSynopRequest(
-        parameters=[("subdaily", "data", "temperature_air_mean_2m")],
+        parameters=[("subdaily", "data", "temperature_air_2m")],
         start=datetime(2024, 1, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
         end=datetime(2024, 1, 3, tzinfo=zoneinfo.ZoneInfo("UTC")),
         settings=default_settings,

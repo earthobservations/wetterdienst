@@ -1911,6 +1911,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "temperature_soil_2m", "temperature", "Soil temperature at 2 m depth.", interpolation="homogeneous"
+    ),
+    CanonicalParameter(
         "temperature_soil_max_0_1m",
         "temperature",
         "Maximum soil temperature at 0.1 m depth.",

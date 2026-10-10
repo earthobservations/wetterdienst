@@ -98,16 +98,16 @@ def test_widen_df_keeps_resolutions_on_their_own_rows() -> None:
         [
             ("15_minutes", "data", "stage", 0, 1.0),
             ("15_minutes", "data", "stage", 15, 2.0),
-            ("hourly", "data", "temperature_air_mean_2m", 0, 20.0),
+            ("hourly", "data", "temperature_air_2m", 0, 20.0),
         ],
     )
 
-    result = _values([("15_minutes", "data", "stage"), ("hourly", "data", "temperature_air_mean_2m")])._widen_df(df)  # noqa: SLF001
+    result = _values([("15_minutes", "data", "stage"), ("hourly", "data", "temperature_air_2m")])._widen_df(df)  # noqa: SLF001
 
     result = result.sort("resolution", "timestamp")
     assert result.get_column("resolution").to_list() == ["15_minutes", "15_minutes", "hourly"]
     assert result.get_column("stage").to_list() == [1.0, 2.0, None]
-    assert result.get_column("temperature_air_mean_2m").to_list() == [None, None, 20.0]
+    assert result.get_column("temperature_air_2m").to_list() == [None, None, 20.0]
 
 
 def test_widen_df_keeps_a_timestamp_one_parameter_is_missing() -> None:

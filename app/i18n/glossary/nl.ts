@@ -29,6 +29,7 @@ export const parameters: Record<string, string> = {
   temperature_soil_0_5m: 'Bodemtemperatuur (50 cm)',
   temperature_soil_mean_1m: 'Bodemtemperatuur (1 m)',
   temperature_soil_1m: 'Bodemtemperatuur (1 m)',
+  temperature_soil_2m: 'Bodemtemperatuur (2 m)',
   humidity_relative: 'Relatieve luchtvochtigheid',
   humidity_absolute: 'Absolute luchtvochtigheid',
   pressure_vapor: 'Dampdruk',
