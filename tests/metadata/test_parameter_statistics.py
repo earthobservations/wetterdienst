@@ -78,9 +78,9 @@ def test_a_mean_of_daily_extremes_is_named_a_mean() -> None:
 
     The period's extreme and the mean of its daily extremes differ by ten degrees or more over a
     month, and the table keeps them apart. The CHMI monthly and annual files hold the mean (MDFUNCTION
-    `AVG`) and were named for the extreme. The converse holds as well: a name ending `_mean` after a
-    `_max_` or `_min_` says the source averaged something, and a description that never says so is
-    a name the source does not support.
+    `AVG`) and were named for the extreme. The converse is checked more loosely: a name ending `_mean`
+    after a `_max_` or `_min_` says the source averaged something, so its description must at least
+    mention a mean or an average.
     """
     wrong = []
     for site, _, parameter in _parameters():

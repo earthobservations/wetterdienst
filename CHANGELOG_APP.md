@@ -20,7 +20,7 @@ Types of changes:
 
 - `[Meteogram]` The Tx/Tn band reads `temperature_air_max_2m_last_12h` and
   `temperature_air_min_2m_last_12h`, the names the backend gives MOSMIX `tx` and `tn` after the
-  release following 0.143.0, and keeps the old names as a fallback: against an older backend it
+  release following 0.144.0, and keeps the old names as a fallback: against an older backend it
   works as before, but an app older than this one against the new backend draws no band (GH-2614)
 
 ### Security

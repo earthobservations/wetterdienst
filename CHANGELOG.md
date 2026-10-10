@@ -22,23 +22,35 @@ Types of changes:
   `temperature_air_max_2m_mean` and `temperature_air_min_2m_mean`, no longer
   `temperature_air_max_2m` and `temperature_air_min_2m`: the files hold the mean of the daily
   maxima and minima, not the extremes of the period. Request the new names; the old ones are not
-  found in these datasets, and a request for them is logged and dropped. The daily names are
-  unchanged (GH-2614)
+  found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested). The daily names are unchanged (GH-2614)
 - **Breaking**: `aemet/observation` monthly and annual `ta_max` and `ta_min`, the absolute maximum
   and minimum of the month or year, are named `temperature_air_max_2m` and
   `temperature_air_min_2m`, no longer the `_multiday` names. Request the plain names; the old ones
-  are not found in these datasets, and a request for them is logged and dropped (GH-2614)
+  are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested) (GH-2614)
 - **Breaking**: `dwd/mosmix` (`small`, `large`) and `dwd/dmo` (`icon`, `icon_eu`) `tx` and `tn`,
   the maximum and minimum temperature within the last 12 hours, are named
   `temperature_air_max_2m_last_12h` and `temperature_air_min_2m_last_12h`, no longer
   `temperature_air_max_2m` and `temperature_air_min_2m`. Request the new names; the old ones are
-  not found in these datasets, and a request for them is logged and dropped (GH-2614)
+  not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested) (GH-2614)
 
 ### Fixed
 
 - `dwd/derived` hourly `sunshine_duration_uncertainty` is returned: it was declared with the global
   radiation's column `fg_un_duett`, which the sunshine duration file does not have, and so never
   came back; it is read from `sd_un_duett` (GH-2614)
+
+## [0.144.0] - 2026-10-10
+
+### Fixed
+
+- Writing to a `mssql://` target creates text columns as `NVARCHAR(max)` instead of
+  `VARCHAR(max)` (`TEXT` before SQL Server 2012), so a character outside the column's code page,
+  such as the `Ł` of `Łódź` or the `ř` of `Třeboň` under `SQL_Latin1_General_CP1_CI_AS`, is
+  stored as it is and no longer as a `?`. A table that is appended to keeps its column types;
+  alter them, or write to a new table (GH-2273)
 - The station catalogues of `fmi`, `chmi`, `ipma`, `lhmt`, `metoffice`, `dwd/swsmos` and
   `dwd/phenology`, and the `metoffice` release listing, raise `DownloadError` for a download that
   failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no stations: the REST API
@@ -4195,7 +4207,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.144.0...HEAD
+[0.144.0]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...v0.144.0
 [0.143.0]: https://github.com/earthobservations/wetterdienst/compare/v0.142.0...v0.143.0
 [0.142.0]: https://github.com/earthobservations/wetterdienst/compare/v0.141.0...v0.142.0
 [0.141.0]: https://github.com/earthobservations/wetterdienst/compare/v0.140.0...v0.141.0
