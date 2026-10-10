@@ -156,7 +156,12 @@ def _ipma(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
 
 def _dwd_observation(
-    monkeypatch: pytest.MonkeyPatch, resolution: str, dataset: str, product: str, station_id: str = "00044"
+    monkeypatch: pytest.MonkeyPatch,
+    resolution: str,
+    dataset: str,
+    product: str,
+    station_id: str = "00044",
+    year: int = 2025,
 ) -> pl.DataFrame:
     """Give the values of one station from a product file of DWD, as the parser and the framework make them."""
     monkeypatch.setattr(
@@ -174,8 +179,8 @@ def _dwd_observation(
     request = DwdObservationRequest(
         parameters=[(resolution, dataset)],
         periods={Period.RECENT},
-        start=_day(2025, 1, 1),
-        end=_day(2025, 4, 10),
+        start=_day(year, 1, 1),
+        end=_day(year, 12, 31),
         settings=Settings(cache_disable=True),
     )
     return stations_result(request, resolution, dataset, station_id).values.all().df
@@ -237,6 +242,17 @@ def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "   14006;2025010501;    3; -99.9; -99.9; -99.9;  995.9;  -0.7; -99.9; -99.9;eor\n"
     )
     return _dwd_observation(monkeypatch, "hourly", "moisture", product, "14006")
+
+
+def _dwd_hourly_wind(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # historical/stundenwerte_FF_00003_19370101_20110331_hist.zip: the description says `missing value=-999`, the files
+    # of 1975 to 1994 write 990 for a direction there is none of
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_3;   F;   D;eor\n"
+        "          3;1975101607;    5;   2.1;  250;eor\n"
+        "          3;1975101608;    5;   1.3;  990;eor\n"
+    )
+    return _dwd_observation(monkeypatch, "hourly", "wind", product, "00003", year=1975)
 
 
 def _dwd_hourly_weather_phenomena(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
@@ -355,6 +371,13 @@ STUBS = [
             ("temperature_wet_2m", -99.9),
         ),
         leak="#2669",
+    ),
+    ValueStub(
+        "dwd/observation hourly/wind",
+        _dwd_hourly_wind,
+        reading=("wind_direction", 250.0),
+        sentinels=(("wind_direction", 990.0),),
+        leak="#2686",
     ),
     ValueStub(
         "dwd/observation hourly/weather_phenomena",
