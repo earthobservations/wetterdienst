@@ -15,8 +15,6 @@ spot or mean) is out of their reach and is a question for review, see GH-2614.
 import re
 from collections.abc import Iterator
 
-import pytest
-
 from tests.test_api import ALL_METADATA
 from wetterdienst.model.metadata import ParameterModel
 
@@ -44,7 +42,9 @@ def _parameters() -> Iterator[tuple[str, str, ParameterModel]]:
         for resolution in metadata:
             for dataset in resolution:
                 for parameter in dataset.parameters:
-                    site = f"{metadata.name} {resolution.name}/{dataset.name}/{parameter.name} [{parameter.name_original}]"
+                    site = (
+                        f"{metadata.name} {resolution.name}/{dataset.name}/{parameter.name} [{parameter.name_original}]"
+                    )
                     yield site, resolution.name, parameter
 
 
@@ -84,7 +84,9 @@ def test_a_mean_of_daily_extremes_is_named_a_mean() -> None:
     for site, _, parameter in _parameters():
         description = parameter.description or ""
         says_mean_of_extremes = bool(_MEAN_OF_EXTREMES.search(description))
-        named_mean_of_extremes = parameter.name.endswith("_mean") and ("_max_" in parameter.name or "_min_" in parameter.name)
+        named_mean_of_extremes = parameter.name.endswith("_mean") and (
+            "_max_" in parameter.name or "_min_" in parameter.name
+        )
         if says_mean_of_extremes and not named_mean_of_extremes:
             wrong.append(f"{site}: {description!r} but the name is not a `_max_..._mean` or `_min_..._mean`")
         if named_mean_of_extremes and not re.search(r"\b(?:mean|average)\b", description, re.IGNORECASE):
