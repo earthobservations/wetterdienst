@@ -8,6 +8,7 @@ import pytest
 from tests.provider.physical_ranges import out_of_range
 from tests.provider.value_stubs import NO_STUB, STUBS, ValueStub
 from wetterdienst import Wetterdienst
+from wetterdienst.metadata.parameter_table import PARAMETERS
 
 
 def _carried(df: pl.DataFrame, stub: ValueStub) -> list[tuple[str, float]]:
@@ -59,6 +60,13 @@ def test_a_stub_source_leaves_no_sentinel_in_the_values(
         physical_range_findings.clear()
         return
     assert carried == [], f"{stub.provider}: the sentinel {carried} reached the output"
+
+
+def test_the_parameters_a_stub_names_are_canonical() -> None:
+    """A parameter of a stub that is not a canonical name is never found in the output, and its check is dead."""
+    for stub in STUBS:
+        named = {stub.reading[0], *(name for name, _ in stub.sentinels)}
+        assert named <= set(PARAMETERS), f"{stub.provider}: {sorted(named - set(PARAMETERS))}"
 
 
 def test_every_network_has_a_stub_or_a_reason() -> None:

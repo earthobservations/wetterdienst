@@ -5,14 +5,15 @@
 Sources mark a missing value with a number: -999, -99, -9999, 99.9, 9999. One that survives parsing is a value to every
 caller, and the unit converter converts it: a mean over a column with a -999 in it is wrong without an error. The tests
 of a provider mostly assert that a known value arrives, not that no impossible one does, so the check lives here once.
-`conftest.py` applies it to every values frame an offline provider test produces, and `test_value_stubs.py` to the way
-each stubbed source writes a missing value. A remote test is left alone, since what a real source answers with changes
-and a known leak would turn the CI matrix red until it is fixed; `WD_CHECK_RANGES_REMOTE=1` applies the check to the
-remote tests as well, which is how a leak the offline fixtures do not hold is found.
+`conftest.py` applies it to the values the offline tests under `tests/provider` produce, and `test_value_stubs.py` to
+the way each stubbed source writes a missing value. A remote test is left alone, since what a real source answers
+with changes and a known leak would turn the CI matrix red until it is fixed; `WD_CHECK_RANGES_REMOTE=1` applies the
+check to the remote tests as well, which is how a leak the offline fixtures do not hold is found.
 
-The ranges are in the unit a value is returned in (`UnitConverter.targets`, the default of `Settings`; a frame
-converted to other units is not checked) and are generous on purpose. They describe one reading, so they are widened
-for a sum over a month or a year where that matters (`snow_depth`). They catch -999, not a cold night and not a hot
+The ranges are in the unit a value is returned in (`UnitConverter.targets`, the default of `Settings`; a unit type
+converted to another unit is not checked) and are generous on purpose. They describe one reading, so they are widened
+for a sum over a month or a year where a provider sums (`snow_depth`, `snow_depth_new`; every provider's `snow_depth`
+of those resolutions, though only DWD sums it). They catch -999, not a cold night and not a hot
 road: a value outside is a sentinel, a unit that was not converted or a column read from the wrong place, never a
 record. What they cannot catch is a sentinel that looks like data, such as 99.9 % relative humidity, a -1 for "no snow"
 in a depth that may be read from a gauge, or 0 for "not measured"; that part of #2615 is read off the source's own
@@ -55,7 +56,7 @@ UNIT_TYPE_RANGES: dict[str, Bounds | None] = {
     "degree_hour": Bounds(0.0, 20_000.0),  # °C·h
     "dimensionless": None,
     "energy_per_area": Bounds(-100.0, 500_000.0),  # J/cm²; a year of global radiation is about 360_000
-    "fraction": Bounds(0.0, 1.3),  # decimal; a hygrometer reads past 100 % now and then
+    "fraction": Bounds(0.0, 1.3),  # decimal; a hygrometer reads past 100 % now and then, a cloud cover does not
     "length_long": Bounds(0.0, 5_000.0),  # km
     "length_medium": Bounds(-500.0, 50_000.0),  # m; a groundwater level or a cloud base is a height
     "length_short": Bounds(-500.0, 3_000.0),  # cm
@@ -115,6 +116,9 @@ PREFIX_RANGES: tuple[tuple[str, Bounds | None], ...] = (
     ("temperature_wind_chill", Bounds(-120.0, 60.0)),
     ("temperature_water", Bounds(-5.0, 70.0)),
     # a count of days or hours, a day of the year: never negative, never more than a year
+    # a share of the sky or a probability: 101 % of cloud cover is a code, 9 oktas of 8 is an obscured sky
+    ("cloud_cover_", Bounds(0.0, 1.0)),
+    ("probability_", Bounds(0.0, 1.0)),
     ("count_days_", Bounds(0.0, 366.0)),
     ("count_hours_", Bounds(0.0, 8_784.0)),
     ("count_weather_type_", Bounds(0.0, 366.0)),

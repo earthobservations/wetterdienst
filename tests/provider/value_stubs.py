@@ -356,7 +356,7 @@ STUBS = [
         "dwd/observation daily/climate_summary",
         _dwd_daily_climate_summary,
         reading=("temperature_air_mean_2m", 2.9),
-        sentinels=(("temperature_air_mean_2m", -999.0), ("precipitation_height", -999.0)),
+        sentinels=(("temperature_air_mean_2m", -999.0), ("precipitation_amount", -999.0)),
         empty_at=_day(2025, 1, 2),
     ),
     ValueStub(

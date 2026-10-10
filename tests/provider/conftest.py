@@ -11,6 +11,7 @@ import polars as pl
 import pytest
 
 from tests.provider.physical_ranges import describe, out_of_range
+from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.values import TimeseriesValues
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ def physical_range_findings(request: pytest.FixtureRequest) -> Generator[list[st
     is collected and raised at teardown rather than on the spot, because several providers degrade on a bare
     `except Exception` and a raise there would be swallowed.
 
-    The values of a unit type that is converted to another unit than the default are left alone, and so is a frame
+    The values of a unit type that is converted to another unit than the default one are left alone, and so is a frame
     that is not converted at all: they are not in the unit the ranges are written in. A remote test is left alone as
     well, unless `WD_CHECK_RANGES_REMOTE` is set to `1`: what a real source answers with changes, and a leak the
     offline fixtures pin (`value_stubs.py`) would turn the remote tests red until the provider is fixed. A test marked
@@ -59,12 +60,14 @@ def physical_range_findings(request: pytest.FixtureRequest) -> Generator[list[st
         settings = self.sr.settings
         if df.is_empty() or not settings.ts_convert_units:
             return df
+        default_targets = UnitConverter().targets
         # the column holds the source's own name for the parameter, in the case the provider wrote it in; those
         # converted to units of the caller's choosing are not in the unit the ranges are written in
         names = {
             parameter.name_original.lower(): parameter.name
             for parameter in dataset.parameters
-            if parameter.unit_type not in settings.ts_unit_targets
+            if settings.ts_unit_targets.get(parameter.unit_type, default_targets[parameter.unit_type].name)
+            == default_targets[parameter.unit_type].name
         }
         if not names:
             return df

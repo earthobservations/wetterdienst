@@ -10,6 +10,8 @@ import polars as pl
 import pytest
 
 from tests.provider.physical_ranges import (
+    LONG_PERIOD_RANGES,
+    LONG_PERIOD_RESOLUTIONS,
     PARAMETER_RANGES,
     PREFIX_RANGES,
     UNIT_TYPE_RANGES,
@@ -132,6 +134,8 @@ def test_every_special_range_is_used() -> None:
     assert set(PARAMETER_RANGES) <= set(PARAMETERS)
     for prefix, _ in PREFIX_RANGES:
         assert any(name.startswith(prefix) for name in PARAMETERS), prefix
+    assert set(LONG_PERIOD_RANGES) <= set(PARAMETERS)
+    assert {"monthly", "annual"} == LONG_PERIOD_RESOLUTIONS
 
 
 def test_a_prefix_does_not_shadow_a_later_one() -> None:
