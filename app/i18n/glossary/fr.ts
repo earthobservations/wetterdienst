@@ -557,7 +557,7 @@ export const parameters: Record<string, string> = {
   temperature_concrete_min_0m: 'Température minimale de la dalle de béton',
   temperature_humidex: 'Humidex',
   temperature_radiant_mean_2m: 'Température radiante moyenne (2 m)',
-  temperature_radiant_2m: 'Température radiante moyenne (2 m)',
+  temperature_radiant_2m: 'Température radiante (2 m)',
   temperature_surface_mean: 'Température de surface du sol',
   temperature_surface: 'Température de surface du sol',
   temperature_water: 'Température de l\'eau',

@@ -577,7 +577,7 @@ export const parameters: Record<string, string> = {
   temperature_concrete_min_0m: 'Minimum concrete surface temperature',
   temperature_humidex: 'Humidex',
   temperature_radiant_mean_2m: 'Mean radiant temperature (2 m)',
-  temperature_radiant_2m: 'Mean radiant temperature (2 m)',
+  temperature_radiant_2m: 'Radiant temperature (2 m)',
   temperature_surface_mean: 'Ground surface temperature',
   temperature_surface: 'Ground surface temperature',
   temperature_water: 'Water temperature',

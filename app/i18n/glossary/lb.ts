@@ -557,7 +557,7 @@ export const parameters: Record<string, string> = {
   temperature_concrete_min_0m: 'Minimal Bëtongowerflächentemperatur',
   temperature_humidex: 'Humidex',
   temperature_radiant_mean_2m: 'Mëttler Stralungstemperatur (2 m)',
-  temperature_radiant_2m: 'Mëttler Stralungstemperatur (2 m)',
+  temperature_radiant_2m: 'Stralungstemperatur (2 m)',
   temperature_surface_mean: 'Buedemowerflächentemperatur',
   temperature_surface: 'Buedemowerflächentemperatur',
   temperature_water: 'Waassertemperatur',

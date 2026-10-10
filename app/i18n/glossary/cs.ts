@@ -557,7 +557,7 @@ export const parameters: Record<string, string> = {
   temperature_concrete_min_0m: 'Minimální teplota betonového povrchu',
   temperature_humidex: 'Humidex',
   temperature_radiant_mean_2m: 'Střední radiační teplota (2 m)',
-  temperature_radiant_2m: 'Střední radiační teplota (2 m)',
+  temperature_radiant_2m: 'Radiační teplota (2 m)',
   temperature_surface_mean: 'Teplota povrchu půdy',
   temperature_surface: 'Teplota povrchu půdy',
   temperature_water: 'Teplota vody',

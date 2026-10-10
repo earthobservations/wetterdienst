@@ -557,7 +557,7 @@ export const parameters: Record<string, string> = {
   temperature_concrete_min_0m: 'Sietste Betonböverflächtemperatur',
   temperature_humidex: 'Humidex',
   temperature_radiant_mean_2m: 'Middlere Strahlentemperatur (2 m)',
-  temperature_radiant_2m: 'Middlere Strahlentemperatur (2 m)',
+  temperature_radiant_2m: 'Strahlentemperatur (2 m)',
   temperature_surface_mean: 'Eerdbodentemperatur',
   temperature_surface: 'Eerdbodentemperatur',
   temperature_water: 'Watertemperatur',
