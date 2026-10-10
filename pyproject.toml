@@ -83,7 +83,6 @@ classifiers = [
     "Operating System :: Unix",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -104,10 +103,9 @@ classifiers = [
     "Topic :: Text Processing",
     "Topic :: Utilities",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.14.0,<4",
-    "backports-datetime-fromisoformat>=2; python_version<'3.11'",
     "certifi>=2024.2.2",
     "click>=8.2,<9",
     "fsspec[http]>=2024.6",
@@ -127,8 +125,8 @@ dependencies = [
     "stamina>=25.1.0,<27",
     "tabulate>=0.9,<1",
     "tqdm>=4.64,<5",
-    # imported unconditionally by model/result.py and ui/core.py, not just as a 3.10 backport:
-    # pydantic refuses typing.TypedDict as a response model below 3.12
+    # every `TypedDict` in the package (model/result.py, ui/core.py, ui/restapi.py) comes from here, not from
+    # `typing`: pydantic refuses typing.TypedDict as a response model below Python 3.12
     "typing-extensions>=4.15.0,<5",
     "tzdata>=2024.2",
     "tzfpy>=0.15.2,<3",
@@ -170,9 +168,9 @@ export = [
     "h5netcdf>=1.7.3,<2",
     "pandas>=2.2.2,<4",
     "sqlalchemy>=2,<3",
-    "xarray>=2024.6,<2027",
+    "xarray>=2025.1.2,<2027",
     "xlsxwriter>=3.0.9,<4",
-    "zarr>=3.1,<4;python_version>='3.11'",
+    "zarr>=3.1,<4",
 ]
 influxdb = [
     "influxdb>=5.3,<6",
@@ -219,7 +217,7 @@ radar = [
 radarplus = [
     "pybufrkit>=0.2,<1",
     "wradlib>=2.0.1,<3",
-    "xradar>=0.2,<1",
+    "xradar>=0.8,<1",
 ]
 restapi = [
     # >=0.142: ui/restapi.py passes `FastAPI(telemetry=...)`, which 0.142 added
@@ -271,8 +269,6 @@ dev = [
     "pytest-rerunfailures>=16.4",
     "pytest-xdist>=3.8",
     "pyyaml>=6",
-    # tomllib is stdlib from 3.11; tests/test_citation.py parses pyproject.toml on 3.10 too
-    "tomli>=2; python_version<'3.11'",
     # formatting and linting
     "ruff>=0.16.0",
     "poethepoet>=0.48.0",
@@ -334,14 +330,21 @@ typecheck = "uv run ty check src/wetterdienst"
 sync = "uv sync"
 lock = "uv lock"
 
+[tool.ty.environment]
+# the oldest supported Python, which is what `requires-python` already implies: named here so that
+# raising the floor there is a decision made again in ruff's and ty's settings, not a side effect
+python-version = "3.11"
+
 [tool.ty.rules]
 unresolved-import = "warn"
 
 [tool.ty.analysis]
-allowed-unresolved-imports = ["backports.*", "lxml.*", "tabula.*"]
+allowed-unresolved-imports = ["lxml.*", "tabula.*"]
 
 [tool.ruff]
 line-length = 120
+# the oldest supported Python: keep in step with `requires-python` and `[tool.ty.environment]`
+target-version = "py311"
 include = [
     "benchmarks/**/*.py",
     "examples/**/*.py",
@@ -389,7 +392,6 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 known_first_party = ["wetterdienst"]
 
 [tool.deptry.package_module_name_map]
-backports-datetime-fromisoformat = "backports"
 influxdb3-python = "influxdb_client_3"
 scikit-learn = "sklearn"
 

@@ -19,7 +19,7 @@ from tests.provider.station_catalogue import (
 )
 from tests.provider.station_catalogue_stubs import question_mark_in_the_name
 
-_NOW = dt.datetime(2026, 10, 10, tzinfo=dt.timezone.utc)
+_NOW = dt.datetime(2026, 10, 10, tzinfo=dt.UTC)
 _SCHEMA = {
     "resolution": pl.String,
     "dataset": pl.String,
@@ -41,8 +41,8 @@ def _station(**fields: Any) -> dict[str, Any]:  # noqa: ANN401
         "resolution": "daily",
         "dataset": "kl",
         "station_id": "00044",
-        "start_timestamp": dt.datetime(1971, 3, 1, tzinfo=dt.timezone.utc),
-        "end_timestamp": dt.datetime(2026, 10, 9, tzinfo=dt.timezone.utc),
+        "start_timestamp": dt.datetime(1971, 3, 1, tzinfo=dt.UTC),
+        "end_timestamp": dt.datetime(2026, 10, 9, tzinfo=dt.UTC),
         "latitude": 52.9336,
         "longitude": 8.2370,
         "elevation": 44.0,
@@ -98,18 +98,18 @@ _CASES = [
         "date_order",
         [
             _station(
-                start_timestamp=dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc),
-                end_timestamp=dt.datetime(2020, 1, 1, tzinfo=dt.timezone.utc),
+                start_timestamp=dt.datetime(2026, 1, 1, tzinfo=dt.UTC),
+                end_timestamp=dt.datetime(2020, 1, 1, tzinfo=dt.UTC),
             )
         ],
     ),
-    ("date_in_the_future", [_station(end_timestamp=dt.datetime(2100, 12, 31, tzinfo=dt.timezone.utc))]),
+    ("date_in_the_future", [_station(end_timestamp=dt.datetime(2100, 12, 31, tzinfo=dt.UTC))]),
     (
         "date_in_the_future",
-        [_station(start_timestamp=dt.datetime(2027, 1, 1, tzinfo=dt.timezone.utc), end_timestamp=None)],
+        [_station(start_timestamp=dt.datetime(2027, 1, 1, tzinfo=dt.UTC), end_timestamp=None)],
     ),
-    ("date_implausible", [_station(start_timestamp=dt.datetime(1066, 1, 1, tzinfo=dt.timezone.utc))]),
-    ("date_implausible", [_station(start_timestamp=None, end_timestamp=dt.datetime(1, 1, 1, tzinfo=dt.timezone.utc))]),
+    ("date_implausible", [_station(start_timestamp=dt.datetime(1066, 1, 1, tzinfo=dt.UTC))]),
+    ("date_implausible", [_station(start_timestamp=None, end_timestamp=dt.datetime(1, 1, 1, tzinfo=dt.UTC))]),
     ("name_empty", [_station(name="")]),
     ("name_empty", [_station(name=None)]),
     ("name_padding", [_station(name="Großenkneten ")]),

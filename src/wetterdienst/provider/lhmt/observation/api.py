@@ -51,8 +51,8 @@ _EMPTY_VALUES_SCHEMA = {
 
 def _days(start: dt.datetime, end: dt.datetime) -> Iterator[dt.date]:
     """Yield each UTC calendar date in ``[start, end]`` inclusive (observation days are UTC)."""
-    day = start.astimezone(dt.timezone.utc).date()
-    last = end.astimezone(dt.timezone.utc).date()
+    day = start.astimezone(dt.UTC).date()
+    last = end.astimezone(dt.UTC).date()
     while day <= last:
         yield day
         day += dt.timedelta(days=1)
@@ -109,7 +109,7 @@ class LhmtObservationValues(TimeseriesValues):
         # a settled past day is immutable, so it can be cached indefinitely; only the current (still
         # filling) day needs a short cache. This keeps repeated historical queries off the network
         # and well under the api.meteo.lt request-rate limit.
-        ttl = CacheExpiry.FIVE_MINUTES if day >= dt.datetime.now(dt.timezone.utc).date() else CacheExpiry.INFINITE
+        ttl = CacheExpiry.FIVE_MINUTES if day >= dt.datetime.now(dt.UTC).date() else CacheExpiry.INFINITE
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,

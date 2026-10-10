@@ -309,9 +309,9 @@ class KnmiObservationRequest(TimeseriesRequest):
         # otherwise a start like 10:00 Europe/Amsterdam (08:00 UTC) would fetch the 10:00
         # UTC file. Mirrors AEMET's UTC normalization.
         if self.start:
-            self.start = cast("dt.datetime", self.start).astimezone(dt.timezone.utc)
+            self.start = cast("dt.datetime", self.start).astimezone(dt.UTC)
         if self.end:
-            self.end = cast("dt.datetime", self.end).astimezone(dt.timezone.utc)
+            self.end = cast("dt.datetime", self.end).astimezone(dt.UTC)
         # When the whole request targets a single hourly/daily resolution, snap start down
         # to that resolution's interval boundary. Those are period aggregates labelled at the
         # period start, so a query beginning mid-period should include that period; flooring

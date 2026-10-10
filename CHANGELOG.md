@@ -18,6 +18,12 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: Python 3.10 is no longer supported; `wetterdienst` requires Python 3.11 or newer.
+  Install on 3.11 or newer; pip on an older Python keeps resolving the last release that supports
+  it. The `backports-datetime-fromisoformat` dependency, which only Python 3.10 installed, is
+  dropped. The `export` extra requires `xarray>=2025.1.2`: 2024.6 cannot write Zarr with the
+  `zarr>=3.1` the extra installs, and with it the `radar` extra `xradar>=0.8`, as older releases
+  need the `datatree` package that 2025.1 no longer works with (GH-2568)
 - **Breaking**: `chmi/observation` monthly and annual `TMA` and `TMI` are named
   `temperature_air_max_2m_mean` and `temperature_air_min_2m_mean`, no longer
   `temperature_air_max_2m` and `temperature_air_min_2m`: the files hold the mean of the daily
@@ -103,6 +109,9 @@ Types of changes:
 
 ### Fixed
 
+- Writing a NetCDF file no longer fails with `ValueError: unrecognized engine for to_netcdf:
+  'netCDF4'` where `netCDF4` is installed and `h5netcdf` is not: the engine is named as xarray
+  names it, `netcdf4` (GH-2666)
 - Listing a directory (`list_remote_files_fsspec`, `list_remote_directory_fsspec`) through a proxy
   that answers with an error status no longer raises or logs the proxy's `Proxy-Authorization`
   header: the `ClientResponseError` is redacted like a download's is, retry warning included

@@ -959,7 +959,7 @@ def _psycopg_imports() -> bool:
     return True
 
 
-def _netcdf_engine() -> str | None:
+def _netcdf_engine() -> Literal["h5netcdf", "netcdf4"] | None:
     """Name an installed engine xarray can write NetCDF with, if there is one.
 
     Not scipy, which writes NetCDF3: that format has no groups, and every write here is grouped by
@@ -968,8 +968,10 @@ def _netcdf_engine() -> str | None:
     """
     import importlib.util  # noqa: PLC0415
 
-    for engine in ("h5netcdf", "netCDF4"):
-        if importlib.util.find_spec(engine):
+    # the module to look for, and what xarray calls the engine that needs it: `netCDF4` is the
+    # module, `netcdf4` the engine
+    for module, engine in (("h5netcdf", "h5netcdf"), ("netCDF4", "netcdf4")):
+        if importlib.util.find_spec(module):
             return engine
     return None
 

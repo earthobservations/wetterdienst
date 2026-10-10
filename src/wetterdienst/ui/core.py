@@ -8,7 +8,7 @@ import json
 import logging
 import sys
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, LiteralString, cast
 
 import polars as pl
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
@@ -16,7 +16,7 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 
 # pydantic refuses typing.TypedDict as a response model on Python below 3.12, and GlossaryEntry
 # is one; model/result.py imports it from here for the same reason
-from typing_extensions import LiteralString, TypedDict
+from typing_extensions import TypedDict
 
 from wetterdienst.exceptions import (
     ApiNotFoundError,

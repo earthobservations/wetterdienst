@@ -151,8 +151,8 @@ class NwsObservationValues(TimeseriesValues):
             return url
         query = urlencode(
             {
-                "start": self.sr.start.astimezone(dt.timezone.utc).strftime(self._date_format),
-                "end": self.sr.end.astimezone(dt.timezone.utc).strftime(self._date_format),
+                "start": self.sr.start.astimezone(dt.UTC).strftime(self._date_format),
+                "end": self.sr.end.astimezone(dt.UTC).strftime(self._date_format),
             },
         )
         return f"{url}?{query}"

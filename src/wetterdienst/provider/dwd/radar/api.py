@@ -12,12 +12,11 @@ import re
 import tarfile
 from dataclasses import dataclass
 from io import BytesIO
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Self, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
 from fsspec.implementations.tar import TarFileSystem
-from typing_extensions import Self
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.extension import Extension
@@ -55,13 +54,6 @@ from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-
-try:
-    from backports.datetime_fromisoformat import MonkeyPatch
-except ImportError:
-    pass
-else:
-    MonkeyPatch.patch_fromisoformat()
 
 log = logging.getLogger(__name__)
 

@@ -16,13 +16,6 @@ from wetterdienst.util.datetime import mktimerange, parse_date_span, parse_date_
 if TYPE_CHECKING:
     import datetime as dt
 
-try:
-    from backports.datetime_fromisoformat import MonkeyPatch
-except ImportError:
-    pass
-else:
-    MonkeyPatch.patch_fromisoformat()
-
 
 def create_station_id_from_string(string: str) -> str:
     """Create a station id from a string.

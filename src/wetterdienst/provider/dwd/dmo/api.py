@@ -46,13 +46,6 @@ if TYPE_CHECKING:
     from wetterdienst.model.metadata import ResolutionModel
     from wetterdienst.settings import Settings
 
-try:
-    from backports.datetime_fromisoformat import MonkeyPatch
-except ImportError:
-    pass
-else:
-    MonkeyPatch.patch_fromisoformat()
-
 log = logging.getLogger(__name__)
 
 
@@ -624,7 +617,7 @@ class DwdDmoValues(TimeseriesValues):
             # exist printing them in a form the next command could not accept. Converted only when
             # it carries a zone: a naive datetime is already what this compares in, and
             # `astimezone` would read it as local time
-            date = date.astimezone(dt.timezone.utc).replace(tzinfo=None)
+            date = date.astimezone(dt.UTC).replace(tzinfo=None)
         df = df.filter(pl.col("timestamp").eq(date))
         if df.is_empty():
             msg = f"Unable to find {date} file within {url}"
