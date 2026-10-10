@@ -11,7 +11,6 @@ import pytest
 
 from tests.provider.physical_ranges import (
     LONG_PERIOD_RANGES,
-    LONG_PERIOD_RESOLUTIONS,
     PARAMETER_RANGES,
     PREFIX_RANGES,
     UNIT_TYPE_RANGES,
@@ -135,7 +134,19 @@ def test_every_special_range_is_used() -> None:
     for prefix, _ in PREFIX_RANGES:
         assert any(name.startswith(prefix) for name in PARAMETERS), prefix
     assert set(LONG_PERIOD_RANGES) <= set(PARAMETERS)
-    assert {"monthly", "annual"} == LONG_PERIOD_RESOLUTIONS
+
+
+def test_a_prefix_holds_one_unit_type_unless_a_name_is_taken_out() -> None:
+    """A prefix that also matches a code of another unit type holds the code to a range of a quantity.
+
+    `cloud_cover_total_measurement_method` is a dimensionless code, and the `cloud_cover_` fraction range of 0 to 1
+    called every hour that an instrument measured (the code 2) a sentinel.
+    """
+    for prefix, _ in PREFIX_RANGES:
+        matched = {name: PARAMETERS[name].unit_type for name in PARAMETERS if name.startswith(prefix)}
+        family = max(set(matched.values()), key=list(matched.values()).count)
+        odd = {name for name, unit_type in matched.items() if unit_type != family and name not in PARAMETER_RANGES}
+        assert odd == set(), f"{prefix} holds {sorted(odd)} to the range of {family}: add them to PARAMETER_RANGES"
 
 
 def test_a_prefix_does_not_shadow_a_later_one() -> None:

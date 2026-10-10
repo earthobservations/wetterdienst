@@ -20,6 +20,10 @@ if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
 
 
+# the unit each unit type is returned in unless the caller asks for another
+_DEFAULT_TARGETS = {unit_type: unit.name for unit_type, unit in UnitConverter().targets.items()}
+
+
 @pytest.fixture(autouse=True)
 def physical_range_findings(request: pytest.FixtureRequest) -> Generator[list[str]]:
     """Fail a test whose provider returned a value that no parameter can have, and hand over what was found.
@@ -60,14 +64,13 @@ def physical_range_findings(request: pytest.FixtureRequest) -> Generator[list[st
         settings = self.sr.settings
         if df.is_empty() or not settings.ts_convert_units:
             return df
-        default_targets = UnitConverter().targets
         # the column holds the source's own name for the parameter, in the case the provider wrote it in; those
         # converted to units of the caller's choosing are not in the unit the ranges are written in
         names = {
             parameter.name_original.lower(): parameter.name
             for parameter in dataset.parameters
-            if settings.ts_unit_targets.get(parameter.unit_type, default_targets[parameter.unit_type].name)
-            == default_targets[parameter.unit_type].name
+            if settings.ts_unit_targets.get(parameter.unit_type, _DEFAULT_TARGETS[parameter.unit_type])
+            == _DEFAULT_TARGETS[parameter.unit_type]
         }
         if not names:
             return df

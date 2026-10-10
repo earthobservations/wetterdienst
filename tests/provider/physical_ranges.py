@@ -89,8 +89,9 @@ PARAMETER_RANGES: dict[str, Bounds | None] = {
     "sun_zenith_angle": Bounds(0.0, 180.0),
     "count_days_in_month": Bounds(28.0, 31.0),
     "count_hours_in_month": Bounds(672.0, 744.0),
-    # a code that is a temperature by name only
+    # a code that is a temperature or a cloud cover by name only
     "temperature_wet_ice_formation": None,
+    "cloud_cover_total_measurement_method": None,
     "ph_value": Bounds(0.0, 14.0),
     "oxygen_level": Bounds(0.0, 30.0),  # mg/l
     "true_local_time_offset": Bounds(-86_400.0, 86_400.0),  # s
@@ -115,10 +116,10 @@ PREFIX_RANGES: tuple[tuple[str, Bounds | None], ...] = (
     ("temperature_wet_", Bounds(-90.0, 60.0)),
     ("temperature_wind_chill", Bounds(-120.0, 60.0)),
     ("temperature_water", Bounds(-5.0, 70.0)),
-    # a count of days or hours, a day of the year: never negative, never more than a year
     # a share of the sky or a probability: 101 % of cloud cover is a code, 9 oktas of 8 is an obscured sky
     ("cloud_cover_", Bounds(0.0, 1.0)),
     ("probability_", Bounds(0.0, 1.0)),
+    # a count of days or hours, a day of the year: never negative, never more than a year
     ("count_days_", Bounds(0.0, 366.0)),
     ("count_hours_", Bounds(0.0, 8_784.0)),
     ("count_weather_type_", Bounds(0.0, 366.0)),
