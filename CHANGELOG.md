@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Listing a directory (`list_remote_files_fsspec`, `list_remote_directory_fsspec`) through a proxy
+  that answers with an error status no longer raises or logs the proxy's `Proxy-Authorization`
+  header: the `ClientResponseError` is redacted like a download's is, retry warning included
+  (GH-2603)
+
 ## [0.144.0] - 2026-10-10
 
 ### Fixed
@@ -71,10 +78,6 @@ Types of changes:
   stores it in `File.content`: it and the `user:secret@` of the proxy URL are redacted from the
   error's request info, as is an `Authorization` header added by `auth=`; only a caller's own
   `headers` were before (GH-2592)
-- Listing a directory (`list_remote_files_fsspec`, `list_remote_directory_fsspec`) through a proxy
-  that answers with an error status no longer raises or logs the proxy's `Proxy-Authorization`
-  header: the `ClientResponseError` is redacted like a download's is, retry warning included
-  (GH-2603)
 - Exporting a frame of 7 or more columns to a `sqlite://` target no longer fails with "too many
   SQL variables" once it has more than 32766 / columns rows (from 4681 rows for 7 columns) on
   SQLite 3.32 and later: the rows per insert now follow the 32766 variables a statement may
