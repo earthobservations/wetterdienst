@@ -11,6 +11,13 @@ and asks the name to carry it. They hold for every provider today, so a new one 
 without listing exceptions; a statement the source does not make is out of their reach, except that
 below daily resolution a temperature the source says nothing about takes the spot name (GH-2657),
 and the rules for that are the ones about spot and mean names further down. See GH-2614.
+
+The rules about spot and mean names read only what the source says: a description that comes from
+`DERIVED_DESCRIPTIONS` is written from the row's canonical name, so it would agree with whatever name
+the row has, and is left out (`_source_description`, GH-2660). The field's own name counts, as RMI's
+`temp_dry_shelter_avg` does. A mean over a window shorter than the row's interval, KNMI's "1 Min Mean"
+in a 10-minute row, is a reading at one moment (`_states_a_mean`). What this leaves out is a
+generated description that disagrees with its row's name: nothing reads it any more.
 """
 
 import re
@@ -18,6 +25,7 @@ from collections.abc import Iterator
 
 from tests.test_api import ALL_METADATA
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
+from wetterdienst.metadata.source_descriptions import DERIVED_DESCRIPTIONS, SOURCE_DESCRIPTIONS
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata
 from wetterdienst.provider.dwd.dmo import DwdDmoMetadata
@@ -41,6 +49,14 @@ _PREVIOUS_DAY = re.compile(r"previous day|yesterday|day before", re.IGNORECASE)
 _NORMAL = re.compile(r"\bnormals?\b", re.IGNORECASE)
 
 
+def _names_a_window(name: str, hours: int) -> bool:
+    """Say whether `name` carries the window `_last_<hours>h`, as a whole token.
+
+    A substring test finds `_last_1h` in `_last_1hx`; this one asks for the token to end there.
+    """
+    return re.search(rf"_last_{hours}h(?:_|$)", name) is not None
+
+
 def _parameters() -> Iterator[tuple[str, str, ParameterModel]]:
     """Yield `(site, resolution, parameter)` for every declared parameter of every provider."""
     for metadata in ALL_METADATA:
@@ -51,6 +67,43 @@ def _parameters() -> Iterator[tuple[str, str, ParameterModel]]:
                         f"{metadata.name} {resolution.name}/{dataset.name}/{parameter.name} [{parameter.name_original}]"
                     )
                     yield site, resolution.name, parameter
+
+
+def _source_description(metadata_name: str, resolution: str, dataset: str, parameter: ParameterModel) -> str:
+    """Return the parameter's description, or "" where it is `DERIVED_DESCRIPTIONS`'.
+
+    A derived description is written from the canonical name of the row, so reading a statistic out of
+    it asks the name whether it is right (GH-2660): "Mean temperature of the ground surface." for
+    SWSMOS `TS` was generated from `temperature_surface_mean`, and the source says "Temperatur der
+    Fahrbahnoberfläche". What a provider module declares and what `SOURCE_DESCRIPTIONS` holds count as
+    the source's, which `build_metadata_model` fills in before the derived text.
+    """
+    key = (resolution, dataset, parameter.name_original)
+    derived = DERIVED_DESCRIPTIONS.get(metadata_name, {}).get(key)
+    if (
+        derived is not None
+        and key not in SOURCE_DESCRIPTIONS.get(metadata_name, {})
+        and parameter.description == derived
+    ):
+        return ""
+    return parameter.description or ""
+
+
+def _sourced_parameters() -> Iterator[tuple[str, str, ParameterModel, str]]:
+    """Yield `(site, resolution, parameter, evidence)` for every parameter, `evidence` being what the source says.
+
+    That is the source's description (see `_source_description`) and the name the source gives the field,
+    which is where RMI says `temp_dry_shelter_avg` and DMI `mean_temp`.
+    """
+    for metadata in ALL_METADATA:
+        for resolution in metadata:
+            for dataset in resolution:
+                for parameter in dataset.parameters:
+                    site = (
+                        f"{metadata.name} {resolution.name}/{dataset.name}/{parameter.name} [{parameter.name_original}]"
+                    )
+                    description = _source_description(metadata.name, resolution.name, dataset.name, parameter)
+                    yield site, resolution.name, parameter, f"{description} {parameter.name_original}".strip()
 
 
 def test_a_window_the_source_states_is_in_the_name() -> None:
@@ -70,7 +123,7 @@ def test_a_window_the_source_states_is_in_the_name() -> None:
         hours = int(match.group(1))
         if hours == _RESOLUTION_HOURS.get(resolution):
             continue
-        if f"_last_{hours}h" not in parameter.name:
+        if not _names_a_window(parameter.name, hours):
             wrong.append(f"{site}: {parameter.description!r} but the name has no `_last_{hours}h`")
     assert not wrong, "\n".join(wrong)
 
@@ -164,8 +217,43 @@ _SPOT_NAME = re.compile(r"^temperature_(?:(?:air|dew_point|wet|soil|radiant)_\d+
 # daily and coarser: the resolutions from which a source that says nothing about the statistic keeps the
 # `_mean_` name; below them it is named for a reading at one moment (GH-2657)
 _COARSE_RESOLUTIONS = {"daily", "monthly", "annual"}
-# a description that states the interval's mean: "Mean air temperature", "hourly mean", "Average ..."
-_MEAN_STATED = re.compile(r"\b(?:mean|averag\w*|avg)\b", re.IGNORECASE)
+# a mean or an average, in a description ("hourly mean", "Average ...") or in the source's field name
+# (`temp_dry_shelter_avg`, `mean_temp`, where `_` separates words); "mean sea level" is not one
+_MEAN_WORD = re.compile(r"(?<![a-z])(?:mean(?!(?:\s+|_)sea(?![a-z]))|averag\w*|avg)(?![a-z])", re.IGNORECASE)
+# a mean over a stated number of minutes: KNMI "1 Min Mean", FMI "Mean over 1 minute"
+_MEAN_WINDOW = re.compile(
+    r"(?<![\d.])(\d+)[ -]?min(?:ute)?s?\b[ -]*(?:mean|average)|\b(?:mean|average) over (\d+)[ -]?min(?:ute)?s?\b",
+    re.IGNORECASE,
+)
+# the minutes a value of the resolution covers, for the resolutions that are a fixed number of them
+_INTERVAL_MINUTES = {
+    "1_minute": 1,
+    "5_minutes": 5,
+    "6_minutes": 6,
+    "10_minutes": 10,
+    "15_minutes": 15,
+    "hourly": 60,
+    # the shortest step of a subdaily dataset (Météo-France SYNOP is three-hourly)
+    "subdaily": 180,
+    "6_hour": 360,
+    "daily": 1440,
+}
+
+
+def _states_a_mean(evidence: str, resolution: str) -> bool:
+    """Say whether `evidence` states the mean of the row's own interval.
+
+    A mean over a window shorter than the interval, as FMI's "Mean over 1 minute" in an hourly row
+    and KNMI's "1 Min Mean" in a 10-minute one, is a reading taken at one moment and not the mean of
+    the interval (GH-2660), so it does not count.
+    """
+    if not _MEAN_WORD.search(evidence):
+        return False
+    interval = _INTERVAL_MINUTES.get(resolution)
+    for match in _MEAN_WINDOW.finditer(evidence):
+        if interval is not None and int(match.group(1) or match.group(2)) < interval:
+            return False
+    return True
 
 
 def test_a_spot_value_the_source_states_is_not_named_a_mean() -> None:
@@ -179,9 +267,9 @@ def test_a_spot_value_the_source_states_is_not_named_a_mean() -> None:
     instantaneous values") is not this rule's.
     """
     wrong = []
-    for site, _, parameter in _parameters():
-        if _MEAN_NAME.match(parameter.name) and _SPOT_VALUE.search(parameter.description or ""):
-            wrong.append(f"{site}: {parameter.description!r} but the name is a mean, not a spot name")
+    for site, _, parameter, evidence in _sourced_parameters():
+        if _MEAN_NAME.match(parameter.name) and _SPOT_VALUE.search(evidence):
+            wrong.append(f"{site}: {evidence!r} but the name is a mean, not a spot name")
     assert not wrong, "\n".join(wrong)
 
 
@@ -189,14 +277,15 @@ def test_a_spot_name_does_not_carry_a_description_that_states_a_mean() -> None:
     """A source that says the value is a mean or an average keeps the `_mean_` name, at every resolution.
 
     Below daily resolution a source that says nothing about the statistic takes the spot name
-    (GH-2657), but one that says a mean (MeteoSwiss `tre200h0` "hourly mean", FMI "Mean over 1
-    minute", NWS "Average", RMI "Mean", WSV "average") would have the name claim the opposite of what
-    it states.
+    (GH-2657), but one that says a mean of the row's own interval (MeteoSwiss `tre200h0` "hourly
+    mean", IPMA "média da hora", RMI `temp_dry_shelter_avg`) would have the name claim the opposite of
+    what it states. A mean over a shorter window (FMI "Mean over 1 minute" in an hourly row, KNMI
+    "1 Min Mean" in a 10-minute one) is a reading at one moment and takes the spot name (GH-2660).
     """
     wrong = []
-    for site, _, parameter in _parameters():
-        if _SPOT_NAME.match(parameter.name) and _MEAN_STATED.search(parameter.description or ""):
-            wrong.append(f"{site}: named a spot value, described {parameter.description!r}")
+    for site, resolution, parameter, evidence in _sourced_parameters():
+        if _SPOT_NAME.match(parameter.name) and _states_a_mean(evidence, resolution):
+            wrong.append(f"{site}: named a spot value, but the source says {evidence!r}")
     assert not wrong, "\n".join(wrong)
 
 
@@ -208,13 +297,13 @@ def test_a_sub_daily_mean_name_needs_a_description_that_states_a_mean() -> None:
     (`temperature_air_mean_2m_last_24h`) are not `_MEAN_NAME`s and are not this rule's.
     """
     wrong = []
-    for site, resolution, parameter in _parameters():
+    for site, resolution, parameter, evidence in _sourced_parameters():
         if (
             resolution not in _COARSE_RESOLUTIONS
             and _MEAN_NAME.match(parameter.name)
-            and not _MEAN_STATED.search(parameter.description or "")
+            and not _states_a_mean(evidence, resolution)
         ):
-            wrong.append(f"{site}: named a mean, described {parameter.description!r}")
+            wrong.append(f"{site}: named a mean, but the source says {evidence!r}")
     assert not wrong, "\n".join(wrong)
 
 
@@ -226,13 +315,9 @@ def test_a_spot_name_at_daily_or_coarser_resolution_needs_a_spot_description() -
     daily `tobs`, "at the time of observation", is the one that says it).
     """
     wrong = []
-    for site, resolution, parameter in _parameters():
-        if (
-            resolution in _COARSE_RESOLUTIONS
-            and _SPOT_NAME.match(parameter.name)
-            and not _SPOT_VALUE.search(parameter.description or "")
-        ):
-            wrong.append(f"{site}: named a spot value, described {parameter.description!r}")
+    for site, resolution, parameter, evidence in _sourced_parameters():
+        if resolution in _COARSE_RESOLUTIONS and _SPOT_NAME.match(parameter.name) and not _SPOT_VALUE.search(evidence):
+            wrong.append(f"{site}: named a spot value, but the source says {evidence!r}")
     assert not wrong, "\n".join(wrong)
 
 
@@ -253,14 +338,33 @@ def test_the_regexes_for_a_spot_value_read_the_sources_wording() -> None:
         "Air temperature 2 m above ground.",
     ):
         assert not _SPOT_VALUE.search(description), description
-    for description in (
-        "Air temperature 2 m above ground; hourly mean",
-        "Average air temperature in 2m",
-        "Mean over 1 minute",
+    for description, resolution in (
+        ("Air temperature 2 m above ground; hourly mean", "hourly"),
+        ("Average air temperature in 2m", "hourly"),
+        ("Air Temperature 10 cm Mean", "10_minutes"),
+        ("Mean over 10 minutes", "10_minutes"),
+        ("Air Temperature 10 Min Mean", "10_minutes"),
+        ("Air temperature recorded at 1.5 m height, hourly mean. temperatura", "hourly"),
+        ("temp_dry_shelter_avg", "hourly"),
+        ("mean_temp", "hourly"),
     ):
-        assert _MEAN_STATED.search(description), description
-    for description in ("Air temperature 2 m above ground.", "Soil temperature in 10 cm depth.", "Instant value"):
-        assert not _MEAN_STATED.search(description), description
+        assert _states_a_mean(description, resolution), description
+    for description, resolution in (
+        ("Air temperature 2 m above ground.", "hourly"),
+        ("Soil temperature in 10 cm depth.", "hourly"),
+        ("Instant value", "hourly"),
+        # a window shorter than the row's interval
+        ("Air temperature. Mean over 1 minute.", "hourly"),
+        ("Air Temperature 1 Min Mean", "10_minutes"),
+        ("Air temperature. Mean over 1 minute.", "subdaily"),
+        ("Dew Point Temperature 1 Min Mean", "10_minutes"),
+        # a mean that is not a statistic of the value
+        ("Air pressure reduced to mean sea level", "hourly"),
+        ("Pressure above mean sea level", "10_minutes"),
+        ("mean_sea_level_pressure", "hourly"),
+        ("meaning", "hourly"),
+    ):
+        assert not _states_a_mean(description, resolution), description
     for name in ("temperature_air_mean_2m", "temperature_soil_mean_0_05m", "temperature_surface_mean"):
         assert _MEAN_NAME.match(name), name
         assert not _SPOT_NAME.match(name), name
@@ -305,3 +409,29 @@ def test_a_spot_name_behaves_as_the_mean_name_beside_it() -> None:
             if getattr(PARAMETERS[name], field) != getattr(PARAMETERS[counterpart], field):
                 wrong.append(f"{name}: {field} differs from {counterpart}")
     assert not wrong, "\n".join(wrong)
+
+
+def test_a_derived_description_is_not_evidence_of_a_statistic() -> None:
+    """A description written from the canonical name says nothing about the source, and is left out.
+
+    RMI's "Mean air temperature at 2 m above ground." is in `DERIVED_DESCRIPTIONS`, so it is not read
+    (the field name `temp_dry_shelter_avg` still is), whereas MeteoSwiss' "hourly mean" is the source's.
+    """
+    rmi = next(m for m in ALL_METADATA if m.name == "RmiObservationMetadata")
+    swiss = next(m for m in ALL_METADATA if m.name == "MeteoswissObservationMetadata")
+    derived = next(p for p in rmi["hourly"]["data"] if p.name_original == "temp_dry_shelter_avg")
+    sourced = next(p for p in swiss["hourly"]["data"] if p.name_original == "tre200h0")
+    assert derived.description == "Mean air temperature at 2 m above ground."
+    assert _source_description(rmi.name, "hourly", "data", derived) == ""
+    assert "hourly mean" in sourced.description
+    assert _source_description(swiss.name, "hourly", "data", sourced) == sourced.description
+
+
+def test_a_window_name_must_end_where_the_window_does() -> None:
+    """`_last_1h` is a whole token of a name, not a prefix of `_last_1hx` or of `_last_12h`."""
+    assert _names_a_window("temperature_air_max_2m_last_12h", 12)
+    assert _names_a_window("precipitation_amount_last_1h", 1)
+    assert _names_a_window("temperature_air_max_2m_last_1h_mean", 1)
+    assert not _names_a_window("temperature_air_max_2m_last_12h", 1)
+    assert not _names_a_window("temperature_air_max_2m_last_1hx", 1)
+    assert not _names_a_window("temperature_air_max_2m", 12)
