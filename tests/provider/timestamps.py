@@ -13,11 +13,11 @@ TIMESTAMP_DTYPE = pl.Datetime(time_unit="us", time_zone="UTC")
 def timestamp_problem(df: pl.DataFrame) -> str | None:
     """Say what is wrong with the ``timestamp`` column of a result frame, or None when nothing is.
 
-    A frame without the column is not judged: a request that collected nothing may hand back a bare
-    frame, and that has no timestamp to be wrong.
+    A frame that has no such column is a problem too: even a request that collected nothing carries
+    the column's schema.
     """
     if "timestamp" not in df.columns:
-        return None
+        return "there is no timestamp column"
     dtype = df.schema["timestamp"]
     if dtype == TIMESTAMP_DTYPE:
         return None

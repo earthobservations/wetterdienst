@@ -45,10 +45,10 @@ def test_a_timestamp_of_another_type_is_a_problem(dtype: pl.DataType) -> None:
     assert timestamp_problem(pl.DataFrame(schema={"timestamp": dtype})) is not None
 
 
-def test_utc_microseconds_are_no_problem_and_a_bare_frame_is_not_judged() -> None:
-    """Test that the one accepted type passes, as does a frame that has no timestamp column at all."""
+def test_utc_microseconds_are_no_problem_and_a_missing_column_is() -> None:
+    """Test that the one accepted type passes, and that a frame without the column is reported."""
     assert timestamp_problem(pl.DataFrame(schema={"timestamp": TIMESTAMP_DTYPE})) is None
-    assert timestamp_problem(pl.DataFrame()) is None
+    assert timestamp_problem(pl.DataFrame()) is not None
 
 
 @pytest.mark.parametrize("cls", ["ValuesResult", "InterpolatedValuesResult", "SummarizedValuesResult"])

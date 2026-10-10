@@ -1230,7 +1230,7 @@ _REFERENCE_TIMES = frozenset(["start", "end", "middle", "instant", "mixed", "unv
 # `dwd/radar` is left out of the other docs pages and of `_resolution_pages` on purpose, but its stamps
 # are file names and BUFR times that can be read wrongly like any other, so the table has a row for it,
 # with the resolution `n/a` as for the networks that declare none (`NETWORKS_WITHOUT_A_METADATA_MODEL`).
-# The day radar gains a metadata model, its resolutions need rows and this entry has to go.
+# The coverage test fails the day radar gains a metadata model, as this entry has then to go.
 _TIME_REFERENCE_WITHOUT_RESOLUTION = {("dwd", "radar")}
 
 
@@ -1281,6 +1281,13 @@ def test_time_reference_has_a_row_for_every_resolution() -> None:
         network, resolution, datasets = cells[:3]
         documented.setdefault((provider, network, resolution), set()).update(
             name.strip() for name in datasets.split(",")
+        )
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+
+    for provider, network in _TIME_REFERENCE_WITHOUT_RESOLUTION:
+        assert getattr(Wetterdienst(provider, network), "metadata", None) is None, (
+            f"{provider}/{network} declares resolutions now, which need rows of their own: "
+            "remove it from _TIME_REFERENCE_WITHOUT_RESOLUTION and document them"
         )
     pages, skipped = _resolution_pages()
     declared = {(provider, network, "n/a") for provider, network in skipped | _TIME_REFERENCE_WITHOUT_RESOLUTION}
