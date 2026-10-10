@@ -18,6 +18,51 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `chmi/observation` monthly and annual `TMA` and `TMI` are named
+  `temperature_air_max_2m_mean` and `temperature_air_min_2m_mean`, no longer
+  `temperature_air_max_2m` and `temperature_air_min_2m`: the files hold the mean of the daily
+  maxima and minima, not the extremes of the period. Request the new names; the old ones are not
+  found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested). The daily names are unchanged (GH-2614)
+- **Breaking**: `aemet/observation` monthly and annual `ta_max` and `ta_min`, the absolute maximum
+  and minimum of the month or year, are named `temperature_air_max_2m` and
+  `temperature_air_min_2m`, no longer the `_multiday` names. Request the plain names; the old ones
+  are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested) (GH-2614)
+- **Breaking**: `dwd/mosmix` (`small`, `large`) and `dwd/dmo` (`icon`, `icon_eu`) `tx` and `tn`,
+  the maximum and minimum temperature within the last 12 hours, are named
+  `temperature_air_max_2m_last_12h` and `temperature_air_min_2m_last_12h`, no longer
+  `temperature_air_max_2m` and `temperature_air_min_2m`. Request the new names; the old ones are
+  not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested) (GH-2614)
+- **Breaking**: `dwd/observation` 10-minute `tt_10` and `tm5_10`, which DWD describes as the
+  instant air temperature at 2 m and 5 cm, are named `temperature_air_2m` and
+  `temperature_air_0_05m`, no longer `temperature_air_mean_2m` and `temperature_air_mean_0_05m`,
+  which name the mean over the interval. Request the new names; the old ones are not found in
+  `10_minutes/temperature_air` (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested) (GH-2651)
+- **Breaking**: `meteoswiss/observation` 10-minute `tre200s0`, `tre005s0`, `tso005s0`, `tso010s0`,
+  `tso020s0`, `tde200s0` and hourly `tso005hs`, `tso010hs`, `tso020hs`, which MeteoSwiss calls
+  the current value, are named `temperature_air_2m`, `temperature_air_0_05m`,
+  `temperature_soil_0_05m`, `_0_1m`, `_0_2m` and `temperature_dew_point_2m`, no longer the
+  `_mean_` names. Request the new names; the old ones are not found in these datasets (logged and
+  dropped, or `NoParametersFoundError` when no other parameter is requested). The hourly means
+  `tre200h0`, `tre005h0` and `tde200h0` keep their `_mean_` names (GH-2651)
+- **Breaking**: `smhi/observation` 1-minute `45` and hourly `1` and `39`, which SMHI calls
+  instantaneous values, are named `temperature_air_2m` and `temperature_dew_point_2m`, no longer
+  `temperature_air_mean_2m` and `temperature_dew_point_mean_2m`. Request the new names; the old
+  ones are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no
+  other parameter is requested). The daily and monthly means keep theirs (GH-2651)
+- **Breaking**: `aemet/observation` hourly `ta` and `tpr`, `meteofrance/observation` hourly `T`
+  and `metno/frost` hourly `air_temperature`, which their sources describe as an instantaneous,
+  present or observation-time value, are named `temperature_air_2m` and, for `tpr`,
+  `temperature_dew_point_2m`, no longer the `_mean_` names. Request the new names; the old ones
+  are not found in these datasets (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested). Where a source says a mean or nothing about the statistic, the
+  `_mean_` name stays (GH-2651)
+- **Breaking**: a `ts_geo_station_distance` override keyed by an old `_mean_` name no longer
+  applies to a row moved to a spot name by the entries above: the row takes the default radius.
+  Key the override by the new name (GH-2651)
 - `GET /api/coverage` declares its response in the OpenAPI document: the list of every provider
   and its networks, and the resolutions, datasets and parameters of one (`CoverageNetwork`,
   `CoverageResolution`, `CoverageDataset`, `CoverageParameter`), so a client can be generated from
@@ -26,6 +71,39 @@ Types of changes:
 
 ### Fixed
 
+- Listing a directory (`list_remote_files_fsspec`, `list_remote_directory_fsspec`) through a proxy
+  that answers with an error status no longer raises or logs the proxy's `Proxy-Authorization`
+  header: the `ClientResponseError` is redacted like a download's is, retry warning included
+  (GH-2603)
+- `dwd/derived` hourly `sunshine_duration_uncertainty` is returned: it was declared with the global
+  radiation's column `fg_un_duett`, which the sunshine duration file does not have, and so never
+  came back; it is read from `sd_un_duett` (GH-2614)
+- Station names of `dwd/swsmos` and `dwd/road` no longer carry the trailing blank the catalogue
+  pads some with (`Darup `, `AD Südost `: 38 and 33 stations), so an exact comparison of the name,
+  such as `name = 'Darup'` in an SQL filter, matches them (GH-2616)
+- Station names of `imgw/meteorology` and `imgw/hydrology` no longer carry the trailing blank the
+  lists pad some with (`RADZIECHOWY `, `Tuliszków `, `LUDŹMIERZ `) (GH-2616)
+- The station name of `chmi/observation` `Třinec  Oldřichovice  Javorový` no longer ends in the
+  blank the catalogue gives it (GH-2616)
+- `geosphere/observation` stations that still report have no `end_timestamp` (null), as for
+  `chmi/observation`; it was 2100-12-31, the date the list gives them, for about 470 stations. A
+  filter for the stations still reporting tests for null instead of for a date in the future
+  (GH-2616)
+- `noaa/ghcn` hourly stations `RUU71-00102` (CHABAROWKA) and `RUU71-00113` (IRKUTSK) have no
+  position, where the list puts them at latitudes of 135.117 and 104.367, off the globe, with
+  latitude and longitude swapped; the hourly list drops any position outside latitude +-90 or
+  longitude +-180, as it does for the `BOGUS` placeholders (GH-2616)
+
+
+## [0.144.0] - 2026-10-10
+
+### Fixed
+
+- Writing to a `mssql://` target creates text columns as `NVARCHAR(max)` instead of
+  `VARCHAR(max)` (`TEXT` before SQL Server 2012), so a character outside the column's code page,
+  such as the `Ł` of `Łódź` or the `ř` of `Třeboň` under `SQL_Latin1_General_CP1_CI_AS`, is
+  stored as it is and no longer as a `?`. A table that is appended to keeps its column types;
+  alter them, or write to a new table (GH-2273)
 - The station catalogues of `fmi`, `chmi`, `ipma`, `lhmt`, `metoffice`, `dwd/swsmos` and
   `dwd/phenology`, and the `metoffice` release listing, raise `DownloadError` for a download that
   failed -- a timeout, a 5xx, a 404 -- where they logged it and returned no stations: the REST API
@@ -4182,7 +4260,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.144.0...HEAD
+[0.144.0]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...v0.144.0
 [0.143.0]: https://github.com/earthobservations/wetterdienst/compare/v0.142.0...v0.143.0
 [0.142.0]: https://github.com/earthobservations/wetterdienst/compare/v0.141.0...v0.142.0
 [0.141.0]: https://github.com/earthobservations/wetterdienst/compare/v0.140.0...v0.141.0

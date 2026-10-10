@@ -1664,6 +1664,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "temperature_air_0_05m",
+        "temperature",
+        "Air temperature at 0.05 m above ground.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "temperature_air_2m",
         "temperature",
         "Air temperature at 2 m above ground, the standard screen height.",
@@ -1837,6 +1843,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
+        "temperature_dew_point_2m",
+        "temperature",
+        "Dew point at 2 m above ground at a moment, the temperature at which the air would saturate.",
+        interpolation="homogeneous",
+        lapse_rate=_DEW_POINT_LAPSE_RATE,
+    ),
+    CanonicalParameter(
         "temperature_dew_point_mean_2m",
         "temperature",
         "Dew point at 2 m above ground, the temperature at which the air would become saturated.",
@@ -1853,6 +1866,24 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_radiant_mean_2m",
         "temperature",
         "Mean radiant temperature, the temperature a body feels from surrounding surfaces.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_soil_0_05m",
+        "temperature",
+        "Soil temperature at 0.05 m depth.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_soil_0_1m",
+        "temperature",
+        "Soil temperature at 0.1 m depth.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_soil_0_2m",
+        "temperature",
+        "Soil temperature at 0.2 m depth.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(

@@ -27,7 +27,7 @@
 | {term}`precipitation_amount` | RR1 | Precipitation amount over 1 hour. | millimeter |
 | {term}`temperature_air_min_2m` | TN | Minimum air temperature under shelter within the hour. | degree_celsius |
 | {term}`temperature_air_max_2m` | TX | Maximum air temperature under shelter within the hour. | degree_celsius |
-| {term}`temperature_air_mean_2m` | T | Instantaneous air temperature under shelter. | degree_celsius |
+| {term}`temperature_air_2m` | T | Instantaneous air temperature under shelter. | degree_celsius |
 | {term}`wind_speed` | FF | Wind force averaged over 10 minutes, measured at 10 m. | meter_per_second |
 | {term}`wind_direction` | DD | Direction of FF, on the 360 degree compass. | degree |
 | {term}`wind_gust_max` | FXY | Maximum value of FF within the hour. | meter_per_second |

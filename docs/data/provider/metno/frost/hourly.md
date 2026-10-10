@@ -15,7 +15,7 @@
 
 | name                                  | original name                                        | description                                                                                                                                                                                                                                                                                                            | unit |
 |---------------------------------------|------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|
-| {term}`temperature_air_mean_2m` | air_temperature | Air temperature (default 2 m above ground), present value | degree_celsius |
+| {term}`temperature_air_2m` | air_temperature | Air temperature (default 2 m above ground), present value | degree_celsius |
 | {term}`temperature_dew_point_mean_2m` | dew_point_temperature | Dew-point temperature - the temperature at which the air, when cooled, will become saturated (and dew is formed) | degree_celsius |
 | {term}`humidity_relative` | relative_humidity | Relative humidity | percent |
 | {term}`wind_speed` | wind_speed | Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the observation time. (default: 10 meters above ground, some stations have measurements at 2 meters) | meter_per_second |

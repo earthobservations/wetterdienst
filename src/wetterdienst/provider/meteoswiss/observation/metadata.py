@@ -88,27 +88,27 @@ MeteoswissObservationMetadata = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "tre200s0",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_0_05m",
+                            "name": "temperature_air_0_05m",
                             "name_original": "tre005s0",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_05m",
+                            "name": "temperature_soil_0_05m",
                             "name_original": "tso005s0",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_1m",
+                            "name": "temperature_soil_0_1m",
                             "name_original": "tso010s0",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_2m",
+                            "name": "temperature_soil_0_2m",
                             "name_original": "tso020s0",
                             "unit": "degree_celsius",
                         },
@@ -118,7 +118,7 @@ MeteoswissObservationMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "temperature_dew_point_mean_2m",
+                            "name": "temperature_dew_point_2m",
                             "name_original": "tde200s0",
                             "unit": "degree_celsius",
                         },
@@ -223,17 +223,17 @@ MeteoswissObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_05m",
+                            "name": "temperature_soil_0_05m",
                             "name_original": "tso005hs",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_1m",
+                            "name": "temperature_soil_0_1m",
                             "name_original": "tso010hs",
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_soil_mean_0_2m",
+                            "name": "temperature_soil_0_2m",
                             "name_original": "tso020hs",
                             "unit": "degree_celsius",
                         },

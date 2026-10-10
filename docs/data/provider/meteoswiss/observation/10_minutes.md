@@ -36,11 +36,11 @@
 | {term}`radiation_sky_long_wave_intensity`          | oli000z0      | Longwave incoming radiation; ten minutes mean                    | watt_per_square_meter |
 | {term}`sunshine_duration`                          | sre000z0      | Sunshine duration; ten minutes total                             | minute                |
 | {term}`snow_depth`                                 | htoauts0      | Snow depth (automatic measurement); current value                | centimeter            |
-| {term}`temperature_air_mean_2m`                    | tre200s0      | Air temperature 2 m above ground; current value                  | degree_celsius        |
-| {term}`temperature_air_mean_0_05m`                 | tre005s0      | Air temperature at 5 cm above grass; current value               | degree_celsius        |
-| {term}`temperature_soil_mean_0_05m`                | tso005s0      | Soil temperature at 5 cm depth; current value                    | degree_celsius        |
-| {term}`temperature_soil_mean_0_1m`                 | tso010s0      | Soil temperature at 10 cm depth; current value                   | degree_celsius        |
-| {term}`temperature_soil_mean_0_2m`                 | tso020s0      | Soil temperature at 20 cm depth; current value                   | degree_celsius        |
+| {term}`temperature_air_2m`                         | tre200s0      | Air temperature 2 m above ground; current value                  | degree_celsius        |
+| {term}`temperature_air_0_05m`                      | tre005s0      | Air temperature at 5 cm above grass; current value               | degree_celsius        |
+| {term}`temperature_soil_0_05m`                     | tso005s0      | Soil temperature at 5 cm depth; current value                    | degree_celsius        |
+| {term}`temperature_soil_0_1m`                      | tso010s0      | Soil temperature at 10 cm depth; current value                   | degree_celsius        |
+| {term}`temperature_soil_0_2m`                      | tso020s0      | Soil temperature at 20 cm depth; current value                   | degree_celsius        |
 | {term}`humidity_relative`                          | ure200s0      | Relative air humidity 2 m above ground; current value            | percent               |
-| {term}`temperature_dew_point_mean_2m`              | tde200s0      | Dew point 2 m above ground; current value                        | degree_celsius        |
+| {term}`temperature_dew_point_2m`                   | tde200s0      | Dew point 2 m above ground; current value                        | degree_celsius        |
 

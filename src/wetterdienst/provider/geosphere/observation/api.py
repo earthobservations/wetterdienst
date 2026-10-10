@@ -30,6 +30,9 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# the year of the end date the station list gives to a station that still reports (2100-12-31)
+_OPEN_END_YEAR = 2100
+
 
 def _time_windows(start: dt.datetime, end: dt.datetime, span: timedelta) -> Iterator[tuple[dt.datetime, dt.datetime]]:
     """Split ``[start, end]`` into ``(start, end)`` windows no longer than ``span``.
@@ -252,7 +255,15 @@ class GeosphereObservationRequest(TimeseriesRequest):
             )
             data.append(df)
         df = pl.concat(data)
-        return df.with_columns(
+        df = df.with_columns(
             pl.col("start_timestamp").str.to_datetime(format="%Y-%m-%d %H:%M:%S%z", time_zone="UTC"),
             pl.col("end_timestamp").str.to_datetime(format="%Y-%m-%d %H:%M:%S%z", time_zone="UTC"),
+        )
+        # a station that still reports ends on 2100-12-31 in the list. It has no end, as chmi leaves a station whose
+        # list ends it in the year 3999
+        return df.with_columns(
+            pl.when(pl.col("end_timestamp").dt.year() >= _OPEN_END_YEAR)
+            .then(None)
+            .otherwise(pl.col("end_timestamp"))
+            .alias("end_timestamp"),
         )

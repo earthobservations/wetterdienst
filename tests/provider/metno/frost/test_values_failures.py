@@ -83,7 +83,7 @@ def _values(
 
     monkeypatch.setattr(frost_api, "download_file", _download)
     request = MetnoFrostRequest(
-        parameters=parameters or [("hourly", "data", "temperature_air_mean_2m")],
+        parameters=parameters or [("hourly", "data", "temperature_air_2m")],
         start=START,
         end=END,
     )
@@ -113,7 +113,7 @@ def test_metno_frost_values_404_reaches_the_discovery_fallback(monkeypatch: pyte
     assert "," in seen[1].split("elements=")[1].split("&")[0]
     assert sum("availableTimeSeries" in url for url in seen) == 1
     assert sum("timeseriesids=" in url for url in seen) == 1
-    assert df["parameter"].to_list() == ["temperature_air_mean_2m"]
+    assert df["parameter"].to_list() == ["temperature_air_2m"]
     assert df["value"].to_list() == [2.7]
 
 
@@ -220,7 +220,7 @@ def test_metno_frost_values_404_fallback_asks_for_the_requested_parameters_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that the fallback after a 404 on the batch resolves what was asked for, not the whole dataset (GH-2554)."""
-    requested = [("hourly", "data", "temperature_air_mean_2m"), ("hourly", "data", "wind_speed")]
+    requested = [("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_speed")]
     values, seen = _values(monkeypatch, lambda url: _failed(url, 404), requested)
     assert values.all().df.is_empty()
     batch, *rest = _observation_requests(seen)
@@ -269,7 +269,7 @@ def test_metno_frost_values_404_fallback_for_one_parameter_leaves_its_siblings_a
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that the fallback for one parameter model resolves that parameter, not its siblings (GH-2554)."""
-    requested = [("hourly", "data", "temperature_air_mean_2m"), ("hourly", "data", "wind_speed")]
+    requested = [("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_speed")]
     values, seen = _values(monkeypatch, lambda url: _failed(url, 404), requested)
     assert values._collect_station_parameter_or_dataset("SN18700", values.sr.parameters[1]).is_empty()  # noqa: SLF001
     # the request for that parameter alone, then its discovery; air_temperature is never asked for

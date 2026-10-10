@@ -98,7 +98,7 @@ MetnoFrostMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_2m",
                             "name_original": "air_temperature",
                             "unit": "degree_celsius",
                         },

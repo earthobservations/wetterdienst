@@ -3746,3 +3746,81 @@ def test_sql_sink_caps_a_sqlite_insert_for_a_target_that_names_its_driver(target
     ):
         frame.to_target(target)
     assert to_sql.call_args.kwargs["chunksize"] == rows_per_insert
+
+
+@pytest.mark.parametrize(
+    ("target", "text_type"),
+    [
+        pytest.param(
+            "mssql+pyodbc://u:p@localhost/dwd?driver=ODBC+Driver+18+for+SQL+Server&table=stations",
+            "NVARCHAR(max)",
+            id="mssql+pyodbc",
+        ),
+        pytest.param("mssql+pymssql://u:p@localhost/dwd?table=stations", "NVARCHAR(max)", id="mssql+pymssql"),
+        # the control: another dialect keeps pandas' `Text`
+        pytest.param("mysql+pymysql://u:p@localhost/dwd?table=stations", "TEXT", id="mysql+pymysql"),
+    ],
+)
+def test_sql_sink_writes_sql_server_text_as_nvarchar(target: str, text_type: str) -> None:
+    """A SQL Server table gets `NVARCHAR(max)` columns for text, where it got `VARCHAR(max)` (GH-2273).
+
+    pandas declares text as `Text`, which the SQL Server dialect compiles to `VARCHAR(max)`, stored
+    in the column's code page: under the default collation (Windows-1252) a station name such as
+    `Łódź` or `Třeboň` came back as `?ód?` and `T?ebo?`, without an error. Enum columns are cast to
+    strings before they are written, and a column of nothing but nulls is declared as `Text` too,
+    so all of them are named. No server is needed: the engine carries the target's dialect over a
+    stand-in driver, `to_sql` is stubbed, and the frame and types it is handed are compiled into
+    the `CREATE TABLE` that dialect would send.
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    pd = pytest.importorskip("pandas")
+    from pandas.io.sql import SQLDatabase, SQLTable  # noqa: PLC0415
+    from sqlalchemy.schema import CreateTable  # noqa: PLC0415
+
+    export = ExportMixin(
+        df=pl.DataFrame(
+            {
+                "station_id": ["12500"],
+                "name": ["Łódź"],
+                "kind": pl.Series(["Třeboň"], dtype=pl.Enum(["Třeboň", "Łódź"])),
+                "region": pl.Series(["Łódź"], dtype=pl.Categorical),
+                "state": pl.Series([None], dtype=pl.String),
+                "note": pl.Series([None], dtype=pl.Null),
+                "value": [1.0],
+                "count": [1],
+            }
+        )
+    )
+    create_engine = sqlalchemy.create_engine
+    engines = []
+    handed = []
+
+    def engine_for(url: object, **kwargs: object) -> object:
+        # the target's real dialect, with a stand-in driver: nothing connects before `to_sql`.
+        # pyodbc's dialect reads the driver's version as it is built
+        driver = mock.MagicMock(version="5.2.0", __version__="2.3.13")
+        engines.append(create_engine(url, module=driver, **kwargs))
+        return engines[-1]
+
+    def to_sql(frame: object, **kwargs: object) -> None:
+        handed.append((frame, kwargs["dtype"]))
+
+    with (
+        mock.patch("sqlalchemy.create_engine", side_effect=engine_for),
+        mock.patch.object(pd.DataFrame, "to_sql", autospec=True, side_effect=to_sql),
+    ):
+        export.to_target(target)
+
+    ((engine,), ((frame, dtype),)) = engines, handed
+    if engine.dialect.name == "mssql":
+        # set when the dialect connects to SQL Server 2012 or newer, which is where `Text` is
+        # `VARCHAR(max)`; before that it is `TEXT`
+        engine.dialect.deprecate_large_types = True
+    with SQLDatabase(create_engine("sqlite://")) as database:
+        table = SQLTable("stations", database, frame=frame, index=False, dtype=dtype).table
+        ddl = str(CreateTable(table).compile(dialect=engine.dialect))
+    for name in ("station_id", "name", "kind", "region", "state", "note"):
+        assert f"{name} {text_type}" in ddl
+    assert "VARCHAR(max)" not in ddl.replace("NVARCHAR(max)", "")
+    assert frame["name"].tolist() == ["Łódź"]
+    assert frame["kind"].tolist() == ["Třeboň"]

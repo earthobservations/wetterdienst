@@ -1157,3 +1157,32 @@ def test_get_date_range_for_year_starting_in_month(
     start_date, end_date = values._get_date_range_for_year_starting_in_month(month_of_year)  # noqa: SLF001
     assert start_date == expected_start_date
     assert end_date == expected_end_date
+
+
+@pytest.mark.parametrize("dataset", ["radiation_global", "sunshine_duration"])
+def test_dwd_derived_hourly_uncertainty_is_read_from_the_column_of_its_own_dataset(dataset: str) -> None:
+    """The uncertainty of a hourly derived quantity is `<prefix>_un_duett`, the column beside `<prefix>_duett`.
+
+    DWD publishes `FG_DUETT` and `FG_UN_DUETT` for the global radiation and `SD_DUETT` and
+    `SD_UN_DUETT` for the sunshine duration. The sunshine duration's uncertainty was declared with
+    the radiation's column name, a column its file does not have, so it never came back (GH-2614).
+    """
+    parameters = {parameter.name: parameter.name_original for parameter in DwdDerivedMetadata["hourly"][dataset]}
+    value = parameters[dataset]
+    assert value.endswith("_duett")
+    assert parameters[f"{dataset}_uncertainty"] == value.replace("_duett", "_un_duett")
+
+
+@pytest.mark.remote
+def test_dwd_derived_hourly_sunshine_duration_uncertainty_is_returned(default_settings: Settings) -> None:
+    """The sunshine duration's uncertainty comes back beside the sunshine duration, from `SD_UN_DUETT`."""
+    request = DwdDerivedRequest(
+        parameters=[("hourly", "sunshine_duration")],
+        periods="recent",
+        settings=default_settings,
+    ).filter_by_station_id("18000")
+    df = request.values.all().df
+    assert set(df.get_column("parameter").unique().to_list()) == {
+        "sunshine_duration",
+        "sunshine_duration_uncertainty",
+    }

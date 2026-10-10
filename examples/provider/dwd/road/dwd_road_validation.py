@@ -33,7 +33,7 @@ def dwd_road_weather_example() -> None:
     print(df_drw)
 
     dobs_request = DwdObservationRequest(
-        parameters=[("10_minutes", "temperature_air", "temperature_air_mean_2m")],
+        parameters=[("10_minutes", "temperature_air", "temperature_air_2m")],
         start=start_date,
         end=end_date,
     ).summarize(latlon=(54.8892, 8.9087))

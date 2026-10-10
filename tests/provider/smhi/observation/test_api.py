@@ -24,7 +24,7 @@ xfail_if_smhi_unavailable = pytest.mark.xfail(strict=False, reason="SMHI server 
 def test_smhi_observation_stations() -> None:
     """Station metadata for Abisko Aut matches the SMHI station registry."""
     request = SmhiObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_mean_2m")],
+        parameters=[("hourly", "data", "temperature_air_2m")],
     ).filter_by_station_id(ABISKO)
     df = request.df
     assert df.select(
@@ -92,8 +92,8 @@ def test_smhi_observation_values_hourly() -> None:
         date = dt.datetime(2020, 1, 1, hour, tzinfo=UTC)
         return df.filter(pl.col("parameter").eq(parameter), pl.col("timestamp").eq(date)).get_column("value").item()
 
-    assert value_at("temperature_air_mean_2m", 0) == pytest.approx(-3.3)
-    assert value_at("temperature_dew_point_mean_2m", 0) == pytest.approx(-5.3)
+    assert value_at("temperature_air_2m", 0) == pytest.approx(-3.3)
+    assert value_at("temperature_dew_point_2m", 0) == pytest.approx(-5.3)
     assert value_at("wind_speed", 0) == pytest.approx(2.8)
     assert value_at("wind_direction", 0) == pytest.approx(273.0)
     assert value_at("wind_gust_max", 0) == pytest.approx(6.9)
@@ -154,7 +154,7 @@ def test_smhi_observation_values_minute_1() -> None:
         sub = df.filter(pl.col("parameter").eq(parameter)).sort("timestamp")
         return sub.get_column("value").tail(1).item()
 
-    assert -60.0 <= latest("temperature_air_mean_2m") <= 60.0
+    assert -60.0 <= latest("temperature_air_2m") <= 60.0
     assert 0.0 <= latest("humidity_relative") <= 1.0
     assert 0 <= latest("wind_direction") <= 360
     assert 0.0 <= latest("wind_speed") <= 100.0

@@ -84,6 +84,22 @@ existing one -- see the `radiation_global` and `radiation_global_intensity` pair
 irradiation (accumulated energy per area) and irradiance (power per area) and are not convertible
 into one another without the accumulation interval.
 
+The canonical name also carries the *statistic* of the value, and that is read from the service's
+own definition of the field, never from the nearest name in the table. The same quantity has a
+name for the maximum or minimum over the dataset's own interval (`temperature_air_max_2m`), for the
+mean of the daily maxima (`temperature_air_max_2m_mean`), and for an extreme over a window that is
+not that interval (`temperature_air_max_2m_last_12h`, `_yesterday`, `_multiday`). Check, for each
+field, what the service says it is, over which interval, and whether that interval ends at the
+timestamp or starts there. A monthly file that holds the mean of the daily maxima and a daily file
+that holds the day's maximum are different parameters even though both are called `TMA`, and a
+service that does not say which statistic a field is must be asked rather than guessed. Where the
+service's description states the statistic or the window,
+`tests/metadata/test_parameter_statistics.py` holds the name to it. That includes a reading at one
+moment against the mean over the interval: a temperature the service calls an instant or current
+value takes the spot name (`temperature_air_2m`, `temperature_dew_point_2m`,
+`temperature_soil_0_05m`), and one it calls a mean takes the `_mean_` name. Where the service says
+neither, keep the `_mean_` name, as the neighbouring datasets of the same service do (GH-2651).
+
 `unit` stays mandatory even where a service already publishes canonical units, since silently
 defaulting it is how values end up wrong by a factor of ten with nothing to catch it. Note that it is
 the unit at the point of declaration: if the parser transforms values before they are returned, the

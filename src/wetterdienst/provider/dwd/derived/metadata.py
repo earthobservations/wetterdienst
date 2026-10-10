@@ -78,7 +78,7 @@ DwdDerivedMetadata = {
                         },
                         {
                             "name": "sunshine_duration_uncertainty",
-                            "name_original": "fg_un_duett",
+                            "name_original": "sd_un_duett",
                             "unit": "minute",
                         },
                     ],

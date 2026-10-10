@@ -161,10 +161,10 @@ def test_aemet_observation_values_monthly() -> None:
     assert value_of("temperature_air_mean_2m") == pytest.approx(7.0)
     assert value_of("temperature_air_max_2m_mean") == pytest.approx(10.4)
     assert value_of("temperature_air_min_2m_mean") == pytest.approx(3.6)
-    # the multiday variants come from a value with a day-of-occurrence annotation, e.g.
+    # the absolute extremes of the month come from a value with a day-of-occurrence annotation, e.g.
     # "15.7(31)" — the parser must strip that and keep just the number.
-    assert value_of("temperature_air_max_2m_multiday") == pytest.approx(15.7)
-    assert value_of("temperature_air_min_2m_multiday") == pytest.approx(-0.7)
+    assert value_of("temperature_air_max_2m") == pytest.approx(15.7)
+    assert value_of("temperature_air_min_2m") == pytest.approx(-0.7)
     assert value_of("precipitation_amount") == pytest.approx(16.4)
     assert value_of("precipitation_amount_max") == pytest.approx(5.4)
     # humidity is reported by AEMET as percent, wetterdienst stores it as fraction
@@ -203,8 +203,8 @@ def test_aemet_observation_values_annual() -> None:
     assert value_of("temperature_air_max_2m_mean") == pytest.approx(20.9)
     assert value_of("temperature_air_min_2m_mean") == pytest.approx(11.1)
     # annotation is "(27/jul)" here (day/month, not just day, unlike the monthly endpoint)
-    assert value_of("temperature_air_max_2m_multiday") == pytest.approx(39.4)
-    assert value_of("temperature_air_min_2m_multiday") == pytest.approx(-1.3)
+    assert value_of("temperature_air_max_2m") == pytest.approx(39.4)
+    assert value_of("temperature_air_min_2m") == pytest.approx(-1.3)
     assert value_of("precipitation_amount") == pytest.approx(474.4)
     assert value_of("precipitation_amount_max") == pytest.approx(37.8)
     # AEMET's annual aggregate doesn't include a humidity field at all
@@ -238,7 +238,7 @@ def test_aemet_observation_values_hourly_realtime() -> None:
     def latest(parameter: str) -> float:
         return df.filter(pl.col("parameter").eq(parameter)).sort("timestamp").get_column("value")[-1]
 
-    assert -40 < latest("temperature_air_mean_2m") < 50
+    assert -40 < latest("temperature_air_2m") < 50
     assert 0.0 <= latest("humidity_relative") <= 1.0
     # unlike the daily endpoint's coded 0-36 direction, real-time direction is already in
     # plain degrees — this would fail if the daily parser's *10 scaling was wrongly reused.

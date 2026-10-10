@@ -1197,6 +1197,11 @@ def list_remote_files_fsspec(
         # of an aiohttp traceback from the one path that lists
         log.debug(f"No internet connection available for {url}, returning no files.")
         return []
+    except ClientResponseError as e:
+        # an HTTP error status. One that a proxy answered carries the `Proxy-Authorization` header
+        # aiohttp built from its credentials in the request info, and the retry above logs the repr
+        # of whatever leaves here, so it is scrubbed before it does (GH-2603)
+        raise _without_credentials(e, sent_credentials=False) from None
     # raising lets the retry above ask again, as it does for any failure to read
     raise tls_failure
 
@@ -1258,6 +1263,9 @@ def list_remote_directory_fsspec(
         failure.os_error.with_traceback(None)
         failure.__cause__ = None
         failure.__context__ = None
+    except ClientResponseError as e:
+        # an HTTP error status, scrubbed as in `list_remote_files_fsspec` (GH-2603)
+        raise _without_credentials(e, sent_credentials=False) from None
     # raising lets the retry above ask again, as it does for any failure to read
     raise failure
 

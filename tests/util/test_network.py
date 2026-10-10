@@ -3453,3 +3453,78 @@ def test_a_directory_listing_through_a_refusing_proxy_keeps_the_password_out_of_
     retried = [record.__dict__["stamina.caused_by"] for record in caplog.records if record.name == "stamina"]
     assert retried, "stamina logged nothing"
     assert not [text for text in retried if "secret" in text]
+
+
+@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:The 'proxy_auth' parameter is deprecated:DeprecationWarning")
+@pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
+@pytest.mark.parametrize("target", ["https://example.com/dir/", "http://example.com/dir/"])
+@pytest.mark.parametrize(
+    "how",
+    [
+        "userinfo",
+        "proxy_auth",
+        # on Windows the environment is not what aiohttp's proxy lookup reads (it went to example.com)
+        pytest.param(
+            "environment", marks=pytest.mark.skipif(os.name == "nt", reason="proxy lookup differs on Windows")
+        ),
+    ],
+)
+def test_a_listing_refused_by_a_proxy_keeps_its_proxy_authorization_header_out_of_the_error(
+    function: Callable[..., object],
+    target: str,
+    how: str,
+    refusing_proxy: tuple[str, list[str]],
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The header aiohttp adds for a proxy's credentials is not in what a listing raises or logs (GH-2603).
+
+    A ``ClientHttpProxyError`` (the proxy answered CONNECT with a 502) and a 5xx from an ``http://``
+    target both carry the request info, ``Proxy-Authorization: Basic ...`` in it. Neither listing
+    scrubbed it, so it reached the caller and stamina's retry warning, as a download's did (GH-2592).
+    """
+    import base64  # noqa: PLC0415
+
+    address, received = refusing_proxy
+    secret = base64.b64encode(b"user:secret").decode()
+    if how == "userinfo":
+        client_kwargs = {"proxy": f"http://user:secret@{address}"}
+    elif how == "environment":
+        monkeypatch.setenv("HTTPS_PROXY", f"http://user:secret@{address}")
+        monkeypatch.setenv("HTTP_PROXY", f"http://user:secret@{address}")
+        for name in ("https_proxy", "http_proxy", "NO_PROXY", "no_proxy"):
+            monkeypatch.delenv(name, raising=False)
+        client_kwargs = {"trust_env": True}
+    else:
+        client_kwargs = {"proxy": f"http://{address}", "proxy_auth": BasicAuth("user", "secret")}
+    settings = Settings(cache_dir=tmp_path, cache_disable=True, fsspec_client_kwargs=client_kwargs)
+
+    with (
+        stamina.set_testing(True, attempts=2),
+        caplog.at_level(logging.DEBUG, logger="stamina"),
+        pytest.raises(ClientResponseError) as raised,
+    ):
+        function(target, settings)
+
+    # the proxy was sent the credential, so there was something to scrub
+    assert any(secret in request for request in received)
+    assert raised.value.status == 502
+    assert raised.value.request_info.headers["Proxy-Authorization"] == "<redacted>"
+    retried = [record for record in caplog.records if record.name == "stamina"]
+    assert retried, "stamina logged nothing, so this test would pass for the wrong reason"
+    logged = "".join(record.getMessage() + str(record.__dict__) for record in caplog.records)
+    # the locals of the library's frames only: this test's own frame holds the credentials it was set up with
+    frames = []
+    frame = raised.value.__traceback__
+    while frame:
+        if frame.tb_frame.f_code.co_filename != __file__:
+            frames.append(repr(frame.tb_frame.f_locals))
+        frame = frame.tb_next
+    carried = (
+        repr(raised.value) + str(raised.value) + "".join(traceback.format_exception(raised.value)) + "".join(frames)
+    )
+    # compared as bools: an assertion that names the secret leaves it in this frame's locals
+    leaks = [hidden in logged or hidden in carried for hidden in (secret, "secret")]
+    assert not any(leaks)
