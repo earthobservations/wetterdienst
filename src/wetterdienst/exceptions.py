@@ -124,6 +124,17 @@ class BufrReaderMissingError(ImportError):
     """
 
 
+class CredentialMissingError(ValueError):
+    """Raised when a provider needs a credential to be asked anything and none is configured.
+
+    A `ValueError`, which is what the providers raised before this had a type of its own, so that a
+    caller catching that still catches it. Its own type because the message names the setting to
+    change, which is an instruction for whoever runs the process: the Python caller and the command
+    line user are that person and get it as it is, while the REST API and the MCP tools, whose
+    callers administer nothing of the server, answer with a fixed sentence and log the message.
+    """
+
+
 class NoStationsWithElevationError(ValueError):
     """Raised when an elevation is asked about and no station in reach reports one of its own."""
 
