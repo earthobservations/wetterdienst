@@ -16,6 +16,19 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `metno/frost` `daily` `snow_depth` is stamped at 00:00 UTC of the date of its
+  reading, no longer at the time of the reading (usually 06:00 UTC), like the other daily
+  parameters. Join stored snow depth on the date (GH-2729)
+
+### Removed
+
+- The `tzfpy` dependency and `TimeseriesValues._get_timezone_from_station`, which looked up a
+  station's time zone from its position. Since GH-2683 no provider stamps a row with the station's
+  zone, so nothing called it; installs are one compiled package smaller. A subclass that called the
+  private method must resolve the zone itself (GH-2725)
+
 ### Fixed
 
 - `eccc/observation` a `daily` request for the first day of a station, or a `monthly` one for its
@@ -23,6 +36,10 @@ Types of changes:
   list are now 00:00 UTC of the first and last date (of the month for `monthly`), like the values,
   where they were the local time moved to UTC (13:00 UTC for 09:00 in Toronto). `hourly` is
   unchanged (GH-2730)
+- `ea/hydrology` daily requests no longer cut the newest reading of a window: the readings request
+  carried a `_limit` of one reading per day, but a window holds more readings than days (the
+  maximum and minimum are dated at their instant, and the endpoint answers some days twice), so
+  the last requested day could be missing. No `_limit` is sent for daily now (GH-2732)
 
 ## [0.146.0] - 2026-10-11
 
