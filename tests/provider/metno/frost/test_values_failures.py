@@ -70,6 +70,8 @@ def _values(
     monkeypatch: pytest.MonkeyPatch,
     observations: Callable[[str], File],
     parameters: list[tuple[str, str, str]] | None = None,
+    start: dt.datetime = START,
+    end: dt.datetime = END,
 ) -> tuple[MetnoFrostValues, list[str]]:
     """Give the values of one station, the stations and the observations answered as stubbed."""
     monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
@@ -84,8 +86,8 @@ def _values(
     monkeypatch.setattr(frost_api, "download_file", _download)
     request = MetnoFrostRequest(
         parameters=parameters or [("hourly", "data", "temperature_air_2m")],
-        start=START,
-        end=END,
+        start=start,
+        end=end,
     )
     return request.filter_by_station_id("SN18700").values, seen
 
@@ -277,3 +279,56 @@ def test_metno_frost_values_404_fallback_for_one_parameter_leaves_its_siblings_a
         "wind_speed",
         "wind_speed",
     ]
+
+
+OSLO = ZoneInfo("Europe/Oslo")
+# 2025-03-30 is the day Norway moves to summer time: 00:00 CET (+01:00) to 23:00 CEST (+02:00) is
+# 2025-03-29 23:00Z to 2025-03-30 21:00Z. Read as UTC, the wall clocks would be 00:00Z to 23:00Z
+REFERENCE_TIME = "referencetime=2025-03-29T23:00:00/2025-03-30T21:00:00"
+
+
+def _oslo_values(
+    monkeypatch: pytest.MonkeyPatch,
+    observations: Callable[[str], File],
+) -> tuple[MetnoFrostValues, list[str]]:
+    """Give the values of a request that spans the change to summer time, bounded in Oslo time."""
+    return _values(
+        monkeypatch,
+        observations,
+        start=dt.datetime(2025, 3, 30, 0, 0, tzinfo=OSLO),
+        end=dt.datetime(2025, 3, 30, 23, 0, tzinfo=OSLO),
+    )
+
+
+def test_metno_frost_values_bounds_are_sent_as_utc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the bounds of a request in local time reach Frost as the UTC instants they stand for (GH-2681)."""
+    values, seen = _oslo_values(monkeypatch, lambda url: _failed(url, 412))
+    assert values.sr.start.utcoffset() == dt.timedelta(hours=1)
+    assert values.sr.end.utcoffset() == dt.timedelta(hours=2)
+    assert values.all().df.is_empty()
+    [url] = _observation_requests(seen)
+    assert REFERENCE_TIME in url
+
+
+def test_metno_frost_values_single_parameter_bounds_are_sent_as_utc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the request for one parameter converts the bounds to UTC as well (GH-2681)."""
+    values, seen = _oslo_values(monkeypatch, lambda url: _failed(url, 412))
+    values._collect_single_parameter(  # noqa: SLF001
+        "SN18700", values.sr.parameters[0], values.sr.start, values.sr.end, values.sr.settings, {}
+    )
+    [url] = _observation_requests(seen)
+    assert REFERENCE_TIME in url
+
+
+def test_metno_frost_values_discovered_series_bounds_are_sent_as_utc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the request for a discovered time series converts the bounds to UTC as well (GH-2681)."""
+
+    def observations(url: str) -> File:
+        if "availableTimeSeries" in url:
+            return _ok(url, AVAILABLE)
+        return _failed(url, 412 if "timeseriesids=" in url else 404)
+
+    values, seen = _oslo_values(monkeypatch, observations)
+    assert values.all().df.is_empty()
+    [url] = [url for url in seen if "timeseriesids=" in url]
+    assert REFERENCE_TIME in url

@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `metno/frost` sends the bounds of a request to Frost as UTC. They went out as the wall clock of
+  whatever zone they were held in, which Frost reads as UTC, so a request in `Europe/Oslo` asked
+  for a window one or two hours off and lost rows at one end (GH-2681)
+
 ## [0.145.0] - 2026-10-11
 
 ### Changed

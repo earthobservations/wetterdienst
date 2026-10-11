@@ -405,6 +405,15 @@ _CLOUD_COVER = "cloud_area_fraction"
 _CLOUD_COVER_NOT_ESTIMATED = (-3.0, 9.0)
 
 
+def _frost_time(value: datetime) -> str:
+    """Give a request bound as Frost reads it: the text of its UTC wall clock.
+
+    Frost takes the time of `referencetime` as UTC and has no way to be told otherwise, so a bound
+    held in another zone has to be converted before its wall clock is written down (GH-2681).
+    """
+    return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S")
+
+
 def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
     """Turn Frost's in-band codes into the value they stand for, before anything reads them."""
     return df.with_columns(
@@ -481,8 +490,8 @@ class MetnoFrostValues(TimeseriesValues):
         url = self._observations_url.format(
             station_id=station_id,
             element=elements,
-            start=start_date.strftime("%Y-%m-%dT%H:%M:%S"),
-            end=end_date.strftime("%Y-%m-%dT%H:%M:%S"),
+            start=_frost_time(start_date),
+            end=_frost_time(end_date),
             time_resolution=dataset.resolution.name_original,
         )
         log.info(f"Acquiring data from {url}")
@@ -586,8 +595,8 @@ class MetnoFrostValues(TimeseriesValues):
         url = self._observations_url.format(
             station_id=station_id,
             element=parameter.name_original,
-            start=start_date.strftime("%Y-%m-%dT%H:%M:%S"),
-            end=end_date.strftime("%Y-%m-%dT%H:%M:%S"),
+            start=_frost_time(start_date),
+            end=_frost_time(end_date),
             time_resolution=parameter.dataset.resolution.name_original,
         )
         log.info(f"Acquiring data from {url}")
@@ -700,8 +709,8 @@ class MetnoFrostValues(TimeseriesValues):
             obs_url = self._observations_url_ts.format(
                 source_id=params.get("sources", [station_id])[0],
                 element=element,
-                start=range_start.strftime("%Y-%m-%dT%H:%M:%S"),
-                end=range_end.strftime("%Y-%m-%dT%H:%M:%S"),
+                start=_frost_time(range_start),
+                end=_frost_time(range_end),
                 time_resolution=resolution,
                 ts_id=params.get("timeseriesids", ["0"])[0],
                 perf_cats=params.get("performancecategories", [""])[0],
