@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Breaking**: `dmi/observation` daily `precipitation_amount_max` (`max_precip_30m`) is dated by
+  the day it ends on, as DMI defines it ("23:31 local time to the previous day to 24.00 local time
+  of the respective day"), not by the day before; its series moves one day later. Shift stored
+  series of it by one day. The other daily parameters are unchanged (GH-2676)
+
 ## [0.145.0] - 2026-10-11
 
 ### Changed

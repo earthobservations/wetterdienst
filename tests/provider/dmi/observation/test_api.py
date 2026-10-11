@@ -24,9 +24,9 @@ COPENHAGEN_LANDBOHOJSKOLEN = "06180"
 UTC = ZoneInfo("UTC")
 
 
-def _dates_for(from_value: str, resolution: Resolution) -> dt.datetime:
-    """Evaluate the provider's date expression for a single DMI ``from`` timestamp."""
-    df = pl.DataFrame({"from": [from_value]}).select(
+def _dates_for(from_value: str, resolution: Resolution, to_value: str | None = None) -> dt.datetime:
+    """Evaluate the provider's date expression for a single DMI ``from`` (and ``to``) timestamp."""
+    df = pl.DataFrame({"from": [from_value], "to": [to_value]}, schema={"from": pl.String, "to": pl.String}).select(
         dmi_api.DmiObservationValues._date_expression(resolution).alias("timestamp"),  # noqa: SLF001
     )
     return df.get_column("timestamp").to_list()[0]
@@ -57,18 +57,40 @@ def test_date_expression_hourly_tolerates_fractional_seconds() -> None:
 
 def test_date_expression_daily_uses_local_civil_date() -> None:
     """A Danish summer day (``from`` at +02:00) maps to that civil date at UTC midnight."""
-    date = _dates_for("2023-06-02T00:00:00.001000+02:00", Resolution.DAILY)
+    date = _dates_for("2023-06-02T00:00:00.001000+02:00", Resolution.DAILY, "2023-06-03T00:00:00+02:00")
     assert date == dt.datetime(2023, 6, 2, 0, 0, tzinfo=UTC)
 
 
 def test_date_expression_daily_greenland_negative_offset() -> None:
     """A Greenland day (``from`` at a negative offset) maps to its civil date at UTC midnight.
 
-    Taking the civil date straight from the ``from`` string keeps this correct regardless of
+    Taking the civil date straight from the ``to`` string keeps this correct regardless of
     the station's timezone — a naive UTC conversion would shift it onto the previous day.
     """
-    date = _dates_for("2023-06-02T00:00:00.001000-02:00", Resolution.DAILY)
+    date = _dates_for("2023-06-02T00:00:00.001000-02:00", Resolution.DAILY, "2023-06-03T00:00:00-02:00")
     assert date == dt.datetime(2023, 6, 2, 0, 0, tzinfo=UTC)
+
+
+def test_date_expression_daily_old_meteorological_day() -> None:
+    """A Greenland day of 06:00 UTC to 06:00 UTC is labelled by the date it starts on."""
+    date = _dates_for("2025-03-30T06:00:00+00:00", Resolution.DAILY, "2025-03-31T06:00:00+00:00")
+    assert date == dt.datetime(2025, 3, 30, 0, 0, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("from_value", "to_value", "day"),
+    [
+        # the window DMI gives as 23:31 local time of the previous day to 24.00 of the respective day (GH-2676)
+        ("2025-03-29T23:31:00+01:00", "2025-03-31T00:00:00+02:00", dt.datetime(2025, 3, 30, tzinfo=UTC)),
+        ("2025-03-30T23:31:00+02:00", "2025-04-01T00:00:00+02:00", dt.datetime(2025, 3, 31, tzinfo=UTC)),
+        ("2025-03-28T23:31:00+01:00", "2025-03-30T00:00:00+01:00", dt.datetime(2025, 3, 29, tzinfo=UTC)),
+    ],
+)
+def test_date_expression_daily_window_beginning_the_day_before(
+    from_value: str, to_value: str, day: dt.datetime
+) -> None:
+    """``max_precip_30m`` begins at 23:31 of the previous day and belongs to the day it ends on."""
+    assert _dates_for(from_value, Resolution.DAILY, to_value) == day
 
 
 def test_date_expression_monthly_truncates_to_first_of_month() -> None:
@@ -370,3 +392,37 @@ def test_collect_ends_quietly_at_the_window_without_a_connection(
     assert len(requests) == 4
     assert df.height == 24 * 10 + 1
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+def test_collect_dates_daily_max_precipitation_by_the_day_it_ends_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rows as DMI serves them for 06180 (GH-2676): ``max_precip_30m`` begins the day before its day."""
+    rows = [
+        # (parameterId, from, to, value)
+        ("max_precip_30m", "2025-03-28T23:31:00+01:00", "2025-03-30T00:00:00+01:00", 0.0),
+        ("max_precip_30m", "2025-03-29T23:31:00+01:00", "2025-03-31T00:00:00+02:00", 3.8),
+        ("max_precip_30m", "2025-03-30T23:31:00+02:00", "2025-04-01T00:00:00+02:00", 0.3),
+        ("acc_precip", "2025-03-29T00:00:00.001000+01:00", "2025-03-30T00:00:00+01:00", 0.0),
+        ("acc_precip", "2025-03-30T00:00:00.001000+01:00", "2025-03-31T00:00:00+02:00", 9.8),
+    ]
+    features = [
+        {"properties": {"parameterId": parameter, "from": start, "to": end, "value": value}}
+        for parameter, start, end, value in rows
+    ]
+    content = json.dumps({"features": features}).encode()
+    monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
+    values = object.__new__(dmi_api.DmiObservationValues)
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        start=dt.datetime(2025, 3, 28, tzinfo=UTC),
+        end=dt.datetime(2025, 4, 1, tzinfo=UTC),
+        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+    )
+    dataset = dmi_api.DmiObservationMetadata["daily"].datasets[0]
+    df = values._collect_station_parameter_or_dataset(COPENHAGEN_LANDBOHOJSKOLEN, dataset)  # noqa: SLF001
+    by_day = {(row["parameter"], row["timestamp"].date().isoformat()): row["value"] for row in df.iter_rows(named=True)}
+    assert by_day == {
+        ("max_precip_30m", "2025-03-29"): 0.0,
+        ("max_precip_30m", "2025-03-30"): 3.8,
+        ("max_precip_30m", "2025-03-31"): 0.3,
+        ("acc_precip", "2025-03-29"): 0.0,
+        ("acc_precip", "2025-03-30"): 9.8,
+    }
