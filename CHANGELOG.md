@@ -106,6 +106,13 @@ Types of changes:
   `CoverageResolution`, `CoverageDataset`, `CoverageParameter`), so a client can be generated from
   or checked against it. The JSON sent is unchanged; the MCP `coverage` tool takes it as its
   output schema and returns the same result (GH-2090)
+- **Breaking**: `meteofrance/observation` 6-minute and hourly timestamps of the overseas
+  departments (971-975, 984-988) are UTC. The files stamp them in the territory's own time, which
+  the library labelled UTC: Réunion's (UTC+4) came back 4 h late, Saint-Pierre-et-Miquelon's
+  (UTC-4) 4 h early. Offsets: Guadeloupe, Martinique -4 h, Guyane -3 h, Mayotte +3 h,
+  Wallis-et-Futuna +12 h, Polynésie -10 h, Nouvelle-Calédonie +11 h, TAAF per station. Drop a
+  shift you applied yourself; a window for these stations now holds other readings. Daily and
+  monthly dates, metropolitan France and Port Martin (offset unknown) are unchanged (GH-2677)
 
 ### Fixed
 
