@@ -976,7 +976,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "climate_indices",
             "mo_tropennaechte",
         ): "Monthly number of tropical nights, counted over the day from 00 to 23 hours.",
-        ("monthly", "climate_summary", "mo_fk"): "Monthly mean of daily wind speed Bft.",
+        ("monthly", "climate_summary", "mo_fk"): "Monthly mean of the daily wind force in Beaufort.",
         ("monthly", "climate_summary", "mo_n"): "Monthly mean of cloud cover.",
         ("monthly", "climate_summary", "mo_rr"): "Monthly sum of precipitation height.",
         ("monthly", "climate_summary", "mo_sd_s"): "Monthly sum of sunshine duration.",
