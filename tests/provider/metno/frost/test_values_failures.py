@@ -303,8 +303,9 @@ def _oslo_values(
 def test_metno_frost_values_bounds_are_sent_as_utc(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that the bounds of a request in local time reach Frost as the UTC instants they stand for (GH-2681)."""
     values, seen = _oslo_values(monkeypatch, lambda url: _failed(url, 412))
-    assert values.sr.start.utcoffset() == dt.timedelta(hours=1)
-    assert values.sr.end.utcoffset() == dt.timedelta(hours=2)
+    # the request holds the bounds in UTC already (GH-2682); the conversion at the send stays as the guard
+    assert values.sr.start == dt.datetime(2025, 3, 29, 23, tzinfo=dt.UTC)
+    assert values.sr.end == dt.datetime(2025, 3, 30, 21, tzinfo=dt.UTC)
     assert values.all().df.is_empty()
     [url] = _observation_requests(seen)
     assert REFERENCE_TIME in url

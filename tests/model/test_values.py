@@ -801,3 +801,59 @@ def test_values_drop_nulls_again_for_settings_once_wide_and_now_long(monkeypatch
     long = _values_with_a_null(settings, monkeypatch)
     assert long.get_column("value").to_list() == [1.0]
     assert_frame_equal(long, _values_with_a_null(Settings(ts_shape="long", ts_drop_nulls=True), monkeypatch))
+
+
+def test_a_window_in_a_named_zone_cuts_the_utc_values_at_its_instants(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The window of a request in a named zone is compared with the UTC timestamps as the instants it names (GH-2682).
+
+    Compared as it was handed in, polars refused it with a `SchemaError` -- a `Datetime` in
+    `Europe/Vilnius` against one in `UTC` -- after the data had been downloaded.
+    """
+    vilnius = ZoneInfo("Europe/Vilnius")
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        # 1990-01-02 00:00 UTC to 1990-01-03 00:00 UTC; Vilnius is UTC+2 in winter
+        start=dt.datetime(1990, 1, 2, 2, tzinfo=vilnius),
+        end=dt.datetime(1990, 1, 3, 2, tzinfo=vilnius),
+    )
+
+    df = request.filter_by_station_id("00001").values.all().df
+
+    assert df.get_column("timestamp").unique().sort().to_list() == [
+        dt.datetime(1990, 1, 2, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(1990, 1, 3, tzinfo=ZoneInfo("UTC")),
+    ]
+
+
+def test_filter_by_window_keeps_both_ends_of_a_window_across_a_clock_change(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A window that opens before a clock change and closes after it holds the hours between its instants (GH-2682).
+
+    Vilnius moves to summer time on 2025-03-30, so its midnight is 22:00 UTC the day before and its 23:00
+    is 20:00 UTC: the window is 23 hours long, not 24. Closed at both ends.
+    """
+    vilnius = ZoneInfo("Europe/Vilnius")
+    utc = ZoneInfo("UTC")
+    _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
+    values = (
+        DwdObservationRequest(
+            parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+            start=dt.datetime(2025, 3, 30, 0, tzinfo=vilnius),
+            end=dt.datetime(2025, 3, 30, 23, tzinfo=vilnius),
+        )
+        .filter_by_station_id("00001")
+        .values
+    )
+    hours = pl.datetime_range(
+        dt.datetime(2025, 3, 29, tzinfo=utc),
+        dt.datetime(2025, 3, 31, tzinfo=utc),
+        interval="1h",
+        eager=True,
+    )
+    df = pl.DataFrame({"timestamp": hours, "value": range(hours.len())})
+
+    windowed = values._filter_by_window(df)  # noqa: SLF001
+
+    assert windowed.height == 23
+    assert windowed.get_column("timestamp").min() == dt.datetime(2025, 3, 29, 22, tzinfo=utc)
+    assert windowed.get_column("timestamp").max() == dt.datetime(2025, 3, 30, 20, tzinfo=utc)

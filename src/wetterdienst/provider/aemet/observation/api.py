@@ -10,7 +10,6 @@ import json
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
-from zoneinfo import ZoneInfo
 
 import polars as pl
 import stamina
@@ -39,7 +38,6 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 _BASE_URL = "https://opendata.aemet.es/opendata/api"
-_UTC = ZoneInfo("UTC")
 # AEMET rejects date ranges greater than 6 months; stay safely under that.
 _MAX_REQUEST_DAYS = 179
 
@@ -321,11 +319,6 @@ class AemetObservationValues(TimeseriesValues):
         end_date = self.sr.end
         if not start_date or not end_date or not api_key:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        # convert_timestamps() only tags naive datetimes as UTC, it doesn't convert an
-        # already-tz-aware non-UTC datetime -- normalize explicitly so the "UTC" literal
-        # in the request format string below is actually true.
-        start_date = start_date.astimezone(_UTC)
-        end_date = end_date.astimezone(_UTC)
 
         records = []
         for chunk_start, chunk_end in self._date_chunks(start_date, end_date):
@@ -392,11 +385,6 @@ class AemetObservationValues(TimeseriesValues):
         end_date = self.sr.end
         if not start_date or not end_date or not api_key:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        # convert_timestamps() only tags naive datetimes as UTC, it doesn't convert an
-        # already-tz-aware non-UTC datetime -- normalize explicitly to avoid an off-by-one
-        # year at year boundaries for non-UTC callers.
-        start_date = start_date.astimezone(_UTC)
-        end_date = end_date.astimezone(_UTC)
 
         records = []
         for start_year, end_year in self._year_chunks(start_date.year, end_date.year):

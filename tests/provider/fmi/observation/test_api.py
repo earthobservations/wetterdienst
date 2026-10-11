@@ -9,6 +9,7 @@ import polars as pl
 import pytest
 
 from wetterdienst.provider.fmi.observation import FmiObservationRequest
+from wetterdienst.provider.fmi.observation.api import FmiObservationValues
 from wetterdienst.provider.fmi.observation.parser import (
     extract_exception_text,
     parse_fmi_observations,
@@ -199,3 +200,59 @@ def test_fmi_observation_values_daily() -> None:
     assert value_of("temperature_air_mean_2m") == pytest.approx(-15.8)
     assert value_of("temperature_air_max_2m") == pytest.approx(-13.7)
     assert value_of("temperature_air_min_2m") == pytest.approx(-17.4)
+
+
+def test_fmi_observation_values_window_in_helsinki_time_across_the_clock_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A window in a named zone is sent upstream and cut in UTC, across a clock change (GH-2682).
+
+    2025-03-30 is the day Helsinki moves to summer time: its midnight is 22:00 UTC on the 29th (UTC+2) and its
+    23:00 is 20:00 UTC (UTC+3). The provider converted the bounds it sends itself, so the request reached the
+    window filter, which compared them with the UTC timestamps as they were and raised a polars `SchemaError`.
+    """
+    helsinki = ZoneInfo("Europe/Helsinki")
+    sent: list[tuple[dt.datetime, dt.datetime]] = []
+    stations = pl.DataFrame(
+        {
+            "resolution": ["hourly"],
+            "dataset": ["data"],
+            "station_id": [HELSINKI_KAISANIEMI],
+            "start_timestamp": [dt.datetime(1950, 1, 1, tzinfo=UTC)],
+            "end_timestamp": [None],
+            "latitude": [60.17523],
+            "longitude": [24.94459],
+            "elevation": [4.0],
+            "name": ["Helsinki Kaisaniemi"],
+            "region": ["Helsinki"],
+        },
+        schema_overrides={"end_timestamp": pl.Datetime("us", "UTC")},
+    )
+    monkeypatch.setattr(FmiObservationRequest, "_all", lambda self: stations.lazy())  # noqa: ARG005
+
+    def collect_window(self, **kwargs: object) -> pl.DataFrame:  # noqa: ANN001, ARG001
+        start, end = kwargs["start"], kwargs["end"]
+        sent.append((start, end))
+        hours = pl.datetime_range(start, end, interval="1h", eager=True)
+        return pl.DataFrame(
+            {"timestamp": hours, "parameter": "t2m", "value": 1.0},
+            schema_overrides={"timestamp": pl.Datetime("us", "UTC")},
+        )
+
+    monkeypatch.setattr(FmiObservationValues, "_collect_window", collect_window)
+
+    df = (
+        FmiObservationRequest(
+            parameters=[("hourly", "data", "temperature_air_2m")],
+            start=dt.datetime(2025, 3, 30, 0, tzinfo=helsinki),
+            end=dt.datetime(2025, 3, 30, 23, tzinfo=helsinki),
+        )
+        .filter_by_station_id(HELSINKI_KAISANIEMI)
+        .values.all()
+        .df
+    )
+
+    assert sent == [(dt.datetime(2025, 3, 29, 22, tzinfo=UTC), dt.datetime(2025, 3, 30, 20, tzinfo=UTC))]
+    assert df.height == 23
+    assert df["timestamp"].min() == dt.datetime(2025, 3, 29, 22, tzinfo=UTC)
+    assert df["timestamp"].max() == dt.datetime(2025, 3, 30, 20, tzinfo=UTC)

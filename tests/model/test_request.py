@@ -7,6 +7,7 @@ import inspect
 from zoneinfo import ZoneInfo
 
 import polars as pl
+import portion
 import pytest
 from polars.testing import assert_frame_equal
 
@@ -729,3 +730,113 @@ def test_interpolate_refuses_a_point_utm_cannot_place_before_building_the_statio
         request.interpolate(latlon=(89.0, 13.74))
 
     assert built == []
+
+
+_VILNIUS = ZoneInfo("Europe/Vilnius")
+_BERLIN = ZoneInfo("Europe/Berlin")
+_UTC = ZoneInfo("UTC")
+# 2025-03-30 is the day Vilnius moves to summer time (03:00 EET -> 04:00 EEST, UTC+2 -> UTC+3), so its midnight
+# and its last hour carry different offsets: 00:00 is 22:00 UTC the day before, 23:00 is 20:00 UTC.
+_VILNIUS_DAY_START = dt.datetime(2025, 3, 29, 22, tzinfo=_UTC)
+_VILNIUS_DAY_END = dt.datetime(2025, 3, 30, 20, tzinfo=_UTC)
+
+
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        pytest.param(
+            dt.datetime(2025, 3, 30, 0, tzinfo=_VILNIUS),
+            dt.datetime(2025, 3, 30, 23, tzinfo=_VILNIUS),
+            id="named zone",
+        ),
+        pytest.param("2025-03-30T00:00+02:00", "2025-03-30T23:00+03:00", id="fixed offset"),
+        pytest.param("2025-03-29T22:00:00", "2025-03-30T20:00:00", id="naive string is UTC"),
+        pytest.param(
+            dt.datetime(2025, 3, 29, 22),  # noqa: DTZ001
+            dt.datetime(2025, 3, 30, 20),  # noqa: DTZ001
+            id="naive datetime is UTC",
+        ),
+        pytest.param(_VILNIUS_DAY_START, _VILNIUS_DAY_END, id="UTC"),
+        pytest.param(
+            dt.datetime(2025, 3, 29, 23, tzinfo=_BERLIN),
+            dt.datetime(2025, 3, 30, 22, tzinfo=_BERLIN),
+            id="another named zone, with its own transition on the day",
+        ),
+    ],
+)
+def test_convert_timestamps_gives_utc_whatever_zone_the_bounds_came_in(
+    start: str | dt.datetime,
+    end: str | dt.datetime,
+) -> None:
+    """A bound in any zone becomes the same instant in UTC, so the UTC values can be compared with it (GH-2682)."""
+    converted_start, converted_end = TimeseriesRequest.convert_timestamps(start, end)
+    assert (converted_start, converted_end) == (_VILNIUS_DAY_START, _VILNIUS_DAY_END)
+    assert converted_start.tzinfo == _UTC
+    assert converted_end.tzinfo == _UTC
+    # the zone itself, which is what polars compares a column's dtype against
+    assert str(converted_start.tzinfo) == str(converted_end.tzinfo) == "UTC"
+
+
+def test_convert_timestamps_with_one_bound_gives_it_to_both_in_utc() -> None:
+    """The bound that was left out takes the other one, already converted (GH-2682)."""
+    bound = dt.datetime(2025, 3, 30, 0, tzinfo=_VILNIUS)
+    assert TimeseriesRequest.convert_timestamps(bound, None) == (_VILNIUS_DAY_START, _VILNIUS_DAY_START)
+    assert TimeseriesRequest.convert_timestamps(None, bound) == (_VILNIUS_DAY_START, _VILNIUS_DAY_START)
+    assert TimeseriesRequest.convert_timestamps(None, None) == (None, None)
+
+
+def test_convert_timestamps_orders_bounds_by_instant_not_by_wall_clock() -> None:
+    """A window is reversed when its end is earlier as an instant, whatever the clocks of its two zones say."""
+    # 04:00 in Vilnius (summer time, UTC+3) is 01:00 UTC; the wall clock reads later than 02:00 UTC
+    start = dt.datetime(2025, 3, 30, 2, tzinfo=_UTC)
+    end = dt.datetime(2025, 3, 30, 4, tzinfo=_VILNIUS)
+    with pytest.raises(ReversedTimeIntervalError):
+        TimeseriesRequest.convert_timestamps(start, end)
+    # the same wall clocks the other way round are a window of one hour
+    assert TimeseriesRequest.convert_timestamps(end, start) == (
+        dt.datetime(2025, 3, 30, 1, tzinfo=_UTC),
+        dt.datetime(2025, 3, 30, 2, tzinfo=_UTC),
+    )
+
+
+def test_request_keeps_its_window_in_utc_for_a_named_zone(default_settings: Settings) -> None:
+    """The window a request holds, and a result built from it hands on, is UTC (GH-2682)."""
+    request = DwdObservationRequest(
+        parameters=[("hourly", "air_temperature", "temperature_air_2m")],
+        start=dt.datetime(2025, 3, 30, 0, tzinfo=_VILNIUS),
+        end=dt.datetime(2025, 3, 30, 23, tzinfo=_VILNIUS),
+        settings=default_settings,
+    )
+    assert (request.start, request.end) == (_VILNIUS_DAY_START, _VILNIUS_DAY_END)
+    assert str(request.start.tzinfo) == str(request.end.tzinfo) == "UTC"
+
+
+def test_dwd_periods_follow_the_instant_of_a_bound_in_a_named_zone(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """DWD reads the periods off the interval in Europe/Berlin; a bound in another zone keeps its instant (GH-2682).
+
+    The recent period is fixed to begin at midnight Berlin on 2025-06-01, which is 01:00 Vilnius. A bound
+    read at 00:30 *Vilnius* is 23:30 Berlin on 2025-05-31, before it; the same wall clock read in Berlin
+    is after it. Reading the wall clock of a bound as Berlin time, which is what ignoring its zone does,
+    would put both inside.
+    """
+    recent = portion.closed(dt.datetime(2025, 6, 1, tzinfo=_BERLIN), dt.datetime(2025, 6, 10, tzinfo=_BERLIN))
+    monkeypatch.setattr(DwdObservationRequest, "_recent_interval", property(lambda self: recent))  # noqa: ARG005
+
+    def periods(bound: dt.datetime) -> set[Period]:
+        return DwdObservationRequest(
+            parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+            start=bound,
+            end=bound,
+            settings=default_settings,
+        ).periods
+
+    just_before = dt.datetime(2025, 6, 1, 0, 30, tzinfo=_VILNIUS)  # 23:30 Berlin on 2025-05-31
+    just_after = dt.datetime(2025, 6, 1, 0, 30, tzinfo=_BERLIN)
+    assert periods(just_before) == {Period.HISTORICAL}
+    assert periods(just_after) == {Period.HISTORICAL, Period.RECENT}
+    # the instants spelled in UTC and in a fixed offset select the same
+    assert periods(just_before.astimezone(_UTC)) == periods(just_before)
+    assert periods(dt.datetime(2025, 5, 31, 23, 30, tzinfo=dt.timezone(dt.timedelta(hours=2)))) == periods(just_before)
