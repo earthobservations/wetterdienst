@@ -67,6 +67,12 @@ Types of changes:
   the UTC year of the request bounds, as the time stamps are in UTC, where it took the year as
   written: a request in a local zone near New Year, such as `2010-01-01T00:30:00+02:00`, returned
   no rows (GH-2680)
+- A request whose `start` and `end` carry a named time zone (`ZoneInfo("Europe/Vilnius")`) no
+  longer raises a polars `SchemaError` once its values are cut to the window. The bounds, and so
+  `request.start`/`end` and the result's, are converted to UTC when the request is made: the same
+  instants as before, now with a UTC zone, where an aware bound kept the zone it was given. The
+  providers that read a bound's year or date, or format it for the upstream, now do so in UTC
+  (GH-2682)
 
 ## [0.145.0] - 2026-10-11
 

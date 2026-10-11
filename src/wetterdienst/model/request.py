@@ -257,11 +257,17 @@ class TimeseriesRequest:
         return series.cast(pl.String)
 
     @staticmethod
-    def convert_timestamps(  # noqa: C901
+    def convert_timestamps(
         start: _DATETIME_TYPE,
         end: _DATETIME_TYPE,
     ) -> tuple[None, None] | tuple[dt.datetime, dt.datetime]:
-        """Convert timestamps to datetime objects.
+        """Convert timestamps to datetime objects in UTC.
+
+        A naive bound is read as UTC and an aware one is converted to it, whatever its zone: a named
+        zone (``ZoneInfo("Europe/Vilnius")``) or a fixed offset keeps its instant and loses its zone.
+        The values are UTC, so a bound in any other zone could not be compared with them, and a
+        provider that formats or floors a bound -- by its year, its date -- would do so in the
+        caller's zone rather than the one the values are in.
 
         Args:
             start: Start of the request.
@@ -277,14 +283,12 @@ class TimeseriesRequest:
         if start:
             if isinstance(start, str):
                 start = dt.datetime.fromisoformat(start)
-            if not start.tzinfo:
-                start = start.replace(tzinfo=ZoneInfo("UTC"))
+            start = start.replace(tzinfo=ZoneInfo("UTC")) if not start.tzinfo else start.astimezone(ZoneInfo("UTC"))
 
         if end:
             if isinstance(end, str):
                 end = dt.datetime.fromisoformat(end)
-            if not end.tzinfo:
-                end = end.replace(tzinfo=ZoneInfo("UTC"))
+            end = end.replace(tzinfo=ZoneInfo("UTC")) if not end.tzinfo else end.astimezone(ZoneInfo("UTC"))
 
         # If only one date given, set the other one to equal.
         if not start:
