@@ -65,7 +65,7 @@ def test_date_expression_daily_greenland_negative_offset() -> None:
     """A Greenland day (``from`` at a negative offset) maps to its civil date at UTC midnight.
 
     Taking the civil date straight from the ``to`` string keeps this correct regardless of
-    the station's timezone — a naive UTC conversion would shift it onto the previous day.
+    the station's timezone, whatever sign its offset has.
     """
     date = _dates_for("2023-06-02T00:00:00.001000-02:00", Resolution.DAILY, "2023-06-03T00:00:00-02:00")
     assert date == dt.datetime(2023, 6, 2, 0, 0, tzinfo=UTC)

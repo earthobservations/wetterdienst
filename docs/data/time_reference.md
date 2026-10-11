@@ -79,7 +79,7 @@ Notes:
 | --- | --- | --- | --- | --- | --- |
 | observation | hourly | data | UTC | start (from = start of the hour) | yes |
 | observation | daily | data | Europe/Copenhagen local time (CET/CEST) for Danish stations | start (local civil day, labelled with its date at 00:00 UTC) | yes |
-| observation | daily | data | Europe/Copenhagen local time (CET/CEST) | start (precipitation\_amount\_max = max\_precip\_30m: window 23:31 local D-1 to 24:00 local D, belongs to day D) | yes |
+| observation | daily | data | Europe/Copenhagen local time (CET/CEST) | end (precipitation\_amount\_max = max\_precip\_30m: window 23:31 local D-1 to 24:00 local D, ends on day D and is labelled D) | yes |
 | observation | daily | data | UTC (Greenland/Faroe 'old meteorological day') | start (Greenland station values: 06:00 UTC D to 06:00 UTC D+1, labelled D) | yes |
 | observation | monthly | data | Europe/Copenhagen local time (CET/CEST) for Danish stations | start (local calendar month, labelled day 1 00:00 UTC) | yes |
 | observation | annual | data | Europe/Copenhagen local time (CET) for Danish stations | start (local calendar year, labelled Jan 1 00:00 UTC) | yes |
