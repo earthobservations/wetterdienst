@@ -551,6 +551,8 @@ def test_geosphere_observation_daily_none_code_is_zero_not_minus_one(
     [
         ("10_minutes", "precipitation_amount", "rr"),
         ("hourly", "precipitation_amount", "rr"),
+        ("10_minutes", "snow_depth", "sh"),
+        ("hourly", "snow_depth", "sh"),
         ("monthly", "precipitation_amount", "rr"),
         ("monthly", "snow_depth_new", "shneu_manu"),
     ],
