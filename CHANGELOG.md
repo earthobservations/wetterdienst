@@ -145,6 +145,10 @@ Types of changes:
   MCP tools answer it with a 501 and a fixed sentence, no longer a 500 that tells the caller to set
   an environment variable on the server (the message goes to the server log), and the command line
   prints it in one line and exits 1, no longer with a traceback (GH-2638)
+- `dwd/observation` `hourly/wind` and `10_minutes/wind` return no `wind_direction` of 990 any more:
+  the files write 990 where there is no direction (542,296 hourly rows in 314 stations, 17 of the
+  10 minute ones, historical files from 1952 on), which came back as 990 degrees and spoiled a
+  wind rose or a vector mean. It is null now, as -999 is (GH-2686)
 
 
 ## [0.144.0] - 2026-10-10

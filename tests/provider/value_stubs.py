@@ -377,7 +377,6 @@ STUBS = [
         _dwd_hourly_wind,
         reading=("wind_direction", 250.0),
         sentinels=(("wind_direction", 990.0),),
-        leak="#2686",
     ),
     ValueStub(
         "dwd/observation hourly/weather_phenomena",
