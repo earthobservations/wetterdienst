@@ -274,3 +274,63 @@ def test_lhmt_observation_values_failed_day_still_raises(monkeypatch: pytest.Mon
     with pytest.raises(DownloadError):
         _lhmt_values(days=5)
     assert len(attempted) == 1
+
+
+def _hourly_day_json(day: dt.date) -> bytes:
+    """Build the 24 hourly observations of one UTC day, each reading the hour it is stamped with."""
+    observations = ", ".join(
+        f'{{"observationTimeUtc": "{day.isoformat()} {hour:02d}:00:00", "airTemperature": {hour}.0}}'
+        for hour in range(24)
+    )
+    return f'{{"station": {{"code": "vilniaus-ams"}}, "observations": [{observations}]}}'.encode()
+
+
+def _serve_hourly_days(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Serve the station list and a full day of readings for whichever UTC day is asked, returning the days asked."""
+    asked: list[str] = []
+
+    def download_file(url: str, *_args: object, **_kwargs: object) -> File:
+        if url.endswith("/stations"):
+            return File(url=url, content=BytesIO(_STATIONS_JSON), status=200)
+        day = url.rsplit("/", 1)[-1]
+        asked.append(day)
+        return File(url=url, content=BytesIO(_hourly_day_json(dt.date.fromisoformat(day))), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.lhmt.observation.api.download_file", download_file)
+    return asked
+
+
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        pytest.param(
+            dt.datetime(2025, 3, 30, 0, tzinfo=ZoneInfo("Europe/Vilnius")),
+            dt.datetime(2025, 3, 30, 23, tzinfo=ZoneInfo("Europe/Vilnius")),
+            id="named zone",
+        ),
+        pytest.param("2025-03-30T00:00+02:00", "2025-03-30T23:00+03:00", id="fixed offset"),
+        pytest.param("2025-03-29T22:00:00", "2025-03-30T20:00:00", id="naive"),
+    ],
+)
+def test_lhmt_observation_values_window_in_vilnius_time_across_the_clock_change(
+    monkeypatch: pytest.MonkeyPatch,
+    start: str | dt.datetime,
+    end: str | dt.datetime,
+) -> None:
+    """A Vilnius day of 23 hours comes back as its 23 UTC hours, however the bounds are written (GH-2682).
+
+    2025-03-30 is the day Vilnius moves to summer time: its midnight is 22:00 UTC on the 29th (UTC+2) and its
+    23:00 is 20:00 UTC (UTC+3). A named zone raised a polars `SchemaError` once the days were read.
+    """
+    asked = _serve_hourly_days(monkeypatch)
+    df = (
+        LhmtObservationRequest(parameters=[("hourly", "data", "temperature_air_2m")], start=start, end=end)
+        .filter_by_station_id(VILNIUS)
+        .values.all()
+        .df
+    )
+    assert asked == ["2025-03-29", "2025-03-30"]
+    assert df.height == 23
+    assert df["timestamp"].dtype == pl.Datetime("us", "UTC")
+    assert df["timestamp"].min() == dt.datetime(2025, 3, 29, 22, tzinfo=UTC)
+    assert df["timestamp"].max() == dt.datetime(2025, 3, 30, 20, tzinfo=UTC)
