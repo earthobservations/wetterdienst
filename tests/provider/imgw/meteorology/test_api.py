@@ -25,7 +25,7 @@ from wetterdienst.util.network import File
 
 
 def test_imgw_meteorology_station_list_gives_no_region(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The river of the station list, which is no region, stays out of `region` (GH-2019).
+    """The river catchment of the station list is `river`, not `region` (GH-2019).
 
     The list's fourth column is `Rzeka`, the river catchment with its hydrographic code (`Odra (1)`, `Bałtyk (0)`
     for the sea), which the request read into `region`. The list gives no region.
@@ -46,9 +46,9 @@ def test_imgw_meteorology_station_list_gives_no_region(monkeypatch: pytest.Monke
 
     # the reader takes the first row of the list for the header (GH-2752), so the first station is not asserted
     stations = df.filter(pl.col("name").is_in(["Pszczyna", "Chałupki"]))
-    assert stations.select("station_id", "name", "region", "elevation").rows() == [
-        ("249180010", "Pszczyna", None, 270.0),
-        ("249180030", "Chałupki", None, 198.0),
+    assert stations.select("station_id", "name", "river", "region", "elevation").rows() == [
+        ("249180010", "Pszczyna", "Pszczynka (2116)", None, 270.0),
+        ("249180030", "Chałupki", "Odra (1)", None, 198.0),
     ]
     assert df["region"].is_null().all()
 

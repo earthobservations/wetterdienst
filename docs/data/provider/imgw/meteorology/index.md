@@ -8,8 +8,9 @@ monthly resolution, as open data from the
 No authentication is required.
 
 Values are downloaded as zipped CSV archives (decoded as `latin-1`), with station metadata
-resolved from the accompanying station-code list, which gives no region, so `region` is null. Both
-daily and monthly summaries are provided.
+resolved from the accompanying station-code list, which gives no region, so `region` is null; the river
+catchment it lists a station under, with its hydrographic code (`Odra (1)`), is `river`. Both daily and
+monthly summaries are provided.
 
 ## Status columns
 

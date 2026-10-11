@@ -313,6 +313,12 @@ class NoaaGhcnRequest(TimeseriesRequest):
             pl.lit("data", dtype=pl.String).alias("dataset"),
             cs.string().str.strip_chars().replace("", None),
         )
+        # a WMO number is five digits, as the daily list writes it. The hourly list also has `400` on 445 Spanish
+        # stations such as SPN00000293 BEGUR (CAP), and `of`, `unkno`, `resol`, `260` and `open` on a dozen more:
+        # not numbers of a station
+        df = df.with_columns(
+            pl.when(pl.col("wmo_id").str.contains(r"^\d{5}$")).then(pl.col("wmo_id")).alias("wmo_id"),
+        )
         # the documentation marks a missing elevation as -999.9. The list also carries 9999.0 and
         # 8191.0, undocumented, on rows such as the North Sea lightship GMMU0010434 ELBE NO. 1 and
         # DNEPRODZERJINSK, which the daily list puts at 148.0 m: placeholders, not heights. So is

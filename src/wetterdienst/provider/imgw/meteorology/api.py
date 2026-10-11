@@ -845,6 +845,12 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
     _values = ImgwMeteorologyValues
     _endpoint = "https://dane.imgw.pl/datastore/getfiledown/Arch/Telemetria/Meteo/kody_stacji.csv"
 
+    # extend base columns of core class with the river catchment a station is listed under, as published
+    _base_columns: ClassVar = (
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "river",
+    )
+
     def _all(self) -> pl.LazyFrame:
         """Get all available stations."""
         from typing import cast  # noqa: PLC0415
@@ -863,12 +869,13 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             return pl.LazyFrame()
         df = pl.read_csv(file.content, encoding="utf8", separator=";", skip_rows=1, infer_schema_length=0)
         df = df[:, 1:]
-        # drop the "Rzeka" (river catchment, such as `Odra (1)`) and "Rok założenia" (station founding year)
-        # columns, which aren't part of our schema: the list gives no region, so `region` stays null
-        df = df.drop(df.columns[2:4])
+        # drop the "Rok założenia" (station founding year) column, which isn't part of our schema. The list gives
+        # "Rzeka", the river catchment with its hydrographic code such as `Odra (1)`, and no region: `region` stays null
+        df = df.drop(df.columns[3])
         df.columns = [
             "station_id",
             "name",
+            "river",
             "latitude",
             "longitude",
             "elevation",

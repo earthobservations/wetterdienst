@@ -30,7 +30,7 @@ Types of changes:
   maximum and minimum are dated at their instant, and the endpoint answers some days twice), so
   the last requested day could be missing. No `_limit` is sent for daily now (GH-2732)
 - Station lists keep columns the readers built and `all()` dropped: `wsv/pegel` has `river` (as
-  published, `ELBE`) and `river_kilometer`, `noaa/ghcn` has `wmo_id` (daily and hourly),
+  published, `ELBE`) and `river_kilometer`, `noaa/ghcn` has `wmo_id` (daily and hourly, five digits),
   `knmi/observation` has `wigos_id`, the full WIGOS identifier whose trailing number is
   `station_id`, and `metoffice/observation` fills `region` with the MIDAS historic county
   (`shetland`), which was null. The columns appear in the frames, JSON and GeoJSON properties of
@@ -39,8 +39,8 @@ Types of changes:
   null now, DMI giving no region; the code is in the new `country` column. Filter or group by
   `country` where you used `region` (GH-2019)
 - **Breaking**: `imgw/meteorology` `region` held the river catchment with its hydrographic code
-  (`Odra (1)`) and is null now, the station list giving no region. The catchment is not exposed
-  elsewhere (GH-2019)
+  (`Odra (1)`) and is null now, the station list giving no region; the catchment is in the new
+  `river` column. Use `river` where you used `region` (GH-2019)
 
 ## [0.146.0] - 2026-10-11
 

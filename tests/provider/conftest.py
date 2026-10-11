@@ -92,9 +92,17 @@ def station_column_findings() -> Generator[list[str]]:
                 found.append(f"{name} builds {undeclared} but declares no such station column")
             return frame
 
-        # the request is a plain dataclass, so the instance takes the wrapper in place of the method
+        # the request is a plain dataclass, so the instance takes the wrapper in place of the method, for this call
+        # only: a wrapper left on it would nest on the next call and be copied along with the request
+        previous = self.__dict__.get("_all")
         self._all = checked_all  # ty: ignore[invalid-assignment]
-        return all_(self)
+        try:
+            return all_(self)
+        finally:
+            if previous is None:
+                del self.__dict__["_all"]
+            else:
+                self._all = previous  # ty: ignore[invalid-assignment]
 
     # patched by hand rather than through `monkeypatch`, which a test may undo as a whole
     TimeseriesRequest.all = checked  # ty: ignore[invalid-assignment]
