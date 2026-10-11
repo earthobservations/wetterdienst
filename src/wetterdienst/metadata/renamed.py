@@ -129,6 +129,8 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "visibility_range_measurement_method": "visibility_measurement_method",
     # GH-1977: DWD's NL is low cloud, below 2 km, which the name put at 1000 ft
     "cloud_cover_below_1000ft": "cloud_cover_below_2km",
+    # GH-2696: DWD's graupel columns, which were read as sleet; no provider has sleet days
+    "count_weather_type_sleet": "count_weather_type_graupel",
 }
 
 #: request arguments, old name to new

@@ -21,9 +21,10 @@ Types of changes:
 - **Breaking**: Python 3.10 is no longer supported; `wetterdienst` requires Python 3.11 or newer.
   Install on 3.11 or newer; pip on an older Python keeps resolving the last release that supports
   it. The `backports-datetime-fromisoformat` dependency, which only Python 3.10 installed, is
-  dropped. The `export` extra requires `xarray>=2025.1.2`: 2024.6 cannot write Zarr with the
-  `zarr>=3.1` the extra installs, and with it the `radar` extra `xradar>=0.8`, as older releases
-  need the `datatree` package that 2025.1 no longer works with (GH-2568)
+  dropped. The `export` extra requires `xarray>=2025.6.0`; with the `zarr>=3.1` the extra
+  installs, 2024.6 cannot write Zarr and earlier releases cannot read it back, so upgrade xarray.
+  The `radarplus` extra requires `xradar>=0.8`, as older releases need the `datatree` package that
+  xarray 2025.1 and later no longer work with (GH-2568, GH-2704)
 - **Breaking**: `chmi/observation` monthly and annual `TMA` and `TMI` are named
   `temperature_air_max_2m_mean` and `temperature_air_min_2m_mean`, no longer
   `temperature_air_max_2m` and `temperature_air_min_2m`: the files hold the mean of the daily
@@ -106,6 +107,23 @@ Types of changes:
   `CoverageResolution`, `CoverageDataset`, `CoverageParameter`), so a client can be generated from
   or checked against it. The JSON sent is unchanged; the MCP `coverage` tool takes it as its
   output schema and returns the same result (GH-2090)
+- **Breaking**: `dwd/observation` hourly `wind_synoptic` `ff`, which DWD gives as the 10-minute
+  mean of the wind speed ("10-Min-Mittel der Windgeschwindigkeit"), is named
+  `wind_speed_last_10min` (new), no longer `wind_speed`, which is the mean over the row's
+  interval. Request `wind_speed_last_10min`; `wind_speed` is not found in `hourly/wind_synoptic`
+  (logged and dropped, or `NoParametersFoundError` when no other parameter is requested). `dd`
+  stays `wind_direction`, as DWD states no window for it, and hourly `wind` `f` and `d`, DWD's
+  hourly means, keep theirs (GH-2697)
+- **Breaking**: `dwd/poi` hourly mean wind speed and direction over the last 10 minutes are named
+  `wind_speed_last_10min` and `wind_direction_last_10min` (new), no longer `wind_speed` and
+  `wind_direction`. Request the new names; the old ones are not found in `hourly/data` (logged and
+  dropped, or `NoParametersFoundError` when no other parameter is requested) (GH-2697)
+- **Breaking**: `aemet/observation` hourly `vv` and `dv`, AEMET's mean wind speed and direction over
+  the 10 minutes preceding `fint`, are named `wind_speed_last_10min` and
+  `wind_direction_last_10min` (new), no longer `wind_speed` and `wind_direction`. Request the new
+  names; the old ones are not found in `hourly/data` (logged and dropped, or
+  `NoParametersFoundError` when no other parameter is requested; the hint for `wind_direction`
+  names `wind_direction_gust_max`, see GH-2644). The daily `velmedia` keeps `wind_speed` (GH-2697)
 - **Breaking**: `meteofrance/observation` 6-minute and hourly timestamps of the overseas departments
   (971-975, 984-988) are UTC. The files stamp them in a fixed offset per territory ("FU", not always
   its legal time), which the library labelled UTC: Réunion's (UTC+4) came back 4 h late,
@@ -113,6 +131,12 @@ Types of changes:
   Mayotte +3 h, Wallis-et-Futuna +12 h, Polynésie -10 h, Nouvelle-Calédonie +11 h, TAAF per station.
   Drop a shift you applied yourself; a window for these stations now holds other readings. Daily and
   monthly dates, metropolitan France and Port Martin (offset unknown) are unchanged (GH-2677)
+- **Breaking**: `count_weather_type_sleet` is `count_weather_type_graupel`. It was DWD's graupel
+  columns (`graupel`, `rr_graupel`, `mo_graupel`, `ja_graupel`) in the `weather_phenomena` datasets
+  of `dwd/observation` daily, monthly and annual and in `daily/weather_phenomena_more`. Request the
+  new name; the old one in a request or as a `ts_geo_station_distance` key (now an error, it was a
+  warning) is reported with its replacement. A table `to_target` wrote before holds the old name,
+  as a wide column or in `parameter`: write it anew (GH-2696)
 
 ### Fixed
 

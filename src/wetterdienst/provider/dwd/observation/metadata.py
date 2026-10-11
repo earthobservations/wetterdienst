@@ -901,7 +901,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_last_10min",
                             "name_original": "ff",
                             "unit": "meter_per_second",
                         },
@@ -1507,7 +1507,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_weather_type_sleet",
+                            "name": "count_weather_type_graupel",
                             "name_original": "graupel",
                             "unit": "dimensionless",
                         },
@@ -1529,7 +1529,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_weather_type_sleet",
+                            "name": "count_weather_type_graupel",
                             "name_original": "rr_graupel",
                             "unit": "dimensionless",
                         },
@@ -1782,7 +1782,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_weather_type_sleet",
+                            "name": "count_weather_type_graupel",
                             "name_original": "mo_graupel",
                             "unit": "dimensionless",
                         },
@@ -2035,7 +2035,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_weather_type_sleet",
+                            "name": "count_weather_type_graupel",
                             "name_original": "ja_graupel",
                             "unit": "dimensionless",
                         },

@@ -57,8 +57,8 @@
 | {term}`weather`                                    | present_weather                                                  | Coded present weather at the time of observation, on DWD's 1..31 scale. | -    |
 | {term}`weather_last_3h`                            | past_weather_1                                                   | Coded weather observed over the preceding 3 hours.                      | -    |
 | {term}`weather_secondary_last_3h`                  | past_weather_2                                                   | Second coded weather observed over the preceding 3 hours.               | -    |
-| {term}`wind_direction`                             | mean_wind_direction_during_last_10 min_at_10_meters_above_ground | Mean wind direction over the last 10 minutes, at 10 m above ground.     | °    |
-| {term}`wind_speed`                                 | mean_wind_speed_during last_10_min_at_10_meters_above_ground     | Mean wind speed over the last 10 minutes, at 10 m above ground.         | km/h |
+| {term}`wind_direction_last_10min`                  | mean_wind_direction_during_last_10 min_at_10_meters_above_ground | Mean wind direction over the last 10 minutes, at 10 m above ground.     | °    |
+| {term}`wind_speed_last_10min`                      | mean_wind_speed_during last_10_min_at_10_meters_above_ground     | Mean wind speed over the last 10 minutes, at 10 m above ground.         | km/h |
 | {term}`wind_speed_rolling_mean_max`                | maximum_wind_speed_as_10_minutes_mean_during_last_hour           | Highest 10-minute mean wind speed in the preceding hour.                | km/h |
 | {term}`wind_speed_rolling_mean_max_yesterday`      | maximum_of_10_minutes_mean_of_wind_speed_for_previous_day        | Highest 10-minute mean wind speed on the previous day.                  | km/h |
 | {term}`wind_gust_max_last_1h`                      | maximum_wind_speed_last_hour                                     | Strongest gust in the preceding hour.                                   | km/h |

@@ -225,12 +225,12 @@ DwdPoiMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_last_10min",
                             "name_original": "mean_wind_direction_during_last_10 min_at_10_meters_above_ground",
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_last_10min",
                             "name_original": "mean_wind_speed_during last_10_min_at_10_meters_above_ground",
                             **_WIND_SPEED,
                         },

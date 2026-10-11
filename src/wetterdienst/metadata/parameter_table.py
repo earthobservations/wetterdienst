@@ -368,11 +368,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter("count_weather_type_dew", "dimensionless", "Number of days on which dew was observed."),
     CanonicalParameter("count_weather_type_fog", "dimensionless", "Number of days on which fog was observed."),
     CanonicalParameter("count_weather_type_glaze", "dimensionless", "Number of days on which glaze ice was observed."),
+    CanonicalParameter("count_weather_type_graupel", "dimensionless", "Number of days on which graupel was observed."),
     CanonicalParameter("count_weather_type_hail", "dimensionless", "Number of days on which hail was observed."),
     CanonicalParameter(
         "count_weather_type_hoar_frost", "dimensionless", "Number of days on which hoar frost was observed."
     ),
-    CanonicalParameter("count_weather_type_sleet", "dimensionless", "Number of days on which sleet was observed."),
     CanonicalParameter(
         "count_weather_type_storm_stormier_wind",
         "dimensionless",
@@ -3009,6 +3009,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter("wind_direction_gust_max_instant", "angle", "Direction of the strongest instantaneous gust."),
     CanonicalParameter(
+        "wind_direction_last_10min",
+        "angle",
+        "Mean direction the wind blew from over the 10 minutes before the timestamp, a window shorter than the "
+        "dataset's own interval.",
+    ),
+    CanonicalParameter(
         "wind_force_beaufort", "wind_scale", "Wind strength on the Beaufort scale.", interpolation="homogeneous"
     ),
     CanonicalParameter(
@@ -3065,6 +3071,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "wind_speed_arithmetic",
         "speed",
         "Arithmetic mean of the wind speed, unweighted by direction.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "wind_speed_last_10min",
+        "speed",
+        "Mean wind speed over the 10 minutes before the timestamp, a window shorter than the dataset's own "
+        "interval, not the mean over the interval that `wind_speed` is.",
         interpolation="homogeneous",
     ),
     CanonicalParameter("wind_speed_min", "speed", "Lowest wind speed over the period.", interpolation="homogeneous"),
