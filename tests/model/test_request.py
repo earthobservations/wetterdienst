@@ -800,7 +800,7 @@ def test_convert_timestamps_orders_bounds_by_instant_not_by_wall_clock() -> None
 
 
 def test_request_keeps_its_window_in_utc_for_a_named_zone(default_settings: Settings) -> None:
-    """The window a request holds, and a result built from it hands on, is UTC (GH-2682)."""
+    """The window a request holds is UTC (GH-2682)."""
     request = DwdObservationRequest(
         parameters=[("hourly", "air_temperature", "temperature_air_2m")],
         start=dt.datetime(2025, 3, 30, 0, tzinfo=_VILNIUS),

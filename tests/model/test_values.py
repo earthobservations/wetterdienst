@@ -834,6 +834,7 @@ def test_filter_by_window_keeps_both_ends_of_a_window_across_a_clock_change(monk
     """
     vilnius = ZoneInfo("Europe/Vilnius")
     utc = ZoneInfo("UTC")
+    # only keeps the station index offline; the frame below is cut directly
     _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
     values = (
         DwdObservationRequest(
