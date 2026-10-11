@@ -183,6 +183,17 @@ class DwdDerivedValues(TimeseriesValues):
             .to_series()
         )
 
+    @staticmethod
+    def _first_day_of_month_in_utc(date: datetime) -> datetime:
+        """Truncate a date to the first day of its month at 00:00 UTC.
+
+        The date is converted to UTC first, so 2025-01-01T00:00+01:00 falls in December 2024.
+
+        :param date: Timezone-aware date
+        :return: First day of the month the date falls in, at 00:00 UTC
+        """
+        return date.astimezone(ZoneInfo("UTC")).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
     def _get_first_day_of_months_to_fetch(
         self,
         parameter: ParameterModel,
@@ -190,20 +201,22 @@ class DwdDerivedValues(TimeseriesValues):
         """Create a list of dates that are the first days of the months to fetch.
 
         If start and end dates were given, these determine the first and last month, respectively.
-        Else, default values are used.
+        Else, default values are used. A month is the calendar month in UTC that the date falls
+        in, whatever its time of day or offset, and each entry is that month's first day at
+        00:00 UTC, which is the stamp a monthly value carries.
 
         :param parameter: Parameter name, determining default values for start dates
         :return: List of dates for which data should be fetched
         """
+        utc = ZoneInfo("UTC")
         if self.sr.start is None:
-            start_date_of_range = self._default_start_dates[parameter.dataset.resolution.value].replace(day=1)
+            start = self._default_start_dates[parameter.dataset.resolution.value]
         else:
-            start_date_of_range = self.sr.start.replace(day=1)
+            start = self.sr.start
+        end = datetime.now(utc) if self.sr.end is None else self.sr.end
 
-        if self.sr.end is None:
-            end_date_of_range = datetime.now(ZoneInfo("UTC")).replace(day=1)
-        else:
-            end_date_of_range = self.sr.end.replace(day=1)
+        start_date_of_range = self._first_day_of_month_in_utc(start)
+        end_date_of_range = self._first_day_of_month_in_utc(end)
 
         return pl.datetime_range(
             start_date_of_range,
@@ -635,7 +648,9 @@ class DwdDerivedValues(TimeseriesValues):
 class DwdDerivedRequest(TimeseriesRequest):
     """Request class for dwd derived data.
 
-    The months that are fetched are the ones whose first day is between the start and the end date.
+    The months that are fetched are the UTC calendar months from the one the start falls in to the one
+    the end falls in. A monthly value is stamped with the first day of its month at 00:00 UTC, and only
+    the stamps within start and end are returned.
     """
 
     metadata = DwdDerivedMetadata

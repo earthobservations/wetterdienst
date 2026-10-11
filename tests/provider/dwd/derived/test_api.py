@@ -4,6 +4,7 @@
 
 import datetime
 from collections.abc import Collection
+from io import BytesIO
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -16,9 +17,10 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.derived import DwdDerivedMetadata, DwdDerivedRequest
 from wetterdienst.provider.dwd.derived.api import DwdDerivedValues
+from wetterdienst.util.network import File
 
 
-def _values_of(request: DwdDerivedRequest) -> DwdDerivedValues:
+def _values_of(request: DwdDerivedRequest, station_id: str = "00044") -> DwdDerivedValues:
     """Build the values object for one station without looking that station up.
 
     The date arithmetic and the url parsing below live on the values object, which is reached
@@ -32,7 +34,7 @@ def _values_of(request: DwdDerivedRequest) -> DwdDerivedValues:
             {
                 "resolution": request.parameters[0].dataset.resolution.name,
                 "dataset": request.parameters[0].dataset.name,
-                "station_id": "00044",
+                "station_id": station_id,
                 "start_timestamp": None,
                 "end_timestamp": None,
                 "latitude": 52.9336,
@@ -826,6 +828,38 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
                 ]
             ),
         ),
+        (
+            datetime.datetime(2025, 1, 1, 6, 30, tzinfo=ZoneInfo("UTC")),
+            datetime.datetime(2025, 3, 1, 6, 30, tzinfo=ZoneInfo("UTC")),
+            pl.Series(
+                [
+                    datetime.datetime(2025, 1, 1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(2025, 2, 1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(2025, 3, 1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
+        ),
+        (
+            # 1 January in Germany is still 31 December in UTC, and the month is the UTC one
+            datetime.datetime(2025, 1, 1, tzinfo=ZoneInfo("Europe/Berlin")),
+            datetime.datetime(2025, 3, 1, tzinfo=ZoneInfo("Europe/Berlin")),
+            pl.Series(
+                [
+                    datetime.datetime(2024, 12, 1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(2025, 1, 1, tzinfo=ZoneInfo("UTC")),
+                    datetime.datetime(2025, 2, 1, tzinfo=ZoneInfo("UTC")),
+                ]
+            ),
+        ),
+    ],
+    ids=[
+        "start_and_end_in_different_months",
+        "start_and_end_within_a_month",
+        "start_equals_end",
+        "no_start",
+        "no_end",
+        "time_of_day_is_dropped",
+        "offset_is_converted_to_utc",
     ],
 )
 def test_get_first_day_of_months_to_fetch(
@@ -1186,3 +1220,125 @@ def test_dwd_derived_hourly_sunshine_duration_uncertainty_is_returned(default_se
         "sunshine_duration",
         "sunshine_duration_uncertainty",
     }
+
+
+_HEATING_DEGREEDAYS_HEADER = (
+    "#Monatsgradtage VDI 3807; erstellt: DWD, 20250103\n"
+    "#Messnetz_id 4; mittlere Raumtemperatur (Grad Celsius): 20\n"
+    "#Auswertezeitraum {period}\n"
+    "#ID; geogr. Breite; geogr. Laenge;Station; Monat; Anzahl Tage; Monatsgradtage; Anzahl Heiztage; Mittelwert\n"
+)
+_COOLING_DEGREEHOURS_HEADER = (
+    "#Kuehlgrade, erstellt: 20250103; Programm: kuehlgrade_alle_open_data_08_2.pl\n"
+    "#Bezugstemperatur (Grad Celsius): 13\n"
+    "ID;geogr. Breite;geogr. Laenge;Stationsname;Datum [jjjjmm];Anzahl Stunden;Anzahl Kuehlstunden;"
+    "Kuehlgradestunden;Kuehltage\n"
+)
+_BASE_URL = "https://opendata.dwd.de/climate_environment/CDC/derived_germany/techn/monthly"
+
+# Files as DWD serves them (station 01048 for the degree days and hours, postal code 01067 for the
+# climate correction factor, each beside a second row). A monthly file names the month it covers in
+# its name and in its header; the climate correction factor file starts at the month it is named for.
+_DERIVED_FILES = (
+    {
+        f"{_BASE_URL}/heating_degreedays/hdd_3807/recent/gradtage_{month}.csv": (
+            _HEATING_DEGREEDAYS_HEADER.format(period=period)
+            + f"00044;52.93; 8.24;            GROSSENKNETEN;{month};{days};111.1;{days};472.5\n"
+            + f"01048;51.13;13.75;        DRESDEN-KLOTZSCHE;{month};{days};{value};{days};510.2\n"
+        )
+        for month, period, days, value in [
+            ("202412", "01-DEC-2024 bis 31-DEC-2024", 31, "533.9"),
+            ("202501", "01-JAN-2025 bis 31-JAN-2025", 31, "535.0"),
+            ("202502", "01-FEB-2025 bis 28-FEB-2025", 28, "529.6"),
+            ("202503", "01-MAR-2025 bis 31-MAR-2025", 31, "421.7"),
+        ]
+    }
+    | {
+        f"{_BASE_URL}/cooling_degreehours/cdh_13/recent/kuehlgrade_13_0_{month}.csv": (
+            _COOLING_DEGREEHOURS_HEADER
+            + f"00044;52.93; 8.24;        GROSSENKNETEN;{month};{hours};    9;    9.9;1\n"
+            + f"01048;51.13;13.75;        DRESDEN-KLOTZSCHE;{month};{hours};{cooling_hours};{value};{days}\n"
+        )
+        for month, hours, cooling_hours, value, days in [
+            ("202412", 744, "    1", "    0.2", 1),
+            ("202501", 744, "    0", "    0.0", 0),
+            ("202502", 672, "    4", "    3.7", 1),
+            ("202503", 744, "   78", "  169.2", 13),
+        ]
+    }
+    | {
+        f"{_BASE_URL}/climate_correction_factor/recent/KF_{start}_{end}.csv": (
+            f"DatAnf;DatEnd;PLZ;KF\n{start};{end};1067;{value}\n{start};{end};1069;9.99\n"
+        )
+        for start, end, value in [
+            ("20241201", "20251130", "1.15"),
+            ("20250101", "20251231", "1.14"),
+            ("20250201", "20260131", "1.10"),
+            ("20250301", "20260228", "1.11"),
+        ]
+    }
+)
+_JAN, _FEB, _MAR = (datetime.datetime(2025, month, 1, tzinfo=ZoneInfo("UTC")) for month in (1, 2, 3))
+_DEC = datetime.datetime(2024, 12, 1, tzinfo=ZoneInfo("UTC"))
+
+
+def _serve_derived_files(url: str, **_: object) -> File:
+    """Answer a download the way the DWD server does: the file, or a 404 for a month it does not have."""
+    if url in _DERIVED_FILES:
+        return File(url=url, content=BytesIO(_DERIVED_FILES[url].encode("latin-1")), status=200)
+    return File(url=url, content=Exception("not found"), status=404)
+
+
+@pytest.mark.parametrize(
+    ("parameter", "station_id", "expected_values"),
+    [
+        (
+            "monthly/heating_degreedays/heating_degree_day",
+            "01048",
+            {_DEC: 533.9, _JAN: 535.0, _FEB: 529.6, _MAR: 421.7},
+        ),
+        ("monthly/cooling_degreehours_13/cooling_degree_hour", "01048", {_DEC: 0.2, _JAN: 0.0, _FEB: 3.7, _MAR: 169.2}),
+        (
+            "monthly/climate_correction_factor/climate_correction_factor",
+            "01067",
+            {_DEC: 1.15, _JAN: 1.14, _FEB: 1.10, _MAR: 1.11},
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("start", "end", "expected_months"),
+    [
+        # the day-of-month and the time of day of the request do not move the stamp off the first of
+        # the month; January starts before the window does, so only the months from February are in it
+        ("2025-01-01T06:30", "2025-03-01T06:30", [_FEB, _MAR]),
+        # 1 January in Germany: the January value is stamped 2025-01-01 00:00 UTC, not 2025-01-31 23:00,
+        # and the files fetched are those of the UTC months, not shifted by the hour of the offset
+        ("2025-01-01T00:00+01:00", "2025-03-01T00:00+01:00", [_JAN, _FEB]),
+        ("2025-01-01", "2025-03-01", [_JAN, _FEB, _MAR]),
+    ],
+    ids=["time_of_day", "offset", "midnight_utc"],
+)
+def test_dwd_derived_monthly_values_are_stamped_at_the_first_of_their_month(
+    default_settings: Settings,
+    parameter: str,
+    station_id: str,
+    expected_values: dict[datetime.datetime, float],
+    start: str,
+    end: str,
+    expected_months: list[datetime.datetime],
+) -> None:
+    """A monthly value carries the first day of its month at 00:00 UTC, whatever time the request names (GH-2679).
+
+    The stamp and the months fetched used to be the request's start moved to the first of its month,
+    keeping its time of day and offset, so a request for 2025-01-01T00:00+01:00 stamped the value of
+    January with 2025-01-31 23:00 UTC.
+    """
+    request = DwdDerivedRequest(parameters=[parameter], start=start, end=end, settings=default_settings)
+    values = _values_of(request, station_id=station_id)
+    with (
+        patch("wetterdienst.provider.dwd.derived.api.download_file", side_effect=_serve_derived_files),
+        patch("wetterdienst.provider.dwd.derived.api.list_remote_files_fsspec", return_value=list(_DERIVED_FILES)),
+    ):
+        df = values.all().df
+    assert df.get_column("timestamp").to_list() == expected_months
+    assert df.get_column("value").to_list() == [expected_values[month] for month in expected_months]
