@@ -863,12 +863,12 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             return pl.LazyFrame()
         df = pl.read_csv(file.content, encoding="utf8", separator=";", skip_rows=1, infer_schema_length=0)
         df = df[:, 1:]
-        # drop the "Rok założenia" (station founding year) column, which isn't part of our schema
-        df = df.drop(df.columns[3])
+        # drop the "Rzeka" (river catchment, such as `Odra (1)`) and "Rok założenia" (station founding year)
+        # columns, which aren't part of our schema: the list gives no region, so `region` stays null
+        df = df.drop(df.columns[2:4])
         df.columns = [
             "station_id",
             "name",
-            "region",
             "latitude",
             "longitude",
             "elevation",

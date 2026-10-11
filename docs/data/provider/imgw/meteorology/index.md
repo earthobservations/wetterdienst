@@ -8,7 +8,8 @@ monthly resolution, as open data from the
 No authentication is required.
 
 Values are downloaded as zipped CSV archives (decoded as `latin-1`), with station metadata
-resolved from the accompanying station-code list. Both daily and monthly summaries are provided.
+resolved from the accompanying station-code list, which gives no region, so `region` is null. Both
+daily and monthly summaries are provided.
 
 ## Status columns
 

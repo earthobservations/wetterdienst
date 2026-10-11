@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import polars as pl
 import polars.selectors as cs
@@ -200,6 +200,13 @@ class NoaaGhcnRequest(TimeseriesRequest):
     metadata = NoaaGhcnMetadata
     _values = NoaaGhcnValues
 
+    # extend base columns of core class with the station's WMO number, which cross-references it with
+    # the WMO lists and with the other providers' stations
+    _base_columns: ClassVar = (
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "wmo_id",
+    )
+
     def _all(self) -> pl.LazyFrame:
         from typing import cast  # noqa: PLC0415
 
@@ -215,8 +222,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
         data = [d for d in data if d.collect_schema().names()]
         if not data:
             return pl.LazyFrame()
-        # only the daily frame has start_timestamp and end_timestamp, from its inventory, and wmo_id, which the
-        # hourly reader does not select; the hourly stations get nulls
+        # only the daily frame has start_timestamp and end_timestamp, from its inventory; the hourly stations
+        # get nulls
         df = pl.concat(data, how="diagonal")
         # a request for one resolution has no pairs to settle
         return self._take_daily_elevation(df) if len(data) > 1 else df
@@ -287,6 +294,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
                 "ELEVATION",
                 "STATE",
                 "NAME",
+                "WMO_ID",
             ]
         )
         df = df.rename(
@@ -297,6 +305,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
                 "ELEVATION": "elevation",
                 "STATE": "region",
                 "NAME": "name",
+                "WMO_ID": "wmo_id",
             }
         )
         df = df.with_columns(
