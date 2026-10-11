@@ -187,7 +187,7 @@ class NetworkAccessBlockedError(Exception):
     return rather than re-raised.
 
     Being an `Exception` does leave it catchable by the handful of call sites that degrade on a
-    bare `except Exception` -- `provider/dwd/dmo/api.py` and `Wetterdienst.discover`'s `is_valid`
+    bare `except Exception` -- `provider/dwd/dmo/api.py` and `Wetterdienst.is_valid`
     among them. `_block_network` therefore also fails the test at teardown for a refusal that
     never reached it, so swallowing one postpones the failure rather than avoiding it.
     """

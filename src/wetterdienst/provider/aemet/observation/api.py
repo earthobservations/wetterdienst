@@ -211,12 +211,19 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
         if file.status in _KEY_REJECTED_STATUSES:
             return AemetKeyRejectedError(f"AEMET answered HTTP {file.status}: {file.content}")
         return file.content
-    envelope = json.load(file.content)
-    if envelope.get("estado") != 200:
+    try:
+        envelope = json.load(file.content)
+        estado = envelope.get("estado")
+    except (ValueError, AttributeError):
+        # a 200 that is no envelope: a maintenance page, or JSON that is no object
+        return Exception("AEMET answered with something other than its JSON envelope")
+    if estado != 200:
         description = envelope.get("descripcion", "unknown AEMET error")
-        if envelope.get("estado") in _KEY_REJECTED_STATUSES:
+        if estado in _KEY_REJECTED_STATUSES:
             return AemetKeyRejectedError(description)
         return Exception(description)
+    if not isinstance(envelope.get("datos"), str):
+        return Exception("AEMET answered with an envelope without a link to the data")
     datos_file = _download_with_rate_limit_retry(envelope["datos"], settings, ttl)
     if isinstance(datos_file.content, Exception):
         return datos_file.content

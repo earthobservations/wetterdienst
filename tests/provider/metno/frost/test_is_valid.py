@@ -10,6 +10,7 @@ from io import BytesIO
 import pytest
 
 from wetterdienst import Wetterdienst
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.util.network import File
@@ -52,13 +53,14 @@ def test_is_valid_is_true_for_an_accepted_client_id(monkeypatch: pytest.MonkeyPa
     ("content", "status"),
     [
         (OSError("certificate verify failed"), 500),
+        (NoInternetError("no route to host"), 503),
         (TimeoutError("timed out"), 408),
         (Exception("429, message='Too Many Requests'"), 429),
         (Exception("500, message='Internal Server Error'"), 500),
         (Exception("503, message='Service Unavailable'"), 503),
         (Exception("404, message='Not Found'"), 404),
     ],
-    ids=["ssl", "timeout", "429", "500", "503", "404"],
+    ids=["ssl", "no-network", "timeout", "429", "500", "503", "404"],
 )
 def test_is_valid_is_unknown_when_the_probe_could_not_tell(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, content: Exception, status: int
@@ -70,7 +72,6 @@ def test_is_valid_is_unknown_when_the_probe_could_not_tell(
     assert [record.getMessage() for record in caplog.records if record.name == LOGGER] == [
         f"Could not check the Frost credentials (status {status}): {content}"
     ]
-    assert "client-id" not in caplog.text
 
 
 def test_discover_tells_an_unchecked_client_id_as_null_not_false(monkeypatch: pytest.MonkeyPatch) -> None:

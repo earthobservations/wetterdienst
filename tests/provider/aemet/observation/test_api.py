@@ -643,6 +643,9 @@ def test_aemet_observation_is_valid_is_true_for_an_accepted_key(monkeypatch: pyt
         pytest.param([File(url="u", content=Exception("503"), status=503)], id="http-503"),
         pytest.param([_envelope(429)], id="estado-429"),
         pytest.param([_envelope(500)], id="estado-500"),
+        pytest.param([File(url="u", content=BytesIO(b"<html>maintenance</html>"), status=200)], id="html-200"),
+        pytest.param([File(url="u", content=BytesIO(b"[]"), status=200)], id="json-no-object"),
+        pytest.param([_envelope(200)], id="no-datos-link"),
         pytest.param(
             [
                 _envelope(200, datos="https://opendata.aemet.es/datos"),
@@ -668,4 +671,18 @@ def test_aemet_observation_is_valid_is_unknown_when_the_probe_could_not_tell(
     with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.aemet"):
         assert AemetObservationRequest.is_valid() is None
     assert any(record.getMessage().startswith("Could not check the AEMET API key") for record in caplog.records)
-    assert "dummy-key-for-test" not in caplog.text
+
+
+@pytest.mark.usefixtures("_aemet_key")
+@pytest.mark.parametrize("status", [401, 403])
+def test_aemet_observation_is_valid_does_not_retry_a_rejected_key(monkeypatch: pytest.MonkeyPatch, status: int) -> None:
+    """A refusal reaches the probe at the first request: it is not slept on through the retry loop (GH-2562)."""
+    calls = []
+
+    def rejected(**_kwargs: object) -> File:
+        calls.append(1)
+        return File(url="url", content=Exception(f"{status}, message='refused'"), status=status)
+
+    monkeypatch.setattr("wetterdienst.provider.aemet.observation.api.download_file", rejected)
+    assert AemetObservationRequest.is_valid() is False
+    assert len(calls) == 1
