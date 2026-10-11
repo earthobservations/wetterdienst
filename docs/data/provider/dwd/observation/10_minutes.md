@@ -285,5 +285,5 @@ Codes (precipitation_indicator_wr):
 
 | name                  | original name | description                              | unit | constraints |
 |-----------------------|---------------|------------------------------------------|------|-------------|
-| {term}`wind_gust_max` | fx_st_10 | Maximum wind (DWD: "momentane MaxWind"). | m/s | >=0 |
+| {term}`wind_gust_max` | fx_st_10 | Maximum wind per 10-minute interval (DWD: "momentane MaxWind"). | m/s | >=0 |
 

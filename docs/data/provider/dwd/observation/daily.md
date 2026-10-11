@@ -36,7 +36,7 @@
 | {term}`cloud_cover_total` | nm | Daily mean of cloud cover: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | 1/8 | >=0,<=8 |
 | {term}`pressure_vapor` | vpm | Daily mean of vapor pressure: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | hPa | >=0 |
 | {term}`pressure_air_site` | pm | Daily mean of pressure: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | hPa | >=0 |
-| {term}`temperature_air_mean_2m` | tmk | Daily mean of temperature: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations: TMK=(TT1+TT2+(TT3*2))/4; 4 or 8 at some). | °C | - |
+| {term}`temperature_air_mean_2m` | tmk | Daily mean of temperature: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, TT1 to TT3: TMK=(TT1+TT2+(TT3*2))/4; 4 or 8 at some). | °C | - |
 | {term}`humidity_relative` | upm | Daily mean of relative humidity: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | % | >=0,<=100 |
 | {term}`temperature_air_max_2m` | txk | Daily maximum of temperature at 2 m height. | °C | - |
 | {term}`temperature_air_min_2m` | tnk | Daily minimum of temperature at 2m height. | °C | - |

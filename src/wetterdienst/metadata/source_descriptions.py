@@ -623,7 +623,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Mean wind speed over 10 minutes, at the sensor height of the station (368 m at Berlin-Alexanderplatz) "
             '(DWD: "10Minuten Mittel").'
         ),
-        ("10_minutes", "urban_wind_extreme", "fx_st_10"): 'Maximum wind (DWD: "momentane MaxWind").',
+        (
+            "10_minutes",
+            "urban_wind_extreme",
+            "fx_st_10",
+        ): 'Maximum wind per 10-minute interval (DWD: "momentane MaxWind").',
         ("10_minutes", "wind", "dd_10"): "Mean wind direction during the previous 10 minutes.",
         ("10_minutes", "wind", "ff_10"): "Mean wind speed during the previous 10 minutes.",
         ("10_minutes", "wind_extreme", "dx_10"): (
@@ -675,7 +679,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "annual",
             "climate_summary",
             "ja_mx_fx",
-        ): "Annual maximum of daily wind speed (the daily wind peak, Windspitze).",
+        ): "Annual maximum of the daily wind peaks (Windspitze).",
         ("annual", "climate_summary", "ja_mx_rs"): "Annual max of daily precipitation height.",
         ("annual", "climate_summary", "ja_mx_tn"): "Annual minimum of daily temperature minima in 2m height.",
         ("annual", "climate_summary", "ja_mx_tx"): "Annual maximum of daily temperature maxima in 2m height.",
@@ -758,7 +762,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "climate_summary", "tgk"): "Daily minimum of air temperature at 5 cm above ground.",
         ("daily", "climate_summary", "tmk"): (
             "Daily mean of temperature: the arithmetic mean of at least 21 hourly values, in earlier periods the mean"
-            " of the observation terms (3 terms at most stations: TMK=(TT1+TT2+(TT3*2))/4; 4 or 8 at some)."
+            " of the observation terms (3 terms at most stations, TT1 to TT3: TMK=(TT1+TT2+(TT3*2))/4; 4 or 8 at "
+            "some)."
         ),
         ("daily", "climate_summary", "tnk"): "Daily minimum of temperature at 2m height.",
         ("daily", "climate_summary", "txk"): "Daily maximum of temperature at 2 m height.",
@@ -982,7 +987,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "monthly",
             "climate_summary",
             "mx_fx",
-        ): "Monthly maximum of daily wind speed (the daily wind peak, Windspitze).",
+        ): "Monthly maximum of the daily wind peaks (Windspitze).",
         ("monthly", "climate_summary", "mx_rs"): "Monthly maximum of daily precipitation height.",
         ("monthly", "climate_summary", "mx_tn"): "Monthly minimum of daily temperature minima in 2 m above ground.",
         ("monthly", "climate_summary", "mx_tx"): "Monthly maximum of daily temperature maxima in 2 m above ground.",
@@ -1059,8 +1064,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "visibility", "vk_ter"): "Coded visibility class.",
         ("subdaily", "wind", "dk_ter"): "Wind direction.",
         ("subdaily", "wind", "fk_ter"): "Wind force (beaufort).",
-        ("subdaily", "wind_extreme", "fx_911_3"): "Highest wind peak of the last 3 hours (>12.5 m/s).",
-        ("subdaily", "wind_extreme", "fx_911_6"): "Highest wind peak of the last 6 hours (>12.5 m/s).",
+        (
+            "subdaily",
+            "wind_extreme",
+            "fx_911_3",
+        ): 'Highest wind peak of the last 3 hours; DWD\'s list adds "(>12,5 m/s)".',
+        (
+            "subdaily",
+            "wind_extreme",
+            "fx_911_6",
+        ): 'Highest wind peak of the last 6 hours; DWD\'s list adds "(>12,5 m/s)".',
     },
     "DwdRoadMetadata": {
         (

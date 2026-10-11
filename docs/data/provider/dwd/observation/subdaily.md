@@ -156,6 +156,6 @@
 | name                          | original name | description      | unit | constraints |
 |-------------------------------|---------------|------------------|------|-------------|
 | {term}`quality_3` | qn_8_3 | Quality flag for the 3-hourly maximum wind gust reported in the same dataset. | -             | - |
-| {term}`wind_gust_max_last_3h` | fx_911_3 | Highest wind peak of the last 3 hours (>12.5 m/s). | m/s | >=0 |
+| {term}`wind_gust_max_last_3h` | fx_911_3 | Highest wind peak of the last 3 hours; DWD's list adds "(>12,5 m/s)". | m/s | >=0 |
 | {term}`quality_6` | qn_8_6 | Quality flag for the 6-hourly maximum wind gust reported in the same dataset. | -             | - |
-| {term}`wind_gust_max_last_6h` | fx_911_6 | Highest wind peak of the last 6 hours (>12.5 m/s). | m/s | >=0 |
+| {term}`wind_gust_max_last_6h` | fx_911_6 | Highest wind peak of the last 6 hours; DWD's list adds "(>12,5 m/s)". | m/s | >=0 |
