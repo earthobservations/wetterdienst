@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 
+from wetterdienst.util.extras import import_optional
+
 if TYPE_CHECKING:
     import datetime as dt
     from collections.abc import Sequence
@@ -61,7 +63,7 @@ def parse_knmi_netcdf(payload: bytes, station_id: str, parameters: Sequence[str]
     which dates the same values to 2020-01-01. `moment` (the date this file was
     requested for) is what gets attached instead.
     """
-    import h5netcdf  # noqa: PLC0415
+    h5netcdf = import_optional("h5netcdf", "Reading KNMI NetCDF", extra="knmi")
 
     with h5netcdf.File(io.BytesIO(payload), "r") as file:
         variables = file.variables

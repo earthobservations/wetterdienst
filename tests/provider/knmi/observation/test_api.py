@@ -12,6 +12,7 @@ naming / date stepping, the NetCDF parser, the retry loop, and the auth guard.
 
 import datetime as dt
 import logging
+import sys
 from io import BytesIO
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -19,7 +20,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import MissingDependencyError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.knmi.observation.api import (
@@ -552,3 +553,11 @@ def test_knmi_values_failed_moment_is_skipped_and_logged(
     assert df.is_empty()
     assert len(attempted) == 25
     assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 25
+
+
+def test_parse_knmi_netcdf_without_h5netcdf_names_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The parser's lazy import of h5netcdf says what to install instead of a bare ModuleNotFoundError (GH-2545)."""
+    monkeypatch.setitem(sys.modules, "h5netcdf", None)
+
+    with pytest.raises(MissingDependencyError, match=r"pip install wetterdienst\[knmi\]"):
+        parse_knmi_netcdf(b"not read", DE_BILT, ["TG"], dt.datetime(2020, 1, 1, tzinfo=UTC))
