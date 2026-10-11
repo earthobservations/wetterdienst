@@ -18,6 +18,12 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/derived` monthly values (`heating_degreedays`, `cooling_degreehours_*` and
+  `climate_correction_factor`) are stamped with the first day of their month at 00:00 UTC, no
+  longer with the request's start including its time of day and offset (`start` of
+  `2025-01-01T00:00+01:00` stamped January as 2025-01-31 23:00 UTC). The UTC months of `start` and
+  `end` are fetched, and a month is returned only if its first day at 00:00 UTC lies within
+  `start` and `end`, so a `start` of `2025-01-01T06:30` no longer returns January (GH-2679)
 - `meteoswiss/observation` picks the decade files of the 10-minute and hourly historical data by
   the UTC year of the request bounds, as the time stamps are in UTC, where it took the year as
   written: a request in a local zone near New Year, such as `2010-01-01T00:30:00+02:00`, returned
