@@ -608,6 +608,11 @@ _CLIMATE_SCHEMAS = {
 }
 
 
+# hourly `N` (octas) is 9 when the sky could not be seen, "9=ciel invisible par brouillard et/ou autre phénomène
+# météorologique" in the field descriptions of the dataset: no amount, where the unit conversion would make 1.125 of it
+_HOURLY_SKY_INVISIBLE = 9.0
+
+
 def _department_from_station_id(station_id: str) -> str:
     """Get the French department code from an 8-digit NUM_POSTE station id."""
     return station_id[:3] if station_id[:2] in ("97", "98") else station_id[:2]
@@ -921,9 +926,20 @@ class MeteoFranceObservationValues(TimeseriesValues):
             pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             _parse_climate_date(pl.col(date_column), resolution_name, fu_hours).alias("timestamp"),
-            pl.col("value").cast(pl.Float64, strict=False),
+            _map_codes(pl.col("parameter"), pl.col("value").cast(pl.Float64, strict=False), resolution_name).alias(
+                "value"
+            ),
             pl.lit(None, pl.Float64).alias("quality"),
         )
+
+
+def _map_codes(parameter: pl.Expr, value: pl.Expr, resolution_name: str) -> pl.Expr:
+    """Map the codes the source writes in place of a number to null, before the unit conversion (GH-2687)."""
+    if resolution_name == "hourly":
+        return (
+            pl.when(parameter.eq("N") & value.eq(_HOURLY_SKY_INVISIBLE)).then(pl.lit(None, pl.Float64)).otherwise(value)
+        )
+    return value
 
 
 @dataclass

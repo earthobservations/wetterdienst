@@ -2,12 +2,99 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for Météo-France SYNOP API."""
 
-from datetime import datetime
+import gzip
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
+import polars as pl
 import pytest
 
+from tests.provider.value_stubs import serve, stations_result
+from wetterdienst import Settings
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
+from wetterdienst.provider.meteofrance.synop import api as synop_api
+
+_PRECIPITATION = [
+    "precipitation_amount_last_1h",
+    "precipitation_amount_last_3h",
+    "precipitation_amount_last_6h",
+    "precipitation_amount_last_12h",
+    "precipitation_amount_last_24h",
+]
+
+
+def _values(monkeypatch: pytest.MonkeyPatch, rows: list[dict[str, str]], parameters: list[str]) -> pl.DataFrame:
+    """Read rows through the reader as the columns of the source's file, empty where a row has none."""
+    schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
+    lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
+    serve(monkeypatch, synop_api, {"synop_2024": gzip.compress("\n".join(lines).encode("utf8"))})
+    request = MeteoFranceSynopRequest(
+        parameters=[("subdaily", "data", parameter) for parameter in parameters],
+        start=datetime(2024, 1, 1, tzinfo=UTC),
+        end=datetime(2024, 1, 2, tzinfo=UTC),
+        settings=Settings(cache_disable=True),
+    )
+    return stations_result(request, "subdaily", "data", "07005").values.all().df.sort("timestamp")
+
+
+def test_meteofrance_synop_api_trace_of_precipitation_is_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the -0.1 of a trace is 0.0 in all five precipitation columns, and a reading is left as it is (GH-2674).
+
+    The raw row is that of ABBEVILLE at 2024-01-01T18:00Z in synop_2024.csv.gz, widened to the five columns.
+    The second row holds readings of 0.1 mm and above, which stay.
+    """
+    rows = [
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T18:00:00Z",
+            "rr1": "-0.1",
+            "rr3": "-0.1",
+            "rr6": "-0.1",
+            "rr12": "-0.1",
+            "rr24": "-0.1",
+        },
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T21:00:00Z",
+            "rr1": "0.1",
+            "rr3": "0.4",
+            "rr6": "1.2",
+            "rr12": "0.0",
+            "rr24": "5.5",
+        },
+    ]
+    df = _values(monkeypatch, rows, _PRECIPITATION)
+    by_parameter = {
+        str(parameter): group.get_column("value").to_list()
+        for (parameter,), group in df.partition_by("parameter", as_dict=True).items()
+    }
+    assert by_parameter == {
+        "precipitation_amount_last_1h": [0.0, 0.1],
+        "precipitation_amount_last_3h": [0.0, 0.4],
+        "precipitation_amount_last_6h": [0.0, 1.2],
+        "precipitation_amount_last_12h": [0.0, 0.0],
+        "precipitation_amount_last_24h": [0.0, 5.5],
+    }
+
+
+def test_meteofrance_synop_api_obscured_sky_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that n=101 has no cloud cover, where a class of 0 to 100 percent keeps its value (GH-2674).
+
+    The raw row is that of CHASSIRON at 2024-01-03T06:00Z in synop_2024.csv.gz (n=101, nbas=9, vv=900).
+    """
+    rows = [
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-01T00:00:00Z", "n": "0"},
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-01T03:00:00Z", "n": "90"},
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-01T06:00:00Z", "n": "100"},
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-01T09:00:00Z", "n": "101", "nbas": "9", "vv": "900"},
+    ]
+    df = _values(monkeypatch, rows, ["cloud_cover_total"])
+    assert df.get_column("timestamp").to_list() == [
+        datetime(2024, 1, 1, 0, tzinfo=UTC),
+        datetime(2024, 1, 1, 3, tzinfo=UTC),
+        datetime(2024, 1, 1, 6, tzinfo=UTC),
+    ]
+    assert df.get_column("value").to_list() == [0.0, 0.9, 1.0]
 
 
 @pytest.mark.remote

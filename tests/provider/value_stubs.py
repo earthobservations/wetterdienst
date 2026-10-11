@@ -408,7 +408,6 @@ STUBS = [
         _meteofrance_synop,
         reading=("precipitation_amount_last_1h", 0.4),
         sentinels=(("precipitation_amount_last_6h", -0.1), ("cloud_cover_total", 1.01)),
-        leak="#2674",
     ),
 ]
 
