@@ -672,18 +672,20 @@ def _parse_climate_date(
 ) -> pl.Expr:
     """Parse a resolution's raw date column into a UTC datetime.
 
+    A daily or monthly date of an overseas station stays the FU date, labelled 00:00 UTC.
+
     polars' strptime requires a minute whenever an hour is present in the format string, but
     "hourly"'s AAAAMMJJHH has no minute component, so it's padded in before parsing.
 
     The stamps of an overseas station come in FU rather than UTC; given its offsets (_fu_hours),
-    they are converted. That is for the 6-minute and hourly resolutions only (_FU_CONVERTED_RESOLUTIONS).
+    the 6-minute and hourly ones (_FU_CONVERTED_RESOLUTIONS) are converted.
     """
     date_format = _CLIMATE_DATE_FORMATS[resolution_name]
     if resolution_name == "hourly":
         date_column = date_column + "00"
         date_format += "%M"
     label = date_column.str.to_datetime(date_format, strict=False)
-    if fu_hours:
+    if fu_hours and resolution_name in _FU_CONVERTED_RESOLUTIONS:
         offset = pl.duration(hours=fu_hours[-1][1])
         for until, hours in reversed(fu_hours[:-1]):
             offset = pl.when(label < until).then(pl.duration(hours=hours)).otherwise(offset)
@@ -764,8 +766,8 @@ def _resource_overlaps_request(
     if start_date is None or end_date is None:
         return True
     if fu_hours:
-        start_date += timedelta(hours=min(hours for _, hours in fu_hours))
-        end_date += timedelta(hours=max(hours for _, hours in fu_hours))
+        start_date = start_date + timedelta(hours=min(hours for _, hours in fu_hours))
+        end_date = end_date + timedelta(hours=max(hours for _, hours in fu_hours))
     min_year, max_year = _resource_year_range(resource)
     return max_year >= start_date.year and min_year <= end_date.year
 
@@ -876,8 +878,6 @@ class MeteoFranceObservationValues(TimeseriesValues):
         ]
         if not matches:
             return pl.DataFrame()
-        if resolution_name in _FU_CONVERTED_RESOLUTIONS and fu_hours is None and department.startswith(("97", "98")):
-            log.warning(f"No offset of FU from UTC is known for station {station_id}; its stamps are not converted.")
         schema = _CLIMATE_SCHEMAS[resolution_name, dataset.name]
         date_column = _CLIMATE_DATE_COLUMNS[resolution_name]
         parameter_columns = [parameter.name_original for parameter in dataset]
@@ -903,6 +903,8 @@ class MeteoFranceObservationValues(TimeseriesValues):
                 dfs.append(df)
         if not dfs:
             return pl.DataFrame()
+        if resolution_name in _FU_CONVERTED_RESOLUTIONS and fu_hours is None and department.startswith(("97", "98")):
+            log.warning(f"No offset of FU from UTC is known for station {station_id}; its stamps are not converted.")
         df = pl.concat(dfs, how="diagonal")
         df = df.unpivot(
             on=parameter_columns,

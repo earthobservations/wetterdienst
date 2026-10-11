@@ -9,18 +9,15 @@ import json
 import logging
 from datetime import UTC, datetime
 from io import BytesIO
-from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
+import polars as pl
 import pytest
 
 from tests.provider.value_stubs import stations_result
 from wetterdienst import Settings
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest, api
 from wetterdienst.util.network import File
-
-if TYPE_CHECKING:
-    import polars as pl
 
 
 @pytest.mark.remote
@@ -436,9 +433,24 @@ def test_meteofrance_observation_api_crozet_switch_is_pinned(label: str, utc: da
     The day of the switch is not known (the SYNOP archive has no reading of Crozet between 2003-09-15 and
     2003-11-07), so the date is a choice, and the numbers here are labels, not readings.
     """
-    import polars as pl  # noqa: PLC0415
-
     df = pl.DataFrame({"d": [label]}).select(
         api._parse_climate_date(pl.col("d"), "6_minutes", api._fu_hours("98404004")).alias("t")  # noqa: SLF001
     )
     assert df.get_column("t").to_list() == [utc.replace(tzinfo=UTC)]
+
+
+def test_meteofrance_observation_api_unknown_fu_offset_warns_only_when_rows_come_back(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that a request that returns nothing for a station without a known offset does not warn.
+
+    Department 984 has period files for every decade, so the file of 2020-2024 is read for Port Martin
+    (98404006, open 1950 to 1952) although it holds no row of it.
+    """
+    rows = [{"NUM_POSTE": "98404004", "AAAAMMJJHH": "2021010100", "T": "3.0"}]
+    _serve_climate(monkeypatch, {"HOR_departement_984_periode_2020-2024": _climate_gz("hourly", "core", rows)})
+    with caplog.at_level(logging.WARNING, logger=api.__name__):
+        df = _values("hourly", "core", "temperature_air_2m", "98404006", _utc(2021, 1, 1), _utc(2021, 1, 2))
+    assert df.is_empty()
+    assert "98404006" not in caplog.text
