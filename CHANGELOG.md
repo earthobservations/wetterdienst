@@ -102,7 +102,7 @@ Types of changes:
   instants as before, now with a UTC zone, where an aware bound kept the zone it was given. The
   providers that read a bound's year or date, or format it for the upstream, now do so in UTC
   (GH-2682)
-- The time zone and reference time page (`docs/data/time_reference.md`) no longer lists the
+- The "Time zones and reference times" page (`docs/data/time_reference.md`) no longer lists the
   `dwd/derived` monthly stamp, the `meteoswiss/observation` decade files and the `metno/frost`
   request bounds as deviations from their sources: they were fixed (GH-2679, GH-2680, GH-2681) and
   the notes of their rows state what the code does now (GH-2734)

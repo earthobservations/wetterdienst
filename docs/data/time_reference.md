@@ -27,7 +27,7 @@ defines for that day (06:00 to 06:00 UTC for precipitation is common) and whatev
 in, so that a request for one day (`start` and `end` the same date, which are 00:00 UTC) returns that day's values
 where it is so (GH-2683). A monthly stamp is the first of the month at 00:00 UTC. The notes say where it is not.
 
-Rows with a confirmed deviation from their source link the issue that tracks it, and the only one open is:
+Rows with a confirmed deviation from their source link the issue that tracks it, and the issue is:
 
 - [#2709](https://github.com/earthobservations/wetterdienst/issues/2709): hourly values stamped in MEZ come back one hour late: air temperature of the "MEZ (MD)" periods of 80 East German stations, soil temperature of the eMD periods, and a few other stations whose MEZ label is real
 
