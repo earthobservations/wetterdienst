@@ -30,6 +30,15 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# The daily dataset (klima-v2-1d) writes "none" as -1 in these columns; its metadata says so in each description, e.g.
+# rr: "..., -1=kein Niederschlag, 0=weniger als 1/10 mm" and sh_manu: "..., -1=kein Schnee". The 10-minute, hourly and
+# monthly datasets state no such code. -1 is no gap but a dry day or a day without snow, so it is 0.0 and not null:
+# a null would drop the day from a sum and leave the series with holes. The columns declared by the provider are
+# listed (rr_i and rr_iii carry the same code in the source and are not declared).
+_NONE_IS_MINUS_ONE = {
+    "klima-v2-1d": ("rr", "sh", "sh_manu", "shneu_manu"),
+}
+
 # the year of the end date the station list gives to a station that still reports (2100-12-31)
 _OPEN_END_YEAR = 2100
 
@@ -198,6 +207,15 @@ class GeosphereObservationValues(TimeseriesValues):
             pl.lit(timestamps, dtype=pl.List(pl.String)).alias("timestamp"),
         )
         df = df.explode(["value", "timestamp"], empty_as_null=True)
+        # before the unit conversion, which would take the -1 for an amount of one unit
+        none_coded = _NONE_IS_MINUS_ONE.get(dataset.name_original, ())
+        if none_coded:
+            df = df.with_columns(
+                pl.when(pl.col("parameter").is_in(none_coded) & (pl.col("value") == -1.0))
+                .then(pl.lit(0.0, dtype=pl.Float64))
+                .otherwise(pl.col("value"))
+                .alias("value"),
+            )
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),

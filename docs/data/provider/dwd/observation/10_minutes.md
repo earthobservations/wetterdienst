@@ -135,8 +135,8 @@ Codes (precipitation_indicator_wr):
 
 | name                                | original name | description                                                                                                                                                                                                                                                     | unit | constraints |
 |-------------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|-------------|
-| {term}`wind_gust_max` | fx_10 | Maximum wind gust during the previous 10 minutes. The instrument samples the instantaneous wind speed every 0.25 seconds and writes out the maximum of each 3 second period; the highest occurring within the interval is reported. | m/s | >=0 |
-| {term}`wind_speed_min` | fnx_10 | Minimum 10-minute mean wind speed. The 10-minute interval is moved in 10 s steps over the previous 20 minutes. | m/s | >=0 |
+| {term}`wind_gust_max` | fx_10 | Maximum of wind speed during the previous 10 minutes. | m/s | >=0 |
+| {term}`wind_speed_min` | fnx_10 | Minimum of wind speed during the previous 10 minutes. | m/s | >=0 |
 | {term}`wind_speed_rolling_mean_max` | fmx_10 | Maximum of the wind speed from the 1 minute mean values of the 3-second maxima of the previous 10 minutes. | m/s | >=0 |
 | {term}`wind_direction_gust_max` | dx_10 | Wind direction of the maximum wind speed during the previous 10 minutes. | ° | >=0,<=360 |
 
@@ -155,7 +155,7 @@ Codes (precipitation_indicator_wr):
 
 | name                         | original name | description                                 | unit | constraints |
 |------------------------------|---------------|---------------------------------------------|------|-------------|
-| {term}`precipitation_amount` | rr_st_10 | Precipitation height of the last 10 minutes. | mm | >=0 |
+| {term}`precipitation_amount` | rr_st_10 | Precipitation per 10-minute interval (DWD: "momentaner Niederschlag"). | mm | >=0 |
 
 ### urban_pressure
 
@@ -172,8 +172,8 @@ Codes (precipitation_indicator_wr):
 
 | name                           | original name | description                   | unit | constraints |
 |--------------------------------|---------------|-------------------------------|------|-------------|
-| {term}`pressure_air_sea_level` | pp_st_10 | Pressure reduced to sea level. | hPa | >=0 |
-| {term}`pressure_air_site` | p0_st_10 | Pressure at station height. | hPa | >=0 |
+| {term}`pressure_air_sea_level` | pp_st_10 | Pressure reduced to sea level (Normal Null), instantaneous (DWD: "momentaner Luftdruck Normal Null"). | hPa | >=0 |
+| {term}`pressure_air_site` | p0_st_10 | Pressure at station height, instantaneous (DWD: "momentaner Luftdruck Stationshoehe"). | hPa | >=0 |
 
 ### urban_solar
 
@@ -190,8 +190,8 @@ Codes (precipitation_indicator_wr):
 
 | name                      | original name | description                              | unit  | constraints |
 |---------------------------|---------------|------------------------------------------|-------|-------------|
-| {term}`radiation_global`  | fg_st_10      | 10min-sum of global (incoming) radiation | J/cm² | >=0         |
-| {term}`sunshine_duration` | sd_st_10      | 10min-sum of sunshine duration           | min   | >=0         |
+| {term}`radiation_global`  | fg_st_10      | Global radiation per 10-minute interval (DWD: "momentane Globalstrahlung"). | J/cm² | >=0         |
+| {term}`sunshine_duration` | sd_st_10      | Sunshine duration per 10-minute interval (DWD: "momentane Sonnenscheindauer"). | min   | >=0         |
 
 ### urban_temperature_air
 
@@ -208,10 +208,10 @@ Codes (precipitation_indicator_wr):
 
 | name                                | original name | description                      | unit | constraints |
 |-------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_air_2m`      | tt_st_10 | Air temperature at 2m height. | °C | - |
-| {term}`humidity_relative` | rf_st_10 | Relative humidity at 2m height. | % | >=0,<=100 |
-| {term}`temperature_radiant_2m`      | strahl_st_10 | Radiant temperature at 2m height. | °C | - |
-| {term}`temperature_air_0_05m`      | tt5_st_10 | Air temperature at 5cm height. | °C | - |
+| {term}`temperature_air_2m`      | tt_st_10 | Air temperature at 2 m height, instantaneous (DWD: "momentane Lufttemperatur in 2m Hoehe"). | °C | - |
+| {term}`humidity_relative` | rf_st_10 | Relative humidity at 2 m height, instantaneous (DWD: "momentane rel.Feuchte in 2m Hoehe"). | % | >=0,<=100 |
+| {term}`temperature_radiant_2m`      | strahl_st_10 | Radiant temperature at 2 m height, instantaneous (DWD: "momentane Strahlungstemperatur in 2m Hoehe"). | °C | - |
+| {term}`temperature_air_0_05m`      | tt5_st_10 | Air temperature at 5 cm height, instantaneous (DWD: "momentane Lufttemperatur in 5cm Hoehe"). | °C | - |
 
 ### urban_temperature_extreme
 
@@ -228,9 +228,9 @@ Codes (precipitation_indicator_wr):
 
 | name                              | original name | description                           | unit | constraints |
 |-----------------------------------|---------------|---------------------------------------|------|-------------|
-| {term}`temperature_air_max_2m` | tx_st_10 | Maximum air temperature at 2m height. | °C | - |
-| {term}`temperature_air_min_2m` | tn_st_10 | Minimum air temperature at 2m height. | °C | - |
-| {term}`temperature_air_min_0_05m` | tn5_st_10 | Minimum air temperature at 5cm height. | °C | - |
+| {term}`temperature_air_max_2m` | tx_st_10 | Maximum air temperature at 2 m height (DWD: "momentane maximale Lufttemperatur in 2m Hoehe"). | °C | - |
+| {term}`temperature_air_min_2m` | tn_st_10 | Minimum air temperature at 2 m height (DWD: "momentane minimale Lufttemperatur in 2m Hoehe"). | °C | - |
+| {term}`temperature_air_min_0_05m` | tn5_st_10 | Minimum air temperature at 5 cm height (DWD: "momentane MIN Lufttemperatur in 5cm Hoehe"). | °C | - |
 
 ### urban_temperature_soil
 
@@ -247,10 +247,10 @@ Codes (precipitation_indicator_wr):
 
 | name                               | original name | description                      | unit | constraints |
 |------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_soil_0_1m`      | te_st_01m_10 | Soil temperature in 10 cm depth. | °C | - |
-| {term}`temperature_soil_0_2m`      | te_st_02m_10 | Soil temperature in 20 cm depth. | °C | - |
-| {term}`temperature_soil_0_5m`      | te_st_05m_10 | Soil temperature in 50 cm depth. | °C | - |
-| {term}`temperature_soil_1m`      | te_st_10m_10 | Soil temperature in 100 cm depth. | °C | - |
+| {term}`temperature_soil_0_1m`      | te_st_01m_10 | Soil temperature in 10 cm depth, instantaneous (DWD: "momentane Erdbodentemperatur in 10 cm Tiefe"). | °C | - |
+| {term}`temperature_soil_0_2m`      | te_st_02m_10 | Soil temperature in 20 cm depth, instantaneous (DWD: "momentane Erdbodentemp in 20 cm Tiefe"). | °C | - |
+| {term}`temperature_soil_0_5m`      | te_st_05m_10 | Soil temperature in 50 cm depth, instantaneous (DWD: "momentane Erdbodentemp in 50 cm Tiefe"). | °C | - |
+| {term}`temperature_soil_1m`      | te_st_10m_10 | Soil temperature in 100 cm depth, instantaneous (DWD: "momentane Erdbodentemperatur in 100 cm Tiefe"). | °C | - |
 
 ### urban_wind
 
@@ -267,8 +267,8 @@ Codes (precipitation_indicator_wr):
 
 | name                   | original name | description                                    | unit | constraints |
 |------------------------|---------------|------------------------------------------------|------|-------------|
-| {term}`wind_speed` | ff_st_10 | Mean wind speed during the last 10 minutes. | m/s | >=0 |
-| {term}`wind_direction` | dd_st_10 | Mean wind direction during the last 10 minutes. | ° | >=0,<=360 |
+| {term}`wind_speed` | ff_st_10 | Mean wind speed over 10 minutes, at the sensor height of the station (368 m at Berlin-Alexanderplatz) (DWD: "10Minuten Mittel"). | m/s | >=0 |
+| {term}`wind_direction` | dd_st_10 | Mean wind direction over 10 minutes, at the sensor height of the station (368 m at Berlin-Alexanderplatz) (DWD: "10Minuten Mittel"). | ° | >=0,<=360 |
 
 ### urban_wind_extreme
 
@@ -285,5 +285,5 @@ Codes (precipitation_indicator_wr):
 
 | name                  | original name | description                              | unit | constraints |
 |-----------------------|---------------|------------------------------------------|------|-------------|
-| {term}`wind_gust_max` | fx_st_10 | Maximum wind gust of the last 10 minutes. | m/s | >=0 |
+| {term}`wind_gust_max` | fx_st_10 | Maximum wind per 10-minute interval (DWD: "momentane MaxWind"). | m/s | >=0 |
 
