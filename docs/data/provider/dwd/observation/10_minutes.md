@@ -155,7 +155,7 @@ Codes (precipitation_indicator_wr):
 
 | name                         | original name | description                                 | unit | constraints |
 |------------------------------|---------------|---------------------------------------------|------|-------------|
-| {term}`precipitation_amount` | rr_st_10 | Precipitation (DWD: "momentaner Niederschlag"). | mm | >=0 |
+| {term}`precipitation_amount` | rr_st_10 | Precipitation per 10-minute interval (DWD: "momentaner Niederschlag"). | mm | >=0 |
 
 ### urban_pressure
 
@@ -190,8 +190,8 @@ Codes (precipitation_indicator_wr):
 
 | name                      | original name | description                              | unit  | constraints |
 |---------------------------|---------------|------------------------------------------|-------|-------------|
-| {term}`radiation_global`  | fg_st_10      | Global radiation (DWD: "momentane Globalstrahlung"). | J/cm² | >=0         |
-| {term}`sunshine_duration` | sd_st_10      | Sunshine duration (DWD: "momentane Sonnenscheindauer"). | min   | >=0         |
+| {term}`radiation_global`  | fg_st_10      | Global radiation per 10-minute interval (DWD: "momentane Globalstrahlung"). | J/cm² | >=0         |
+| {term}`sunshine_duration` | sd_st_10      | Sunshine duration per 10-minute interval (DWD: "momentane Sonnenscheindauer"). | min   | >=0         |
 
 ### urban_temperature_air
 
@@ -267,8 +267,8 @@ Codes (precipitation_indicator_wr):
 
 | name                   | original name | description                                    | unit | constraints |
 |------------------------|---------------|------------------------------------------------|------|-------------|
-| {term}`wind_speed` | ff_st_10 | Mean wind speed at 368 m, over 10 minutes (DWD: "10Minuten Mittel"). | m/s | >=0 |
-| {term}`wind_direction` | dd_st_10 | Mean wind direction at 368 m, over 10 minutes (DWD: "10Minuten Mittel"). | ° | >=0,<=360 |
+| {term}`wind_speed` | ff_st_10 | Mean wind speed over 10 minutes, at the sensor height of the station (368 m at Berlin-Alexanderplatz) (DWD: "10Minuten Mittel"). | m/s | >=0 |
+| {term}`wind_direction` | dd_st_10 | Mean wind direction over 10 minutes, at the sensor height of the station (368 m at Berlin-Alexanderplatz) (DWD: "10Minuten Mittel"). | ° | >=0,<=360 |
 
 ### urban_wind_extreme
 

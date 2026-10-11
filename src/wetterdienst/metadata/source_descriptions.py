@@ -561,15 +561,23 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("10_minutes", "temperature_extreme", "tx_10"): (
             "Maximum of air temperature at 2 m height during the last 10 minutes."
         ),
-        ("10_minutes", "urban_precipitation", "rr_st_10"): 'Precipitation (DWD: "momentaner Niederschlag").',
+        (
+            "10_minutes",
+            "urban_precipitation",
+            "rr_st_10",
+        ): 'Precipitation per 10-minute interval (DWD: "momentaner Niederschlag").',
         ("10_minutes", "urban_pressure", "p0_st_10"): (
             'Pressure at station height, instantaneous (DWD: "momentaner Luftdruck Stationshoehe").'
         ),
         ("10_minutes", "urban_pressure", "pp_st_10"): (
             'Pressure reduced to sea level (Normal Null), instantaneous (DWD: "momentaner Luftdruck Normal Null").'
         ),
-        ("10_minutes", "urban_solar", "fg_st_10"): 'Global radiation (DWD: "momentane Globalstrahlung").',
-        ("10_minutes", "urban_solar", "sd_st_10"): 'Sunshine duration (DWD: "momentane Sonnenscheindauer").',
+        ("10_minutes", "urban_solar", "fg_st_10"): (
+            'Global radiation per 10-minute interval (DWD: "momentane Globalstrahlung").'
+        ),
+        ("10_minutes", "urban_solar", "sd_st_10"): (
+            'Sunshine duration per 10-minute interval (DWD: "momentane Sonnenscheindauer").'
+        ),
         ("10_minutes", "urban_temperature_air", "rf_st_10"): (
             'Relative humidity at 2 m height, instantaneous (DWD: "momentane rel.Feuchte in 2m Hoehe").'
         ),
@@ -604,13 +612,17 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             'Soil temperature in 100 cm depth, instantaneous (DWD: "momentane Erdbodentemperatur in 100 cm Tiefe").'
         ),
         ("10_minutes", "urban_wind", "dd_st_10"): (
-            'Mean wind direction at 368 m, over 10 minutes (DWD: "10Minuten Mittel").'
+            "Mean wind direction over 10 minutes, at the sensor height of the station (368 m at "
+            'Berlin-Alexanderplatz) (DWD: "10Minuten Mittel").'
         ),
         (
             "10_minutes",
             "urban_wind",
             "ff_st_10",
-        ): 'Mean wind speed at 368 m, over 10 minutes (DWD: "10Minuten Mittel").',
+        ): (
+            "Mean wind speed over 10 minutes, at the sensor height of the station (368 m at Berlin-Alexanderplatz) "
+            '(DWD: "10Minuten Mittel").'
+        ),
         ("10_minutes", "urban_wind_extreme", "fx_st_10"): 'Maximum wind (DWD: "momentane MaxWind").',
         ("10_minutes", "wind", "dd_10"): "Mean wind direction during the previous 10 minutes.",
         ("10_minutes", "wind", "ff_10"): "Mean wind speed during the previous 10 minutes.",
@@ -730,12 +742,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "climate_summary", "fm"): "Daily mean of wind velocity.",
         ("daily", "climate_summary", "fx"): "Daily maximum of windgust.",
         ("daily", "climate_summary", "nm"): (
-            "Daily mean of cloud cover: the arithmetic mean of at least 21 hourly values, in earlier periods of the 3"
-            " observation terms."
+            "Daily mean of cloud cover: the arithmetic mean of at least 21 hourly values, in earlier periods the mean"
+            " of the observation terms (3 terms at most stations, 4 or 8 at some)."
         ),
         ("daily", "climate_summary", "pm"): (
-            "Daily mean of pressure: the arithmetic mean of at least 21 hourly values, in earlier periods of the 3 "
-            "observation terms."
+            "Daily mean of pressure: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of"
+            " the observation terms (3 terms at most stations, 4 or 8 at some)."
         ),
         ("daily", "climate_summary", "qn_3"): "Quality level of the following columns.",
         ("daily", "climate_summary", "qn_4"): "Quality level of the following columns.",
@@ -745,18 +757,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "climate_summary", "shk_tag"): "Daily snow depth.",
         ("daily", "climate_summary", "tgk"): "Daily minimum of air temperature at 5 cm above ground.",
         ("daily", "climate_summary", "tmk"): (
-            "Daily mean of temperature: the arithmetic mean of at least 21 hourly values, in earlier periods "
-            "TMK=(TT1+TT2+(TT3*2))/4 of the 3 observation terms."
+            "Daily mean of temperature: the arithmetic mean of at least 21 hourly values, in earlier periods the mean"
+            " of the observation terms (3 terms at most stations: TMK=(TT1+TT2+(TT3*2))/4; 4 or 8 at some)."
         ),
         ("daily", "climate_summary", "tnk"): "Daily minimum of temperature at 2m height.",
         ("daily", "climate_summary", "txk"): "Daily maximum of temperature at 2 m height.",
         ("daily", "climate_summary", "upm"): (
-            "Daily mean of relative humidity: the arithmetic mean of at least 21 hourly values, in earlier periods of"
-            " the 3 observation terms."
+            "Daily mean of relative humidity: the arithmetic mean of at least 21 hourly values, in earlier periods "
+            "the mean of the observation terms (3 terms at most stations, 4 or 8 at some)."
         ),
         ("daily", "climate_summary", "vpm"): (
-            "Daily mean of vapor pressure: the arithmetic mean of at least 21 hourly values, in earlier periods of "
-            "the 3 observation terms."
+            "Daily mean of vapor pressure: the arithmetic mean of at least 21 hourly values, in earlier periods the "
+            "mean of the observation terms (3 terms at most stations, 4 or 8 at some)."
         ),
         ("daily", "precipitation_more", "nsh_tag"): "Fresh snow depth.",
         ("daily", "precipitation_more", "rs"): "Daily precipitation height.",
@@ -928,12 +940,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "minute interval ending UTC 10:50 is given."
         ),
         ("hourly", "urban_wind", "windgeschwindigkeit"): (
-            "Mean wind speed at 368 m (Berlin's television tower), the average of the six 10-minute intervals of the "
-            "previous hour (at UTC 11 the average during UTC10-UTC11)."
+            "Mean wind speed, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average "
+            "during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban "
+            "stations have their own sensor heights)."
         ),
         ("hourly", "urban_wind", "windrichtung"): (
-            "Mean wind direction at 368 m (Berlin's television tower), the average of the six 10-minute intervals of "
-            "the previous hour (at UTC 11 the average during UTC10-UTC11)."
+            "Mean wind direction, the average of the six 10-minute intervals of the previous hour (at UTC 11 the "
+            "average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other "
+            "urban stations have their own sensor heights)."
         ),
         ("hourly", "visibility", "v_vv"): "Visibility range.",
         ("hourly", "visibility", "v_vv_i"): (

@@ -368,8 +368,8 @@ Code (precipitation_form):
 
 | name                   | original name       | description         | unit | constraints |
 |------------------------|---------------------|---------------------|------|-------------|
-| {term}`wind_speed` | windgeschwindigkeit | Mean wind speed at 368 m (Berlin's television tower), the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). | m/s | >=0 |
-| {term}`wind_direction` | windrichtung | Mean wind direction at 368 m (Berlin's television tower), the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). | ° | >=0,<=360 |
+| {term}`wind_speed` | windgeschwindigkeit | Mean wind speed, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban stations have their own sensor heights). | m/s | >=0 |
+| {term}`wind_direction` | windrichtung | Mean wind direction, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban stations have their own sensor heights). | ° | >=0,<=360 |
 
 ### visibility
 
