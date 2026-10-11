@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `dmi/observation` daily `precipitation_amount_max` (`max_precip_30m`) is dated by
+  the day it ends on, as DMI defines it ("23:31 local time to the previous day to 24.00 local time
+  of the respective day"), not by the day before; its series moves one day later. Shift stored
+  series of it by one day. The other daily parameters are unchanged (GH-2676)
 - `dwd/derived` monthly values (`heating_degreedays`, `cooling_degreehours_*` and
   `climate_correction_factor`) are stamped with the first day of their month at 00:00 UTC, no
   longer with the request's start including its time of day and offset (`start` of
