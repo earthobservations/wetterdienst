@@ -480,3 +480,79 @@ def test_geosphere_observation_stations_that_still_report_have_no_end(monkeypatc
         "1": None,
         "12": datetime(2012, 5, 31, 23, 59, 59, tzinfo=ZoneInfo("UTC")),
     }
+
+
+def _serve_values(monkeypatch: pytest.MonkeyPatch, series: dict[str, list[float]]) -> None:
+    """Serve the station list and a data response with these series, three days from 2024-01-08."""
+
+    def _download(url: str, **_kwargs: object) -> File:
+        if url.endswith("/metadata/stations"):
+            return File(url=url, content=BytesIO(_STATIONS), status=200)
+        names = parse_qs(urlparse(url).query)["parameters"][0].split(",")
+        body = {
+            "timestamps": ["2024-01-08T00:00+00:00", "2024-01-09T00:00+00:00", "2024-01-10T00:00+00:00"],
+            "features": [{"properties": {"parameters": {name: {"data": series[name]} for name in names}}}],
+        }
+        return File(url=url, content=BytesIO(json.dumps(body).encode()), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)
+
+
+@pytest.mark.parametrize(("unit_targets", "per_cm"), [({}, 1.0), ({"length_short": "meter"}, 0.01)])
+def test_geosphere_observation_daily_none_code_is_zero_not_minus_one(
+    monkeypatch: pytest.MonkeyPatch,
+    unit_targets: dict[str, str],
+    per_cm: float,
+) -> None:
+    """Test that -1 in the daily precipitation and snow columns, the source's "none", is 0.0 (GH-2671).
+
+    The metadata of klima-v2-1d describes ``rr`` as "-1=kein Niederschlag, 0=weniger als 1/10 mm", and
+    ``sh``, ``sh_manu`` and ``shneu_manu`` as "-1=kein Schnee". The number went through as an amount, so
+    that a sum over a month was short by one millimetre for every dry day. A reading and a 0 stay as they are,
+    and so does a minimum temperature of -1 degrees, which is a reading and no code.
+    """
+    series = {
+        "rr": [0.3, -1.0, 0.0],
+        "sh": [-1.0, 5.0, 0.0],
+        "sh_manu": [4.0, -1.0, 2.0],
+        "shneu_manu": [-1.0, 1.0, -1.0],
+        "tlmin": [-1.0, -1.0, 0.5],
+    }
+    _serve_values(monkeypatch, series)
+    request = GeosphereObservationRequest(
+        parameters=[
+            ("daily", "data", "precipitation_amount"),
+            ("daily", "data", "snow_depth"),
+            ("daily", "data", "snow_depth_manual"),
+            ("daily", "data", "snow_depth_new"),
+            ("daily", "data", "temperature_air_min_2m"),
+        ],
+        start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
+        settings=Settings(cache_disable=True, ts_unit_targets=unit_targets),
+    )
+    df = request.filter_by_station_id("4821").values.all().df.sort("parameter", "timestamp")
+    values = {
+        parameter: group.get_column("value").to_list()
+        for (parameter,), group in df.group_by("parameter", maintain_order=True)
+    }
+    assert values["precipitation_amount"] == pytest.approx([0.3, 0.0, 0.0])
+    # the code is gone before the unit conversion, which would turn a -1 into -0.01 meters
+    assert values["snow_depth"] == pytest.approx([0.0, 5.0 * per_cm, 0.0])
+    assert values["snow_depth_manual"] == pytest.approx([4.0 * per_cm, 0.0, 2.0 * per_cm])
+    assert values["snow_depth_new"] == pytest.approx([0.0, 1.0 * per_cm, 0.0])
+    assert values["temperature_air_min_2m"] == pytest.approx([-1.0, -1.0, 0.5])
+
+
+@pytest.mark.synthetic_values  # the -1 is served on purpose, where it would be no reading
+def test_geosphere_observation_none_code_is_a_daily_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the other resolutions are left alone: their metadata states no such code (GH-2671)."""
+    _serve_values(monkeypatch, {"rr": [0.3, -1.0, 0.0]})
+    request = GeosphereObservationRequest(
+        parameters=[("10_minutes", "data", "precipitation_amount")],
+        start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
+        settings=Settings(cache_disable=True),
+    )
+    df = request.filter_by_station_id("4821").values.all().df
+    assert -1.0 in df.get_column("value").to_list()
