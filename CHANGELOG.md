@@ -16,6 +16,27 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `fmi/observation` hourly `ws_10min` and `wd_10min`, FMI's mean wind speed and
+  direction over 10 minutes, are named `wind_speed_last_10min` and `wind_direction_last_10min`, no
+  longer `wind_speed` and `wind_direction`, which are the mean over the row's interval. Request
+  the new names; the old ones are not found in `hourly/data` (logged and dropped, or
+  `NoParametersFoundError` when no other parameter is requested; GH-2644) (GH-2707)
+- **Breaking**: `metno/frost` hourly `wind_speed` and `wind_from_direction`, Frost's mean over the
+  last ten minutes before the observation time, are named `wind_speed_last_10min` and
+  `wind_direction_last_10min`, no longer `wind_speed` and `wind_direction`. Request the new names;
+  `wind_direction` is not found in `hourly/data` (logged and dropped, or `NoParametersFoundError`
+  when no other parameter is requested), and `wind_speed`, which is also Frost's own element name,
+  still selects the row but comes back named `wind_speed_last_10min`. Daily and monthly
+  `wind_speed` are unchanged (GH-2707)
+- **Breaking**: `smhi/observation` hourly parameters `4` and `3`, SMHI's mean wind speed and
+  direction over 10 minutes taken once per hour, are named `wind_speed_last_10min` and
+  `wind_direction_last_10min`, no longer `wind_speed` and `wind_direction`. Request the new names;
+  the old ones are not found in `hourly/data` (logged and dropped, or `NoParametersFoundError`
+  when no other parameter is requested). The 1-minute `wind_speed` and `wind_direction` are
+  unchanged (GH-2707)
+
 ### Fixed
 
 - `meteofrance/synop` `subdaily/data` returns `0.0`, no longer `-0.1`, for
