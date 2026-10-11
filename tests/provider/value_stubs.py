@@ -440,11 +440,11 @@ NO_STUB = {
         "ones of every department up to 1999 and from 2020, and of the overseas and a few mainland ones for 2000 to "
         "2019; the 6 minute ones likewise from 2020 and for 2000 to 2019) have a minimum of 0.0, no negative value "
         "and nothing that is not a number. A trace is a 0.0: RR1 = 0.0 comes with a precipitation duration DRR1 > 0 "
-        "in 414,235 hourly rows of 2020 to 2024. DD and DXY (hourly) and DXI (daily) hold two codes (GH-2720), "
-        "neither in the descriptions: 0, which has no place on a compass 'en rose de 360' where 360 is the north, "
-        "mostly next to FF, FXY or FXI = 0 (99.97 %, 99.9 % and 98.8 %), and 999, as the swell direction DIRHOULE "
-        "writes for 'variable', in six rows of Kerguelen and Nouvelle-Amsterdam, 1965 to 1967. One row lies outside 0 "
-        "to 360 without a code, with a quality code of 1: daily DXI = 400 (31299001, 2007-09-05)."
+        "in 414,235 hourly rows of 2020 to 2024. DD and DXY (hourly) and DXI (daily) hold a code 0, and DD a code 999 "
+        "(GH-2720), neither in the descriptions: 0, which has no place on a compass 'en rose de 360' where 360 is the "
+        "north, mostly next to FF, FXY or FXI = 0 (99.97 %, 99.9 % and 98.8 %), and 999, as the swell direction "
+        "DIRHOULE writes for 'variable', in six rows of Kerguelen and Nouvelle-Amsterdam, 1965 to 1967. One row lies "
+        "outside 0 to 360 without a code, with a quality code of 1: daily DXI = 400 (31299001, 2007-09-05)."
     ),
     "meteoswiss/observation": "no stub yet",
     "metno/frost": "needs an API key; the -1 and -3 rules are pinned by tests/provider/metno, which run with a key",

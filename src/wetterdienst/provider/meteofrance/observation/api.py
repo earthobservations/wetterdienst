@@ -612,10 +612,10 @@ _CLIMATE_SCHEMAS = {
 # météorologique" in the field descriptions of the dataset: no amount, where the unit conversion would make 1.125 of it
 _HOURLY_SKY_INVISIBLE = 9.0
 
-# The wind directions are "en rose de 360", north being 360, and the files write 0 where there is no direction: next
-# to FF = 0 (a calm wind) in 99.97 % of the 11.2 million zeros of DD, next to FXY = 0 in 99.9 % of those of DXY and next
-# to FXI = 0 in 98.8 % of those of the daily DXI. They write 999, as the swell direction DIRHOULE does for "variable",
-# in six hourly DD of 1965 to 1967 (Kerguelen, Nouvelle-Amsterdam). Neither is a direction (GH-2720).
+# The wind directions are "en rose de 360", north being 360, and the files audited (GH-2720) write 0 where there is no
+# direction: next to FF = 0 in 99.97 % of the 11.2 million zeros of DD, next to FXY = 0 in 99.9 % of those of DXY and
+# next to FXI = 0 in 98.8 % of those of the daily DXI. They write 999, as the swell direction DIRHOULE does for
+# "variable", in six hourly DD of 1965 to 1967 (Kerguelen, Nouvelle-Amsterdam). Neither is a direction.
 _HOURLY_WIND_DIRECTIONS = ("DD", "DXY")
 _DAILY_WIND_DIRECTIONS = ("DXI",)
 _NO_WIND_DIRECTION = (0.0, 999.0)

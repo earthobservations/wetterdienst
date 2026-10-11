@@ -1857,7 +1857,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "MeteoFranceObservationMetadata": {
         ("6_minutes", "data", "RR"): "Precipitation amount over 6 minutes.",
         ("daily", "core", "DXI"): (
-            "Direction of FXI, on the 360 degree compass. The source's 0 (a calm wind) and 999 (variable) are null."
+            "Direction of FXI, on the 360 degree compass. "
+            "The source's 0 (mostly a calm wind) and 999 (probably variable) are null."
         ),
         ("daily", "core", "FFM"): "Daily mean of the wind force averaged over 10 minutes, at 10 m.",
         ("daily", "core", "FXI"): "Daily maximum of the hourly maximum instantaneous wind force, at 10 m.",
@@ -1879,10 +1880,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "others", "TSVM"): "Mean vapour pressure.",
         ("daily", "others", "UM"): "Daily mean of the hourly relative humidities.",
         ("hourly", "core", "DD"): (
-            "Direction of FF, on the 360 degree compass. The source's 0 (a calm wind) and 999 (variable) are null."
+            "Direction of FF, on the 360 degree compass. "
+            "The source's 0 (mostly a calm wind) and 999 (probably variable) are null."
         ),
         ("hourly", "core", "DXY"): (
-            "Direction of FXY, on the 360 degree compass. The source's 0 (a calm wind) and 999 (variable) are null."
+            "Direction of FXY, on the 360 degree compass. "
+            "The source's 0 (mostly a calm wind) and 999 (probably variable) are null."
         ),
         ("hourly", "core", "FF"): "Wind force averaged over 10 minutes, measured at 10 m.",
         ("hourly", "core", "FXY"): "Maximum value of FF within the hour.",
