@@ -104,9 +104,9 @@ class NoaaGhcnValues(TimeseriesValues):
         # a wind direction is 0 to 360 degrees ("000" is calm, per the documentation), yet the older
         # reports write 999, mostly with the measurement code C (calm) but also on an hour with a wind
         # speed of 4.1 m/s: no direction was given (GH-2672). The documentation names -9999 as the
-        # missing value of the precipitation columns (none seen in the files read so far)
+        # missing value of the precipitation value, which is the column "precipitation" (none seen so far)
         sentinel = (pl.col("parameter").eq("wind_direction") & pl.col("value").eq(GHCNH_WIND_DIRECTION_MISSING)) | (
-            pl.col("parameter").str.starts_with("precipitation") & pl.col("value").eq(GHCNH_PRECIPITATION_MISSING)
+            pl.col("parameter").eq("precipitation") & pl.col("value").eq(GHCNH_PRECIPITATION_MISSING)
         )
         return df.with_columns(pl.when(sentinel).then(None).otherwise(pl.col("value")).alias("value"))
 
