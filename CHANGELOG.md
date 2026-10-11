@@ -18,8 +18,8 @@ Types of changes:
 
 ### Fixed
 
-- `eccc/observation` a `daily` or `monthly` request for one day or month on the first day of a
-  station no longer skips the station: its `start_timestamp` and `end_timestamp` in the station
+- `eccc/observation` a `daily` request for the first day of a station, or a `monthly` one for its
+  first month, no longer skips the station: its `start_timestamp` and `end_timestamp` in the station
   list are now 00:00 UTC of the first and last date (of the month for `monthly`), like the values,
   where they were the local time moved to UTC (13:00 UTC for 09:00 in Toronto). `hourly` is
   unchanged (GH-2730)

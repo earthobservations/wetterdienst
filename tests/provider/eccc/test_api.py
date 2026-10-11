@@ -482,7 +482,8 @@ def test_eccc_request_for_the_first_or_last_day_of_a_station_is_not_skipped(
 
     The station list gives FIRST_DATE as 09:00 on the first day, local time, which is hours after 00:00 UTC. A request
     for that one day ends at 00:00 UTC, so the station read as starting after the window and was skipped, though it has
-    a value stamped at 00:00 UTC of the day.
+    a value stamped at 00:00 UTC of the day. The last-day cases were never skipped, as only the start is read; they
+    pin that.
     """
     _serve_eccc(monkeypatch, rows)
     request = EcccObservationRequest(
@@ -525,6 +526,28 @@ def test_eccc_station_list_dates_are_stamped_like_the_values(
         settings=settings_convert_units_false,
     ).filter_by_station_id("51459")
     assert request.df.select("start_timestamp", "end_timestamp").rows() == [(start, end)]
+
+
+def test_eccc_years_of_a_request_without_dates_follow_the_row_of_each_resolution(
+    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
+) -> None:
+    """Test that each resolution takes its years from its own first and last date when a request names no dates.
+
+    The station ends at 22:00 on 31 December 2014 in EST, which is 2015-01-01 03:00 UTC: the hourly rows, stamped from
+    UTC_DATE, reach into 2015 while the daily ones end in 2014. Both were read from the first row of the station, that
+    of whichever resolution was requested first (GH-2730).
+    """
+    station = _TORONTO_STATION | {"FIRST_DATE": "2013-12-31 21:00:00", "LAST_DATE": "2014-12-31 22:00:00"}
+    urls = _serve_eccc(monkeypatch, [], station)
+    EcccObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m"), ("hourly", "data", "temperature_air_2m")],
+        settings=settings_convert_units_false,
+    ).filter_by_station_id("51459").values.all()
+    assert [url.split("UTC_YEAR=")[1].split("&")[0] for url in urls if "climate-hourly" in url] == [
+        "2014",
+        "2015",
+    ]
+    assert [url.split("datetime=")[1][:4] for url in urls if "climate-daily" in url] == ["2013", "2014"]
 
 
 def test_eccc_daily_year_window_is_the_calendar_year_of_local_date(

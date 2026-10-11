@@ -108,7 +108,6 @@ class EcccObservationValues(TimeseriesValues):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.stations.settings)
-        station_meta = self.sr.df.filter(pl.col("station_id") == station_id).to_dicts()[0]
         # Normalize parameter_or_dataset to a DatasetModel for uniform access below.
         from wetterdienst.model.metadata import DatasetModel as _DatasetModel  # noqa: PLC0415
 
@@ -116,6 +115,13 @@ class EcccObservationValues(TimeseriesValues):
             dataset = parameter_or_dataset
         else:
             dataset = parameter_or_dataset.dataset
+        # The row of this resolution and dataset: the first and last date differ between resolutions (GH-2730), and the
+        # first row of the station is the one of whichever resolution was requested first.
+        station_meta = self.sr.df.filter(
+            (pl.col("station_id") == station_id)
+            & (pl.col("resolution") == dataset.resolution.name)
+            & (pl.col("dataset") == dataset.name)
+        ).to_dicts()[0]
         # Derived from the declarations rather than hard-coded: the three lists used to be
         # maintained by hand and the hourly one had drifted to a copy of the daily fields, none of
         # which the hourly collection publishes, so the resolution returned nothing. Built once
@@ -329,8 +335,7 @@ class EcccObservationRequest(TimeseriesRequest):
         df_raw = df_raw.with_columns(
             pl.col("timezone").replace_strict(self._timezone_mapping, default=pl.col("timezone")),
         )
-        # parse start_timestamp and end_timestamp to datetime with timezone from timezone column
-        # First parse as naive datetime, then convert to proper timezone per row
+        # parse start_timestamp and end_timestamp as naive local datetimes; `_stamp_bounds` stamps them per resolution
         df_raw = df_raw.with_columns(
             pl.col("station_id").cast(pl.String),
             pl.col("start_timestamp").str.to_datetime("%Y-%m-%d %H:%M:%S"),
