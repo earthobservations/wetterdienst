@@ -35,6 +35,14 @@ _SYNOP_STATIONS_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/syn
 # earliest year for which a yearly archive is published
 _SYNOP_ARCHIVE_START_YEAR = 1996
 
+# codes the source writes in place of a number (GH-2674); the file defines neither, they are read off the data:
+# `-0.1` in the precipitation columns is a trace (WMO element 013011 has a reference value of -1 at scale 1), some rain
+# below what the gauge reports, so it is 0.0 rather than a negative amount; `101` in `n` is outside the classes 0 to
+# 100 and comes with a visibility of metres and a cloud base class 9, the sky was obscured, so there is no amount
+_SYNOP_TRACE_COLUMNS = ("rr1", "rr3", "rr6", "rr12", "rr24")
+_SYNOP_TRACE = -0.1
+_SYNOP_SKY_OBSCURED = 101.0
+
 # explicit schema of the exact columns published by the source, read as strings throughout since
 # many columns are entirely empty for a given station or year, which would otherwise lead to
 # inconsistent dtype inference (e.g. an all-null column inferred as Boolean in one year and
@@ -172,9 +180,20 @@ class MeteoFranceSynopValues(TimeseriesValues):
             .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", strict=False)
             .dt.replace_time_zone("UTC")
             .alias("timestamp"),
-            pl.col("value").cast(pl.Float64, strict=False),
+            _map_codes(pl.col("parameter"), pl.col("value").cast(pl.Float64, strict=False)).alias("value"),
             pl.lit(None, pl.Float64).alias("quality"),
         )
+
+
+def _map_codes(parameter: pl.Expr, value: pl.Expr) -> pl.Expr:
+    """Map the codes the source writes for a trace of rain and for an obscured sky, before the unit conversion."""
+    return (
+        pl.when(parameter.is_in(_SYNOP_TRACE_COLUMNS) & value.eq(_SYNOP_TRACE))
+        .then(pl.lit(0.0))
+        .when(parameter.eq("n") & value.eq(_SYNOP_SKY_OBSCURED))
+        .then(pl.lit(None, pl.Float64))
+        .otherwise(value)
+    )
 
 
 @dataclass

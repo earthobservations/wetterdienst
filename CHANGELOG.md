@@ -18,6 +18,13 @@ Types of changes:
 
 ### Fixed
 
+- `meteofrance/synop` `subdaily/data` returns `0.0`, no longer `-0.1`, for
+  `precipitation_amount_last_1h`, `_3h`, `_6h`, `_12h` and `_24h` in hours with a trace of rain, so
+  a sum over a period is no longer short by a tenth of a millimetre per trace, and null, no longer
+  `1.01`, for `cloud_cover_total` when the sky was obscured (`n = 101`) (GH-2674)
+- `meteofrance/observation` `hourly/others` `cloud_cover_total` is null, no longer `1.125`, in the
+  hours in which the sky was invisible (`N = 9`), so a mean or a maximum over a period is no longer
+  pulled past a whole sky; null values are dropped by default (GH-2687)
 - `metno/frost` sends the bounds of a request to Frost as UTC. They went out as the wall clock of
   whatever zone they were held in, which Frost reads as UTC, so a request in `Europe/Oslo` asked
   for a window one or two hours off and lost rows at one end (GH-2681)

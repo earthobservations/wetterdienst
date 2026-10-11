@@ -407,7 +407,6 @@ STUBS = [
         _meteofrance_synop,
         reading=("precipitation_amount_last_1h", 0.4),
         sentinels=(("precipitation_amount_last_6h", -0.1), ("cloud_cover_total", 1.01)),
-        leak="#2674",
     ),
 ]
 
@@ -433,7 +432,7 @@ NO_STUB = {
     "imgw/meteorology": "no stub yet; its reader reads the status columns 8 and 9",
     "knmi/observation": "needs an API key; the NaN and -1 rules are pinned by tests/provider/knmi",
     "lhmt/observation": "no sentinel: the source writes null",
-    "meteofrance/observation": "no stub yet",
+    "meteofrance/observation": "no stub yet; its hourly reader nulls N = 9, pinned by tests/provider/meteofrance",
     "meteoswiss/observation": "no stub yet",
     "metno/frost": "needs an API key; the -1 and -3 rules are pinned by tests/provider/metno, which run with a key",
     "metoffice/observation": "needs an API key; no offline test pins its NA rule",

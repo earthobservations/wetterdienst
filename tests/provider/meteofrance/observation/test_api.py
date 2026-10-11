@@ -340,6 +340,27 @@ def test_meteofrance_observation_api_daily_and_monthly_overseas_keep_their_date(
     assert df.get_column("value").to_list() == [85.2]
 
 
+def test_meteofrance_observation_api_hourly_invisible_sky_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that N=9, the sky invisible, has no cloud cover and not 9/8, where the octas 0 to 8 keep theirs (GH-2687).
+
+    The field descriptions of the dataset define N as "9=ciel invisible par brouillard et/ou autre phénomène
+    météorologique". The rows are those of station 31069001 at 2025-06-03 04:00 to 07:00 UTC (N=7, 9, 9, 8),
+    and a clear hour before.
+    """
+    latest = [
+        {"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025060300", "N": "0"},
+        {"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025060304", "N": "7"},
+        {"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025060305", "N": "9"},
+        {"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025060306", "N": "9"},
+        {"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025060307", "N": "8"},
+    ]
+    files = {"HOR_departement_31_periode_2025-2026": _climate_gz("hourly", "others", latest)}
+    _serve_climate(monkeypatch, files)
+    df = _values("hourly", "others", "cloud_cover_total", "31069001", _utc(2025, 6, 3), _utc(2025, 6, 4))
+    assert df.get_column("timestamp").to_list() == [_utc(2025, 6, 3, 0), _utc(2025, 6, 3, 4), _utc(2025, 6, 3, 7)]
+    assert df.get_column("value").to_list() == [0.0, 0.875, 1.0]
+
+
 def test_meteofrance_observation_api_hourly_metropole_is_utc(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a metropolitan station, whose stamps are UTC as published, is not converted."""
     latest = [{"NUM_POSTE": "31011001", "AAAAMMJJHH": "2025010100", "T": "-1.8"}]
