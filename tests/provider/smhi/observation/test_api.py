@@ -156,6 +156,6 @@ def test_smhi_observation_values_minute_1() -> None:
 
     assert -60.0 <= latest("temperature_air_2m") <= 60.0
     assert 0.0 <= latest("humidity_relative") <= 1.0
-    assert 0 <= latest("wind_direction_last_10min") <= 360
-    assert 0.0 <= latest("wind_speed_last_10min") <= 100.0
+    assert 0 <= latest("wind_direction") <= 360
+    assert 0.0 <= latest("wind_speed") <= 100.0
     assert 800 < latest("pressure_air_sea_level") < 1100
