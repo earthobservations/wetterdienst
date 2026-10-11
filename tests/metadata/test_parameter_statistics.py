@@ -220,9 +220,11 @@ _COARSE_RESOLUTIONS = {"daily", "monthly", "annual"}
 # a mean or an average, in a description ("hourly mean", "Average ...") or in the source's field name
 # (`temp_dry_shelter_avg`, `mean_temp`, where `_` separates words); "mean sea level" is not one
 _MEAN_WORD = re.compile(r"(?<![a-z])(?:mean(?!(?:\s+|_)sea(?![a-z]))|averag\w*|avg)(?![a-z])", re.IGNORECASE)
-# a mean over a stated number of minutes: KNMI "1 Min Mean", FMI "Mean over 1 minute"
+# a mean over a stated number of minutes: KNMI "1 Min Mean", FMI "Mean over 1 minute", and DWD's urban
+# hourly sheets, which give the mean value of the 1 minute interval ending ten minutes before the hour
 _MEAN_WINDOW = re.compile(
-    r"(?<![\d.])(\d+)[ -]?min(?:ute)?s?\b[ -]*(?:mean|average)|\b(?:mean|average) over (\d+)[ -]?min(?:ute)?s?\b",
+    r"(?<![\d.])(\d+)[ -]?min(?:ute)?s?\b[ -]*(?:mean|average)|\b(?:mean|average) over (\d+)[ -]?min(?:ute)?s?\b"
+    r"|\b(?:mean|average) value of the (\d+)[ -]?min(?:ute)?s? interval\b",
     re.IGNORECASE,
 )
 # the minutes a value of the resolution covers, for the resolutions that are a fixed number of them
@@ -251,7 +253,7 @@ def _states_a_mean(evidence: str, resolution: str) -> bool:
         return False
     interval = _INTERVAL_MINUTES.get(resolution)
     for match in _MEAN_WINDOW.finditer(evidence):
-        if interval is not None and int(match.group(1) or match.group(2)) < interval:
+        if interval is not None and int(match.group(1) or match.group(2) or match.group(3)) < interval:
             return False
     return True
 
@@ -357,6 +359,8 @@ def test_the_regexes_for_a_spot_value_read_the_sources_wording() -> None:
         ("Air temperature. Mean over 1 minute.", "hourly"),
         ("Air Temperature 1 Min Mean", "10_minutes"),
         ("Air temperature. Mean over 1 minute.", "subdaily"),
+        # DWD urban hourly: the mean of the 1 minute interval ending ten minutes before the hour
+        ("2m air temperature, at UTC 11 the mean value of the 1 minute interval ending UTC 10:50", "hourly"),
         ("Dew Point Temperature 1 Min Mean", "10_minutes"),
         # a mean that is not a statistic of the value
         ("Air pressure reduced to mean sea level", "hourly"),
