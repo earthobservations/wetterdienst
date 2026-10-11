@@ -242,7 +242,7 @@ def test_aemet_observation_values_hourly_realtime() -> None:
     assert 0.0 <= latest("humidity_relative") <= 1.0
     # unlike the daily endpoint's coded 0-36 direction, real-time direction is already in
     # plain degrees — this would fail if the daily parser's *10 scaling was wrongly reused.
-    assert 0 <= latest("wind_direction") <= 360
+    assert 0 <= latest("wind_direction_last_10min") <= 360
     assert 800 < latest("pressure_air_site") < 1100
 
 

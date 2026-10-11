@@ -127,7 +127,7 @@
 | {term}`count_weather_type_storm_stormier_wind` | ja_sturm_8 | Count of days with storm (stormier wind) of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_thunder` | ja_gewitter | Count of days with thunder of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_glaze` | ja_glatteis | Count of days with glaze of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_sleet` | ja_graupel | Number of days with graupel in the year. | - | >=0 |
+| {term}`count_weather_type_graupel` | ja_graupel | Number of days with graupel in the year. | - | >=0 |
 | {term}`count_weather_type_hail` | ja_hagel | Count of days with hail of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_fog` | ja_nebel | Count of days with fog of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_dew` | ja_tau | Count of days with dew of stations in Germany. | - | >=0 |
