@@ -9,7 +9,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import IO, TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
@@ -613,17 +613,84 @@ def _department_from_station_id(station_id: str) -> str:
     return station_id[:3] if station_id[:2] in ("97", "98") else station_id[:2]
 
 
-def _parse_climate_date(date_column: pl.Expr, resolution_name: str) -> pl.Expr:
+# Météo-France: "Les heures sont exprimées en UTC pour la métropole et en FU pour l'outre-mer"
+# (the description of the 6-minute, hourly, daily and monthly datasets on data.gouv.fr). FU is
+# not defined in any file, so the offsets below were measured (GH-2677): the hourly temperature of
+# each overseas station that has a SYNOP station on the same site is the SYNOP one (UTC) at one
+# lag only, which is FU - UTC. It is a fixed offset without daylight saving, and not always the
+# territory's legal time (Saint-Pierre-et-Miquelon is -4 h, Crozet +4 h, Dumont d'Urville +9 h).
+# The evidence per department is in docs/data/time_reference.md.
+# department -> hours east of UTC; 984 (TAAF and the Îles Éparses) spans several zones and is
+# set per station in _FU_HOURS_BY_STATION
+_FU_HOURS_BY_DEPARTMENT = {
+    "971": -4,  # Guadeloupe
+    "972": -4,  # Martinique
+    "973": -3,  # Guyane
+    "974": 4,  # La Réunion
+    "975": -4,  # Saint-Pierre-et-Miquelon
+    "985": 3,  # Mayotte
+    "986": 12,  # Wallis-et-Futuna
+    "987": -10,  # Polynésie française, including the Marquesas (UTC-9:30) and the Gambier (UTC-9)
+    "988": 11,  # Nouvelle-Calédonie
+}
+# (label time up to which it holds or None, hours east of UTC) pairs, the last one without an end
+_FuHours = tuple[tuple[datetime | None, int], ...]
+_FU_HOURS_BY_STATION: dict[str, _FuHours] = {
+    "98403001": ((None, 3),),  # Glorieuses
+    "98403002": ((None, 3),),  # Juan de Nova
+    "98403003": ((None, 3),),  # Europa
+    "98403004": ((None, 4),),  # Tromelin
+    "98404001": ((None, 5),),  # Kerguelen
+    "98404002": ((None, 5),),  # Nouvelle-Amsterdam
+    "98404003": ((None, 9),),  # Dumont d'Urville
+    # +5 h up to 2003-09-15 and +4 h from 2003-11-07 on, the last and first days at which the SYNOP
+    # archive has a reading of Crozet to compare with; the day of the switch in between is not known
+    # and set to the 1st of October, so the stamps of those weeks may be an hour off
+    "98404004": ((datetime(2003, 10, 1), 5), (None, 4)),  # noqa: DTZ001 (compared with the stamp as published); Crozet
+}
+# The date of a daily or monthly file is a calendar date, which stays the date of the day or month
+# it names like every daily stamp; only the 6-minute and hourly stamps are instants of the day
+_FU_CONVERTED_RESOLUTIONS = frozenset(["6_minutes", "hourly"])
+
+
+def _fu_hours(station_id: str) -> _FuHours | None:
+    """Get the offsets of FU from UTC of a station in hours as (label time up to which, hours) pairs.
+
+    None for a station of metropolitan France (UTC) and for an overseas station without a
+    measured offset, which is then returned as published, as before.
+    """
+    department = _department_from_station_id(station_id)
+    if department in _FU_HOURS_BY_DEPARTMENT:
+        return ((None, _FU_HOURS_BY_DEPARTMENT[department]),)
+    return _FU_HOURS_BY_STATION.get(station_id)
+
+
+def _parse_climate_date(
+    date_column: pl.Expr,
+    resolution_name: str,
+    fu_hours: _FuHours | None = None,
+) -> pl.Expr:
     """Parse a resolution's raw date column into a UTC datetime.
+
+    A daily or monthly date of an overseas station stays the FU date, labelled 00:00 UTC.
 
     polars' strptime requires a minute whenever an hour is present in the format string, but
     "hourly"'s AAAAMMJJHH has no minute component, so it's padded in before parsing.
+
+    The stamps of an overseas station come in FU rather than UTC; given its offsets (_fu_hours),
+    the 6-minute and hourly ones (_FU_CONVERTED_RESOLUTIONS) are converted.
     """
     date_format = _CLIMATE_DATE_FORMATS[resolution_name]
     if resolution_name == "hourly":
         date_column = date_column + "00"
         date_format += "%M"
-    return date_column.str.to_datetime(date_format, strict=False).dt.replace_time_zone("UTC")
+    label = date_column.str.to_datetime(date_format, strict=False)
+    if fu_hours and resolution_name in _FU_CONVERTED_RESOLUTIONS:
+        offset = pl.duration(hours=fu_hours[-1][1])
+        for until, hours in reversed(fu_hours[:-1]):
+            offset = pl.when(label < until).then(pl.duration(hours=hours)).otherwise(offset)
+        label = label - offset
+    return label.dt.replace_time_zone("UTC")
 
 
 def _get_climate_resources(resolution_name: str, settings: Settings) -> list[dict]:
@@ -680,15 +747,27 @@ def _resource_cache_ttl(resource: dict) -> CacheExpiry:
     return CacheExpiry.FIVE_MINUTES if _resource_max_year(resource) >= current_year - 1 else CacheExpiry.INFINITE
 
 
-def _resource_overlaps_request(resource: dict, start_date: datetime | None, end_date: datetime | None) -> bool:
+def _resource_overlaps_request(
+    resource: dict,
+    start_date: datetime | None,
+    end_date: datetime | None,
+    fu_hours: _FuHours | None = None,
+) -> bool:
     """Check whether a period-bucket resource can contain any data within the requested range.
 
     Météo-France's climatological archives shard each department into a handful of multi-decade
     period buckets (e.g. one alone can decompress to 100+ MB); skipping buckets that clearly fall
     outside the requested date range avoids downloading/parsing them at all.
+
+    The buckets are cut by the year of the stamp as published, which for an overseas station is
+    FU. The requested UTC range is therefore moved to FU first, or the hours around New Year that
+    FU puts in the other year would be looked for in the wrong bucket.
     """
     if start_date is None or end_date is None:
         return True
+    if fu_hours:
+        start_date = start_date + timedelta(hours=min(hours for _, hours in fu_hours))
+        end_date = end_date + timedelta(hours=max(hours for _, hours in fu_hours))
     min_year, max_year = _resource_year_range(resource)
     return max_year >= start_date.year and min_year <= end_date.year
 
@@ -791,7 +870,12 @@ class MeteoFranceObservationValues(TimeseriesValues):
         matches = _match_department_resources(resources, prefix, suffix)
         # a department's period buckets can each decompress to 100+ MB; skip any that clearly
         # fall outside the requested date range instead of downloading/parsing them regardless
-        matches = [resource for resource in matches if _resource_overlaps_request(resource, self.sr.start, self.sr.end)]
+        fu_hours = _fu_hours(station_id) if resolution_name in _FU_CONVERTED_RESOLUTIONS else None
+        matches = [
+            resource
+            for resource in matches
+            if _resource_overlaps_request(resource, self.sr.start, self.sr.end, fu_hours)
+        ]
         if not matches:
             return pl.DataFrame()
         schema = _CLIMATE_SCHEMAS[resolution_name, dataset.name]
@@ -819,6 +903,8 @@ class MeteoFranceObservationValues(TimeseriesValues):
                 dfs.append(df)
         if not dfs:
             return pl.DataFrame()
+        if resolution_name in _FU_CONVERTED_RESOLUTIONS and fu_hours is None and department.startswith(("97", "98")):
+            log.warning(f"No offset of FU from UTC is known for station {station_id}; its stamps are not converted.")
         df = pl.concat(dfs, how="diagonal")
         df = df.unpivot(
             on=parameter_columns,
@@ -834,7 +920,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
             # using an exact, case-sensitive comparison against parameter.name_original
             pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            _parse_climate_date(pl.col(date_column), resolution_name).alias("timestamp"),
+            _parse_climate_date(pl.col(date_column), resolution_name, fu_hours).alias("timestamp"),
             pl.col("value").cast(pl.Float64, strict=False),
             pl.lit(None, pl.Float64).alias("quality"),
         )
