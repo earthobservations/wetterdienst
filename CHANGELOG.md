@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.145.0] - 2026-10-11
+
 ### Changed
 
 - **Breaking**: Python 3.10 is no longer supported; `wetterdienst` requires Python 3.11 or newer.
@@ -4377,7 +4379,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.144.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.145.0...HEAD
+[0.145.0]: https://github.com/earthobservations/wetterdienst/compare/v0.144.0...v0.145.0
 [0.144.0]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...v0.144.0
 [0.143.0]: https://github.com/earthobservations/wetterdienst/compare/v0.142.0...v0.143.0
 [0.142.0]: https://github.com/earthobservations/wetterdienst/compare/v0.141.0...v0.142.0
