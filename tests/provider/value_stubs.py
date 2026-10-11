@@ -370,7 +370,6 @@ STUBS = [
             ("temperature_dew_point_2m", -99.9),
             ("temperature_wet_2m", -99.9),
         ),
-        leak="#2669",
     ),
     ValueStub(
         "dwd/observation hourly/wind",

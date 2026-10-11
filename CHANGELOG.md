@@ -109,6 +109,11 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/observation` `hourly/moisture` no longer returns `-99.9` (and `-0.999` for
+  `humidity_relative`) in the hours DWD has no reading for: its files write that instead of the
+  documented `-999` in `humidity_absolute`, `pressure_vapor`, `temperature_wet_2m`,
+  `humidity_relative` and `temperature_dew_point_2m`; it is now null, so means and minima over
+  these series are no longer pulled down (GH-2669)
 - Writing a NetCDF file no longer fails with `ValueError: unrecognized engine for to_netcdf:
   'netCDF4'` where `netCDF4` is installed and `h5netcdf` is not: the engine is named as xarray
   names it, `netcdf4` (GH-2666)

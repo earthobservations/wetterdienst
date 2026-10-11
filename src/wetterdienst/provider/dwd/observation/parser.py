@@ -80,6 +80,18 @@ CLOUD_COVER_PARAMETERS = {
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer3.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer4.name_original,
 }
+# The hourly moisture dataset documents `missing value = -999`, but its files write -99.9 for the five
+# moisture columns in every hour without a reading (station 14006, 2025-01-05 01:00; station 03735,
+# 1949-01-28 06:00), while `P_STD` and `TT_STD` beside them stay real. -99.9 is outside the physical
+# range of all five. Only this dataset: the other hourly and subdaily datasets sampled do not use it.
+MOISTURE_MISSING = -99.9
+MOISTURE_MISSING_PARAMETERS = {
+    DwdObservationMetadata.hourly.moisture.humidity_absolute.name_original,
+    DwdObservationMetadata.hourly.moisture.pressure_vapor.name_original,
+    DwdObservationMetadata.hourly.moisture.temperature_wet_2m.name_original,
+    DwdObservationMetadata.hourly.moisture.humidity_relative.name_original,
+    DwdObservationMetadata.hourly.moisture.temperature_dew_point_2m.name_original,
+}
 CODED_STRING_PARAMETERS = {
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_measurement_method.name_original,
     DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
@@ -213,6 +225,15 @@ def _parse_climate_observations_data(  # noqa: C901
     df = df.with_columns(
         pl.col(parameter).replace(SKY_OBSCURED, None) for parameter in sorted(CLOUD_COVER_PARAMETERS & columns)
     )
+    if dataset == DwdObservationMetadata.hourly.moisture:
+        # compared as a number, so that it holds whether the column was read as text or as Float64
+        df = df.with_columns(
+            pl.when(pl.col(parameter).cast(pl.Float64, strict=False) == MOISTURE_MISSING)
+            .then(None)
+            .otherwise(pl.col(parameter))
+            .alias(parameter)
+            for parameter in sorted(MOISTURE_MISSING_PARAMETERS & columns)
+        )
     if TRUE_LOCAL_TIME in columns:
         df = df.with_columns(
             pl.struct("mess_datum", TRUE_LOCAL_TIME)
