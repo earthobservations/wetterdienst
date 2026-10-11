@@ -76,6 +76,7 @@ _STATION_VALUE_SCHEMA = pl.Schema(
                         {
                             "parameterId": pl.String,
                             "from": pl.String,
+                            "to": pl.String,
                             "value": pl.Float64,
                         }
                     ),
@@ -121,7 +122,7 @@ class DmiObservationValues(TimeseriesValues):
 
     @staticmethod
     def _date_expression(resolution: Resolution) -> pl.Expr:
-        """Build the ``timestamp`` column expression from DMI's ``from`` timestamp.
+        """Build the ``timestamp`` column expression from DMI's ``from`` and ``to`` timestamps.
 
         DMI labels each aggregate by the start of its period. Hourly data is aligned to UTC
         (``from`` carries a ``+00:00`` offset), so it is parsed and normalised to UTC directly.
@@ -131,6 +132,11 @@ class DmiObservationValues(TimeseriesValues):
         independent and therefore correct for Danish, Greenlandic and Faroese stations alike
         -- and stamped at UTC midnight of that civil date, matching the codebase convention
         of expressing nominal calendar dates as UTC.
+
+        A daily value is dated by its ``to`` instead: ``to`` is the end of the day (the next
+        civil midnight, or 06:00 UTC for Greenland and the Faroe Islands), so the day is the
+        date before it. ``from`` of ``max_precip_30m`` is 23:31 of the previous day, which
+        would name the previous day.
         """
         if resolution == Resolution.HOURLY:
             # %.f tolerates an optional fractional-seconds part: hourly `from` is observed at
@@ -139,9 +145,12 @@ class DmiObservationValues(TimeseriesValues):
             return pl.col("from").str.to_datetime("%Y-%m-%dT%H:%M:%S%.f%z", time_unit="us").dt.convert_time_zone("UTC")
         year = pl.col("from").str.slice(0, 4).cast(pl.Int32)
         if resolution == Resolution.DAILY:
-            month = pl.col("from").str.slice(5, 2).cast(pl.Int32)
-            day = pl.col("from").str.slice(8, 2).cast(pl.Int32)
-            local = pl.date(year, month, day)
+            end = pl.date(
+                pl.col("to").str.slice(0, 4).cast(pl.Int32),
+                pl.col("to").str.slice(5, 2).cast(pl.Int32),
+                pl.col("to").str.slice(8, 2).cast(pl.Int32),
+            )
+            local = end - pl.duration(days=1)
         elif resolution == Resolution.MONTHLY:
             month = pl.col("from").str.slice(5, 2).cast(pl.Int32)
             local = pl.date(year, month, 1)

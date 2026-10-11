@@ -9,6 +9,7 @@ import logging
 import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
+from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -26,6 +27,8 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+_UTC = ZoneInfo("UTC")
 
 
 class MeteoswissObservationValues(TimeseriesValues):
@@ -260,7 +263,9 @@ class MeteoswissObservationValues(TimeseriesValues):
         if not decade_match:
             return True
         decade_start, decade_end = int(decade_match.group(1)), int(decade_match.group(2))
-        return decade_end >= start_date.year and decade_start <= end_date.year
+        # the decades are decades of UTC time stamps, so the bounds' years are those of the same instants in UTC
+        start_year, end_year = start_date.astimezone(_UTC).year, end_date.astimezone(_UTC).year
+        return decade_end >= start_year and decade_start <= end_year
 
     def _collect_station_parameter_or_dataset(
         self,
