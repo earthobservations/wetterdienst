@@ -80,7 +80,8 @@ def test_meteofrance_synop_api_trace_of_precipitation_is_zero(monkeypatch: pytes
 def test_meteofrance_synop_api_obscured_sky_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that n=101 has no cloud cover, where a class of 0 to 100 percent keeps its value (GH-2674).
 
-    The raw row is that of CHASSIRON at 2024-01-03T06:00Z in synop_2024.csv.gz (n=101, nbas=9, vv=900).
+    The last row is that of CHASSIRON at 2024-01-03T06:00Z in synop_2024.csv.gz (n=101, nbas=9, vv=900), moved
+    to 07005 at 09:00; the others are classes of the clear to the overcast sky.
     """
     rows = [
         {"geo_id_wmo": "07005", "validity_time": "2024-01-01T00:00:00Z", "n": "0"},
