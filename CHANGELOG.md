@@ -21,8 +21,9 @@ Types of changes:
 - `dwd/derived` monthly values (`heating_degreedays`, `cooling_degreehours_*` and
   `climate_correction_factor`) are stamped with the first day of their month at 00:00 UTC, no
   longer with the request's start including its time of day and offset (`start` of
-  `2025-01-01T00:00+01:00` stamped January as 2025-01-31 23:00 UTC). The months fetched are the
-  UTC months of `start` and `end`, and only stamps within them are returned (GH-2679)
+  `2025-01-01T00:00+01:00` stamped January as 2025-01-31 23:00 UTC). The UTC months of `start` and
+  `end` are fetched, and a month is returned only if its first day at 00:00 UTC lies within
+  `start` and `end`, so a `start` of `2025-01-01T06:30` no longer returns January (GH-2679)
 
 ## [0.145.0] - 2026-10-11
 
