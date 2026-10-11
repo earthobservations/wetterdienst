@@ -110,6 +110,10 @@ Types of changes:
   `metno/frost` hourly wind an instant: `wind_speed_last_10min` and `wind_direction_last_10min`
   are Frost's mean over the ten minutes before the stamp, so the stamp ends their window
   (GH-2736)
+- The "Time zones and reference times" page (`docs/data/time_reference.md`) no longer files the
+  10-minute wind mean as an instant: `dwd/poi` hourly wind is "end for wind: the mean of the last
+  10 minutes before the stamp", as AEMET's already was, and `meteofrance` hourly and synop wind say
+  that their source does not state which end of the 10 minutes the stamp is (GH-2738)
 
 ## [0.145.0] - 2026-10-11
 
