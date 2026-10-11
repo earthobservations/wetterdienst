@@ -535,7 +535,7 @@ def test_eccc_years_of_a_request_without_dates_follow_the_row_of_each_resolution
 
     The station ends at 22:00 on 31 December 2014 in EST, which is 2015-01-01 03:00 UTC: the hourly rows, stamped from
     UTC_DATE, reach into 2015 while the daily ones end in 2014. Both were read from the first row of the station, that
-    of whichever resolution was requested first (GH-2730).
+    of whichever resolution comes first, not necessarily the one fetched (GH-2730).
     """
     station = _TORONTO_STATION | {"FIRST_DATE": "2013-12-31 21:00:00", "LAST_DATE": "2014-12-31 22:00:00"}
     urls = _serve_eccc(monkeypatch, [], station)

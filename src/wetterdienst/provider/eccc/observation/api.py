@@ -116,7 +116,7 @@ class EcccObservationValues(TimeseriesValues):
         else:
             dataset = parameter_or_dataset.dataset
         # The row of this resolution and dataset: the first and last date differ between resolutions (GH-2730), and the
-        # first row of the station is the one of whichever resolution was requested first.
+        # first row of the station belongs to whichever resolution comes first, not necessarily this one.
         station_meta = self.sr.df.filter(
             (pl.col("station_id") == station_id)
             & (pl.col("resolution") == dataset.resolution.name)
