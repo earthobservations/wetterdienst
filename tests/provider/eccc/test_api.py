@@ -56,7 +56,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
     request = EcccObservationRequest(
         parameters=[("daily", "data")],
         start="1979-11-02",
-        end="1979-11-03",
+        end="1979-11-02",
         settings=settings_convert_units_false,
     ).filter_by_station_id(station_id=("2",))
     given_df = request.values.all().df
@@ -67,7 +67,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "cooling_degree_day",
-                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
                 "quality": None,
             },
@@ -76,7 +76,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "heating_degree_day",
-                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 11.7,
                 "quality": None,
             },
@@ -85,7 +85,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "precipitation_amount",
-                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 1.0,
                 "quality": None,
             },
@@ -94,7 +94,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "precipitation_amount_liquid",
-                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 1.0,
                 "quality": None,
             },
@@ -103,7 +103,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "snow_depth_new",
-                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
                 "quality": None,
             },
@@ -112,7 +112,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_max_2m",
-                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 9.5,
                 "quality": None,
             },
@@ -121,7 +121,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_mean_2m",
-                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 6.3,
                 "quality": None,
             },
@@ -130,7 +130,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_min_2m",
-                "timestamp": dt.datetime(1979, 11, 2, 8, 0, tzinfo=ZoneInfo(key="UTC")),
+                "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 3.0,
                 "quality": None,
             },
@@ -270,6 +270,11 @@ _TORONTO_STATION = {
 }
 
 
+def _as_instant(local_date: str) -> str:
+    """Give a LOCAL_DATE of a monthly row ("2025-06") as the first instant of the month, as the API compares it."""
+    return f"{local_date}-01 00:00:00" if len(local_date) == 7 else local_date
+
+
 def _serve_eccc(
     monkeypatch: pytest.MonkeyPatch, collection_properties: list[dict], station: dict | None = None
 ) -> list[str]:
@@ -290,7 +295,8 @@ def _serve_eccc(
             properties = [p for p in properties if p["UTC_DATE"].startswith(query["UTC_YEAR"])]
         if "datetime" in query:
             first, last = (value.replace("T", " ") for value in query["datetime"].split("/"))
-            properties = [p for p in properties if first <= p["LOCAL_DATE"] <= last]
+            # a month is dated "2025-06", its first instant
+            properties = [p for p in properties if first <= _as_instant(p["LOCAL_DATE"]) <= last]
         if "climate-stations" in url:
             properties = [station or _TORONTO_STATION]
         content = json.dumps({"features": [{"type": "Feature", "properties": p} for p in properties]})
@@ -352,21 +358,55 @@ def test_eccc_hourly_is_stamped_at_the_instant_of_utc_date(
     assert df.get_column("timestamp").diff().drop_nulls().unique().to_list() == [dt.timedelta(hours=1)]
 
 
-def test_eccc_daily_stays_at_local_civil_midnight(
+# Rows of Toronto Intl A (STN_ID 51459) as api.weather.gc.ca/collections/climate-daily returns them: LOCAL_DATE is the
+# calendar date at 00:00:00, MEAN_TEMPERATURE the day's mean.
+_TORONTO_DAILY_ROWS = [
+    ("2025-01-15 00:00:00", -7.5),  # winter, civil time is EST (UTC-5)
+    ("2025-03-09 00:00:00", 2.1),  # the day the civil clock springs forward
+    ("2025-04-09 00:00:00", -0.3),  # summer time, EDT (UTC-4)
+    ("2025-07-01 00:00:00", 24.9),
+    ("2025-11-02 00:00:00", 4.6),  # the day the civil clock falls back
+]
+
+
+def _daily_rows() -> list[dict]:
+    return [
+        {"LOCAL_DATE": local, "MEAN_TEMPERATURE": value, "MEAN_TEMPERATURE_FLAG": None}
+        for local, value in _TORONTO_DAILY_ROWS
+    ]
+
+
+@pytest.mark.parametrize(
+    ("local", "expected"),
+    _TORONTO_DAILY_ROWS,
+    ids=["winter", "spring-forward", "summer-april", "summer-july", "fall-back"],
+)
+def test_eccc_daily_is_stamped_at_00_utc_of_its_date(
+    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings, local: str, expected: float
+) -> None:
+    """Test that a daily value is stamped at 00:00 UTC of the date, so a request for that one day returns it.
+
+    LOCAL_DATE is a calendar date. It was read as the station's civil midnight (05:00 UTC in winter, 04:00 UTC in
+    summer), and a request with start=end=day, bounded at 00:00 UTC, returned nothing for it (GH-2683).
+    """
+    _serve_eccc(monkeypatch, _daily_rows())
+    day = local[:10]
+    request = EcccObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start=day,
+        end=day,
+        settings=settings_convert_units_false,
+    )
+    df = request.filter_by_station_id("51459").values.all().df
+    midnight = dt.datetime.fromisoformat(day).replace(tzinfo=ZoneInfo("UTC"))
+    assert df.select("timestamp", "value").rows() == [(midnight, expected)]
+
+
+def test_eccc_daily_values_of_a_year_are_all_stamped_at_00_utc(
     monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
 ) -> None:
-    """Test that daily values are still stamped at the station's civil midnight in UTC.
-
-    The hourly stamps come from UTC_DATE (GH-2675); the daily collection shares the reader but its
-    LOCAL_DATE is a calendar date, so it is localised as before: 05:00 UTC in winter, 04:00 in summer.
-    """
-    _serve_eccc(
-        monkeypatch,
-        [
-            {"LOCAL_DATE": "2025-01-15 00:00:00", "MEAN_TEMPERATURE": -7.5, "MEAN_TEMPERATURE_FLAG": None},
-            {"LOCAL_DATE": "2025-07-01 00:00:00", "MEAN_TEMPERATURE": 24.9, "MEAN_TEMPERATURE_FLAG": None},
-        ],
-    )
+    """Test that every daily value of a year is at 00:00 UTC, whichever side of a clock change it lies on."""
+    _serve_eccc(monkeypatch, _daily_rows())
     request = EcccObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
         start=dt.datetime(2025, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -374,10 +414,48 @@ def test_eccc_daily_stays_at_local_civil_midnight(
         settings=settings_convert_units_false,
     )
     df = request.filter_by_station_id("51459").values.all().df.sort("timestamp")
-    assert df.select("timestamp", "value").rows() == [
-        (dt.datetime(2025, 1, 15, 5, tzinfo=ZoneInfo("UTC")), -7.5),
-        (dt.datetime(2025, 7, 1, 4, tzinfo=ZoneInfo("UTC")), 24.9),
+    assert df.get_column("timestamp").to_list() == [
+        dt.datetime.fromisoformat(local).replace(tzinfo=ZoneInfo("UTC")) for local, _ in _TORONTO_DAILY_ROWS
     ]
+
+
+@pytest.mark.parametrize("month", ["2025-01", "2025-06"], ids=["winter", "summer"])
+def test_eccc_monthly_is_stamped_at_00_utc_of_the_first_of_the_month(
+    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings, month: str
+) -> None:
+    """Test that a month is stamped at 00:00 UTC of its first day, which a request for that day returns (GH-2683)."""
+    _serve_eccc(
+        monkeypatch,
+        [
+            {"LOCAL_DATE": "2025-01", "MEAN_TEMPERATURE": -5.4, "MEAN_TEMPERATURE_FLAG": None},
+            {"LOCAL_DATE": "2025-06", "MEAN_TEMPERATURE": 20.9, "MEAN_TEMPERATURE_FLAG": None},
+        ],
+    )
+    request = EcccObservationRequest(
+        parameters=[("monthly", "data", "temperature_air_mean_2m")],
+        start=f"{month}-01",
+        end=f"{month}-01",
+        settings=settings_convert_units_false,
+    )
+    df = request.filter_by_station_id("51459").values.all().df
+    assert df.get_column("timestamp").to_list() == [
+        dt.datetime.fromisoformat(f"{month}-01").replace(tzinfo=ZoneInfo("UTC"))
+    ]
+
+
+def test_eccc_daily_year_window_is_the_calendar_year_of_local_date(
+    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
+) -> None:
+    """Test that the rows of a year are asked for as the calendar year of LOCAL_DATE, not a window moved by the zone."""
+    urls = _serve_eccc(monkeypatch, _daily_rows())
+    EcccObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start="2025-01-15",
+        end="2025-01-15",
+        settings=settings_convert_units_false,
+    ).filter_by_station_id("51459").values.all()
+    windows = [url.split("datetime=")[1].split("&")[0] for url in urls if "climate-daily" in url]
+    assert windows == ["2025-01-01T00:00:00/2025-12-31T23:59:59"]
 
 
 def test_eccc_hourly_year_window_follows_utc_date_not_the_civil_zone(

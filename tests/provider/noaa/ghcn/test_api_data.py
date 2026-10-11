@@ -43,7 +43,7 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
                 "resolution": "daily",
                 "dataset": "data",
                 "parameter": "temperature_air_mean_2m",
-                "timestamp": dt.datetime(2021, 1, 1, 23, tzinfo=ZoneInfo("UTC")),
+                "timestamp": dt.datetime(2021, 1, 2, tzinfo=ZoneInfo("UTC")),
                 "value": 3.7,
                 "quality": None,
             },
@@ -60,7 +60,7 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
         orient="row",
     )
     assert_frame_equal(
-        given_df.filter(pl.col("timestamp").eq(dt.datetime(2021, 1, 1, 23, tzinfo=ZoneInfo("UTC")))),
+        given_df.filter(pl.col("timestamp").eq(dt.datetime(2021, 1, 2, tzinfo=ZoneInfo("UTC")))),
         expected_df,
     )
 

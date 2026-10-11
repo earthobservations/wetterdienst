@@ -13,7 +13,7 @@ from urllib.parse import urlencode
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.resolution import count_readings
+from wetterdienst.metadata.resolution import Resolution, count_readings
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
     ParameterModel,
@@ -147,6 +147,9 @@ _READINGS_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 # the endpoint reports its timestamps without a zone and they are read as UTC below. A day either
 # side keeps that assumption from costing the edges of the window, which the caller trims anyway.
 _READINGS_MARGIN = dt.timedelta(days=1)
+# a daily value of the day D covers the 24 h from D 09:00 to D+1 09:00 and is dated inside them, so the readings of
+# the last day of a window are dated up to 09:00 of the day after the window's end (GH-2683)
+_DAILY_DAY_START = dt.timedelta(hours=9)
 
 
 class EAHydrologyValues(TimeseriesValues):
@@ -161,6 +164,8 @@ class EAHydrologyValues(TimeseriesValues):
             return url
         start_date = self.sr.start - _READINGS_MARGIN
         end_date = self.sr.end + _READINGS_MARGIN
+        if parameter.dataset.resolution.value == Resolution.DAILY:
+            end_date += _DAILY_DAY_START
         query: dict[str, str | int] = {
             "mineq-dateTime": start_date.strftime(_READINGS_DATETIME_FORMAT),
             "maxeq-dateTime": end_date.strftime(_READINGS_DATETIME_FORMAT),
@@ -248,6 +253,7 @@ class EAHydrologyValues(TimeseriesValues):
                             "dateTime": pl.String,
                             "value": pl.Float64,
                             "quality": pl.String,
+                            "completeness": pl.String,
                         },
                     ),
                 ),
@@ -255,12 +261,35 @@ class EAHydrologyValues(TimeseriesValues):
         )
         df = df.explode("items", empty_as_null=True)
         df = df.select(pl.col("items").struct.unnest())
+        timestamp = pl.col("dateTime").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC")
+        if parameter_or_dataset.dataset.resolution.value == Resolution.DAILY:
+            # A daily value covers the 24 h from 09:00 of the day D it names to 09:00 of D+1. The mean is dated at
+            # D 09:00, but the maximum and minimum are dated at the instant of the extreme inside that window, and
+            # so are filed under D by taking the day from 9 hours earlier. It is stamped at 00:00 UTC of D, which a
+            # request for that one day reaches (GH-2683).
+            timestamp = (timestamp - _DAILY_DAY_START).dt.truncate("1d")
+            # The endpoint sometimes answers a window twice, with an unchecked or incomplete reading (or a null with
+            # the quality Missing) beside the complete one, and the two have the same stamp now. The one with a value
+            # is kept, then the complete one, then the one of quality Good, and of equal standing the later one.
+            df = (
+                df.with_columns(timestamp.alias("day"))
+                .sort(
+                    "day",
+                    pl.col("value").is_null(),
+                    pl.col("completeness").ne("Complete").fill_null(value=True),
+                    pl.col("quality").ne("Good").fill_null(value=True),
+                    "dateTime",
+                    descending=[False, False, False, False, True],
+                )
+                .unique(subset="day", keep="first", maintain_order=True)
+            )
+            timestamp = pl.col("day")
         return df.select(
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             pl.lit(parameter_or_dataset.name_original).alias("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("dateTime").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC").alias("timestamp"),
+            timestamp.alias("timestamp"),
             pl.col("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )

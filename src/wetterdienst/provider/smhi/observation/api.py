@@ -132,6 +132,12 @@ class SmhiObservationValues(TimeseriesValues):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         df = pl.concat(frames)
+        if parameter.dataset.resolution.value == Resolution.DAILY:
+            # A daily value is stamped at 00:00 UTC of the day it names. Snow depth is the one daily file with a
+            # 'Tid (UTC)' column, '06:00:00' for "momentanvärde, 1 gång/dygn, kl 06" (an instantaneous value once a
+            # day at 06), and so came at 06:00 UTC besides the others at 00:00, which a request for that one day
+            # dropped (GH-2683). The reading of 06:00 UTC on a date belongs to that date.
+            df = df.with_columns(pl.col("timestamp").dt.truncate("1d"))
         # when periods overlap by design (corrected-archive/latest-months), keep one row per
         # timestamp. corrected-archive is the finalized quality-controlled version and is
         # fetched (and appended) first, so keep="first" prefers it over the still-under-QC

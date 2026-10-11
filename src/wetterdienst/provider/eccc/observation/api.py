@@ -86,7 +86,7 @@ class EcccObservationValues(TimeseriesValues):
         )
 
     @staticmethod
-    def _year_window(year: int, station_tz: str, *, hourly: bool) -> str:
+    def _year_window(year: int, *, hourly: bool) -> str:
         """Return the query parameter that selects a year of a station's rows."""
         if hourly:
             # The year of UTC_DATE, which is what the rows are stamped with. A `datetime` window filters
@@ -95,21 +95,9 @@ class EcccObservationValues(TimeseriesValues):
             # states for the station, such as 50837 FORT ST. JOHN A, whose TIMEZONE is PST (-8) while
             # tzfpy has Dawson Creek (-7).
             return f"UTC_YEAR={year}"
-        # shamefully (almost just) copied from meteostat/meteostat
-        # source: https://github.com/meteostat/meteostat/blob/a5fd7970e41cd0e76a4cc5a1cb4e2cc2caea9c86/meteostat/providers/eccc/hourly.py#L58C1-L67C6
-        # start with buffer
-        start = (
-            (dt.datetime(year, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")))
-            .astimezone(ZoneInfo(station_tz))
-            .strftime("%Y-%m-%dT%H:%M:%S")
-        )
-        # end with buffer
-        end = (
-            (dt.datetime(year, 12, 31, 23, 59, 59, tzinfo=ZoneInfo("UTC")))
-            .astimezone(ZoneInfo(station_tz))
-            .strftime("%Y-%m-%dT%H:%M:%S")
-        )
-        return f"datetime={start}/{end}"
+        # Daily and monthly rows carry a calendar date or month in LOCAL_DATE, and the stamp is that date at 00:00 UTC
+        # whatever the station's zone (GH-2683), so the year is cut from LOCAL_DATE as it is written.
+        return f"datetime={year}-01-01T00:00:00/{year}-12-31T23:59:59"
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -121,7 +109,6 @@ class EcccObservationValues(TimeseriesValues):
 
         settings = cast("Settings", self.sr.stations.settings)
         station_meta = self.sr.df.filter(pl.col("station_id") == station_id).to_dicts()[0]
-        station_tz = self._get_timezone_from_station(station_id)
         # Normalize parameter_or_dataset to a DatasetModel for uniform access below.
         from wetterdienst.model.metadata import DatasetModel as _DatasetModel  # noqa: PLC0415
 
@@ -157,7 +144,7 @@ class EcccObservationValues(TimeseriesValues):
         start_year = self.sr.start.year if self.sr.start else station_meta["start_timestamp"].year
         end_year = self.sr.end.year if self.sr.end else station_meta["end_timestamp"].year
         for year in range(start_year, end_year + 1):
-            window = self._year_window(year, station_tz, hourly=hourly)
+            window = self._year_window(year, hourly=hourly)
             # The endpoint pages at 500 features and a station-year of hourly data is ~8800, so a
             # single request returns an arbitrary slice of the year and silently drops the rest.
             # Page until a short page comes back.
@@ -222,12 +209,13 @@ class EcccObservationValues(TimeseriesValues):
                 # "2025-07-01T16:00:00", already UTC
                 timestamp = pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M:%S", time_zone="UTC")
             else:
+                # a calendar date (daily "2025-01-15 00:00:00") or month (monthly "2023-06"), stamped at 00:00 UTC of it
+                # whatever the station's zone: the date names the day or month, which is no instant of the local
+                # clock, and a request for that one day bounds the window at 00:00 UTC (GH-2683)
                 timestamp = (
                     pl.col("date")
-                    # monthly publishes "2023-06", daily a full timestamp
                     .str.to_datetime("%Y-%m" if dataset.resolution.value == Resolution.MONTHLY else "%Y-%m-%d %H:%M:%S")
-                    .dt.replace_time_zone(station_tz, ambiguous="earliest", non_existent="null")
-                    .dt.convert_time_zone("UTC")
+                    .dt.replace_time_zone("UTC")
                 )
             df = df.select(
                 pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),

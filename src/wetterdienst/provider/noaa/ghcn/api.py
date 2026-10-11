@@ -162,20 +162,11 @@ class NoaaGhcnValues(TimeseriesValues):
             pl.col("value").str.strip_chars().cast(float),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )
-        # Here comes a bit of magic ;)
-        # Because we deal with stations (and timezones, sigh...) around the world, all kinds of problems await us
-        # with the local timezones if we try to parse midnight (00:00) as a local time.
-        # What do we do instead?
-        # - We parse the date as 1.) UTC and 2.) as the local timezone of the station.
-        # - We calculate the UTC offset of the local timezone.
-        # - We subtract the UTC offset from the date.
-        # The result will be a datetime in UTC with the correct offset to local midnight time.
-        time_zone = self._get_timezone_from_station(station_id)
-        df = df.with_columns(
-            pl.col("timestamp").cast(pl.Datetime(time_zone="UTC")).alias("timestamp"),
-            pl.col("timestamp").cast(pl.Datetime(time_zone=time_zone)).dt.base_utc_offset().alias("utc_offset"),
-        )
-        df = df.with_columns(pl.col("timestamp").sub(pl.col("utc_offset")).cast(pl.Datetime(time_zone="UTC")))
+        # A daily value is stamped at 00:00 UTC of the date the file gives it, whichever time zone the station is in.
+        # The date is the station's own observing day, which the readme gives no zone for, and a stamp shifted by the
+        # station's offset (Tokyo 15:00 UTC the day before) was dropped by a request for that one day, whose bounds
+        # are 00:00 UTC (GH-2683).
+        df = df.with_columns(pl.col("timestamp").cast(pl.Datetime(time_zone="UTC")))
         df = self._apply_daily_factors(df)
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
