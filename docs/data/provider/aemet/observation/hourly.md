@@ -24,9 +24,9 @@ observations (typically the last ~24h) it currently holds for the station.
 | {term}`temperature_air_min_2m` | tamin | Minimum air temperature, the lowest of the 60 instantaneous 'ta' values measured in the 60 minutes preceding the observation time 'fint' (degrees Celsius). | degree_celsius |
 | {term}`temperature_dew_point_2m` | tpr | Calculated dew point temperature at the time given by 'fint' (degrees Celsius). | degree_celsius |
 | {term}`precipitation_amount` | prec | Accumulated precipitation measured by the rain gauge during the 60 minutes preceding the observation time 'fint' (mm, equivalent to l/m2). | millimeter |
-| {term}`wind_direction` | dv | Mean wind direction over the 10 minutes preceding the time given by 'fint' (degrees). | degree |
+| {term}`wind_direction_last_10min` | dv | Mean wind direction over the 10 minutes preceding the time given by 'fint' (degrees). | degree |
 | {term}`wind_direction_gust_max` | dmax | Direction of the maximum wind recorded in the 60 minutes preceding the time given by 'fint' (degrees). | degree |
-| {term}`wind_speed` | vv | Mean wind speed, the scalar mean of the samples taken every 0.25 or 1 second over the 10 minutes preceding 'fint' (m/s). | meter_per_second |
+| {term}`wind_speed_last_10min` | vv | Mean wind speed, the scalar mean of the samples taken every 0.25 or 1 second over the 10 minutes preceding 'fint' (m/s). | meter_per_second |
 | {term}`wind_gust_max` | vmax | Maximum wind speed, the highest wind sustained for 3 seconds recorded in the 60 minutes preceding the observation time 'fint' (m/s). | meter_per_second |
 | {term}`pressure_air_site` | pres | Instantaneous pressure at the level where the barometer is installed, at the time given by 'fint' (hPa). | hectopascal |
 | {term}`pressure_air_sea_level` | pres_nmar | Pressure reduced to sea level, for stations at an altitude of 750 metres or less, at the time given by 'fint' (hPa). | hectopascal |

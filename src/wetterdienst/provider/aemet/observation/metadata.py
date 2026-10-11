@@ -106,7 +106,7 @@ AemetObservationMetadata = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_last_10min",
                             "name_original": "dv",
                             "unit": "degree",
                         },
@@ -116,7 +116,7 @@ AemetObservationMetadata = {
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_last_10min",
                             "name_original": "vv",
                             "unit": "meter_per_second",
                         },
