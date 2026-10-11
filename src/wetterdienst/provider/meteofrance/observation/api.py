@@ -612,6 +612,14 @@ _CLIMATE_SCHEMAS = {
 # météorologique" in the field descriptions of the dataset: no amount, where the unit conversion would make 1.125 of it
 _HOURLY_SKY_INVISIBLE = 9.0
 
+# The wind directions are "en rose de 360", north being 360, and the files audited (GH-2720) write 0 where there is no
+# direction: next to FF = 0 in 99.97 % of the 11.2 million zeros of DD, next to FXY = 0 in 99.9 % of those of DXY and
+# next to FXI = 0 in 98.8 % of those of the daily DXI. They write 999, as the swell direction DIRHOULE does for
+# "variable", in six hourly DD of 1965 to 1967 (Kerguelen, Nouvelle-Amsterdam). Neither is a direction.
+_HOURLY_WIND_DIRECTIONS = ("DD", "DXY")
+_DAILY_WIND_DIRECTIONS = ("DXI",)
+_NO_WIND_DIRECTION = (0.0, 999.0)
+
 
 def _department_from_station_id(station_id: str) -> str:
     """Get the French department code from an 8-digit NUM_POSTE station id."""
@@ -934,10 +942,16 @@ class MeteoFranceObservationValues(TimeseriesValues):
 
 
 def _map_codes(parameter: pl.Expr, value: pl.Expr, resolution_name: str) -> pl.Expr:
-    """Map the codes the source writes in place of a number to null, before the unit conversion (GH-2687)."""
+    """Map the codes the source writes in place of a number to null, before the unit conversion (GH-2687, GH-2720)."""
     if resolution_name == "hourly":
+        invisible_sky = parameter.eq("N") & value.eq(_HOURLY_SKY_INVISIBLE)
+        no_direction = parameter.is_in(_HOURLY_WIND_DIRECTIONS) & value.is_in(_NO_WIND_DIRECTION)
+        return pl.when(invisible_sky | no_direction).then(pl.lit(None, pl.Float64)).otherwise(value)
+    if resolution_name == "daily":
         return (
-            pl.when(parameter.eq("N") & value.eq(_HOURLY_SKY_INVISIBLE)).then(pl.lit(None, pl.Float64)).otherwise(value)
+            pl.when(parameter.is_in(_DAILY_WIND_DIRECTIONS) & value.is_in(_NO_WIND_DIRECTION))
+            .then(pl.lit(None, pl.Float64))
+            .otherwise(value)
         )
     return value
 
