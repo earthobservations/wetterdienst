@@ -167,12 +167,12 @@ MeteoFranceObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_last_10min",
                             "name_original": "FF",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_last_10min",
                             "name_original": "DD",
                             "unit": "degree",
                         },
