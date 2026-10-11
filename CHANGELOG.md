@@ -107,10 +107,9 @@ Types of changes:
   request bounds as deviations from their sources: they were fixed (GH-2679, GH-2680, GH-2681) and
   the notes of their rows state what the code does now (GH-2734)
 - The "Time zones and reference times" page (`docs/data/time_reference.md`) no longer files the
-  10-minute wind mean as an instant: `dwd/poi` and AEMET hourly wind are "end for wind: the mean of
-  the last 10 minutes before the stamp", and `dwd/observation` wind_synoptic, `meteofrance`
-  (observation hourly and synop) and SMHI say that their source does not state which end of the
-  10 minutes the stamp is (GH-2738)
+  10-minute wind mean as an instant: `dwd/poi` hourly wind is "end for wind: the mean of the last
+  10 minutes before the stamp", as AEMET's already was, and `meteofrance` hourly and synop wind say
+  that their source does not state which end of the 10 minutes the stamp is (GH-2738)
 
 ## [0.145.0] - 2026-10-11
 
