@@ -513,9 +513,10 @@ def test_geosphere_observation_daily_none_code_is_zero_not_minus_one(
     """
     series = {
         "rr": [0.3, -1.0, 0.0],
-        "sh": [-1.0, 5.0, 0.0],
-        "sh_manu": [4.0, -1.0, 2.0],
-        "shneu_manu": [-1.0, 1.0, -1.0],
+        # the source writes the code of the snow columns as the integer -1
+        "sh": [-1, 5.0, 0.0],
+        "sh_manu": [4.0, -1, 2.0],
+        "shneu_manu": [-1, 1.0, -1],
         "tlmin": [-1.0, -1.0, 0.5],
     }
     _serve_values(monkeypatch, series)
@@ -545,11 +546,25 @@ def test_geosphere_observation_daily_none_code_is_zero_not_minus_one(
 
 
 @pytest.mark.synthetic_values  # the -1 is served on purpose, where it would be no reading
-def test_geosphere_observation_none_code_is_a_daily_one(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    ("resolution", "parameter", "original"),
+    [
+        ("10_minutes", "precipitation_amount", "rr"),
+        ("hourly", "precipitation_amount", "rr"),
+        ("monthly", "precipitation_amount", "rr"),
+        ("monthly", "snow_depth_new", "shneu_manu"),
+    ],
+)
+def test_geosphere_observation_none_code_is_a_daily_one(
+    monkeypatch: pytest.MonkeyPatch,
+    resolution: str,
+    parameter: str,
+    original: str,
+) -> None:
     """Test that the other resolutions are left alone: their metadata states no such code (GH-2671)."""
-    _serve_values(monkeypatch, {"rr": [0.3, -1.0, 0.0]})
+    _serve_values(monkeypatch, {original: [0.3, -1.0, 0.0]})
     request = GeosphereObservationRequest(
-        parameters=[("10_minutes", "data", "precipitation_amount")],
+        parameters=[(resolution, "data", parameter)],
         start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
         end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
         settings=Settings(cache_disable=True),

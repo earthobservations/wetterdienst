@@ -133,8 +133,7 @@ Types of changes:
 - `geosphere/observation` daily `precipitation_amount`, `snow_depth`, `snow_depth_manual` and
   `snow_depth_new` are 0.0 on a day without precipitation or snow, no longer -1.0: the source's
   `-1=kein Niederschlag` / `-1=kein Schnee`. A sum of precipitation over a month was short by one
-  millimetre for every dry day. The code is mapped before the unit conversion; it is not null, so
-  a dry day stays in a sum. The other resolutions are unchanged (GH-2671)
+  millimetre for every dry day. The other resolutions are unchanged (GH-2671)
 - `noaa/ghcn` hourly stations `RUU71-00102` (CHABAROWKA) and `RUU71-00113` (IRKUTSK) have no
   position, where the list puts them at latitudes of 135.117 and 104.367, off the globe, with
   latitude and longitude swapped; the hourly list drops any position outside latitude +-90 or

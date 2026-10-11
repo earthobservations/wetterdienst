@@ -209,12 +209,13 @@ class GeosphereObservationValues(TimeseriesValues):
         df = df.explode(["value", "timestamp"], empty_as_null=True)
         # before the unit conversion, which would take the -1 for an amount of one unit
         none_coded = _NONE_IS_MINUS_ONE.get(dataset.name_original, ())
-        df = df.with_columns(
-            pl.when(pl.col("parameter").is_in(none_coded) & (pl.col("value") == -1.0))
-            .then(pl.lit(0.0, dtype=pl.Float64))
-            .otherwise(pl.col("value"))
-            .alias("value"),
-        )
+        if none_coded:
+            df = df.with_columns(
+                pl.when(pl.col("parameter").is_in(none_coded) & (pl.col("value") == -1.0))
+                .then(pl.lit(0.0, dtype=pl.Float64))
+                .otherwise(pl.col("value"))
+                .alias("value"),
+            )
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
