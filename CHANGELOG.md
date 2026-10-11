@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `meteoswiss/observation` picks the decade files of the 10-minute and hourly historical data by
+  the UTC year of the request bounds, as the time stamps are in UTC, where it took the year as
+  written: a request in a local zone near New Year, such as `2010-01-01T00:30:00+02:00`, returned
+  no rows (GH-2680)
+
 ## [0.145.0] - 2026-10-11
 
 ### Changed
