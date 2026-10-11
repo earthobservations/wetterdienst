@@ -368,11 +368,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter("count_weather_type_dew", "dimensionless", "Number of days on which dew was observed."),
     CanonicalParameter("count_weather_type_fog", "dimensionless", "Number of days on which fog was observed."),
     CanonicalParameter("count_weather_type_glaze", "dimensionless", "Number of days on which glaze ice was observed."),
+    CanonicalParameter("count_weather_type_graupel", "dimensionless", "Number of days on which graupel was observed."),
     CanonicalParameter("count_weather_type_hail", "dimensionless", "Number of days on which hail was observed."),
     CanonicalParameter(
         "count_weather_type_hoar_frost", "dimensionless", "Number of days on which hoar frost was observed."
     ),
-    CanonicalParameter("count_weather_type_sleet", "dimensionless", "Number of days on which sleet was observed."),
     CanonicalParameter(
         "count_weather_type_storm_stormier_wind",
         "dimensionless",

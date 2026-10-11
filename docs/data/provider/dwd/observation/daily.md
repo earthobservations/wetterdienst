@@ -173,7 +173,7 @@ Codes (precipitation_form):
 | {term}`count_weather_type_dew` | tau | Weather event: dew during the day (DWD: "Wetterereignis: Tau im Verlauf des Tages"). | - | >=0 |
 | {term}`count_weather_type_glaze` | glatteis | Weather event: glaze ice during the day (DWD: "Wetterereignis: Glatteis im Verlauf des Tages"). | - | >=0 |
 | {term}`count_weather_type_hoar_frost` | reif | Weather event: hoar frost during the day (DWD: "Wetterereignis: Reif im Verlauf des Tages"). | - | >=0 |
-| {term}`count_weather_type_sleet` | graupel | Weather event: graupel during the day (DWD: "Wetterereignis: Graupel im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_graupel` | graupel | Weather event: graupel during the day (DWD: "Wetterereignis: Graupel im Verlauf des Tages"). | - | >=0 |
 | {term}`count_weather_type_hail` | hagel | Weather event: hail during the day (DWD: "Wetterereignis: Hagel im Verlauf des Tages"). | - | >=0 |
 
 ### weather_phenomena_more
@@ -191,7 +191,7 @@ Codes (precipitation_form):
 
 | name                               | original name | description                                       | unit | constraints |
 |------------------------------------|---------------|---------------------------------------------------|------|-------------|
-| {term}`count_weather_type_sleet` | rr_graupel | Weather event of the precipitation network: graupel during the day (DWD: "Wetterereignis_RR: Graupel im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_graupel` | rr_graupel | Weather event of the precipitation network: graupel during the day (DWD: "Wetterereignis_RR: Graupel im Verlauf des Tages"). | - | >=0 |
 | {term}`count_weather_type_hail` | rr_hagel | Weather event of the precipitation network: hail during the day (DWD: "Wetterereignis_RR: Hagel im Verlauf des Tages"). | - | >=0 |
 | {term}`count_weather_type_fog` | rr_nebel | Weather event of the precipitation network: fog during the day (DWD: "Wetterereignis_RR: Nebel im Verlauf des Tages"). | - | >=0 |
 | {term}`count_weather_type_thunder` | rr_gewitter | Weather event of the precipitation network: thunderstorm during the day (DWD: "Wetterereignis_RR: Gewitter im Verlauf des Tages"). | - | >=0 |
