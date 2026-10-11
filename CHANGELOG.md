@@ -109,6 +109,18 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `eccc/observation` hourly values are stamped at the instant ECCC gives in
+  `UTC_DATE` (Local Standard Time plus the station's standard offset, all year). Stations on
+  daylight saving were stamped one hour early from March to November, the standard-time hour that
+  does not exist on the civil clock in spring got no timestamp, and the UTC hour after the autumn
+  change was missing, and a station whose ECCC zone differs from the zone of its position (for
+  example 50837, PST) was off all year. Summer stamps move one hour later, those stations by the
+  difference in either direction, and the two lost hours are returned; a comparison or join made
+  on the old stamps has to be redone. Daily and monthly are unchanged (GH-2675)
+- `noaa/ghcn` hourly `wind_direction` no longer returns 999 for hours in which the older reports
+  give no direction (mostly marked calm): the value is null, and dropped by default, so a mean or
+  a wind rose over the series is no longer pulled to 999 degrees. The documented missing value of
+  the hourly `precipitation` column, -9999, is nulled too (GH-2672)
 - Writing a NetCDF file no longer fails with `ValueError: unrecognized engine for to_netcdf:
   'netCDF4'` where `netCDF4` is installed and `h5netcdf` is not: the engine is named as xarray
   names it, `netcdf4` (GH-2666)
@@ -130,6 +142,10 @@ Types of changes:
   `chmi/observation`; it was 2100-12-31, the date the list gives them, for about 470 stations. A
   filter for the stations still reporting tests for null instead of for a date in the future
   (GH-2616)
+- `geosphere/observation` daily `precipitation_amount`, `snow_depth`, `snow_depth_manual` and
+  `snow_depth_new` are 0.0 on a day without precipitation or snow, no longer -1.0: the source's
+  `-1=kein Niederschlag` / `-1=kein Schnee`. A sum of precipitation over a month was short by one
+  millimetre for every dry day. The other resolutions are unchanged (GH-2671)
 - `noaa/ghcn` hourly stations `RUU71-00102` (CHABAROWKA) and `RUU71-00113` (IRKUTSK) have no
   position, where the list puts them at latitudes of 135.117 and 104.367, off the globe, with
   latitude and longitude swapped; the hourly list drops any position outside latitude +-90 or
@@ -156,6 +172,10 @@ Types of changes:
   `subdaily/soil` no longer claim mean temperatures and a soil temperature they do not hold
   (GH-2688)
 
+- `dwd/observation` `hourly/wind` and `10_minutes/wind` return no `wind_direction` of 990 any more:
+  the files write 990 where there is no direction (542,296 hourly rows in 314 stations, 17 of the
+  10 minute ones, historical files from 1952 on), which came back as 990 degrees and spoiled a
+  wind rose or a vector mean. It is null now, as -999 is (GH-2686)
 
 ## [0.144.0] - 2026-10-10
 
