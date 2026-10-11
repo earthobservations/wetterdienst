@@ -16,6 +16,7 @@ import pytest
 
 from tests.provider.value_stubs import stations_result
 from wetterdienst import Settings
+from wetterdienst.exceptions import NoParametersFoundError
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest, api
 from wetterdienst.util.network import File
 
@@ -361,6 +362,26 @@ def test_meteofrance_observation_api_hourly_invisible_sky_is_null(monkeypatch: p
     assert df.get_column("value").to_list() == [0.0, 0.875, 1.0]
 
 
+def test_meteofrance_observation_api_hourly_ten_minute_wind_is_named_for_its_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that FF and DD come back as the 10-minute mean they are (GH-2707).
+
+    The row is that of station 31069001 at 2025-01-01 02 h (FF = 2.2, DD = 10). The old names are not found in
+    the hourly dataset.
+    """
+    hourly = [{"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025010102", "FF": "2.2", "DD": "10"}]
+    _serve_climate(monkeypatch, {"HOR_departement_31_periode_2025-2026": _climate_gz("hourly", "core", hourly)})
+    start, end = _utc(2025, 1, 1), _utc(2025, 1, 2)
+    df = _values("hourly", "core", "wind_speed_last_10min", "31069001", start, end)
+    assert df.get_column("value").to_list() == [2.2]
+    df = _values("hourly", "core", "wind_direction_last_10min", "31069001", start, end)
+    assert df.get_column("value").to_list() == [10.0]
+    for old in ("wind_speed", "wind_direction"):
+        with pytest.raises(NoParametersFoundError):
+            MeteoFranceObservationRequest(parameters=[("hourly", "core", old)])
+
+
 def test_meteofrance_observation_api_hourly_calm_wind_has_no_direction(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a direction of 0, the calm wind, is null and 360, the north, stays (GH-2720).
 
@@ -377,12 +398,12 @@ def test_meteofrance_observation_api_hourly_calm_wind_has_no_direction(monkeypat
     ]
     _serve_climate(monkeypatch, {"HOR_departement_31_periode_2025-2026": _climate_gz("hourly", "core", latest)})
     start, end = _utc(2025, 1, 1), _utc(2025, 2, 1)
-    df = _values("hourly", "core", "wind_direction", "31069001", start, end)
+    df = _values("hourly", "core", "wind_direction_last_10min", "31069001", start, end)
     assert df.get_column("timestamp").to_list() == [_utc(2025, 1, 1, 2), _utc(2025, 1, 3, 7)]
     assert df.get_column("value").to_list() == [10.0, 360.0]
     df = _values("hourly", "core", "wind_direction_gust_max", "31069001", start, end)
     assert df.get_column("value").to_list() == [140.0, 320.0, 340.0]
-    for parameter in ("wind_direction", "wind_direction_gust_max"):
+    for parameter in ("wind_direction_last_10min", "wind_direction_gust_max"):
         assert _values("hourly", "core", parameter, "31042012", start, end).is_empty()
 
 
@@ -398,7 +419,7 @@ def test_meteofrance_observation_api_hourly_variable_wind_direction_is_null(monk
         {"NUM_POSTE": "98404001", "AAAAMMJJHH": "1965041802", "FF": "26.0", "DD": "240"},
     ]
     _serve_climate(monkeypatch, {"HOR_departement_984_periode_1960-1969": _climate_gz("hourly", "core", rows)})
-    df = _values("hourly", "core", "wind_direction", "98404001", _utc(1965, 4, 17), _utc(1965, 4, 18))
+    df = _values("hourly", "core", "wind_direction_last_10min", "98404001", _utc(1965, 4, 17), _utc(1965, 4, 18))
     assert df.get_column("timestamp").to_list() == [_utc(1965, 4, 17, 15), _utc(1965, 4, 17, 21)]
     assert df.get_column("value").to_list() == [240.0, 240.0]
 

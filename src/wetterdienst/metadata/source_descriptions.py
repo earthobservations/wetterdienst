@@ -1880,7 +1880,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "others", "TSVM"): "Mean vapour pressure.",
         ("daily", "others", "UM"): "Daily mean of the hourly relative humidities.",
         ("hourly", "core", "DD"): (
-            "Direction of FF, on the 360 degree compass. "
+            "Direction of FF, the wind force averaged over 10 minutes, on the 360 degree compass. "
             "The source's 0 (mostly a calm wind) and 999 (probably variable) are null."
         ),
         ("hourly", "core", "DXY"): (

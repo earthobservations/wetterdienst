@@ -33,6 +33,7 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.provider.dwd.poi import DwdPoiMetadata
 from wetterdienst.provider.fmi.observation import FmiObservationMetadata
+from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationMetadata
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata
 from wetterdienst.provider.smhi.observation import SmhiObservationMetadata
 
@@ -463,15 +464,11 @@ _TEN_MINUTES = re.compile(r"\b(?:10|ten)[ -]?min(?:ute)?s?\b", re.IGNORECASE)
 _WIND_MEAN_NAMES = {"wind_speed": "wind_speed_last_10min", "wind_direction": "wind_direction_last_10min"}
 
 # Rows named `wind_speed` or `wind_direction` below daily resolution whose source states a mean over a window
-# shorter than the row's interval, found by the rule below and left as they are in the change that added it
-# (GH-2697 moved DWD wind_synoptic, DWD POI and AEMET hourly; GH-2707 FMI, MET Norway and SMHI hourly). Each is
-# the same defect as those and belongs to its provider's pass of GH-2688. The test also fails when an entry no
-# longer matches, so the list only shrinks.
-_WIND_MEAN_WINDOW_NOT_YET_NAMED = {
-    "MeteoFranceObservationMetadata hourly/core/wind_speed [FF]": (
-        'Météo-France: "Wind force averaged over 10 minutes, measured at 10 m."'
-    ),
-}
+# shorter than the row's interval, found by the rule below and left as they are by the change that found them.
+# GH-2697 moved DWD wind_synoptic, DWD POI and AEMET hourly, GH-2707 FMI, MET Norway, SMHI and Météo-France hourly,
+# so none is left. A row the rule finds in a provider added later goes here until its pass of GH-2688; the test
+# also fails when an entry no longer matches, so the list only shrinks.
+_WIND_MEAN_WINDOW_NOT_YET_NAMED: dict[str, str] = {}
 
 
 def _states_a_shorter_wind_mean(evidence: str, resolution: str) -> bool:
@@ -576,6 +573,20 @@ def test_fmi_metno_and_smhi_hourly_wind_name_their_ten_minutes() -> None:
     one_minute = {p.name_original: p.name for p in SmhiObservationMetadata["1_minute"]["data"]}
     assert one_minute["47"] == "wind_speed"
     assert one_minute["48"] == "wind_direction"
+
+
+def test_meteofrance_hourly_wind_names_its_ten_minutes() -> None:
+    """The rows GH-2707 names: Météo-France `FF` and, with it, `DD`.
+
+    `FF` is the "force du vent moyenné sur 10 mn"; `DD`, "direction de FF", states no window of its own, so it
+    moves with `FF` and the speed and the direction of the dataset do not end up under mismatched names. The
+    daily and monthly `FFM` are a mean of the day's or month's values and keep `wind_speed`.
+    """
+    hourly = {p.name_original: p.name for p in MeteoFranceObservationMetadata["hourly"]["core"]}
+    assert hourly["FF"] == "wind_speed_last_10min"
+    assert hourly["DD"] == "wind_direction_last_10min"
+    assert {p.name_original: p.name for p in MeteoFranceObservationMetadata["daily"]["core"]}["FFM"] == "wind_speed"
+    assert {p.name_original: p.name for p in MeteoFranceObservationMetadata["monthly"]["data"]}["FFM"] == "wind_speed"
 
 
 def test_the_wind_mean_window_regex_reads_the_sources_wording() -> None:

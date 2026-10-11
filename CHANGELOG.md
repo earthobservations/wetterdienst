@@ -36,6 +36,12 @@ Types of changes:
   the old ones are not found in `hourly/data` (logged and dropped, or `NoParametersFoundError`
   when no other parameter is requested). The 1-minute `wind_speed` and `wind_direction` are
   unchanged (GH-2707)
+- **Breaking**: `meteofrance/observation` hourly `FF` and `DD`, Météo-France's wind force averaged
+  over 10 minutes and its direction, are named `wind_speed_last_10min` and
+  `wind_direction_last_10min`, no longer `wind_speed` and `wind_direction`. Request the new names;
+  the old ones are not found in `hourly/core` (logged and dropped, or `NoParametersFoundError` when
+  no other parameter is requested). The daily and monthly `wind_speed` (`FFM`) are unchanged
+  (GH-2707)
 - **Breaking**: `noaa/ghcn` `daily` values are stamped at 00:00 UTC of their date, no longer at the
   station's local standard midnight in UTC (Tokyo 15:00 UTC of the day before, New York 05:00 UTC),
   so a request for one day (`start` and `end` the same date) returns that day for every station.
@@ -84,11 +90,12 @@ Types of changes:
   the UTC year of the request bounds, as the time stamps are in UTC, where it took the year as
   written: a request in a local zone near New Year, such as `2010-01-01T00:30:00+02:00`, returned
   no rows (GH-2680)
-- `meteofrance/observation` `hourly/core` `wind_direction` and `wind_direction_gust_max` and
-  `daily/core` `wind_direction_gust_max` are null, no longer `0` or `999`: the files write `0`
-  where there is no direction, mostly in a calm wind (5 % of the hourly `wind_direction` values
-  since 2020), and `999`, probably for a variable one, which a wind rose or a mean direction
-  counted as north or as 999 degrees. `360` is north and stays (GH-2720)
+- `meteofrance/observation` `hourly/core` `wind_direction_last_10min` and
+  `wind_direction_gust_max` and `daily/core` `wind_direction_gust_max` are null, no longer `0` or
+  `999`: the files write `0` where there is no direction, mostly in a calm wind (5 % of the hourly
+  `wind_direction_last_10min` values since 2020), and `999`, probably for a variable one, which a
+  wind rose or a mean direction counted as north or as 999 degrees. `360` is north and stays
+  (GH-2720)
 - A request whose `start` and `end` carry a named time zone (`ZoneInfo("Europe/Vilnius")`) no
   longer raises a polars `SchemaError` once its values are cut to the window. The bounds, and so
   `request.start`/`end` and the result's, are converted to UTC when the request is made: the same
