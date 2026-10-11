@@ -35,8 +35,8 @@ def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "station_id": "14",
-                "start_timestamp": dt.datetime(1984, 1, 1, hour=8, tzinfo=ZoneInfo("UTC")),
-                "end_timestamp": dt.datetime(1996, 11, 30, hour=8, tzinfo=ZoneInfo("UTC")),
+                "start_timestamp": dt.datetime(1984, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "end_timestamp": dt.datetime(1996, 11, 30, tzinfo=ZoneInfo("UTC")),
                 "latitude": 48.52,
                 "longitude": -123.17,
                 "elevation": 4.0,
@@ -441,6 +441,90 @@ def test_eccc_monthly_is_stamped_at_00_utc_of_the_first_of_the_month(
     assert df.get_column("timestamp").to_list() == [
         dt.datetime.fromisoformat(f"{month}-01").replace(tzinfo=ZoneInfo("UTC"))
     ]
+
+
+# The first and last day of TORONTO INTL A as the station list states them: FIRST_DATE "2013-06-11 09:00:00" and
+# LAST_DATE "2026-10-08 12:30:10" in local time, which the zone (EDT on both days) moves to 13:00 UTC and 16:30 UTC of
+# the same days, hours after the 00:00 UTC stamp of a daily or monthly value of that date.
+_FIRST_AND_LAST_DAILY_ROWS = [
+    {"LOCAL_DATE": "2013-06-11 00:00:00", "MEAN_TEMPERATURE": 17.2, "MEAN_TEMPERATURE_FLAG": None},
+    {"LOCAL_DATE": "2013-06-12 00:00:00", "MEAN_TEMPERATURE": 18.0, "MEAN_TEMPERATURE_FLAG": None},
+    {"LOCAL_DATE": "2026-10-07 00:00:00", "MEAN_TEMPERATURE": 11.4, "MEAN_TEMPERATURE_FLAG": None},
+    {"LOCAL_DATE": "2026-10-08 00:00:00", "MEAN_TEMPERATURE": 12.1, "MEAN_TEMPERATURE_FLAG": None},
+]
+_FIRST_AND_LAST_MONTHLY_ROWS = [
+    {"LOCAL_DATE": "2013-06", "MEAN_TEMPERATURE": 17.9, "MEAN_TEMPERATURE_FLAG": None},
+    {"LOCAL_DATE": "2013-07", "MEAN_TEMPERATURE": 22.0, "MEAN_TEMPERATURE_FLAG": None},
+    {"LOCAL_DATE": "2026-09", "MEAN_TEMPERATURE": 18.3, "MEAN_TEMPERATURE_FLAG": None},
+    {"LOCAL_DATE": "2026-10", "MEAN_TEMPERATURE": 11.8, "MEAN_TEMPERATURE_FLAG": None},
+]
+
+
+@pytest.mark.parametrize(
+    ("resolution", "rows", "day", "expected"),
+    [
+        ("daily", _FIRST_AND_LAST_DAILY_ROWS, "2013-06-11", 17.2),
+        ("daily", _FIRST_AND_LAST_DAILY_ROWS, "2026-10-08", 12.1),
+        ("monthly", _FIRST_AND_LAST_MONTHLY_ROWS, "2013-06-01", 17.9),
+        ("monthly", _FIRST_AND_LAST_MONTHLY_ROWS, "2026-10-01", 11.8),
+    ],
+    ids=["daily-first-day", "daily-last-day", "monthly-first-month", "monthly-last-month"],
+)
+def test_eccc_request_for_the_first_or_last_day_of_a_station_is_not_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+    settings_convert_units_false: Settings,
+    resolution: str,
+    rows: list[dict],
+    day: str,
+    expected: float,
+) -> None:
+    """Test that a request for the day or month a station starts or ends on returns its value (GH-2730).
+
+    The station list gives FIRST_DATE as 09:00 on the first day, local time, which is hours after 00:00 UTC. A request
+    for that one day ends at 00:00 UTC, so the station read as starting after the window and was skipped, though it has
+    a value stamped at 00:00 UTC of the day.
+    """
+    _serve_eccc(monkeypatch, rows)
+    request = EcccObservationRequest(
+        parameters=[(resolution, "data", "temperature_air_mean_2m")],
+        start=day,
+        end=day,
+        settings=settings_convert_units_false,
+    )
+    df = request.filter_by_station_id("51459").values.all().df
+    assert df.select("timestamp", "value").rows() == [
+        (dt.datetime.fromisoformat(day).replace(tzinfo=ZoneInfo("UTC")), expected)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("resolution", "start", "end"),
+    [
+        # a date or month is stamped at 00:00 UTC of it, as the values are, whatever the zone
+        ("daily", dt.datetime(2013, 6, 11, tzinfo=ZoneInfo("UTC")), dt.datetime(2026, 10, 8, tzinfo=ZoneInfo("UTC"))),
+        ("monthly", dt.datetime(2013, 6, 1, tzinfo=ZoneInfo("UTC")), dt.datetime(2026, 10, 1, tzinfo=ZoneInfo("UTC"))),
+        # an hour is an instant, so the station's zone applies (EDT on both days)
+        (
+            "hourly",
+            dt.datetime(2013, 6, 11, 13, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 10, 8, 16, 30, 10, tzinfo=ZoneInfo("UTC")),
+        ),
+    ],
+)
+def test_eccc_station_list_dates_are_stamped_like_the_values(
+    monkeypatch: pytest.MonkeyPatch,
+    settings_convert_units_false: Settings,
+    resolution: str,
+    start: dt.datetime,
+    end: dt.datetime,
+) -> None:
+    """Test that the first and last date of a station are the stamps of its first and last value (GH-2730)."""
+    _serve_eccc(monkeypatch, [])
+    request = EcccObservationRequest(
+        parameters=[(resolution, "data")],
+        settings=settings_convert_units_false,
+    ).filter_by_station_id("51459")
+    assert request.df.select("start_timestamp", "end_timestamp").rows() == [(start, end)]
 
 
 def test_eccc_daily_year_window_is_the_calendar_year_of_local_date(
