@@ -106,6 +106,10 @@ Types of changes:
   `dwd/derived` monthly stamp, the `meteoswiss/observation` decade files and the `metno/frost`
   request bounds as deviations from their sources: they were fixed (GH-2679, GH-2680, GH-2681) and
   the notes of their rows state what the code does now (GH-2734)
+- The "Time zones and reference times" page (`docs/data/time_reference.md`) no longer calls the
+  `metno/frost` hourly wind an instant: `wind_speed_last_10min` and `wind_direction_last_10min`
+  are Frost's mean over the ten minutes before the stamp, so the stamp ends their window
+  (GH-2736)
 
 ## [0.145.0] - 2026-10-11
 
