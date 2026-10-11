@@ -109,6 +109,10 @@ Types of changes:
 
 ### Fixed
 
+- `noaa/ghcn` hourly `wind_direction` no longer returns 999 for hours in which the older reports
+  give no direction (mostly marked calm): the hour has no row, so a mean or a wind rose over the
+  series is no longer pulled to 999 degrees. The documented missing value
+  of the precipitation columns, -9999, is nulled too (GH-2672)
 - Writing a NetCDF file no longer fails with `ValueError: unrecognized engine for to_netcdf:
   'netCDF4'` where `netCDF4` is installed and `h5netcdf` is not: the engine is named as xarray
   names it, `netcdf4` (GH-2666)
