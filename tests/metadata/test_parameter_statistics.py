@@ -32,6 +32,9 @@ from wetterdienst.provider.dwd.dmo import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.provider.dwd.poi import DwdPoiMetadata
+from wetterdienst.provider.fmi.observation import FmiObservationMetadata
+from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata
+from wetterdienst.provider.smhi.observation import SmhiObservationMetadata
 
 # a dataset whose own interval is one of these needs no qualifier for a window of that many hours
 _RESOLUTION_HOURS = {"hourly": 1, "6_hour": 6, "daily": 24}
@@ -461,24 +464,12 @@ _WIND_MEAN_NAMES = {"wind_speed": "wind_speed_last_10min", "wind_direction": "wi
 
 # Rows named `wind_speed` or `wind_direction` below daily resolution whose source states a mean over a window
 # shorter than the row's interval, found by the rule below and left as they are in the change that added it
-# (GH-2697 moved DWD wind_synoptic, DWD POI and AEMET hourly). Each is the same defect as those and belongs
-# to its provider's pass of GH-2688. The test also fails when an entry no longer matches, so the list only
-# shrinks.
+# (GH-2697 moved DWD wind_synoptic, DWD POI and AEMET hourly; GH-2707 FMI, MET Norway and SMHI hourly). Each is
+# the same defect as those and belongs to its provider's pass of GH-2688. The test also fails when an entry no
+# longer matches, so the list only shrinks.
 _WIND_MEAN_WINDOW_NOT_YET_NAMED = {
-    "FmiObservationMetadata hourly/data/wind_speed [ws_10min]": 'FMI: "Wind speed. Mean over 10 minutes."',
-    "FmiObservationMetadata hourly/data/wind_direction [wd_10min]": 'FMI: "Wind direction. Mean over 10 minutes."',
     "MeteoFranceObservationMetadata hourly/core/wind_speed [FF]": (
         'Météo-France: "Wind force averaged over 10 minutes, measured at 10 m."'
-    ),
-    "MetnoFrostMetadata hourly/data/wind_speed [wind_speed]": (
-        'MET Norway: "Mean wind speed is registered as a mean value of the wind speed over the last ten minutes"'
-    ),
-    "MetnoFrostMetadata hourly/data/wind_direction [wind_from_direction]": (
-        'MET Norway: "Mean wind direction over the last ten minutes before the observation time."'
-    ),
-    "SmhiObservationMetadata hourly/data/wind_speed [4]": 'SMHI: "Wind speed. Mean over 10 minutes, once per hour."',
-    "SmhiObservationMetadata hourly/data/wind_direction [3]": (
-        'SMHI: "Wind direction. Mean over 10 minutes, once per hour."'
     ),
 }
 
@@ -562,6 +553,29 @@ def test_dwd_poi_and_aemet_hourly_and_dwd_synoptic_wind_name_their_ten_minutes()
     assert aemet["dv"] == "wind_direction_last_10min"
     # the daily mean is the day's, whatever the readings it is made of
     assert {p.name_original: p.name for p in AemetObservationMetadata["daily"]["data"]}["velmedia"] == "wind_speed"
+
+
+def test_fmi_metno_and_smhi_hourly_wind_name_their_ten_minutes() -> None:
+    """The rows GH-2707 names: FMI `ws_10min` / `wd_10min`, MET Norway `wind_speed` / `wind_from_direction`, SMHI.
+
+    Their daily and monthly (MET Norway) and 1-minute (SMHI `47` / `48`) siblings are the mean of their own
+    interval and keep the plain names.
+    """
+    fmi = {p.name_original: p.name for p in FmiObservationMetadata["hourly"]["data"]}
+    assert fmi["ws_10min"] == "wind_speed_last_10min"
+    assert fmi["wd_10min"] == "wind_direction_last_10min"
+    metno = {p.name_original: p.name for p in MetnoFrostMetadata["hourly"]["data"]}
+    assert metno["wind_speed"] == "wind_speed_last_10min"
+    assert metno["wind_from_direction"] == "wind_direction_last_10min"
+    assert {p.name_original: p.name for p in MetnoFrostMetadata["daily"]["data"]}[
+        "mean(wind_speed P1D)"
+    ] == "wind_speed"
+    smhi = {p.name_original: p.name for p in SmhiObservationMetadata["hourly"]["data"]}
+    assert smhi["4"] == "wind_speed_last_10min"
+    assert smhi["3"] == "wind_direction_last_10min"
+    one_minute = {p.name_original: p.name for p in SmhiObservationMetadata["1_minute"]["data"]}
+    assert one_minute["47"] == "wind_speed"
+    assert one_minute["48"] == "wind_direction"
 
 
 def test_the_wind_mean_window_regex_reads_the_sources_wording() -> None:

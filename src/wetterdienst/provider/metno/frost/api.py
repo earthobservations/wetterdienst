@@ -114,12 +114,12 @@ MetnoFrostMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_last_10min",
                             "name_original": "wind_speed",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_last_10min",
                             "name_original": "wind_from_direction",
                             "unit": "degree",
                         },

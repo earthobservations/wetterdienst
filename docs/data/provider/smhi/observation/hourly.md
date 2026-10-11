@@ -17,8 +17,8 @@
 |---------------------------------------|---------------|--------------------------------------------------------------------------------------|------|
 | {term}`temperature_air_2m`            | 1             | Air temperature. Instantaneous value, once per hour.                                 | °C   |
 | {term}`temperature_dew_point_2m`      | 39            | Dew point temperature. Instantaneous value, once per hour.                           | °C   |
-| {term}`wind_speed`                    | 4             | Wind speed. Mean over 10 minutes, once per hour.                                     | m/s  |
-| {term}`wind_direction`                | 3             | Wind direction. Mean over 10 minutes, once per hour.                                 | °    |
+| {term}`wind_speed_last_10min`         | 4             | Wind speed. Mean over 10 minutes, once per hour.                                     | m/s  |
+| {term}`wind_direction_last_10min`     | 3             | Wind direction. Mean over 10 minutes, once per hour.                                 | °    |
 | {term}`wind_gust_max`                 | 21            | Wind gust. Maximum, once per hour.                                                   | m/s  |
 | {term}`precipitation_amount`          | 7             | Precipitation amount. Hourly sum, once per hour.                                     | mm   |
 | {term}`humidity_relative`             | 6             | Relative humidity. Instantaneous value, once per hour.                               | %    |
