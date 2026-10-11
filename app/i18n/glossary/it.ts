@@ -253,7 +253,7 @@ export const parameters: Record<string, string> = {
   count_weather_type_dew: 'Giorni con rugiada',
   count_weather_type_fog: 'Giorni con nebbia',
   count_weather_type_glaze: 'Giorni con vetrato',
-  count_weather_type_graupel: 'Giorni con gragnola',
+  count_weather_type_graupel: 'Giorni con neve tonda',
   count_weather_type_hail: 'Giorni con grandine',
   count_weather_type_hoar_frost: 'Giorni con brina',
   count_weather_type_storm_stormier_wind: 'Giorni con burrasca forte',

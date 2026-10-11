@@ -353,7 +353,7 @@ export const parameters: Record<string, string> = {
   count_weather_type_dew: 'Dage med dug',
   count_weather_type_fog: 'Dage med tåge',
   count_weather_type_glaze: 'Dage med isslag',
-  count_weather_type_graupel: 'Dage med graupel',
+  count_weather_type_graupel: 'Dage med snehagl',
   count_weather_type_hail: 'Dage med hagl',
   count_weather_type_hoar_frost: 'Dage med rim',
   count_weather_type_storm_stormier_wind: 'Dage med stærk storm',

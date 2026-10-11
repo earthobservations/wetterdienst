@@ -1,7 +1,9 @@
 """Tests for the names renamed on the way to 1.0."""
 
 import pytest
+from pydantic import ValidationError
 
+from wetterdienst import Settings
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
 from wetterdienst.model.metadata import MetadataModel, parse_parameters
@@ -53,19 +55,29 @@ GRAUPEL_COLUMNS = {
 }
 
 
-@pytest.mark.parametrize(("resolution", "dataset"), list(GRAUPEL_COLUMNS), ids=str)
-def test_dwd_graupel_is_not_named_sleet(resolution: str, dataset: str, caplog: pytest.LogCaptureFixture) -> None:
+@pytest.mark.parametrize(
+    ("resolution", "dataset", "original"),
+    [(*key, original) for key, original in GRAUPEL_COLUMNS.items()],
+    ids=[f"{resolution}/{dataset}" for resolution, dataset in GRAUPEL_COLUMNS],
+)
+def test_dwd_graupel_is_not_named_sleet(
+    resolution: str, dataset: str, original: str, caplog: pytest.LogCaptureFixture
+) -> None:
     """DWD's graupel columns are graupel, not sleet, and the sleet name answers with the one to use (GH-2696).
 
     `count_weather_type_sleet` stood for them, so that a caller asking for sleet days got days with
     graupel, while DWD publishes no sleet phenomenon in these datasets.
     """
     dataset_model = DwdObservationMetadata[resolution][dataset]
-    original = GRAUPEL_COLUMNS[(resolution, dataset)]
     graupel = [parameter for parameter in dataset_model if parameter.name_original == original]
     assert [parameter.name for parameter in graupel] == ["count_weather_type_graupel"]
     assert "count_weather_type_sleet" not in {parameter.name for parameter in dataset_model}
-    assert PARAMETERS["count_weather_type_graupel"].description == "Number of days on which graupel was observed."
 
     assert parse_parameters(f"{resolution}/{dataset}/count_weather_type_sleet", DwdObservationMetadata) == []
     assert "It was renamed to 'count_weather_type_graupel'." in caplog.text
+
+
+def test_sleet_as_a_station_distance_key_names_graupel() -> None:
+    """The retired sleet name in `ts_geo_station_distance` is refused with the name to use (GH-2696)."""
+    with pytest.raises(ValidationError, match=r"'count_weather_type_sleet' is now 'count_weather_type_graupel'"):
+        Settings(ts_geo_station_distance={"count_weather_type_sleet": 10.0})

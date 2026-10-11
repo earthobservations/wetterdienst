@@ -115,10 +115,10 @@ Types of changes:
   monthly dates, metropolitan France and Port Martin (offset unknown) are unchanged (GH-2677)
 - **Breaking**: `count_weather_type_sleet` is `count_weather_type_graupel`. It was DWD's graupel
   columns (`graupel`, `rr_graupel`, `mo_graupel`, `ja_graupel`) in the `weather_phenomena` datasets
-  of `dwd/observation` daily, monthly and annual and in `daily/weather_phenomena_more`, which hold
-  graupel, not sleet; no provider reports sleet days. Request the new name; the old one in a request
-  is reported with its replacement. A wide table `to_target` wrote before holds the old column: write
-  it anew (GH-2696)
+  of `dwd/observation` daily, monthly and annual and in `daily/weather_phenomena_more`. Request the
+  new name; the old one in a request or as a `ts_geo_station_distance` key (now an error, it was a
+  warning) is reported with its replacement. A wide table `to_target` wrote before holds the old
+  column: write it anew (GH-2696)
 
 ### Fixed
 
