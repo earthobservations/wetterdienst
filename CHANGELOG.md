@@ -18,6 +18,9 @@ Types of changes:
 
 ### Fixed
 
+- `metno/frost` sends the bounds of a request to Frost as UTC. They went out as the wall clock of
+  whatever zone they were held in, which Frost reads as UTC, so a request in `Europe/Oslo` asked
+  for a window one or two hours off and lost rows at one end (GH-2681)
 - `dwd/observation` `hourly/weather_phenomena` returns null, no longer `-1`, for `weather` in the
   hours in which DWD did not report the present weather (`WW_Text`: "Wetter wurde nicht gemeldet"),
   so counting hours by weather code, or taking its maximum or mean, no longer includes them
