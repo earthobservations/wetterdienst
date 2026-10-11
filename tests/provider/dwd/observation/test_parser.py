@@ -247,8 +247,8 @@ def test_parse_dwd_hourly_moisture_nulls_minus_99_9() -> None:
     """Test that -99.9 in the five moisture columns is a missing value, and the columns beside them stay.
 
     The description documents `missing value = -999`, but the files write -99.9 (station 14006,
-    2025-01-05 01:00, a row of the recent file when the issue was written). `TT_STD` in the same row is
-    a reading, and `P_STD` is left as it is.
+    2025-01-05 01:00, in stundenwerte_TF_14006_20201104_20251231_hist.zip). `TT_STD` in the same row
+    is a reading, and `P_STD` is left as it is.
     """
     df = _parse_moisture(
         "14006;2025010500;    3;   3.2;   4.8;  -1.6;  995.9;  -0.7;  95.0;  -1.2;eor\n"
