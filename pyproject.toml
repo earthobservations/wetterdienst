@@ -168,6 +168,7 @@ export = [
     "h5netcdf>=1.7.3,<2",
     "pandas>=2.2.2,<4",
     "sqlalchemy>=2,<3",
+    # before 2025.6.0, open_zarr fails on stores written with zarr>=3.1 (GH-2704)
     "xarray>=2025.6.0,<2027",
     "xlsxwriter>=3.0.9,<4",
     "zarr>=3.1,<4",
