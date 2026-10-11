@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.146.0] - 2026-10-11
+
 ### Changed
 
 - **Breaking**: `fmi/observation` hourly `ws_10min` and `wd_10min`, FMI's mean wind speed and
@@ -4478,7 +4480,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.145.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.146.0...HEAD
+[0.146.0]: https://github.com/earthobservations/wetterdienst/compare/v0.145.0...v0.146.0
 [0.145.0]: https://github.com/earthobservations/wetterdienst/compare/v0.144.0...v0.145.0
 [0.144.0]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...v0.144.0
 [0.143.0]: https://github.com/earthobservations/wetterdienst/compare/v0.142.0...v0.143.0
