@@ -132,3 +132,43 @@ def test_ea_daily_readings_are_asked_for_up_to_09_of_the_day_after_the_window(
     query = parse_qs(urlparse(url).query)
     assert query["mineq-dateTime"] == ["2025-06-02T00:00:00"]
     assert query["maxeq-dateTime"] == ["2025-06-04T09:00:00"]
+
+
+@pytest.mark.parametrize(
+    ("readings", "expected"),
+    [
+        # a placeholder with no value at the start of the window, then the checked reading
+        (
+            [
+                {"dateTime": "2022-12-11T09:00:00", "value": None, "quality": "Missing", "completeness": "Missing"},
+                {"dateTime": "2022-12-11T20:15:00", "value": 0.319, "quality": "Good", "completeness": "Complete"},
+            ],
+            0.319,
+        ),
+        # an incomplete reading before the complete one, in the other order of arrival
+        (
+            [
+                {"dateTime": "2024-02-19T20:00:00", "value": 21.2, "quality": "Good", "completeness": "Complete"},
+                {
+                    "dateTime": "2024-02-19T09:00:00",
+                    "value": 23.0,
+                    "quality": "Unchecked",
+                    "completeness": "Incomplete",
+                },
+            ],
+            21.2,
+        ),
+    ],
+    ids=["null-placeholder", "incomplete"],
+)
+def test_ea_daily_window_answered_twice_keeps_the_checked_reading(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, readings: list[dict], expected: float
+) -> None:
+    """Test that two readings of one window, which share a stamp now, leave the one with a value that is checked."""
+    day = readings[0]["dateTime"][:10]
+    _serve(monkeypatch, "flow-max-86400", readings)
+    request = EAHydrologyRequest(
+        parameters=[("daily", "data", "discharge_max")], start=day, end=day, settings=default_settings
+    )
+    df = request.all().values.all().df
+    assert df.get_column("value").to_list() == [expected]

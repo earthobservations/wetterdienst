@@ -50,8 +50,9 @@ Types of changes:
   returns it with them, where it used to be dropped. Join stored snow depth on the date (GH-2683)
 - **Breaking**: `ea/hydrology` `daily` values are stamped at 00:00 UTC of the day they name (the
   24 hours from 09:00 of that day), no longer at 09:00 UTC for the mean and at the instant of the
-  extreme for the maximum and minimum, so a request for one day returns it and no two values share
-  a stamp. Join stored series on the date, no longer on the instant (GH-2683)
+  extreme for the maximum and minimum, so a request for one day returns it. Where the endpoint
+  answers one day twice, the checked reading is kept. Join stored series on the date, no longer on
+  the instant (GH-2683)
 
 ### Fixed
 

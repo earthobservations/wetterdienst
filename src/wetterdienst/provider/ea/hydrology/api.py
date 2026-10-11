@@ -253,6 +253,7 @@ class EAHydrologyValues(TimeseriesValues):
                             "dateTime": pl.String,
                             "value": pl.Float64,
                             "quality": pl.String,
+                            "completeness": pl.String,
                         },
                     ),
                 ),
@@ -267,6 +268,22 @@ class EAHydrologyValues(TimeseriesValues):
             # so are filed under D by taking the day from 09 hours earlier. It is stamped at 00:00 UTC of D, which a
             # request for that one day reaches (GH-2683).
             timestamp = (timestamp - _DAILY_DAY_START).dt.truncate("1d")
+            # The endpoint sometimes answers a window twice, an unchecked or incomplete reading (or a null with the
+            # quality Missing) beside the checked one, and the two have the same stamp now. The one with a value is
+            # kept, then the complete one, then the good one, and of equal standing the later one.
+            df = (
+                df.with_columns(timestamp.alias("day"))
+                .sort(
+                    "day",
+                    pl.col("value").is_null(),
+                    pl.col("completeness").ne("Complete").fill_null(value=True),
+                    pl.col("quality").ne("Good").fill_null(value=True),
+                    "dateTime",
+                    descending=[False, False, False, False, True],
+                )
+                .unique(subset="day", keep="first", maintain_order=True)
+            )
+            timestamp = pl.col("day")
         return df.select(
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
