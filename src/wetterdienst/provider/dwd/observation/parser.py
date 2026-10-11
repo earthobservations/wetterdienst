@@ -95,6 +95,23 @@ MOISTURE_MISSING_PARAMETERS = {
     DwdObservationMetadata.hourly.moisture.humidity_relative.name_original,
     DwdObservationMetadata.hourly.moisture.temperature_dew_point_2m.name_original,
 }
+
+
+# The wind files write 990 in the direction column where there is no direction (hourly: station 00003,
+# 1975-10-16 08:00, `3;1975101608;    5;   1.3; 990;eor`, a speed of 1.3 m/s beside it; 10 minute:
+# station 00198, 1994-05-02 13:50, `198;199405021350;    1;   1.1; 990;eor`). The descriptions
+# document only -999, but 990 is the WMO code for a variable direction, lies outside 0 to 360 degrees,
+# and left alone is returned as 990 degrees.
+#
+# Only the datasets whose files hold it (GH-2686): in every file of the other DWD wind directions
+# (hourly wind_synop, subdaily wind, 10 minute extreme_wind, the urban ones) the direction lies
+# between 0 and 360 or is -999.
+WIND_DIRECTION_VARIABLE = 990
+WIND_DIRECTION_PARAMETERS = (
+    (DwdObservationMetadata.hourly.wind, DwdObservationMetadata.hourly.wind.wind_direction.name_original),
+    (DwdObservationMetadata.minute_10.wind, DwdObservationMetadata.minute_10.wind.wind_direction.name_original),
+)
+
 CODED_STRING_PARAMETERS = {
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_measurement_method.name_original,
     DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
@@ -237,6 +254,15 @@ def _parse_climate_observations_data(  # noqa: C901
             .alias(parameter)
             for parameter in sorted(MOISTURE_MISSING_PARAMETERS & columns)
         )
+    for wind_dataset, parameter in WIND_DIRECTION_PARAMETERS:
+        if dataset == wind_dataset and parameter in columns:
+            direction = pl.col(parameter)
+            df = df.with_columns(
+                pl.when(direction.cast(pl.Float64, strict=False) == WIND_DIRECTION_VARIABLE)
+                .then(None)
+                .otherwise(direction)
+                .alias(parameter),
+            )
     if TRUE_LOCAL_TIME in columns:
         df = df.with_columns(
             pl.struct("mess_datum", TRUE_LOCAL_TIME)

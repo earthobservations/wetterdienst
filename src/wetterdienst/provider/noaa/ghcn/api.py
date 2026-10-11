@@ -35,6 +35,10 @@ log = logging.getLogger(__name__)
 # how far apart the hourly and the daily list may put a station and still be taken to mean one place
 MAX_DISTANCE_KM_SAME_STATION = 5.0
 
+# what the hourly files write for a reading they do not have
+GHCNH_WIND_DIRECTION_MISSING = 999.0
+GHCNH_PRECIPITATION_MISSING = -9999.0
+
 
 class NoaaGhcnValues(TimeseriesValues):
     """Values class for NOAA GHCN data provider."""
@@ -87,7 +91,7 @@ class NoaaGhcnValues(TimeseriesValues):
             variable_name="parameter",
             value_name="value",
         )
-        return df.with_columns(
+        df = df.with_columns(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
@@ -97,6 +101,14 @@ class NoaaGhcnValues(TimeseriesValues):
             pl.col("value").replace("-None", None).cast(pl.Float64),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )
+        # a wind direction is 0 to 360 degrees ("000" is calm, per the documentation), yet the older
+        # reports write 999, mostly with the measurement code C (calm) but also on an hour with a wind
+        # speed of 4.1 m/s: no direction was given (GH-2672). The documentation names -9999 as the
+        # missing value of the precipitation value, which is the column "precipitation" (none seen so far)
+        sentinel = (pl.col("parameter").eq("wind_direction") & pl.col("value").eq(GHCNH_WIND_DIRECTION_MISSING)) | (
+            pl.col("parameter").eq("precipitation") & pl.col("value").eq(GHCNH_PRECIPITATION_MISSING)
+        )
+        return df.with_columns(pl.when(sentinel).then(None).otherwise(pl.col("value")).alias("value"))
 
     def _collect_station_parameter_for_daily(
         self,

@@ -299,3 +299,64 @@ def test_parse_dwd_hourly_moisture_rule_is_per_dataset_and_per_column() -> None:
     ).collect()
     assert df.get_column("absf_std").to_list() == ["-99.9"]
     assert df.get_column("tt_tu").to_list() == ["3.1"]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        # as DWD writes it, padded, so that the column is read as text
+        (
+            "STATIONS_ID;MESS_DATUM;QN_3;   F;   D;eor\n"
+            "          3;1975101607;    5;   2.1;  250;eor\n"
+            "          3;1975101608;    5;   1.3;  990;eor\n"
+            "          3;1975101609;    5;   0.0;    0;eor\n"
+            "          3;1975101610;    5;   4.0; -999;eor\n"
+        ),
+        # unpadded, so that the column is read as numbers
+        (
+            "STATIONS_ID;MESS_DATUM;QN_3;F;D;eor\n"
+            "3;1975101607;5;2.1;250;eor\n"
+            "3;1975101608;5;1.3;990;eor\n"
+            "3;1975101609;5;0.0;0;eor\n"
+            "3;1975101610;5;4.0;-999;eor\n"
+        ),
+    ],
+    ids=["padded", "unpadded"],
+)
+def test_parse_dwd_data_drops_variable_wind_direction(payload: str) -> None:
+    """Test that 990 in the hourly wind direction becomes null, with the wind speed beside it kept.
+
+    The files write 990 where there is no direction (station 00003, 1975-10-16 08:00) next to a real
+    speed of 1.3 m/s; the description documents only -999. A direction of 0 is a
+    direction and has to survive.
+    """
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    df = parse_climate_observations_data(
+        files=[file],
+        dataset=DwdObservationMetadata.hourly.wind,
+        period=Period.HISTORICAL,
+    ).collect()
+    assert df.get_column("d").cast(pl.Float64).to_list() == [250.0, None, 0.0, None]
+    assert df.get_column("f").cast(pl.Float64).to_list() == [2.1, 1.3, 0.0, 4.0]
+
+
+def test_parse_dwd_data_drops_variable_wind_direction_10_minutes() -> None:
+    """Test that 990 in the 10 minute wind direction becomes null, with the wind speed beside it kept.
+
+    Station 00198 writes 990 at 1994-05-02 13:50 next to a speed of 1.1 m/s, station 00298 at
+    1993-09-14 11:50 next to the missing speed.
+    """
+    payload = (
+        "STATIONS_ID;MESS_DATUM;  QN;FF_10;DD_10;eor\n"
+        "        198;199405021340;    1;   1.1;  120;eor\n"
+        "        198;199405021350;    1;   1.1;  990;eor\n"
+        "        298;199309141150;    1;  -999;  990;eor\n"
+    )
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    df = parse_climate_observations_data(
+        files=[file],
+        dataset=DwdObservationMetadata.minute_10.wind,
+        period=Period.HISTORICAL,
+    ).collect()
+    assert df.get_column("dd_10").cast(pl.Float64).to_list() == [120.0, None, None]
+    assert df.get_column("ff_10").cast(pl.Float64).to_list() == [1.1, 1.1, None]
