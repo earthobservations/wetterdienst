@@ -116,6 +116,10 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/observation` `hourly/moisture` returns null, no longer `-99.9` (`-0.999` for
+  `humidity_relative`), for `humidity_absolute`, `pressure_vapor`, `temperature_wet_2m`,
+  `humidity_relative` and `temperature_dew_point_2m` in the hours DWD has no reading for, so means
+  and minima over these series are no longer pulled down (GH-2669)
 - **Breaking**: `eccc/observation` hourly values are stamped at the instant ECCC gives in
   `UTC_DATE` (Local Standard Time plus the station's standard offset, all year). Stations on
   daylight saving were stamped one hour early from March to November, the standard-time hour that

@@ -235,10 +235,12 @@ def _dwd_daily_climate_summary(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
 
 def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
-    # the description says `missing value = -999`; the files write -99.9 (station 14006, 2025-01-05 01:00)
+    # the description says `missing value = -999`; the files write -99.9
+    # (stundenwerte_TF_03735_19490101_19511231_hist.zip, 1949-01-28 06:00; station 14006, 2025-01-05 01:00,
+    # in stundenwerte_TF_14006_20201104_20251231_hist.zip)
     product = (
         "STATIONS_ID;MESS_DATUM;QN_8;ABSF_STD;VP_STD;TF_STD;P_STD;TT_STD;RF_STD;TD_STD;eor\n"
-        "   14006;2025010500;    3;   3.2;   4.8;  -1.6;  995.9;  -0.7;  95.0;  -1.2;eor\n"
+        "   14006;2025010500;    3;   4.6;   5.8;  -0.3;  995.9;  -0.1;  95.7;  -0.7;eor\n"
         "   14006;2025010501;    3; -99.9; -99.9; -99.9;  995.9;  -0.7; -99.9; -99.9;eor\n"
     )
     return _dwd_observation(monkeypatch, "hourly", "moisture", product, "14006")
@@ -367,7 +369,7 @@ STUBS = [
     ValueStub(
         "dwd/observation hourly/moisture",
         _dwd_hourly_moisture,
-        reading=("temperature_air_2m", -0.7),
+        reading=("temperature_air_2m", -0.1),
         sentinels=(
             ("humidity_absolute", -99.9),
             ("humidity_relative", -0.999),
@@ -375,7 +377,6 @@ STUBS = [
             ("temperature_dew_point_2m", -99.9),
             ("temperature_wet_2m", -99.9),
         ),
-        leak="#2669",
     ),
     ValueStub(
         "dwd/observation hourly/wind",
