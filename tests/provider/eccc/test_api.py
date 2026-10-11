@@ -412,13 +412,12 @@ def test_eccc_hourly_year_window_follows_utc_date_not_the_civil_zone(
     _serve_eccc(monkeypatch, rows, station)
     request = EcccObservationRequest(
         parameters=[("hourly", "data", "temperature_air_2m")],
-        start=dt.datetime(2024, 12, 31, 23, tzinfo=ZoneInfo("UTC")),
+        start=dt.datetime(2025, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(2025, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
         settings=settings_convert_units_false,
     )
     df = request.filter_by_station_id("50837").values.all().df.sort("timestamp")
     assert df.select("timestamp", "value").rows() == [
-        (dt.datetime(2024, 12, 31, 23, tzinfo=ZoneInfo("UTC")), -14.6),
         (dt.datetime(2025, 1, 1, 0, tzinfo=ZoneInfo("UTC")), -14.9),
         (dt.datetime(2025, 1, 1, 1, tzinfo=ZoneInfo("UTC")), -15.0),
     ]

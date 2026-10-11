@@ -113,9 +113,10 @@ Types of changes:
   `UTC_DATE` (Local Standard Time plus the station's standard offset, all year). Stations on
   daylight saving were stamped one hour early from March to November, the standard-time hour that
   does not exist on the civil clock in spring got no timestamp, and the UTC hour after the autumn
-  change was missing. Summer stamps move one hour later and the two lost hours are returned; a
-  comparison or join made on the old stamps has to be redone. Daily and monthly are unchanged
-  (GH-2675)
+  change was missing, and a station whose ECCC zone differs from the zone of its position (for
+  example 50837, PST) was off all year. Summer stamps move one hour later, those stations by the
+  difference in either direction, and the two lost hours are returned; a comparison or join made
+  on the old stamps has to be redone. Daily and monthly are unchanged (GH-2675)
 - Writing a NetCDF file no longer fails with `ValueError: unrecognized engine for to_netcdf:
   'netCDF4'` where `netCDF4` is installed and `h5netcdf` is not: the engine is named as xarray
   names it, `netcdf4` (GH-2666)
