@@ -85,6 +85,32 @@ class EcccObservationValues(TimeseriesValues):
             pl.col("value").cast(pl.Float64),
         )
 
+    @staticmethod
+    def _year_window(year: int, station_tz: str, *, hourly: bool) -> str:
+        """Return the query parameter that selects a year of a station's rows."""
+        if hourly:
+            # The year of UTC_DATE, which is what the rows are stamped with. A `datetime` window filters
+            # LOCAL_DATE, the station's Local Standard Time, and a window built from the civil zone of
+            # the station (tzfpy) misses the edge hour wherever that zone's offset is not the one ECCC
+            # states for the station, such as 50837 FORT ST. JOHN A, whose TIMEZONE is PST (-8) while
+            # tzfpy has Dawson Creek (-7).
+            return f"UTC_YEAR={year}"
+        # shamefully (almost just) copied from meteostat/meteostat
+        # source: https://github.com/meteostat/meteostat/blob/a5fd7970e41cd0e76a4cc5a1cb4e2cc2caea9c86/meteostat/providers/eccc/hourly.py#L58C1-L67C6
+        # start with buffer
+        start = (
+            (dt.datetime(year, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")))
+            .astimezone(ZoneInfo(station_tz))
+            .strftime("%Y-%m-%dT%H:%M:%S")
+        )
+        # end with buffer
+        end = (
+            (dt.datetime(year, 12, 31, 23, 59, 59, tzinfo=ZoneInfo("UTC")))
+            .astimezone(ZoneInfo(station_tz))
+            .strftime("%Y-%m-%dT%H:%M:%S")
+        )
+        return f"datetime={start}/{end}"
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -131,20 +157,7 @@ class EcccObservationValues(TimeseriesValues):
         start_year = self.sr.start.year if self.sr.start else station_meta["start_timestamp"].year
         end_year = self.sr.end.year if self.sr.end else station_meta["end_timestamp"].year
         for year in range(start_year, end_year + 1):
-            # shamefully (almost just) copied from meteostat/meteostat
-            # source: https://github.com/meteostat/meteostat/blob/a5fd7970e41cd0e76a4cc5a1cb4e2cc2caea9c86/meteostat/providers/eccc/hourly.py#L58C1-L67C6
-            # start with buffer
-            start = (
-                (dt.datetime(year, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")))
-                .astimezone(ZoneInfo(station_tz))
-                .strftime("%Y-%m-%dT%H:%M:%S")
-            )
-            # end with buffer
-            end = (
-                (dt.datetime(year, 12, 31, 23, 59, 59, tzinfo=ZoneInfo("UTC")))
-                .astimezone(ZoneInfo(station_tz))
-                .strftime("%Y-%m-%dT%H:%M:%S")
-            )
+            window = self._year_window(year, station_tz, hourly=hourly)
             # The endpoint pages at 500 features and a station-year of hourly data is ~8800, so a
             # single request returns an arbitrary slice of the year and silently drops the rest.
             # Page until a short page comes back.
@@ -154,7 +167,7 @@ class EcccObservationValues(TimeseriesValues):
                 url = (
                     f"{self._endpoint}/collections/"
                     f"{self._resolution_to_dataset_mapping[dataset.resolution.value]}/"
-                    f"items?STN_ID={station_id}&datetime={start}/{end}"
+                    f"items?STN_ID={station_id}&{window}"
                     f"&limit={_PAGE_SIZE}&offset={offset}&f=json"
                 )
                 file = download_file(

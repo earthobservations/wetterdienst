@@ -270,16 +270,34 @@ _TORONTO_STATION = {
 }
 
 
-def _serve_eccc(monkeypatch: pytest.MonkeyPatch, collection_properties: list[dict]) -> None:
-    """Serve the station list and one collection's rows from the test instead of api.weather.gc.ca."""
+def _serve_eccc(
+    monkeypatch: pytest.MonkeyPatch, collection_properties: list[dict], station: dict | None = None
+) -> list[str]:
+    """Serve the station list and one collection's rows from the test instead of api.weather.gc.ca.
+
+    The rows are cut the way the API cuts them: ``UTC_YEAR=`` keeps the rows of that year of UTC_DATE and
+    ``datetime=a/b`` the rows whose LOCAL_DATE, which is Local Standard Time, lies in the window. Returns the
+    URLs asked for.
+    """
+    urls: list[str] = []
 
     def _download(**kwargs: object) -> File:
         url = str(kwargs["url"])
-        properties = [_TORONTO_STATION] if "climate-stations" in url else collection_properties
+        urls.append(url)
+        query = dict(part.split("=", 1) for part in url.split("?", 1)[1].split("&"))
+        properties = collection_properties
+        if "UTC_YEAR" in query:
+            properties = [p for p in properties if p["UTC_DATE"].startswith(query["UTC_YEAR"])]
+        if "datetime" in query:
+            first, last = (value.replace("T", " ") for value in query["datetime"].split("/"))
+            properties = [p for p in properties if first <= p["LOCAL_DATE"] <= last]
+        if "climate-stations" in url:
+            properties = [station or _TORONTO_STATION]
         content = json.dumps({"features": [{"type": "Feature", "properties": p} for p in properties]})
         return File(url=url, content=BytesIO(content.encode()), status=200)
 
     monkeypatch.setattr(eccc_api, "download_file", _download)
+    return urls
 
 
 @pytest.mark.parametrize(
@@ -359,4 +377,48 @@ def test_eccc_daily_stays_at_local_civil_midnight(
     assert df.select("timestamp", "value").rows() == [
         (dt.datetime(2025, 1, 15, 5, tzinfo=ZoneInfo("UTC")), -7.5),
         (dt.datetime(2025, 7, 1, 4, tzinfo=ZoneInfo("UTC")), 24.9),
+    ]
+
+
+def test_eccc_hourly_year_window_follows_utc_date_not_the_civil_zone(
+    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
+) -> None:
+    """Test that the first hour of a UTC year is fetched where ECCC's zone is not the civil one of the position.
+
+    FORT ST. JOHN A (50837) is stated as PST (UTC-8) while the time zone of its position, which the library
+    uses for a window of LOCAL_DATE, is Dawson Creek's UTC-7 all year. The first hour of 2025 UTC is
+    LOCAL_DATE 2024-12-31 16:00, which a window starting at 17:00 local does not reach. The request is
+    cut by UTC_YEAR instead, the year of the stamps (GH-2675).
+    """
+    station = {
+        "STN_ID": 50837,
+        "STATION_NAME": "FORT ST. JOHN A",
+        "PROV_STATE_TERR_CODE": "BC",
+        "LATITUDE": 561418000,
+        "LONGITUDE": -1204425000,
+        "TIMEZONE": "PST",
+        "ELEVATION": "694.90",
+        "FIRST_DATE": "2012-12-03 23:00:00",
+        "LAST_DATE": "2026-10-08 12:30:10",
+    }
+    rows = [
+        {"LOCAL_DATE": local, "UTC_DATE": utc, "TEMP": value, "TEMP_FLAG": None}
+        for local, utc, value in [
+            ("2024-12-31 15:00:00", "2024-12-31T23:00:00", -14.6),
+            ("2024-12-31 16:00:00", "2025-01-01T00:00:00", -14.9),
+            ("2024-12-31 17:00:00", "2025-01-01T01:00:00", -15.0),
+        ]
+    ]
+    _serve_eccc(monkeypatch, rows, station)
+    request = EcccObservationRequest(
+        parameters=[("hourly", "data", "temperature_air_2m")],
+        start=dt.datetime(2024, 12, 31, 23, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2025, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
+        settings=settings_convert_units_false,
+    )
+    df = request.filter_by_station_id("50837").values.all().df.sort("timestamp")
+    assert df.select("timestamp", "value").rows() == [
+        (dt.datetime(2024, 12, 31, 23, tzinfo=ZoneInfo("UTC")), -14.6),
+        (dt.datetime(2025, 1, 1, 0, tzinfo=ZoneInfo("UTC")), -14.9),
+        (dt.datetime(2025, 1, 1, 1, tzinfo=ZoneInfo("UTC")), -15.0),
     ]
