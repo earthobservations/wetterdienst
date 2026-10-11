@@ -105,7 +105,7 @@ def test_dmi_stamps_of_the_clock_change_days_name_the_instants_they_say() -> Non
     carries, so the hours around both clock changes are given in UTC and, for one of each, as the
     local stamp a mistaken source would write: they must name the same instants. Daily ones carry the
     station's local offset, which changes on the transition day, and their civil date is taken from
-    the string, so each day gets one distinct stamp whatever its length.
+    the end of the day's window in the string, so each day gets one distinct stamp whatever its length.
     """
     hourly = pl.DataFrame(
         {
@@ -143,7 +143,15 @@ def test_dmi_stamps_of_the_clock_change_days_name_the_instants_they_say() -> Non
                 "2025-10-25T00:00:00.001000+02:00",
                 "2025-10-26T00:00:00.001000+02:00",
                 "2025-10-27T00:00:00.001000+01:00",
-            ]
+            ],
+            "to": [
+                "2025-03-30T00:00:00+01:00",
+                "2025-03-31T00:00:00+02:00",
+                "2025-04-01T00:00:00+02:00",
+                "2025-10-26T00:00:00+02:00",
+                "2025-10-27T00:00:00+01:00",
+                "2025-10-28T00:00:00+01:00",
+            ],
         }
     ).select(DmiObservationValues._date_expression(Resolution.DAILY).alias("timestamp"))  # noqa: SLF001
     assert daily.get_column("timestamp").to_list() == [
