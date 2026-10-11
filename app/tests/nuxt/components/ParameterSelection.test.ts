@@ -187,6 +187,23 @@ describe('parameterSelection Component', () => {
     expect(vm.restrictedNetworkAvailable).toBe(true)
   })
 
+  it('lists a credentialed network unless its credentials are missing or rejected', async () => {
+    // `valid` is `null` when the backend could not check the credentials (no network, a rate limit,
+    // an outage): unknown, not rejected, so only an explicit `false` hides a network (GH-2550, GH-2562)
+    const network = (configured: boolean, valid: boolean | null) => ({ auth: true, configured, valid, date_required: false })
+    registerEndpoint('/api/coverage', () => ({
+      aemet: { accepted: network(true, true), unchecked: network(true, null), rejected: network(true, false), missing: network(false, false) },
+      knmi: { missing: network(false, false) },
+      noaa: { rejected: network(true, false) },
+    }))
+
+    const wrapper = await mountReady({ modelValue: { provider: 'aemet' } })
+
+    const vm = wrapper.vm as any
+    expect(vm.networks).toEqual(['accepted', 'unchecked'])
+    expect(vm.providers).toEqual(['aemet'])
+  })
+
   it('does not fall back to the unrestricted provider list when restrictProvider does not exist', async () => {
     registerEndpoint('/api/coverage', () => ({ noaa: { ghcn: {} } }))
 

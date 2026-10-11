@@ -751,10 +751,12 @@ def auth(
 ) -> JSONResponse:
     """Check whether the credentials for an auth-required provider are present and valid.
 
-    Returns `{"provider": ..., "network": ..., "auth": bool, "configured": bool, "valid": bool}`.
+    Returns `{"provider": ..., "network": ..., "auth": bool, "configured": bool, "valid": bool | null}`.
     For providers that do not require authentication, `auth` is false and `configured`/`valid` are true.
     `configured` reflects whether credentials are present (false as well while the settings are invalid);
-    `valid` whether a probe request succeeded.
+    `valid` whether a probe request showed them accepted (true) or rejected (false). It is null when
+    the probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is
+    not a rejection, so treat null as unknown.
     `valid` is false whenever `configured` is false (a probe cannot be performed without credentials).
     """
     set_logging_level(debug=request.debug)
@@ -770,17 +772,13 @@ def auth(
 
     metadata = getattr(api, "metadata", None)
     requires_auth = metadata.auth if metadata is not None else False
-    is_valid = getattr(api, "is_valid", lambda: True)
     configured = Wetterdienst.is_configured(api) if requires_auth else True
     if not requires_auth:
         valid = True
     elif not configured:
         valid = False
     else:
-        try:
-            valid = is_valid()
-        except Exception:  # noqa: BLE001
-            valid = False
+        valid = Wetterdienst.is_valid(api)
     return JSONResponse(
         content={
             "provider": provider,
@@ -802,7 +800,8 @@ class CoverageNetwork(TypedDict):
 
     auth: bool
     configured: bool
-    valid: bool
+    # null when the credentials could not be checked (the probe failed for a reason other than a rejection)
+    valid: bool | None
     date_required: bool
 
 

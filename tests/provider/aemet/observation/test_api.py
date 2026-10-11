@@ -581,3 +581,91 @@ def test_aemet_observation_values_failed_chunk_is_skipped_and_logged(
     assert df.is_empty()
     assert len(attempted) == chunks
     assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == chunks
+
+
+def _fetch_datos_answering(monkeypatch: pytest.MonkeyPatch, *files: File) -> list[str]:
+    """Have AEMET's downloads, retries aside, answer with `files` in order; return the URLs requested."""
+    requested: list[str] = []
+    answers = iter(files)
+
+    def download(url: str, *_args: object, **_kwargs: object) -> File:
+        requested.append(url)
+        return next(answers)
+
+    monkeypatch.setattr("wetterdienst.provider.aemet.observation.api._download_with_rate_limit_retry", download)
+    return requested
+
+
+def _envelope(estado: int, **extra: str) -> File:
+    body = json.dumps({"estado": estado, "descripcion": "the answer", **extra}).encode()
+    return File(url="envelope", content=BytesIO(body), status=200)
+
+
+@pytest.fixture
+def _aemet_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("WD_AUTH__AEMET", "dummy-key-for-test")
+
+
+@pytest.mark.usefixtures("_aemet_key")
+@pytest.mark.parametrize(
+    "answers",
+    [
+        pytest.param([File(url="u", content=Exception("401, message='Unauthorized'"), status=401)], id="http-401"),
+        pytest.param([File(url="u", content=Exception("403, message='Forbidden'"), status=403)], id="http-403"),
+        pytest.param([_envelope(401)], id="estado-401"),
+        pytest.param([_envelope(403)], id="estado-403"),
+    ],
+)
+def test_aemet_observation_is_valid_is_false_for_a_rejected_key(
+    monkeypatch: pytest.MonkeyPatch, answers: list[File]
+) -> None:
+    """AEMET refuses a key with an HTTP 401/403 or an envelope `estado` of 401/403 (GH-2562)."""
+    requested = _fetch_datos_answering(monkeypatch, *answers)
+    assert AemetObservationRequest.is_valid() is False
+    assert len(requested) == 1
+
+
+@pytest.mark.usefixtures("_aemet_key")
+def test_aemet_observation_is_valid_is_true_for_an_accepted_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An envelope `estado` of 200 and the datos behind it are the key accepted."""
+    datos = File(url="datos", content=BytesIO(b"[]"), status=200)
+    _fetch_datos_answering(monkeypatch, _envelope(200, datos="https://opendata.aemet.es/datos"), datos)
+    assert AemetObservationRequest.is_valid() is True
+
+
+@pytest.mark.usefixtures("_aemet_key")
+@pytest.mark.parametrize(
+    "answers",
+    [
+        pytest.param([File(url="u", content=OSError("certificate verify failed"), status=500)], id="ssl"),
+        pytest.param([File(url="u", content=NoInternetError("no route to host"), status=503)], id="no-network"),
+        pytest.param([File(url="u", content=TimeoutError("timed out"), status=408)], id="timeout"),
+        pytest.param([File(url="u", content=Exception("503"), status=503)], id="http-503"),
+        pytest.param([_envelope(429)], id="estado-429"),
+        pytest.param([_envelope(500)], id="estado-500"),
+        pytest.param(
+            [
+                _envelope(200, datos="https://opendata.aemet.es/datos"),
+                File(url="u", content=Exception("503"), status=503),
+            ],
+            id="datos-503",
+        ),
+        # the datos link is pre-signed and takes no key, so its refusal says nothing about the key
+        pytest.param(
+            [
+                _envelope(200, datos="https://opendata.aemet.es/datos"),
+                File(url="u", content=Exception("401"), status=401),
+            ],
+            id="datos-401",
+        ),
+    ],
+)
+def test_aemet_observation_is_valid_is_unknown_when_the_probe_could_not_tell(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, answers: list[File]
+) -> None:
+    """Any failure but a refused key says nothing about the key, so it is None, not False, and logged (GH-2562)."""
+    _fetch_datos_answering(monkeypatch, *answers)
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.aemet"):
+        assert AemetObservationRequest.is_valid() is None
+    assert any(record.getMessage().startswith("Could not check the AEMET API key") for record in caplog.records)
+    assert "dummy-key-for-test" not in caplog.text

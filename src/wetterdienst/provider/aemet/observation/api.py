@@ -58,6 +58,8 @@ _MAX_REQUEST_DAYS = 179
 # are handled via xfail rather than a longer retry (see
 # tests/provider/aemet/observation/test_api.py).
 _NON_RETRYABLE_STATUSES = {400, 401, 403, 404}
+# the answers, as an HTTP status or an envelope's `estado`, that say AEMET refuses the API key
+_KEY_REJECTED_STATUSES = frozenset({401, 403})
 _RETRY_WAIT_INITIAL_SECONDS = 2
 _RETRY_WAIT_MAX_SECONDS = 15
 _RETRY_MAX_RETRIES = 2
@@ -119,6 +121,10 @@ _REALTIME_VALUE_COLUMNS = (
     "pres_nmar",
     "hr",
 )
+
+
+class AemetKeyRejectedError(Exception):
+    """AEMET refused the API key (HTTP or envelope status 401 or 403), as opposed to any other failure."""
 
 
 class _AemetRetryableError(Exception):
@@ -188,6 +194,10 @@ def _download_with_rate_limit_retry(
 def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exception:
     """Resolve AEMET's two-step response pattern (envelope + separate "datos" URL).
 
+    A failure is returned, not raised. `AemetKeyRejectedError` is the one that says AEMET refuses the
+    key: a 401 or 403 of the envelope request, or an `estado` of 401 or 403 in it. The "datos" URL is
+    pre-signed and takes no key, so a refusal of it says nothing about the key.
+
     The api_key is sent as a request header (rather than a URL query parameter) so it
     never ends up embedded in a URL that gets logged. AEMET accepts the key either way;
     the "datos" URL from the envelope is a pre-signed link that doesn't need auth at all.
@@ -198,10 +208,15 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
     }
     file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=client_kwargs)
     if isinstance(file.content, Exception):
+        if file.status in _KEY_REJECTED_STATUSES:
+            return AemetKeyRejectedError(f"AEMET answered HTTP {file.status}: {file.content}")
         return file.content
     envelope = json.load(file.content)
     if envelope.get("estado") != 200:
-        return Exception(envelope.get("descripcion", "unknown AEMET error"))
+        description = envelope.get("descripcion", "unknown AEMET error")
+        if envelope.get("estado") in _KEY_REJECTED_STATUSES:
+            return AemetKeyRejectedError(description)
+        return Exception(description)
     datos_file = _download_with_rate_limit_retry(envelope["datos"], settings, ttl)
     if isinstance(datos_file.content, Exception):
         return datos_file.content
@@ -209,13 +224,23 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
     return datos_file.content.read()
 
 
-def _probe_aemet_credentials(settings: Settings) -> bool:
-    """Probe the AEMET API; result is cached on disk for ONE_HOUR via download_file."""
+def _probe_aemet_credentials(settings: Settings) -> bool | None:
+    """Probe the AEMET API; an answer is cached on disk for ONE_HOUR via download_file.
+
+    Returns False only when AEMET refuses the key (see `_fetch_datos`), True when it answers, and None
+    for any other failure -- no network, a failed TLS verification, a timeout, a 429 ("wait for the
+    next minute"), a 5xx -- which says nothing about the key.
+    """
     if not settings.auth.aemet:
         return False
     url = f"{_BASE_URL}/valores/climatologicos/inventarioestaciones/todasestaciones"
     payload = _fetch_datos(url, settings, CacheExpiry.ONE_HOUR)
-    return not isinstance(payload, Exception)
+    if isinstance(payload, AemetKeyRejectedError):
+        return False
+    if isinstance(payload, Exception):
+        log.warning("Could not check the AEMET API key: %s", payload)
+        return None
+    return True
 
 
 class AemetObservationValues(TimeseriesValues):
@@ -459,7 +484,7 @@ class AemetObservationRequest(TimeseriesRequest):
         return bool(Settings().auth.aemet)
 
     @classmethod
-    def is_valid(cls, settings: Settings | None = None) -> bool:  # noqa: D102
+    def is_valid(cls, settings: Settings | None = None) -> bool | None:  # noqa: D102
         return _probe_aemet_credentials(settings or Settings())
 
     def __post_init__(self) -> None:  # noqa: D105

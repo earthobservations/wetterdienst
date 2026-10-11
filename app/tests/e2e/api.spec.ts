@@ -21,7 +21,7 @@ test.describe('API Coverage Endpoint', () => {
     expect(Array.isArray(data.dwd)).toBeFalsy()
     const networks = Object.keys(data.dwd)
     expect(networks).toContain('observation')
-    for (const info of Object.values(data.dwd) as { auth: boolean, configured: boolean, valid: boolean }[]) {
+    for (const info of Object.values(data.dwd) as { auth: boolean, configured: boolean, valid: boolean | null }[]) {
       expect(typeof info.auth).toBe('boolean')
       expect(typeof info.configured).toBe('boolean')
       expect(typeof info.valid).toBe('boolean')

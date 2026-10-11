@@ -26,6 +26,9 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# the answers that say Frost refuses the client ID, as opposed to one that says it could not be asked
+_FROST_REJECTED_STATUSES = frozenset({401, 403})
+
 MetnoFrostMetadata = {
     "name_short": "MetNo Frost",
     "name_english": "Norwegian Meteorological Institute",
@@ -763,8 +766,13 @@ class MetnoFrostValues(TimeseriesValues):
         return pl.concat(frames, how="diagonal_relaxed")
 
 
-def _probe_frost_credentials(settings: Settings) -> bool:
-    """Probe the Frost API; result is cached on disk for ONE_HOUR via download_file."""
+def _probe_frost_credentials(settings: Settings) -> bool | None:
+    """Probe the Frost API; an answer is cached on disk for ONE_HOUR via download_file.
+
+    Returns False only for the answers that say the client ID is refused (HTTP 401 and 403), True for
+    a 200, and None for any other outcome -- no network, a failed TLS verification, a timeout, a 429,
+    a 5xx -- which says nothing about the credentials.
+    """
     if not settings.auth.metno_frost:
         return False
     client_id, secret = settings.auth.metno_frost
@@ -788,7 +796,12 @@ def _probe_frost_credentials(settings: Settings) -> bool:
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
     )
-    return not file.is_no_internet_error and not isinstance(file.content, Exception) and file.status == 200
+    if file.status in _FROST_REJECTED_STATUSES:
+        return False
+    if not isinstance(file.content, Exception) and file.status == 200:
+        return True
+    log.warning("Could not check the Frost credentials (status %s): %s", file.status, file.content)
+    return None
 
 
 class MetnoFrostRequest(TimeseriesRequest):
@@ -804,7 +817,7 @@ class MetnoFrostRequest(TimeseriesRequest):
         return bool(Settings().auth.metno_frost)
 
     @classmethod
-    def is_valid(cls, settings: Settings | None = None) -> bool:  # noqa: D102
+    def is_valid(cls, settings: Settings | None = None) -> bool | None:  # noqa: D102
         return _probe_frost_credentials(settings or Settings())
 
     def __post_init__(self) -> None:  # noqa: D105

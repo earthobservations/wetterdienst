@@ -47,8 +47,12 @@ const { data: coverage, status: coverageStatus } = useFetch<CoverageResponse>('/
 const coverageSettled = computed(() => coverageStatus.value === 'success' || coverageStatus.value === 'error')
 const coveragePending = computed(() => !coverageSettled.value)
 
-// A provider/network is available when it needs no auth, or when auth credentials are present and valid.
-const isAvailable = (n: { auth: boolean, configured: boolean, valid: boolean }) => !n.auth || (n.configured && n.valid)
+// A provider/network is available when it needs no auth, or when auth credentials are present and not
+// rejected. `valid` is `null` when the backend could not check them (no network, a rate limit, an
+// outage): unknown, not rejected, so only an explicit `false` makes the network unavailable.
+function isAvailable(n: { auth: boolean, configured: boolean, valid: boolean | null }) {
+  return !n.auth || (n.configured && n.valid !== false)
+}
 
 // EXPECTING
 // These reflect what the backend actually offers -- independent of any
