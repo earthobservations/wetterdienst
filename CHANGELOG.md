@@ -16,6 +16,24 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `noaa/ghcn` `daily` values are stamped at 00:00 UTC of their date, no longer at the
+  station's local standard midnight in UTC (Tokyo 15:00 UTC of the day before, New York 05:00 UTC),
+  so a request for one day (`start` and `end` the same date) returns that day for every station.
+  Stamps move by up to 14 hours: join stored series on the date, no longer on the instant, and
+  shift series stored with the old stamps (GH-2683)
+- **Breaking**: `eccc/observation` `daily` and `monthly` values are stamped at 00:00 UTC of their
+  date or of the first of the month, no longer at the station's civil midnight in UTC (Toronto
+  05:00 UTC in winter, 04:00 UTC in summer), so a request for one day or month returns it. Join
+  stored series on the date, no longer on the instant (GH-2683)
+- **Breaking**: `smhi/observation` `daily` `snow_depth` is stamped at 00:00 UTC of the date of its
+  reading, no longer at 06:00 UTC, like the other daily parameters, so a request for one day
+  returns it with them, where it used to be dropped. Join stored snow depth on the date (GH-2683)
+- **Breaking**: `ea/hydrology` `daily` values are stamped at 00:00 UTC of the day they name, no
+  longer at 09:00 UTC (the 24 hours run from 09:00 of that day), so a request for one day returns
+  it. Join stored series on the date, no longer on the instant (GH-2683)
+
 ### Fixed
 
 - `meteofrance/synop` `subdaily/data` returns `0.0`, no longer `-0.1`, for

@@ -13,7 +13,7 @@ from urllib.parse import urlencode
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.metadata.resolution import count_readings
+from wetterdienst.metadata.resolution import Resolution, count_readings
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
     ParameterModel,
@@ -255,12 +255,17 @@ class EAHydrologyValues(TimeseriesValues):
         )
         df = df.explode("items", empty_as_null=True)
         df = df.select(pl.col("items").struct.unnest())
+        timestamp = pl.col("dateTime").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC")
+        if parameter_or_dataset.dataset.resolution.value == Resolution.DAILY:
+            # the daily value is dated D 09:00 and covers the 24 h from there; it is stamped at 00:00 UTC of D, the
+            # day it names, which a request for that one day reaches (GH-2683)
+            timestamp = timestamp.dt.truncate("1d")
         return df.select(
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             pl.lit(parameter_or_dataset.name_original).alias("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("dateTime").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC").alias("timestamp"),
+            timestamp.alias("timestamp"),
             pl.col("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
