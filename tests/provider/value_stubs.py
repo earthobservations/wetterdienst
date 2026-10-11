@@ -389,7 +389,6 @@ STUBS = [
         _dwd_hourly_weather_phenomena,
         reading=("weather", 61.0),
         sentinels=(("weather", -1.0),),
-        leak="#2670",
     ),
     ValueStub(
         "geosphere/observation daily/data",

@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `dwd/observation` `hourly/weather_phenomena` returns null, no longer `-1`, for `weather` in the
+  hours in which DWD did not report the present weather (`WW_Text`: "Wetter wurde nicht gemeldet"),
+  so counting hours by weather code, or taking its maximum or mean, no longer includes them. The
+  cloud type code `v_sN_cs` keeps its `-1` (GH-2670)
+
 ## [0.145.0] - 2026-10-11
 
 ### Changed
