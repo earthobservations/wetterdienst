@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `ea/hydrology` daily requests no longer cut the newest reading of a window: the readings request
+  carried a `_limit` of one reading per day, but a window holds more readings than days (the
+  maximum and minimum are dated at their instant, and the endpoint answers some days twice), so
+  the last requested day could be missing. No `_limit` is sent for daily now (GH-2732)
+
 ## [0.146.0] - 2026-10-11
 
 ### Changed
