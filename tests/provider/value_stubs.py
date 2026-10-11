@@ -291,8 +291,12 @@ def _geosphere_daily(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
 
 def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
-    # GHCNh_ACM00078861_por.psv, 1942-01-17 02:00: the direction reads 999 with the measurement code C (calm) and a wind
-    # speed of 0.0; the documentation gives "000" for calm
+    # GHCNh_ACM00078861_por.psv, 1942-01-17 02:00: the direction reads 999 with the measurement code C (calm) and a
+    # wind speed of 0.0; the documentation gives "000" for calm. 1942-01-28 14:00 reads 999 too, with no code and a
+    # wind speed of 4.1 (the stub puts it on the 17th): no direction given. The documentation: "the most consistent
+    # way to identify hours of missing data across the entire dataset is to test if the precipitation value is equal
+    # to the special missing value of -9999"; the precipitation columns of the Antigua file are empty, so that row is
+    # worded after the documentation
     stations = (
         b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
         b"ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD ANTIGUA,,,78861,,AG\n"
@@ -300,11 +304,12 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     hourly = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=Settings(cache_disable=True))
     columns = [parameter.name_original for parameter in hourly.metadata["hourly"]["data"]]
     rows = [
-        {"temperature": "23.5", "wind_direction": "999", "wind_speed": "0.0"},
-        {"temperature": "23.0", "wind_direction": "90", "wind_speed": "3.1"},
+        {"temperature": "23.5", "wind_direction": "999", "wind_speed": "0.0", "precipitation": "-9999"},
+        {"temperature": "23.0", "wind_direction": "90", "wind_speed": "3.1", "precipitation": "0.2"},
+        {"temperature": "24.0", "wind_direction": "999", "wind_speed": "4.1", "precipitation": "-9999"},
     ]
     lines = ["|".join(["STATION", "DATE", *columns])]
-    for hour, row in zip((2, 3), rows, strict=True):
+    for hour, row in zip((2, 3, 14), rows, strict=True):
         cells = [row.get(column, "") for column in columns]
         lines.append("|".join(["ACM00078861", f"1942-01-17T{hour:02d}:00:00", *cells]))
     serve(
@@ -396,8 +401,7 @@ STUBS = [
         "noaa/ghcn hourly/data",
         _ghcn_hourly,
         reading=("wind_direction", 90.0),
-        sentinels=(("wind_direction", 999.0),),
-        leak="#2672",
+        sentinels=(("wind_direction", 999.0), ("precipitation_amount", -9999.0)),
     ),
     ValueStub(
         "meteofrance/synop subdaily/data",
