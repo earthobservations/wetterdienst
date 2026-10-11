@@ -24,6 +24,35 @@ from wetterdienst.provider.imgw.meteorology.api import (
 from wetterdienst.util.network import File
 
 
+def test_imgw_meteorology_station_list_gives_no_region(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The river catchment of the station list is `river`, not `region` (GH-2019).
+
+    The list's fourth column is `Rzeka`, the river catchment with its hydrographic code (`Odra (1)`, `Bałtyk (0)`
+    for the sea), which the request read into `region`. The list gives no region.
+    """
+    catalogue = (
+        "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
+        "Wysokość n.p.m.\r\n"
+        "1;249170080;Dzierżkowice;Opawa (112);2024;49 59 32;17 50 47;270\r\n"
+        "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
+        "4;249180030;Chałupki;Odra (1);1948;49 55 33;18 19 39;198\r\n"
+    )
+    monkeypatch.setattr(
+        "wetterdienst.provider.imgw.meteorology.api.download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue.encode("utf8")), status=200),
+    )
+
+    df = ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df
+
+    # the reader takes the first row of the list for the header (GH-2752), so the first station is not asserted
+    stations = df.filter(pl.col("name").is_in(["Pszczyna", "Chałupki"]))
+    assert stations.select("station_id", "name", "river", "region", "elevation").rows() == [
+        ("249180010", "Pszczyna", "Pszczynka (2116)", None, 270.0),
+        ("249180030", "Chałupki", "Odra (1)", None, 198.0),
+    ]
+    assert df["region"].is_null().all()
+
+
 @pytest.mark.remote
 def test_imgw_meteorology_api_daily() -> None:
     """Test fetching of meteorological data."""
@@ -43,7 +72,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "longitude": 16.104444,
                 "elevation": 137.0,
                 "name": "WIERZCHOWO",
-                "region": "Drawa (1888)",
+                "region": None,
             },
         ],
         schema={
@@ -190,7 +219,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "longitude": 19.002222222222223,
                 "elevation": 396.0,
                 "name": "Bielsko-Biała",
-                "region": "Biała (2114)",
+                "region": None,
             },
         ],
         schema={

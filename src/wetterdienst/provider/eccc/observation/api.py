@@ -118,7 +118,6 @@ class EcccObservationValues(TimeseriesValues):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.stations.settings)
-        station_meta = self.sr.df.filter(pl.col("station_id") == station_id).to_dicts()[0]
         # Normalize parameter_or_dataset to a DatasetModel for uniform access below.
         from wetterdienst.model.metadata import DatasetModel as _DatasetModel  # noqa: PLC0415
 
@@ -126,6 +125,13 @@ class EcccObservationValues(TimeseriesValues):
             dataset = parameter_or_dataset
         else:
             dataset = parameter_or_dataset.dataset
+        # The row of this resolution and dataset: the first and last date differ between resolutions (GH-2730), and the
+        # first row of the station belongs to whichever resolution comes first, not necessarily this one.
+        station_meta = self.sr.df.filter(
+            (pl.col("station_id") == station_id)
+            & (pl.col("resolution") == dataset.resolution.name)
+            & (pl.col("dataset") == dataset.name)
+        ).to_dicts()[0]
         # Derived from the declarations rather than hard-coded: the three lists used to be
         # maintained by hand and the hourly one had drifted to a copy of the daily fields, none of
         # which the hourly collection publishes, so the resolution returned nothing. Built once
@@ -340,34 +346,17 @@ class EcccObservationRequest(TimeseriesRequest):
         df_raw = df_raw.with_columns(
             pl.col("timezone").replace_strict(self._timezone_mapping, default=pl.col("timezone")),
         )
-        # parse start_timestamp and end_timestamp to datetime with timezone from timezone column
-        # First parse as naive datetime, then convert to proper timezone per row
+        # parse start_timestamp and end_timestamp as naive local datetimes; `_stamp_bounds` stamps them per resolution
         df_raw = df_raw.with_columns(
             pl.col("station_id").cast(pl.String),
             pl.col("start_timestamp").str.to_datetime("%Y-%m-%d %H:%M:%S"),
             pl.col("end_timestamp").str.to_datetime("%Y-%m-%d %H:%M:%S"),
             pl.col("elevation").cast(pl.Float64),
         )
-        # Convert datetime to the timezone from the timezone column.
-        df_raw = df_raw.with_columns(
-            pl.struct(["start_timestamp", "timezone"])
-            .map_elements(
-                lambda row: _localize(row["start_timestamp"], row["timezone"]),
-                return_dtype=pl.Datetime(time_zone="UTC"),
-            )
-            .alias("start_timestamp"),
-            pl.struct(["end_timestamp", "timezone"])
-            .map_elements(
-                lambda row: _localize(row["end_timestamp"], row["timezone"]),
-                return_dtype=pl.Datetime(time_zone="UTC"),
-            )
-            .alias("end_timestamp"),
-        )
         df_raw = df_raw.with_columns(
             pl.col("latitude") / 10_000_000,
             pl.col("longitude") / 10_000_000,
         )
-        df_raw = df_raw.select(pl.all().exclude("timezone"))
         # combinations of resolution and dataset
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
 
@@ -380,9 +369,39 @@ class EcccObservationRequest(TimeseriesRequest):
         # for each combination of resolution and dataset create a new DataFrame with the columns
         for resolution, dataset in resolutions_and_datasets:
             data.append(
-                df_raw.with_columns(
+                self._stamp_bounds(df_raw, resolution=Resolution(resolution)).with_columns(
                     pl.lit(resolution, pl.String).alias("resolution"),
                     pl.lit(dataset, pl.String).alias("dataset"),
                 ),
             )
         return pl.concat(data)
+
+    @staticmethod
+    def _stamp_bounds(df: pl.LazyFrame, *, resolution: Resolution) -> pl.LazyFrame:
+        """Give the first and last date of the station as the stamps of the resolution's first and last value.
+
+        FIRST_DATE and LAST_DATE are written in the station's local time. Hourly rows are stamped with an instant, so
+        the date is converted from the station's zone to UTC. Daily and monthly rows are stamped at 00:00 UTC of their
+        date or month whatever the zone (GH-2683), so the date is cut to the day or month it names and stamped the same
+        way: converted to UTC, the first day of a station read 2013-06-11 13:00 UTC, after the 00:00 UTC window of a
+        request for that one day, and the station was skipped though it has a value dated that day (GH-2730).
+        """
+        if resolution in (Resolution.DAILY, Resolution.MONTHLY):
+            unit = "1mo" if resolution == Resolution.MONTHLY else "1d"
+            return df.select(pl.all().exclude("timezone")).with_columns(
+                pl.col("start_timestamp", "end_timestamp").dt.truncate(unit).dt.replace_time_zone("UTC"),
+            )
+        return df.with_columns(
+            pl.struct(["start_timestamp", "timezone"])
+            .map_elements(
+                lambda row: _localize(row["start_timestamp"], row["timezone"]),
+                return_dtype=pl.Datetime(time_zone="UTC"),
+            )
+            .alias("start_timestamp"),
+            pl.struct(["end_timestamp", "timezone"])
+            .map_elements(
+                lambda row: _localize(row["end_timestamp"], row["timezone"]),
+                return_dtype=pl.Datetime(time_zone="UTC"),
+            )
+            .alias("end_timestamp"),
+        ).select(pl.all().exclude("timezone"))

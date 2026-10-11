@@ -322,11 +322,13 @@ class MetOfficeObservationRequest(TimeseriesRequest):
                 stations.with_columns(
                     pl.lit(dataset.resolution.name, pl.String).alias("resolution"),
                     pl.lit(dataset.name, pl.String).alias("dataset"),
-                ),
+                    # the county the station is filed under in MIDAS, as published (`shetland`)
+                    pl.col("historic_county").alias("region"),
+                )
+                # the two path components are re-resolved from the same catalogue when a station's
+                # files are read, see `_station_slug_and_county`, so they are no station columns
+                .drop("historic_county", "station_file_name"),
             )
         if not frames:
             return pl.LazyFrame()
-        # TimeseriesRequest.all() selects _base_columns and fills any the catalogue omits (region)
-        # with null; historic_county/station_file_name are dropped there and re-resolved from the
-        # same station-metadata.csv (cached) in MetOfficeObservationValues when needed.
         return pl.concat(frames).lazy()

@@ -493,6 +493,52 @@ def test_wsv_station_list_names_the_vertical_datum_of_the_gauge_zero(monkeypatch
     }
 
 
+def test_wsv_station_list_names_the_river_and_the_kilometre_on_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that ``river`` and ``river_kilometer`` reach the station list, as Pegelonline publishes them (GH-2019).
+
+    Pegelonline gives each station the river it is on (`water.shortname`, in upper case) and its
+    position along it (`km`, null for 2 of the 786 stations on 2026-10-11, where it has none).
+    `TimeseriesRequest.all()` keeps the columns a request declares, so a reader that builds them
+    without declaring them loses them.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
+
+    def _station(number: str, name: str, river: str, kilometre: float | None) -> dict:
+        stage = {"shortname": "W", "equidistance": 15, "unit": "cm", "characteristicValues": []}
+        return {
+            "number": number,
+            "shortname": name,
+            "km": kilometre,
+            "latitude": 50.0,
+            "longitude": 10.0,
+            "water": {"shortname": river, "longname": river},
+            "timeseries": [stage],
+        }
+
+    listing = json.dumps(
+        [
+            _station("48300105", "CELLE", "ALLER", 1.74),
+            _station("48700103", "MARKLENDORF", "ALLER", 38.47),
+            _station("nokm", "NO KILOMETRE", "ELBE", None),
+        ],
+    ).encode()
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(listing), status=200),
+    )
+
+    df = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().df
+
+    assert df.select("station_id", "name", "river", "river_kilometer").rows() == [
+        ("48300105", "CELLE", "ALLER", 1.74),
+        ("48700103", "MARKLENDORF", "ALLER", 38.47),
+        ("nokm", "NO KILOMETRE", "ELBE", None),
+    ]
+
+
 def test_wsv_a_failed_values_download_names_the_file(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a values download that timed out raises an error naming the file (GH-2507).
 

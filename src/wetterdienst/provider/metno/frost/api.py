@@ -403,6 +403,7 @@ _SNOW_DEPTH = "surface_snow_thickness"
 _NO_SNOW = -1.0
 _CLOUD_COVER = "cloud_area_fraction"
 _CLOUD_COVER_NOT_ESTIMATED = (-3.0, 9.0)
+_DAILY = "daily"
 
 
 def _frost_time(value: datetime) -> str:
@@ -412,6 +413,24 @@ def _frost_time(value: datetime) -> str:
     held in another zone has to be converted before its wall clock is written down (GH-2681).
     """
     return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def _stamp_days(df: pl.DataFrame) -> pl.DataFrame:
+    """Stamp a daily value at 00:00 UTC of the day it belongs to (GH-2729).
+
+    Frost stores a daily value with a date only, `referenceTime` `<date>T00:00`, except for an instantaneous
+    observation, which "is stored with date and time" and whose `referenceTime` "is equal to the observation
+    time" (https://frost.met.no/concepts2.html). Of the daily elements that is `surface_snow_thickness`,
+    stamped at the time of its reading, so it sat besides the other daily parameters at a time of its own, which
+    a window of whole days, as the one of a request for a day, does not keep (GH-2683 for SMHI). The reading
+    on a date belongs to that date; the other daily stamps are at 00:00 UTC already.
+    """
+    return df.with_columns(
+        pl.when(pl.col("resolution") == _DAILY)
+        .then(pl.col("timestamp").dt.truncate("1d"))
+        .otherwise(pl.col("timestamp"))
+        .alias("timestamp"),
+    )
 
 
 def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
@@ -535,16 +554,18 @@ class MetnoFrostValues(TimeseriesValues):
         )
         df = df.explode("observations", empty_as_null=True)
         df = df.unnest("observations")
-        return _decode_sentinels(
-            df.select(
-                pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-                pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-                pl.col("elementId").alias("parameter"),
-                pl.lit(station_id, dtype=pl.String).alias("station_id"),
-                pl.col("referenceTime").alias("timestamp"),
-                pl.col("value").cast(pl.Float64),
-                pl.col("qualityCode").cast(pl.Float64).alias("quality"),
-            ),
+        return _stamp_days(
+            _decode_sentinels(
+                df.select(
+                    pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+                    pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
+                    pl.col("elementId").alias("parameter"),
+                    pl.lit(station_id, dtype=pl.String).alias("station_id"),
+                    pl.col("referenceTime").alias("timestamp"),
+                    pl.col("value").cast(pl.Float64),
+                    pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+                ),
+            )
         )
 
     def _collect_after_batch_404(
@@ -639,16 +660,18 @@ class MetnoFrostValues(TimeseriesValues):
         df = df.unnest("observations")
         # keep only matching elementId (the Frost response may include multiple elements)
         df = df.filter(pl.col("elementId").eq(parameter.name_original))
-        return _decode_sentinels(
-            df.select(
-                pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
-                pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
-                pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
-                pl.lit(station_id, dtype=pl.String).alias("station_id"),
-                pl.col("referenceTime").alias("timestamp"),
-                pl.col("value").cast(pl.Float64),
-                pl.col("qualityCode").cast(pl.Float64).alias("quality"),
-            ),
+        return _stamp_days(
+            _decode_sentinels(
+                df.select(
+                    pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
+                    pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
+                    pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
+                    pl.lit(station_id, dtype=pl.String).alias("station_id"),
+                    pl.col("referenceTime").alias("timestamp"),
+                    pl.col("value").cast(pl.Float64),
+                    pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+                ),
+            )
         )
 
     def _collect_via_time_series_discovery(  # noqa: C901
@@ -745,16 +768,18 @@ class MetnoFrostValues(TimeseriesValues):
             df = df.explode("observations", empty_as_null=True).unnest("observations")
             df = df.filter(pl.col("elementId").eq(element))
             frames.append(
-                _decode_sentinels(
-                    df.select(
-                        pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
-                        pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
-                        pl.lit(element, dtype=pl.String).alias("parameter"),
-                        pl.lit(station_id, dtype=pl.String).alias("station_id"),
-                        pl.col("referenceTime").alias("timestamp"),
-                        pl.col("value").cast(pl.Float64),
-                        pl.col("qualityCode").cast(pl.Float64).alias("quality"),
-                    ),
+                _stamp_days(
+                    _decode_sentinels(
+                        df.select(
+                            pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
+                            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
+                            pl.lit(element, dtype=pl.String).alias("parameter"),
+                            pl.lit(station_id, dtype=pl.String).alias("station_id"),
+                            pl.col("referenceTime").alias("timestamp"),
+                            pl.col("value").cast(pl.Float64),
+                            pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+                        ),
+                    )
                 )
             )
 

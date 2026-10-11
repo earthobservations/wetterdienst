@@ -30,6 +30,9 @@ Requests hitting a transient failure (rate limiting, dropped connections) are re
 automatically with a short backoff — a couple of retries, a few seconds each. This is
 deliberately modest, not an attempt to wait out a sustained outage.
 
+Each station's `station_id` is the WMO station number at the end of its WIGOS station identifier
+(`06260` for De Bilt); the full identifier (`0-20000-0-06260`) is the station's `wigos_id`.
+
 ## License
 
 Data is © KNMI. See the [KNMI Data Platform](https://dataplatform.knmi.nl/) for further
