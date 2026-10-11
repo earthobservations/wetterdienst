@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `metno/frost` `daily` `snow_depth` is stamped at 00:00 UTC of the date of its
+  reading, no longer at the time of the reading (usually 06:00 UTC), like the other daily
+  parameters. Join stored snow depth on the date (GH-2729)
+
 ### Fixed
 
 - `ea/hydrology` daily requests no longer cut the newest reading of a window: the readings request

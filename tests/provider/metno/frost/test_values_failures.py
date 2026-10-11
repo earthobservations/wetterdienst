@@ -10,6 +10,7 @@ from io import BytesIO
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
+import polars as pl
 import pytest
 
 from wetterdienst.exceptions import NoParametersFoundError
@@ -145,6 +146,86 @@ def test_metno_frost_hourly_wind_is_named_for_its_ten_minutes(monkeypatch: pytes
     assert df["value"].to_list() == [90.0, 3.1]
     with pytest.raises(NoParametersFoundError):
         MetnoFrostRequest(parameters=[("hourly", "data", "wind_direction")], start=START, end=END)
+
+
+DAILY_OBSERVATIONS = {
+    "data": [
+        {
+            "sourceId": "SN18700:0",
+            "referenceTime": "2020-01-01T00:00:00.000Z",
+            "observations": [
+                {"elementId": "sum(precipitation_amount P1D)", "value": 0.1, "qualityCode": 0},
+                {"elementId": "max(air_temperature P1D)", "value": 3.5, "qualityCode": 0},
+            ],
+        },
+        # an instantaneous daily observation is stored with its time of day: "The referenceTime is equal to
+        # the observation time" (https://frost.met.no/concepts2.html)
+        {
+            "sourceId": "SN18700:0",
+            "referenceTime": "2020-01-01T06:00:00.000Z",
+            "observations": [{"elementId": "surface_snow_thickness", "value": 12.0, "qualityCode": 0}],
+        },
+        {
+            "sourceId": "SN18700:0",
+            "referenceTime": "2020-01-02T06:00:00.000Z",
+            "observations": [{"elementId": "surface_snow_thickness", "value": 11.0, "qualityCode": 0}],
+        },
+    ],
+}
+DAILY = [
+    ("daily", "data", "precipitation_amount"),
+    ("daily", "data", "temperature_air_max_2m"),
+    ("daily", "data", "snow_depth"),
+]
+
+
+def _daily_values(
+    monkeypatch: pytest.MonkeyPatch,
+    observations: Callable[[str], File],
+) -> tuple[MetnoFrostValues, list[str]]:
+    """Give the values of one day, 2020-01-01, the daily parameters being requested together."""
+    return _values(monkeypatch, observations, DAILY, start=START, end=START)
+
+
+def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_of_its_date(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the daily snow depth, an instant at 06:00 UTC, is stamped at 00:00 UTC of its date (GH-2729).
+
+    It used to keep the observation time as its stamp, which a window of whole days, 00:00 to 00:00 UTC, leaves
+    out besides the other daily parameters that are stamped at 00:00 UTC.
+    """
+    values, _ = _daily_values(monkeypatch, lambda url: _ok(url, DAILY_OBSERVATIONS))
+    df = values.all().df.sort("parameter")
+    assert df["parameter"].to_list() == ["precipitation_amount", "snow_depth", "temperature_air_max_2m"]
+    assert df["timestamp"].to_list() == [START] * 3
+
+
+def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_when_requested_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the request for one parameter, after a 404 on the batch, stamps the snow depth likewise (GH-2729)."""
+
+    def observations(url: str) -> File:
+        return _ok(url, DAILY_OBSERVATIONS) if "elements=surface_snow_thickness&" in url else _failed(url, 404)
+
+    values, _ = _daily_values(monkeypatch, observations)
+    df = values.all().df.filter(pl.col("parameter") == "snow_depth")
+    assert df["timestamp"].to_list() == [START]
+    assert df["value"].to_list() == [12.0]
+
+
+def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_when_discovered(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a daily time series found by discovery is stamped likewise (GH-2729)."""
+
+    def observations(url: str) -> File:
+        if "availableTimeSeries" in url:
+            return _ok(url, AVAILABLE)
+        if "timeseriesids=" in url:
+            return _ok(url, DAILY_OBSERVATIONS)
+        return _failed(url, 404)
+
+    values, _ = _daily_values(monkeypatch, observations)
+    df = values.all().df.filter(pl.col("parameter") == "snow_depth")
+    assert df["timestamp"].to_list() == [START]
 
 
 @pytest.mark.parametrize("status", [401, 403, 500])
