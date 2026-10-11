@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""Tests for how the Frost values requests read a failed download, run against a stubbed upstream."""
+"""Tests for how the Frost values requests are built and read a failed download, against a stubbed upstream."""
 
 from __future__ import annotations
 
