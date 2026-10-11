@@ -36,6 +36,23 @@ Types of changes:
   the old ones are not found in `hourly/data` (logged and dropped, or `NoParametersFoundError`
   when no other parameter is requested). The 1-minute `wind_speed` and `wind_direction` are
   unchanged (GH-2707)
+- **Breaking**: `noaa/ghcn` `daily` values are stamped at 00:00 UTC of their date, no longer at the
+  station's local standard midnight in UTC (Tokyo 15:00 UTC of the day before, New York 05:00 UTC),
+  so a request for one day (`start` and `end` the same date) returns that day for every station.
+  Stamps move by up to 14 hours: join stored series on the date, no longer on the instant, and
+  shift series stored with the old stamps (GH-2683)
+- **Breaking**: `eccc/observation` `daily` and `monthly` values are stamped at 00:00 UTC of their
+  date or of the first of the month, no longer at the station's civil midnight in UTC (Toronto
+  05:00 UTC in winter, 04:00 UTC in summer), so a request for one day or month returns it. Join
+  stored series on the date, no longer on the instant (GH-2683)
+- **Breaking**: `smhi/observation` `daily` `snow_depth` is stamped at 00:00 UTC of the date of its
+  reading, no longer at 06:00 UTC, like the other daily parameters, so a request for one day
+  returns it with them, where it used to be dropped. Join stored snow depth on the date (GH-2683)
+- **Breaking**: `ea/hydrology` `daily` values are stamped at 00:00 UTC of the day they name (the
+  24 hours from 09:00 of that day), no longer at 09:00 UTC for the mean and at the instant of the
+  extreme for the maximum and minimum, so a request for one day returns it. Where the endpoint
+  answers one day twice, the reading with a value is kept, then the complete one, then the good
+  one. Join stored series on the date, no longer on the instant (GH-2683)
 
 ### Fixed
 

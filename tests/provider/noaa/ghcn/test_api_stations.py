@@ -542,13 +542,14 @@ def test_noaa_ghcn_stations_position_by_id_from_the_row_that_has_one(
     assert request._get_position_by_station_id("AUM00011158") == (47.117, 13.733, 1100.0)  # noqa: SLF001
 
 
-def test_noaa_ghcn_daily_values_time_zone_from_the_row_that_has_a_position(
+def test_noaa_ghcn_daily_values_are_stamped_though_the_first_row_has_no_position(
     monkeypatch: pytest.MonkeyPatch, default_settings: Settings
 ) -> None:
-    """A station's daily values find their time zone though its hourly row, named first, has no position (GH-2380).
+    """A station's daily values are stamped at 00:00 UTC though its hourly row, named first, has no position (GH-2380).
 
-    The daily reader puts a day's midnight in the station's own time zone, which it looks up by
-    position. As above, the daily row is made up; the daily reading is -5.0 degC.
+    The daily reader looked up the station's time zone by position to put a day's midnight in it, and so
+    needed the row that has one; it stamps the date at 00:00 UTC now (GH-2683) and needs no position. As
+    above, the daily row is made up; the daily reading is -5.0 degC.
     """
     contents = {
         "ghcnh-station-list.csv": GHCNH_WITHOUT_POSITION,
@@ -574,9 +575,8 @@ def test_noaa_ghcn_daily_values_time_zone_from_the_row_that_has_a_position(
         settings=default_settings,
     )
     df = request.filter_by_station_id("AUM00011158").values.all().df
-    # midnight in Vienna, an hour ahead of UTC in January 1938
     assert sorted(df.select(pl.col("resolution").cast(pl.String), "timestamp", "value").rows()) == [
-        ("daily", dt.datetime(1938, 1, 1, 23, tzinfo=ZoneInfo("UTC")), -5.0),
+        ("daily", dt.datetime(1938, 1, 2, tzinfo=ZoneInfo("UTC")), -5.0),
         ("hourly", dt.datetime(1938, 1, 2, 6, tzinfo=ZoneInfo("UTC")), -11.1),
     ]
 
