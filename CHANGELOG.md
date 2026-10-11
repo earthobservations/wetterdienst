@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/observation` `hourly/weather_phenomena` returns null, no longer `-1`, for `weather` in the
+  hours in which DWD did not report the present weather (`WW_Text`: "Wetter wurde nicht gemeldet"),
+  so counting hours by weather code, or taking its maximum or mean, no longer includes them
+  (GH-2670)
 - **Breaking**: `dmi/observation` daily `precipitation_amount_max` (`max_precip_30m`) is dated by
   the day it ends on, as DMI defines it ("23:31 local time to the previous day to 24.00 local time
   of the respective day"), not by the day before; its series moves one day later. Shift stored

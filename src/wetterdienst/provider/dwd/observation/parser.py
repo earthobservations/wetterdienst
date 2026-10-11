@@ -96,6 +96,18 @@ MOISTURE_MISSING_PARAMETERS = {
     DwdObservationMetadata.hourly.moisture.temperature_dew_point_2m.name_original,
 }
 
+# The hourly weather phenomena file writes -1 in `WW` for every hour in which the present weather was not
+# reported, and says so in the text column beside it: `       1869;2025040900;    3;  -1;Wetter wurde
+# nicht gemeldet;eor` (stundenwerte_WW_01869_akt.zip; 9263 of the 13088 records of station 01869 are
+# that row, and no other `WW_Text` goes with -1 nor does -1 go with another text). No description states
+# it. It is "not reported", not a weather: left alone it is counted, maxed and averaged as one. Only
+# this column: `v_sN_cs` of hourly cloud_type is a code where -1 is DWD's own value for an automated
+# observation.
+WEATHER_NOT_REPORTED = -1
+WEATHER_NOT_REPORTED_PARAMETERS = {
+    DwdObservationMetadata.hourly.weather_phenomena.weather.name_original,
+}
+
 
 # The wind files write 990 in the direction column where there is no direction (hourly: station 00003,
 # 1975-10-16 08:00, `3;1975101608;    5;   1.3; 990;eor`, a speed of 1.3 m/s beside it; 10 minute:
@@ -253,6 +265,14 @@ def _parse_climate_observations_data(  # noqa: C901
             .otherwise(pl.col(parameter))
             .alias(parameter)
             for parameter in sorted(MOISTURE_MISSING_PARAMETERS & columns)
+        )
+    if dataset == DwdObservationMetadata.hourly.weather_phenomena:
+        df = df.with_columns(
+            pl.when(pl.col(parameter).cast(pl.Float64, strict=False) == WEATHER_NOT_REPORTED)
+            .then(None)
+            .otherwise(pl.col(parameter))
+            .alias(parameter)
+            for parameter in sorted(WEATHER_NOT_REPORTED_PARAMETERS & columns)
         )
     for wind_dataset, parameter in WIND_DIRECTION_PARAMETERS:
         if dataset == wind_dataset and parameter in columns:

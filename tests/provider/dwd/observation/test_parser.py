@@ -230,6 +230,46 @@ def test_parse_dwd_data_reports_unknown_measurement_method(caplog: pytest.LogCap
     assert "v_vv_i" in caplog.text
 
 
+def test_parse_dwd_hourly_weather_phenomena_nulls_weather_not_reported() -> None:
+    """Test that -1 in `WW` becomes null, while the same -1 in the cloud type code `v_s1_cs` stays.
+
+    Station 01869 writes -1 for every hour whose present weather was not reported and says so in
+    `WW_Text` beside it (stundenwerte_WW_01869_akt.zip, 2025-04-09 00:00). It is no weather, so
+    it must not be counted, maxed or averaged as one. In `v_s1_cs` of the hourly cloud type, -1 is
+    DWD's own value for an automated observation.
+    """
+    payload = (
+        "STATIONS_ID;MESS_DATUM;QN_8;  WW;WW_Text;eor\n"
+        "       1869;2025040900;    3;  -1;Wetter wurde nicht gemeldet;eor\n"
+        "       1869;2025040901;    3;  -1;Wetter wurde nicht gemeldet;eor\n"
+        "       1869;2025040902;    3;  61;Regen;eor\n"
+        "       1869;2025040903;    3;   0;;eor\n"
+    )
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    df = parse_climate_observations_data(
+        files=[file],
+        dataset=DwdObservationMetadata.hourly.weather_phenomena,
+        period=Period.RECENT,
+    ).collect()
+    # a weather code of 0 is a reading and has to survive
+    assert df.get_column("ww").to_list() == [None, None, "61", "0"]
+    assert df.get_column("qn_8").to_list() == ["3", "3", "3", "3"]
+
+    cloud_type = File(
+        url="",
+        content=BytesIO(b"STATIONS_ID;MESS_DATUM;QN_8;V_S1_CS;WW;eor\n    3;1994010100;    5;      -1;  -1;eor\n"),
+        status=200,
+    )
+    df = parse_climate_observations_data(
+        files=[cloud_type],
+        dataset=DwdObservationMetadata.hourly.cloud_type,
+        period=Period.HISTORICAL,
+    ).collect()
+    assert df.get_column("v_s1_cs").to_list() == ["-1"]
+    # the rule is the dataset's: the same column name elsewhere is not its business
+    assert df.get_column("ww").to_list() == ["-1"]
+
+
 MOISTURE_COLUMNS = ("absf_std", "vp_std", "tf_std", "rf_std", "td_std")
 MOISTURE_HEADER = "STATIONS_ID;MESS_DATUM;QN_8;ABSF_STD;VP_STD;TF_STD;P_STD;TT_STD;RF_STD;TD_STD;eor\n"
 
