@@ -401,7 +401,7 @@ for result in stations.values.query():
     # analyse the station here
     break
 
-df = result.df.drop_nulls()
+df = result.df.drop_nulls("value")
 df
 ```
 
@@ -423,7 +423,7 @@ request = DwdObservationRequest(
     end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=("00003", "01048"))
-df = stations.values.all().df.drop_nulls()
+df = stations.values.all().df.drop_nulls("value")
 df
 ```
 

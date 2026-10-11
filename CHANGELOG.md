@@ -24,8 +24,9 @@ Types of changes:
   `noaa/ghcn` daily, `chmi/observation` (not monthly or annual), `nws/observation` and
   `smhi/observation`, which dropped it; null for every other provider. `quality` is unchanged.
   Select columns by name, not position: positions move and the count grows by one. Append to a
-  table written before (SQLite, PostgreSQL, DuckDB) only after adding the column or recreating it.
-  Interpolated and summarized frames are unchanged (GH-2018)
+  table written before (any SQL target) only after adding the column or recreating it. A bare
+  `df.drop_nulls()` on a values frame now drops every row whose flag is null: use
+  `drop_nulls("value")`. Interpolated and summarized frames are unchanged (GH-2018)
 
 ### Removed
 

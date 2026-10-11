@@ -118,7 +118,8 @@ read from the `qualityInformationAwsData` flag (BUFR `0 33 005`) that ends every
 These numbers are this network's own. `quality` is a number each provider fills in its own way, and
 the scale differs by provider -- DWD observation puts its `qn` codes there, where a *larger* number
 means a more thorough check, so a number from one network says nothing about a number from another.
-A source's flag that is a letter, a word or a code goes in the string column `quality_flag` instead.
+The providers whose source flags are letters, words or codes also return them as a string in
+`quality_flag`.
 
 `null` is the common case, not the exception: in a network-wide sample of 1199 station-minutes, 817
 reported "no automated meteorological data checks performed" and 40 carried no flag at all. It says

@@ -3456,8 +3456,8 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
     """Build a values result of one station in two daily datasets, in the long or the wide shape.
 
     The wide row is the one `TimeseriesValues._widen_df` writes for two datasets of one resolution:
-    one value and one quality column per parameter, prefixed with its dataset, and no dataset of
-    its own.
+    one value, one quality and one quality flag column per parameter, prefixed with its dataset, and
+    no dataset of its own.
     """
     import datetime as dt  # noqa: PLC0415
 
