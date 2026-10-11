@@ -59,33 +59,57 @@ class EcccObservationValues(TimeseriesValues):
     @staticmethod
     def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
         """Convert wide-format dataframe to long format, pairing value columns with their *_flag quality columns."""
-        # column names arrive lower-cased; `local_date` is the time axis, made `timestamp` further down
+        # column names arrive lower-cased; `date` is the time axis, made `timestamp` further down
         schema_names = df.collect_schema().names()
         flag_columns = {col for col in schema_names if col.endswith("_flag")}
-        value_columns = [col for col in schema_names if col != "local_date" and col not in flag_columns]
+        value_columns = [col for col in schema_names if col != "date" and col not in flag_columns]
         if not value_columns:
             return pl.LazyFrame()
         # Unpivot value columns to long format
-        df_values = df.select(["local_date", *value_columns]).unpivot(
+        df_values = df.select(["date", *value_columns]).unpivot(
             on=value_columns,
-            index="local_date",
+            index="date",
             variable_name="parameter",
             value_name="value",
         )
         # Unpivot flag columns (strip _flag suffix so parameter names align)
-        df_flags = df.select(["local_date", *flag_columns]).rename(
-            {col: col.removesuffix("_flag") for col in flag_columns}
-        )
-        flag_value_columns = [col for col in df_flags.collect_schema().names() if col != "local_date"]
+        df_flags = df.select(["date", *flag_columns]).rename({col: col.removesuffix("_flag") for col in flag_columns})
+        flag_value_columns = [col for col in df_flags.collect_schema().names() if col != "date"]
         df_flags = df_flags.unpivot(
             on=flag_value_columns,
-            index="local_date",
+            index="date",
             variable_name="parameter",
             value_name="quality",
         )
-        return df_values.join(df_flags, on=["local_date", "parameter"], how="left").with_columns(
+        return df_values.join(df_flags, on=["date", "parameter"], how="left").with_columns(
             pl.col("value").cast(pl.Float64),
         )
+
+    @staticmethod
+    def _year_window(year: int, station_tz: str, *, hourly: bool) -> str:
+        """Return the query parameter that selects a year of a station's rows."""
+        if hourly:
+            # The year of UTC_DATE, which is what the rows are stamped with. A `datetime` window filters
+            # LOCAL_DATE, the station's Local Standard Time, and a window built from the civil zone of
+            # the station (tzfpy) misses the edge hour wherever that zone's offset is not the one ECCC
+            # states for the station, such as 50837 FORT ST. JOHN A, whose TIMEZONE is PST (-8) while
+            # tzfpy has Dawson Creek (-7).
+            return f"UTC_YEAR={year}"
+        # shamefully (almost just) copied from meteostat/meteostat
+        # source: https://github.com/meteostat/meteostat/blob/a5fd7970e41cd0e76a4cc5a1cb4e2cc2caea9c86/meteostat/providers/eccc/hourly.py#L58C1-L67C6
+        # start with buffer
+        start = (
+            (dt.datetime(year, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")))
+            .astimezone(ZoneInfo(station_tz))
+            .strftime("%Y-%m-%dT%H:%M:%S")
+        )
+        # end with buffer
+        end = (
+            (dt.datetime(year, 12, 31, 23, 59, 59, tzinfo=ZoneInfo("UTC")))
+            .astimezone(ZoneInfo(station_tz))
+            .strftime("%Y-%m-%dT%H:%M:%S")
+        )
+        return f"datetime={start}/{end}"
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -118,27 +142,22 @@ class EcccObservationValues(TimeseriesValues):
             if dataset.resolution.value in (Resolution.HOURLY, Resolution.DAILY):
                 # monthly carries no per-value flags
                 fields.append(f"{field}_FLAG")
+        # Hourly rows are stamped from UTC_DATE. The hourly LOCAL_DATE is Local Standard Time, which does not follow
+        # daylight saving (the bulk CSV header reads "Date/Time (LST)"), and it was read as the station's civil time:
+        # in summer every value was an hour early, the LST hour that does not exist on the civil clock of spring got
+        # no timestamp and the UTC hour after the autumn change was left a hole (GH-2675). UTC_DATE is LOCAL_DATE
+        # plus the station's standard offset all year. Daily and monthly rows carry a civil date and stay on
+        # LOCAL_DATE.
+        hourly = dataset.resolution.value == Resolution.HOURLY
+        date_field = "UTC_DATE" if hourly else "LOCAL_DATE"
         _properties_schema = pl.Struct(
-            {"LOCAL_DATE": pl.String} | {f: (pl.String if f.endswith("FLAG") else pl.Float64) for f in fields}
+            {date_field: pl.String} | {f: (pl.String if f.endswith("FLAG") else pl.Float64) for f in fields}
         )
         data = []
         start_year = self.sr.start.year if self.sr.start else station_meta["start_timestamp"].year
         end_year = self.sr.end.year if self.sr.end else station_meta["end_timestamp"].year
         for year in range(start_year, end_year + 1):
-            # shamefully (almost just) copied from meteostat/meteostat
-            # source: https://github.com/meteostat/meteostat/blob/a5fd7970e41cd0e76a4cc5a1cb4e2cc2caea9c86/meteostat/providers/eccc/hourly.py#L58C1-L67C6
-            # start with buffer
-            start = (
-                (dt.datetime(year, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")))
-                .astimezone(ZoneInfo(station_tz))
-                .strftime("%Y-%m-%dT%H:%M:%S")
-            )
-            # end with buffer
-            end = (
-                (dt.datetime(year, 12, 31, 23, 59, 59, tzinfo=ZoneInfo("UTC")))
-                .astimezone(ZoneInfo(station_tz))
-                .strftime("%Y-%m-%dT%H:%M:%S")
-            )
+            window = self._year_window(year, station_tz, hourly=hourly)
             # The endpoint pages at 500 features and a station-year of hourly data is ~8800, so a
             # single request returns an arbitrary slice of the year and silently drops the rest.
             # Page until a short page comes back.
@@ -148,7 +167,7 @@ class EcccObservationValues(TimeseriesValues):
                 url = (
                     f"{self._endpoint}/collections/"
                     f"{self._resolution_to_dataset_mapping[dataset.resolution.value]}/"
-                    f"items?STN_ID={station_id}&datetime={start}/{end}"
+                    f"items?STN_ID={station_id}&{window}"
                     f"&limit={_PAGE_SIZE}&offset={offset}&f=json"
                 )
                 file = download_file(
@@ -180,7 +199,7 @@ class EcccObservationValues(TimeseriesValues):
                 df_page = df_page.select(
                     pl.col("features").explode(empty_as_null=True).struct.field("properties")
                 ).unnest("properties")
-                df_page = df_page.rename(str.lower).collect()
+                df_page = df_page.rename(str.lower).rename({date_field.lower(): "date"}).collect()
                 pages.append(df_page)
                 if df_page.height < _PAGE_SIZE:
                     break
@@ -199,19 +218,23 @@ class EcccObservationValues(TimeseriesValues):
                 .otherwise(pl.col("value"))
                 .alias("value"),
             )
+            if hourly:
+                # "2025-07-01T16:00:00", already UTC
+                timestamp = pl.col("date").str.to_datetime("%Y-%m-%dT%H:%M:%S", time_zone="UTC")
+            else:
+                timestamp = (
+                    pl.col("date")
+                    # monthly publishes "2023-06", daily a full timestamp
+                    .str.to_datetime("%Y-%m" if dataset.resolution.value == Resolution.MONTHLY else "%Y-%m-%d %H:%M:%S")
+                    .dt.replace_time_zone(station_tz, ambiguous="earliest", non_existent="null")
+                    .dt.convert_time_zone("UTC")
+                )
             df = df.select(
                 pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
                 pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
                 "parameter",
                 pl.lit(station_id, dtype=pl.String).alias("station_id"),
-                pl.col("local_date")
-                # monthly publishes "2023-06"; hourly and daily a full timestamp
-                .str.to_datetime("%Y-%m" if dataset.resolution.value == Resolution.MONTHLY else "%Y-%m-%d %H:%M:%S")
-                # the fall-back hour occurs twice in local time and the spring-forward hour not at
-                # all; both were unreachable while a request returned only a slice of the year
-                .dt.replace_time_zone(station_tz, ambiguous="earliest", non_existent="null")
-                .dt.convert_time_zone("UTC")
-                .alias("timestamp"),
+                timestamp.alias("timestamp"),
                 "value",
                 pl.lit(None, dtype=pl.Float64).alias("quality"),
             )
