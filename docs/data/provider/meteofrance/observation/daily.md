@@ -30,7 +30,7 @@
 | {term}`temperature_air_mean_2m` | TM | Daily mean of the hourly air temperatures under shelter. | degree_celsius |
 | {term}`wind_speed` | FFM | Daily mean of the wind force averaged over 10 minutes, at 10 m. | meter_per_second |
 | {term}`wind_gust_max` | FXI | Daily maximum of the hourly maximum instantaneous wind force, at 10 m. | meter_per_second |
-| {term}`wind_direction_gust_max` | DXI | Direction of FXI, on the 360 degree compass. | degree |
+| {term}`wind_direction_gust_max` | DXI | Direction of FXI, on the 360 degree compass. The source's 0 (a calm wind) and 999 (variable) are null. | degree |
 
 ### others
 

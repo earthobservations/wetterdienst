@@ -361,6 +361,75 @@ def test_meteofrance_observation_api_hourly_invisible_sky_is_null(monkeypatch: p
     assert df.get_column("value").to_list() == [0.0, 0.875, 1.0]
 
 
+def test_meteofrance_observation_api_hourly_calm_wind_has_no_direction(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a direction of 0, the calm wind, is null and 360, the north, stays (GH-2720).
+
+    The rows are the file's own for station 31069001 (Toulouse-Blagnac) at 2025-01-01 02 h, 2025-01-01 09 h
+    (FF = 0.0, DD = 0, with a gust from 320) and 2025-01-03 07 h (DD = 360), and for 31042012 (Luchon) at
+    2025-01-31 05 h, where FF, DD, FXY and DXY all read zero. The field descriptions give the directions
+    "en rose de 360" and no code for a calm wind.
+    """
+    latest = [
+        {"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025010102", "FF": "2.2", "DD": "10", "FXY": "2.5", "DXY": "140"},
+        {"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025010109", "FF": "0.0", "DD": "0", "FXY": "1.4", "DXY": "320"},
+        {"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025010307", "FF": "0.9", "DD": "360", "FXY": "2.3", "DXY": "340"},
+        {"NUM_POSTE": "31042012", "AAAAMMJJHH": "2025013105", "FF": "0.0", "DD": "0", "FXY": "0.0", "DXY": "0"},
+    ]
+    _serve_climate(monkeypatch, {"HOR_departement_31_periode_2025-2026": _climate_gz("hourly", "core", latest)})
+    start, end = _utc(2025, 1, 1), _utc(2025, 2, 1)
+    df = _values("hourly", "core", "wind_direction", "31069001", start, end)
+    assert df.get_column("timestamp").to_list() == [_utc(2025, 1, 1, 2), _utc(2025, 1, 3, 7)]
+    assert df.get_column("value").to_list() == [10.0, 360.0]
+    df = _values("hourly", "core", "wind_direction_gust_max", "31069001", start, end)
+    assert df.get_column("value").to_list() == [140.0, 320.0, 340.0]
+    for parameter in ("wind_direction", "wind_direction_gust_max"):
+        assert _values("hourly", "core", parameter, "31042012", start, end).is_empty()
+
+
+def test_meteofrance_observation_api_hourly_variable_wind_direction_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a direction of 999 is null, where the directions around it stay (GH-2720).
+
+    The rows are the file's own for station 98404001 (Kerguelen) at 1965-04-17 20 h, 23 h and 18th 02 h FU (FF = 23.0
+    to 26.0, DD = 240, 999, 240), which the +5 h of Kerguelen makes 15 h, 18 h and 21 h UTC.
+    """
+    rows = [
+        {"NUM_POSTE": "98404001", "AAAAMMJJHH": "1965041720", "FF": "23.0", "DD": "240"},
+        {"NUM_POSTE": "98404001", "AAAAMMJJHH": "1965041723", "FF": "23.0", "DD": "999"},
+        {"NUM_POSTE": "98404001", "AAAAMMJJHH": "1965041802", "FF": "26.0", "DD": "240"},
+    ]
+    _serve_climate(monkeypatch, {"HOR_departement_984_periode_1960-1969": _climate_gz("hourly", "core", rows)})
+    df = _values("hourly", "core", "wind_direction", "98404001", _utc(1965, 4, 17), _utc(1965, 4, 18))
+    assert df.get_column("timestamp").to_list() == [_utc(1965, 4, 17, 15), _utc(1965, 4, 17, 21)]
+    assert df.get_column("value").to_list() == [240.0, 240.0]
+
+
+def test_meteofrance_observation_api_daily_calm_wind_has_no_direction_of_the_gust(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a daily DXI of 0 is null, with FXI = 0.0, where 360 and 180 stay (GH-2720).
+
+    The rows are the file's own for station 31042012 (Luchon), 1996-02-19 to 23: 360, 360, 0, 360, 180 with
+    gusts of 9.0, 12.0, 0.0, 8.0 and 3.0 m/s.
+    """
+    rows = [
+        {"NUM_POSTE": "31042012", "AAAAMMJJ": "19960219", "FXI": "9.0", "DXI": "360"},
+        {"NUM_POSTE": "31042012", "AAAAMMJJ": "19960220", "FXI": "12.0", "DXI": "360"},
+        {"NUM_POSTE": "31042012", "AAAAMMJJ": "19960221", "FXI": "0.0", "DXI": "0"},
+        {"NUM_POSTE": "31042012", "AAAAMMJJ": "19960222", "FXI": "8.0", "DXI": "360"},
+        {"NUM_POSTE": "31042012", "AAAAMMJJ": "19960223", "FXI": "3.0", "DXI": "180"},
+    ]
+    files = {"QUOT_departement_31_periode_1950-2024_RR-T-Vent": _climate_gz("daily", "core", rows)}
+    _serve_climate(monkeypatch, files)
+    df = _values("daily", "core", "wind_direction_gust_max", "31042012", _utc(1996, 2, 19), _utc(1996, 2, 23))
+    assert df.get_column("timestamp").to_list() == [
+        _utc(1996, 2, 19),
+        _utc(1996, 2, 20),
+        _utc(1996, 2, 22),
+        _utc(1996, 2, 23),
+    ]
+    assert df.get_column("value").to_list() == [360.0, 360.0, 360.0, 180.0]
+
+
 def test_meteofrance_observation_api_hourly_metropole_is_utc(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a metropolitan station, whose stamps are UTC as published, is not converted."""
     latest = [{"NUM_POSTE": "31011001", "AAAAMMJJHH": "2025010100", "T": "-1.8"}]

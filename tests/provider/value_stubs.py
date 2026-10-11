@@ -432,7 +432,20 @@ NO_STUB = {
     "imgw/meteorology": "no stub yet; its reader reads the status columns 8 and 9",
     "knmi/observation": "needs an API key; the NaN and -1 rules are pinned by tests/provider/knmi",
     "lhmt/observation": "no sentinel: the source writes null",
-    "meteofrance/observation": "no stub yet; its hourly reader nulls N = 9, pinned by tests/provider/meteofrance",
+    "meteofrance/observation": (
+        "no stub yet; its readers null hourly N = 9 and the wind directions 0 and 999, pinned by "
+        "tests/provider/meteofrance. RR (6 minutes, daily, monthly) and RR1 (hourly) hold no code (GH-2719): the "
+        "descriptions (the descriptif_champs files and the climatologie-*-descriptif PDFs) define none, and 1.9 "
+        "billion rows of 2158 raw files (the daily RR-T-Vent and the monthly files of every department; the hourly "
+        "ones of every department up to 1999 and from 2020, and of the overseas and a few mainland ones for 2000 to "
+        "2019; the 6 minute ones likewise from 2020 and for 2000 to 2019) have a minimum of 0.0, no negative value "
+        "and nothing that is not a number. A trace is a 0.0: RR1 = 0.0 comes with a precipitation duration DRR1 > 0 "
+        "in 414,235 hourly rows of 2020 to 2024. DD and DXY (hourly) and DXI (daily) hold two codes (GH-2720), "
+        "neither in the descriptions: 0, which has no place on a compass 'en rose de 360' where 360 is the north, "
+        "mostly next to FF, FXY or FXI = 0 (99.97 %, 99.9 % and 98.8 %), and 999, as the swell direction DIRHOULE "
+        "writes for 'variable', in six rows of Kerguelen and Nouvelle-Amsterdam, 1965 to 1967. One row lies outside 0 "
+        "to 360 without a code, with a quality code of 1: daily DXI = 400 (31299001, 2007-09-05)."
+    ),
     "meteoswiss/observation": "no stub yet",
     "metno/frost": "needs an API key; the -1 and -3 rules are pinned by tests/provider/metno, which run with a key",
     "metoffice/observation": "needs an API key; no offline test pins its NA rule",
