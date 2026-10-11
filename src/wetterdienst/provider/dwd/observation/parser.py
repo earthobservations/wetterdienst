@@ -85,7 +85,8 @@ CLOUD_COVER_PARAMETERS = {
 # stundenwerte_TF_03735_19490101_19511231_hist.zip; station 14006, 2025-01-05 01:00, in
 # stundenwerte_TF_14006_20201104_20251231_hist.zip). `TT_STD` beside them is a reading, and `P_STD`
 # is not touched by this rule. -99.9 is outside the physical range of all five. Only this dataset:
-# the other hourly and subdaily datasets sampled do not use it.
+# GH-2669 sampled hourly air temperature, dew point and subdaily moisture and found none of them
+# writing it, so the rule stays local rather than a blanket -99.9.
 MOISTURE_MISSING = -99.9
 MOISTURE_MISSING_PARAMETERS = {
     DwdObservationMetadata.hourly.moisture.humidity_absolute.name_original,

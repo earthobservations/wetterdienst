@@ -251,16 +251,16 @@ def test_parse_dwd_hourly_moisture_nulls_minus_99_9() -> None:
     is a reading, and `P_STD` is left as it is.
     """
     df = _parse_moisture(
-        "14006;2025010500;    3;   3.2;   4.8;  -1.6;  995.9;  -0.7;  95.0;  -1.2;eor\n"
+        "14006;2025010500;    3;   4.6;   5.8;  -0.3;  995.9;  -0.1;  95.7;  -0.7;eor\n"
         "14006;2025010501;    3; -99.9; -99.9; -99.9;  995.9;  -0.7; -99.9; -99.9;eor\n"
     )
-    assert df.get_column("absf_std").to_list() == ["3.2", None]
-    assert df.get_column("vp_std").to_list() == ["4.8", None]
-    assert df.get_column("tf_std").to_list() == ["-1.6", None]
-    assert df.get_column("rf_std").to_list() == ["95.0", None]
-    assert df.get_column("td_std").to_list() == ["-1.2", None]
+    assert df.get_column("absf_std").to_list() == ["4.6", None]
+    assert df.get_column("vp_std").to_list() == ["5.8", None]
+    assert df.get_column("tf_std").to_list() == ["-0.3", None]
+    assert df.get_column("rf_std").to_list() == ["95.7", None]
+    assert df.get_column("td_std").to_list() == ["-0.7", None]
     assert df.get_column("p_std").to_list() == ["995.9", "995.9"]
-    assert df.get_column("tt_std").to_list() == ["-0.7", "-0.7"]
+    assert df.get_column("tt_std").to_list() == ["-0.1", "-0.7"]
 
 
 def test_parse_dwd_hourly_moisture_historical_row_and_documented_sentinel() -> None:
@@ -284,9 +284,12 @@ def test_parse_dwd_hourly_moisture_rule_is_per_dataset_and_per_column() -> None:
     df = _parse_moisture("14006;2025010501;    3;   3.2;   4.8;  -1.6;  -99.9;  -99.9;  95.0;  -1.2;eor\n")
     assert df.get_column("p_std").to_list() == ["-99.9"]
     assert df.get_column("tt_std").to_list() == ["-99.9"]
+    # the same column names under another dataset are not this dataset's rule
     other = File(
         url="",
-        content=BytesIO(b"STATIONS_ID;MESS_DATUM;QN_9;TT_TU;RF_TU;eor\n     3;2025010501;    3; -99.9;  50.0;eor\n"),
+        content=BytesIO(
+            b"STATIONS_ID;MESS_DATUM;QN_9;TT_TU;RF_TU;ABSF_STD;eor\n     3;2025010501;    3;   3.1;  50.0; -99.9;eor\n"
+        ),
         status=200,
     )
     df = parse_climate_observations_data(
@@ -294,4 +297,5 @@ def test_parse_dwd_hourly_moisture_rule_is_per_dataset_and_per_column() -> None:
         dataset=DwdObservationMetadata.hourly.temperature_air,
         period=Period.RECENT,
     ).collect()
-    assert df.get_column("tt_tu").to_list() == ["-99.9"]
+    assert df.get_column("absf_std").to_list() == ["-99.9"]
+    assert df.get_column("tt_tu").to_list() == ["3.1"]
