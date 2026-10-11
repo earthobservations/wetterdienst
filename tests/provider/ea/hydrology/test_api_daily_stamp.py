@@ -135,20 +135,23 @@ def test_ea_daily_readings_are_asked_for_up_to_09_of_the_day_after_the_window(
 
 
 @pytest.mark.parametrize(
-    ("readings", "expected"),
+    ("day", "readings", "expected"),
     [
-        # a placeholder with no value at the start of the window, then the checked reading
+        # a placeholder with no value at the start of the window, then the reading with one (f22f80f8, level-max-86400)
         (
+            "2022-12-11",
             [
-                {"dateTime": "2022-12-11T09:00:00", "value": None, "quality": "Missing", "completeness": "Missing"},
-                {"dateTime": "2022-12-11T20:15:00", "value": 0.319, "quality": "Good", "completeness": "Complete"},
+                {"dateTime": "2022-12-11T09:00:00", "value": None, "quality": "Missing", "completeness": "Incomplete"},
+                {"dateTime": "2022-12-11T18:45:00", "value": 0.319, "quality": "Good", "completeness": "Complete"},
             ],
             0.319,
         ),
-        # an incomplete reading before the complete one, in the other order of arrival
+        # both Unchecked: the complete reading wins on its completeness alone (052d0819, flow-min-86400), whichever
+        # of the two the endpoint sends first
         (
+            "2024-02-19",
             [
-                {"dateTime": "2024-02-19T20:00:00", "value": 21.2, "quality": "Good", "completeness": "Complete"},
+                {"dateTime": "2024-02-20T08:45:00", "value": 21.2, "quality": "Unchecked", "completeness": "Complete"},
                 {
                     "dateTime": "2024-02-19T09:00:00",
                     "value": 23.0,
@@ -158,14 +161,31 @@ def test_ea_daily_readings_are_asked_for_up_to_09_of_the_day_after_the_window(
             ],
             21.2,
         ),
+        # both Complete: the good one wins on its quality alone, though the unchecked one is later
+        (
+            "2024-02-19",
+            [
+                {"dateTime": "2024-02-19T10:00:00", "value": 5.0, "quality": "Good", "completeness": "Complete"},
+                {"dateTime": "2024-02-19T11:00:00", "value": 6.0, "quality": "Unchecked", "completeness": "Complete"},
+            ],
+            5.0,
+        ),
+        # equal standing: the later one
+        (
+            "2024-02-19",
+            [
+                {"dateTime": "2024-02-19T10:00:00", "value": 5.0, "quality": "Good", "completeness": "Complete"},
+                {"dateTime": "2024-02-19T11:00:00", "value": 6.0, "quality": "Good", "completeness": "Complete"},
+            ],
+            6.0,
+        ),
     ],
-    ids=["null-placeholder", "incomplete"],
+    ids=["null-placeholder", "completeness", "quality", "equal-standing"],
 )
-def test_ea_daily_window_answered_twice_keeps_the_checked_reading(
-    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, readings: list[dict], expected: float
+def test_ea_daily_window_answered_twice_keeps_the_reading_with_a_value_complete_and_good(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, day: str, readings: list[dict], expected: float
 ) -> None:
-    """Test that two readings of one window, which share a stamp now, leave the one with a value that is checked."""
-    day = readings[0]["dateTime"][:10]
+    """Test that of two readings of one window, which share a stamp now, the one with a value, complete, good stays."""
     _serve(monkeypatch, "flow-max-86400", readings)
     request = EAHydrologyRequest(
         parameters=[("daily", "data", "discharge_max")], start=day, end=day, settings=default_settings

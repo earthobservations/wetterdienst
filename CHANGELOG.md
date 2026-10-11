@@ -51,8 +51,8 @@ Types of changes:
 - **Breaking**: `ea/hydrology` `daily` values are stamped at 00:00 UTC of the day they name (the
   24 hours from 09:00 of that day), no longer at 09:00 UTC for the mean and at the instant of the
   extreme for the maximum and minimum, so a request for one day returns it. Where the endpoint
-  answers one day twice, the checked reading is kept. Join stored series on the date, no longer on
-  the instant (GH-2683)
+  answers one day twice, the reading with a value is kept, then the complete one, then the good
+  one. Join stored series on the date, no longer on the instant (GH-2683)
 
 ### Fixed
 

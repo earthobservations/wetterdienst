@@ -265,12 +265,12 @@ class EAHydrologyValues(TimeseriesValues):
         if parameter_or_dataset.dataset.resolution.value == Resolution.DAILY:
             # A daily value covers the 24 h from 09:00 of the day D it names to 09:00 of D+1. The mean is dated at
             # D 09:00, but the maximum and minimum are dated at the instant of the extreme inside that window, and
-            # so are filed under D by taking the day from 09 hours earlier. It is stamped at 00:00 UTC of D, which a
+            # so are filed under D by taking the day from 9 hours earlier. It is stamped at 00:00 UTC of D, which a
             # request for that one day reaches (GH-2683).
             timestamp = (timestamp - _DAILY_DAY_START).dt.truncate("1d")
-            # The endpoint sometimes answers a window twice, an unchecked or incomplete reading (or a null with the
-            # quality Missing) beside the checked one, and the two have the same stamp now. The one with a value is
-            # kept, then the complete one, then the good one, and of equal standing the later one.
+            # The endpoint sometimes answers a window twice, with an unchecked or incomplete reading (or a null with
+            # the quality Missing) beside the complete one, and the two have the same stamp now. The one with a value
+            # is kept, then the complete one, then the one of quality Good, and of equal standing the later one.
             df = (
                 df.with_columns(timestamp.alias("day"))
                 .sort(
