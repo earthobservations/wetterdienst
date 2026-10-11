@@ -161,6 +161,17 @@ Types of changes:
   MCP tools answer it with a 501 and a fixed sentence, no longer a 500 that tells the caller to set
   an environment variable on the server (the message goes to the server log), and the command line
   prints it in one line and exits 1, no longer with a traceback (GH-2638)
+- `dwd/observation` parameter descriptions say what DWD publishes, where they said more or other
+  (REST API, MCP, CLI, docs tables): the daily weather phenomena are the day's occurrence, not "days
+  with ripe/sleet" (`reif` is hoar frost, `graupel` is graupel); 10-minute `fx_10` and `fnx_10` no
+  longer carry sampling details DWD does not state; 1-minute `rth_01` is the droplet gauge, not the
+  tipping bucket; hourly gust `fx_911` is not "10 m above ground"; urban hourly values name the
+  window DWD gives (temperatures and humidity: a 1-minute mean ending 10 minutes before the hour;
+  precipitation, sunshine and wind: the six 10-minute values of the previous hour); daily `tmk` and
+  the other term-based means say how DWD computes them; the datasets `subdaily/moisture` and
+  `subdaily/soil` no longer claim mean temperatures and a soil temperature they do not hold
+  (GH-2688)
+
 - `dwd/observation` `hourly/wind` and `10_minutes/wind` return no `wind_direction` of 990 any more:
   the files write 990 where there is no direction (542,296 hourly rows in 314 stations, 17 of the
   10 minute ones, historical files from 1952 on), which came back as 990 degrees and spoiled a

@@ -143,7 +143,7 @@ Code (cloud_cover_total_measurement_method):
 |------------------------------|---------------|-----------------------|------|------------------------------|
 | {term}`precipitation_amount` | r1 | Precipitation height during the previous hour. | mm | >=0 |
 | {term}`precipitation_index` | rs_ind | Precipitation indicator; 0 = no; 1 = yes. | - | ∈ \[0, 1\] |
-| {term}`precipitation_form` | wrtr | Precipitation form; 0=No precipitation. | - | ∈ \[0, 1, 2, 3, 6, 7, 8, 9\] |
+| {term}`precipitation_form` | wrtr | Precipitation form; 0 = no precipitation; 1 = rain only (in historical data before 01.01.1979); 4 = form of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable, automatic ascertainment. | - | ∈ \[0, 1, 2, 3, 6, 7, 8, 9\] |
 
 Code (precipitation_indicator):
 
@@ -180,7 +180,7 @@ Code (precipitation_form):
 
 | name                           | original name | description             | unit | constraints |
 |--------------------------------|---------------|-------------------------|------|-------------|
-| {term}`pressure_air_sea_level` | p | Mean sea level pressure. | hPa | >=0 |
+| {term}`pressure_air_sea_level` | p | Barometric pressure at sea level NN. | hPa | >=0 |
 | {term}`pressure_air_site` | p0 | Barometric pressure at station height. | hPa | >=0 |
 
 ### solar
@@ -277,7 +277,7 @@ Code (precipitation_form):
 
 | name                         | original name      | description          | unit | constraints |
 |------------------------------|--------------------|----------------------|------|-------------|
-| {term}`precipitation_amount` | niederschlagshoehe | Precipitation height. | mm | >=0 |
+| {term}`precipitation_amount` | niederschlagshoehe | Precipitation height, the sum of the six 10-minute intervals of the previous hour (at UTC 11 the sum of the precipitation during UTC10-UTC11). | mm | >=0 |
 
 ### urban_pressure
 
@@ -295,7 +295,7 @@ Code (precipitation_form):
 | name                           | original name           | description                        | unit | constraints |
 |--------------------------------|-------------------------|------------------------------------|------|-------------|
 | {term}`pressure_air_sea_level` | luftdruck_nn            | Air pressure reduced to sea level. | hPa  | >=0         |
-| {term}`pressure_air_site`      | luftdruck_stationshoehe | Pressure at station height.        | hPa  | >=0         |
+| {term}`pressure_air_site`      | luftdruck_stationshoehe | Pressure at station height, following the SYNOP conventions: the hour x corresponds to the measurement from 10 min before (at UTC 11 the value from UTC 10:50). | hPa  | >=0         |
 
 ### urban_temperature_air
 
@@ -312,8 +312,8 @@ Code (precipitation_form):
 
 | name                            | original name  | description          | unit | constraints |
 |---------------------------------|----------------|----------------------|------|-------------|
-| {term}`temperature_air_2m`      | lufttemperatur | 2m air temperature   | °C   | -           |
-| {term}`humidity_relative`       | rel_feuchte    | 2m relative humidity | %    | >=0,<=100   |
+| {term}`temperature_air_2m`      | lufttemperatur | 2m air temperature, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C   | -           |
+| {term}`humidity_relative`       | rel_feuchte    | 2m relative humidity, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | %    | >=0,<=100   |
 
 ### urban_temperature_soil
 
@@ -330,11 +330,11 @@ Code (precipitation_form):
 
 | name                                | original name | description                      | unit | constraints |
 |-------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_soil_0_05m`      | erdbt_005 | Soil temperature in 5 cm depth. | °C | - |
-| {term}`temperature_soil_0_1m`      | erdbt_010 | Soil temperature in 10 cm depth. | °C | - |
-| {term}`temperature_soil_0_2m`      | erdbt_020 | Soil temperature in 20 cm depth. | °C | - |
-| {term}`temperature_soil_0_5m`      | erdbt_050 | Soil temperature in 50 cm depth. | °C | - |
-| {term}`temperature_soil_1m`      | erdbt_100 | Soil temperature in 100 cm depth. | °C | - |
+| {term}`temperature_soil_0_05m`      | erdbt_005 | Soil temperature in 5 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
+| {term}`temperature_soil_0_1m`      | erdbt_010 | Soil temperature in 10 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
+| {term}`temperature_soil_0_2m`      | erdbt_020 | Soil temperature in 20 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
+| {term}`temperature_soil_0_5m`      | erdbt_050 | Soil temperature in 50 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
+| {term}`temperature_soil_1m`      | erdbt_100 | Soil temperature in 100 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
 
 ### urban_sun
 
@@ -351,7 +351,7 @@ Code (precipitation_form):
 
 | name                      | original name     | description       | unit | constraints |
 |---------------------------|-------------------|-------------------|------|-------------|
-| {term}`sunshine_duration` | sonnenscheindauer | Sunshine duration. | min | >=0 |
+| {term}`sunshine_duration` | sonnenscheindauer | Sunshine duration, the sum of the six 10-minute intervals of the previous hour (at UTC 11 the sum of the sunshine during UTC10-UTC11). | min | >=0 |
 
 ### urban_wind
 
@@ -368,8 +368,8 @@ Code (precipitation_form):
 
 | name                   | original name       | description         | unit | constraints |
 |------------------------|---------------------|---------------------|------|-------------|
-| {term}`wind_speed` | windgeschwindigkeit | Mean wind speed. | m/s | >=0 |
-| {term}`wind_direction` | windrichtung | Mean wind direction. | ° | >=0,<=360 |
+| {term}`wind_speed` | windgeschwindigkeit | Mean wind speed, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban stations have their own sensor heights). | m/s | >=0 |
+| {term}`wind_direction` | windrichtung | Mean wind direction, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban stations have their own sensor heights). | ° | >=0,<=360 |
 
 ### visibility
 
@@ -448,7 +448,7 @@ weather codes and descriptions: [here](https://opendata.dwd.de/climate_environme
 
 | name                  | original name | description                      | unit | constraints |
 |-----------------------|---------------|----------------------------------|------|-------------|
-| {term}`wind_gust_max` | fx_911 | Maximum wind gust 10 m above ground. | m/s | >=0 |
+| {term}`wind_gust_max` | fx_911 | Wind speed, wind gust: the highest wind peak of the last hour. | m/s | >=0 |
 
 ### wind_synoptic
 
@@ -465,5 +465,5 @@ weather codes and descriptions: [here](https://opendata.dwd.de/climate_environme
 
 | name                   | original name | description         | unit | constraints |
 |------------------------|---------------|---------------------|------|-------------|
-| {term}`wind_speed` | ff | Mean wind speed. | m/s | >=0 |
-| {term}`wind_direction` | dd | Mean wind direction. | ° | >=0,<=360 |
+| {term}`wind_speed` | ff | 10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit"). | m/s | >=0 |
+| {term}`wind_direction` | dd | Wind direction (DWD: "Windrichtung uml.,windstill DD=00"). | ° | >=0,<=360 |
