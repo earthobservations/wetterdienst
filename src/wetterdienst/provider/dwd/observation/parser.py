@@ -81,9 +81,10 @@ CLOUD_COVER_PARAMETERS = {
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer4.name_original,
 }
 # The hourly moisture dataset documents `missing value = -999`, but its files write -99.9 for the five
-# moisture columns in every hour without a reading (station 14006, 2025-01-05 01:00; station 03735,
-# 1949-01-28 06:00), while `P_STD` and `TT_STD` beside them stay real. -99.9 is outside the physical
-# range of all five. Only this dataset: the other hourly and subdaily datasets sampled do not use it.
+# moisture columns in every hour without a reading (station 03735, 1949-01-28 06:00, in the historical
+# file; station 14006, 2025-01-05 01:00, in the recent file when this was written). `TT_STD` beside
+# them is a reading, and `P_STD` is not touched by this rule. -99.9 is outside the physical range of
+# all five. Only this dataset: the other hourly and subdaily datasets sampled do not use it.
 MOISTURE_MISSING = -99.9
 MOISTURE_MISSING_PARAMETERS = {
     DwdObservationMetadata.hourly.moisture.humidity_absolute.name_original,

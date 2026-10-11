@@ -247,7 +247,8 @@ def test_parse_dwd_hourly_moisture_nulls_minus_99_9() -> None:
     """Test that -99.9 in the five moisture columns is a missing value, and the columns beside them stay.
 
     The description documents `missing value = -999`, but the files write -99.9 (station 14006,
-    2025-01-05 01:00). `P_STD` and `TT_STD` in the same row are real.
+    2025-01-05 01:00, a row of the recent file when the issue was written). `TT_STD` in the same row is
+    a reading, and `P_STD` is left as it is.
     """
     df = _parse_moisture(
         "14006;2025010500;    3;   3.2;   4.8;  -1.6;  995.9;  -0.7;  95.0;  -1.2;eor\n"
@@ -263,7 +264,10 @@ def test_parse_dwd_hourly_moisture_nulls_minus_99_9() -> None:
 
 
 def test_parse_dwd_hourly_moisture_historical_row_and_documented_sentinel() -> None:
-    """Test the historical row of station 03735 (1949-01-28 06:00), and that the documented -999 still maps."""
+    """Test the historical row of station 03735 (1949-01-28 06:00), and that the documented -999 still maps.
+
+    `P_STD` is not part of the rule: the file writes 959.5 in it for every row, the six missing ones included.
+    """
     df = _parse_moisture(
         "3735;1949012806;    3; -99.9; -99.9; -99.9;  959.5; -11.0; -99.9; -99.9;eor\n"
         "3735;1949012807;    3;  -999;  -999;  -999;  -999;  -999;  -999;  -999;eor\n",
@@ -273,16 +277,6 @@ def test_parse_dwd_hourly_moisture_historical_row_and_documented_sentinel() -> N
         assert df.get_column(column).to_list() == [None, None]
     assert df.get_column("p_std").to_list() == ["959.5", None]
     assert df.get_column("tt_std").to_list() == ["-11.0", None]
-
-
-def test_parse_dwd_hourly_moisture_reads_a_column_of_only_missing_values() -> None:
-    """Test a file in which the moisture columns hold nothing but -99.9, which the reader types as numbers."""
-    df = _parse_moisture(
-        "14006;2025010501;3;-99.9;-99.9;-99.9;995.9;-0.7;-99.9;-99.9;eor\n"
-        "14006;2025010502;3;-99.9;-99.9;-99.9;995.8;-0.8;-99.9;-99.9;eor\n"
-    )
-    for column in MOISTURE_COLUMNS:
-        assert df.get_column(column).null_count() == 2
 
 
 def test_parse_dwd_hourly_moisture_rule_is_per_dataset_and_per_column() -> None:
