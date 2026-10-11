@@ -234,16 +234,16 @@ def test_parse_dwd_hourly_weather_phenomena_nulls_weather_not_reported() -> None
     """Test that -1 in `WW` becomes null, while the same -1 in the cloud type code `v_s1_cs` stays.
 
     Station 01869 writes -1 for every hour whose present weather was not reported and says so in
-    `WW_Text` beside it (stundenwerte_WW_01869_akt.zip, 2025-04-08 00:00). It is no weather, so
+    `WW_Text` beside it (stundenwerte_WW_01869_akt.zip, 2025-04-09 00:00). It is no weather, so
     it must not be counted, maxed or averaged as one. In `v_s1_cs` of the hourly cloud type, -1 is
     DWD's own value for an automated observation.
     """
     payload = (
         "STATIONS_ID;MESS_DATUM;QN_8;  WW;WW_Text;eor\n"
-        "       1869;2025040800;    3;  -1;Wetter wurde nicht gemeldet;eor\n"
-        "       1869;2025040801;    3;  -1;Wetter wurde nicht gemeldet;eor\n"
-        "       1869;2025040802;    3;  61;Regen;eor\n"
-        "       1869;2025040803;    3;   0;;eor\n"
+        "       1869;2025040900;    3;  -1;Wetter wurde nicht gemeldet;eor\n"
+        "       1869;2025040901;    3;  -1;Wetter wurde nicht gemeldet;eor\n"
+        "       1869;2025040902;    3;  61;Regen;eor\n"
+        "       1869;2025040903;    3;   0;;eor\n"
     )
     file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
     df = parse_climate_observations_data(
