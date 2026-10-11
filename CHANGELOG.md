@@ -48,9 +48,10 @@ Types of changes:
 - **Breaking**: `smhi/observation` `daily` `snow_depth` is stamped at 00:00 UTC of the date of its
   reading, no longer at 06:00 UTC, like the other daily parameters, so a request for one day
   returns it with them, where it used to be dropped. Join stored snow depth on the date (GH-2683)
-- **Breaking**: `ea/hydrology` `daily` values are stamped at 00:00 UTC of the day they name, no
-  longer at 09:00 UTC (the 24 hours run from 09:00 of that day), so a request for one day returns
-  it. Join stored series on the date, no longer on the instant (GH-2683)
+- **Breaking**: `ea/hydrology` `daily` values are stamped at 00:00 UTC of the day they name (the
+  24 hours from 09:00 of that day), no longer at 09:00 UTC for the mean and at the instant of the
+  extreme for the maximum and minimum, so a request for one day returns it and no two values share
+  a stamp. Join stored series on the date, no longer on the instant (GH-2683)
 
 ### Fixed
 

@@ -22,10 +22,10 @@ How to read the tables:
 - The notes list, per row, what the library does with the stamp and the sentences of the provider the row rests on.
   German, French, Polish and Spanish quotations are given in the original.
 
-A daily stamp is the date of the day it belongs to, at 00:00 UTC, for every provider, whatever window the provider
+A daily stamp is the date of the day it belongs to, at 00:00 UTC, for most providers, whatever window the provider
 defines for that day (06:00 to 06:00 UTC for precipitation is common) and whatever zone the provider keeps its days
 in, so that a request for one day (`start` and `end` the same date, which are 00:00 UTC) returns that day's values
-(GH-2683). The same holds for a monthly stamp, the first of the month at 00:00 UTC.
+where it is so (GH-2683). A monthly stamp is the first of the month at 00:00 UTC. The notes say where it is not.
 
 Rows with a confirmed deviation from their source link the issue that tracks it, and the issues are:
 
@@ -331,12 +331,12 @@ Notes:
 | network | resolution | datasets | source time zone | reference time | verified |
 | --- | --- | --- | --- | --- | --- |
 | hydrology | 15\_minutes | all | unverified | instant | partly |
-| hydrology | daily | all | unverified | unverified (data: start, the 24 h from 09:00 D to 09:00 D+1, stamped D 00:00 UTC) | no |
+| hydrology | daily | all | unverified | unverified (data: start, the 24 h from 09:00 D to 09:00 D+1, stamped D 00:00 UTC; the mean is dated D 09:00, the maximum and minimum at the instant of the extreme) | no |
 
 Notes:
 
 - **hydrology/15\_minutes**: Library: Zone-less \`dateTime\` parsed as UTC (src/wetterdienst/provider/ea/hydrology/api.py); request bounds sent as zone-less \`mineq-dateTime\`/\`maxeq-dateTime\` with a 1-day margin each side (api.py), window applied afterwards, both ends inclusive. Source: Table of the reference: "Flow 15min instantaneous m3/s" / "Level 15min instantaneous m"; "dateTime The date and time of the reading xsd:dateTime"; "When filtering on a range of date-times, to ensure accurate comparison, you should include the timezone on the timestamp that you want to compare values to." (https://environment.data.gov.uk/hydrology/doc/reference). Searched for UTC/GMT/BST/time zone: the zone of returned values is not stated. Data: 96 readings with no gap or duplicate on 2025-03-30 and 2025-10-26 (Felsted), and the 2026-10-01 (BST) levels match the flood-monitoring API's '...Z' stamps exactly at +0 h (96/96), so the values are UTC.
-- **hydrology/daily**: Library: Zone-less \`dateTime\` (D 09:00:00) parsed as UTC and truncated to 00:00 UTC of D, the day it names (src/wetterdienst/provider/ea/hydrology/api.py); it was kept at 09:00 UTC until GH-2683. Source: "Flow daily mean, min, max m3/s" / "Level daily min, max m" and "date The date of the reading" (https://environment.data.gov.uk/hydrology/doc/reference); no statement of the daily window or zone found. Data (Felsted flow-m-86400): the value stamped D 09:00 equals the mean of the 15-min readings in \[D 09:00, D+1 09:00) (mean abs error 0.0002 m3/s in Jan 2025, 0.0003 in Jul 2024, against 0.025 for windows shifted by 1 h).
+- **hydrology/daily**: Library: Zone-less \`dateTime\` parsed as UTC; the day D is taken from the stamp 9 hours earlier and the value is stamped 00:00 UTC of D (src/wetterdienst/provider/ea/hydrology/api.py). The mean is dated D 09:00:00, the maximum and minimum at the instant of the extreme inside the 24 h from D 09:00 to D+1 09:00 (flow-max-86400, station 052d0819-2a32-47df-9b99-c243c9c8235b: 2025-06-04T03:30 is the maximum of 2025-06-03, 2025-06-05T07:00 that of 2025-06-04, 2025-06-05T13:30 that of 2025-06-05), so all of them are filed under D. Until GH-2683 the stamps were kept as dated, 09:00 UTC for the mean. Source: "Flow daily mean, min, max m3/s" / "Level daily min, max m" and "date The date of the reading" (https://environment.data.gov.uk/hydrology/doc/reference); no statement of the daily window or zone found. Data (Felsted flow-m-86400): the value stamped D 09:00 equals the mean of the 15-min readings in \[D 09:00, D+1 09:00) (mean abs error 0.0002 m3/s in Jan 2025, 0.0003 in Jul 2024, against 0.025 for windows shifted by 1 h).
 
 ## nws
 

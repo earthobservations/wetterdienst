@@ -147,6 +147,9 @@ _READINGS_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 # the endpoint reports its timestamps without a zone and they are read as UTC below. A day either
 # side keeps that assumption from costing the edges of the window, which the caller trims anyway.
 _READINGS_MARGIN = dt.timedelta(days=1)
+# a daily value of the day D covers the 24 h from D 09:00 to D+1 09:00 and is dated inside them, so the readings of
+# the last day of a window are dated up to 09:00 of the day after the window's end (GH-2683)
+_DAILY_DAY_START = dt.timedelta(hours=9)
 
 
 class EAHydrologyValues(TimeseriesValues):
@@ -161,6 +164,8 @@ class EAHydrologyValues(TimeseriesValues):
             return url
         start_date = self.sr.start - _READINGS_MARGIN
         end_date = self.sr.end + _READINGS_MARGIN
+        if parameter.dataset.resolution.value == Resolution.DAILY:
+            end_date += _DAILY_DAY_START
         query: dict[str, str | int] = {
             "mineq-dateTime": start_date.strftime(_READINGS_DATETIME_FORMAT),
             "maxeq-dateTime": end_date.strftime(_READINGS_DATETIME_FORMAT),
@@ -257,9 +262,11 @@ class EAHydrologyValues(TimeseriesValues):
         df = df.select(pl.col("items").struct.unnest())
         timestamp = pl.col("dateTime").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", time_zone="UTC")
         if parameter_or_dataset.dataset.resolution.value == Resolution.DAILY:
-            # the daily value is dated D 09:00 and covers the 24 h from there; it is stamped at 00:00 UTC of D, the
-            # day it names, which a request for that one day reaches (GH-2683)
-            timestamp = timestamp.dt.truncate("1d")
+            # A daily value covers the 24 h from 09:00 of the day D it names to 09:00 of D+1. The mean is dated at
+            # D 09:00, but the maximum and minimum are dated at the instant of the extreme inside that window, and
+            # so are filed under D by taking the day from 09 hours earlier. It is stamped at 00:00 UTC of D, which a
+            # request for that one day reaches (GH-2683).
+            timestamp = (timestamp - _DAILY_DAY_START).dt.truncate("1d")
         return df.select(
             pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
