@@ -18,7 +18,8 @@ at [services.ceda.ac.uk](https://services.ceda.ac.uk) and configure the credenti
 `WD_AUTH__CEDA=<username>:<password>` (environment variable) or
 `Settings(auth={"ceda": "<username>:<password>"})` (Python).
 
-Station metadata comes from each dataset's `station-metadata.csv` catalogue. Observations are one
+Station metadata comes from each dataset's `station-metadata.csv` catalogue; a station's `region` is
+the historic county the catalogue files it under, as published (`shetland`). Observations are one
 BADC-CSV file per station and year. A station may transmit several report types for the same period
 (for example an overnight and a daytime 12-hour reading alongside a 24-hour one); these are
 collapsed to a single value per calendar day (maximum for max-type parameters such as

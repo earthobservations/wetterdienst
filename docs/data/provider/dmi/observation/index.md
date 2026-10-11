@@ -16,6 +16,9 @@ midnight to local midnight); the provider labels each such aggregate by its civi
 date at UTC midnight. The requested date range is widened internally by a day on each side so
 that this local/UTC offset never drops a boundary period from the result.
 
+Each station's `country` is DMI's three-letter code for the country it is in: `DNK`, `GRL` or `FRO`.
+DMI gives no region within a country, so `region` is null.
+
 ## License
 
 Data is © DMI (Danish Meteorological Institute) and licensed under

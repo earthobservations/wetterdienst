@@ -28,6 +28,10 @@ vertical datum that altitude is given in, as Pegelonline publishes it, as `gauge
 `m. ü. NHN`, but `m. ü. NN` for some gauges, `m ü. A.` for the Austrian ones on the Danube and
 `mü.M.` for Basel, so compare two gauge zeros only where their datums agree.
 
+It also names the river the gauge is on, as Pegelonline publishes it (`ELBE`), as `river`, and the
+gauge's position along it, in kilometres, as `river_kilometer`; the latter is null for the few gauges
+that have none.
+
 ```{toctree}
 :hidden:
 

@@ -187,6 +187,52 @@ def test_iter_station_value_pages_raises_no_internet_for_the_caller(monkeypatch:
         _iter_pages(object.__new__(dmi_api.DmiObservationValues))
 
 
+def test_dmi_station_list_gives_the_country_not_a_region(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station's `country` is DMI's three-letter code and its `region` is null, DMI giving no region (GH-2019).
+
+    DMI's `country` is `DNK`, `GRL` or `FRO` (4517, 127 and 22 of the 4666 station records on 2026-10-11), so
+    it said which of the three a station is in and nothing about a region within it; the column that holds
+    the sub-national region of every other provider held a country for DMI. The newest record of a station
+    gives its country.
+    """
+
+    def feature(station_id: str, name: str, country: str, created: str) -> dict:
+        return {
+            "geometry": {"coordinates": [12.0, 55.0]},
+            "properties": {
+                "stationId": station_id,
+                "name": name,
+                "country": country,
+                "stationHeight": 10.0,
+                "validFrom": "1948-12-31T00:00:00Z",
+                "validTo": None,
+                "created": created,
+            },
+        }
+
+    catalogue = {
+        "features": [
+            feature("06180", "Landbohøjskolen", "DNK", "2026-09-30T11:59:36Z"),
+            feature("04202", "Pituffik", "GRL", "2026-09-30T11:59:36Z"),
+            feature("06011", "Tórshavn", "FRO", "2026-09-30T11:59:36Z"),
+            feature("04202", "Pituffik", "DNK", "2020-01-01T00:00:00Z"),
+        ],
+    }
+    monkeypatch.setattr(
+        dmi_api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(json.dumps(catalogue).encode()), status=200),
+    )
+
+    df = dmi_api.DmiObservationRequest(parameters=[("daily", "data", "temperature_air_mean_2m")]).all().df
+
+    assert sorted(df.select("station_id", "country", "region").rows()) == [
+        ("04202", "GRL", None),
+        ("06011", "FRO", None),
+        ("06180", "DNK", None),
+    ]
+
+
 @pytest.mark.remote
 def test_dmi_observation_stations() -> None:
     """Station discovery returns deduplicated stations with usable metadata."""
@@ -200,7 +246,8 @@ def test_dmi_observation_stations() -> None:
     assert station.height == 1
     row = station.to_dicts()[0]
     assert row["name"]
-    assert row["region"] == "DNK"
+    assert row["country"] == "DNK"
+    assert row["region"] is None
     assert 54 < row["latitude"] < 58
     assert 8 < row["longitude"] < 16
 
