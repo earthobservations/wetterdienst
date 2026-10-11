@@ -3012,7 +3012,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "wind_direction_last_10min",
         "angle",
         "Mean direction the wind blew from over the 10 minutes before the timestamp, a window shorter than the "
-        "dataset's own interval, not the mean over the interval that `wind_direction` is.",
+        "dataset's own interval.",
     ),
     CanonicalParameter(
         "wind_force_beaufort", "wind_scale", "Wind strength on the Beaufort scale.", interpolation="homogeneous"

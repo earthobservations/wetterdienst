@@ -449,12 +449,14 @@ def test_a_window_name_must_end_where_the_window_does() -> None:
 # MET Norway "over the last ten minutes". "the average of the six 10-minute intervals" of DWD's urban
 # hourly sheets is the mean of the whole hour, not of a window in it
 _WIND_MEAN_WINDOW = re.compile(
-    r"\b(?:mean|average|averaged)\b.{0,100}?\b(?P<before>\d+|one|ten)[ -]?min(?:ute)?s?\b(?![ -]*intervals?\b)"
+    # the window follows the mean in the same sentence
+    r"\b(?:mean|average|averaged)\b(?:(?!\.\s).){0,100}?"
+    r"\b(?P<before>\d+|one|ten)[ -]?min(?:ute)?s?\b(?![ -]*intervals\b)"
     r"|\b(?P<after>\d+|one|ten)[ -]?min(?:ute)?s?\b[ -]*(?:mean|average|mittel)",
     re.IGNORECASE,
 )
 _NUMBER_WORDS = {"one": 1, "ten": 10}
-_TEN_MINUTES = re.compile(r"\b(?:10|ten)[ -]?min", re.IGNORECASE)
+_TEN_MINUTES = re.compile(r"\b(?:10|ten)[ -]?min(?:ute)?s?\b", re.IGNORECASE)
 _WIND_MEAN_NAMES = {"wind_speed": "wind_speed_last_10min", "wind_direction": "wind_direction_last_10min"}
 
 # Rows named `wind_speed` or `wind_direction` below daily resolution whose source states a mean over a window
@@ -506,9 +508,10 @@ def _shorter_wind_mean_sites() -> list[str]:
 
 
 def test_a_wind_mean_over_a_shorter_window_is_not_named_the_interval_mean() -> None:
-    """`wind_speed` and `wind_direction` are the mean over the row's interval; a shorter window takes `_last_10min`.
+    """`wind_speed` and `wind_direction` state no window shorter than the row's interval.
 
-    The table's `wind_speed` is the "mean speed of the wind over the period", so DWD's hourly `ff`
+    A source that does state one takes `_last_10min`. The table's `wind_speed` is the "mean speed of the wind
+    over the period", so DWD's hourly `ff`
     ("10-Min-Mittel der Windgeschwindigkeit"), DWD POI's "Mean wind speed over the last 10 minutes" and
     AEMET's "over the 10 minutes preceding 'fint'" handed a caller the 10 minutes before the hour as though
     it were the hour's mean (GH-2697). The rule is the one for temperatures (GH-2660): a mean over a window
@@ -526,11 +529,15 @@ def test_a_wind_mean_over_a_shorter_window_is_not_named_the_interval_mean() -> N
 
 
 def test_the_ten_minute_wind_names_are_for_a_window_the_source_states() -> None:
-    """`wind_speed_last_10min` and `wind_direction_last_10min` are only for a source that states the 10 minutes."""
+    """`wind_speed_last_10min` and `wind_direction_last_10min` are only for a stated 10 minutes in a longer row."""
     wrong = []
-    for site, _, parameter, evidence in _sourced_parameters():
-        if parameter.name in _WIND_MEAN_NAMES.values() and not _TEN_MINUTES.search(evidence):
+    for site, resolution, parameter, evidence in _sourced_parameters():
+        if parameter.name not in _WIND_MEAN_NAMES.values():
+            continue
+        if not _TEN_MINUTES.search(evidence):
             wrong.append(f"{site}: named a 10-minute mean, but the source says {evidence!r}")
+        elif _INTERVAL_MINUTES.get(resolution, 0) <= 10:
+            wrong.append(f"{site}: named for a window shorter than the interval, but the interval is {resolution}")
     assert not wrong, "\n".join(wrong)
 
 
@@ -588,3 +595,10 @@ def test_the_wind_mean_window_regex_reads_the_sources_wording() -> None:
         ('Wind direction (DWD: "Windrichtung uml.,windstill DD=00"). dd', "hourly"),
     ):
         assert not _states_a_shorter_wind_mean(evidence, resolution), evidence
+
+
+def test_the_wind_mean_window_regex_stays_within_a_sentence_and_a_whole_hour() -> None:
+    """A window in the next sentence is not the mean's, and the singular "interval" is a window."""
+    assert not _states_a_shorter_wind_mean("Mean wind speed. Reported every 10 minutes.", "hourly")
+    assert _states_a_shorter_wind_mean("Mean wind speed of the 10-minute interval before the full hour.", "hourly")
+    assert not _TEN_MINUTES.search("Maximum 10 minimum")
