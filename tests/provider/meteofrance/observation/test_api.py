@@ -164,11 +164,10 @@ def _climate_gz(resolution: str, dataset: str, rows: list[dict[str, str]]) -> by
 def _serve_climate(monkeypatch: pytest.MonkeyPatch, files: dict[str, bytes]) -> list[str]:
     """Serve the period files of a dataset, by the title of their resource, and return the titles asked for.
 
-    The listing also names a period that is not served, so that a file the request does not need but is
-    downloaded anyway fails with an unknown title.
+    A file the test does not serve fails with a KeyError, and the titles asked for show whether the
+    request read the files it needs and no others.
     """
-    titles = [*files, "unserved"]
-    resources = [{"title": title, "url": f"https://example.invalid/{title}.csv.gz"} for title in titles]
+    resources = [{"title": title, "url": f"https://example.invalid/{title}.csv.gz"} for title in files]
     asked: list[str] = []
 
     def download_file(*args: str, url: str | None = None, **_: object) -> File:
@@ -420,3 +419,26 @@ def test_meteofrance_observation_api_fu_offset(station_id: str, hours: int | Non
     """Test the offset of FU from UTC of each department, as measured against SYNOP (GH-2677)."""
     offsets = api._fu_hours(station_id)  # noqa: SLF001
     assert (offsets[-1][1] if offsets else None) == hours
+
+
+@pytest.mark.parametrize(
+    ("label", "utc"),
+    [
+        # Crozet is +5 h before 2003-10-01 00:00 (as stamped) and +4 h from then on
+        ("200309302359", datetime(2003, 9, 30, 18, 59)),  # noqa: DTZ001
+        ("200310010000", datetime(2003, 9, 30, 20, 0)),  # noqa: DTZ001
+        ("200310010100", datetime(2003, 9, 30, 21, 0)),  # noqa: DTZ001
+    ],
+)
+def test_meteofrance_observation_api_crozet_switch_is_pinned(label: str, utc: datetime) -> None:
+    """Test that Crozet's FU offset changes at the stamp 2003-10-01 00:00 and not an hour before or after.
+
+    The day of the switch is not known (the SYNOP archive has no reading of Crozet between 2003-09-15 and
+    2003-11-07), so the date is a choice, and the numbers here are labels, not readings.
+    """
+    import polars as pl  # noqa: PLC0415
+
+    df = pl.DataFrame({"d": [label]}).select(
+        api._parse_climate_date(pl.col("d"), "6_minutes", api._fu_hours("98404004")).alias("t")  # noqa: SLF001
+    )
+    assert df.get_column("t").to_list() == [utc.replace(tzinfo=UTC)]

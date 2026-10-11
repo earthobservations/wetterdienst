@@ -662,11 +662,7 @@ def _fu_hours(station_id: str) -> _FuHours | None:
     department = _department_from_station_id(station_id)
     if department in _FU_HOURS_BY_DEPARTMENT:
         return ((None, _FU_HOURS_BY_DEPARTMENT[department]),)
-    if department.startswith(("97", "98")):
-        if station_id not in _FU_HOURS_BY_STATION:
-            log.warning(f"No offset of FU from UTC is known for station {station_id}; its stamps are not converted.")
-        return _FU_HOURS_BY_STATION.get(station_id)
-    return None
+    return _FU_HOURS_BY_STATION.get(station_id)
 
 
 def _parse_climate_date(
@@ -880,6 +876,8 @@ class MeteoFranceObservationValues(TimeseriesValues):
         ]
         if not matches:
             return pl.DataFrame()
+        if resolution_name in _FU_CONVERTED_RESOLUTIONS and fu_hours is None and department.startswith(("97", "98")):
+            log.warning(f"No offset of FU from UTC is known for station {station_id}; its stamps are not converted.")
         schema = _CLIMATE_SCHEMAS[resolution_name, dataset.name]
         date_column = _CLIMATE_DATE_COLUMNS[resolution_name]
         parameter_columns = [parameter.name_original for parameter in dataset]
