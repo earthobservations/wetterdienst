@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from wetterdienst.exceptions import NoParametersFoundError
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.util.network import File
@@ -119,6 +120,33 @@ def test_metno_frost_values_404_reaches_the_discovery_fallback(monkeypatch: pyte
     assert df["value"].to_list() == [2.7]
 
 
+def test_metno_frost_hourly_wind_is_named_for_its_ten_minutes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that Frost's hourly wind, the means of the last ten minutes, is named so (GH-2707).
+
+    Frost's own element name `wind_speed` still addresses the row, but the canonical `wind_direction`,
+    the mean over the hour, is no longer a name of it.
+    """
+    payload = {
+        "data": [
+            {
+                "sourceId": "SN18700:0",
+                "referenceTime": "2020-01-01T00:00:00.000Z",
+                "observations": [
+                    {"elementId": "wind_speed", "value": 3.1, "qualityCode": 0},
+                    {"elementId": "wind_from_direction", "value": 90.0, "qualityCode": 0},
+                ],
+            },
+        ],
+    }
+    parameters = [("hourly", "data", "wind_speed_last_10min"), ("hourly", "data", "wind_direction_last_10min")]
+    values, _ = _values(monkeypatch, lambda url: _ok(url, payload), parameters)
+    df = values.all().df.sort("parameter")
+    assert df["parameter"].to_list() == ["wind_direction_last_10min", "wind_speed_last_10min"]
+    assert df["value"].to_list() == [90.0, 3.1]
+    with pytest.raises(NoParametersFoundError):
+        MetnoFrostRequest(parameters=[("hourly", "data", "wind_direction")], start=START, end=END)
+
+
 @pytest.mark.parametrize("status", [401, 403, 500])
 def test_metno_frost_values_failure_is_warned_about(
     monkeypatch: pytest.MonkeyPatch,
@@ -222,7 +250,7 @@ def test_metno_frost_values_404_fallback_asks_for_the_requested_parameters_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that the fallback after a 404 on the batch resolves what was asked for, not the whole dataset (GH-2554)."""
-    requested = [("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_speed")]
+    requested = [("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_speed_last_10min")]
     values, seen = _values(monkeypatch, lambda url: _failed(url, 404), requested)
     assert values.all().df.is_empty()
     batch, *rest = _observation_requests(seen)
@@ -271,7 +299,7 @@ def test_metno_frost_values_404_fallback_for_one_parameter_leaves_its_siblings_a
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that the fallback for one parameter model resolves that parameter, not its siblings (GH-2554)."""
-    requested = [("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_speed")]
+    requested = [("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_speed_last_10min")]
     values, seen = _values(monkeypatch, lambda url: _failed(url, 404), requested)
     assert values._collect_station_parameter_or_dataset("SN18700", values.sr.parameters[1]).is_empty()  # noqa: SLF001
     # the request for that parameter alone, then its discovery; air_temperature is never asked for
