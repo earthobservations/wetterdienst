@@ -255,8 +255,8 @@ def test_parse_dwd_data_reports_unknown_measurement_method(caplog: pytest.LogCap
 def test_parse_dwd_data_drops_variable_wind_direction(payload: str) -> None:
     """Test that 990 in the hourly wind direction becomes null, with the wind speed beside it kept.
 
-    The files of 1975 to 1994 (station 00003, 1975-10-16 08:00) write 990 where there is no direction
-    next to a real speed of 1.3 m/s; the description documents only -999. A direction of 0 is a
+    The files write 990 where there is no direction (station 00003, 1975-10-16 08:00) next to a real
+    speed of 1.3 m/s; the description documents only -999. A direction of 0 is a
     direction and has to survive.
     """
     file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
