@@ -395,7 +395,6 @@ STUBS = [
         _geosphere_daily,
         reading=("precipitation_amount", 0.3),
         sentinels=(("precipitation_amount", -1.0), ("snow_depth_manual", -1.0)),
-        leak="#2671",
     ),
     ValueStub(
         "noaa/ghcn hourly/data",
