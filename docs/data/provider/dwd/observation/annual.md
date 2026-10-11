@@ -53,9 +53,9 @@
 | {term}`temperature_air_max_2m_mean` | ja_tx | Annual mean of daily temperature maxima in 2m height. | °C | - |
 | {term}`temperature_air_min_2m_mean` | ja_tn | Annual mean of daily temperature minima in 2m height. | °C | - |
 | {term}`sunshine_duration` | ja_sd_s | Annual sum of sunshine duration. | h | >=0 |
-| {term}`wind_force_beaufort` | ja_fk | Annual mean of daily wind speed. | Bft | >=0 |
+| {term}`wind_force_beaufort` | ja_fk | Annual mean of the wind force in Beaufort (DWD: "Jahresmittel der Windstaerke"), the arithmetic mean of the monthly means. | Bft | >=0 |
 | {term}`temperature_air_max_2m` | ja_mx_tx | Annual maximum of daily temperature maxima in 2m height. | °C | - |
-| {term}`wind_gust_max` | ja_mx_fx | Annual maximum of daily wind speed. | m/s | >=0 |
+| {term}`wind_gust_max` | ja_mx_fx | Annual maximum of daily wind speed (the daily wind peak, Windspitze). | m/s | >=0 |
 | {term}`temperature_air_min_2m` | ja_mx_tn | Annual minimum of daily temperature minima in 2m height. | °C | - |
 | {term}`quality_precipitation` | qn_6 | Quality flag published by the source for `precipitation` in the same dataset. | -             | - |
 | {term}`precipitation_amount` | ja_rr | Annual sum of daily precipitation height. | mm | >=0 |
@@ -115,7 +115,7 @@
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | weather_phenomena                                                                                                                                                                                                                                                                                  |
 | original name | weather_phenomena                                                                                                                                                                                                                                                                                  |
-| description   | Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, ripe, sleet and hail for stations of Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, graupel and hail for stations of Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/annual/weather_phenomena/)                                                                                                                                                                                     |
 
 #### parameters
@@ -127,7 +127,7 @@
 | {term}`count_weather_type_storm_stormier_wind` | ja_sturm_8 | Count of days with storm (stormier wind) of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_thunder` | ja_gewitter | Count of days with thunder of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_glaze` | ja_glatteis | Count of days with glaze of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_sleet` | ja_graupel | Count of days with sleet of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_sleet` | ja_graupel | Number of days with graupel in the year. | - | >=0 |
 | {term}`count_weather_type_hail` | ja_hagel | Count of days with hail of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_fog` | ja_nebel | Count of days with fog of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_dew` | ja_tau | Count of days with dew of stations in Germany. | - | >=0 |

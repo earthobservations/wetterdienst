@@ -38,7 +38,7 @@
 |---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | moisture                                                                                                                                                                                                                                                                              |
 | original name | moisture                                                                                                                                                                                                                                                                              |
-| description   | Recent subdaily vapor pressure, mean temperature in 2m height, mean temperature in 5cm height and humidity of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Recent subdaily vapor pressure, wet bulb temperature, ice on the wet bulb thermometer and relative humidity of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/moisture/)                                                                                                                                                                               |
 
 #### parameters
@@ -77,7 +77,7 @@
 |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | soil                                                                                                                                                                                                            |
 | original name | soil                                                                                                                                                                                                            |
-| description   | Recent soil temperature in 5cm depth of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Recent subdaily coded ground state of stations in Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/soil/)                                                                                                             |
 
 #### parameters
@@ -156,6 +156,6 @@
 | name                          | original name | description      | unit | constraints |
 |-------------------------------|---------------|------------------|------|-------------|
 | {term}`quality_3` | qn_8_3 | Quality flag for the 3-hourly maximum wind gust reported in the same dataset. | -             | - |
-| {term}`wind_gust_max_last_3h` | fx_911_3 | Wind gust max 3h. | m/s | >=0 |
+| {term}`wind_gust_max_last_3h` | fx_911_3 | Highest wind peak of the last 3 hours (>12.5 m/s). | m/s | >=0 |
 | {term}`quality_6` | qn_8_6 | Quality flag for the 6-hourly maximum wind gust reported in the same dataset. | -             | - |
-| {term}`wind_gust_max_last_6h` | fx_911_6 | Wind gust max 6h. | m/s | >=0 |
+| {term}`wind_gust_max_last_6h` | fx_911_6 | Highest wind peak of the last 6 hours (>12.5 m/s). | m/s | >=0 |
