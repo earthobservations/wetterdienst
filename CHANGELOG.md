@@ -117,8 +117,8 @@ Types of changes:
   columns (`graupel`, `rr_graupel`, `mo_graupel`, `ja_graupel`) in the `weather_phenomena` datasets
   of `dwd/observation` daily, monthly and annual and in `daily/weather_phenomena_more`. Request the
   new name; the old one in a request or as a `ts_geo_station_distance` key (now an error, it was a
-  warning) is reported with its replacement. A wide table `to_target` wrote before holds the old
-  column: write it anew (GH-2696)
+  warning) is reported with its replacement. A table `to_target` wrote before holds the old name,
+  as a wide column or in `parameter`: write it anew (GH-2696)
 
 ### Fixed
 
