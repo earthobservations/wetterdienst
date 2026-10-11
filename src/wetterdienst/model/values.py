@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
 import polars as pl
 from tqdm import tqdm
-from tzfpy import get_tz
 
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.metadata import group_parameters_by_dataset
@@ -74,28 +73,6 @@ class TimeseriesValues(ABC):
                 "timestamp": pl.Datetime(time_zone="UTC"),
             }
         return dict(self._long_fields)
-
-    def _get_timezone_from_station(self, station_id: str) -> str:
-        """Get timezone information for explicit station.
-
-        This is used to set the correct timezone for the timestamps of the returned values.
-
-        """
-        stations = self.sr.df
-        # from a row that has a position: a station requested at several resolutions has a row in
-        # each one's list, and one can have none, as a NOAA GHCN hourly row can (GH-2380)
-        longitude, latitude = (
-            stations.filter(
-                pl.col("station_id").eq(station_id),
-                pl.col("latitude").is_not_null(),
-                pl.col("longitude").is_not_null(),
-            )
-            .select([pl.col("longitude"), pl.col("latitude")])
-            .transpose()
-            .to_series()
-            .to_list()
-        )
-        return get_tz(longitude, latitude)
 
     def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """Convert values to metric units with help of conversion factors."""

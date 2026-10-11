@@ -16,6 +16,19 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `metno/frost` `daily` `snow_depth` is stamped at 00:00 UTC of the date of its
+  reading, no longer at the time of the reading (usually 06:00 UTC), like the other daily
+  parameters. Join stored snow depth on the date (GH-2729)
+
+### Removed
+
+- The `tzfpy` dependency and `TimeseriesValues._get_timezone_from_station`, which looked up a
+  station's time zone from its position. Since GH-2683 no provider stamps a row with the station's
+  zone, so nothing called it; installs are one compiled package smaller. A subclass that called the
+  private method must resolve the zone itself (GH-2725)
+
 ### Fixed
 
 - `knmi/observation` without the `knmi` extra raises `MissingDependencyError` naming
@@ -23,6 +36,10 @@ Types of changes:
   way); the CLI prints that line, and `/api/stations`, `/api/values`, `/api/interpolate` and
   `/api/summarize` answer 501 with the line in the server log, no longer a 500 with a traceback
   (GH-2545)
+- `ea/hydrology` daily requests no longer cut the newest reading of a window: the readings request
+  carried a `_limit` of one reading per day, but a window holds more readings than days (the
+  maximum and minimum are dated at their instant, and the endpoint answers some days twice), so
+  the last requested day could be missing. No `_limit` is sent for daily now (GH-2732)
 
 ## [0.146.0] - 2026-10-11
 
