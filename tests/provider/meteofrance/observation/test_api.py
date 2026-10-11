@@ -565,3 +565,63 @@ def test_meteofrance_observation_api_unknown_fu_offset_warns_only_when_rows_come
         df = _values("hourly", "core", "temperature_air_2m", "98404006", _utc(2021, 1, 1), _utc(2021, 1, 2))
     assert df.is_empty()
     assert "98404006" not in caplog.text
+
+
+def test_meteofrance_observation_api_daily_returns_the_validation_code_of_each_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the Q column of a parameter is returned verbatim in `quality_flag`, blank as null (GH-2018).
+
+    The Q columns were in the file's schema and left out of the columns read. The daily description (the
+    climatologie-donnees-quotidiennes-descriptif PDF, checked 2026-10-11): "un code qualité est associé à la
+    mesure (noté Qparamètre). Il qualifie l'état de validation de la donnée : 9 : donnée filtrée, 0 : donnée
+    protégée, 1 : donnée validée, 2 : donnée douteuse en cours de vérification". The codes are those the live
+    Q_75_latest-2025-2026_RR-T-Vent file holds for QDXI and QRR: 1, 9 and blank.
+    """
+    rows = [
+        {"NUM_POSTE": "75114001", "AAAAMMJJ": "20250101", "RR": "0.2", "QRR": "1", "TN": "3.0", "QTN": "9"},
+        {"NUM_POSTE": "75114001", "AAAAMMJJ": "20250102", "RR": "0.0", "QRR": "", "TN": "2.5", "QTN": "2"},
+        {"NUM_POSTE": "75114001", "AAAAMMJJ": "20250103", "RR": "1.0", "QRR": "0", "TN": "1.5", "QTN": "1"},
+    ]
+    files = {"QUOT_departement_75_periode_2025-2026_RR-T-Vent": _climate_gz("daily", "core", rows)}
+    _serve_climate(monkeypatch, files)
+    request = MeteoFranceObservationRequest(
+        parameters=[("daily", "core", "precipitation_amount"), ("daily", "core", "temperature_air_min_2m")],
+        start=_utc(2025, 1, 1),
+        end=_utc(2025, 1, 3),
+        settings=Settings(cache_disable=True),
+    )
+    df = (
+        stations_result(request, "daily", "core", "75114001")
+        .values.all()
+        .df.with_columns(pl.col("parameter").cast(pl.String))
+    )
+    assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flag").rows() == [
+        ("precipitation_amount", 0.2, "1"),
+        ("precipitation_amount", 0.0, None),
+        ("precipitation_amount", 1.0, "0"),
+        ("temperature_air_min_2m", 3.0, "9"),
+        ("temperature_air_min_2m", 2.5, "2"),
+        ("temperature_air_min_2m", 1.5, "1"),
+    ]
+    assert df.get_column("quality").null_count() == df.height
+
+
+@pytest.mark.parametrize(
+    ("resolution", "dataset"),
+    [
+        ("daily", "core"),
+        ("daily", "others"),
+        ("monthly", "data"),
+        ("hourly", "core"),
+        ("hourly", "others"),
+        ("6_minutes", "data"),
+    ],
+)
+def test_meteofrance_observation_api_every_parameter_has_a_validation_code_column(
+    resolution: str, dataset: str
+) -> None:
+    """Test that the file of every dataset has the Q column of each parameter it declares, which is read with it."""
+    schema = api._CLIMATE_SCHEMAS[resolution, dataset]  # noqa: SLF001
+    declared = MeteoFranceObservationRequest.metadata[resolution][dataset]
+    assert [parameter.name_original for parameter in declared if f"Q{parameter.name_original}" not in schema] == []

@@ -70,6 +70,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -79,6 +80,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 11.7,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -88,6 +90,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 1.0,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -97,6 +100,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 1.0,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -106,6 +110,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -115,6 +120,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 9.5,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -124,6 +130,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 6.3,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -133,6 +140,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 3.0,
                 "quality": None,
+                "quality_flag": None,
             },
         ],
         schema={
@@ -154,6 +162,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
+            "quality_flag": pl.String,
         },
         orient="row",
     )
@@ -606,3 +615,69 @@ def test_eccc_hourly_year_window_follows_utc_date_not_the_civil_zone(
         (dt.datetime(2025, 1, 1, 0, tzinfo=ZoneInfo("UTC")), -14.9),
         (dt.datetime(2025, 1, 1, 1, tzinfo=ZoneInfo("UTC")), -15.0),
     ]
+
+
+def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a value's `*_FLAG` letter is kept verbatim in `quality_flag`, beside its own parameter (GH-2018).
+
+    The flags were fetched, joined on as `quality` and then replaced by a null Float64, so a missing (`M`),
+    estimated (`E`) or trace (`T`) day looked like any other. Rows as api.weather.gc.ca/collections/climate-daily
+    returns them for 50430 in 2023 (checked 2026-10-11): an unflagged value has a null flag, and a flag can sit on
+    a null value (`M`) or on a value (`T` on a precipitation of 0.0).
+
+    ECCC's Technical Documentation (climate.weather.gc.ca/doc/Technical_Documentation.pdf, "Table of flags"):
+    "M  Missing", "E  Estimated", "T  Trace; value is zero", blank "Valid data".
+    """
+    rows = [
+        {
+            "LOCAL_DATE": "2023-01-01 00:00:00",
+            "MEAN_TEMPERATURE": -5.0,
+            "MEAN_TEMPERATURE_FLAG": None,
+            "TOTAL_PRECIPITATION": 0.0,
+            "TOTAL_PRECIPITATION_FLAG": "T",
+        },
+        {
+            "LOCAL_DATE": "2023-01-02 00:00:00",
+            "MEAN_TEMPERATURE": None,
+            "MEAN_TEMPERATURE_FLAG": "M",
+            "TOTAL_PRECIPITATION": 1.2,
+            "TOTAL_PRECIPITATION_FLAG": "E",
+        },
+    ]
+    _serve_eccc(monkeypatch, rows)
+    request = EcccObservationRequest(
+        parameters=[
+            ("daily", "data", "temperature_air_mean_2m"),
+            ("daily", "data", "precipitation_amount"),
+        ],
+        start="2023-01-01",
+        end="2023-01-02",
+        # nulls kept, or the missing day's row, which holds only its `M`, would be dropped
+        settings=Settings(ts_convert_units=False, ts_drop_nulls=False),
+    )
+    df = request.filter_by_station_id("51459").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    assert df.schema["quality_flag"] == pl.String
+    assert df.get_column("quality").null_count() == df.height
+    assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flag").rows() == [
+        ("precipitation_amount", 0.0, "T"),
+        ("precipitation_amount", 1.2, "E"),
+        ("temperature_air_mean_2m", -5.0, None),
+        ("temperature_air_mean_2m", None, "M"),
+    ]
+
+
+def test_eccc_monthly_has_no_flags_and_so_a_null_quality_flag(
+    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
+) -> None:
+    """Test that monthly rows, which ECCC publishes without flags, come back with a null `quality_flag`."""
+    _serve_eccc(monkeypatch, [{"LOCAL_DATE": "2025-01", "MEAN_TEMPERATURE": -5.4}])
+    request = EcccObservationRequest(
+        parameters=[("monthly", "data", "temperature_air_mean_2m")],
+        start="2025-01-01",
+        end="2025-01-01",
+        settings=settings_convert_units_false,
+    )
+    df = request.filter_by_station_id("51459").values.all().df
+    assert df.schema["quality_flag"] == pl.String
+    assert df.get_column("quality_flag").to_list() == [None]
+    assert df.get_column("value").to_list() == [-5.4]

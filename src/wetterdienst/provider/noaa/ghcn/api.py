@@ -145,15 +145,31 @@ class NoaaGhcnValues(TimeseriesValues):
                     pl.col("longitude"),
                     pl.col("elevation"),
                     pl.col("name"),
-                    cs.ends_with("_attributes"),
                 ],
             ),
         )
-        df = df.unpivot(
-            index=["station", "timestamp"],
-            on=cs.exclude(["station", "timestamp"]),
-            variable_name="parameter",
-            value_name="value",
+        index = ["station", "timestamp"]
+        elements = [column for column in df.columns if column not in index and not column.endswith("_attributes")]
+        # `<element>_attributes` holds "MFLAG,QFLAG,SFLAG", e.g. ",,E" or "H,,S"; the middle one is the quality
+        # flag (GH-2018), a letter naming the check the value failed or blank where it failed none. It travels
+        # with its value through the unpivot as the field of a struct
+        df = df.select(
+            *index,
+            *(
+                pl.struct(
+                    pl.col(element).cast(pl.String).alias("value"),
+                    (
+                        pl.col(f"{element}_attributes").str.split(",").list.get(1, null_on_oob=True)
+                        if f"{element}_attributes" in df.columns
+                        else pl.lit(None, dtype=pl.String)
+                    ).alias("quality_flag"),
+                ).alias(element)
+                for element in elements
+            ),
+        ).unpivot(index=index, on=elements, variable_name="parameter", value_name="value")
+        df = df.with_columns(
+            pl.col("value").struct.field("quality_flag").str.strip_chars().replace("", None),
+            pl.col("value").struct.field("value"),
         )
         df = df.select(
             pl.col("station").alias("station_id"),
@@ -161,6 +177,7 @@ class NoaaGhcnValues(TimeseriesValues):
             pl.col("parameter").str.to_lowercase(),
             pl.col("value").str.strip_chars().cast(float),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
+            "quality_flag",
         )
         # A daily value is stamped at 00:00 UTC of the date the file gives it, whichever time zone the station is in.
         # The date is the station's own observing day, which the readme gives no zone for, and a stamp shifted by the
@@ -176,6 +193,7 @@ class NoaaGhcnValues(TimeseriesValues):
             "timestamp",
             "value",
             "quality",
+            "quality_flag",
         )
 
     @staticmethod

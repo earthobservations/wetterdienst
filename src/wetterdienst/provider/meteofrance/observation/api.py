@@ -894,7 +894,9 @@ class MeteoFranceObservationValues(TimeseriesValues):
         schema = _CLIMATE_SCHEMAS[resolution_name, dataset.name]
         date_column = _CLIMATE_DATE_COLUMNS[resolution_name]
         parameter_columns = [parameter.name_original for parameter in dataset]
-        read_columns = ["NUM_POSTE", date_column, *parameter_columns]
+        # a parameter's validation code is published in the column of its name with a Q in front (QRR for RR)
+        flag_columns = {name: f"Q{name}" for name in parameter_columns}
+        read_columns = ["NUM_POSTE", date_column, *parameter_columns, *flag_columns.values()]
         files_by_url = _download_climate_resources(matches, settings)
         # _download_climate_resources already retried each once; a failure other than a 404 surviving
         # that is an outage, and is raised rather than leaving the bucket out of a result that reads
@@ -919,11 +921,22 @@ class MeteoFranceObservationValues(TimeseriesValues):
         if resolution_name in _FU_CONVERTED_RESOLUTIONS and fu_hours is None and department.startswith(("97", "98")):
             log.warning(f"No offset of FU from UTC is known for station {station_id}; its stamps are not converted.")
         df = pl.concat(dfs, how="diagonal")
-        df = df.unpivot(
+        # the value and the code of a parameter travel together through the unpivot, as the fields of one struct
+        df = df.select(
+            date_column,
+            *(
+                pl.struct(pl.col(name).alias("value"), pl.col(flag_columns[name]).alias("quality_flag")).alias(name)
+                for name in parameter_columns
+            ),
+        ).unpivot(
             on=parameter_columns,
             index=[date_column],
             variable_name="parameter",
             value_name="value",
+        )
+        df = df.with_columns(
+            pl.col("value").struct.field("quality_flag").alias("quality_flag"),
+            pl.col("value").struct.field("value"),
         )
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
@@ -938,6 +951,9 @@ class MeteoFranceObservationValues(TimeseriesValues):
                 "value"
             ),
             pl.lit(None, pl.Float64).alias("quality"),
+            # the validation code (9 filtered, 0 protected, 1 validated, 2 doubtful), verbatim and null where the
+            # source leaves it blank (GH-2018)
+            pl.col("quality_flag").str.strip_chars().replace("", None),
         )
 
 

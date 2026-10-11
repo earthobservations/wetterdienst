@@ -51,32 +51,46 @@ def dwd_climate_summary_tabular_columns() -> list[str]:
         "timestamp",
         "wind_gust_max",
         "wind_gust_max_quality",
+        "wind_gust_max_quality_flag",
         "wind_speed",
         "wind_speed_quality",
+        "wind_speed_quality_flag",
         "precipitation_amount",
         "precipitation_amount_quality",
+        "precipitation_amount_quality_flag",
         "precipitation_form",
         "precipitation_form_quality",
+        "precipitation_form_quality_flag",
         "sunshine_duration",
         "sunshine_duration_quality",
+        "sunshine_duration_quality_flag",
         "snow_depth",
         "snow_depth_quality",
+        "snow_depth_quality_flag",
         "cloud_cover_total",
         "cloud_cover_total_quality",
+        "cloud_cover_total_quality_flag",
         "pressure_vapor",
         "pressure_vapor_quality",
+        "pressure_vapor_quality_flag",
         "pressure_air_site",
         "pressure_air_site_quality",
+        "pressure_air_site_quality_flag",
         "temperature_air_mean_2m",
         "temperature_air_mean_2m_quality",
+        "temperature_air_mean_2m_quality_flag",
         "humidity_relative",
         "humidity_relative_quality",
+        "humidity_relative_quality_flag",
         "temperature_air_max_2m",
         "temperature_air_max_2m_quality",
+        "temperature_air_max_2m_quality_flag",
         "temperature_air_min_2m",
         "temperature_air_min_2m_quality",
+        "temperature_air_min_2m_quality_flag",
         "temperature_air_min_0_05m",
         "temperature_air_min_0_05m_quality",
+        "temperature_air_min_0_05m_quality_flag",
     ]
 
 
@@ -1171,32 +1185,46 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "timestamp",
         "wind_gust_max",
         "wind_gust_max_quality",
+        "wind_gust_max_quality_flag",
         "wind_speed",
         "wind_speed_quality",
+        "wind_speed_quality_flag",
         "precipitation_amount",
         "precipitation_amount_quality",
+        "precipitation_amount_quality_flag",
         "precipitation_form",
         "precipitation_form_quality",
+        "precipitation_form_quality_flag",
         "sunshine_duration",
         "sunshine_duration_quality",
+        "sunshine_duration_quality_flag",
         "snow_depth",
         "snow_depth_quality",
+        "snow_depth_quality_flag",
         "cloud_cover_total",
         "cloud_cover_total_quality",
+        "cloud_cover_total_quality_flag",
         "pressure_vapor",
         "pressure_vapor_quality",
+        "pressure_vapor_quality_flag",
         "pressure_air_site",
         "pressure_air_site_quality",
+        "pressure_air_site_quality_flag",
         "temperature_air_mean_2m",
         "temperature_air_mean_2m_quality",
+        "temperature_air_mean_2m_quality_flag",
         "humidity_relative",
         "humidity_relative_quality",
+        "humidity_relative_quality_flag",
         "temperature_air_max_2m",
         "temperature_air_max_2m_quality",
+        "temperature_air_max_2m_quality_flag",
         "temperature_air_min_2m",
         "temperature_air_min_2m_quality",
+        "temperature_air_min_2m_quality_flag",
         "temperature_air_min_0_05m",
         "temperature_air_min_0_05m_quality",
+        "temperature_air_min_0_05m_quality_flag",
     ]
     # Validate number of records.
     assert len(df) == 366
@@ -1208,32 +1236,46 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "timestamp": "2019-01-01T00:00:00.000000+00:00",
         "wind_gust_max": 19.9,
         "wind_gust_max_quality": 10,
+        "wind_gust_max_quality_flag": None,
         "wind_speed": 8.5,
         "wind_speed_quality": 10,
+        "wind_speed_quality_flag": None,
         "precipitation_amount": 0.9,
         "precipitation_amount_quality": 10,
+        "precipitation_amount_quality_flag": None,
         "precipitation_form": 8.0,
         "precipitation_form_quality": 10,
+        "precipitation_form_quality_flag": None,
         "sunshine_duration": 0.0,
         "sunshine_duration_quality": 10,
+        "sunshine_duration_quality_flag": None,
         "snow_depth": 0,
         "snow_depth_quality": 10,
+        "snow_depth_quality_flag": None,
         "cloud_cover_total": 7.4,
         "cloud_cover_total_quality": 10,
+        "cloud_cover_total_quality_flag": None,
         "pressure_vapor": 7.9,
         "pressure_vapor_quality": 10,
+        "pressure_vapor_quality_flag": None,
         "pressure_air_site": 991.9,
         "pressure_air_site_quality": 10,
+        "pressure_air_site_quality_flag": None,
         "temperature_air_mean_2m": 5.9,
         "temperature_air_mean_2m_quality": 10,
+        "temperature_air_mean_2m_quality_flag": None,
         "humidity_relative": 84,
         "humidity_relative_quality": 10,
+        "humidity_relative_quality_flag": None,
         "temperature_air_max_2m": 7.5,
         "temperature_air_max_2m_quality": 10,
+        "temperature_air_max_2m_quality_flag": None,
         "temperature_air_min_2m": 2.0,
         "temperature_air_min_2m_quality": 10,
+        "temperature_air_min_2m_quality_flag": None,
         "temperature_air_min_0_05m": 1.5,
         "temperature_air_min_0_05m_quality": 10,
+        "temperature_air_min_0_05m_quality_flag": None,
     }
     last_record = df.tail(1).to_dicts()[0]
     assert last_record == {
@@ -1243,32 +1285,46 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "timestamp": "2020-01-01T00:00:00.000000+00:00",
         "wind_gust_max": 6.9,
         "wind_gust_max_quality": 10,
+        "wind_gust_max_quality_flag": None,
         "wind_speed": 3.2,
         "wind_speed_quality": 10,
+        "wind_speed_quality_flag": None,
         "precipitation_amount": 0.0,
         "precipitation_amount_quality": 10,
+        "precipitation_amount_quality_flag": None,
         "precipitation_form": 0,
         "precipitation_form_quality": 10,
+        "precipitation_form_quality_flag": None,
         "sunshine_duration": 3.9,
         "sunshine_duration_quality": 10,
+        "sunshine_duration_quality_flag": None,
         "snow_depth": 0,
         "snow_depth_quality": 10,
+        "snow_depth_quality_flag": None,
         "cloud_cover_total": 4.2,
         "cloud_cover_total_quality": 10,
+        "cloud_cover_total_quality_flag": None,
         "pressure_vapor": 5.7,
         "pressure_vapor_quality": 10,
+        "pressure_vapor_quality_flag": None,
         "pressure_air_site": 1005.1,
         "pressure_air_site_quality": 10,
+        "pressure_air_site_quality_flag": None,
         "temperature_air_mean_2m": 2.4,
         "temperature_air_mean_2m_quality": 10,
+        "temperature_air_mean_2m_quality_flag": None,
         "humidity_relative": 79,
         "humidity_relative_quality": 10,
+        "humidity_relative_quality_flag": None,
         "temperature_air_max_2m": 5.6,
         "temperature_air_max_2m_quality": 10,
+        "temperature_air_max_2m_quality_flag": None,
         "temperature_air_min_2m": -2.8,
         "temperature_air_min_2m_quality": 10,
+        "temperature_air_min_2m_quality_flag": None,
         "temperature_air_min_0_05m": -4.6,
         "temperature_air_min_0_05m_quality": 10,
+        "temperature_air_min_0_05m_quality_flag": None,
     }
 
 
@@ -1296,7 +1352,7 @@ def test_export_parquet(
     # Read back Parquet file.
     table = pq.read_table(filename)
     # Validate dimensions.
-    assert table.num_columns == 32
+    assert table.num_columns == 46
     assert table.num_rows == 366
     # Validate column names.
     assert table.column_names == dwd_climate_summary_tabular_columns
@@ -1334,7 +1390,7 @@ def test_export_zarr(
     root = zarr.open(filename, mode="r")
     group = root.get("climate_summary")
     # Validate dimensions.
-    assert len(group) == 33
+    assert len(group) == 47
     assert group.get("index").size == 366
     # Validate column names.
     columns = set(group.keys())
@@ -1422,7 +1478,7 @@ def test_export_feather(
     with pa_ipc.open_file(filename) as reader:
         table = reader.read_all()
     # Validate dimensions.
-    assert table.num_columns == 32
+    assert table.num_columns == 46
     assert table.num_rows == 366
     # Validate column names.
     assert table.column_names == dwd_climate_summary_tabular_columns
@@ -1463,32 +1519,46 @@ def test_export_sqlite(settings_convert_units_false_wide_shape: Settings, tmp_pa
         dt.datetime(2019, 1, 1),  # noqa: DTZ001
         19.9,
         10.0,
+        None,
         8.5,
         10.0,
+        None,
         0.9,
         10.0,
+        None,
         8.0,
         10.0,
+        None,
         0.0,
         10.0,
+        None,
         0.0,
         10.0,
+        None,
         7.4,
         10.0,
+        None,
         7.9,
         10.0,
+        None,
         991.9,
         10.0,
+        None,
         5.9,
         10.0,
+        None,
         84.0,
         10.0,
+        None,
         7.5,
         10.0,
+        None,
         2.0,
         10.0,
+        None,
         1.5,
         10.0,
+        None,
     ]
     last = list(results[-1])
     last[3] = dt.datetime.fromisoformat(last[3])
@@ -1499,32 +1569,46 @@ def test_export_sqlite(settings_convert_units_false_wide_shape: Settings, tmp_pa
         dt.datetime(2020, 1, 1),  # noqa: DTZ001
         6.9,
         10.0,
+        None,
         3.2,
         10.0,
+        None,
         0.0,
         10.0,
+        None,
         0.0,
         10.0,
+        None,
         3.9,
         10.0,
+        None,
         0.0,
         10.0,
+        None,
         4.2,
         10.0,
+        None,
         5.7,
         10.0,
+        None,
         1005.1,
         10.0,
+        None,
         2.4,
         10.0,
+        None,
         79.0,
         10.0,
+        None,
         5.6,
         10.0,
+        None,
         -2.8,
         10.0,
+        None,
         -4.6,
         10.0,
+        None,
     ]
 
 
@@ -1592,6 +1676,7 @@ def test_export_duckdb(settings_convert_units_false: Settings, tmp_path: Path) -
         dt.datetime(1939, 7, 26),  # noqa: DTZ001
         10.0,
         1.0,
+        None,
     )
 
 
@@ -3917,3 +4002,28 @@ def test_an_optional_package_that_is_not_installed_never_reaches_the_caller_as_a
     assert f"requires {module}, which is not installed. Install it with: pip install wetterdienst[{extra}]" in str(
         excinfo.value
     )
+
+
+def test_export_influxdb1_tidy_writes_the_quality_flag_beside_the_quality() -> None:
+    """Test that a reading's `quality_flag` is written as a field with its value, and not alone (GH-2018)."""
+    pytest.importorskip("influxdb")
+    df = pl.DataFrame(
+        {
+            "station_id": ["51459"] * 3,
+            "resolution": ["daily"] * 3,
+            "dataset": ["data"] * 3,
+            "parameter": ["temperature_air_mean_2m"] * 3,
+            "timestamp": [dt.datetime(2025, 1, day, tzinfo=ZoneInfo("UTC")) for day in (1, 2, 3)],
+            "value": [1.5, None, 2.5],
+            "quality": [None, None, None],
+            "quality_flag": ["E", "M", None],
+        },
+        schema_overrides={"quality": pl.Float64},
+    )
+    values = ValuesResult(stations=None, values=None, df=df)  # ty: ignore[invalid-argument-type]
+    mock_client = mock.MagicMock()
+    with mock.patch("influxdb.InfluxDBClient", side_effect=[mock_client], create=True):
+        values.to_target("influxdb://localhost/?database=dwd&table=weather")
+    points = mock_client.write_points.call_args.kwargs["points"]
+    # the missing reading with its `M` has no value to carry the flag, as its quality has none
+    assert [point["fields"] for point in points] == [{"value": 1.5, "quality_flag": "E"}, {"value": 2.5}]

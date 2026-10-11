@@ -18,6 +18,15 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: every values frame has a `quality_flag` string column after `quality` (wide:
+  `<parameter>_quality_flag` after `<parameter>_quality`): the source's flag or code for the
+  reading, filled by `eccc/observation` (not monthly), `ea/hydrology`, `meteofrance/observation`,
+  `noaa/ghcn` daily, `chmi/observation` (not monthly or annual), `nws/observation` and
+  `smhi/observation`, which dropped it; null for every other provider. `quality` is unchanged.
+  Select columns by name, not position: positions move and the count grows by one. Append to a
+  table written before (any SQL target) only after adding the column or recreating it. A bare
+  `df.drop_nulls()` on a values frame now drops every row whose flag is null: use
+  `drop_nulls("value")`. Interpolated and summarized frames are unchanged (GH-2018)
 - **Breaking**: `metno/frost` `daily` `snow_depth` is stamped at 00:00 UTC of the date of its
   reading, no longer at the time of the reading (usually 06:00 UTC), like the other daily
   parameters. Join stored snow depth on the date (GH-2729)

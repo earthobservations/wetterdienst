@@ -250,3 +250,30 @@ def test_ea_daily_window_with_more_readings_than_days_keeps_the_last_day(
         "2024-02-20",
         "2024-02-21",
     ]
+
+
+def test_ea_reading_quality_word_is_kept_in_quality_flag(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that a reading's `quality` word is returned verbatim in `quality_flag`, and `quality` stays null (GH-2018).
+
+    The word was part of the readings schema and then replaced by a null Float64. The Environment Agency's
+    reference (environment.data.gov.uk/hydrology/doc/reference, "Quality flags"): "quality: The quality of this
+    reading -- Good, Estimated, Suspect, Unchecked, Missing". Checked against the live readings of
+    f22f80f8-1bb0-4e77-b225-291487060c6f-flow-m-86400 for 2023 on 2026-10-11: 348 Good and 16 Suspect.
+    """
+    readings = [
+        {"dateTime": "2025-06-10T09:00:00", "value": 0.448, "quality": "Good", "completeness": "Complete"},
+        {"dateTime": "2025-06-11T09:00:00", "value": 0.359, "quality": "Suspect", "completeness": "Complete"},
+        {"dateTime": "2025-06-12T09:00:00", "value": 0.304, "quality": "Estimated", "completeness": "Complete"},
+    ]
+    _serve(monkeypatch, "flow-m-86400", readings)
+    request = EAHydrologyRequest(
+        parameters=[("daily", "data", "discharge_mean")],
+        start="2025-06-10",
+        end="2025-06-12",
+        settings=default_settings,
+    )
+    df = request.all().values.all().df.sort("timestamp")
+    assert df.select("value", "quality_flag").rows() == [(0.448, "Good"), (0.359, "Suspect"), (0.304, "Estimated")]
+    assert df.get_column("quality").null_count() == df.height

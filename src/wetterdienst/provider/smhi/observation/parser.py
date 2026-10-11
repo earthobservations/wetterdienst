@@ -8,11 +8,15 @@ import io
 
 import polars as pl
 
-_EMPTY_PARSED_SCHEMA = {"timestamp": pl.Datetime(time_unit="us", time_zone="UTC"), "value": pl.String}
+_EMPTY_PARSED_SCHEMA = {
+    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
+    "value": pl.String,
+    "quality_flag": pl.String,
+}
 
 
 def parse_smhi_csv(text: str) -> pl.DataFrame:
-    """Parse an SMHI observation CSV into a two-column (timestamp, value) DataFrame.
+    """Parse an SMHI observation CSV into a (timestamp, value, quality_flag) DataFrame.
 
     SMHI's CSV files stack several metadata blocks (station info, parameter info,
     historical station-position info) before the actual data table, and reuse the data
@@ -24,8 +28,9 @@ def parse_smhi_csv(text: str) -> pl.DataFrame:
     since the row's date can't be determined either.
 
     This locates the actual data header row (identified by its "Kvalitet" column,
-    present in every resolution) and extracts just the date and value columns, ignoring
-    everything else, returning "timestamp" already parsed to a UTC datetime.
+    present in every resolution) and extracts just the date, value and quality columns, ignoring
+    everything else, returning "timestamp" already parsed to a UTC datetime. The quality is
+    SMHI's own code (G, Y), verbatim in "quality_flag".
     """
     lines = text.splitlines()
     # match "Kvalitet" as an exact column (after splitting on ";"), not a substring: data rows
@@ -65,7 +70,11 @@ def parse_smhi_csv(text: str) -> pl.DataFrame:
         return pl.DataFrame(schema=_EMPTY_PARSED_SCHEMA)
 
     return (
-        df.select(date_expr.alias("timestamp"), pl.col(value_column).alias("value"))
+        df.select(
+            date_expr.alias("timestamp"),
+            pl.col(value_column).alias("value"),
+            pl.col("Kvalitet").alias("quality_flag"),
+        )
         .filter(pl.col("timestamp").is_not_null())
         .with_columns(pl.col("timestamp").dt.replace_time_zone("UTC"))
     )

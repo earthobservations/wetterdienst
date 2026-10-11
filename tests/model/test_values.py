@@ -82,8 +82,9 @@ def _long(rows: list[tuple[str, str, str, int, float]]) -> pl.DataFrame:
             "timestamp": [dt.datetime(2026, 1, 1, 0, row[3], tzinfo=ZoneInfo("UTC")) for row in rows],
             "value": [row[4] for row in rows],
             "quality": [None] * len(rows),
+            "quality_flag": [None] * len(rows),
         },
-        schema_overrides={"quality": pl.Float64},
+        schema_overrides={"quality": pl.Float64, "quality_flag": pl.String},
     )
 
 
@@ -131,6 +132,46 @@ def test_widen_df_keeps_a_timestamp_one_parameter_is_missing() -> None:
     assert result.get_column("stage").to_list() == [1.0, 2.0]
     # discharge has no reading at 00:15 and must not take the whole timestamp out with it
     assert result.get_column("discharge").to_list() == [9.0, None]
+
+
+def test_widen_df_gives_each_parameter_its_own_quality_flag_column() -> None:
+    """Test that a reading's flag goes next to its value as `<parameter>_quality_flag` (GH-2018)."""
+    df = _long(
+        [
+            ("15_minutes", "data", "stage", 0, 1.0),
+            ("15_minutes", "data", "stage", 15, 2.0),
+            ("15_minutes", "data", "discharge", 0, 9.0),
+        ],
+    ).with_columns(quality_flag=pl.Series(["Good", "Suspect", None], dtype=pl.String))
+
+    result = _values([("15_minutes", "data", "stage"), ("15_minutes", "data", "discharge")])._widen_df(df)  # noqa: SLF001
+
+    result = result.sort("timestamp")
+    assert result.get_column("stage_quality_flag").to_list() == ["Good", "Suspect"]
+    # a flag is null where its parameter has no reading, as the value is, and where the reading has no flag
+    assert result.get_column("discharge_quality_flag").to_list() == [None, None]
+    assert result.schema["stage_quality_flag"] == pl.String
+    assert result.columns.index("stage_quality_flag") == result.columns.index("stage_quality") + 1
+
+
+def test_a_provider_that_publishes_no_flag_still_returns_the_column() -> None:
+    """Test that a frame handed over without `quality_flag` leaves `_organize_df_columns` with a String null."""
+    values = _dwd_values([("daily", "climate_summary")])
+    dataset = values.sr.parameters[0].dataset
+    df = pl.DataFrame(
+        {
+            "parameter": ["tmk"],
+            "timestamp": [dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC"))],
+            "value": [1.0],
+            "quality": [3.0],
+        }
+    )
+
+    result = values._organize_df_columns(df, "01048", dataset)  # noqa: SLF001
+
+    assert result.columns[-2:] == ["quality", "quality_flag"]
+    assert result.schema["quality_flag"] == pl.String
+    assert result.get_column("quality_flag").to_list() == [None]
 
 
 def _dwd_values(parameters: list[tuple[str, str]]) -> TimeseriesValues:
@@ -573,9 +614,19 @@ def test_a_request_that_collects_nothing_keeps_its_schema(monkeypatch: pytest.Mo
     df = request.filter_by_station_id("00001").values.all().df
 
     assert df.is_empty()
-    assert df.columns == ["station_id", "resolution", "dataset", "parameter", "timestamp", "value", "quality"]
+    assert df.columns == [
+        "station_id",
+        "resolution",
+        "dataset",
+        "parameter",
+        "timestamp",
+        "value",
+        "quality",
+        "quality_flag",
+    ]
+    assert df.schema["quality_flag"] == pl.String
     # a header rather than an empty file, and a column that can still be asked for
-    assert df.write_csv() == "station_id,resolution,dataset,parameter,timestamp,value,quality\n"
+    assert df.write_csv() == "station_id,resolution,dataset,parameter,timestamp,value,quality,quality_flag\n"
     assert df.get_column("timestamp").is_empty()
 
 
@@ -614,6 +665,11 @@ def test_wide_empty_result_matches_the_shape_of_a_populated_one(monkeypatch: pyt
     assert "climate_summary_temperature_air_mean_2m" in empty.columns
     # and its quality column after it, both branches alike (GH-2030)
     assert "climate_summary_temperature_air_mean_2m_quality" in empty.columns
+    # and the flag column after that, a string where the quality is a number (GH-2018)
+    assert empty.columns.index("climate_summary_temperature_air_mean_2m_quality_flag") == (
+        empty.columns.index("climate_summary_temperature_air_mean_2m_quality") + 1
+    )
+    assert empty.schema["climate_summary_temperature_air_mean_2m_quality_flag"] == pl.String
 
 
 def test_a_station_that_started_after_the_window_is_not_downloaded(monkeypatch: pytest.MonkeyPatch) -> None:

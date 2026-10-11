@@ -58,7 +58,12 @@ class EcccObservationValues(TimeseriesValues):
 
     @staticmethod
     def _tidy_up_df(df: pl.LazyFrame) -> pl.LazyFrame:
-        """Convert wide-format dataframe to long format, pairing value columns with their *_flag quality columns."""
+        """Convert wide-format dataframe to long format, pairing value columns with their *_flag columns.
+
+        The flag is the source's own letter (`M` missing, `E` estimated, `T` trace, ...), kept verbatim
+        in `quality_flag`: it has no number to be turned into, and `quality` stays null. Monthly rows
+        carry no flags, so theirs is null.
+        """
         # column names arrive lower-cased; `date` is the time axis, made `timestamp` further down
         schema_names = df.collect_schema().names()
         flag_columns = {col for col in schema_names if col.endswith("_flag")}
@@ -72,6 +77,11 @@ class EcccObservationValues(TimeseriesValues):
             variable_name="parameter",
             value_name="value",
         )
+        if not flag_columns:
+            return df_values.with_columns(
+                pl.col("value").cast(pl.Float64),
+                pl.lit(None, dtype=pl.String).alias("quality_flag"),
+            )
         # Unpivot flag columns (strip _flag suffix so parameter names align)
         df_flags = df.select(["date", *flag_columns]).rename({col: col.removesuffix("_flag") for col in flag_columns})
         flag_value_columns = [col for col in df_flags.collect_schema().names() if col != "date"]
@@ -79,7 +89,7 @@ class EcccObservationValues(TimeseriesValues):
             on=flag_value_columns,
             index="date",
             variable_name="parameter",
-            value_name="quality",
+            value_name="quality_flag",
         )
         return df_values.join(df_flags, on=["date", "parameter"], how="left").with_columns(
             pl.col("value").cast(pl.Float64),
@@ -231,6 +241,7 @@ class EcccObservationValues(TimeseriesValues):
                 timestamp.alias("timestamp"),
                 "value",
                 pl.lit(None, dtype=pl.Float64).alias("quality"),
+                "quality_flag",
             )
             data.append(df)
         return pl.concat(data).collect()
