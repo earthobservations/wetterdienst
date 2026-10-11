@@ -183,8 +183,8 @@ def _daily_values(
     monkeypatch: pytest.MonkeyPatch,
     observations: Callable[[str], File],
 ) -> tuple[MetnoFrostValues, list[str]]:
-    """Give the values of one day, 2020-01-01, the daily parameters being requested together."""
-    return _values(monkeypatch, observations, DAILY, start=START, end=START)
+    """Give the values of the days 2020-01-01 and 2020-01-02, the daily parameters being requested together."""
+    return _values(monkeypatch, observations, DAILY, start=START, end=END)
 
 
 def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_of_its_date(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -194,9 +194,14 @@ def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_of_its_date(monkeyp
     out besides the other daily parameters that are stamped at 00:00 UTC.
     """
     values, _ = _daily_values(monkeypatch, lambda url: _ok(url, DAILY_OBSERVATIONS))
-    df = values.all().df.sort("parameter")
-    assert df["parameter"].to_list() == ["precipitation_amount", "snow_depth", "temperature_air_max_2m"]
-    assert df["timestamp"].to_list() == [START] * 3
+    df = values.all().df.sort("parameter", "timestamp")
+    assert df["parameter"].to_list() == [
+        "precipitation_amount",
+        "snow_depth",
+        "snow_depth",
+        "temperature_air_max_2m",
+    ]
+    assert df["timestamp"].to_list() == [START, START, END, START]
 
 
 def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_when_requested_alone(
@@ -209,8 +214,8 @@ def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_when_requested_alon
 
     values, _ = _daily_values(monkeypatch, observations)
     df = values.all().df.filter(pl.col("parameter") == "snow_depth")
-    assert df["timestamp"].to_list() == [START]
-    assert df["value"].to_list() == [12.0]
+    assert df["timestamp"].to_list() == [START, END]
+    assert df["value"].to_list() == [12.0, 11.0]
 
 
 def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_when_discovered(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -225,7 +230,7 @@ def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_when_discovered(mon
 
     values, _ = _daily_values(monkeypatch, observations)
     df = values.all().df.filter(pl.col("parameter") == "snow_depth")
-    assert df["timestamp"].to_list() == [START]
+    assert df["timestamp"].to_list() == [START, END]
 
 
 @pytest.mark.parametrize("status", [401, 403, 500])
