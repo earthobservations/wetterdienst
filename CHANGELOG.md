@@ -113,6 +113,12 @@ Types of changes:
   Mayotte +3 h, Wallis-et-Futuna +12 h, Polynésie -10 h, Nouvelle-Calédonie +11 h, TAAF per station.
   Drop a shift you applied yourself; a window for these stations now holds other readings. Daily and
   monthly dates, metropolitan France and Port Martin (offset unknown) are unchanged (GH-2677)
+- **Breaking**: `count_weather_type_sleet` is `count_weather_type_graupel`. It was DWD's graupel
+  columns (`graupel`, `rr_graupel`, `mo_graupel`, `ja_graupel`) in the `weather_phenomena` datasets
+  of `dwd/observation` daily, monthly and annual and in `daily/weather_phenomena_more`, which hold
+  graupel, not sleet; no provider reports sleet days. Request the new name; the old one in a request
+  is reported with its replacement. A wide table `to_target` wrote before holds the old column: write
+  it anew (GH-2696)
 
 ### Fixed
 

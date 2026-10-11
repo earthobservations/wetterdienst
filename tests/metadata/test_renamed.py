@@ -7,6 +7,7 @@ from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
 from wetterdienst.model.metadata import MetadataModel, parse_parameters
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.metadata import DwdMosmixMetadata
+from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 
 
 def test_renamed_parameters_point_from_a_retired_name_to_a_canonical_one() -> None:
@@ -42,3 +43,29 @@ def test_dwd_low_cloud_cover_is_named_for_2km(metadata: MetadataModel, caplog: p
     old = f"{dataset.resolution.name}/{dataset.name}/cloud_cover_below_1000ft"
     assert parse_parameters(old, metadata) == []
     assert "It was renamed to 'cloud_cover_below_2km'." in caplog.text
+
+
+GRAUPEL_COLUMNS = {
+    ("daily", "weather_phenomena"): "graupel",
+    ("daily", "weather_phenomena_more"): "rr_graupel",
+    ("monthly", "weather_phenomena"): "mo_graupel",
+    ("annual", "weather_phenomena"): "ja_graupel",
+}
+
+
+@pytest.mark.parametrize(("resolution", "dataset"), list(GRAUPEL_COLUMNS), ids=str)
+def test_dwd_graupel_is_not_named_sleet(resolution: str, dataset: str, caplog: pytest.LogCaptureFixture) -> None:
+    """DWD's graupel columns are graupel, not sleet, and the sleet name answers with the one to use (GH-2696).
+
+    `count_weather_type_sleet` stood for them, so that a caller asking for sleet days got days with
+    graupel, while DWD publishes no sleet phenomenon in these datasets.
+    """
+    dataset_model = DwdObservationMetadata[resolution][dataset]
+    original = GRAUPEL_COLUMNS[(resolution, dataset)]
+    graupel = [parameter for parameter in dataset_model if parameter.name_original == original]
+    assert [parameter.name for parameter in graupel] == ["count_weather_type_graupel"]
+    assert "count_weather_type_sleet" not in {parameter.name for parameter in dataset_model}
+    assert PARAMETERS["count_weather_type_graupel"].description == "Number of days on which graupel was observed."
+
+    assert parse_parameters(f"{resolution}/{dataset}/count_weather_type_sleet", DwdObservationMetadata) == []
+    assert "It was renamed to 'count_weather_type_graupel'." in caplog.text
