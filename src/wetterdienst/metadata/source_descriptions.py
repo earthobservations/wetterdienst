@@ -561,25 +561,73 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("10_minutes", "temperature_extreme", "tx_10"): (
             "Maximum of air temperature at 2 m height during the last 10 minutes."
         ),
-        ("10_minutes", "urban_precipitation", "rr_st_10"): "Precipitation height of the last 10 minutes.",
-        ("10_minutes", "urban_pressure", "p0_st_10"): "Pressure at station height.",
-        ("10_minutes", "urban_pressure", "pp_st_10"): "Pressure reduced to sea level.",
-        ("10_minutes", "urban_solar", "fg_st_10"): "10min-sum of global (incoming) radiation.",
-        ("10_minutes", "urban_solar", "sd_st_10"): "10min-sum of sunshine duration.",
-        ("10_minutes", "urban_temperature_air", "rf_st_10"): "Relative humidity at 2m height.",
-        ("10_minutes", "urban_temperature_air", "strahl_st_10"): "Radiant temperature at 2m height.",
-        ("10_minutes", "urban_temperature_air", "tt5_st_10"): "Air temperature at 5cm height.",
-        ("10_minutes", "urban_temperature_air", "tt_st_10"): "Air temperature at 2m height.",
-        ("10_minutes", "urban_temperature_extreme", "tn5_st_10"): "Minimum air temperature at 5cm height.",
-        ("10_minutes", "urban_temperature_extreme", "tn_st_10"): "Minimum air temperature at 2m height.",
-        ("10_minutes", "urban_temperature_extreme", "tx_st_10"): "Maximum air temperature at 2m height.",
-        ("10_minutes", "urban_temperature_soil", "te_st_01m_10"): "Soil temperature in 10 cm depth.",
-        ("10_minutes", "urban_temperature_soil", "te_st_02m_10"): "Soil temperature in 20 cm depth.",
-        ("10_minutes", "urban_temperature_soil", "te_st_05m_10"): "Soil temperature in 50 cm depth.",
-        ("10_minutes", "urban_temperature_soil", "te_st_10m_10"): "Soil temperature in 100 cm depth.",
-        ("10_minutes", "urban_wind", "dd_st_10"): "Mean wind direction during the last 10 minutes.",
-        ("10_minutes", "urban_wind", "ff_st_10"): "Mean wind speed during the last 10 minutes.",
-        ("10_minutes", "urban_wind_extreme", "fx_st_10"): "Maximum wind gust of the last 10 minutes.",
+        (
+            "10_minutes",
+            "urban_precipitation",
+            "rr_st_10",
+        ): 'Precipitation per 10-minute interval (DWD: "momentaner Niederschlag").',
+        ("10_minutes", "urban_pressure", "p0_st_10"): (
+            'Pressure at station height, instantaneous (DWD: "momentaner Luftdruck Stationshoehe").'
+        ),
+        ("10_minutes", "urban_pressure", "pp_st_10"): (
+            'Pressure reduced to sea level (Normal Null), instantaneous (DWD: "momentaner Luftdruck Normal Null").'
+        ),
+        ("10_minutes", "urban_solar", "fg_st_10"): (
+            'Global radiation per 10-minute interval (DWD: "momentane Globalstrahlung").'
+        ),
+        ("10_minutes", "urban_solar", "sd_st_10"): (
+            'Sunshine duration per 10-minute interval (DWD: "momentane Sonnenscheindauer").'
+        ),
+        ("10_minutes", "urban_temperature_air", "rf_st_10"): (
+            'Relative humidity at 2 m height, instantaneous (DWD: "momentane rel.Feuchte in 2m Hoehe").'
+        ),
+        ("10_minutes", "urban_temperature_air", "strahl_st_10"): (
+            'Radiant temperature at 2 m height, instantaneous (DWD: "momentane Strahlungstemperatur in 2m Hoehe").'
+        ),
+        ("10_minutes", "urban_temperature_air", "tt5_st_10"): (
+            'Air temperature at 5 cm height, instantaneous (DWD: "momentane Lufttemperatur in 5cm Hoehe").'
+        ),
+        ("10_minutes", "urban_temperature_air", "tt_st_10"): (
+            'Air temperature at 2 m height, instantaneous (DWD: "momentane Lufttemperatur in 2m Hoehe").'
+        ),
+        ("10_minutes", "urban_temperature_extreme", "tn5_st_10"): (
+            'Minimum air temperature at 5 cm height (DWD: "momentane MIN Lufttemperatur in 5cm Hoehe").'
+        ),
+        ("10_minutes", "urban_temperature_extreme", "tn_st_10"): (
+            'Minimum air temperature at 2 m height (DWD: "momentane minimale Lufttemperatur in 2m Hoehe").'
+        ),
+        ("10_minutes", "urban_temperature_extreme", "tx_st_10"): (
+            'Maximum air temperature at 2 m height (DWD: "momentane maximale Lufttemperatur in 2m Hoehe").'
+        ),
+        ("10_minutes", "urban_temperature_soil", "te_st_01m_10"): (
+            'Soil temperature in 10 cm depth, instantaneous (DWD: "momentane Erdbodentemperatur in 10 cm Tiefe").'
+        ),
+        ("10_minutes", "urban_temperature_soil", "te_st_02m_10"): (
+            'Soil temperature in 20 cm depth, instantaneous (DWD: "momentane Erdbodentemp in 20 cm Tiefe").'
+        ),
+        ("10_minutes", "urban_temperature_soil", "te_st_05m_10"): (
+            'Soil temperature in 50 cm depth, instantaneous (DWD: "momentane Erdbodentemp in 50 cm Tiefe").'
+        ),
+        ("10_minutes", "urban_temperature_soil", "te_st_10m_10"): (
+            'Soil temperature in 100 cm depth, instantaneous (DWD: "momentane Erdbodentemperatur in 100 cm Tiefe").'
+        ),
+        ("10_minutes", "urban_wind", "dd_st_10"): (
+            "Mean wind direction over 10 minutes, at the sensor height of the station (368 m at "
+            'Berlin-Alexanderplatz) (DWD: "10Minuten Mittel").'
+        ),
+        (
+            "10_minutes",
+            "urban_wind",
+            "ff_st_10",
+        ): (
+            "Mean wind speed over 10 minutes, at the sensor height of the station (368 m at Berlin-Alexanderplatz) "
+            '(DWD: "10Minuten Mittel").'
+        ),
+        (
+            "10_minutes",
+            "urban_wind_extreme",
+            "fx_st_10",
+        ): 'Maximum wind per 10-minute interval (DWD: "momentane MaxWind").',
         ("10_minutes", "wind", "dd_10"): "Mean wind direction during the previous 10 minutes.",
         ("10_minutes", "wind", "ff_10"): "Mean wind speed during the previous 10 minutes.",
         ("10_minutes", "wind_extreme", "dx_10"): (
@@ -588,24 +636,22 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("10_minutes", "wind_extreme", "fmx_10"): (
             "Maximum of the wind speed from the 1 minute mean values of the 3-second maxima of the previous 10 minutes."
         ),
-        ("10_minutes", "wind_extreme", "fnx_10"): (
-            "Minimum 10-minute mean wind speed. The 10-minute interval is moved in 10 s steps over "
-            "the previous 20 minutes."
-        ),
-        ("10_minutes", "wind_extreme", "fx_10"): (
-            "Maximum wind gust during the previous 10 minutes. The instrument samples the "
-            "instantaneous wind speed every 0.25 seconds and writes out the maximum of each 3 second "
-            "period; the highest occurring within the interval is reported."
-        ),
+        ("10_minutes", "wind_extreme", "fnx_10"): "Minimum of wind speed during the previous 10 minutes.",
+        ("10_minutes", "wind_extreme", "fx_10"): "Maximum of wind speed during the previous 10 minutes.",
         ("1_minute", "precipitation", "rs_01"): "Sum of the precipitation height.",
         ("1_minute", "precipitation", "rs_ind_01"): (
-            "Indicator of precipitation; the codes are those of the 10 minutes dataset."
+            "Indicator of precipitation; if QN = 1 then: 0 = no precipitation, permanent sensor installed; 1 = "
+            "precipitation, permanent sensor installed; 2 = no precipitation, heating in operation, permanent sensor "
+            "installed; 3 = precipitation, heating in operation, permanent sensor installed; if QN > 1 then: 0 = no "
+            "precipitation; 1 = precipitation."
         ),
         ("1_minute", "precipitation", "rth_01"): (
-            "Precipitation height during the previous minute from the tipping bucket rain gauge."
+            'Value of the precipitation gauge with droplet counter (German sheet: "Niederschlagmesser mit '
+            'Tröpfchenzähler"; the English sheet says "tipping bucket rain gauge").'
         ),
         ("1_minute", "precipitation", "rwh_01"): (
-            "Precipitation height during the previous minute from the electronic rain gauge with tilting scales."
+            'Value of the electronic precipitation gauge with tilting scales (German sheet: "elektronischer '
+            'Niederschlagmesser mit Kippwaage").'
         ),
         ("5_minutes", "precipitation", "rs_05"): "Sum of the precipitation height of the previous 5 minutes.",
         ("5_minutes", "precipitation", "rs_ind_05"): (
@@ -625,8 +671,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "climate_indices",
             "ja_tropennaechte",
         ): "Annual number of tropical nights, counted over the day from 00 to 23 hours.",
-        ("annual", "climate_summary", "ja_fk"): "Annual mean of daily wind speed.",
-        ("annual", "climate_summary", "ja_mx_fx"): "Annual maximum of daily wind speed.",
+        ("annual", "climate_summary", "ja_fk"): (
+            'Annual mean of the wind force in Beaufort (DWD: "Jahresmittel der Windstaerke"), the arithmetic mean of '
+            "the monthly means."
+        ),
+        (
+            "annual",
+            "climate_summary",
+            "ja_mx_fx",
+        ): "Annual maximum of the daily wind peaks (Windspitze).",
         ("annual", "climate_summary", "ja_mx_rs"): "Annual max of daily precipitation height.",
         ("annual", "climate_summary", "ja_mx_tn"): "Annual minimum of daily temperature minima in 2m height.",
         ("annual", "climate_summary", "ja_mx_tx"): "Annual maximum of daily temperature maxima in 2m height.",
@@ -682,7 +735,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("annual", "precipitation_more", "ja_sh_s"): "Annual sum of daily height of snow pack.",
         ("annual", "weather_phenomena", "ja_gewitter"): "Count of days with thunder of stations in Germany.",
         ("annual", "weather_phenomena", "ja_glatteis"): "Count of days with glaze of stations in Germany.",
-        ("annual", "weather_phenomena", "ja_graupel"): "Count of days with sleet of stations in Germany.",
+        ("annual", "weather_phenomena", "ja_graupel"): "Number of days with graupel in the year.",
         ("annual", "weather_phenomena", "ja_hagel"): "Count of days with hail of stations in Germany.",
         ("annual", "weather_phenomena", "ja_nebel"): "Count of days with fog of stations in Germany.",
         ("annual", "weather_phenomena", "ja_sturm_6"): "Count of days with storm (strong wind) of stations in Germany.",
@@ -692,8 +745,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("annual", "weather_phenomena", "ja_tau"): "Count of days with dew of stations in Germany.",
         ("daily", "climate_summary", "fm"): "Daily mean of wind velocity.",
         ("daily", "climate_summary", "fx"): "Daily maximum of windgust.",
-        ("daily", "climate_summary", "nm"): "Daily mean of cloud cover.",
-        ("daily", "climate_summary", "pm"): "Daily mean of pressure.",
+        ("daily", "climate_summary", "nm"): (
+            "Daily mean of cloud cover: the arithmetic mean of at least 21 hourly values, in earlier periods the mean"
+            " of the observation terms (3 terms at most stations, 4 or 8 at some)."
+        ),
+        ("daily", "climate_summary", "pm"): (
+            "Daily mean of pressure: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of"
+            " the observation terms (3 terms at most stations, 4 or 8 at some)."
+        ),
         ("daily", "climate_summary", "qn_3"): "Quality level of the following columns.",
         ("daily", "climate_summary", "qn_4"): "Quality level of the following columns.",
         ("daily", "climate_summary", "rsk"): "Daily precipitation height.",
@@ -701,16 +760,26 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "climate_summary", "sdk"): "Daily sunshine duration.",
         ("daily", "climate_summary", "shk_tag"): "Daily snow depth.",
         ("daily", "climate_summary", "tgk"): "Daily minimum of air temperature at 5 cm above ground.",
-        ("daily", "climate_summary", "tmk"): "Daily mean of temperature.",
+        ("daily", "climate_summary", "tmk"): (
+            "Daily mean of temperature: the arithmetic mean of at least 21 hourly values, in earlier periods the mean"
+            " of the observation terms (3 terms at most stations, TT1 to TT3: TMK=(TT1+TT2+(TT3*2))/4; 4 or 8 at "
+            "some)."
+        ),
         ("daily", "climate_summary", "tnk"): "Daily minimum of temperature at 2m height.",
         ("daily", "climate_summary", "txk"): "Daily maximum of temperature at 2 m height.",
-        ("daily", "climate_summary", "upm"): "Daily mean of relative humidity.",
-        ("daily", "climate_summary", "vpm"): "Daily mean of vapor pressure.",
+        ("daily", "climate_summary", "upm"): (
+            "Daily mean of relative humidity: the arithmetic mean of at least 21 hourly values, in earlier periods "
+            "the mean of the observation terms (3 terms at most stations, 4 or 8 at some)."
+        ),
+        ("daily", "climate_summary", "vpm"): (
+            "Daily mean of vapor pressure: the arithmetic mean of at least 21 hourly values, in earlier periods the "
+            "mean of the observation terms (3 terms at most stations, 4 or 8 at some)."
+        ),
         ("daily", "precipitation_more", "nsh_tag"): "Fresh snow depth.",
         ("daily", "precipitation_more", "rs"): "Daily precipitation height.",
         ("daily", "precipitation_more", "rsf"): "Precipitation form.",
         ("daily", "precipitation_more", "sh_tag"): "Height of snow pack.",
-        ("daily", "solar", "atmo_strahl"): "Longwave downward radiation.",
+        ("daily", "solar", "atmo_strahl"): "Daily sum of longwave downward radiation.",
         ("daily", "solar", "fd_strahl"): "Daily sum of diffuse solar radiation.",
         ("daily", "solar", "fg_strahl"): "Daily sum of solar incoming radiation.",
         ("daily", "solar", "sd_strahl"): "Daily sum of sunshine duration.",
@@ -724,19 +793,51 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "water_equivalent", "sh_tag"): "Height of the snow pack.",
         ("daily", "water_equivalent", "waas_6"): "Water equivalent of the sampled snow pack.",
         ("daily", "water_equivalent", "wash_6"): "Water equivalent of the total snow pack.",
-        ("daily", "weather_phenomena", "gewitter"): "Count of days with thunder of stations in Germany.",
-        ("daily", "weather_phenomena", "glatteis"): "Count of days with glaze of stations in Germany.",
-        ("daily", "weather_phenomena", "graupel"): "Count of days with sleet of stations in Germany.",
-        ("daily", "weather_phenomena", "hagel"): "Count of days with hail of stations in Germany.",
-        ("daily", "weather_phenomena", "nebel"): "Count of days with fog of stations in Germany.",
-        ("daily", "weather_phenomena", "reif"): "Count of days with ripe of stations in Germany.",
-        ("daily", "weather_phenomena", "sturm_6"): "Count of days with storm (strong wind) of stations in Germany.",
-        ("daily", "weather_phenomena", "sturm_8"): "Count of days with storm (stormier wind) of stations in Germany.",
-        ("daily", "weather_phenomena", "tau"): "Count of days with dew of stations in Germany.",
-        ("daily", "weather_phenomena_more", "rr_gewitter"): "Count of days with thunder of stations in Germany.",
-        ("daily", "weather_phenomena_more", "rr_graupel"): "Count of days with sleet of stations in Germany.",
-        ("daily", "weather_phenomena_more", "rr_hagel"): "Count of days with hail of stations in Germany.",
-        ("daily", "weather_phenomena_more", "rr_nebel"): "Count of days with fog of stations in Germany.",
+        ("daily", "weather_phenomena", "gewitter"): (
+            'Weather event: thunderstorm during the day (DWD: "Wetterereignis: Gewitter im Verlauf des Tages").'
+        ),
+        ("daily", "weather_phenomena", "glatteis"): (
+            'Weather event: glaze ice during the day (DWD: "Wetterereignis: Glatteis im Verlauf des Tages").'
+        ),
+        ("daily", "weather_phenomena", "graupel"): (
+            'Weather event: graupel during the day (DWD: "Wetterereignis: Graupel im Verlauf des Tages").'
+        ),
+        ("daily", "weather_phenomena", "hagel"): (
+            'Weather event: hail during the day (DWD: "Wetterereignis: Hagel im Verlauf des Tages").'
+        ),
+        ("daily", "weather_phenomena", "nebel"): (
+            'Weather event: fog during the day (DWD: "Wetterereignis: Nebel im Verlauf des Tages").'
+        ),
+        ("daily", "weather_phenomena", "reif"): (
+            'Weather event: hoar frost during the day (DWD: "Wetterereignis: Reif im Verlauf des Tages").'
+        ),
+        ("daily", "weather_phenomena", "sturm_6"): (
+            'Weather event: storm of at least 6 Bft during the day (DWD: "Wetterereignis: Sturm>=6 Bft im Verlauf des'
+            ' Tages").'
+        ),
+        ("daily", "weather_phenomena", "sturm_8"): (
+            'Weather event: storm of at least 8 Bft during the day (DWD: "Wetterereignis: Sturm>=8 Bft im Verlauf des'
+            ' Tages").'
+        ),
+        ("daily", "weather_phenomena", "tau"): (
+            'Weather event: dew during the day (DWD: "Wetterereignis: Tau im Verlauf des Tages").'
+        ),
+        ("daily", "weather_phenomena_more", "rr_gewitter"): (
+            'Weather event of the precipitation network: thunderstorm during the day (DWD: "Wetterereignis_RR: '
+            'Gewitter im Verlauf des Tages").'
+        ),
+        ("daily", "weather_phenomena_more", "rr_graupel"): (
+            'Weather event of the precipitation network: graupel during the day (DWD: "Wetterereignis_RR: Graupel im '
+            'Verlauf des Tages").'
+        ),
+        ("daily", "weather_phenomena_more", "rr_hagel"): (
+            'Weather event of the precipitation network: hail during the day (DWD: "Wetterereignis_RR: Hagel im '
+            'Verlauf des Tages").'
+        ),
+        ("daily", "weather_phenomena_more", "rr_nebel"): (
+            'Weather event of the precipitation network: fog during the day (DWD: "Wetterereignis_RR: Nebel im '
+            'Verlauf des Tages").'
+        ),
         ("hourly", "cloud_type", "v_n"): "Total cloud cover.",
         ("hourly", "cloud_type", "v_n_i"): (
             "Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I."
@@ -768,8 +869,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "moisture", "vp_std"): "Computed hourly value of vapour pressure.",
         ("hourly", "precipitation", "r1"): "Precipitation height during the previous hour.",
         ("hourly", "precipitation", "rs_ind"): "Precipitation indicator; 0 = no; 1 = yes.",
-        ("hourly", "precipitation", "wrtr"): "Precipitation form; 0=No precipitation.",
-        ("hourly", "pressure", "p"): "Mean sea level pressure.",
+        ("hourly", "precipitation", "wrtr"): (
+            "Precipitation form; 0 = no precipitation; 1 = rain only (in historical data before 01.01.1979); 4 = form"
+            " of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid "
+            "precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and"
+            " solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable,"
+            " automatic ascertainment."
+        ),
+        ("hourly", "pressure", "p"): "Barometric pressure at sea level NN.",
         ("hourly", "pressure", "p0"): "Barometric pressure at station height.",
         ("hourly", "solar", "atmo_lberg"): "Hourly sum of longwave downward radiation.",
         ("hourly", "solar", "fd_lberg"): "Hourly sum of diffuse solar radiation.",
@@ -797,18 +904,56 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "temperature_soil", "v_te020"): "Soil temperature in 20 cm depth.",
         ("hourly", "temperature_soil", "v_te050"): "Soil temperature in 50 cm depth.",
         ("hourly", "temperature_soil", "v_te100"): "Soil temperature in 100 cm depth.",
-        ("hourly", "urban_precipitation", "niederschlagshoehe"): "Precipitation height.",
-        ("hourly", "urban_pressure", "luftdruck_stationshoehe"): "Pressure at station height.",
-        ("hourly", "urban_sun", "sonnenscheindauer"): "Sunshine duration.",
-        ("hourly", "urban_temperature_air", "lufttemperatur"): "2m air temperature.",
-        ("hourly", "urban_temperature_air", "rel_feuchte"): "2m relative humidity.",
-        ("hourly", "urban_temperature_soil", "erdbt_005"): "Soil temperature in 5 cm depth.",
-        ("hourly", "urban_temperature_soil", "erdbt_010"): "Soil temperature in 10 cm depth.",
-        ("hourly", "urban_temperature_soil", "erdbt_020"): "Soil temperature in 20 cm depth.",
-        ("hourly", "urban_temperature_soil", "erdbt_050"): "Soil temperature in 50 cm depth.",
-        ("hourly", "urban_temperature_soil", "erdbt_100"): "Soil temperature in 100 cm depth.",
-        ("hourly", "urban_wind", "windgeschwindigkeit"): "Mean wind speed.",
-        ("hourly", "urban_wind", "windrichtung"): "Mean wind direction.",
+        ("hourly", "urban_precipitation", "niederschlagshoehe"): (
+            "Precipitation height, the sum of the six 10-minute intervals of the previous hour (at UTC 11 the sum of "
+            "the precipitation during UTC10-UTC11)."
+        ),
+        ("hourly", "urban_pressure", "luftdruck_stationshoehe"): (
+            "Pressure at station height, following the SYNOP conventions: the hour x corresponds to the measurement "
+            "from 10 min before (at UTC 11 the value from UTC 10:50)."
+        ),
+        ("hourly", "urban_sun", "sonnenscheindauer"): (
+            "Sunshine duration, the sum of the six 10-minute intervals of the previous hour (at UTC 11 the sum of the"
+            " sunshine during UTC10-UTC11)."
+        ),
+        ("hourly", "urban_temperature_air", "lufttemperatur"): (
+            "2m air temperature, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval "
+            "ending UTC 10:50 is given."
+        ),
+        ("hourly", "urban_temperature_air", "rel_feuchte"): (
+            "2m relative humidity, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval"
+            " ending UTC 10:50 is given."
+        ),
+        ("hourly", "urban_temperature_soil", "erdbt_005"): (
+            "Soil temperature in 5 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 "
+            "minute interval ending UTC 10:50 is given."
+        ),
+        ("hourly", "urban_temperature_soil", "erdbt_010"): (
+            "Soil temperature in 10 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 "
+            "minute interval ending UTC 10:50 is given."
+        ),
+        ("hourly", "urban_temperature_soil", "erdbt_020"): (
+            "Soil temperature in 20 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 "
+            "minute interval ending UTC 10:50 is given."
+        ),
+        ("hourly", "urban_temperature_soil", "erdbt_050"): (
+            "Soil temperature in 50 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 "
+            "minute interval ending UTC 10:50 is given."
+        ),
+        ("hourly", "urban_temperature_soil", "erdbt_100"): (
+            "Soil temperature in 100 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 "
+            "minute interval ending UTC 10:50 is given."
+        ),
+        ("hourly", "urban_wind", "windgeschwindigkeit"): (
+            "Mean wind speed, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average "
+            "during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban "
+            "stations have their own sensor heights)."
+        ),
+        ("hourly", "urban_wind", "windrichtung"): (
+            "Mean wind direction, the average of the six 10-minute intervals of the previous hour (at UTC 11 the "
+            "average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other "
+            "urban stations have their own sensor heights)."
+        ),
         ("hourly", "visibility", "v_vv"): "Visibility range.",
         ("hourly", "visibility", "v_vv_i"): (
             "Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. "
@@ -817,9 +962,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "weather_phenomena", "ww"): "Weather code of current condition.",
         ("hourly", "wind", "d"): "Mean wind direction.",
         ("hourly", "wind", "f"): "Mean wind speed.",
-        ("hourly", "wind_extreme", "fx_911"): "Maximum wind gust 10 m above ground.",
-        ("hourly", "wind_synoptic", "dd"): "Mean wind direction.",
-        ("hourly", "wind_synoptic", "ff"): "Mean wind speed.",
+        ("hourly", "wind_extreme", "fx_911"): "Wind speed, wind gust: the highest wind peak of the last hour.",
+        ("hourly", "wind_synoptic", "dd"): 'Wind direction (DWD: "Windrichtung uml.,windstill DD=00").',
+        ("hourly", "wind_synoptic", "ff"): (
+            '10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit").'
+        ),
         ("monthly", "climate_indices", "mo_eistage"): "Monthly number of ice days.",
         ("monthly", "climate_indices", "mo_frosttage"): "Monthly number of frost days.",
         ("monthly", "climate_indices", "mo_heisse_tage"): "Monthly number of hot days.",
@@ -829,14 +976,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "climate_indices",
             "mo_tropennaechte",
         ): "Monthly number of tropical nights, counted over the day from 00 to 23 hours.",
-        ("monthly", "climate_summary", "mo_fk"): "Monthly mean of daily wind speed Bft.",
+        ("monthly", "climate_summary", "mo_fk"): "Monthly mean of the daily wind force in Beaufort.",
         ("monthly", "climate_summary", "mo_n"): "Monthly mean of cloud cover.",
         ("monthly", "climate_summary", "mo_rr"): "Monthly sum of precipitation height.",
         ("monthly", "climate_summary", "mo_sd_s"): "Monthly sum of sunshine duration.",
         ("monthly", "climate_summary", "mo_tn"): "Monthly mean of daily temperature minima in 2 m above ground.",
         ("monthly", "climate_summary", "mo_tt"): "Monthly mean of the daily mean air temperature 2 m above ground.",
         ("monthly", "climate_summary", "mo_tx"): "Monthly mean of daily temperature maxima at 2 m above ground.",
-        ("monthly", "climate_summary", "mx_fx"): "Monthly maximum of daily wind speed.",
+        (
+            "monthly",
+            "climate_summary",
+            "mx_fx",
+        ): "Monthly maximum of the daily wind peaks (Windspitze).",
         ("monthly", "climate_summary", "mx_rs"): "Monthly maximum of daily precipitation height.",
         ("monthly", "climate_summary", "mx_tn"): "Monthly minimum of daily temperature minima in 2 m above ground.",
         ("monthly", "climate_summary", "mx_tx"): "Monthly maximum of daily temperature maxima in 2 m above ground.",
@@ -888,7 +1039,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "precipitation_more", "mx_rs"): "Monthly maximum of daily precipitation height.",
         ("monthly", "weather_phenomena", "mo_gewitter"): "Count of days with thunder of stations in Germany.",
         ("monthly", "weather_phenomena", "mo_glatteis"): "Count of days with glaze of stations in Germany.",
-        ("monthly", "weather_phenomena", "mo_graupel"): "Count of days with sleet of stations in Germany.",
+        ("monthly", "weather_phenomena", "mo_graupel"): "Number of days with graupel in the month.",
         ("monthly", "weather_phenomena", "mo_hagel"): "Count of days with hail of stations in Germany.",
         ("monthly", "weather_phenomena", "mo_nebel"): "Count of days with fog of stations in Germany.",
         (
@@ -913,8 +1064,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "visibility", "vk_ter"): "Coded visibility class.",
         ("subdaily", "wind", "dk_ter"): "Wind direction.",
         ("subdaily", "wind", "fk_ter"): "Wind force (beaufort).",
-        ("subdaily", "wind_extreme", "fx_911_3"): "Wind gust max 3h.",
-        ("subdaily", "wind_extreme", "fx_911_6"): "Wind gust max 6h.",
+        (
+            "subdaily",
+            "wind_extreme",
+            "fx_911_3",
+        ): 'Highest wind peak of the last 3 hours; DWD\'s list adds "(>12,5 m/s)".',
+        (
+            "subdaily",
+            "wind_extreme",
+            "fx_911_6",
+        ): 'Highest wind peak of the last 6 hours; DWD\'s list adds "(>12,5 m/s)".',
     },
     "DwdRoadMetadata": {
         (
@@ -2128,9 +2287,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("annual", "weather_phenomena"): (
-            "Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), "
-            "dew, glaze, ripe, sleet and hail for stations of Germany (details missing, parameter "
-            "descriptions "
+            "Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, "
+            "graupel and hail for stations of Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("daily", "climate_summary"): (
@@ -2143,14 +2301,13 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("daily", "temperature_soil"): "Daily station observations of soil temperature station data for Germany.",
         ("daily", "water_equivalent"): "Daily observations of snow height and water equivalent for Germany.",
         ("daily", "weather_phenomena"): (
-            "Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), "
-            "dew, glaze, ripe, sleet and hail for stations of Germany (details missing, parameter "
-            "descriptions "
+            "Daily weather events fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, hoar frost, "
+            "graupel and hail at stations of Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("daily", "weather_phenomena_more"): (
-            "Counts of (additional) weather phenomena sleet, hail, fog and thunder for stations of "
-            "Germany (details missing, parameter descriptions "
+            "Daily (additional) weather events graupel, hail, fog and thunder at stations of Germany (details "
+            "missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("hourly", "cloud_type"): (
@@ -2205,9 +2362,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ),
         ("monthly", "precipitation_more"): "Monthly precipitation observations for Germany.",
         ("monthly", "weather_phenomena"): (
-            "Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), "
-            "dew, glaze, ripe, sleet and hail for stations of Germany (details missing, parameter "
-            "descriptions "
+            "Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, "
+            "graupel and hail for stations of Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "cloudiness"): (
@@ -2216,8 +2372,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "moisture"): (
-            "Recent subdaily vapor pressure, mean temperature in 2m height, mean temperature in 5cm "
-            "height and humidity of stations in Germany (details missing, parameter descriptions "
+            "Recent subdaily vapor pressure, wet bulb temperature, ice on the wet bulb thermometer and relative "
+            "humidity of stations in Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "pressure"): (
@@ -2226,8 +2382,7 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "soil"): (
-            "Recent soil temperature in 5cm depth of stations in Germany (details missing, parameter "
-            "descriptions "
+            "Recent subdaily coded ground state of stations in Germany (details missing, parameter descriptions "
             "[here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx))."
         ),
         ("subdaily", "temperature_air"): (

@@ -53,9 +53,9 @@
 | {term}`temperature_air_max_2m_mean` | mo_tx | Monthly mean of daily temperature maxima at 2 m above ground. | °C | - |
 | {term}`temperature_air_min_2m_mean` | mo_tn | Monthly mean of daily temperature minima in 2 m above ground. | °C | - |
 | {term}`sunshine_duration` | mo_sd_s | Monthly sum of sunshine duration. | h | >=0 |
-| {term}`wind_force_beaufort` | mo_fk | Monthly mean of daily wind speed Bft. | Bft | >=0 |
+| {term}`wind_force_beaufort` | mo_fk | Monthly mean of the daily wind force in Beaufort. | Bft | >=0 |
 | {term}`temperature_air_max_2m` | mx_tx | Monthly maximum of daily temperature maxima in 2 m above ground. | °C | - |
-| {term}`wind_gust_max` | mx_fx | Monthly maximum of daily wind speed. | m/s | >=0 |
+| {term}`wind_gust_max` | mx_fx | Monthly maximum of the daily wind peaks (Windspitze). | m/s | >=0 |
 | {term}`temperature_air_min_2m` | mx_tn | Monthly minimum of daily temperature minima in 2 m above ground. | °C | - |
 | {term}`quality_precipitation` | qn_6 | Quality level of the data in the following columns. | -             | - |
 | {term}`precipitation_amount` | mo_rr | Monthly sum of precipitation height. | mm | >=0 |
@@ -115,7 +115,7 @@
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | weather_phenomena                                                                                                                                                                                                                                                                                  |
 | original name | weather_phenomena                                                                                                                                                                                                                                                                                  |
-| description   | Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, ripe, sleet and hail for stations of Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, graupel and hail for stations of Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/monthly/weather_phenomena/)                                                                                                                                                                                    |
 
 #### parameters
@@ -127,7 +127,7 @@
 | {term}`count_weather_type_storm_stormier_wind` | mo_sturm_8 | Count of days with storm (stormier wind) of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_thunder` | mo_gewitter | Count of days with thunder of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_glaze` | mo_glatteis | Count of days with glaze of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_sleet` | mo_graupel | Count of days with sleet of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_sleet` | mo_graupel | Number of days with graupel in the month. | - | >=0 |
 | {term}`count_weather_type_hail` | mo_hagel | Count of days with hail of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_fog` | mo_nebel | Count of days with fog of stations in Germany. | - | >=0 |
 | {term}`count_weather_type_dew` | mo_tau | Count of days with dew of stations in Germany. | - | >=0 |

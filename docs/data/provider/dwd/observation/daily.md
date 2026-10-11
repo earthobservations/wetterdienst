@@ -33,11 +33,11 @@
 | {term}`precipitation_form` | rskf | Precipitation form. | - | >=0 |
 | {term}`sunshine_duration` | sdk | Daily sunshine duration. | h | >=0 |
 | {term}`snow_depth` | shk_tag | Daily snow depth. | cm | >=0 |
-| {term}`cloud_cover_total` | nm | Daily mean of cloud cover. | 1/8 | >=0,<=8 |
-| {term}`pressure_vapor` | vpm | Daily mean of vapor pressure. | hPa | >=0 |
-| {term}`pressure_air_site` | pm | Daily mean of pressure. | hPa | >=0 |
-| {term}`temperature_air_mean_2m` | tmk | Daily mean of temperature. | °C | - |
-| {term}`humidity_relative` | upm | Daily mean of relative humidity. | % | >=0,<=100 |
+| {term}`cloud_cover_total` | nm | Daily mean of cloud cover: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | 1/8 | >=0,<=8 |
+| {term}`pressure_vapor` | vpm | Daily mean of vapor pressure: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | hPa | >=0 |
+| {term}`pressure_air_site` | pm | Daily mean of pressure: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | hPa | >=0 |
+| {term}`temperature_air_mean_2m` | tmk | Daily mean of temperature: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, TT1 to TT3: TMK=(TT1+TT2+(TT3*2))/4; 4 or 8 at some). | °C | - |
+| {term}`humidity_relative` | upm | Daily mean of relative humidity: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | % | >=0,<=100 |
 | {term}`temperature_air_max_2m` | txk | Daily maximum of temperature at 2 m height. | °C | - |
 | {term}`temperature_air_min_2m` | tnk | Daily minimum of temperature at 2m height. | °C | - |
 | {term}`temperature_air_min_0_05m` | tgk | Daily minimum of air temperature at 5 cm above ground. | °C | - |
@@ -103,7 +103,7 @@ Codes (precipitation_form):
 | name                                     | original name | description                           | unit  | constraints |
 |------------------------------------------|---------------|---------------------------------------|-------|-------------|
 | {term}`quality` | qn_592 | Quality flag published by the source for the values in the same dataset. | -             | - |
-| {term}`radiation_sky_long_wave` | atmo_strahl | Longwave downward radiation. | J/cm² | >=0 |
+| {term}`radiation_sky_long_wave` | atmo_strahl | Daily sum of longwave downward radiation. | J/cm² | >=0 |
 | {term}`radiation_sky_short_wave_diffuse` | fd_strahl | Daily sum of diffuse solar radiation. | J/cm² | >=0 |
 | {term}`radiation_global` | fg_strahl | Daily sum of solar incoming radiation. | J/cm² | >=0 |
 | {term}`sunshine_duration` | sd_strahl | Daily sum of sunshine duration. | h | >=0 |
@@ -159,22 +159,22 @@ Codes (precipitation_form):
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | weather_phenomena                                                                                                                                                                                                                                                                                  |
 | original name | weather_phenomena                                                                                                                                                                                                                                                                                  |
-| description   | Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, ripe, sleet and hail for stations of Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Daily weather events fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, hoar frost, graupel and hail at stations of Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/weather_phenomena/)                                                                                                                                                                                      |
 
 #### parameters
 
 | name                                           | original name | description                                                     | unit | constraints |
 |------------------------------------------------|---------------|-----------------------------------------------------------------|------|-------------|
-| {term}`count_weather_type_fog` | nebel | Count of days with fog of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_thunder` | gewitter | Count of days with thunder of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_storm_strong_wind` | sturm_6 | Count of days with storm (strong wind) of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_storm_stormier_wind` | sturm_8 | Count of days with storm (stormier wind) of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_dew` | tau | Count of days with dew of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_glaze` | glatteis | Count of days with glaze of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_hoar_frost` | reif | Count of days with ripe of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_sleet` | graupel | Count of days with sleet of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_hail` | hagel | Count of days with hail of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_fog` | nebel | Weather event: fog during the day (DWD: "Wetterereignis: Nebel im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_thunder` | gewitter | Weather event: thunderstorm during the day (DWD: "Wetterereignis: Gewitter im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_storm_strong_wind` | sturm_6 | Weather event: storm of at least 6 Bft during the day (DWD: "Wetterereignis: Sturm>=6 Bft im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_storm_stormier_wind` | sturm_8 | Weather event: storm of at least 8 Bft during the day (DWD: "Wetterereignis: Sturm>=8 Bft im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_dew` | tau | Weather event: dew during the day (DWD: "Wetterereignis: Tau im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_glaze` | glatteis | Weather event: glaze ice during the day (DWD: "Wetterereignis: Glatteis im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_hoar_frost` | reif | Weather event: hoar frost during the day (DWD: "Wetterereignis: Reif im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_sleet` | graupel | Weather event: graupel during the day (DWD: "Wetterereignis: Graupel im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_hail` | hagel | Weather event: hail during the day (DWD: "Wetterereignis: Hagel im Verlauf des Tages"). | - | >=0 |
 
 ### weather_phenomena_more
 
@@ -184,14 +184,14 @@ Codes (precipitation_form):
 |---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | weather_phenomena_more                                                                                                                                                                                                                            |
 | original name | more_weather_phenomena                                                                                                                                                                                                                            |
-| description   | Counts of (additional) weather phenomena sleet, hail, fog and thunder for stations of Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Daily (additional) weather events graupel, hail, fog and thunder at stations of Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/more_weather_phenomena/)                                                                                                                                |
 
 #### parameters
 
 | name                               | original name | description                                       | unit | constraints |
 |------------------------------------|---------------|---------------------------------------------------|------|-------------|
-| {term}`count_weather_type_sleet` | rr_graupel | Count of days with sleet of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_hail` | rr_hagel | Count of days with hail of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_fog` | rr_nebel | Count of days with fog of stations in Germany. | - | >=0 |
-| {term}`count_weather_type_thunder` | rr_gewitter | Count of days with thunder of stations in Germany. | - | >=0 |
+| {term}`count_weather_type_sleet` | rr_graupel | Weather event of the precipitation network: graupel during the day (DWD: "Wetterereignis_RR: Graupel im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_hail` | rr_hagel | Weather event of the precipitation network: hail during the day (DWD: "Wetterereignis_RR: Hagel im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_fog` | rr_nebel | Weather event of the precipitation network: fog during the day (DWD: "Wetterereignis_RR: Nebel im Verlauf des Tages"). | - | >=0 |
+| {term}`count_weather_type_thunder` | rr_gewitter | Weather event of the precipitation network: thunderstorm during the day (DWD: "Wetterereignis_RR: Gewitter im Verlauf des Tages"). | - | >=0 |
