@@ -483,6 +483,25 @@ import polars as pl
 subset = df.filter(pl.col("parameter").cast(pl.String).is_in(["temperature_air_mean_2m", "sunshine_duration"]))
 ```
 
+A reading's quality comes in two columns. `quality` is a number, set only by the providers whose
+source publishes a quality as a number, and what it says is that provider's own (see its page) --
+it is no scale shared between them. `quality_flag` is a string and holds the source's own flag
+exactly as it publishes it, for the providers whose flags are letters, words or codes with no number
+to turn them into; it is null for the others, and for a reading the source gives no flag. Both are
+null for a provider that publishes no quality at all. In the wide shape each parameter has both,
+named `<parameter>_quality` and `<parameter>_quality_flag`. Interpolated and summarized results
+have neither, as they are made of several stations' readings.
+
+| Provider | `quality_flag` |
+| --- | --- |
+| ECCC | the `*_FLAG` letter of the value: `M` missing, `E` estimated, `T` trace, ... (null for monthly) |
+| EA hydrology | the reading's `quality`: `Good`, `Estimated`, `Suspect`, `Unchecked`, `Missing` |
+| Météo-France observation | the `Q<parameter>` code: `9` filtered, `0` protected, `1` validated, `2` doubtful |
+| NOAA GHCN daily | the quality flag of the value's attributes: the check it failed (`X` bounds, `G` gap, ...) |
+| CHMI (daily, 10 minutes, hourly) | the `QUALITY` code: `0` good, `1` suspect, `2` poor, `3` estimated, `4` missing, `5` unknown |
+| NWS | the MADIS `qualityControl` flag: `Z`, `C`, `S`, `V`, `X`, `Q`, `G`, `B`, `T` |
+| SMHI | the `Kvalitet` code: `G` approved, `Y` suspect or aggregated |
+
 In case you use `filter_by_rank` you may want to skip empty stations. We can use the Settings from
 [settings](settings.md) to achieve that:
 

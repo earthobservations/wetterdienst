@@ -737,6 +737,23 @@ describe('dataViewer columns', () => {
     expect(wrapper.findComponent(QueryPanel).props('expectedColumns')).toContain(column)
   })
 
+  it('shows the flag a provider publishes next to the quality', async () => {
+    // the source's own flag, a string where `quality` is a number: ECCC's `E` for an estimated day (GH-2018)
+    // and a column the table orders after it, which would otherwise come out ahead of the flag
+    registerEndpoint('/api/values', () => ({ values: [{ ...row, taken_station_id: '01048', quality_flag: 'E' }] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    expect(picked(wrapper)).toEqual([
+      'station_id',
+      'parameter',
+      'timestamp',
+      'value',
+      'quality',
+      'quality_flag',
+      'taken_station_id',
+    ])
+  })
+
   it('takes the columns of the station rows a Fetch replaces interpolated rows with', async () => {
     registerEndpoint('/api/interpolate', () => ({ values: pointModes[0].values }))
     registerEndpoint('/api/values', () => ({ values: [row] }))

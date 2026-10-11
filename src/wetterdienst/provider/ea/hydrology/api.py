@@ -297,6 +297,8 @@ class EAHydrologyValues(TimeseriesValues):
             timestamp.alias("timestamp"),
             pl.col("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
+            # the reading's own "quality" word (Good, Estimated, Suspect, Unchecked, Missing), verbatim (GH-2018)
+            pl.col("quality").alias("quality_flag"),
         )
 
 

@@ -54,12 +54,14 @@ def test_parse_chmi_values_daily_selects_timefunc_and_truncates() -> None:
     )
     df = parse_chmi_values_daily(content, element="T", timefunc="AVG")
     assert df.to_dicts() == [
-        {"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": -3.0},
-        {"timestamp": dt.datetime(2020, 1, 2, tzinfo=UTC), "parameter": "T", "value": -2.0},
+        {"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": -3.0, "quality_flag": "0"},
+        {"timestamp": dt.datetime(2020, 1, 2, tzinfo=UTC), "parameter": "T", "value": -2.0, "quality_flag": "0"},
     ]
     # a 20:00-term reading is truncated back to the calendar day (not kept at 20:00)
     df_max = parse_chmi_values_daily(content, element="T", timefunc="20:00")
-    assert df_max.to_dicts() == [{"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": -1.0}]
+    assert df_max.to_dicts() == [
+        {"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": -1.0, "quality_flag": "0"}
+    ]
 
 
 def test_parse_chmi_values_subdaily_keeps_native_timestamp() -> None:
@@ -71,8 +73,8 @@ def test_parse_chmi_values_subdaily_keeps_native_timestamp() -> None:
     )
     df = parse_chmi_values_subdaily(content, element="T")
     assert df.to_dicts() == [
-        {"timestamp": dt.datetime(2020, 1, 1, 0, 0, tzinfo=UTC), "parameter": "T", "value": -2.8},
-        {"timestamp": dt.datetime(2020, 1, 1, 0, 10, tzinfo=UTC), "parameter": "T", "value": -2.7},
+        {"timestamp": dt.datetime(2020, 1, 1, 0, 0, tzinfo=UTC), "parameter": "T", "value": -2.8, "quality_flag": "0"},
+        {"timestamp": dt.datetime(2020, 1, 1, 0, 10, tzinfo=UTC), "parameter": "T", "value": -2.7, "quality_flag": "0"},
     ]
 
 
@@ -85,7 +87,9 @@ def test_parse_chmi_values_aggregate_pins_both_functions() -> None:
         b"0-X,T,2020,1,AVG,MIN,-9.0,,,\n"
     )
     df = parse_chmi_values_aggregate(monthly, element="T", timefunc="AVG", mdfunc="AVG", has_month=True)
-    assert df.to_dicts() == [{"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": 1.1}]
+    assert df.to_dicts() == [
+        {"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": 1.1, "quality_flag": None}
+    ]
 
     # precipitation must select the SUM (monthly total), not another MDFUNCTION
     precip = (
@@ -95,7 +99,7 @@ def test_parse_chmi_values_aggregate_pins_both_functions() -> None:
     )
     df_precip = parse_chmi_values_aggregate(precip, element="SRA", timefunc="06:00", mdfunc="SUM", has_month=True)
     assert df_precip.to_dicts() == [
-        {"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "SRA", "value": 21.3}
+        {"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "SRA", "value": 21.3, "quality_flag": None}
     ]
 
 
@@ -105,7 +109,9 @@ def test_parse_chmi_values_aggregate_annual_has_no_month() -> None:
         b"STATION,ELEMENT,YEAR,TIMEFUNCTION,MDFUNCTION,VALUE,FLAG_REPEAT,FLAG_INTERRUPTED,\n0-X,T,2018,AVG,AVG,9.7,,,\n"
     )
     df = parse_chmi_values_aggregate(annual, element="T", timefunc="AVG", mdfunc="AVG", has_month=False)
-    assert df.to_dicts() == [{"timestamp": dt.datetime(2018, 1, 1, tzinfo=UTC), "parameter": "T", "value": 9.7}]
+    assert df.to_dicts() == [
+        {"timestamp": dt.datetime(2018, 1, 1, tzinfo=UTC), "parameter": "T", "value": 9.7, "quality_flag": None}
+    ]
 
 
 # CHMI's open-data portal is a live third-party service; xfail rather than a hard failure keeps a
@@ -248,3 +254,21 @@ def test_chmi_observation_period_extremes_are_named_for_the_function_they_are_re
     # the daily files carry the extreme itself, whatever the period files do
     daily = {parameter.name_original: parameter.name for parameter in ChmiObservationMetadata["daily"]["data"]}
     assert daily[element] == f"temperature_air_{extreme}_2m"
+
+
+def test_parse_chmi_values_returns_the_quality_code_as_the_whole_number_meta4_lists() -> None:
+    """The QUALITY code of a daily or sub-daily row is returned as "0" to "5", the keys of metadata/meta4.csv (GH-2018).
+
+    meta4.csv (checked 2026-10-11): "0 Good", "1 Suspect", "2 Poor", "3 Estimated", "4 Missing", "5 Unknown" -- the
+    codes "assigned to each value in the data file". The files write them as "0.0", "3.0", "4.0" (all three seen in
+    dly-0-20000-0-11406-TMA.csv). A code is no scale of better and worse, so it does not go into the numeric `quality`.
+    The FLAG letter beside it is the element's own (meta3.csv) and is not carried.
+    """
+    content = (
+        b"STATION,ELEMENT,TIMEFUNC,DT,VALUE,FLAG,QUALITY,\n"
+        b"0-X,SRA,06:00,2020-01-01T06:00Z,0.0,T,0.0,\n"
+        b"0-X,SRA,06:00,2020-01-02T06:00Z,1.5,,3.0,\n"
+        b"0-X,SRA,06:00,2020-01-03T06:00Z,,,4.0,\n"
+    )
+    df = parse_chmi_values_daily(content, element="SRA", timefunc="06:00")
+    assert df.get_column("quality_flag").to_list() == ["0", "3", "4"]

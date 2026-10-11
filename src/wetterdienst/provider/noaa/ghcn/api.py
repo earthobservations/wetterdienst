@@ -145,22 +145,41 @@ class NoaaGhcnValues(TimeseriesValues):
                     pl.col("longitude"),
                     pl.col("elevation"),
                     pl.col("name"),
-                    cs.ends_with("_attributes"),
                 ],
             ),
         )
-        df = df.unpivot(
-            index=["station", "timestamp"],
-            on=cs.exclude(["station", "timestamp"]),
+        index = ["station", "timestamp"]
+        # `<element>_attributes` holds "MFLAG,QFLAG,SFLAG", e.g. ",,E" or "H,,S"; the middle one is the quality
+        # flag (GH-2018), a letter naming the check the value failed or blank where it failed none
+        df_flags = (
+            df.select(*index, cs.ends_with("_attributes"))
+            .rename(lambda column: column.removesuffix("_attributes"), strict=False)
+            .unpivot(index=index, variable_name="parameter", value_name="attributes")
+            .select(
+                *index,
+                "parameter",
+                pl.col("attributes")
+                .str.split(",")
+                .list.get(1, null_on_oob=True)
+                .str.strip_chars()
+                .replace("", None)
+                .alias("quality_flag"),
+            )
+        )
+        df = df.select(cs.exclude(cs.ends_with("_attributes"))).unpivot(
+            index=index,
+            on=cs.exclude(index),
             variable_name="parameter",
             value_name="value",
         )
+        df = df.join(df_flags, on=[*index, "parameter"], how="left")
         df = df.select(
             pl.col("station").alias("station_id"),
             pl.col("timestamp").str.to_date("%Y-%m-%d"),
             pl.col("parameter").str.to_lowercase(),
             pl.col("value").str.strip_chars().cast(float),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
+            "quality_flag",
         )
         # A daily value is stamped at 00:00 UTC of the date the file gives it, whichever time zone the station is in.
         # The date is the station's own observing day, which the readme gives no zone for, and a stamp shifted by the
@@ -176,6 +195,7 @@ class NoaaGhcnValues(TimeseriesValues):
             "timestamp",
             "value",
             "quality",
+            "quality_flag",
         )
 
     @staticmethod

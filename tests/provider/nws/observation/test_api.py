@@ -3,14 +3,17 @@
 """Tests for NWS (United States) observation provider."""
 
 import datetime as dt
+import json
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 
+from tests.provider.value_stubs import serve, stations_result
 from wetterdienst import Settings, __version__
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.nws.observation import NwsObservationRequest
+from wetterdienst.provider.nws.observation import api as nws_api
 from wetterdienst.provider.nws.observation.api import NwsObservationValues
 
 UTC = ZoneInfo("UTC")
@@ -169,3 +172,34 @@ def test_nws_values_returns_the_requested_window_only() -> None:
     values = df.get_column("value").drop_nulls()
     assert values.min() > -50
     assert values.max() < 50
+
+
+def test_nws_values_carry_the_madis_quality_control_flag_of_each_quantity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the `qualityControl` of a quantity is returned verbatim in `quality_flag` (GH-2018).
+
+    Every observation value is `{value, unitCode, qualityControl}` and the flag was dropped with the unit. The
+    OpenAPI schema (api.weather.gov/openapi.json, QuantitativeValue.qualityControl): "the quality control flag from
+    the MADIS system", one of Z, C, S, V, X, Q, G, B, T; MADIS (madis.ncep.noaa.gov/madis_sfc_qc_notes.shtml): "Z -
+    Preliminary, no QC", "C - Coarse pass, passed level 1", "S - Screened, passed levels 1 and 2", "V - Verified,
+    passed levels 1, 2, and 3", "X - Rejected/erroneous, failed level 1", "Q - Questioned, passed level 1, failed
+    2 or 3", "G - Subjective good", "B - Subjective bad". The live endpoint answered for KJFK on 2026-10-11 with V on
+    temperature and Z, S or C on wind gust; the readings here are made up, the shape and the flags are its own.
+    """
+    features = [
+        {
+            "properties": {
+                "station": "https://api.weather.gov/stations/KDEN",
+                "timestamp": f"2026-08-20T{hour:02d}:00:00+00:00",
+                "temperature": {"unitCode": "wmoUnit:degC", "value": temperature, "qualityControl": flag},
+                "windGust": {"unitCode": "wmoUnit:km_h-1", "value": None, "qualityControl": "Z"},
+            }
+        }
+        for hour, temperature, flag in ((1, 16, "V"), (2, 15, "S"), (3, None, "Z"))
+    ]
+    serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": features}).encode()})
+    request = _request(Settings(cache_disable=True, ts_drop_nulls=False))
+    sr = stations_result(request, "hourly", "data", "KDEN")
+    df = NwsObservationValues(sr=sr).all().df.with_columns(pl.col("parameter").cast(pl.String))
+    temperature = df.filter(pl.col("parameter") == "temperature_air_2m").sort("timestamp")
+    assert temperature.select("value", "quality_flag").rows() == [(16.0, "V"), (15.0, "S"), (None, "Z")]
+    assert df.get_column("quality").null_count() == df.height
