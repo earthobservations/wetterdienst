@@ -22,6 +22,13 @@ Types of changes:
   reading, no longer at the time of the reading (usually 06:00 UTC), like the other daily
   parameters. Join stored snow depth on the date (GH-2729)
 
+### Removed
+
+- The `tzfpy` dependency and `TimeseriesValues._get_timezone_from_station`, which looked up a
+  station's time zone from its position. Since GH-2683 no provider stamps a row with the station's
+  zone, so nothing called it; installs are one compiled package smaller. A subclass that called the
+  private method must resolve the zone itself (GH-2725)
+
 ### Fixed
 
 - `ea/hydrology` daily requests no longer cut the newest reading of a window: the readings request

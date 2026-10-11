@@ -129,7 +129,6 @@ dependencies = [
     # `typing`: pydantic refuses typing.TypedDict as a response model below Python 3.12
     "typing-extensions>=4.15.0,<5",
     "tzdata>=2024.2",
-    "tzfpy>=0.15.2,<3",
 ]
 
 [project.optional-dependencies]
