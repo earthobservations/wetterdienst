@@ -7666,10 +7666,10 @@ def test_an_optional_dependency_missing_outside_the_endpoint_handlers_is_a_501_t
 
 @pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize(
-    ("endpoint", "extra"),
+    ("endpoint", "extra", "known_stations"),
     [
-        ("/api/stations", {"all": "true"}),
-        ("/api/values", {"station": "06260", "timestamp": "2020-01-01/2020-01-02"}),
+        pytest.param("/api/stations", {"all": "true"}, False, id="stations"),
+        pytest.param("/api/values", {"station": "06260", "timestamp": "2020-01-01/2020-01-02"}, True, id="values"),
     ],
 )
 def test_a_provider_import_of_a_missing_extra_is_a_501(
@@ -7678,6 +7678,7 @@ def test_a_provider_import_of_a_missing_extra_is_a_501(
     caplog: pytest.LogCaptureFixture,
     endpoint: str,
     extra: dict[str, str],
+    known_stations: bool,  # noqa: FBT001
 ) -> None:
     """A provider that imports its extra lazily answers 501 with the install line in the log, not a bare 500 (GH-2545).
 
@@ -7685,6 +7686,8 @@ def test_a_provider_import_of_a_missing_extra_is_a_501(
     the reader, so the absence surfaces while stations or values are fetched, not when the provider is
     resolved, and the bare `ModuleNotFoundError` was a 500 with a traceback and no advice. The package
     is masked in `sys.modules` and the download is stubbed, so the real reader runs up to its import.
+    A values request reads the station list first, which is the import the stations case fails at;
+    with the stations known, it reaches the one in the values parser.
     """
     import sys  # noqa: PLC0415
 
@@ -7694,6 +7697,17 @@ def test_a_provider_import_of_a_missing_extra_is_a_501(
     monkeypatch.setitem(sys.modules, "h5netcdf", None)
     monkeypatch.setattr(knmi_api, "_latest_filename", lambda *_args, **_kwargs: "file.nc")
     monkeypatch.setattr(knmi_api, "_fetch_netcdf", lambda *_args, **_kwargs: b"not read")
+    if known_stations:
+        stations = pl.DataFrame(
+            {
+                "station_id": ["06260"],
+                "name": ["De Bilt"],
+                "latitude": [52.1],
+                "longitude": [5.18],
+                "elevation": [1.9],
+            },
+        )
+        monkeypatch.setattr(knmi_api.KnmiObservationRequest, "_station_frame", staticmethod(lambda *_a, **_k: stations))
 
     with caplog.at_level(logging.INFO):
         response = client.get(

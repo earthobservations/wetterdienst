@@ -18,10 +18,11 @@ Types of changes:
 
 ### Fixed
 
-- `restapi`: `/api/stations`, `/api/values` and the geo endpoints answer 501, as for any other
-  missing optional dependency, when `knmi/observation` runs without the `knmi` extra, no longer a
-  500 with a traceback. The install line (`pip install wetterdienst[knmi]`) is in the server log
-  and in the `MissingDependencyError` the library and the CLI report (GH-2545)
+- `knmi/observation` without the `knmi` extra raises `MissingDependencyError` naming
+  `pip install wetterdienst[knmi]`, no longer a bare `ModuleNotFoundError` (an `ImportError` either
+  way); the CLI prints that line, and `/api/stations`, `/api/values`, `/api/interpolate` and
+  `/api/summarize` answer 501 with the line in the server log, no longer a 500 with a traceback
+  (GH-2545)
 
 ## [0.146.0] - 2026-10-11
 
