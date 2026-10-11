@@ -54,7 +54,7 @@ FmiObservationMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_last_10min",
                             "name_original": "ws_10min",
                             "unit": "meter_per_second",
                         },
@@ -64,7 +64,7 @@ FmiObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_last_10min",
                             "name_original": "wd_10min",
                             "unit": "degree",
                         },
