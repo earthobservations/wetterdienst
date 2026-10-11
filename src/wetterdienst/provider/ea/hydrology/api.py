@@ -174,7 +174,7 @@ class EAHydrologyValues(TimeseriesValues):
         }
         # a daily window holds more readings than days -- the maximum and minimum are dated at their instant
         # and the endpoint answers a window twice at times -- so the count of days would cut the newest
-        # readings (GH-2732). It is left to the default page, which 100_000 daily readings never fill
+        # readings (GH-2732). It is left to the default page of 100_000 readings, which a daily window never fills
         limit = None if daily else count_readings(parameter.dataset.resolution.value, start_date, end_date)
         if limit:
             query["_limit"] = limit
