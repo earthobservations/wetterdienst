@@ -465,5 +465,5 @@ weather codes and descriptions: [here](https://opendata.dwd.de/climate_environme
 
 | name                   | original name | description         | unit | constraints |
 |------------------------|---------------|---------------------|------|-------------|
-| {term}`wind_speed` | ff | 10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit"). | m/s | >=0 |
+| {term}`wind_speed_last_10min` | ff | 10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit"). | m/s | >=0 |
 | {term}`wind_direction` | dd | Wind direction (DWD: "Windrichtung uml.,windstill DD=00"). | ° | >=0,<=360 |

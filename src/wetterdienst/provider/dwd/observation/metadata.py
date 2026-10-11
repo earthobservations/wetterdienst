@@ -901,7 +901,7 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_last_10min",
                             "name_original": "ff",
                             "unit": "meter_per_second",
                         },

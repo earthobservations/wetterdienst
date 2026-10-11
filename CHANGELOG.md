@@ -106,6 +106,23 @@ Types of changes:
   `CoverageResolution`, `CoverageDataset`, `CoverageParameter`), so a client can be generated from
   or checked against it. The JSON sent is unchanged; the MCP `coverage` tool takes it as its
   output schema and returns the same result (GH-2090)
+- **Breaking**: `dwd/observation` hourly `wind_synoptic` `ff`, which DWD gives as the 10-minute
+  mean of the wind speed ("10-Min-Mittel der Windgeschwindigkeit"), is named
+  `wind_speed_last_10min` (new), no longer `wind_speed`, which is the mean over the row's
+  interval. Request `wind_speed_last_10min`; `wind_speed` is not found in `hourly/wind_synoptic`
+  (logged and dropped, or `NoParametersFoundError` when no other parameter is requested). `dd`
+  stays `wind_direction`, as DWD states no window for it, and hourly `wind` `f` and `d`, DWD's
+  hourly means, keep theirs (GH-2697)
+- **Breaking**: `dwd/poi` hourly mean wind speed and direction over the last 10 minutes are named
+  `wind_speed_last_10min` and `wind_direction_last_10min` (new), no longer `wind_speed` and
+  `wind_direction`. Request the new names; the old ones are not found in `hourly/data` (logged and
+  dropped, or `NoParametersFoundError` when no other parameter is requested) (GH-2697)
+- **Breaking**: `aemet/observation` hourly `vv` and `dv`, AEMET's mean wind speed and direction over
+  the 10 minutes preceding `fint`, are named `wind_speed_last_10min` and
+  `wind_direction_last_10min` (new), no longer `wind_speed` and `wind_direction`. Request the new
+  names; the old ones are not found in `hourly/data` (logged and dropped, or
+  `NoParametersFoundError` when no other parameter is requested; the hint for `wind_direction`
+  names `wind_direction_gust_max`, see GH-2644). The daily `velmedia` keeps `wind_speed` (GH-2697)
 - **Breaking**: `meteofrance/observation` 6-minute and hourly timestamps of the overseas departments
   (971-975, 984-988) are UTC. The files stamp them in a fixed offset per territory ("FU", not always
   its legal time), which the library labelled UTC: Réunion's (UTC+4) came back 4 h late,

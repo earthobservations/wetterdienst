@@ -127,9 +127,9 @@ def test_dwd_poi_values() -> None:
 @pytest.mark.remote
 def test_dwd_poi_values_are_converted_to_the_target_units() -> None:
     """DWD publishes km/h and km; wetterdienst reports m/s and m."""
-    request = DwdPoiRequest(parameters=[("hourly", "data", "wind_speed"), ("hourly", "data", "visibility")])
+    request = DwdPoiRequest(parameters=[("hourly", "data", "wind_speed_last_10min"), ("hourly", "data", "visibility")])
     df = request.filter_by_station_id(["10147"]).values.all().df.drop_nulls("value")
-    wind = df.filter(pl.col("parameter") == "wind_speed").get_column("value")
+    wind = df.filter(pl.col("parameter") == "wind_speed_last_10min").get_column("value")
     visibility = df.filter(pl.col("parameter") == "visibility").get_column("value")
     assert wind.is_between(0.0, 60.0).all()
     # in kilometres this would be at most a two-digit number
