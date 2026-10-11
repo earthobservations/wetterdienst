@@ -19,12 +19,13 @@ Types of changes:
 ### Changed
 
 - **Breaking**: every values frame has a `quality_flag` string column after `quality` (wide:
-  `<parameter>_quality_flag` after `<parameter>_quality`), the source's own flag verbatim.
-  `eccc/observation`, `ea/hydrology`, `meteofrance/observation`, `noaa/ghcn` daily,
-  `chmi/observation` (not monthly or annual), `nws/observation` and `smhi/observation` fill it,
-  where they dropped it; it is null for every other provider, and `quality` stays a number. Column positions move, and a frame with a
-  fixed column count no longer fits: select columns by name, not position. Interpolated and
-  summarized frames are unchanged (GH-2018)
+  `<parameter>_quality_flag` after `<parameter>_quality`): the source's flag or code for the
+  reading, filled by `eccc/observation` (not monthly), `ea/hydrology`, `meteofrance/observation`,
+  `noaa/ghcn` daily, `chmi/observation` (not monthly or annual), `nws/observation` and
+  `smhi/observation`, which dropped it; null for every other provider. `quality` is unchanged.
+  Select columns by name, not position: positions move and the count grows by one. Append to a
+  table written before (SQLite, PostgreSQL, DuckDB) only after adding the column or recreating it.
+  Interpolated and summarized frames are unchanged (GH-2018)
 
 ### Removed
 

@@ -149,30 +149,28 @@ class NoaaGhcnValues(TimeseriesValues):
             ),
         )
         index = ["station", "timestamp"]
+        elements = [column for column in df.columns if column not in index and not column.endswith("_attributes")]
         # `<element>_attributes` holds "MFLAG,QFLAG,SFLAG", e.g. ",,E" or "H,,S"; the middle one is the quality
-        # flag (GH-2018), a letter naming the check the value failed or blank where it failed none
-        df_flags = (
-            df.select(*index, cs.ends_with("_attributes"))
-            .rename(lambda column: column.removesuffix("_attributes"), strict=False)
-            .unpivot(index=index, variable_name="parameter", value_name="attributes")
-            .select(
-                *index,
-                "parameter",
-                pl.col("attributes")
-                .str.split(",")
-                .list.get(1, null_on_oob=True)
-                .str.strip_chars()
-                .replace("", None)
-                .alias("quality_flag"),
-            )
+        # flag (GH-2018), a letter naming the check the value failed or blank where it failed none. It travels
+        # with its value through the unpivot as the field of a struct
+        df = df.select(
+            *index,
+            *(
+                pl.struct(
+                    pl.col(element).cast(pl.String).alias("value"),
+                    (
+                        pl.col(f"{element}_attributes").str.split(",").list.get(1, null_on_oob=True)
+                        if f"{element}_attributes" in df.columns
+                        else pl.lit(None, dtype=pl.String)
+                    ).alias("quality_flag"),
+                ).alias(element)
+                for element in elements
+            ),
+        ).unpivot(index=index, on=elements, variable_name="parameter", value_name="value")
+        df = df.with_columns(
+            pl.col("value").struct.field("quality_flag").str.strip_chars().replace("", None),
+            pl.col("value").struct.field("value"),
         )
-        df = df.select(cs.exclude(cs.ends_with("_attributes"))).unpivot(
-            index=index,
-            on=cs.exclude(index),
-            variable_name="parameter",
-            value_name="value",
-        )
-        df = df.join(df_flags, on=[*index, "parameter"], how="left")
         df = df.select(
             pl.col("station").alias("station_id"),
             pl.col("timestamp").str.to_date("%Y-%m-%d"),

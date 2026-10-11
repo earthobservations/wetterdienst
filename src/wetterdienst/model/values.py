@@ -60,8 +60,8 @@ class TimeseriesValues(ABC):
         "timestamp": pl.Datetime(time_zone="UTC"),
         "value": pl.Float64,
         "quality": pl.Float64,
-        # the source's own flag for the reading, verbatim, where it publishes one that is not a
-        # number (a letter, a word, a compound code); null for every provider that does not (GH-2018)
+        # the source's own flag or code for the reading as a string (a letter, a word, a code), where
+        # the provider reads one; null for every provider that does not (GH-2018)
         "quality_flag": pl.String,
     }
 

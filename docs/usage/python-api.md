@@ -483,14 +483,14 @@ import polars as pl
 subset = df.filter(pl.col("parameter").cast(pl.String).is_in(["temperature_air_mean_2m", "sunshine_duration"]))
 ```
 
-A reading's quality comes in two columns. `quality` is a number, set only by the providers whose
-source publishes a quality as a number, and what it says is that provider's own (see its page) --
-it is no scale shared between them. `quality_flag` is a string and holds the source's own flag
-exactly as it publishes it, for the providers whose flags are letters, words or codes with no number
-to turn them into; it is null for the others, and for a reading the source gives no flag. Both are
-null for a provider that publishes no quality at all. In the wide shape each parameter has both,
-named `<parameter>_quality` and `<parameter>_quality_flag`. Interpolated and summarized results
-have neither, as they are made of several stations' readings.
+A reading's quality comes in two columns. `quality` is a number, which each provider fills in its
+own way (DWD its quality level, DWD road a 0/1 mark, ...), so a number from one provider says
+nothing about one from another; it is null for a provider that sets none. `quality_flag` is a
+string holding the source's own flag or code for the reading, for the providers listed below, with
+only whitespace trimmed and CHMI's `0.0` written as `0`; it is null for every other provider and
+for a reading the source gives no flag. In the wide shape each parameter has both, named
+`<parameter>_quality` and `<parameter>_quality_flag`. Interpolated and summarized results have
+neither, as they are made of several stations' readings.
 
 | Provider | `quality_flag` |
 | --- | --- |

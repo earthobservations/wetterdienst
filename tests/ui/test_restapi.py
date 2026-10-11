@@ -3504,7 +3504,8 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
                 "parameter": "temperature_air_mean_2m",
                 "value": 1.0,
                 "quality": 10.0,
-                "quality_flag": None,
+                # a flag that is set, so the schema checks run over a string as well as over null
+                "quality_flag": "E",
             },
             {
                 **row,
@@ -3654,6 +3655,8 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
         item = result.to_dict()["values"][0]
     else:
         item = result.to_ogc_feature_collection()["data"]["features"][0]["values"][0]
+    # a flag set on the stub row would be refused first, as it is no number; the row's `parameter` is the point
+    item = {**item, "quality_flag": None}
     schema = {"$ref": f"#/components/schemas/{schema_name}", "components": app.openapi()["components"]}
     with pytest.raises(jsonschema.ValidationError, match="'temperature_air_mean_2m' is not valid"):
         jsonschema.validate(item, schema)
