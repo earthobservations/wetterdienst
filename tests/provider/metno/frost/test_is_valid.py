@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 import logging
+import os
 from io import BytesIO
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -14,6 +16,9 @@ from wetterdienst.exceptions import NoInternetError
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.util.network import File
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 LOGGER = "wetterdienst.provider.metno.frost.api"
 
@@ -31,7 +36,16 @@ def _answer(monkeypatch: pytest.MonkeyPatch, content: BytesIO | Exception, statu
 
 
 @pytest.fixture(autouse=True)
-def _client_id(monkeypatch: pytest.MonkeyPatch) -> None:
+def _client_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Give Frost a client ID and nothing else of the `WD_*` variables and `.env` of whoever runs the tests.
+
+    `discover()` probes every provider whose credential is set, so one in the environment (AEMET's, say)
+    would reach for the network that this test stubs only for Frost.
+    """
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
 
 
