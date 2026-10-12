@@ -43,7 +43,7 @@ _GUST_NOT_REPORTED = Sentinel("0", where=pl.col("parameter").is_in(["speed_max_g
 
 # The hourly wind direction is "10's deg" too, and ECCC's glossary (climate.weather.gc.ca/glossary_e.html, "Wind
 # Direction") says "36 means 360 degrees true or a wind blowing from the geographic North Pole. A value of zero (0)
-# denotes a calm wind." Of the 43,469 hours with a direction of 1998 and 2019 at eight stations (read 2026-10-12) 1824
+# denotes a calm wind." Of the 43,469 hours with a direction of 1998 and 2019 at five stations (read 2026-10-12) 1824
 # are 0, **all** with a wind speed of 0, and every hour with a speed of 0 has a direction of 0; 1342 are 36. A calm has
 # no direction, so the 0 is no bearing (GH-2794).
 _CALM_WIND = Sentinel("0", where=pl.col("parameter").eq("wind_direction"))
