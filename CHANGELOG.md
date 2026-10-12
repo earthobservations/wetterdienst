@@ -43,6 +43,10 @@ Types of changes:
   `wd_10min`, and `dmi/observation` `mean_wind_dir` where the mean wind speed of the same hour,
   day, month or year is 0. North is 360 in these sources. A DMI 0 beside a wind that blows stays
   (GH-2794)
+- `GET /api/auth` and `GET /api/coverage?provider=...&network=...`, and so the MCP tools `auth`
+  and `coverage`, answer a network whose optional extra is not installed with the 501 the data
+  routes answer, not the 404 "Choose provider and network from /api/coverage" for an unknown one.
+  The install line is in the server log (GH-2788)
 
 ## [0.147.0] - 2026-10-12
 
