@@ -24,6 +24,14 @@ Types of changes:
   few seconds) could not tell. `coverage` does not probe, so this is the check from the command
   line and from an MCP client. The command exits 0 whatever `valid` is; read the JSON (GH-2773)
 
+### Changed
+
+- `chmi/observation`: the monthly and annual values carry the files' `FLAG_INTERRUPTED` in
+  `quality_flags` (null before) as `interrupted:I`: the value is computed although daily values of
+  the period are missing. A filter on a null `quality_flags` as "no flag" no longer holds for these
+  rows. `FLAG_REPEAT` is carried as `repeat:*` too, but only `MAX`/`MIN` rows have it and none of
+  the parameters is one (GH-2763)
+
 ### Fixed
 
 - `dwd/poi` `cloud_cover_total` is null, with `raw:113` or `raw:126` in `quality_flags`, where DWD
