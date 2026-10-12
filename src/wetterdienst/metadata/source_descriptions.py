@@ -187,7 +187,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "maximum_wind_speed_for_previous_day"): "Strongest gust on the previous day.",
         ("hourly", "data", "maximum_wind_speed_last_hour"): "Strongest gust in the preceding hour.",
         ("hourly", "data", "mean_wind_direction_during_last_10 min_at_10_meters_above_ground"): (
-            "Mean wind direction over the last 10 minutes, at 10 m above ground."
+            "Mean wind direction over the last 10 minutes, at 10 m above ground. "
+            "The source's 0 (a calm or variable wind) is null."
         ),
         ("hourly", "data", "mean_wind_speed_during last_10_min_at_10_meters_above_ground"): (
             "Mean wind speed over the last 10 minutes, at 10 m above ground."
@@ -1160,7 +1161,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "GeosphereObservationMetadata": {
         ("10_minutes", "data", "cglo"): "global radiation",
         ("10_minutes", "data", "chim"): "sky short wave diffuse radiation",
-        ("10_minutes", "data", "dd"): "wind direction",
+        ("10_minutes", "data", "dd"): "wind direction. The source's 0 (a calm wind) is null.",
         ("10_minutes", "data", "ddx"): "wind direction gust max",
         ("10_minutes", "data", "ff"): "wind speed",
         ("10_minutes", "data", "ffam"): "arithmetic mean of wind speed",
@@ -1198,7 +1199,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "tsmin"): "air temperature min at 0.05m",
         ("daily", "data", "vv_mittel"): "wind speed",
         ("hourly", "data", "cglo"): "global radiation",
-        ("hourly", "data", "dd"): "wind direction",
+        ("hourly", "data", "dd"): "wind direction. The source's 0 (a calm wind) is null.",
         ("hourly", "data", "ddx"): "wind direction gust max",
         ("hourly", "data", "ff"): "wind speed",
         ("hourly", "data", "ffx"): "wind gust max",
@@ -1630,7 +1631,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "wet_bulb_temperature"): "Wet bulb temperature (⁰C to tenths)",
         ("hourly", "data", "wind_direction"): (
             "Wind direction from true north using compass directions (e.g. 360=true north, 180=south, "
-            "270=west, etc.). Note: A direction of “000” is given for calm winds. (whole degrees)"
+            "270=west, etc.). Note: A direction of “000” is given for calm winds. (whole degrees) "
+            "The source's 0 (a calm wind) is null."
         ),
         ("hourly", "data", "wind_gust"): (
             "Peak short duration (usually < 20 seconds) wind speed (meters per second) that exceeds "

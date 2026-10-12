@@ -9,7 +9,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
 
 
@@ -150,8 +150,55 @@ def test_api_hourly_wind_direction_999_is_no_direction(monkeypatch: pytest.Monke
             zip(frame.get_column("timestamp").dt.hour().to_list(), frame.get_column("value").to_list(), strict=True)
         )
 
-    # the hours without a direction have no row, as with every missing value
-    assert column("wind_direction") == [(3, 0.0), (4, 90.0)]
+    # the hours without a direction have no row, as with every missing value; hour 3 is a calm, "000" in the
+    # documentation and 0 in the file, and no direction either (GH-2794)
+    assert column("wind_direction") == [(4, 90.0)]
     assert column("wind_speed") == [(2, 0.0), (3, 0.0), (4, 4.1), (5, 4.1)]
     assert column("pressure_air_sea_level") == [(2, 999.0), (3, 1001.5), (4, 1001.0), (5, 1000.0)]
     assert column("precipitation_amount") == [(3, 0.0), (4, 0.2)]
+
+
+def test_api_hourly_wind_direction_000_of_a_calm_is_null_with_the_text_the_file_wrote(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GHCNh writes 0 for a calm wind: "A direction of "000" is given for calm winds" (GH-2794).
+
+    The documentation (ghcnh_DOCUMENTATION.pdf) gives 360 as true north. Rows of the files read on 2026-10-12, put into
+    one: USW00023174 (Los Angeles) 2019-03-11 08:53 reads 360 beside 2.1 m/s and 2026-10-06 11:53 reads 0 beside 0.0;
+    ASN00086282 1985-07-06 17:00 reads 0 beside 1.5 m/s, the one of 11,347 zeros of that file with a speed above 0.
+    The 0 is null, with `raw:0` after the flags, and the speed of 0.0 is a reading.
+    """
+    from tests.provider.value_stubs import serve  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
+
+    stations = (
+        b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        b"USW00023174,33.938,-118.3866,29.6,CA,LOS ANGELES INTL AP,,,72295,KLAX,US\n"
+    )
+    settings = Settings(cache_disable=True)
+    metadata = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=settings).metadata
+    columns = [parameter.name_original for parameter in metadata["hourly"]["data"]]
+    rows = [
+        ("2019-03-11T08:53:00", {"wind_direction": "360", "wind_speed": "2.1"}),
+        ("2019-03-11T09:53:00", {"wind_direction": "0", "wind_speed": "1.5"}),
+        ("2019-03-11T10:53:00", {"wind_direction": "0", "wind_speed": "0.0"}),
+    ]
+    lines = ["|".join(["STATION", "DATE", *columns])]
+    lines += ["|".join(["USW00023174", date, *[row.get(column, "") for column in columns]]) for date, row in rows]
+    serve(monkeypatch, api, {"ghcnh-station-list": stations, "GHCNh_USW00023174": "\n".join(lines).encode("utf8")})
+    request = NoaaGhcnRequest(
+        parameters=[("hourly", "data", "wind_direction"), ("hourly", "data", "wind_speed")],
+        start=dt.datetime(2019, 3, 11, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2019, 3, 12, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+        options=Options(drop_nulls=False),
+    ).filter_by_station_id("USW00023174")
+    df = request.values.all().df.with_columns(pl.col("parameter").cast(pl.String)).sort("parameter", "timestamp")
+    assert df.select("parameter", "value", "quality_flags").rows() == [
+        ("wind_direction", 360.0, None),
+        ("wind_direction", None, "raw:0"),
+        ("wind_direction", None, "raw:0"),
+        ("wind_speed", 2.1, None),
+        ("wind_speed", 1.5, None),
+        ("wind_speed", 0.0, None),
+    ]

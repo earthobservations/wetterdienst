@@ -365,6 +365,33 @@ def _geosphere_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -
     return request.filter_by_station_id("1").values.all().df
 
 
+def _geosphere_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    stations = (
+        "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
+        "1,Aflenz,15.24069,47.54594,783.2,1983-05-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,Steiermark,True,True\n"
+    ).encode()
+    # klima-v2-1h for Aflenz, 2024-01-02 18:00 to 20:00 (read 2026-10-12): "Windrichtung [360°]" dd is [9, 0, 38] beside
+    # the speed ff [0.3, 0.0, 0.5], the calm at 19:00 written 0; north is 360 (GH-2794)
+    series = {"dd": [9, 0, 38], "ff": [0.3, 0.0, 0.5]}
+
+    def data(url: str) -> bytes:
+        names = parse_qs(urlparse(url).query)["parameters"][0].split(",")
+        timestamps = ["2024-01-02T18:00+00:00", "2024-01-02T19:00+00:00", "2024-01-02T20:00+00:00"]
+        parameters = {name: {"data": series[name]} for name in sorted(names)}
+        body = {"timestamps": timestamps, "features": [{"properties": {"parameters": parameters}}]}
+        return json.dumps(body).encode()
+
+    serve(monkeypatch, geosphere_api, {"/metadata/stations": stations, "klima-v2-1h": data})
+    request = GeosphereObservationRequest(
+        parameters=[("hourly", "data", "wind_direction"), ("hourly", "data", "wind_speed")],
+        start=_day(2024, 1, 2, 18),
+        end=_day(2024, 1, 2, 20),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return request.filter_by_station_id("1").values.all().df
+
+
 def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # GHCNh_ACM00078861_por.psv, 1942-01-17 02:00: the direction reads 999 with the measurement code C (calm) and a
     # wind speed of 0.0; the documentation gives "000" for calm. 1942-01-28 14:00 reads 999 too, with no code and a
@@ -384,9 +411,11 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         {"temperature": "24.0", "wind_direction": "999", "wind_speed": "4.1", "precipitation": "-9999"},
         # the reader maps `-None` to null in every column; this row pins that
         {"temperature": "-None", "wind_direction": "90", "wind_speed": "3.1", "precipitation": "0.2"},
+        # "A direction of "000" is given for calm winds" (the documentation), which the files write 0 (GH-2794)
+        {"temperature": "24.0", "wind_direction": "0", "wind_speed": "0.0", "precipitation": "0.0"},
     ]
     lines = ["|".join(["STATION", "DATE", *columns])]
-    for hour, row in zip((2, 3, 14, 15), rows, strict=True):
+    for hour, row in zip((2, 3, 14, 15, 16), rows, strict=True):
         cells = [row.get(column, "") for column in columns]
         lines.append("|".join(["ACM00078861", f"1942-01-17T{hour:02d}:00:00", *cells]))
     serve(
@@ -603,15 +632,18 @@ def _dwd_dmo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Dat
 def _dwd_poi(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # a station file as DWD serves it (10147-BEOB.csv): English names, units and German descriptions, then the
     # reports, newest first, `,` for a decimal and `---` for a report without the value
+    wind = "mean_wind_direction_during_last_10 min_at_10_meters_above_ground"
+    temperature = "dry_bulb_temperature_at_2_meter_above_ground"
     csv = (
-        "surface observations;Parameter description;cloud_cover_total;dry_bulb_temperature_at_2_meter_above_ground\n"
-        "10147;Unit;%;Grad C\n"
-        "Datum;Uhrzeit (UTC);Wolkenbedeckung;Temperatur (2m)\n"
-        "10.10.26;20:00;100;15,3\n"
-        "10.10.26;19:00;---;15,4\n"
+        f"surface observations;Parameter description;cloud_cover_total;{temperature};{wind}\n"
+        "10147;Unit;%;Grad C;Grad\n"
+        "Datum;Uhrzeit (UTC);Wolkenbedeckung;Temperatur (2m);Windrichtung\n"
+        "10.10.26;20:00;100;15,3;360\n"
+        "10.10.26;19:00;---;15,4;250\n"
         # a percent that reads 113 (9 oktas x 12.5, sky obscured) or 126 (03953, 13367, 2026-10-12)
-        "10.10.26;18:00;113;15,5\n"
-        "10.10.26;17:00;126;15,6\n"
+        "10.10.26;18:00;113;15,5;250\n"
+        # the direction is 0 for a calm or a variable wind, 360 is north (GH-2794)
+        "10.10.26;17:00;126;15,6;0\n"
     ).encode("latin-1")
     serve(monkeypatch, dwd_poi_api, {"10147-BEOB.csv": csv})
     request = DwdPoiRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
@@ -975,12 +1007,20 @@ STUBS = [
         tokens=(("precipitation_amount", "-1.0", 0.0), ("snow_depth_manual", "-1", 0.0)),
     ),
     ValueStub(
+        "geosphere/observation hourly/data",
+        _geosphere_hourly,
+        reading=("wind_direction", 38.0),
+        sentinels=(("wind_direction", 0.0),),
+        tokens=(("wind_direction", "0", None),),
+    ),
+    ValueStub(
         "noaa/ghcn hourly/data",
         _ghcn_hourly,
         reading=("wind_direction", 90.0),
-        sentinels=(("wind_direction", 999.0), ("precipitation_amount", -9999.0)),
+        sentinels=(("wind_direction", 999.0), ("wind_direction", 0.0), ("precipitation_amount", -9999.0)),
         tokens=(
             ("wind_direction", "999", None),
+            ("wind_direction", "0", None),
             ("precipitation_amount", "-9999", None),
             ("temperature_air_2m", "-None", None),
         ),
@@ -1087,11 +1127,12 @@ STUBS = [
         _dwd_poi,
         reading=("temperature_air_2m", 15.3),
         # the percent is converted to a decimal on its way
-        sentinels=(("cloud_cover_total", 1.13), ("cloud_cover_total", 1.26)),
+        sentinels=(("cloud_cover_total", 1.13), ("cloud_cover_total", 1.26), ("wind_direction_last_10min", 0.0)),
         tokens=(
             ("cloud_cover_total", "---", None),
             ("cloud_cover_total", "113", None),
             ("cloud_cover_total", "126", None),
+            ("wind_direction_last_10min", "0", None),
         ),
     ),
     ValueStub(
