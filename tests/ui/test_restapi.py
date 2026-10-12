@@ -7686,6 +7686,71 @@ def test_an_optional_dependency_missing_outside_the_endpoint_handlers_is_a_501_t
     assert msg in caplog.text
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("endpoint", "extra", "known_stations"),
+    [
+        pytest.param("/api/stations", {"all": "true"}, False, id="stations"),
+        pytest.param("/api/values", {"station": "06260", "timestamp": "2020-01-01/2020-01-02"}, True, id="values"),
+    ],
+)
+def test_a_provider_import_of_a_missing_extra_is_a_501(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    extra: dict[str, str],
+    known_stations: bool,  # noqa: FBT001
+) -> None:
+    """A provider that imports its extra lazily answers 501 with the install line in the log, not a bare 500 (GH-2545).
+
+    KNMI reads its NetCDF through h5netcdf, which only the `knmi` extra installs. The import sits in
+    the reader, so the absence surfaces while stations or values are fetched, not when the provider is
+    resolved, and the bare `ModuleNotFoundError` was a 500 with a traceback and no advice. The package
+    is masked in `sys.modules` and the download is stubbed, so the real reader runs up to its import.
+    A values request reads the station list first, which is the import the stations case fails at;
+    with the stations known, it reaches the one in the values parser.
+    """
+    import sys  # noqa: PLC0415
+
+    from wetterdienst.provider.knmi.observation import api as knmi_api  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_AUTH__KNMI", "key")
+    monkeypatch.setitem(sys.modules, "h5netcdf", None)
+    monkeypatch.setattr(knmi_api, "_latest_filename", lambda *_args, **_kwargs: "file.nc")
+    monkeypatch.setattr(knmi_api, "_fetch_netcdf", lambda *_args, **_kwargs: b"not read")
+    if known_stations:
+        stations = pl.DataFrame(
+            {
+                "station_id": ["06260"],
+                "name": ["De Bilt"],
+                "latitude": [52.1],
+                "longitude": [5.18],
+                "elevation": [1.9],
+            },
+        )
+        monkeypatch.setattr(knmi_api.KnmiObservationRequest, "_station_frame", staticmethod(lambda *_a, **_k: stations))
+
+    with caplog.at_level(logging.INFO):
+        response = client.get(
+            endpoint,
+            params={
+                "provider": "knmi",
+                "network": "observation",
+                "parameters": "daily/data/temperature_air_mean_2m",
+                **extra,
+            },
+        )
+
+    assert response.status_code == 501, response.text
+    detail = response.json()["detail"]
+    assert "optional dependency" in detail
+    assert "pip install" not in detail
+    assert "Reading KNMI NetCDF requires h5netcdf, which is not installed. Install it with: " in caplog.text
+    assert "pip install wetterdienst[knmi]" in caplog.text
+    assert not [record for record in caplog.records if record.exc_info]
+
+
 _CREDENTIAL_PROVIDERS = [
     pytest.param("knmi", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__KNMI", id="knmi"),
     pytest.param("aemet", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__AEMET", id="aemet"),
