@@ -107,8 +107,9 @@ class TimeseriesRequest:
     # How the values come back and how the stations are chosen, as opposed to `settings`, which is
     # the host's. None takes what `settings` carries as its `ts_*` settings; a dict is taken as the
     # options it names. Resolved in __post_init__ to an `Options`, which is read from there on and
-    # never again from `settings`.
-    options: Options | dict | None = None
+    # never again from `settings`. Keyword-only, so that it moves none of the arguments a subclass
+    # adds after `periods` (`issue` of the forecasts)
+    options: Options | dict | None = field(default=None, kw_only=True)
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
         """Refuse a renamed argument before the dataclass __init__ rejects it without naming the new one.
@@ -130,7 +131,8 @@ class TimeseriesRequest:
         # Convert settings given as a dict to a validated model. A `Settings` object is used as it is:
         # one built the usual way was validated at construction and on every assignment since, and
         # validating it again would only re-run its after-validators (it once logged the cache line a
-        # second time, GH-2476, GH-2504). One built with `model_construct` skipped validation on purpose
+        # second time, GH-2476, GH-2504). One built with `model_construct` skipped validation on purpose,
+        # though the options it carries are checked when they are taken from it
         if not isinstance(self.settings, Settings):
             self.settings = Settings.model_validate(self.settings)
         self.options = resolve_options(self.options, self.settings)

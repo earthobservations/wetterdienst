@@ -27,12 +27,12 @@ Types of changes:
   `Settings` holds as `ts_*`, as a frozen class of their own. They read the same `WD_TS_*`
   variables and `.env`, so no host configuration changes; `replace(**changes)` makes a validated
   copy. `Settings` is unchanged; `check_settings()` now checks them too (GH-2639)
-- Every request takes `options=` (an `Options`, or a dict naming some of them; after `periods`),
-  and `StationsResult.options` carries them to the values, `interpolate` and `summarize`. Given
-  none, a request takes the `ts_*` settings of its `Settings` as before, so nothing changes for a
-  caller who passes none -- except that assigning `settings.ts_*` after the request is built no
-  longer reaches it. Passing `options=` beside settings that carry a non-default `ts_*` raises a
-  `ValueError`: set the options in `options=` alone (GH-2639)
+- Every timeseries request takes the keyword `options=` (an `Options`, or a dict naming some of
+  them), and `StationsResult.options` carries them to the values, `interpolate` and `summarize`.
+  Given none, a request takes the `ts_*` settings of its `Settings` as before, so nothing changes
+  for a caller who passes none -- except that assigning `settings.ts_*` after the request is built
+  no longer reaches it. Passing `options=` beside settings that carry a non-default `ts_*` raises
+  a `ValueError`: set the options in `options=` alone (GH-2639)
 
 ### Changed
 

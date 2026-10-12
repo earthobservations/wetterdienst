@@ -539,20 +539,25 @@ def options_from_settings(settings: BaseSettings) -> Options:
     return _options_from_fields({name.removeprefix("ts_"): value for name, value in carried.items()})
 
 
-def options_from_mapping(given: Mapping[str, Any]) -> Options:
+def options_from_mapping(given: Mapping[str, Any], base: Options | None = None) -> Options:
     """Build options from the ones a caller names, the rest as ``Options()`` has them.
 
     The environment sets what is not named, as it does for ``Options()``; what is named replaces its
     default wholesale. ``Options(**given)`` would merge the environment into a mapping that was
     named -- a ``WD_TS_UNIT_TARGETS`` the caller never meant to keep would add to theirs -- so the
     named options are laid over a base the environment has already shaped, as `Options.replace` does.
-    A shape that drops no nulls is noted once, as it is for options built the usual way.
+    A shape that drops no nulls and a radius for a parameter never interpolated are noted, as they
+    are for options built the usual way. `base` is the ``Options()`` of the environment, for a
+    caller that has built it already.
     """
-    with _quiet():
-        base = Options()
+    if base is None:
+        with _quiet():
+            base = Options()
     options = _options_from_fields({**base.model_dump(), **given})
     if options.shape != base.shape:
         _note_drop_nulls_ignored(options.shape, "", log)
+    if "geo_station_distance" in given:
+        _checked_geo_station_distance_keys(given["geo_station_distance"], "", log)
     return options
 
 
@@ -564,8 +569,10 @@ def resolve_options(options: Options | Mapping[str, Any] | None, settings: BaseS
 
     Options given beside settings that carry ``ts_*`` settings of their own are refused: one of the
     two would be ignored, and which one is not a thing to leave a caller to guess. What the settings
-    carry is compared with what the environment alone gives, so an operator's ``WD_TS_*`` never
-    counts against a caller who passes options.
+    carry is compared with what the process's environment and ``.env`` give, so an operator's
+    ``WD_TS_*`` never counts against a caller who passes options; settings that read theirs from
+    elsewhere (another ``_env_file``) do. Options that are the very ones the settings carry are no
+    conflict, which is what a request copied with `dataclasses.replace` gives.
 
     Raises:
         ValueError: Where both are given.
@@ -575,14 +582,16 @@ def resolve_options(options: Options | Mapping[str, Any] | None, settings: BaseS
     if options is None:
         return carried
     with _quiet():
-        baseline = Options().model_dump()
-    differing = [f"ts_{name}" for name, value in carried.model_dump().items() if value != baseline[name]]
+        baseline = Options()
+    given = options if isinstance(options, Options) else options_from_mapping(options, baseline)
+    if given.model_dump() == carried.model_dump():
+        return given
+    baseline_dump = baseline.model_dump()
+    differing = [f"ts_{name}" for name, value in carried.model_dump().items() if value != baseline_dump[name]]
     if differing:
         msg = (
             f"the request was given options and settings that carry {', '.join(differing)}; "
             "set the request's options through options= alone"
         )
         raise ValueError(msg)
-    if isinstance(options, Options):
-        return options
-    return options_from_mapping(options)
+    return given

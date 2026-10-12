@@ -35,6 +35,7 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as dwd_observation_api
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
+from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
@@ -250,9 +251,10 @@ def _estimate(
 
 
 _MILE = {"length_short": "mile"}
-#: for every option the interpolation and the summary read: what to change, what it is held against, and which of
-#: the two it changes the answer of. The nearest station with data answers a summary, so a wider search, more
-#: stations and a station next to the point change nothing there
+#: for every option: what to change, what it is held against, and which of the two it changes the answer of. The
+#: nearest station with data answers a summary, so a wider search, more stations and a station next to the point
+#: change nothing there. The stubbed query serves the frames that the shape, the skip rules and `drop_nulls` act on
+#: whole, so those are held to parity alone (the values cases above change the frame with them)
 ESTIMATE_CASES = {
     "humanize": ({"humanize": False}, {}, ("interpolate", "summarize")),
     "shape": ({"shape": "wide"}, {}, ()),
@@ -434,22 +436,25 @@ def test_an_options_object_is_used_as_it_is() -> None:
     assert _request(options=options).options is options
 
 
-def test_options_are_the_argument_after_the_periods() -> None:
-    """`options` comes after `periods`, so a caller passing the arguments up to `periods` positionally is unaffected."""
-    names = [field.name for field in dataclasses.fields(DwdObservationRequest)]
-    assert names[names.index("periods") + 1] == "options"
+@pytest.mark.parametrize("request_class", [DwdObservationRequest, DwdMosmixRequest, DwdDmoRequest, DwdSwsmosRequest])
+def test_options_are_keyword_only(request_class: type[TimeseriesRequest]) -> None:
+    """`options` moves none of the arguments a request takes positionally, `issue` of the forecasts included."""
+    fields = {field.name: field for field in dataclasses.fields(request_class) if field.init}
+    assert fields["options"].kw_only
+    positional = [name for name, field in fields.items() if not field.kw_only]
+    assert "options" not in positional
+    if "issue" in fields:
+        assert positional.index("issue") == positional.index("periods") + 1
 
-    options = Options(shape="wide")
-    request = DwdObservationRequest(
-        [("daily", "climate_summary", "temperature_air_mean_2m")],
-        None,
-        None,
-        Settings(cache_disable=True),
-        "recent",
-        options,
-    )
-    assert request.options is options
-    assert request.periods == {Period.RECENT}
+
+def test_a_request_copied_with_replace_keeps_its_options() -> None:
+    """`dataclasses.replace` hands the resolved options back beside their settings, which is no conflict."""
+    request = _request(settings=_settings({"shape": "wide"}))
+
+    copy = dataclasses.replace(request, start="2020-01-01")
+
+    assert copy.options == request.options
+    assert copy.options.shape == "wide"
 
 
 def test_a_dict_of_options_is_the_options_it_names() -> None:
@@ -494,6 +499,17 @@ def test_a_dict_of_options_is_refused_where_options_would_be(given: dict[str, ob
     assert "input_value" not in str(error.value)
 
 
+def test_a_dict_of_options_warns_of_a_radius_for_a_parameter_never_interpolated(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The warning of `Options` for a radius that is never read is given for a dict naming it too."""
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.options"):
+        _request(options={"geo_station_distance": {"precipitation_form": 5.0}})
+    messages = [record.getMessage() for record in caplog.records if record.name == "wetterdienst.options"]
+    assert len(messages) == 1
+    assert "['precipitation_form'], which are never interpolated" in messages[0]
+
+
 def test_a_dict_of_options_notes_a_wide_shape_once(caplog: pytest.LogCaptureFixture) -> None:
     """The note that nulls are kept in the wide shape is given for a dict that makes it wide, as for options."""
     with caplog.at_level(logging.INFO, logger="wetterdienst.options"):
@@ -503,7 +519,7 @@ def test_a_dict_of_options_notes_a_wide_shape_once(caplog: pytest.LogCaptureFixt
     ]
 
 
-@pytest.mark.parametrize("options", [Options(), {}, {"shape": "wide"}], ids=["options", "empty", "dict"])
+@pytest.mark.parametrize("options", [Options(), {}, {"shape": "long"}], ids=["options", "empty", "dict"])
 def test_options_beside_settings_that_carry_options_are_refused(options: Options | dict) -> None:
     """Settings that carry a `ts_*` setting and options are two answers to one question, and a caller is told."""
     with pytest.raises(ValueError, match=r"ts_shape.*options="):

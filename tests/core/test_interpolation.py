@@ -1391,9 +1391,9 @@ def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_settings
     assert df.get_column("parameter").to_list() == [name for name, _ in expected for _ in timestamps]
     assert df.get_column("timestamp").to_list() == timestamps * 2
     assert df.get_column("value").to_list() == [value for _, value in expected for _ in timestamps]
-    # read on a copy: the caller's request keeps the settings it was given
-    assert request.settings.ts_humanize is humanize
-    assert request.settings.ts_shape == settings.get("ts_shape", "long")
+    # read on a copy: the caller's request keeps the options it was given
+    assert request.options.humanize is humanize
+    assert request.options.shape == settings.get("ts_shape", "long")
 
 
 @pytest.mark.parametrize("hourly_first", [True, False], ids=["hourly_first", "daily_first"])
