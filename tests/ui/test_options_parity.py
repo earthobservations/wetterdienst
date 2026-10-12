@@ -431,8 +431,7 @@ def test_the_stripes_read_the_values_long_and_whole_whatever_the_environment_set
 ) -> None:
     """Test the stripes' requests are built with a long shape and no skipping of stations (GH-2348).
 
-    They take the `value` column of a long frame and draw the gaps themselves. A malformed variable for
-    either is not read, as their arguments outrank it.
+    They take the `value` column of a long frame and draw the gaps themselves.
     """
     from wetterdienst.ui import core  # noqa: PLC0415
 
@@ -460,3 +459,43 @@ def test_the_glossary_reads_the_environments_options_when_given_none(monkeypatch
     monkeypatch.setenv("WD_TS_UNIT_TARGETS", json.dumps(_FAHRENHEIT))
     entries = get_glossary(parameter="temperature_air_mean_2m")
     assert {entry["unit"] for entry in entries if entry["unit_type"] == "temperature"} == {"degree_fahrenheit"}
+
+
+@pytest.mark.xfail(
+    reason="the host Settings still read WD_TS_* until they drop the ts_* settings (GH-2639, stage 5)",
+    strict=True,
+)
+def test_the_stripes_override_a_malformed_variable_for_their_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a malformed WD_TS_SHAPE or WD_TS_SKIP_EMPTY, which the stripes' arguments outrank, does not stop them."""
+    from wetterdienst.ui import core  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_TS_SHAPE", "bogus")
+    monkeypatch.setenv("WD_TS_SKIP_EMPTY", "maybe")
+    request = core._get_stripes_temperature_request()  # noqa: SLF001
+    assert (request.options.shape, request.options.skip_empty) == ("long", False)
+
+
+@pytest.mark.parametrize("path", ["/api/settings", "/api/settings?humanize=false", "/api/glossary"])
+def test_a_malformed_host_setting_is_the_bare_500_where_only_options_are_read(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """Test the endpoints that report options alone still refuse a server whose host settings are malformed."""
+    monkeypatch.setenv("WD_CACHE_DISABLE", "not-a-bool")
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(path)
+    assert response.status_code == 500, response.text
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["values", *_CLI_BASE["values"], '--unit_targets={"foo": "bar"}'],
+        ["interpolate", *_CLI_BASE["interpolate"], '--interpolation_station_distance={"foo": 1}'],
+        ["summarize", *_CLI_BASE["summarize"], '--summary_station_distance={"foo": 1}'],
+    ],
+)
+def test_a_malformed_host_setting_is_told_before_an_option_is(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
+    """Test the environment is not the command line's to fix: its error comes before a bad option's."""
+    monkeypatch.setenv("WD_CACHE_DISABLE", "not-a-bool")
+    result = CliRunner().invoke(cli, args)
+    assert result.exit_code == 1, result.output
+    assert "WD_CACHE_DISABLE is invalid" in result.output

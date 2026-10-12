@@ -685,6 +685,7 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
     # a malformed server setting is the bare 500 FastAPI answers, which does not read its value back.
     # Built once for the endpoints no parameter given applies to, as each build reads the
     # environment and the `.env` again
+    Settings()
     server = Options()
     reported: dict[str, _AppliedSettings] = {}
     refused: list[str] = []
@@ -979,6 +980,8 @@ def glossary(
     including any ts_unit_targets override.
     """
     set_logging_level(debug=request.debug)
+    # a malformed server setting is the bare 500 FastAPI answers, as for the data endpoints
+    Settings()
 
     return get_glossary(parameter=request.parameter, unit_type=request.unit_type, limit=request.limit)
 

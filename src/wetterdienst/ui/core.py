@@ -1633,7 +1633,9 @@ def _get_stripes_options() -> Options:
     record itself. The rest comes from the environment as for any request, but `WD_TS_SHAPE=wide`
     left no `value` column (`ColumnNotFoundError`), and `WD_TS_SKIP_EMPTY=true` dropped a station
     with gaps, leaving no years to draw (GH-2348). Those two are fixed here, as arguments, which
-    outrank the environment's variables and so do not even read the ones they replace.
+    outrank the environment's variables. The host's `Settings`, which the request builds beside
+    them, still read `WD_TS_*` until they drop the ts_* settings (GH-2639), so a malformed one
+    is refused all the same.
     """
     return Options(shape="long", skip_empty=False)
 

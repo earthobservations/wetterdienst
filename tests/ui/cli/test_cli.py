@@ -899,6 +899,10 @@ def test_cli_estimate_refuses_an_option_with_the_value_it_gave(monkeypatch: pyte
     ) in result.output
 
 
+@pytest.mark.xfail(
+    reason="the host Settings still read WD_TS_* until they drop the ts_* settings (GH-2639, stage 5)",
+    strict=True,
+)
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_cli_values_refuses_an_option_beside_a_malformed_variable_another_option_replaces() -> None:
     """Test a malformed WD_TS_* variable an option replaces does not stand in for another option's error."""

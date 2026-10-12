@@ -1043,6 +1043,8 @@ def glossary(
     """
     set_logging_level(debug=debug)
 
+    # a malformed server setting is refused by its variable, as it is for the other commands
+    Settings()
     entries = get_glossary(parameter=parameter, unit_type=unit_type, limit=limit)
 
     if not entries:
@@ -1581,6 +1583,8 @@ def values(
     api = get_timeseries_api(request.provider, request.network)
 
     # a unit target given for a quantity the unit converter does not know is a usage error
+    # built first: a malformed host setting is not the command line's to fix, whatever the options say
+    settings = Settings()
     options = _build_options(
         {
             "humanize": ("humanize", request.humanize),
@@ -1595,7 +1599,7 @@ def values(
     )
 
     values_ = _collect_or_exit(
-        get_values, api=api, request=request, settings=Settings(), options=options, what="data acquisition"
+        get_values, api=api, request=request, settings=settings, options=options, what="data acquisition"
     )
 
     if target:
@@ -1726,6 +1730,8 @@ def interpolate(
 
     # a distance given for a name that is not a canonical parameter, or a negative one, or a unit
     # target for a quantity the unit converter does not know is a usage error
+    # built first: a malformed host setting is not the command line's to fix, whatever the options say
+    settings = Settings()
     options = _build_options(
         {
             "humanize": ("humanize", request.humanize),
@@ -1745,7 +1751,7 @@ def interpolate(
     )
 
     values_ = _collect_or_exit(
-        get_interpolate, api=api, request=request, settings=Settings(), options=options, what="interpolation"
+        get_interpolate, api=api, request=request, settings=settings, options=options, what="interpolation"
     )
 
     if target:
@@ -1874,6 +1880,8 @@ def summarize(
 
     # a distance given for a name that is not a canonical parameter, or a negative one, or a unit
     # target for a quantity the unit converter does not know is a usage error
+    # built first: a malformed host setting is not the command line's to fix, whatever the options say
+    settings = Settings()
     options = _build_options(
         {
             "humanize": ("humanize", request.humanize),
@@ -1892,7 +1900,7 @@ def summarize(
     )
 
     values_ = _collect_or_exit(
-        get_summarize, api=api, request=request, settings=Settings(), options=options, what="summarize"
+        get_summarize, api=api, request=request, settings=settings, options=options, what="summarize"
     )
 
     if target:
