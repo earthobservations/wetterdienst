@@ -41,6 +41,10 @@ Types of changes:
   and `coverage`, answer a network whose optional extra is not installed with the 501 the data
   routes answer, not the 404 "Choose provider and network from /api/coverage" for an unknown one.
   The install line is in the server log (GH-2788)
+- `eccc/observation` `start_timestamp` and `end_timestamp` of a station with hourly values were one
+  hour early when the station's first or last date fell in the daylight-saving season (Toronto Intl
+  A started 2013-06-11 13:00 UTC, not 14:00). The dates are Local Standard Time, so they are now
+  converted with the fixed offset of the `TIMEZONE` code, and an unknown code raises (GH-2693)
 
 ## [0.147.0] - 2026-10-12
 
