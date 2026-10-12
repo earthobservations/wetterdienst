@@ -16,6 +16,28 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `wetterdienst about auth --provider=... --network=...` and the MCP tool `auth` check one
+  network's credentials, as `GET /api/auth` does and with the same answer: `valid` is `true`,
+  `false` (rejected, or not configured) or `null` when the probe (one attempt, given up after a
+  few seconds) could not tell. `coverage` does not probe, so this is the check from the command
+  line and from an MCP client. The command exits 0 whatever `valid` is; read the JSON (GH-2773)
+
+### Changed
+
+- `chmi/observation`: the monthly and annual values carry the files' `FLAG_INTERRUPTED` in
+  `quality_flags` (null before) as `interrupted:I`: the value is computed although daily values of
+  the period are missing. A filter on a null `quality_flags` as "no flag" no longer holds for these
+  rows. `FLAG_REPEAT` is carried as `repeat:*` too, but only `MAX`/`MIN` rows have it and none of
+  the parameters is one (GH-2763)
+
+### Fixed
+
+- `dwd/poi` `cloud_cover_total` is null, with `raw:113` or `raw:126` in `quality_flags`, where DWD
+  writes those numbers in the percent column (113 is an obscured sky, 126 comes with fog). They
+  came back as a cloud cover of 1.13 and 1.26: 58 of 8744 reports in a day of 960 stations (GH-2615)
+
 ## [0.147.0] - 2026-10-12
 
 ### Added

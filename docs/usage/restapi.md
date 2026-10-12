@@ -54,11 +54,14 @@ The list downloads nothing, so it answers at once. For a network that needs cred
 whether they are present (`configured`); `valid` is `false` where they are not, and `null` where
 they are, because whether the provider accepts them is a request to the provider. Ask for one
 network at a time, which gives up after a few seconds and answers `null` as well when it could not
-tell:
+tell (treat `null` as unknown, not as rejected):
 
 ```bash
 http localhost:7890/api/auth provider==aemet network==observation
 ```
+
+The MCP tool `auth` and the command `wetterdienst about auth --provider=aemet --network=observation`
+ask the same question and give the same answer.
 
 ### Glossary
 
@@ -183,10 +186,10 @@ The limit holds for the REST API and the MCP tools; the library and the CLI have
 ## MCP endpoint
 
 The REST API can optionally expose a [Model Context Protocol](https://modelcontextprotocol.io/)
-(MCP) endpoint at `/mcp`, so LLM agents can call the data endpoints (coverage, stations, values,
-interpolate, summarize, stripes, alerts, ...) as MCP tools. It is served over the streamable-HTTP
-transport by [FastMCP](https://gofastmcp.com/), generated from the REST API's own routes and running
-in the same process.
+(MCP) endpoint at `/mcp`, so LLM agents can call the data endpoints (coverage, auth, stations,
+values, interpolate, summarize, stripes, alerts, ...) as MCP tools. It is served over the
+streamable-HTTP transport by [FastMCP](https://gofastmcp.com/), generated from the REST API's own
+routes and running in the same process.
 
 The generated tools are made agent-friendly so even small models use them correctly: a workflow
 `instructions` block (find a station, then query its values) is attached to the server, the tools

@@ -12,7 +12,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal, assert_series_equal
 
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.derived import DwdDerivedMetadata, DwdDerivedRequest
@@ -168,7 +168,6 @@ def test_dwd_recent_data_result_long_single_parameter(
     default_settings: Settings,
 ) -> None:
     """Test for actual values (long)."""
-    default_settings.ts_shape = "long"
     request = DwdDerivedRequest(
         parameters=(
             "monthly",
@@ -176,6 +175,7 @@ def test_dwd_recent_data_result_long_single_parameter(
             "heating_degree_day",
         ),
         settings=default_settings,
+        options=Options(shape="long"),
         start=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
         end=datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
@@ -233,7 +233,6 @@ def test_dwd_recent_data_result_wide_single_parameter(
     default_settings: Settings,
 ) -> None:
     """Test for actual values (wide)."""
-    default_settings.ts_shape = "wide"
     request = DwdDerivedRequest(
         parameters=(
             "monthly",
@@ -241,6 +240,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
             "heating_degree_day",
         ),
         settings=default_settings,
+        options=Options(shape="wide"),
         start=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
         end=datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
@@ -295,7 +295,6 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
     default_settings: Settings,
 ) -> None:
     """Test for actual values (long), where no data exists for a month."""
-    default_settings.ts_shape = "long"
     request = DwdDerivedRequest(
         parameters=(
             "monthly",
@@ -303,6 +302,7 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
             "heating_degree_day",
         ),
         settings=default_settings,
+        options=Options(shape="long"),
         start=datetime.datetime(year=2023, month=3, day=1, tzinfo=ZoneInfo("UTC")),
         end=datetime.datetime(year=2023, month=5, day=1, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id(station_id="00044")
@@ -354,7 +354,6 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
     default_settings: Settings,
 ) -> None:
     """Test for actual values (long), where no data exists for a month."""
-    default_settings.ts_shape = "long"
     request = DwdDerivedRequest(
         parameters=(
             "monthly",
@@ -362,6 +361,7 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
             "cooling_degree_hour",
         ),
         settings=default_settings,
+        options=Options(shape="long"),
         start=datetime.datetime(year=2014, month=6, day=1, tzinfo=ZoneInfo("UTC")),
         end=datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id(station_id="00044")
@@ -410,7 +410,6 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
     default_settings: Settings,
 ) -> None:
     """Test for actual values (long)."""
-    default_settings.ts_shape = "long"
     request = DwdDerivedRequest(
         parameters=[
             (
@@ -423,6 +422,7 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
             ),
         ],
         settings=default_settings,
+        options=Options(shape="long"),
         start=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
         end=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
@@ -493,13 +493,13 @@ def test_dwd_recent_data_result_long_single_dataset(
     default_settings: Settings,
 ) -> None:
     """Test for actual values (long)."""
-    default_settings.ts_shape = "long"
     request = DwdDerivedRequest(
         parameters=(
             "monthly",
             "heating_degreedays",
         ),
         settings=default_settings,
+        options=Options(shape="long"),
         start=datetime.datetime(year=2014, month=7, day=1, tzinfo=ZoneInfo("UTC")),
         end=datetime.datetime(year=2014, month=9, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
@@ -588,7 +588,6 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
 
     Note that we cannot use historical data for stability since DWD only provides recent data.
     """
-    default_settings.ts_shape = "long"
     request = DwdDerivedRequest(
         parameters=[
             (
@@ -597,6 +596,7 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
             ),
         ],
         settings=default_settings,
+        options=Options(shape="long"),
         start=datetime.datetime(year=2019, month=9, day=1, tzinfo=ZoneInfo("UTC")),
         end=datetime.datetime(year=2020, month=3, day=1, tzinfo=ZoneInfo("UTC")),
         periods=[
@@ -657,10 +657,10 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
 @pytest.mark.remote
 def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
     """Test monthly soil ztumi dataset."""
-    default_settings.ts_shape = "long"
     request = DwdDerivedRequest(
         parameters=[DwdDerivedMetadata.monthly.soil.thawing_thickness_bare_ground_max_month],
         settings=default_settings,
+        options=Options(shape="long"),
         start=datetime.datetime(year=2024, month=5, day=1, tzinfo=ZoneInfo("UTC")),
         end=datetime.datetime(year=2024, month=7, day=1, tzinfo=ZoneInfo("UTC")),
         periods=["historical"],
@@ -702,10 +702,10 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
 @pytest.mark.remote
 def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) -> None:
     """Test hourly radiation surface irradiance dataset (placeholder expected_df)."""
-    default_settings.ts_shape = "long"
     request = DwdDerivedRequest(
         parameters=[DwdDerivedMetadata.hourly.radiation_global.radiation_global],
         settings=default_settings,
+        options=Options(shape="long"),
         start=datetime.datetime(year=2024, month=5, day=5, hour=8, tzinfo=ZoneInfo("UTC")),
         end=datetime.datetime(year=2024, month=5, day=5, hour=13, tzinfo=ZoneInfo("UTC")),
         periods=["historical"],

@@ -86,7 +86,7 @@ def parse_knmi_netcdf(payload: bytes, station_id: str, parameters: Sequence[str]
             cell = variables[parameter][row]
             value = float(cell[0]) if getattr(cell, "shape", ()) else float(cell)
             rows.append({"timestamp": moment, "parameter": parameter, "value": value})
-    # KNMI's _FillValue for a missing observation is NaN; emit null (not NaN) so the framework's ts_drop_nulls
+    # KNMI's _FillValue for a missing observation is NaN; emit null (not NaN) so the framework's drop_nulls
     # handling treats it as missing and to_json stays valid. The -1 of a trace of precipitation is 0.0. Both keep what
     # the file held as the `raw` token of `quality_flags` (GH-2759)
     value, raw = null_sentinels(

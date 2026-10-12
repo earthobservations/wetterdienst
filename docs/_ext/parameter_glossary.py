@@ -36,7 +36,7 @@ class ParameterGlossaryDirective(SphinxDirective):
     def run(self) -> list[nodes.Node]:
         """Build the glossary from the canonical parameter table."""
         unit_converter = UnitConverter()
-        # the built-in default radii rather than `Settings()`, which would read WD_* env vars and a
+        # the built-in default radii rather than `Options()`, which would read WD_* env vars and a
         # .env from wherever the docs are built and so document the builder's configuration
         station_distance = _build_geo_station_distance(
             _STATION_DISTANCE_HOMOGENEOUS,
