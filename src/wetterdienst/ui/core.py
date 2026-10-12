@@ -35,6 +35,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
+from wetterdienst.options import Options, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import Settings, SkipThreshold
 from wetterdienst.util.datetime import parse_date_window
@@ -1140,7 +1141,7 @@ def get_glossary(
     parameter: str | None = None,
     unit_type: UnitType | None = None,
     limit: int | None = None,
-    settings: Settings | None = None,
+    options: Options | None = None,
 ) -> list[GlossaryEntry]:
     """Return the canonical parameter vocabulary, optionally filtered.
 
@@ -1153,17 +1154,16 @@ def get_glossary(
     `humidity_relative_max` and `humidity_relative_min`, and hiding those would be the more
     surprising behaviour. Use `limit` to bound the result instead.
 
-    The unit reported is the one a values request would actually return, so `ts_unit_targets` is
+    The unit reported is the one a values request would actually return, so the `unit_targets` option is
     honoured -- reporting the built-in default while `values` hands back Fahrenheit would make this
     worse than saying nothing.
     """
     from wetterdienst.metadata.parameter_table import PARAMETER_TABLE  # noqa: PLC0415
     from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
-    from wetterdienst.settings import Settings as _Settings  # noqa: PLC0415
 
-    settings = settings or _Settings()
+    options = options or Options()
     unit_converter = UnitConverter()
-    unit_converter.update_targets(settings.ts_unit_targets)
+    unit_converter.update_targets(options.unit_targets)
     needle = parameter.strip().lower() if parameter else None
     entries: list[GlossaryEntry] = []
     for canonical in PARAMETER_TABLE:
@@ -1251,13 +1251,41 @@ def check_timeseries_api(
         raise NotImplementedError(msg)
 
 
+def overlay_options(base: Options, given: Mapping[str, Any]) -> Options:
+    """Lay the options a caller named over `base`, the options the environment sets.
+
+    A mapping the caller gave -- `unit_targets`, the per-parameter radii -- is merged into the
+    base's, an entry it gives winning; every other option replaces the base's. That is what the
+    REST API and the command line document, and what `Settings(**given)` did by merging the
+    environment into the mappings it was given. It is done here in the open: `Options(**given)`
+    would merge whatever the environment sets into any mapping, the caller's or not, and the base
+    has read the environment already.
+
+    `Options.replace` is not used because it replaces a mapping wholesale, where the surfaces
+    document a merge, and because it builds quietly: this goes through `options_from_mapping`, which
+    gives the notices a build gives (`drop_nulls` ignored in the wide shape, a radius for a parameter
+    never interpolated), as an option given on the command line or in a query always has.
+
+    Raises:
+        ValidationError: Where an option is invalid, located by the option's name.
+
+    """
+    dumped = base.model_dump()
+    merged = {name: {**dumped[name], **value} if isinstance(value, Mapping) else value for name, value in given.items()}
+    return options_from_mapping(merged, base)
+
+
 def _get_stations_request(
     api: type[TimeseriesRequest],
     request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest,
     timestamp: str | None,
     settings: Settings,
+    options: Options | None = None,
 ) -> TimeseriesRequest:
-    """Create a request object for stations."""
+    """Create a request object for stations, with the host's `settings` and the `options` of the request.
+
+    Options left out are the ones `settings` carries, as a request built without any takes them.
+    """
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
@@ -1308,7 +1336,7 @@ def _get_stations_request(
     if issubclass(api, DwdDmoRequest) and (lead_time := getattr(request, "lead_time", None)) is not None:
         kwargs["lead_time"] = lead_time
 
-    return api(**kwargs, settings=settings)
+    return api(**kwargs, settings=settings, options=options)
 
 
 def get_stations(
@@ -1316,9 +1344,10 @@ def get_stations(
     request: StationsRequest | ValuesRequest | HistoryRequest,
     timestamp: str | None,
     settings: Settings,
+    options: Options | None = None,
 ) -> StationsResult:
     """Get stations based on request, by the one selection its model lets it make."""
-    r = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings)
+    r = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings, options=options)
 
     if getattr(request, "all", False):
         return r.all()
@@ -1381,8 +1410,8 @@ def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
 
     ``filter_by_rank`` intentionally keeps *all* stations with a position (distance-sorted) in ``df`` because the real
     ``rank`` limit is applied later, during value collection: that walk takes the ``rank`` closest
-    stations that actually carry data -- as sparsely as ``ts_skip_empty`` / ``ts_skip_threshold`` /
-    ``ts_skip_criteria`` allow -- and exposes them via ``ValuesResult.df_stations``.
+    stations that actually carry data -- as sparsely as the ``skip_empty`` / ``skip_threshold`` /
+    ``skip_criteria`` options allow -- and exposes them via ``ValuesResult.df_stations``.
 
     A plain stations listing does no value collection, so it cannot apply that data-aware selection --
     but returning every station (e.g. 1284 for DWD) when the caller asked for the N closest is both
@@ -1400,6 +1429,7 @@ def get_values(
     api: type[TimeseriesRequest],
     request: ValuesRequest,
     settings: Settings,
+    options: Options | None = None,
 ) -> ValuesResult:
     """Get values based on request."""
     stations_ = get_stations(
@@ -1407,6 +1437,7 @@ def get_values(
         request=request,
         timestamp=request.timestamp,
         settings=settings,
+        options=options,
     )
 
     # TODO: Add stream-based processing here.
@@ -1432,9 +1463,10 @@ def get_interpolate(
     api: type[TimeseriesRequest],
     request: InterpolationRequest,
     settings: Settings,
+    options: Options | None = None,
 ) -> InterpolatedValuesResult:
     """Get interpolated values based on request."""
-    r = _get_stations_request(api=api, request=request, timestamp=request.timestamp, settings=settings)
+    r = _get_stations_request(api=api, request=request, timestamp=request.timestamp, settings=settings, options=options)
 
     if request.latitude is not None and request.longitude is not None:
         values_ = r.interpolate((request.latitude, request.longitude), elevation=request.elevation)
@@ -1456,9 +1488,10 @@ def get_summarize(
     api: type[TimeseriesRequest],
     request: SummaryRequest,
     settings: Settings,
+    options: Options | None = None,
 ) -> SummarizedValuesResult:
     """Get summarized values based on request."""
-    r = _get_stations_request(api=api, request=request, timestamp=request.timestamp, settings=settings)
+    r = _get_stations_request(api=api, request=request, timestamp=request.timestamp, settings=settings, options=options)
 
     if request.latitude is not None and request.longitude is not None:
         values_ = r.summarize((request.latitude, request.longitude), elevation=request.elevation)
@@ -1593,15 +1626,18 @@ class StripesConfig(TypedDict):
     precipitation: StripesConfigItem
 
 
-def _get_stripes_settings() -> Settings:
-    """Give the settings the stripes read a station's values with.
+def _get_stripes_options() -> Options:
+    """Give the options the stripes read a station's values with.
 
     `_get_stripes_data` takes the `value` column of a long frame and draws the gaps in a station's
     record itself. The rest comes from the environment as for any request, but `WD_TS_SHAPE=wide`
     left no `value` column (`ColumnNotFoundError`), and `WD_TS_SKIP_EMPTY=true` dropped a station
-    with gaps, leaving no years to draw (GH-2348). Those two are fixed here.
+    with gaps, leaving no years to draw (GH-2348). Those two are fixed here, as arguments, which
+    outrank the environment's variables. The host's `Settings`, which the request builds beside
+    them, still read `WD_TS_*` until they drop the ts_* settings (GH-2639), so a malformed one
+    is refused all the same.
     """
-    return Settings(ts_shape="long", ts_skip_empty=False)
+    return Options(shape="long", skip_empty=False)
 
 
 def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
@@ -1609,7 +1645,7 @@ def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL) -> Dwd
     return DwdObservationRequest(
         parameters=[("annual", "climate_summary", "temperature_air_mean_2m")],
         periods=periods,
-        settings=_get_stripes_settings(),
+        options=_get_stripes_options(),
     )
 
 
@@ -1618,7 +1654,7 @@ def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL) -> D
     return DwdObservationRequest(
         parameters=[("annual", "precipitation_more", "precipitation_amount")],
         periods=periods,
-        settings=_get_stripes_settings(),
+        options=_get_stripes_options(),
     )
 
 
@@ -1724,7 +1760,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         unit=_values_unit(
             parameter_model,
             stations.values.unit_converter,
-            convert_units=stations.settings.ts_convert_units,
+            convert_units=stations.options.convert_units,
         ),
     )
 
