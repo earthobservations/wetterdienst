@@ -43,7 +43,8 @@ Types of changes:
   (strict mode refuses `from wetterdienst.provider.dwd.observation import DwdObservationRequest`
   otherwise), `to_plot(**kwargs)` takes any values (it said `dict`), `discover()` is
   `dict[str, Any]`, and `TimeseriesValues` is generic over the model a provider collects by (a bare
-  `TimeseriesValues` still means any) (GH-2622)
+  `TimeseriesValues` still means any). A request's `metadata`, `_values` and `_history` are class
+  variables, no longer in `dataclasses.fields()` (GH-2622)
 
 ### Removed
 

@@ -317,7 +317,7 @@ class MetadataModel(BaseModel):
         """
         resolution = _find(self.resolutions, item)
         if resolution is None:
-            # pydantic defines `__getattr__` at runtime only, so its stubs do not have it
+            # pydantic defines `__getattr__` only outside `TYPE_CHECKING`, so a checker does not see it
             return super().__getattr__(item)  # ty: ignore[unresolved-attribute]
         return resolution
 

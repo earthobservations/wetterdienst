@@ -3,7 +3,8 @@
 It is never run. It uses the public API the way the README and the documented examples do and states
 with `assert_type` what a type checker is to make of each result, so a change that turns one into
 `Any` or into something a caller must cast shows up as a diagnostic on the line that says what the
-caller expected. The checker sees the installed package, as it does for anyone using it.
+caller expected. ty reads the package from `src/` as first-party code, so what depends on the marker
+or on `__all__` is held up by the tests beside it, not by this script.
 """
 
 from __future__ import annotations

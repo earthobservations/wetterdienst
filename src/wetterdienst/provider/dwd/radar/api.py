@@ -435,6 +435,7 @@ class DwdRadarValues:  # noqa: PLW1641
                 # Filter for dates range if start and end are defined.
                 if period == Period.RECENT:
                     file_index = file_index.filter(
+                        # typed as all __init__ accepts; a window is datetimes (an open one is None, as before)
                         pl.col("datetime").is_between(
                             cast("dt.datetime", self.start), cast("dt.datetime", self.end), closed="both"
                         ),
@@ -478,6 +479,7 @@ class DwdRadarValues:  # noqa: PLW1641
 
             # Filter for dates range if start and end are defined.
             file_index = file_index.filter(
+                # typed as all __init__ accepts; a window is datetimes (an open one is None, as before)
                 pl.col("datetime").is_between(
                     cast("dt.datetime", self.start), cast("dt.datetime", self.end), closed="both"
                 ),

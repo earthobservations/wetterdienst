@@ -39,12 +39,24 @@ def test_the_package_ships_the_py_typed_marker() -> None:
 def test_the_public_surface_type_checks_as_a_caller_sees_it() -> None:
     """Test that the type of each result of the documented API is what `tests/typed_caller.py` says.
 
-    The script is checked by the checker the project uses on its own code, against the package as
-    installed. An `assert_type` that no longer holds names the result that turned into `Any`, or into
-    something a caller must cast.
+    The script is checked by the checker the project uses on its own code, which reads the package
+    from `src/`. An `assert_type` that no longer holds names the result that turned into `Any`, or
+    into something a caller must cast. (mypy and pyright, which the marker matters to, were run once
+    by hand against a built wheel; see GH-2622.)
     """
     completed = subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "ty", "check", "--error-on-warning", "--output-format", "concise", str(CALLER)],
+        [
+            sys.executable,
+            "-m",
+            "ty",
+            "check",
+            "--error-on-warning",
+            "--output-format",
+            "concise",
+            "--python",
+            sys.prefix,
+            str(CALLER),
+        ],
         capture_output=True,
         text=True,
         check=False,
@@ -95,10 +107,10 @@ def test_the_ignore_comments_say_why() -> None:
 
 
 def test_the_ignore_comments_are_still_needed() -> None:
-    """Test that every ignore still silences something.
+    """Test that `ty` is set to report an ignore that silences nothing (`unused-ignore-comment`).
 
-    The project's `ty` settings report one that no longer does (`unused-ignore-comment`), so a fix
-    that makes an ignore pointless takes it out in the same change.
+    `poe typecheck` then fails on one, so a fix that makes an ignore pointless takes it out in the
+    same change. Only the setting is read here; the check itself is the typecheck.
     """
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf8")
 
