@@ -20,7 +20,7 @@ import io
 import json
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 import polars as pl
 import stamina
@@ -287,6 +287,13 @@ class KnmiObservationRequest(TimeseriesRequest):
     metadata = KnmiObservationMetadata
     _values = KnmiObservationValues
 
+    # extend base columns of core class with the station's full WIGOS station identifier, of which
+    # `station_id` is the trailing WMO number
+    _base_columns: ClassVar = (
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "wigos_id",
+    )
+
     @classmethod
     def is_configured(cls) -> bool:  # noqa: D102
         from wetterdienst.settings import Settings  # noqa: PLC0415
@@ -373,6 +380,7 @@ class KnmiObservationRequest(TimeseriesRequest):
             return pl.DataFrame(
                 {
                     "station_id": [public_station_id(wsi) for wsi in variables["station"][:]],
+                    "wigos_id": [decode_str(wsi) for wsi in variables["station"][:]],
                     "name": [decode_str(name) for name in variables["stationname"][:]],
                     "latitude": variables["lat"][:].tolist(),
                     "longitude": variables["lon"][:].tolist(),

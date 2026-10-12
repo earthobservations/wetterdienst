@@ -35,8 +35,8 @@ def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
                 "resolution": "daily",
                 "dataset": "data",
                 "station_id": "14",
-                "start_timestamp": dt.datetime(1984, 1, 1, hour=8, tzinfo=ZoneInfo("UTC")),
-                "end_timestamp": dt.datetime(1996, 11, 30, hour=8, tzinfo=ZoneInfo("UTC")),
+                "start_timestamp": dt.datetime(1984, 1, 1, tzinfo=ZoneInfo("UTC")),
+                "end_timestamp": dt.datetime(1996, 11, 30, tzinfo=ZoneInfo("UTC")),
                 "latitude": 48.52,
                 "longitude": -123.17,
                 "elevation": 4.0,
@@ -70,6 +70,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -79,6 +80,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 11.7,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -88,6 +90,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 1.0,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -97,6 +100,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 1.0,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -106,6 +110,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -115,6 +120,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 9.5,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -124,6 +130,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 6.3,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "2",
@@ -133,6 +140,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 3.0,
                 "quality": None,
+                "quality_flag": None,
             },
         ],
         schema={
@@ -154,6 +162,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
+            "quality_flag": pl.String,
         },
         orient="row",
     )
@@ -443,6 +452,113 @@ def test_eccc_monthly_is_stamped_at_00_utc_of_the_first_of_the_month(
     ]
 
 
+# The first and last day of TORONTO INTL A as the station list states them: FIRST_DATE "2013-06-11 09:00:00" and
+# LAST_DATE "2026-10-08 12:30:10" in local time, which the zone (EDT on both days) moves to 13:00 UTC and 16:30 UTC of
+# the same days, hours after the 00:00 UTC stamp of a daily or monthly value of that date.
+_FIRST_AND_LAST_DAILY_ROWS = [
+    {"LOCAL_DATE": "2013-06-11 00:00:00", "MEAN_TEMPERATURE": 17.2, "MEAN_TEMPERATURE_FLAG": None},
+    {"LOCAL_DATE": "2013-06-12 00:00:00", "MEAN_TEMPERATURE": 18.0, "MEAN_TEMPERATURE_FLAG": None},
+    {"LOCAL_DATE": "2026-10-07 00:00:00", "MEAN_TEMPERATURE": 11.4, "MEAN_TEMPERATURE_FLAG": None},
+    {"LOCAL_DATE": "2026-10-08 00:00:00", "MEAN_TEMPERATURE": 12.1, "MEAN_TEMPERATURE_FLAG": None},
+]
+_FIRST_AND_LAST_MONTHLY_ROWS = [
+    {"LOCAL_DATE": "2013-06", "MEAN_TEMPERATURE": 17.9, "MEAN_TEMPERATURE_FLAG": None},
+    {"LOCAL_DATE": "2013-07", "MEAN_TEMPERATURE": 22.0, "MEAN_TEMPERATURE_FLAG": None},
+    {"LOCAL_DATE": "2026-09", "MEAN_TEMPERATURE": 18.3, "MEAN_TEMPERATURE_FLAG": None},
+    {"LOCAL_DATE": "2026-10", "MEAN_TEMPERATURE": 11.8, "MEAN_TEMPERATURE_FLAG": None},
+]
+
+
+@pytest.mark.parametrize(
+    ("resolution", "rows", "day", "expected"),
+    [
+        ("daily", _FIRST_AND_LAST_DAILY_ROWS, "2013-06-11", 17.2),
+        ("daily", _FIRST_AND_LAST_DAILY_ROWS, "2026-10-08", 12.1),
+        ("monthly", _FIRST_AND_LAST_MONTHLY_ROWS, "2013-06-01", 17.9),
+        ("monthly", _FIRST_AND_LAST_MONTHLY_ROWS, "2026-10-01", 11.8),
+    ],
+    ids=["daily-first-day", "daily-last-day", "monthly-first-month", "monthly-last-month"],
+)
+def test_eccc_request_for_the_first_or_last_day_of_a_station_is_not_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+    settings_convert_units_false: Settings,
+    resolution: str,
+    rows: list[dict],
+    day: str,
+    expected: float,
+) -> None:
+    """Test that a request for the day or month a station starts or ends on returns its value (GH-2730).
+
+    The station list gives FIRST_DATE as 09:00 on the first day, local time, which is hours after 00:00 UTC. A request
+    for that one day ends at 00:00 UTC, so the station read as starting after the window and was skipped, though it has
+    a value stamped at 00:00 UTC of the day. The last-day cases were never skipped, as only the start is read; they
+    pin that.
+    """
+    _serve_eccc(monkeypatch, rows)
+    request = EcccObservationRequest(
+        parameters=[(resolution, "data", "temperature_air_mean_2m")],
+        start=day,
+        end=day,
+        settings=settings_convert_units_false,
+    )
+    df = request.filter_by_station_id("51459").values.all().df
+    assert df.select("timestamp", "value").rows() == [
+        (dt.datetime.fromisoformat(day).replace(tzinfo=ZoneInfo("UTC")), expected)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("resolution", "start", "end"),
+    [
+        # a date or month is stamped at 00:00 UTC of it, as the values are, whatever the zone
+        ("daily", dt.datetime(2013, 6, 11, tzinfo=ZoneInfo("UTC")), dt.datetime(2026, 10, 8, tzinfo=ZoneInfo("UTC"))),
+        ("monthly", dt.datetime(2013, 6, 1, tzinfo=ZoneInfo("UTC")), dt.datetime(2026, 10, 1, tzinfo=ZoneInfo("UTC"))),
+        # an hour is an instant, so the station's zone applies (EDT on both days)
+        (
+            "hourly",
+            dt.datetime(2013, 6, 11, 13, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 10, 8, 16, 30, 10, tzinfo=ZoneInfo("UTC")),
+        ),
+    ],
+)
+def test_eccc_station_list_dates_are_stamped_like_the_values(
+    monkeypatch: pytest.MonkeyPatch,
+    settings_convert_units_false: Settings,
+    resolution: str,
+    start: dt.datetime,
+    end: dt.datetime,
+) -> None:
+    """Test that the first and last date of a station are the stamps of its first and last value (GH-2730)."""
+    _serve_eccc(monkeypatch, [])
+    request = EcccObservationRequest(
+        parameters=[(resolution, "data")],
+        settings=settings_convert_units_false,
+    ).filter_by_station_id("51459")
+    assert request.df.select("start_timestamp", "end_timestamp").rows() == [(start, end)]
+
+
+def test_eccc_years_of_a_request_without_dates_follow_the_row_of_each_resolution(
+    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
+) -> None:
+    """Test that each resolution takes its years from its own first and last date when a request names no dates.
+
+    The station ends at 22:00 on 31 December 2014 in EST, which is 2015-01-01 03:00 UTC: the hourly rows, stamped from
+    UTC_DATE, reach into 2015 while the daily ones end in 2014. Both were read from the first row of the station, that
+    of whichever resolution comes first, not necessarily the one fetched (GH-2730).
+    """
+    station = _TORONTO_STATION | {"FIRST_DATE": "2013-12-31 21:00:00", "LAST_DATE": "2014-12-31 22:00:00"}
+    urls = _serve_eccc(monkeypatch, [], station)
+    EcccObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m"), ("hourly", "data", "temperature_air_2m")],
+        settings=settings_convert_units_false,
+    ).filter_by_station_id("51459").values.all()
+    assert [url.split("UTC_YEAR=")[1].split("&")[0] for url in urls if "climate-hourly" in url] == [
+        "2014",
+        "2015",
+    ]
+    assert [url.split("datetime=")[1][:4] for url in urls if "climate-daily" in url] == ["2013", "2014"]
+
+
 def test_eccc_daily_year_window_is_the_calendar_year_of_local_date(
     monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
 ) -> None:
@@ -499,3 +615,69 @@ def test_eccc_hourly_year_window_follows_utc_date_not_the_civil_zone(
         (dt.datetime(2025, 1, 1, 0, tzinfo=ZoneInfo("UTC")), -14.9),
         (dt.datetime(2025, 1, 1, 1, tzinfo=ZoneInfo("UTC")), -15.0),
     ]
+
+
+def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a value's `*_FLAG` letter is kept verbatim in `quality_flag`, beside its own parameter (GH-2018).
+
+    The flags were fetched, joined on as `quality` and then replaced by a null Float64, so a missing (`M`),
+    estimated (`E`) or trace (`T`) day looked like any other. Rows as api.weather.gc.ca/collections/climate-daily
+    returns them for 50430 in 2023 (checked 2026-10-11): an unflagged value has a null flag, and a flag can sit on
+    a null value (`M`) or on a value (`T` on a precipitation of 0.0).
+
+    ECCC's Technical Documentation (climate.weather.gc.ca/doc/Technical_Documentation.pdf, "Table of flags"):
+    "M  Missing", "E  Estimated", "T  Trace; value is zero", blank "Valid data".
+    """
+    rows = [
+        {
+            "LOCAL_DATE": "2023-01-01 00:00:00",
+            "MEAN_TEMPERATURE": -5.0,
+            "MEAN_TEMPERATURE_FLAG": None,
+            "TOTAL_PRECIPITATION": 0.0,
+            "TOTAL_PRECIPITATION_FLAG": "T",
+        },
+        {
+            "LOCAL_DATE": "2023-01-02 00:00:00",
+            "MEAN_TEMPERATURE": None,
+            "MEAN_TEMPERATURE_FLAG": "M",
+            "TOTAL_PRECIPITATION": 1.2,
+            "TOTAL_PRECIPITATION_FLAG": "E",
+        },
+    ]
+    _serve_eccc(monkeypatch, rows)
+    request = EcccObservationRequest(
+        parameters=[
+            ("daily", "data", "temperature_air_mean_2m"),
+            ("daily", "data", "precipitation_amount"),
+        ],
+        start="2023-01-01",
+        end="2023-01-02",
+        # nulls kept, or the missing day's row, which holds only its `M`, would be dropped
+        settings=Settings(ts_convert_units=False, ts_drop_nulls=False),
+    )
+    df = request.filter_by_station_id("51459").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    assert df.schema["quality_flag"] == pl.String
+    assert df.get_column("quality").null_count() == df.height
+    assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flag").rows() == [
+        ("precipitation_amount", 0.0, "T"),
+        ("precipitation_amount", 1.2, "E"),
+        ("temperature_air_mean_2m", -5.0, None),
+        ("temperature_air_mean_2m", None, "M"),
+    ]
+
+
+def test_eccc_monthly_has_no_flags_and_so_a_null_quality_flag(
+    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
+) -> None:
+    """Test that monthly rows, which ECCC publishes without flags, come back with a null `quality_flag`."""
+    _serve_eccc(monkeypatch, [{"LOCAL_DATE": "2025-01", "MEAN_TEMPERATURE": -5.4}])
+    request = EcccObservationRequest(
+        parameters=[("monthly", "data", "temperature_air_mean_2m")],
+        start="2025-01-01",
+        end="2025-01-01",
+        settings=settings_convert_units_false,
+    )
+    df = request.filter_by_station_id("51459").values.all().df
+    assert df.schema["quality_flag"] == pl.String
+    assert df.get_column("quality_flag").to_list() == [None]
+    assert df.get_column("value").to_list() == [-5.4]

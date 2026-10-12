@@ -1261,4 +1261,5 @@ class DwdRoadRequest(TimeseriesRequest):
             ),
         )
         df = df.with_columns(pl.col(col).cast(dtype) for col, dtype in self._dtypes.items())
-        return df.lazy()
+        # the flag only filtered the rows above; it is no station column
+        return df.drop("has_file").lazy()

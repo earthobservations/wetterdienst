@@ -401,7 +401,7 @@ for result in stations.values.query():
     # analyse the station here
     break
 
-df = result.df.drop_nulls()
+df = result.df.drop_nulls("value")
 df
 ```
 
@@ -423,7 +423,7 @@ request = DwdObservationRequest(
     end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=("00003", "01048"))
-df = stations.values.all().df.drop_nulls()
+df = stations.values.all().df.drop_nulls("value")
 df
 ```
 
@@ -482,6 +482,25 @@ import polars as pl
 # filter by parameters that may or may not be present in the result
 subset = df.filter(pl.col("parameter").cast(pl.String).is_in(["temperature_air_mean_2m", "sunshine_duration"]))
 ```
+
+A reading's quality comes in two columns. `quality` is a number, which each provider fills in its
+own way (DWD its quality level, DWD road a 0/1 mark, ...), so a number from one provider says
+nothing about one from another; it is null for a provider that sets none. `quality_flag` is a
+string holding the source's own flag or code for the reading, for the providers listed below, with
+only whitespace trimmed and CHMI's `0.0` written as `0`; it is null for every other provider and
+for a reading the source gives no flag. In the wide shape each parameter has both, named
+`<parameter>_quality` and `<parameter>_quality_flag`. Interpolated and summarized results have
+neither, as they are made of several stations' readings.
+
+| Provider | `quality_flag` |
+| --- | --- |
+| ECCC | the `*_FLAG` letter of the value: `M` missing, `E` estimated, `T` trace, ... (null for monthly) |
+| EA hydrology | the reading's `quality`: `Good`, `Estimated`, `Suspect`, `Unchecked`, `Missing` |
+| Météo-France observation | the `Q<parameter>` code: `9` filtered, `0` protected, `1` validated, `2` doubtful |
+| NOAA GHCN daily | the quality flag of the value's attributes: the check it failed (`X` bounds, `G` gap, ...) |
+| CHMI (daily, 10 minutes, hourly) | the `QUALITY` code: `0` good, `1` suspect, `2` poor, `3` estimated, `4` missing, `5` unknown |
+| NWS | the MADIS `qualityControl` flag: `Z`, `C`, `S`, `V`, `X`, `Q`, `G`, `B`, `T` |
+| SMHI | the `Kvalitet` code: `G` approved, `Y` suspect or aggregated |
 
 In case you use `filter_by_rank` you may want to skip empty stations. We can use the Settings from
 [settings](settings.md) to achieve that:

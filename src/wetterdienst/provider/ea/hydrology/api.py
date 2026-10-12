@@ -141,8 +141,9 @@ _RESOLUTIONS_BY_PERIOD: dict[str, str] = {
 # oldest first, and says nothing about having stopped there. Daily never reaches it -- 100_000
 # daily readings is 274 years -- but 15-minute readings run out after some 2.8 years, so an
 # unbounded request answered every recent window with the readings of 2008 to 2011 and the
-# post-filter then dropped every one of them. The window is asked for instead, and the page raised
-# to the number of readings that window can hold, so neither end is silently cut.
+# post-filter then dropped every one of them. The window is asked for instead, and, for the
+# resolutions that need it, the page raised to the number of readings that window can hold, so
+# neither end is silently cut. Daily is left on the default page (see `_readings_url`).
 _READINGS_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 # the endpoint reports its timestamps without a zone and they are read as UTC below. A day either
 # side keeps that assumption from costing the edges of the window, which the caller trims anyway.
@@ -164,13 +165,17 @@ class EAHydrologyValues(TimeseriesValues):
             return url
         start_date = self.sr.start - _READINGS_MARGIN
         end_date = self.sr.end + _READINGS_MARGIN
-        if parameter.dataset.resolution.value == Resolution.DAILY:
+        daily = parameter.dataset.resolution.value == Resolution.DAILY
+        if daily:
             end_date += _DAILY_DAY_START
         query: dict[str, str | int] = {
             "mineq-dateTime": start_date.strftime(_READINGS_DATETIME_FORMAT),
             "maxeq-dateTime": end_date.strftime(_READINGS_DATETIME_FORMAT),
         }
-        limit = count_readings(parameter.dataset.resolution.value, start_date, end_date)
+        # a daily window holds more readings than days -- the maximum and minimum are dated at their instant
+        # and the endpoint answers a window twice at times -- so the count of days would cut the newest
+        # readings (GH-2732). It is left to the default page of 100_000 readings, which a daily window never fills
+        limit = None if daily else count_readings(parameter.dataset.resolution.value, start_date, end_date)
         if limit:
             query["_limit"] = limit
         return f"{url}?{urlencode(query)}"
@@ -292,6 +297,8 @@ class EAHydrologyValues(TimeseriesValues):
             timestamp.alias("timestamp"),
             pl.col("value"),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
+            # the reading's own "quality" word (Good, Estimated, Suspect, Unchecked, Missing), verbatim (GH-2018)
+            pl.col("quality").alias("quality_flag"),
         )
 
 

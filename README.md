@@ -134,13 +134,13 @@ stations.head()
 
 values = request.values.all().df
 values.head()
-# ┌────────────┬────────────┬─────────────────┬──────────────────────┬─────────────────────────┬───────┬─────────┐
-# │ station_id ┆ resolution ┆ dataset         ┆ parameter            ┆ timestamp               ┆ value ┆ quality │
-# ╞════════════╪════════════╪═════════════════╪══════════════════════╪═════════════════════════╪═══════╪═════════╡
-# │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_amount ┆ 2002-08-11 00:00:00 UTC ┆ 67.9  ┆ 10.0    │
-# │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_amount ┆ 2002-08-12 00:00:00 UTC ┆ 312.0 ┆ 10.0    │
-# │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_amount ┆ 2002-08-13 00:00:00 UTC ┆ 26.3  ┆ 10.0    │
-# └────────────┴────────────┴─────────────────┴──────────────────────┴─────────────────────────┴───────┴─────────┘
+# ┌────────────┬────────────┬─────────────────┬──────────────────────┬─────────────────────────┬───────┬─────────┬──────────────┐
+# │ station_id ┆ resolution ┆ dataset         ┆ parameter            ┆ timestamp               ┆ value ┆ quality ┆ quality_flag │
+# ╞════════════╪════════════╪═════════════════╪══════════════════════╪═════════════════════════╪═══════╪═════════╪══════════════╡
+# │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_amount ┆ 2002-08-11 00:00:00 UTC ┆ 67.9  ┆ 10.0    ┆ null         │
+# │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_amount ┆ 2002-08-12 00:00:00 UTC ┆ 312.0 ┆ 10.0    ┆ null         │
+# │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_amount ┆ 2002-08-13 00:00:00 UTC ┆ 26.3  ┆ 10.0    ┆ null         │
+# └────────────┴────────────┴─────────────────┴──────────────────────┴─────────────────────────┴───────┴─────────┴──────────────┘
 
 values.to_pandas()  # if you would rather have pandas
 ```

@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
 import polars as pl
 from tqdm import tqdm
-from tzfpy import get_tz
 
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.metadata import group_parameters_by_dataset
@@ -61,6 +60,9 @@ class TimeseriesValues(ABC):
         "timestamp": pl.Datetime(time_zone="UTC"),
         "value": pl.Float64,
         "quality": pl.Float64,
+        # the source's own flag or code for the reading as a string (a letter, a word, a code), where
+        # the provider reads one; null for every provider that does not (GH-2018)
+        "quality_flag": pl.String,
     }
 
     @property
@@ -74,28 +76,6 @@ class TimeseriesValues(ABC):
                 "timestamp": pl.Datetime(time_zone="UTC"),
             }
         return dict(self._long_fields)
-
-    def _get_timezone_from_station(self, station_id: str) -> str:
-        """Get timezone information for explicit station.
-
-        This is used to set the correct timezone for the timestamps of the returned values.
-
-        """
-        stations = self.sr.df
-        # from a row that has a position: a station requested at several resolutions has a row in
-        # each one's list, and one can have none, as a NOAA GHCN hourly row can (GH-2380)
-        longitude, latitude = (
-            stations.filter(
-                pl.col("station_id").eq(station_id),
-                pl.col("latitude").is_not_null(),
-                pl.col("longitude").is_not_null(),
-            )
-            .select([pl.col("longitude"), pl.col("latitude")])
-            .transpose()
-            .to_series()
-            .to_list()
-        )
-        return get_tz(longitude, latitude)
 
     def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """Convert values to metric units with help of conversion factors."""
@@ -141,12 +121,21 @@ class TimeseriesValues(ABC):
         """Reorder columns in DataFrame to match the expected order of columns."""
         columns = list(self._meta_fields.keys())
         columns.extend(set(df.columns).difference(columns))
+        # the wide form lists no value columns among the meta fields, so the flag is asked for by name
+        if "quality_flag" not in columns:
+            columns.append("quality_flag")
         df = df.with_columns(
             pl.lit(station_id).alias("station_id"),
             pl.lit(dataset.resolution.name).alias("resolution"),
             pl.lit(dataset.name.lower()).alias("dataset"),
         )
-        return df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in columns)
+        # a column the provider did not deliver is a typed null where the long form declares it: the
+        # providers that publish no flag leave `quality_flag` out, and an untyped null would not
+        # concatenate with the String column of those that do
+        return df.select(
+            pl.col(col) if col in df.columns else pl.lit(None, dtype=self._long_fields.get(col)).alias(col)
+            for col in columns
+        )
 
     # low-cardinality metadata columns that are stored as Enum instead of String to save memory
     _meta_enum_columns: ClassVar = ("station_id", "resolution", "dataset", "parameter")
@@ -355,27 +344,28 @@ class TimeseriesValues(ABC):
         """Widen a dataframe with each row having one timestamp, parameter, value and quality.
 
         Example:
-        timestamp    parameter                  value   quality
-        1971-01-01   precipitation_amount       0       0
-        1971-01-01   temperature_air_mean_2m   10      0
+        timestamp    parameter                  value   quality   quality_flag
+        1971-01-01   precipitation_amount       0       0         null
+        1971-01-01   temperature_air_mean_2m   10      0         null
 
         becomes
 
-        timestamp    precipitation_amount   precipitation_amount_quality
-        1971-01-01   0                      0
-            temperature_air_mean_2m    temperature_air_mean_2m_quality
-            10                          0
+        timestamp    precipitation_amount   precipitation_amount_quality   precipitation_amount_quality_flag
+        1971-01-01   0                      0                              null
+            temperature_air_mean_2m    temperature_air_mean_2m_quality    temperature_air_mean_2m_quality_flag
+            10                          0                                  null
 
         Each quality column is named after its parameter with a `_quality` suffix rather than a
         `quality_` prefix, which is how the table names a source's own quality flags
         (`quality_temperature_air_max_2m` and ten more like it); those never become value columns,
-        but a column named like one would read as one.
+        but a column named like one would read as one. The source's flag follows the same rule with
+        a `_quality_flag` suffix.
 
         Args:
-            df: DataFrame with columns timestamp, parameter, value and quality.
+            df: DataFrame with columns timestamp, parameter, value, quality and quality_flag.
 
         Returns:
-            DataFrame with one value and one quality column per parameter.
+            DataFrame with one value, one quality and one quality flag column per parameter.
 
         """
         # if there is more than one dataset, we need to prefix parameter names with dataset names to avoid
@@ -429,9 +419,14 @@ class TimeseriesValues(ABC):
             for (parameter,), df_parameter in df.group_by(["parameter"], maintain_order=True):
                 # Build quality column name
                 parameter_quality = f"{parameter}_quality"
-                df_parameter = df_parameter.select(["resolution", "timestamp", "value", "quality"])
+                parameter_quality_flag = f"{parameter}_quality_flag"
+                df_parameter = df_parameter.select(["resolution", "timestamp", "value", "quality", "quality_flag"])
                 df_parameter = df_parameter.rename(
-                    mapping={"value": parameter, "quality": parameter_quality},
+                    mapping={
+                        "value": parameter,
+                        "quality": parameter_quality,
+                        "quality_flag": parameter_quality_flag,
+                    },
                 )
                 # left, not inner: a parameter that has no reading at a timestamp another parameter
                 # does have one at must leave a null behind rather than take the whole timestamp
@@ -448,9 +443,11 @@ class TimeseriesValues(ABC):
                 if len(datasets) > 1:
                     parameter_name = f"{parameter.dataset.name}_{parameter_name}"
                 parameter_quality = f"{parameter_name}_quality"
+                parameter_quality_flag = f"{parameter_name}_quality_flag"
                 df_wide = df_wide.with_columns(
                     pl.lit(None, pl.Float64).alias(parameter_name),
                     pl.lit(None, pl.Float64).alias(parameter_quality),
+                    pl.lit(None, pl.String).alias(parameter_quality_flag),
                 )
 
         return df_wide

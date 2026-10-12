@@ -16,8 +16,51 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: every values frame has a `quality_flag` string column after `quality` (wide:
+  `<parameter>_quality_flag` after `<parameter>_quality`): the source's flag or code for the
+  reading, filled by `eccc/observation` (not monthly), `ea/hydrology`, `meteofrance/observation`,
+  `noaa/ghcn` daily, `chmi/observation` (not monthly or annual), `nws/observation` and
+  `smhi/observation`, which dropped it; null for every other provider. `quality` is unchanged.
+  Select columns by name, not position: positions move and the count grows by one. Append to a
+  table written before (any SQL target) only after adding the column or recreating it. A bare
+  `df.drop_nulls()` on a values frame now drops every row whose flag is null: use
+  `drop_nulls("value")`. Interpolated and summarized frames are unchanged (GH-2018)
+- **Breaking**: `metno/frost` `daily` `snow_depth` is stamped at 00:00 UTC of the date of its
+  reading, no longer at the time of the reading (usually 06:00 UTC), like the other daily
+  parameters. Join stored snow depth on the date (GH-2729)
+
+### Removed
+
+- The `tzfpy` dependency and `TimeseriesValues._get_timezone_from_station`, which looked up a
+  station's time zone from its position. Since GH-2683 no provider stamps a row with the station's
+  zone, so nothing called it; installs are one compiled package smaller. A subclass that called the
+  private method must resolve the zone itself (GH-2725)
+
 ### Fixed
 
+- `eccc/observation` a `daily` request for the first day of a station, or a `monthly` one for its
+  first month, no longer skips the station: its `start_timestamp` and `end_timestamp` in the station
+  list are now 00:00 UTC of the first and last date (of the month for `monthly`), like the values,
+  where they were the local time moved to UTC (13:00 UTC for 09:00 in Toronto). `hourly` is
+  unchanged (GH-2730)
+- `ea/hydrology` daily requests no longer cut the newest reading of a window: the readings request
+  carried a `_limit` of one reading per day, but a window holds more readings than days (the
+  maximum and minimum are dated at their instant, and the endpoint answers some days twice), so
+  the last requested day could be missing. No `_limit` is sent for daily now (GH-2732)
+- Station lists keep columns the readers built and `all()` dropped: `wsv/pegel` has `river` (as
+  published, `ELBE`) and `river_kilometer`, `noaa/ghcn` has `wmo_id` (daily and hourly, five digits),
+  `knmi/observation` has `wigos_id`, the full WIGOS identifier whose trailing number is
+  `station_id`, and `metoffice/observation` fills `region` with the MIDAS historic county
+  (`shetland`), which was null. The columns appear in the frames, JSON and GeoJSON properties of
+  those providers (GH-2019)
+- **Breaking**: `dmi/observation` `region` held DMI's country code (`DNK`, `GRL`, `FRO`) and is
+  null now, DMI giving no region; the code is in the new `country` column. Filter or group by
+  `country` where you used `region` (GH-2019)
+- **Breaking**: `imgw/meteorology` `region` held the river catchment with its hydrographic code
+  (`Odra (1)`) and is null now, the station list giving no region; the catchment is in the new
+  `river` column. Use `river` where you used `region` (GH-2019)
 - `knmi/observation` without the `knmi` extra raises `MissingDependencyError` naming
   `pip install wetterdienst[knmi]`, no longer a bare `ModuleNotFoundError` (an `ImportError` either
   way); the CLI prints that line, and `/api/stations`, `/api/values`, `/api/interpolate` and

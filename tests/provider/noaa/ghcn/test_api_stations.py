@@ -34,6 +34,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "longitude": -61.7833,
                 "name": "ST JOHNS COOLIDGE FLD",
                 "region": None,
+                "wmo_id": None,
             },
             {
                 "resolution": "daily",
@@ -45,6 +46,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "longitude": -61.7833,
                 "name": "ST JOHNS",
                 "region": None,
+                "wmo_id": None,
             },
             {
                 "resolution": "daily",
@@ -56,6 +58,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "longitude": 55.517,
                 "name": "SHARJAH INTER. AIRP",
                 "region": None,
+                "wmo_id": "41196",
             },
             {
                 "resolution": "daily",
@@ -67,6 +70,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "longitude": 55.364,
                 "name": "DUBAI INTL",
                 "region": None,
+                "wmo_id": "41194",
             },
             {
                 "resolution": "daily",
@@ -78,6 +82,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "longitude": 54.651,
                 "name": "ABU DHABI INTL",
                 "region": None,
+                "wmo_id": "41217",
             },
         ],
         schema={
@@ -90,6 +95,7 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
             "elevation": pl.Float64,
             "name": pl.String,
             "region": pl.String,
+            "wmo_id": pl.String,
         },
         orient="row",
     )
@@ -232,6 +238,43 @@ def _fake_ghcn_download_file_disagreeing(url: str, **_kwargs: object) -> File:
     """Serve the disagreeing GHCN station lists above, by file name."""
     content = GHCN_STATION_LISTS_DISAGREEING[url.rsplit("/", 1)[-1]]
     return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+
+
+def test_noaa_ghcn_stations_carry_the_wmo_number(monkeypatch: pytest.MonkeyPatch, default_settings: Settings) -> None:
+    """A station's WMO number is a column of the station list, from the daily and the hourly list (GH-2019).
+
+    The daily rows are copied from `ghcnd-stations.txt` (columns 81 to 85) and the hourly ones from
+    `ghcnh-station-list.csv` (`WMO_ID`) as NOAA publishes them; a station without a number has none in
+    either list. The hourly list also writes `400` (445 Spanish stations) and `open` where there is no
+    number, which are no WMO numbers.
+    """
+    stations = (
+        "GM000010147  53.6350    9.9900   11.0    HAMBURG FUHLSBUETTEL           GSN     10147\n"
+        "ACW00011604  17.1167  -61.7833   10.1    ST JOHNS COOLIDGE FLD                       \n"
+    )
+    inventory = "GM000010147  53.6350    9.9900 TMAX 1891 2026\nACW00011604  17.1167  -61.7833 TMAX 1949 1949\n"
+    hourly = (
+        "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        "GMI0000EDDH,53.6304,9.9882,16.1,,HAMBURG,,,,EDDH,DE\n"
+        "ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD   ANTIGUA (AUX.,,,78861,,AG\n"
+        "SPN00000293,42.0,3.2,200.0,,BEGUR (CAP),,,400,,ES\n"
+        "BPU40-00001,-3.0,30.0,800.0,,OPEN STATION,,,open,,BI\n"
+    )
+    contents = {"ghcnd-stations.txt": stations, "ghcnd-inventory.txt": inventory, "ghcnh-station-list.csv": hourly}
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        return File(url=url, content=BytesIO(contents[url.rsplit("/", 1)[-1]].encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    df = NoaaGhcnRequest(parameters=[("hourly", "data"), ("daily", "data")], settings=default_settings).all().df
+    assert df.select("resolution", "station_id", "wmo_id").rows() == [
+        ("hourly", "GMI0000EDDH", None),
+        ("hourly", "ACM00078861", "78861"),
+        ("hourly", "SPN00000293", None),
+        ("hourly", "BPU40-00001", None),
+        ("daily", "GM000010147", "10147"),
+        ("daily", "ACW00011604", None),
+    ]
 
 
 @pytest.mark.parametrize(

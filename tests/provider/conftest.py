@@ -13,6 +13,7 @@ import pytest
 from tests.provider.physical_ranges import describe, out_of_range
 from tests.provider.timestamps import timestamp_problem
 from wetterdienst.model import result as results
+from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.values import TimeseriesValues
 
@@ -20,6 +21,22 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
 
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
+
+# Columns a request's `_all()` still carries although `all()` drops them, by request class. Fixing the reader is the
+# better answer; an entry is for a column that was there before the check was, and each is a to-do of its own.
+INTERMEDIATE_STATION_COLUMNS: dict[str, frozenset[str]] = {
+    # raw columns of the catalogue that the reader leaves in the frame, among them the WMO number (GH-2751)
+    "GeosphereObservationRequest": frozenset(
+        {
+            "Synopstationsnummer",
+            "Synop",
+            "Startdatum Teilzeitreihe",
+            "Enddatum Teilzeitreihe",
+            "Verknüpfungsnummer",
+            "zusammengesetzt",
+        }
+    ),
+}
 
 _RESULT_CLASSES = (results.ValuesResult, results.InterpolatedValuesResult, results.SummarizedValuesResult)
 
@@ -40,6 +57,65 @@ def _timestamp_column_is_utc_microseconds(monkeypatch: pytest.MonkeyPatch) -> No
     """
     for cls in _RESULT_CLASSES:
         monkeypatch.setattr(cls, "__init__", _checked_init(cls.__init__))
+
+
+@pytest.fixture(autouse=True)
+def station_column_findings() -> Generator[list[str]]:
+    """Fail a test whose provider builds a station column its ``_base_columns`` leave out, and hand over what was found.
+
+    `TimeseriesRequest.all()` keeps the columns in `_base_columns` and drops the rest without a word, so a reader that
+    builds a column the request does not declare (WSV's river kilometre, GHCN's WMO number) loses it silently, and so
+    does one that leaves a raw column of its source in the frame. Checking the frame `_all()` gives on every call that
+    a provider test makes applies the rule to every fixture present and to any added later, and names the request
+    class. Remote tests are held to it too. A column a reader keeps on purpose and drops itself is listed in
+    `INTERMEDIATE_STATION_COLUMNS`, with its reason.
+
+    It is collected and raised at teardown, because a provider may swallow what `all()` raises. A test that shows
+    what the check finds on purpose asks for the list, which is the live one, asserts on it and clears it.
+    """
+    found: list[str] = []
+    all_ = TimeseriesRequest.all
+
+    def checked(self: TimeseriesRequest) -> Any:  # noqa: ANN401
+        built = self._all
+
+        def checked_all() -> pl.LazyFrame:
+            frame = built()
+            name = type(self).__name__
+            undeclared = [
+                column
+                for column in frame.collect_schema().names()
+                if column not in self._base_columns
+                and column not in INTERMEDIATE_STATION_COLUMNS.get(name, frozenset())
+            ]
+            if undeclared:
+                found.append(f"{name} builds {undeclared} but declares no such station column")
+            return frame
+
+        # the request is a plain dataclass, so the instance takes the wrapper in place of the method, for this call
+        # only: a wrapper left on it would nest on the next call and be copied along with the request
+        previous = self.__dict__.get("_all")
+        self._all = checked_all  # ty: ignore[invalid-assignment]
+        try:
+            return all_(self)
+        finally:
+            if previous is None:
+                del self.__dict__["_all"]
+            else:
+                self._all = previous  # ty: ignore[invalid-assignment]
+
+    # patched by hand rather than through `monkeypatch`, which a test may undo as a whole
+    TimeseriesRequest.all = checked  # ty: ignore[invalid-assignment]
+    try:
+        yield found
+    finally:
+        TimeseriesRequest.all = all_  # ty: ignore[invalid-assignment]
+    if found:
+        pytest.fail(
+            "a station column that the reader builds and `all()` drops, because the request's `_base_columns` do not "
+            f"list it (add it there, or drop it in the reader): {' | '.join(sorted(set(found)))}",
+            pytrace=False,
+        )
 
 
 def _checked_init(init: Any) -> Any:  # noqa: ANN401

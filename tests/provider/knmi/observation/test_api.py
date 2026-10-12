@@ -380,6 +380,36 @@ def test_knmi_request_constructs_with_api_key() -> None:
     assert request.metadata.name_short == "KNMI"
 
 
+def test_knmi_station_list_gives_the_wigos_identifier(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A station's `wigos_id` is the full WSI its file keys it by; `station_id` is its trailing number (GH-2019).
+
+    The files key a station by WSI, such as `0-20000-0-06260` for De Bilt, and `station_id` keeps only the
+    WMO number at its end, so the WSI was not in the station list at all.
+    """
+    path = tmp_path / "stations.nc"
+    string_dtype = h5py.string_dtype()
+    with h5netcdf.File(path, "w") as file:
+        file.dimensions = {"station": 2}
+        station = file.create_variable("station", ("station",), dtype=string_dtype)
+        station[:] = ["0-20000-0-06260", "0-20000-0-78990"]
+        stationname = file.create_variable("stationname", ("station",), dtype=string_dtype)
+        stationname[:] = ["De Bilt", "Bonaire"]
+        for name, values in {"lat": [52.0989, 12.1306], "lon": [5.1797, -68.2695], "height": [1.9, 4.0]}.items():
+            variable = file.create_variable(name, ("station",), dtype="f8")
+            variable[:] = values
+    payload = path.read_bytes()
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._latest_filename", lambda *_args: "latest.nc")
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._fetch_netcdf", lambda *_args: payload)
+
+    request = _request([("daily", "data", "temperature_air_mean_2m")], dt.datetime(2020, 1, 1, tzinfo=UTC), None)
+    df = request.all().df
+
+    assert df.select("station_id", "wigos_id", "name").rows() == [
+        ("06260", "0-20000-0-06260", "De Bilt"),
+        ("78990", "0-20000-0-78990", "Bonaire"),
+    ]
+
+
 @pytest.mark.remote
 @requires_knmi_credentials
 @xfail_if_knmi_unavailable
@@ -398,6 +428,7 @@ def test_knmi_observation_stations() -> None:
             "end_timestamp": None,
             "name": "De Bilt",
             "region": None,
+            "wigos_id": "0-20000-0-06260",
         },
     ]
     # coordinates/height with a tolerance -- KNMI may adjust these slightly over time

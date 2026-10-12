@@ -325,6 +325,13 @@ class DmiObservationRequest(TimeseriesRequest):
 
     _endpoint = f"{_BASE_URL}/station/items?limit={_PAGE_LIMIT}"
 
+    # extend base columns of core class with the country a station is in, as DMI's three-letter code
+    # (`DNK`, `GRL` or `FRO`). DMI gives no sub-national region, so `region` stays null
+    _base_columns: ClassVar = (
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "country",
+    )
+
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
         file = download_file(
@@ -343,7 +350,7 @@ class DmiObservationRequest(TimeseriesRequest):
         df = df.select(
             pl.col("properties").struct.field("stationId").alias("station_id"),
             pl.col("properties").struct.field("name").alias("name"),
-            pl.col("properties").struct.field("country").alias("region"),
+            pl.col("properties").struct.field("country").alias("country"),
             pl.col("geometry").struct.field("coordinates").list.get(1).alias("latitude"),
             pl.col("geometry").struct.field("coordinates").list.get(0).alias("longitude"),
             pl.col("properties").struct.field("stationHeight").alias("elevation"),
@@ -370,7 +377,7 @@ class DmiObservationRequest(TimeseriesRequest):
         # without group_by(maintain_order=True).
         df = df.group_by("station_id").agg(
             pl.col("name").sort_by("created", descending=True).first().alias("name"),
-            pl.col("region").sort_by("created", descending=True).first().alias("region"),
+            pl.col("country").sort_by("created", descending=True).first().alias("country"),
             pl.col("latitude").sort_by("created", descending=True).first().alias("latitude"),
             pl.col("longitude").sort_by("created", descending=True).first().alias("longitude"),
             pl.col("elevation").sort_by("created", descending=True).first().alias("elevation"),

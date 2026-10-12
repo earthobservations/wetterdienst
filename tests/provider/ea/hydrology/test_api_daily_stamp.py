@@ -43,7 +43,7 @@ def _serve(
     station_id = "0004"
     listing = json.dumps({"items": [_station(station_id, [notation])]}).encode()
     station = json.dumps({"items": [{"measures": [_measure(station_id, notation)]}]}).encode()
-    readings = json.dumps({"items": readings_items or _READINGS}).encode()
+    items = readings_items or _READINGS
     readings_url = f"{MEASURE_URL.format(notation=f'{station_id}-{notation}-m3s-qualified')}/readings.json"
 
     def _download(**kwargs: Any) -> File:  # noqa: ANN401
@@ -53,7 +53,9 @@ def _serve(
         elif url == STATION_URL.format(station_id=station_id):
             body = station
         elif url.startswith(readings_url):
-            body = readings
+            # the endpoint answers the oldest `_limit` readings of the window and says nothing of the rest
+            limit = parse_qs(urlparse(url).query).get("_limit")
+            body = json.dumps({"items": items[: int(limit[0])] if limit else items}).encode()
         else:
             msg = f"unexpected request to {url}"
             raise AssertionError(msg)
@@ -192,3 +194,86 @@ def test_ea_daily_window_answered_twice_keeps_the_reading_with_a_value_complete_
     )
     df = request.all().values.all().df
     assert df.get_column("value").to_list() == [expected]
+
+
+def test_ea_daily_readings_request_sets_no_page_limit(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that a daily readings request carries no `_limit`, which counted one reading per day.
+
+    A window holds more readings than days -- 052d0819 flow-min-86400 answered 7 readings for the 4 days
+    2024-02-18 to 2024-02-21, and the `_limit` of 6 cut the newest, 2024-02-21 -- so the count of days is no bound
+    (GH-2732).
+    """
+    values, parameter = _values_for(
+        ("daily", "data", "discharge_min"),
+        default_settings,
+        monkeypatch,
+        start=dt.datetime(2024, 2, 18, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2024, 2, 21, tzinfo=ZoneInfo("UTC")),
+    )
+    query = parse_qs(urlparse(values._readings_url(MEASURE_URL.format(notation="x"), parameter)).query)  # noqa: SLF001
+    assert "_limit" not in query
+    assert query["mineq-dateTime"] == ["2024-02-17T00:00:00"]
+    assert query["maxeq-dateTime"] == ["2024-02-22T09:00:00"]
+
+
+def test_ea_daily_window_with_more_readings_than_days_keeps_the_last_day(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that the readings of a window with more readings than days are all taken, the last day included.
+
+    The readings are those the endpoint answered for 052d0819 flow-min-86400, 2024-02-17 to 2024-02-22 (GH-2732).
+    """
+    readings = [
+        {"dateTime": "2024-02-17T08:45:00", "value": 5.72, "quality": "Unchecked", "completeness": "Complete"},
+        {"dateTime": "2024-02-17T11:30:00", "value": 4.18, "quality": "Unchecked", "completeness": "Complete"},
+        {"dateTime": "2024-02-18T09:00:00", "value": 7.2, "quality": "Unchecked", "completeness": "Complete"},
+        {"dateTime": "2024-02-19T09:00:00", "value": 23.0, "quality": "Unchecked", "completeness": "Incomplete"},
+        {"dateTime": "2024-02-20T08:45:00", "value": 21.2, "quality": "Unchecked", "completeness": "Complete"},
+        {"dateTime": "2024-02-21T08:45:00", "value": 9.05, "quality": "Unchecked", "completeness": "Complete"},
+        {"dateTime": "2024-02-21T13:00:00", "value": 7.9, "quality": "Unchecked", "completeness": "Complete"},
+    ]
+    _serve(monkeypatch, "flow-min-86400", readings)
+    request = EAHydrologyRequest(
+        parameters=[("daily", "data", "discharge_min")],
+        start="2024-02-18",
+        end="2024-02-21",
+        settings=default_settings,
+    )
+    df = request.all().values.all().df
+    # 02-19 is answered twice (the 02-19T09:00 reading is incomplete), and the complete one stays
+    assert df.get_column("value").to_list() == [7.2, 21.2, 9.05, 7.9]
+    assert df.get_column("timestamp").dt.date().dt.strftime("%Y-%m-%d").to_list() == [
+        "2024-02-18",
+        "2024-02-19",
+        "2024-02-20",
+        "2024-02-21",
+    ]
+
+
+def test_ea_reading_quality_word_is_kept_in_quality_flag(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that a reading's `quality` word is returned verbatim in `quality_flag`, and `quality` stays null (GH-2018).
+
+    The word was part of the readings schema and then replaced by a null Float64. The Environment Agency's
+    reference (environment.data.gov.uk/hydrology/doc/reference, "Quality flags"): "quality: The quality of this
+    reading -- Good, Estimated, Suspect, Unchecked, Missing". Checked against the live readings of
+    f22f80f8-1bb0-4e77-b225-291487060c6f-flow-m-86400 for 2023 on 2026-10-11: 348 Good and 16 Suspect.
+    """
+    readings = [
+        {"dateTime": "2025-06-10T09:00:00", "value": 0.448, "quality": "Good", "completeness": "Complete"},
+        {"dateTime": "2025-06-11T09:00:00", "value": 0.359, "quality": "Suspect", "completeness": "Complete"},
+        {"dateTime": "2025-06-12T09:00:00", "value": 0.304, "quality": "Estimated", "completeness": "Complete"},
+    ]
+    _serve(monkeypatch, "flow-m-86400", readings)
+    request = EAHydrologyRequest(
+        parameters=[("daily", "data", "discharge_mean")],
+        start="2025-06-10",
+        end="2025-06-12",
+        settings=default_settings,
+    )
+    df = request.all().values.all().df.sort("timestamp")
+    assert df.select("value", "quality_flag").rows() == [(0.448, "Good"), (0.359, "Suspect"), (0.304, "Estimated")]
+    assert df.get_column("quality").null_count() == df.height

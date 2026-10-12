@@ -8,6 +8,9 @@ because this is the most common and maintainable resolution with most observatio
 
 The GHCN-Hourly dataset represents the previously existing ISD (Integrated Surface Database).
 
+Each station's `wmo_id` is the WMO station number the lists give it, null for the many stations that
+have none.
+
 ## License
 
 The NOAA GHCN incorporates data of multiple weather services across the globe. The 

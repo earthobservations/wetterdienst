@@ -610,6 +610,7 @@ def test_values_dwd_success(client: TestClient) -> None:
         "timestamp": "1982-01-01T00:00:00.000000+00:00",
         "value": 4.2,
         "quality": 10.0,
+        "quality_flag": None,
     }
 
 
@@ -780,32 +781,46 @@ def test_values_dwd_sql_tabular(client: TestClient, monkeypatch: pytest.MonkeyPa
         "dataset": "climate_summary",
         "cloud_cover_total": 0.8625,
         "cloud_cover_total_quality": 10.0,
+        "cloud_cover_total_quality_flag": None,
         "humidity_relative": 0.89,
         "humidity_relative_quality": 10.0,
+        "humidity_relative_quality_flag": None,
         "precipitation_form": 0.0,
         "precipitation_form_quality": 10.0,
+        "precipitation_form_quality_flag": None,
         "precipitation_amount": 0.0,
         "precipitation_amount_quality": 10.0,
+        "precipitation_amount_quality_flag": None,
         "pressure_air_site": 993.9,
         "pressure_air_site_quality": 10.0,
+        "pressure_air_site_quality_flag": None,
         "pressure_vapor": 4.6,
         "pressure_vapor_quality": 10.0,
+        "pressure_vapor_quality_flag": None,
         "snow_depth": 0,
         "snow_depth_quality": 10.0,
+        "snow_depth_quality_flag": None,
         "sunshine_duration": 0.0,
         "sunshine_duration_quality": 10.0,
+        "sunshine_duration_quality_flag": None,
         "temperature_air_max_2m": -0.6,
         "temperature_air_max_2m_quality": 10.0,
+        "temperature_air_max_2m_quality_flag": None,
         "temperature_air_mean_2m": -2.2,
         "temperature_air_mean_2m_quality": 10.0,
+        "temperature_air_mean_2m_quality_flag": None,
         "temperature_air_min_0_05m": -6.6,
         "temperature_air_min_0_05m_quality": 10.0,
+        "temperature_air_min_0_05m_quality_flag": None,
         "temperature_air_min_2m": -4.6,
         "temperature_air_min_2m_quality": 10.0,
+        "temperature_air_min_2m_quality_flag": None,
         "wind_gust_max": 4.6,
         "wind_gust_max_quality": 10.0,
+        "wind_gust_max_quality_flag": None,
         "wind_speed": 1.9,
         "wind_speed_quality": 10.0,
+        "wind_speed_quality_flag": None,
     }
 
 
@@ -835,6 +850,7 @@ def test_values_dwd_sql_long(client: TestClient, monkeypatch: pytest.MonkeyPatch
         "timestamp": "2019-12-28T00:00:00.000000+00:00",
         "value": 1.3,
         "quality": 10.0,
+        "quality_flag": None,
     }
 
 
@@ -1553,6 +1569,7 @@ def test_values_dwd_mosmix(client: TestClient) -> None:
         "timestamp": IsStr,
         "value": IsNumber,
         "quality": None,
+        "quality_flag": None,
     }
 
 
@@ -1579,6 +1596,7 @@ def test_values_dwd_dmo_lead_time_long(client: TestClient) -> None:
         "timestamp": IsStr,
         "value": IsNumber,
         "quality": None,
+        "quality_flag": None,
     }
 
 
@@ -1609,6 +1627,7 @@ def test_values_dwd_observation_climate_summary_custom_units(client: TestClient)
         "timestamp": "2022-01-01T00:00:00.000000+00:00",
         "value": 52.52,
         "quality": 10.0,
+        "quality_flag": None,
     }
 
 
@@ -2435,6 +2454,19 @@ def test_values_item_output_schemas_match_payload(schema_name: str, nullable_num
         branches = properties[field].get("anyOf", [properties[field]])
         assert any(branch.get("type") == "null" for branch in branches), f"{schema_name}.{field} not nullable"
         assert any(branch.get("type") == "number" for branch in branches), f"{schema_name}.{field} not numeric"
+
+
+def test_values_item_schema_types_the_quality_flag_as_a_nullable_string() -> None:
+    """The long item schemas declare `quality_flag` as a string or null, the other two omit it (GH-2018)."""
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    schemas = app.openapi()["components"]["schemas"]
+    for name in ("_ValuesItemDict", "_ValuesOgcItemDict"):
+        flag = schemas[name]["properties"]["quality_flag"]
+        assert {branch.get("type") for branch in flag["anyOf"]} == {"string", "null"}
+        assert "quality_flag" in schemas[name]["required"]
+    for name in ("_InterpolatedValuesItemDict", "_SummarizedValuesItemDict"):
+        assert "quality_flag" not in schemas[name]["properties"]
 
 
 @pytest.mark.remote
@@ -3424,8 +3456,8 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
     """Build a values result of one station in two daily datasets, in the long or the wide shape.
 
     The wide row is the one `TimeseriesValues._widen_df` writes for two datasets of one resolution:
-    one value and one quality column per parameter, prefixed with its dataset, and no dataset of
-    its own.
+    one value, one quality and one quality flag column per parameter, prefixed with its dataset, and
+    no dataset of its own.
     """
     import datetime as dt  # noqa: PLC0415
 
@@ -3472,6 +3504,8 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
                 "parameter": "temperature_air_mean_2m",
                 "value": 1.0,
                 "quality": 10.0,
+                # a flag that is set, so the schema checks run over a string as well as over null
+                "quality_flag": "E",
             },
             {
                 **row,
@@ -3479,6 +3513,7 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
                 "parameter": "precipitation_amount",
                 "value": 2.0,
                 "quality": None,
+                "quality_flag": None,
             },
         ],
         schema_overrides={"timestamp": pl.Datetime(time_zone="UTC")},
@@ -3588,13 +3623,17 @@ _NEEDS_EXTRA_ITEMS = pytest.mark.skipif(
 def test_values_wide_row_schemas_type_the_parameter_columns(schema_name: str) -> None:
     """The wide row schemas type the columns beyond the declared ones as nullable numbers (GH-2282).
 
-    A wide row has a value and a quality column per parameter asked for, which differ per request,
-    so a client generated from the schema must not read the declared keys as a closed list.
+    A wide row has a value, a quality and a quality flag column per parameter asked for, which differ per
+    request, so a client generated from the schema must not read the declared keys as a closed list. The
+    flag columns, named `<parameter>_quality_flag`, are nullable strings and the rest nullable numbers (GH-2018).
     """
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
 
-    extra = app.openapi()["components"]["schemas"][schema_name]["additionalProperties"]
+    schema = app.openapi()["components"]["schemas"][schema_name]
+    extra = schema["additionalProperties"]
     assert {branch.get("type") for branch in extra.get("anyOf", [extra])} == {"number", "null"}
+    flag = schema["patternProperties"]["_quality_flag$"]
+    assert {branch.get("type") for branch in flag.get("anyOf", [flag])} == {"string", "null"}
 
 
 @_NEEDS_EXTRA_ITEMS
@@ -3616,6 +3655,8 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
         item = result.to_dict()["values"][0]
     else:
         item = result.to_ogc_feature_collection()["data"]["features"][0]["values"][0]
+    # a flag set on the stub row would be refused first, as it is no number; the row's `parameter` is the point
+    item = {**item, "quality_flag": None}
     schema = {"$ref": f"#/components/schemas/{schema_name}", "components": app.openapi()["components"]}
     with pytest.raises(jsonschema.ValidationError, match="'temperature_air_mean_2m' is not valid"):
         jsonschema.validate(item, schema)
@@ -4282,6 +4323,7 @@ def test_values_wide_items_are_the_ones_the_description_states(stubbed_values: C
             "timestamp",
             *parameters,
             *(f"{parameter}_quality" for parameter in parameters),
+            *(f"{parameter}_quality_flag" for parameter in parameters),
         }
         # both datasets are daily, so they share the row and no one dataset names it
         assert item["dataset"] is None
@@ -6017,6 +6059,7 @@ def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: li
                     "timestamp": dt.datetime(2000 + offset, 1, 1, tzinfo=dt.UTC),
                     "value": value,
                     "quality": 10.0,
+                    "quality_flag": None,
                 }
                 for offset, value in enumerate(values)
             ],
