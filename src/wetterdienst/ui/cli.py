@@ -47,6 +47,7 @@ from wetterdienst.ui.core import (
     _plot_stripes,
     check_timeseries_api,
     describe_fields,
+    get_auth,
     get_glossary,
     get_interpolate,
     get_issues,
@@ -697,6 +698,14 @@ COVERAGE_EXAMPLES = r"""
     wetterdienst about coverage --provider=dwd --network=observation --datasets=climate_summary
 """
 
+AUTH_EXAMPLES = r"""
+    # whether the credentials this installation holds for a provider are present and accepted
+    wetterdienst about auth --provider=aemet --network=observation
+
+    # a network that needs none is configured and valid without a request
+    wetterdienst about auth --provider=dwd --network=observation
+"""
+
 RESTAPI_EXAMPLES = r"""
     # listen on http://127.0.0.1:7890; with the mcp extra, it also serves MCP at /mcp
     wetterdienst restapi
@@ -1010,6 +1019,36 @@ def coverage(
     )
 
     print(json.dumps(cov, indent=2))  # noqa: T201
+
+
+@about.command("auth", epilog=_examples(AUTH_EXAMPLES))
+@provider_opt
+@network_opt
+@debug_opt
+def auth(
+    provider: str,
+    network: str,
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Check whether the credentials for a provider and network are present and accepted.
+
+    Prints `{"provider", "network", "auth", "configured", "valid"}`. `auth` is whether the network
+    needs credentials, `configured` whether they are present, and `valid` whether the provider
+    accepted (true) or rejected (false) them. `valid` is false where they are not configured, and
+    null where the check could not tell (no network, a timeout, a rate limit, an outage of the
+    provider): unknown, not rejected. A network that needs none is configured and valid.
+
+    This is the one command that probes the provider, for the one network asked about: a single
+    attempt that gives up after a few seconds. `about coverage` does not probe, so it leaves
+    `valid` null for a configured network. The exit code is 0 whatever `valid` is: read the answer.
+    """
+    set_logging_level(debug=debug)
+
+    # a malformed server setting is refused by its variable, as for the other commands
+    Settings()
+    api = get_api(provider=provider, network=network)
+
+    print(json.dumps(get_auth(api, provider, network), indent=2))  # noqa: T201
 
 
 @about.command("glossary")

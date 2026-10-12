@@ -170,15 +170,15 @@ def physical_range_findings(request: pytest.FixtureRequest) -> Generator[list[st
         parameters: Sequence[ParameterModel],
     ) -> pl.DataFrame:
         df = process_dataset(self, station_id, dataset, parameters)
-        settings = self.sr.settings
-        if df.is_empty() or not settings.ts_convert_units:
+        options = self.sr.options
+        if df.is_empty() or not options.convert_units:
             return df
         # the column holds the source's own name for the parameter, in the case the provider wrote it in; those
         # converted to units of the caller's choosing are not in the unit the ranges are written in
         names = {
             parameter.name_original.lower(): parameter.name
             for parameter in dataset.parameters
-            if settings.ts_unit_targets.get(parameter.unit_type, _DEFAULT_TARGETS[parameter.unit_type])
+            if options.unit_targets.get(parameter.unit_type, _DEFAULT_TARGETS[parameter.unit_type])
             == _DEFAULT_TARGETS[parameter.unit_type]
         }
         if not names:

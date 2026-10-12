@@ -14,7 +14,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.core.interpolate import (
     apply_interpolation,
     get_valid_station_groups,
@@ -269,7 +269,7 @@ def test_search_radius_reaches_the_request(
 ) -> None:
     """Test that the radius a request searches is the one the resolution asks for.
 
-    The settings answer this correctly on their own, and every other test of the scaling asks them
+    The options answer this correctly on their own, and every other test of the scaling asks them
     directly -- so nothing would notice if `interpolate` and `summarize` stopped consulting them
     and went back to a single number. This catches the station search in the act, without a
     request leaving the machine.
@@ -724,12 +724,12 @@ def test_interpolation_temperature_air_mean_2m_daily_no_station_found(default_se
 @pytest.mark.remote
 def test_interpolation_increased_station_distance() -> None:
     """Test that the interpolation works with increased station distance."""
-    settings = Settings(ts_geo_station_distance={"precipitation_amount": 25})
+    options = Options(geo_station_distance={"precipitation_amount": 25})
     request = DwdObservationRequest(
         parameters=[("hourly", "precipitation", "precipitation_amount")],
         start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
-        settings=settings,
+        options=options,
     )
     values = request.interpolate(latlon=(52.8, 12.9))
     assert values.df.get_column("value").sum() == pytest.approx(21.0518)
@@ -867,12 +867,12 @@ def test_interpolation_at_an_elevation_too_few_stations_left_to_interpolate(
     have helped is not something a count can say -- they may not have surrounded the point either
     -- so it is said in the log rather than raised over the caller's result.
     """
-    settings = Settings(ts_geo_use_nearby_station_distance=0.0)
+    options = Options(geo_use_nearby_station_distance=0.0)
     request = DwdObservationRequest(
         parameters=[("daily", "kl", "temperature_air_mean_2m")],
         start=dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(2022, 1, 5, tzinfo=ZoneInfo("UTC")),
-        settings=settings,
+        options=options,
     )
     _blank_station_elevations(monkeypatch, pl.int_range(pl.len()) < 2)
     with caplog.at_level(logging.WARNING):
@@ -989,7 +989,7 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
         parameters=[("daily", "climate_summary", "snow_depth"), ("daily", "climate_summary", "cloud_cover_total")],
         start=timestamps[0],
         end=timestamps[-1],
-        settings=Settings(ts_unit_targets={"length_short": "mile"}),
+        options=Options(unit_targets={"length_short": "mile"}),
     )
     get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
     df = get_df(request, latitude, longitude)
@@ -1032,7 +1032,7 @@ def test_interpolate_and_summarize_keep_a_reading_in_a_small_source_unit_when_un
     monkeypatch: pytest.MonkeyPatch,
     method: str,
 ) -> None:
-    """With `ts_convert_units` off, a reading published in mm/s is not rounded away.
+    """With `convert_units` off, a reading published in mm/s is not rounded away.
 
     `values` returns 0.1 mm/h of `dwd/road` precipitation intensity as the 0.0000278 mm/s it was
     published as. Both rounded every unconverted value to four decimals, so it came back as 0.0, and
@@ -1103,7 +1103,7 @@ def test_interpolate_and_summarize_keep_a_reading_in_a_small_source_unit_when_un
         parameters=[("15_minutes", "data", "precipitation_intensity")],
         start=min(readings),
         end=max(readings),
-        settings=Settings(ts_convert_units=False),
+        options=Options(convert_units=False),
     )
     get_df = get_interpolated_df if method == "interpolate" else get_summarized_df
     df = get_df(request, latitude, longitude)
@@ -1293,22 +1293,22 @@ def test_interpolation_leaves_out_a_station_beyond_what_utm_covers(
 
 @pytest.mark.parametrize("method", ["interpolate", "summarize"])
 @pytest.mark.parametrize(
-    "settings",
+    "options",
     [
-        {"ts_humanize": False},
-        {"ts_shape": "wide"},
-        {"ts_humanize": False, "ts_shape": "wide"},
+        {"humanize": False},
+        {"shape": "wide"},
+        {"humanize": False, "shape": "wide"},
     ],
 )
-def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_settings_ask_for(
+def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_options_ask_for(
     monkeypatch: pytest.MonkeyPatch,
     method: str,
-    settings: dict,
+    options: dict,
 ) -> None:
-    """`ts_humanize=False` and `ts_shape="wide"` still give an estimate, named as the caller asked.
+    """`humanize=False` and `shape="wide"` still give an estimate, named as the caller asked.
 
     Both picked a parameter's rows by its canonical name and read a `value` column, so with
-    `ts_humanize=False` -- the rows named `tmk` -- nothing matched and the result came back empty,
+    `humanize=False` -- the rows named `tmk` -- nothing matched and the result came back empty,
     and a wide frame, which has no `value` column, raised `ColumnNotFoundError` (GH-2331). The
     stations and their readings are stubbed below `query()`, so the naming and shaping it applies
     still run and nothing leaves the machine.
@@ -1377,10 +1377,10 @@ def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_settings
         ],
         start=timestamps[0],
         end=timestamps[-1],
-        settings=Settings(**settings),
+        options=options,
     )
     df = getattr(request, method)(latlon=(latitude, longitude)).df
-    humanize = settings.get("ts_humanize", True)
+    humanize = options.get("humanize", True)
     # sorted by the names the frame carries, as `values` sorts them: `txk` follows `tmk`, while
     # `temperature_air_max_2m` comes before `temperature_air_mean_2m`
     expected = (
@@ -1393,7 +1393,7 @@ def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_settings
     assert df.get_column("value").to_list() == [value for _, value in expected for _ in timestamps]
     # read on a copy: the caller's request keeps the options it was given
     assert request.options.humanize is humanize
-    assert request.options.shape == settings.get("ts_shape", "long")
+    assert request.options.shape == options.get("shape", "long")
 
 
 @pytest.mark.parametrize("hourly_first", [True, False], ids=["hourly_first", "daily_first"])

@@ -7,6 +7,7 @@ import json
 import os
 import re
 from collections.abc import Iterator
+from io import BytesIO
 from pathlib import Path
 from textwrap import dedent
 
@@ -966,6 +967,7 @@ def test_cli_summarize_warns_that_use_nearby_station_distance_is_deprecated(monk
         pytest.param(["cache"], id="cache"),
         pytest.param(["info"], id="info"),
         pytest.param(["about", "coverage"], id="about-coverage"),
+        pytest.param(["about", "auth", "--provider=aemet", "--network=observation"], id="about-auth"),
         pytest.param(["stations", *_DWD_KL, "--all"], id="stations"),
         pytest.param(["values", *_DWD_KL, "--station=01048"], id="values"),
         pytest.param(["history", *_DWD_KL, "--station=01048"], id="history"),
@@ -1273,3 +1275,87 @@ def test_coverage_refuses_a_filter_without_provider_and_network(args: list[str],
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith(f"\n\n{message}")
     assert result.stdout == ""
+
+
+def _stub_the_frost_probe(monkeypatch: pytest.MonkeyPatch, content: object, status: int) -> list[str]:
+    """Answer the probe of `metno/frost` with `content` and `status`, offline; return the URLs asked."""
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    asked: list[str] = []
+
+    def download_file(**kwargs: str) -> File:
+        asked.append(kwargs["url"])
+        return File(url=kwargs["url"], content=content, status=status)
+
+    monkeypatch.setattr("wetterdienst.provider.metno.frost.api.download_file", download_file)
+    return asked
+
+
+def _auth(*args: str) -> dict[str, object]:
+    """Run `about auth` for `metno/frost` (or the given options), and return the JSON it printed."""
+    result = CliRunner().invoke(cli, ["about", "auth", *(args or ("--provider=metno", "--network=frost"))])
+    assert result.exit_code == 0, result.output
+    return json.loads(result.stdout)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_auth_of_a_network_without_credentials_is_valid_without_a_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A network that needs no credentials is configured and valid, and nothing is asked of its provider."""
+
+    def probe(_api: object) -> None:
+        pytest.fail("the provider was probed")
+
+    monkeypatch.setattr(Wetterdienst, "is_valid", staticmethod(probe))
+    assert _auth("--provider=dwd", "--network=observation") == {
+        "provider": "dwd",
+        "network": "observation",
+        "auth": False,
+        "configured": True,
+        "valid": True,
+    }
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_auth_without_a_credential_is_not_valid_and_does_not_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Credentials that are not configured are not valid, and a probe cannot be made without them."""
+    asked = _stub_the_frost_probe(monkeypatch, Exception("must not be asked"), 500)
+    assert _auth() == {"provider": "metno", "network": "frost", "auth": True, "configured": False, "valid": False}
+    assert asked == []
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("content", "status", "valid"),
+    [
+        pytest.param(BytesIO(b"{}"), 200, True, id="accepted"),
+        pytest.param(Exception("401, message='Unauthorized'"), 401, False, id="rejected"),
+        pytest.param(OSError("certificate verify failed"), 500, None, id="could-not-tell"),
+    ],
+)
+def test_auth_tells_what_the_probe_could_tell(
+    monkeypatch: pytest.MonkeyPatch, content: object, status: int, *, valid: bool | None
+) -> None:
+    """`valid` is true, false or null as the probe's answer is accepted, rejected or no telling, with exit 0."""
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
+    asked = _stub_the_frost_probe(monkeypatch, content, status)
+    assert _auth() == {"provider": "metno", "network": "frost", "auth": True, "configured": True, "valid": valid}
+    assert len(asked) == 1
+
+
+def test_auth_of_an_unknown_network_is_a_usage_error() -> None:
+    """An unknown provider or network is a usage error pointing at the coverage listing, as a 404 is for REST."""
+    result = CliRunner().invoke(cli, ["about", "auth", "--provider=dwd", "--network=abc"])
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(
+        "\n\nError: No API available for provider dwd and network abc. "
+        "`wetterdienst about coverage`, without --provider and --network, lists the available ones.\n"
+    )
+    assert result.stdout == ""
+
+
+@pytest.mark.parametrize("args", [["--provider=metno"], ["--network=frost"], []])
+def test_auth_requires_provider_and_network(args: list[str]) -> None:
+    """Both options are required: there is no listing of every network to fall back to."""
+    result = CliRunner().invoke(cli, ["about", "auth", *args])
+    assert result.exit_code == 2, result.output
+    assert "Missing option" in result.stderr

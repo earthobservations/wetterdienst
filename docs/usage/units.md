@@ -52,7 +52,7 @@ unit_converter = UnitConverter()
 unit_converter.source_only_units
 ```
 
-To set a different unit, you can use the `ts_unit_targets` setting in the `Settings` class. The following example
+To set a different unit, you can use the `unit_targets` option of the request (`Options`). The following example
 shows how to convert the temperature to Fahrenheit:
 
 ```{code-cell}
@@ -60,13 +60,13 @@ shows how to convert the temperature to Fahrenheit:
 mystnb:
   number_source_lines: true
 ---
-from wetterdienst import Settings
+from wetterdienst import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-settings = Settings(ts_unit_targets={"temperature": "degree_fahrenheit"})
+options = Options(unit_targets={"temperature": "degree_fahrenheit"})
 request = DwdObservationRequest(
     parameters=[("daily", "kl", "temperature_air_mean_2m")],
-    settings=settings
+    options=options
 )
 stations = request.filter_by_station_id(station_id="1048")
 values = stations.values.all()
