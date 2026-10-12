@@ -16,6 +16,19 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- polars 2 is supported: the dependency is now `polars[calamine]>=1.43.0,<3` (it was `<2`), so
+  wetterdienst installs next to packages that need polars 2. `dwd/observation` collects with the
+  in-memory engine, as on polars 1, not with the streaming engine polars 2 uses by default
+  (GH-2570)
+- `wetterdienst.Options`: the per-request options (`shape`, `humanize`, `convert_units`,
+  `unit_targets`, `skip_*`, `drop_nulls` and the `geo_*` distances), the request half of what
+  `Settings` holds as `ts_*`, as a frozen class of their own. They read the same `WD_TS_*`
+  variables and `.env`, so no host configuration changes; `replace(**changes)` makes a validated
+  copy. Nothing takes them yet and `Settings` is unchanged; `check_settings()` now checks them too
+  (GH-2639)
+
 ### Changed
 
 - **Breaking**: the `quality` number of every values frame is replaced by one nullable string
@@ -37,6 +50,10 @@ Types of changes:
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
+- The REST API and the MCP tools refuse a chart image with a side over 8192 px, `scale` (or the
+  stripes `dpi`) applied, with a 400 naming the limit; a larger one held a Chromium for tens of
+  seconds and could come back empty. Ask for a smaller `width`, `height`, `scale` or `dpi`. The
+  library and the CLI are not limited (GH-2765)
 - **Breaking**: `Wetterdienst.discover()`, `GET /api/coverage` (and the MCP `coverage` tool) and
   `wetterdienst about coverage` download nothing, so they answer at once. `valid` is `null` for a
   network whose credentials are configured, where it was `true` or `false` after a probe; it stays
@@ -84,6 +101,8 @@ Types of changes:
   way); the CLI prints that line, and `/api/stations`, `/api/values`, `/api/interpolate` and
   `/api/summarize` answer 501 with the line in the server log, no longer a 500 with a traceback
   (GH-2545)
+- `noaa/ghcn` reads its daily station list and inventory over https, no longer plain http
+  (GH-2766)
 
 ## [0.146.0] - 2026-10-11
 

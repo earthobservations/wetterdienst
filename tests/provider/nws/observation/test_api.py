@@ -97,6 +97,25 @@ def test_nws_url_names_no_window_where_the_request_carries_no_dates() -> None:
     assert url == f"https://api.weather.gov/stations/{DENVER}/observations"
 
 
+def test_nws_stations_reads_the_columns_of_the_metar_table_by_their_position(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the headerless station table is read by column position, whichever polars reads it.
+
+    The table has no header, so the readers name the columns by position. polars 1 counts those
+    names from ``column_1`` and polars 2 from ``column_0``; the rows are the shape of the live table.
+    """
+    table = (
+        "0000000000\t03PS\t40.85\t -77.91\t  320\tBELLEFONTE, PA      \tUS\tMTR\n"
+        "0000000000\tEDDF\t50.03\t   8.57\t  111\tFRANKFURT           \tDE\tMTR\n"
+        "0000000000\tPASY\t52.72\t 174.11\t 9999\tEARECKSON AS        \tUS\tMTR\n"
+    )
+    serve(monkeypatch, nws_api, {"METARTable.txt": table.encode()})
+    df = _request(Settings(cache_disable=True)).all().df
+    assert df.select("station_id", "latitude", "longitude", "elevation", "name").rows() == [
+        ("03PS", 40.85, -77.91, 320.0, "BELLEFONTE, PA"),
+        ("PASY", 52.72, 174.11, None, "EARECKSON AS"),
+    ]
+
+
 @pytest.mark.remote
 def test_nws_stations_keeps_the_stations_a_western_hemisphere_box_excludes() -> None:
     """Test that US territory is not dropped for lying in the wrong hemisphere.

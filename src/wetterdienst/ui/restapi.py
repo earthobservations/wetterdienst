@@ -23,6 +23,7 @@ from wetterdienst.exceptions import (
     BufrReaderMissingError,
     CredentialMissingError,
     DateRequiredError,
+    ImageTooLargeError,
     InvalidTimeIntervalError,
     MissingDependencyError,
     MissingTimeIntervalError,
@@ -247,6 +248,55 @@ def _refuse_sql_unless_enabled(
                 "(environment variable WD_RESTAPI_SQL=true); otherwise filter the response yourself."
             ),
         )
+
+
+#: the formats a chart is rendered to by the browser; `html` is the figure itself and has no size
+_IMAGE_FORMATS = frozenset({"png", "jpg", "webp", "svg", "pdf"})
+
+#: the longest side, in pixels once `scale` is applied, of an image this server renders. Chromium
+#: renders it for as long as it takes and holds the whole canvas: 14000 x 10000 px took 18 s, and
+#: 28000 x 20000 px 30 s and then an empty body that was answered with a 200 (GH-2765)
+_MAX_IMAGE_SIDE = 8192
+#: the size plotly renders at when a request names none
+_DEFAULT_IMAGE_WIDTH, _DEFAULT_IMAGE_HEIGHT = 700, 500
+
+
+def _refuse_oversized_image(
+    width: int | None, height: int | None, scale: float | None, *, lower: str = "width, height or scale"
+) -> None:
+    """Refuse an image larger than `_MAX_IMAGE_SIDE` on a side, with a 400, before anything is fetched.
+
+    The request fields only have to be positive, and the caller is whoever can reach the API: each
+    image request starts its own browser, so the size it paints is theirs to choose. The library
+    and the CLI, whose caller is the host's own user, are not limited. The MCP tools are this API's
+    routes, so they are limited with it. A size left out is plotly's default, which is what is
+    measured here: the height of a chart of several parameters is 300 px for each, known only once
+    they are collected, and is measured then, by `check_image_size` (`_refuse_oversized_render`).
+    """
+    scale = 1 if scale is None else scale
+    rendered = ((width or _DEFAULT_IMAGE_WIDTH) * scale, (height or _DEFAULT_IMAGE_HEIGHT) * scale)
+    if max(rendered) > _MAX_IMAGE_SIDE:
+        error = ImageTooLargeError(rendered[0], rendered[1], _MAX_IMAGE_SIDE)
+        raise HTTPException(status_code=400, detail=f"{error} Lower {lower}.")
+
+
+def _refuse_oversized_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
+    """Refuse the size of a chart in an image format, see `_refuse_oversized_image`."""
+    if request.format in _IMAGE_FORMATS:
+        _refuse_oversized_image(request.width, request.height, request.scale)
+
+
+@app.exception_handler(ImageTooLargeError)
+async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) -> JSONResponse:
+    """Answer a chart whose own height makes the image too large with a 400, as `_refuse_oversized_image` does.
+
+    Raised by `check_image_size` once the figure is built, since a chart of several parameters is
+    300 px tall for each, and before the browser is started.
+    """
+    log.info(f"Refused {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=400, content={"detail": f"{exc} Lower scale, give a smaller height, or ask for fewer parameters."}
+    )
 
 
 # each output format by its media type; the rest are JSON. `image/{format}` named no registered type
@@ -975,6 +1025,7 @@ def stations(
     """
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
+    _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)
 
@@ -1010,6 +1061,7 @@ def stations(
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
+        kwargs["max_side"] = _MAX_IMAGE_SIDE
 
     content = stations_.to_format(**kwargs)
 
@@ -1080,6 +1132,7 @@ def values(
     """
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
+    _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)
 
@@ -1100,6 +1153,7 @@ def values(
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
+        kwargs["max_side"] = _MAX_IMAGE_SIDE
 
     content = _render(values_, request, kwargs, ValuesSettings, settings)
 
@@ -1307,6 +1361,7 @@ def interpolate(
     """
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
+    _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)
 
@@ -1326,6 +1381,7 @@ def interpolate(
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
+        kwargs["max_side"] = _MAX_IMAGE_SIDE
 
     content = _render(values_, request, kwargs, InterpolationSettings, settings)
 
@@ -1359,6 +1415,7 @@ def summarize(
     """
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
+    _refuse_oversized_chart(request)
     # dumped rather than read: reading a deprecated field warns of itself, a DeprecationWarning nobody sees
     if request.model_dump(include={"use_nearby_station_distance"})["use_nearby_station_distance"] is not None:
         log.warning(f"use_nearby_station_distance is deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}")
@@ -1381,6 +1438,7 @@ def summarize(
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
+        kwargs["max_side"] = _MAX_IMAGE_SIDE
 
     content = _render(values_, request, kwargs, SummarySettings, settings)
 
@@ -1460,6 +1518,8 @@ def stripes_image(
 ) -> Response:
     """Generate climate stripes image for a station."""
     set_logging_level(debug=request.debug)
+    # the image is rendered at `dpi / 100` times plotly's default size
+    _refuse_oversized_image(None, None, request.dpi / 100, lower="dpi")
 
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()

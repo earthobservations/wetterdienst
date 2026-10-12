@@ -173,6 +173,13 @@ for as long as it likes on that thread; and allocate memory DuckDB's limit does 
 one very long string. The limits hold per request, not for the server as a whole. Enable it only
 for clients you trust with that.
 
+### Image size
+
+A chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused with a 400 when a side of
+the image is longer than 8192 px, `scale` applied; for `/api/stripes/image` the size is 700 x 500 px
+times `dpi / 100`. A chart of several parameters is 300 px tall for each, and is measured as drawn.
+The limit holds for the REST API and the MCP tools; the library and the CLI have none.
+
 ## MCP endpoint
 
 The REST API can optionally expose a [Model Context Protocol](https://modelcontextprotocol.io/)

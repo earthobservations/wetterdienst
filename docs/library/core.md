@@ -35,6 +35,11 @@ render_plugin = "myst"
 no_index = true
 ```
 
+```{autodoc2-object} wetterdienst.options
+render_plugin = "myst"
+no_index = true
+```
+
 ```{autodoc2-object} wetterdienst.util.geo
 render_plugin = "myst"
 no_index = true

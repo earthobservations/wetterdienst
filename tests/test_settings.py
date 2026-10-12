@@ -23,8 +23,8 @@ from pydantic import SecretStr, ValidationError
 from pydantic_settings import SettingsError
 
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.options import _STATION_DISTANCE_RESOLUTION_FACTORS
 from wetterdienst.settings import (
-    _STATION_DISTANCE_RESOLUTION_FACTORS,
     Auth,
     Settings,
     _describe_settings_error,
@@ -743,7 +743,7 @@ def test_settings_unit_targets_name_only_the_unknown_quantities(monkeypatch: pyt
 def test_settings_unit_targets_build_no_converter_when_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     """The empty default, which every `Settings()` has, is not resolved by a converter (GH-2306)."""
     monkeypatch.delenv("WD_TS_UNIT_TARGETS", raising=False)
-    with mock.patch("wetterdienst.settings.UnitConverter") as converter:
+    with mock.patch("wetterdienst.options.UnitConverter") as converter:
         Settings()
     converter.assert_not_called()
 

@@ -16,7 +16,7 @@ from pydantic import ConfigDict, with_config
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
 from typing_extensions import TypedDict
 
-from wetterdienst.io.export import ExportMixin
+from wetterdienst.io.export import ExportMixin, check_image_size
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.extras import import_optional
 
@@ -418,6 +418,7 @@ class StationsResult(ExportMixin):
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
+        max_side: int | None = None,
         **kwargs: dict,
     ) -> bytes | str:
         """Create an image from the plotly figure.
@@ -428,6 +429,7 @@ class StationsResult(ExportMixin):
         if fmt == "html":
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            check_image_size(fig, width, height, scale, max_side)
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
             msg = f"Invalid format: {fmt}"
@@ -833,6 +835,7 @@ class ValuesResult(_ValuesResult):
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
+        max_side: int | None = None,
         **kwargs: dict,
     ) -> bytes | str:
         """Create an image from the plotly figure.
@@ -843,6 +846,7 @@ class ValuesResult(_ValuesResult):
         if fmt == "html":
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            check_image_size(fig, width, height, scale, max_side)
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
             msg = f"Invalid format: {fmt}"
@@ -1044,6 +1048,7 @@ class InterpolatedValuesResult(_ValuesResult):
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
+        max_side: int | None = None,
         **kwargs: dict,
     ) -> bytes | str:
         """Create an image from the plotly figure.
@@ -1054,6 +1059,7 @@ class InterpolatedValuesResult(_ValuesResult):
         if fmt == "html":
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            check_image_size(fig, width, height, scale, max_side)
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
             msg = f"Invalid format: {fmt}"
@@ -1239,6 +1245,7 @@ class SummarizedValuesResult(_ValuesResult):
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
+        max_side: int | None = None,
         **kwargs: dict,
     ) -> bytes | str:
         """Create an image from the plotly figure.
@@ -1249,6 +1256,7 @@ class SummarizedValuesResult(_ValuesResult):
         if fmt == "html":
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            check_image_size(fig, width, height, scale, max_side)
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
             msg = f"Invalid format: {fmt}"
