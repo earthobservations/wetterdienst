@@ -15,6 +15,8 @@ import dataclasses
 import datetime as dt
 import logging
 import os
+import subprocess
+import sys
 import warnings
 from io import BytesIO
 from types import SimpleNamespace
@@ -36,6 +38,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as dwd_observation_api
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
+from wetterdienst.settings import _REMOVED_SETTINGS
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
@@ -690,3 +693,62 @@ def test_a_ts_setting_in_the_update_of_a_copy_is_taken_as_an_assignment() -> Non
     assert copy.use_certifi
     assert _request(settings=copy).options.shape == "wide"
     assert _request(settings=settings).options.shape == "long"
+
+
+def test_the_warning_is_attributed_to_code_that_has_no_file() -> None:
+    """A caller in `python -c`, a REPL or an `exec` is still the caller: the warning is not walked past it."""
+    with warnings.catch_warnings(record=True) as warned:
+        warnings.simplefilter("always")
+        exec(  # noqa: S102
+            compile("settings = Settings(ts_shape='wide')\nsettings.ts_shape", "", "exec"),
+            {"Settings": Settings},
+        )
+        exec(  # noqa: S102
+            compile("Settings(ts_shape='wide')", "<stdin>", "exec"),
+            {"Settings": Settings, "__name__": "__main__"},
+        )
+    assert [warning.filename for warning in warned] == ["", "", "<stdin>"]
+
+
+@pytest.mark.parametrize(
+    "code",
+    ["Settings(ts_shape='wide')", "Settings.model_validate({'ts_shape': 'wide'})", "Settings().ts_shape"],
+)
+def test_the_warning_is_shown_by_default_for_a_script_run_with_c(code: str) -> None:
+    """Python shows a `DeprecationWarning` by default for code in `__main__`, which `python -c` is."""
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", f"from wetterdienst import Settings\n{code}"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "PYTHONWARNINGS": "", "WD_CACHE_DISABLE": "true"},
+    )
+    assert result.returncode == 0, result.stderr
+    assert "<string>:2: DeprecationWarning: the setting 'ts_shape' is deprecated" in result.stderr
+
+
+def test_a_mapping_given_as_a_ts_setting_is_merged_with_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """As the settings did: a dict beside `WD_TS_UNIT_TARGETS` adds to it key by key, the dict's key winning."""
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit", "speed": "knots"}')
+    settings = _settings({"unit_targets": {"speed": "kilometer_per_hour", "length_short": "mile"}})
+
+    assert _request(settings=settings).options.unit_targets == {
+        "temperature": "degree_fahrenheit",
+        "speed": "kilometer_per_hour",
+        "length_short": "mile",
+    }
+
+
+def test_a_ts_setting_given_outranks_a_malformed_variable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """As the settings did: a keyword replaces the variable it names, a malformed one included."""
+    monkeypatch.setenv("WD_TS_SHAPE", "bogus")
+    settings = _settings({"shape": "wide"})
+
+    assert _request(settings=settings).options.shape == "wide"
+    with pytest.warns(DeprecationWarning, match="'ts_shape' is deprecated"):
+        assert Settings(cache_disable=True, ts_shape="wide").ts_shape == "wide"
+
+
+def test_the_ts_settings_are_the_options_there_were_when_they_were_removed() -> None:
+    """A new option is not a deprecated keyword of the settings: add it to the shim by deciding so."""
+    assert {name.removeprefix("ts_") for name in _REMOVED_SETTINGS} == set(Options.model_fields)

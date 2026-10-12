@@ -35,8 +35,10 @@ Both read the environment, and `.env`, the same way. The variables of the option
 and a `settings={"ts_shape": "long"}` dict are the old way to set what are options now. `Settings`
 no longer has them as fields. They are still taken, with a `DeprecationWarning`, when a request is
 given no `options=`, but will be removed: pass `options=Options(shape="long")` instead. Giving
-`options=` beside settings that carry a non-default `ts_*` raises a `ValueError`. The `WD_TS_*`
-variables stay and are read by `Options` alone.
+`options=` beside such `ts_*` settings that differ from the options of the environment raises a
+`ValueError`. A mapping given as a `ts_*` setting is merged with the environment's, key by key, as
+`Options(...)` does and `options={...}` does not. `Settings.model_construct(ts_...)` is not covered.
+The `WD_TS_*` variables stay and are read by `Options` alone.
 ```
 
 ## Settings
@@ -57,7 +59,7 @@ The arguments are overruled in the above order meaning:
 As from the environment, only the `WD_` variables that name a setting are read from `.env`. Its
 other keys, such as another program's, or a `WD_` key that names no setting, such as the misspelt
 `WD_CACHE_DIABLE`, are ignored. A key within a setting, such as `WD_AUTH__KNMI`, is read as part of
-that setting. A keyword to `Settings(...)` that names no setting is refused.
+that setting. A keyword to `Settings(...)` that names no setting is refused, the removed `ts_*` settings apart.
 
 The following settings are available:
 

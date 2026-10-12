@@ -22,8 +22,6 @@ from pathlib import Path
 from typing import Any, Self
 
 import platformdirs
-import pydantic
-import pydantic_settings
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -401,20 +399,45 @@ def _redacted_client_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     return redacted
 
 
-#: the code that is no caller of the shim: wetterdienst itself and the libraries it goes through
-_SKIPPED_FRAMES = (
-    *(str(Path(module.__file__).parent) for module in (pydantic, pydantic_settings) if module.__file__ is not None),
-    str(Path(__file__).parent),
-)
+#: the modules that are no caller of the shim: wetterdienst itself, and the libraries it goes through
+_SKIPPED_MODULES = ("wetterdienst", "pydantic", "pydantic_settings")
 
 #: the ``ts_*`` settings the settings carried until options took them over (GH-2639), by the name of
-#: the option each became. Still accepted, with a warning, until they are dropped for good
-_REMOVED_SETTINGS: dict[str, str] = {f"ts_{name}": name for name in Options.model_fields}
+#: the option each became. Written out, so that an option added later is not a keyword that never
+#: existed; a test holds the names to the fields of `Options`. Still accepted, with a warning, until
+#: they are dropped for good
+_REMOVED_SETTINGS: dict[str, str] = {
+    f"ts_{name}": name
+    for name in (
+        "humanize",
+        "shape",
+        "convert_units",
+        "unit_targets",
+        "skip_empty",
+        "skip_threshold",
+        "skip_criteria",
+        "drop_nulls",
+        "geo_station_distance_homogeneous",
+        "geo_station_distance_heterogeneous",
+        "geo_station_distance",
+        "geo_station_distance_resolution_factors",
+        "geo_use_nearby_station_distance",
+        "geo_min_gain_of_value_pairs",
+        "geo_num_additional_stations",
+    )
+}
 #: the members derived from them, which `Options` has by the same name
 _REMOVED_MEMBERS: dict[str, str] = {
     f"ts_{name}": name
     for name in ("tidy", "drop_nulls_effective", "geo_station_distance_for", "geo_station_distance_resolution_factor")
 }
+
+
+def _is_skipped(module: object) -> bool:
+    """Tell whether a frame of this module, by its ``__name__``, is no caller of the shim."""
+    return isinstance(module, str) and any(
+        module == skipped or module.startswith(f"{skipped}.") for skipped in _SKIPPED_MODULES
+    )
 
 
 def _caller_stacklevel() -> int:
@@ -423,13 +446,12 @@ def _caller_stacklevel() -> int:
     The shim is reached through `__init__`, `model_validate` (which a request calls for settings
     given as a dict), `__getattr__` and `__setattr__`, some of them through frames of pydantic and
     of the generated dataclass `__init__`. A warning attributed to one of those is not shown by
-    default, which shows a `DeprecationWarning` only for code in ``__main__``.
+    default, which shows a `DeprecationWarning` only for code in ``__main__``. The frames are told
+    by the module they run in and not by their file, which is none for ``python -c`` or a REPL.
     """
     level = 2
     frame = sys._getframe(2)  # noqa: SLF001
-    while frame is not None and (
-        frame.f_code.co_filename.startswith(_SKIPPED_FRAMES) or frame.f_code.co_filename[0] == "<"
-    ):
+    while frame.f_back is not None and _is_skipped(frame.f_globals.get("__name__")):
         level += 1
         frame = frame.f_back
     return level
@@ -583,7 +605,7 @@ class Settings(BaseSettings):
             return
         for name in removed:
             _warn_removed(name)
-        self._ts_options = options_from_mapping({_REMOVED_SETTINGS[name]: value for name, value in removed.items()})
+        self._ts_options = Options(**{_REMOVED_SETTINGS[name]: value for name, value in removed.items()})
 
     def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Self:
         """Copy the settings, taking a removed ``ts_*`` setting in `update` as an assignment to the copy."""
