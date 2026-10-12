@@ -10,7 +10,7 @@ import logging
 from abc import abstractmethod
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, ClassVar, Self, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -84,16 +84,13 @@ def _format_periods(periods: Iterable[Period]) -> str:
 class TimeseriesRequest:
     """Core class for timeseries information of a source."""
 
-    # implementations of subclasses
-    metadata: MetadataModel = field(  # ty: ignore[invalid-assignment]
-        init=False,
-        repr=False,
-        default=None,
-    )
-    _values: TimeseriesValues = field(init=False, repr=False, default=None)  # ty: ignore[invalid-assignment]
-    _history: TimeseriesHistory = field(init=False, repr=False, default=None)  # ty: ignore[invalid-assignment]
+    # implementations of subclasses: each provider sets these as class attributes, `_values` and
+    # `_history` being the classes that read the values and the station history, not instances
+    metadata: ClassVar[MetadataModel]
+    _values: ClassVar[type[TimeseriesValues]]
+    _history: ClassVar[type[TimeseriesHistory] | None] = None
     # actual parameters
-    parameters: _PARAMETER_TYPE  # ty: ignore[dataclass-field-order]
+    parameters: _PARAMETER_TYPE
     start: _DATETIME_TYPE = None
     end: _DATETIME_TYPE = None
     settings: Settings | dict = field(default_factory=Settings)
@@ -114,10 +111,10 @@ class TimeseriesRequest:
 
     def __post_init__(self) -> None:
         """Post init method to validate the settings and convert the timestamps."""
-        if not self.metadata:
+        if not getattr(self, "metadata", None):
             msg = f"{self.__class__.__name__}.metadata not implemented"
             raise NotImplementedError(msg)
-        if not self._values:
+        if not getattr(self, "_values", None):
             msg = f"{self.__class__.__name__}._values not implemented"
             raise NotImplementedError(msg)
         # Convert settings given as a dict to a validated model. A `Settings` object is used as it is:
@@ -335,7 +332,7 @@ class TimeseriesRequest:
         cls,
         resolutions: str | Resolution | ResolutionModel | Sequence[str | Resolution | ResolutionModel] | None = None,
         datasets: str | DatasetModel | Sequence[str | DatasetModel] | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Discover metadata for the given resolutions and datasets.
 
         Each level carries its own description, so the shape has a place for one::
@@ -1061,4 +1058,5 @@ class TimeseriesRequest:
 # defines one beside its __init__, and the variadic refusal above names none: point it at the
 # arguments __init__ takes, which a direct subclass that is no dataclass of its own inherits as they
 # are
+# (`__wrapped__` is no attribute a function is declared to have, which is how `inspect` looks it up)
 TimeseriesRequest.__new__.__wrapped__ = TimeseriesRequest.__init__  # ty: ignore[unresolved-attribute]

@@ -4,3 +4,8 @@ from wetterdienst.provider.meteofrance.observation.api import (
     MeteoFranceObservationMetadata,
     MeteoFranceObservationRequest,
 )
+
+__all__ = [
+    "MeteoFranceObservationMetadata",
+    "MeteoFranceObservationRequest",
+]

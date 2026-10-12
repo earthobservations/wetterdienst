@@ -9,10 +9,11 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, cast
 
 import polars as pl
 from tqdm import tqdm
+from typing_extensions import TypeVar
 
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.metadata import group_parameters_by_dataset
@@ -29,10 +30,21 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# What a provider collects its values by: a provider that reads one dataset at a time takes a
+# `DatasetModel` (and sets `grouped` on its datasets), one that reads one parameter at a time a
+# `ParameterModel`, and one that does both leaves it unspecified. That is also what a bare
+# `TimeseriesValues` in an annotation means (the default), so a result that holds one of any provider's
+# does not ask for a type argument.
+_UnitT = TypeVar("_UnitT", bound="ParameterModel | DatasetModel", default=Any)
+
 
 @dataclass
-class TimeseriesValues(ABC):
-    """Core for sources of timeseries where data is related to a station."""
+class TimeseriesValues(ABC, Generic[_UnitT]):
+    """Core for sources of timeseries where data is related to a station.
+
+    Subscript it with the model the provider collects by -- `TimeseriesValues[DatasetModel]` -- so that
+    `_collect_station_parameter_or_dataset` is declared as the narrow signature the provider implements.
+    """
 
     sr: StationsResult
     stations_counter: int = 0
@@ -303,7 +315,9 @@ class TimeseriesValues(ABC):
         if dataset.grouped:
             df = self._collect_station_parameter_or_dataset(
                 station_id=station_id,
-                parameter_or_dataset=dataset,
+                # a dataset marked `grouped` is collected as a whole: the provider asked for it by
+                # saying so, and the type parameter is what it said it would be handed
+                parameter_or_dataset=cast("_UnitT", dataset),
             )
             if not df.is_empty():
                 parameter_names = {parameter.name_original for parameter in parameters}
@@ -313,7 +327,7 @@ class TimeseriesValues(ABC):
             for parameter in parameters:
                 df = self._collect_station_parameter_or_dataset(
                     station_id=station_id,
-                    parameter_or_dataset=parameter,
+                    parameter_or_dataset=cast("_UnitT", parameter),
                 )
                 # a parameter with no data for this station yields a bare frame with no columns,
                 # which cannot be concatenated with the populated ones -- polars raises
@@ -336,7 +350,7 @@ class TimeseriesValues(ABC):
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter_or_dataset: ParameterModel | DatasetModel,
+        parameter_or_dataset: _UnitT,
     ) -> pl.DataFrame:
         """Collect data for a station and a single parameter or dataset."""
 

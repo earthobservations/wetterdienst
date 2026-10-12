@@ -320,7 +320,7 @@ HubeauMetadata = {
 HubeauMetadata = build_metadata_model(HubeauMetadata, "HubeauMetadata")
 
 
-class HubeauValues(TimeseriesValues):
+class HubeauValues(TimeseriesValues[ParameterModel]):
     """Values class for Eaufrance Hubeau data."""
 
     _endpoint = (
@@ -348,7 +348,7 @@ class HubeauValues(TimeseriesValues):
         request_date_range = pl.datetime_range(start=start, end=end, interval=delta / periods, eager=True)
         return pairwise(request_date_range)
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: ParameterModel,

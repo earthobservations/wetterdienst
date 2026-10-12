@@ -4,3 +4,8 @@ from wetterdienst.provider.meteoswiss.observation.api import (
     MeteoswissObservationMetadata,
     MeteoswissObservationRequest,
 )
+
+__all__ = [
+    "MeteoswissObservationMetadata",
+    "MeteoswissObservationRequest",
+]

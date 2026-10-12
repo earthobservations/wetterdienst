@@ -61,6 +61,14 @@ Types of changes:
   whether they are accepted. That probe is one attempt that takes at most 5 s, and AEMET's probe
   reads only the envelope: an `estado` of 200 is accepted, whatever follows. The app lists the
   networks at once and hides one when `/api/auth` says its credentials are rejected (GH-2564)
+- The package ships `py.typed` (PEP 561): mypy and pyright now read the annotations of the public
+  API instead of taking all of it for `Any`, so code they passed before may report errors. For
+  that the annotations were made true: every provider package lists its classes in `__all__`
+  (strict mode refuses `from wetterdienst.provider.dwd.observation import DwdObservationRequest`
+  otherwise), `to_plot(**kwargs)` takes any values (it said `dict`), `discover()` is
+  `dict[str, Any]`, and `TimeseriesValues` is generic over the model a provider collects by (a bare
+  `TimeseriesValues` still means any). A request's `metadata`, `_values` and `_history` are class
+  variables, no longer in `dataclasses.fields()` (GH-2622)
 - **Breaking**: a `.env` file is read as UTF-8 on every Python, where the encoding was the locale's
   (the ANSI code page on Windows) until Python 3.15 made UTF-8 the default. A `.env` saved in a
   Windows code page with a non-ASCII value now raises `UnicodeDecodeError` on `Settings()`:

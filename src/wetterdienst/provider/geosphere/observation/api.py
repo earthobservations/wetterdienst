@@ -15,7 +15,7 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import group_parameters_by_dataset
+from wetterdienst.model.metadata import DatasetModel, group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.geosphere.observation.metadata import GeosphereObservationMetadata
@@ -25,7 +25,7 @@ from wetterdienst.util.network import download_file
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
-    from wetterdienst.model.metadata import DatasetModel, ParameterModel
+    from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ def _time_windows(start: dt.datetime, end: dt.datetime, span: timedelta) -> Iter
         cursor += span
 
 
-class GeosphereObservationValues(TimeseriesValues):
+class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
     """Values class for geosphere observation data."""
 
     _endpoint = (
@@ -109,7 +109,7 @@ class GeosphereObservationValues(TimeseriesValues):
             timestamps = min(timestamps, self._window_timestamps[resolution])
         return timestamps * self._timesteps[resolution]
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
