@@ -168,32 +168,35 @@ result unchanged, so it has to come from the caller.
 How far a station may sit from the target point to still be used depends on how quickly the
 quantity decorrelates in space, so two radii carry that decision:
 
-| Setting                                 | Default | Applies to                                                                                                                                                                    |
+| Option                                  | Default | Applies to                                                                                                                                                                    |
 |-----------------------------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ts_geo_station_distance_homogeneous`   | 40 km   | quantities that vary slowly across a region: air, soil, concrete, dew-point, wet-bulb and surface temperatures, humidity, wind speed and gust, air pressure, cloud cover, sunshine and radiation, soil moisture, evapotranspiration and evaporation, accumulated snow depth and the forecast probabilities |
-| `ts_geo_station_distance_heterogeneous` | 20 km at hourly resolution | quantities that decorrelate within a few tens of kilometres: precipitation in all its variants, new snow per period and visibility |
+| `geo_station_distance_homogeneous`      | 40 km   | quantities that vary slowly across a region: air, soil, concrete, dew-point, wet-bulb and surface temperatures, humidity, wind speed and gust, air pressure, cloud cover, sunshine and radiation, soil moisture, evapotranspiration and evaporation, accumulated snow depth and the forecast probabilities |
+| `geo_station_distance_heterogeneous`    | 20 km at hourly resolution | quantities that decorrelate within a few tens of kilometres: precipitation in all its variants, new snow per period and visibility |
 
 Which of the two a parameter belongs to is declared per parameter; the
 [parameter glossary](../data/parameters.md) names the radius for every parameter. Changing a
 radius moves every parameter of its kind at once:
 
+They are options of the request, given as `options=Options(...)` or as a dict:
+
 ```python
-from wetterdienst import Settings
+from wetterdienst import Options
 
 # reach further for the smooth fields, and keep precipitation closer than the default 20 km
-settings = Settings(
-    ts_geo_station_distance_homogeneous=60.0,
-    ts_geo_station_distance_heterogeneous=15.0,
+options = Options(
+    geo_station_distance_homogeneous=60.0,
+    geo_station_distance_heterogeneous=15.0,
 )
 ```
 
 Single parameters are overridden on top of the two, keyed by canonical parameter name:
 
 ```python
-settings = Settings(ts_geo_station_distance={"precipitation_amount": 25.0})
+options = Options(geo_station_distance={"precipitation_amount": 25.0})
 ```
 
-All three are settable from the environment as well, as any other setting is:
+All three are settable from the environment as well, as any other option is; the variables keep
+their `WD_TS_` prefix:
 
 ```bash
 export WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS=60
@@ -236,10 +239,10 @@ The fine end stops short of the correlation length on purpose: interpolation nee
 stations, and even the DWD network rarely has four rain gauges within 8 km of a point, so 15 km is
 as tight as still answers at all.
 
-The factors are a setting like the radii are, keyed by resolution:
+The factors are an option like the radii are, keyed by resolution:
 
 ```python
-settings = Settings(ts_geo_station_distance_resolution_factors={"10_minutes": 1.0})
+options = Options(geo_station_distance_resolution_factors={"10_minutes": 1.0})
 ```
 
 ```bash
@@ -248,18 +251,18 @@ export WD_TS_GEO_STATION_DISTANCE_RESOLUTION_FACTORS='{"10_minutes": 1.0}'
 
 That one searches the full 20 km at ten minutes rather than 15.
 
-Resolutions left out keep their factor, so the setting stays the list of departures rather than all
+Resolutions left out keep their factor, so the option stays the list of departures rather than all
 eleven, and a resolution that does not exist is rejected the way an unknown parameter name is.
 Setting every factor to 1.0 turns the scaling off.
 
-The factors are plain multipliers of `ts_geo_station_distance_heterogeneous`, so every kilometre
-added to that setting moves every resolution with it: raise it to 30 km and the table reads 22.5,
+The factors are plain multipliers of `geo_station_distance_heterogeneous`, so every kilometre
+added to that option moves every resolution with it: raise it to 30 km and the table reads 22.5,
 30, 45, 60. Nothing clips it back. The terrain bound the factors encode is a judgement about the
 default radius, and a user who changes that radius has made their own.
 
 The factors are set in Python or in the environment only. The two radii and the per-parameter
-overrides are also request options in the CLI and the REST API, as shown below, but the factors are
-a property of the instance rather than of a request.
+overrides are also options of the CLI and the REST API, as shown below, but the factors have no
+flag or query parameter there.
 
 To ask what a request will actually use, rather than reading it off the table:
 
@@ -268,11 +271,11 @@ To ask what a request will actually use, rather than reading it off the table:
 mystnb:
   number_source_lines: true
 ---
-from wetterdienst import Settings
+from wetterdienst import Options
 
-settings = Settings()
+options = Options()
 {
-    resolution: settings.ts_geo_station_distance_for("precipitation_amount", resolution)
+    resolution: options.geo_station_distance_for("precipitation_amount", resolution)
     for resolution in ("10_minutes", "hourly", "6_hour", "daily", "monthly")
 }
 ```
@@ -289,16 +292,16 @@ mystnb:
 ---
 from wetterdienst.metadata.resolution import Resolution
 
-flat = Settings(
-    ts_geo_station_distance_resolution_factors=dict.fromkeys((resolution.value for resolution in Resolution), 1.0),
+flat = Options(
+    geo_station_distance_resolution_factors=dict.fromkeys((resolution.value for resolution in Resolution), 1.0),
 )
 {
-    resolution: flat.ts_geo_station_distance_for("precipitation_amount", resolution)
+    resolution: flat.geo_station_distance_for("precipitation_amount", resolution)
     for resolution in ("10_minutes", "hourly", "daily")
 }
 ```
 
-A radius written out per parameter in `ts_geo_station_distance` is used exactly as given, at every
+A radius written out per parameter in `geo_station_distance` is used exactly as given, at every
 resolution -- a number you wrote means that number.
 
 ```{note}
@@ -309,12 +312,11 @@ for that resolution, or the radius for that parameter, brings them back.
 ```
 
 ```{note}
-Settings are meant to be constructed rather than edited. The two radii and the factors are read
-when a radius is worked out, so assigning to them on an existing `Settings` object does take
-effect; the per-parameter `ts_geo_station_distance` is taken once, when the settings are built, and
-assigning a new mapping to it afterwards is discarded -- build a new `Settings` for that. Note also
-that a request validates settings given as a dict when it is constructed, not when `.interpolate()`
-or `.summarize()` is called; a `Settings` object it is handed is used as it is.
+`Options` are frozen: assigning to one of them raises an error, and `options.replace(...)` gives a
+changed copy that is validated as a new instance is, the two radii, the factors and the
+per-parameter `geo_station_distance` alike. A request takes its options when it is constructed --
+a dict is validated then, not when `.interpolate()` or `.summarize()` is called, and an `Options`
+object it is handed is used as it is -- so build the request with the options you want.
 ```
 
 The example below widens the radius for precipitation to 25 km:
@@ -325,31 +327,31 @@ mystnb:
   number_source_lines: true
 ---
 import datetime as dt
-from wetterdienst import Settings
+from wetterdienst import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-settings = Settings(ts_geo_station_distance={"precipitation_amount": 25.0})
+options = Options(geo_station_distance={"precipitation_amount": 25.0})
 request = DwdObservationRequest(
     parameters=("hourly", "precipitation", "precipitation_amount"),
     start=dt.datetime(2022, 1, 1),
     end=dt.datetime(2022, 1, 20),
-    settings=settings,
+    options=options,
 )
 values = request.interpolate(latlon=(52.8, 12.9))
 df = values.df
 df
 ```
 
-### Other settings
+### Other options
 
-Three more settings control which stations are drawn on (see also the
-[settings](settings.md) chapter):
+Three more options control which stations are drawn on (see also the
+[options](settings.md#options) chapter):
 
-| Name                               | Type  | Default | Description                                                                                                            |
-|------------------------------------|-------|---------|------------------------------------------------------------------------------------------------------------------------|
-| ts_geo_use_nearby_station_distance | float | 1.0     | Distance (in km) up to which a nearby station's value is used directly instead of interpolating. Not read by a summary. |
-| ts_geo_min_gain_of_value_pairs     | float | 0.1     | Minimum gain of value pairs for an additional station to be included, to avoid using every station in a dense network.  |
-| ts_geo_num_additional_stations     | int   | 3       | Number of additional stations used regardless of the gain, to guarantee a minimum number of stations.                   |
+| Name                            | Type  | Default | Description                                                                                                            |
+|---------------------------------|-------|---------|------------------------------------------------------------------------------------------------------------------------|
+| geo_use_nearby_station_distance | float | 1.0     | Distance (in km) up to which a nearby station's value is used directly instead of interpolating. Not read by a summary. |
+| geo_min_gain_of_value_pairs     | float | 0.1     | Minimum gain of value pairs for an additional station to be included, to avoid using every station in a dense network.  |
+| geo_num_additional_stations     | int   | 3       | Number of additional stations used regardless of the gain, to guarantee a minimum number of stations.                   |
 
 Interpolation is still in its early stages, we welcome feedback to enhance and refine its
 functionality.
@@ -478,7 +480,8 @@ decide.
 
 An option that is left out keeps whatever the environment and the defaults say, so a radius set
 through `WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS` is not overwritten by the command. The
-resolution factors are not command options -- they are set on the instance, as above.
+resolution factors are not command options -- they are set in Python through `options=`, or in the
+environment, as above.
 
 ## REST API
 

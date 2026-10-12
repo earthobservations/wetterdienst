@@ -12,8 +12,8 @@ The API offers access to different data products. They are outlined in more deta
 [data](../data/overview.md) chapter.
 Please also check out complete examples about how to use the API in the
 [examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) folder. In order to explore all
-features interactively, you might want to try the [cli](cli.md). For managing general settings, please refer to the
-[settings](settings.md) chapter.
+features interactively, you might want to try the [cli](cli.md). For managing general settings and the options of a request, please refer
+to the [settings](settings.md) chapter.
 
 ## Available APIs
 
@@ -349,8 +349,8 @@ distance in `stations.df`, not just `rank` rows. The `rank` limit is applied laz
 during value collection: Wetterdienst walks the distance-sorted stations and stops
 once `rank` stations *with data* have been consumed. To see the `rank` closest
 stations that actually returned data, use `stations.values.all().df_stations` rather
-than `stations.df`. Enable `ts_skip_empty` to walk past a station that returned data
-but too little of it, as `ts_skip_threshold` and `ts_skip_criteria` define.
+than `stations.df`. Enable the `skip_empty` option to walk past a station that returned data
+but too little of it, as `skip_threshold` and `skip_criteria` define.
 ```
 
 #### filter by bbox
@@ -385,10 +385,10 @@ mystnb:
   number_source_lines: true
 ---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst import Settings
+from wetterdienst import Options
 
-# if no settings are provided, default settings are used which are
-# Settings(ts_shape="long", ts_humanize=True, ts_convert_units=True)
+# if no options are provided, default options are used which are
+# Options(shape="long", humanize=True, convert_units=True)
 request = DwdObservationRequest(
     parameters=[("daily", "kl"), ("daily", "solar")],
     start="1990-01-01",
@@ -413,10 +413,10 @@ mystnb:
   number_source_lines: true
 ---
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst import Settings
+from wetterdienst import Options
 
-# if no settings are provided, default settings are used which are
-# Settings(ts_shape="long", ts_humanize=True, ts_convert_units=True)
+# if no options are provided, default options are used which are
+# Options(shape="long", humanize=True, convert_units=True)
 request = DwdObservationRequest(
     parameters=[("daily", "kl"), ("daily", "solar")],
     start="1990-01-01",
@@ -483,24 +483,24 @@ import polars as pl
 subset = df.filter(pl.col("parameter").cast(pl.String).is_in(["temperature_air_mean_2m", "sunshine_duration"]))
 ```
 
-In case you use `filter_by_rank` you may want to skip empty stations. We can use the Settings from
-[settings](settings.md) to achieve that:
+In case you use `filter_by_rank` you may want to skip empty stations. We can use the Options from
+[settings](settings.md#options) to achieve that:
 
 ```{code-cell}
 ---
 mystnb:
   number_source_lines: true
 ---
-from wetterdienst import Settings
+from wetterdienst import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-settings = Settings(ts_skip_empty=True, ts_skip_criteria="min", ts_skip_threshold=0.2)
+options = Options(skip_empty=True, skip_criteria="min", skip_threshold=0.2)
 karlsruhe = (49.19780976647141, 8.135207205143768)
 request = DwdObservationRequest(
   parameters=[("daily", "kl")],
   start="2021-01-01",
   end="2021-12-31",
-  settings=settings,
+  options=options,
 )
 stations = request.filter_by_rank(latlon=karlsruhe, rank=2)
 values = stations.values.all()
@@ -531,7 +531,7 @@ unless the table says so.
   precipitation of `-1.0`), and the text stays beside it. It is the cell as the source writes it, `-999.0`
   where the source writes that; where the value comes as a JSON number the text is the one the provider
   declares. The long shape drops the rows without a value by default, so the token shows with
-  `ts_drop_nulls=False` or in the wide shape; a filter on a null `quality_flags` as "no flag" meets
+  `drop_nulls=False` or in the wide shape; a filter on a null `quality_flags` as "no flag" meets
   these rows then.
 - `str.split(",")` takes the tokens apart; where a numeric code was used before, cast it:
   `pl.col("quality_flags").cast(pl.Int64, strict=False)`; a code that is no number (IMGW's `Z`) and a
@@ -710,15 +710,15 @@ frame.
 mystnb:
   number_source_lines: true
 ---
-from wetterdienst import Settings
+from wetterdienst import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-settings = Settings(ts_shape="long", ts_humanize=True, ts_convert_units=True)  # defaults
+options = Options(shape="long", humanize=True, convert_units=True)  # defaults
 request = DwdObservationRequest(
   parameters=("hourly", "temperature_air", "temperature_air_2m"),
   start="2019-01-01",
   end="2020-01-01",
-  settings=settings
+  options=options
 )
 stations = request.filter_by_station_id(station_id=[1048])
 values = stations.values.all()

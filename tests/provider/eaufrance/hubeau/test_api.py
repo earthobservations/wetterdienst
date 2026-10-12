@@ -15,7 +15,7 @@ from aiohttp import ServerDisconnectedError
 from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import skip_if_upstream_unavailable
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest, api
 from wetterdienst.provider.eaufrance.hubeau.api import (
@@ -248,7 +248,8 @@ def test_hubeau_values_carry_the_qualification_code_as_a_whole_number(monkeypatc
         parameters=[("15_minutes", "data", "stage")],
         start=end - dt.timedelta(days=1),
         end=end,
-        settings=Settings(cache_disable=True, ts_drop_nulls=False),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
     )
     df = request.filter_by_station_id("1011000101").values.all().df.sort("timestamp")
     assert df.schema["quality_flags"] == pl.String

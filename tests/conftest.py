@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from wetterdienst import Info, Settings
+from wetterdienst import Info, Options, Settings
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.util.eccodes import bufr_is_available
 from wetterdienst.util.network import _worth_retrying
@@ -376,59 +376,59 @@ def default_settings() -> Settings:
 
 
 @pytest.fixture
-def settings_drop_nulls_false() -> Settings:
-    """Provide no drop nulls settings."""
-    return Settings(ts_drop_nulls=False)
+def options_drop_nulls_false() -> Options:
+    """Provide no drop nulls options."""
+    return Options(drop_nulls=False)
 
 
 @pytest.fixture
-def settings_convert_units_false() -> Settings:
-    """Provide no unit conversion settings."""
-    return Settings(ts_convert_units=False)
+def options_convert_units_false() -> Options:
+    """Provide no unit conversion options."""
+    return Options(convert_units=False)
 
 
-# True settings
+# True options
 @pytest.fixture
-def settings_skip_empty_true() -> Settings:
-    """Provide skip empty settings."""
-    return Settings(ts_skip_empty=True)
+def options_skip_empty_true() -> Options:
+    """Provide skip empty options."""
+    return Options(skip_empty=True)
 
 
-# False settings
+# False options
 @pytest.fixture
-def settings_humanize_false_drop_nulls_false() -> Settings:
-    """Provide no humanize and no drop nulls settings."""
-    return Settings(ts_humanize=False, ts_drop_nulls=False)
-
-
-@pytest.fixture
-def settings_humanize_false_convert_units_false() -> Settings:
-    """Provide no humanize and no unit conversion settings."""
-    return Settings(ts_humanize=False, ts_convert_units=False)
+def options_humanize_false_drop_nulls_false() -> Options:
+    """Provide no humanize and no drop nulls options."""
+    return Options(humanize=False, drop_nulls=False)
 
 
 @pytest.fixture
-def settings_humanize_false_convert_units_false_wide_shape() -> Settings:
-    """Provide wide shape, no humanize and no unit conversion settings."""
-    return Settings(ts_shape="wide", ts_humanize=False, ts_convert_units=False)
+def options_humanize_false_convert_units_false() -> Options:
+    """Provide no humanize and no unit conversion options."""
+    return Options(humanize=False, convert_units=False)
 
 
 @pytest.fixture
-def settings_humanize_false_wide_shape() -> Settings:
-    """Provide wide shape and no humanize settings."""
-    return Settings(ts_shape="wide", ts_humanize=False)
+def options_humanize_false_convert_units_false_wide_shape() -> Options:
+    """Provide wide shape, no humanize and no unit conversion options."""
+    return Options(shape="wide", humanize=False, convert_units=False)
 
 
 @pytest.fixture
-def settings_convert_units_false_wide_shape() -> Settings:
-    """Provide wide shape and no unit conversion settings."""
-    return Settings(ts_shape="wide", ts_convert_units=False)
+def options_humanize_false_wide_shape() -> Options:
+    """Provide wide shape and no humanize options."""
+    return Options(shape="wide", humanize=False)
 
 
 @pytest.fixture
-def settings_wide_shape() -> Settings:
-    """Provide wide shape settings."""
-    return Settings(ts_shape="wide")
+def options_convert_units_false_wide_shape() -> Options:
+    """Provide wide shape and no unit conversion options."""
+    return Options(shape="wide", convert_units=False)
+
+
+@pytest.fixture
+def options_wide_shape() -> Options:
+    """Provide wide shape options."""
+    return Options(shape="wide")
 
 
 @pytest.fixture

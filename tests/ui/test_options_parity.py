@@ -210,6 +210,7 @@ class _Taken(Exception):  # noqa: N818
     """Raised in place of fetching, to stop where the options have been taken."""
 
 
+# old route, removed in stage 5
 def _before(case: Case) -> Options:
     """Give the options that ``Settings(ts_<option>=...)`` carried to a request, as the UIs once built them."""
     return options_from_settings(Settings(**{f"ts_{case.option}": case.value}))
