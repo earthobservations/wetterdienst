@@ -59,10 +59,9 @@ jobs:
     strategy:
       matrix:
         os: [ "ubuntu-latest" ]
-        # 3.15 is not claimed as supported yet (GH-2568): polars 1.x cannot build a Series from
-        # datetimes there, which most of the suite does, and polars 2 is GH-2570. Here to show what
-        # else stands in its way; h5py, duckdb, numcodecs and pyyaml have no 3.15 wheel and are
-        # built from source
+        # 3.15 is not claimed as supported yet (GH-2568): the locked beartype (through fastmcp) does
+        # not import there, which fails the MCP tests until the lock takes 0.23, and h5py, duckdb,
+        # numcodecs and pyyaml have no 3.15 wheel and are built from source
         python-version: [ "3.11", "3.12", "3.13", "3.14", "3.15" ]
         include:
           - os: "windows-latest"
