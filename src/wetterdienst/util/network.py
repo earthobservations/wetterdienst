@@ -33,6 +33,7 @@ from aiohttp import (
     ClientPayloadError,
     ClientResponseError,
     ClientSSLError,
+    ClientTimeout,
 )
 from aiohttp.client_reqrep import ConnectionKey
 from fsspec.asyn import sync, sync_wrapper
@@ -1270,10 +1271,12 @@ def list_remote_directory_fsspec(
     raise failure
 
 
-#: How long a probe of a provider's credentials waits for the server to answer, connecting and then
-#: each silence. A probe is asked while someone waits for a page, so it gives up where a download
-#: that is going to be read would not (GH-2564).
+#: How long a probe of a provider's credentials may take in all, connecting and reading the answer.
+#: A probe is asked while someone waits for a page, so it gives up where a download that is going to
+#: be read would not (GH-2564). A total, which a numeric client timeout is not (it bounds each
+#: silence, GH-2258): the answer to a probe is a few hundred bytes, so there is no slow link to fail.
 PROBE_TIMEOUT_SECONDS = 5
+PROBE_TIMEOUT = ClientTimeout(total=PROBE_TIMEOUT_SECONDS)
 
 
 def download_file(

@@ -7584,7 +7584,7 @@ def test_coverage_model_refuses_a_key_discover_does_not_have() -> None:
 def test_coverage_of_every_provider_matches_its_model(client: TestClient) -> None:
     """The list of every provider and its networks validates, and is sent as `discover()` builds it (GH-2090).
 
-    With no credential set, no credentialed provider is probed, so nothing reaches upstream.
+    The listing probes no provider, so nothing reaches upstream whatever credentials are set.
     """
     response = client.get("/api/coverage")
     assert response.status_code == 200

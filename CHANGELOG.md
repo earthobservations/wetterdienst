@@ -33,17 +33,17 @@ Types of changes:
 - **Breaking**: `metno/frost` and `aemet/observation` `is_valid()` is `False` only when the provider
   rejects the credential (HTTP 401/403, for AEMET also an `estado` of 401/403), `True` when it
   accepts it, and `None` when the probe could not tell (no network, a TLS failure, a timeout, a 429,
-  a 5xx), which used to read as `False`. `valid` in `/api/auth` and `/api/coverage` is `true`,
+  a 5xx), which used to read as `False`. `valid` in `/api/auth` is `true`,
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
-- **Breaking**: `Wetterdienst.discover()`, `GET /api/coverage` and `wetterdienst about coverage`
-  download nothing, so they answer at once (a configured AEMET could take over a minute). `valid` is
-  `null` for a network whose credentials are configured, where it was `true` or `false` after a
-  probe; it stays `false` where they are missing. Ask `GET /api/auth` per network, or
-  `Wetterdienst.is_valid(api)`, whether they are accepted. That probe is one attempt that gives up
-  after 5 s, and AEMET's reads only the envelope. The app lists the networks at once and hides one
-  when `/api/auth` says its credentials are rejected (GH-2564)
+- **Breaking**: `Wetterdienst.discover()`, `GET /api/coverage` (and the MCP `coverage` tool) and
+  `wetterdienst about coverage` download nothing, so they answer at once. `valid` is `null` for a
+  network whose credentials are configured, where it was `true` or `false` after a probe; it stays
+  `false` where they are missing. Ask `GET /api/auth` per network, or `Wetterdienst.is_valid(api)`,
+  whether they are accepted. That probe is one attempt that takes at most 5 s, and AEMET's probe
+  reads only the envelope: an `estado` of 200 is accepted, whatever follows. The app lists the
+  networks at once and hides one when `/api/auth` says its credentials are rejected (GH-2564)
 
 ### Removed
 

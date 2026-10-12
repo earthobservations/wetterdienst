@@ -19,7 +19,7 @@ from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, ParameterModel, bu
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, download_file
+from wetterdienst.util.network import PROBE_TIMEOUT, download_file
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
@@ -813,7 +813,7 @@ def _probe_frost_credentials(settings: Settings) -> bool | None:
             "Authorization": encode_basic_auth(client_id.get_secret_value(), secret.get_secret_value()),
         },
         # bounded: this is asked while a page waits for it (GH-2564)
-        "timeout": PROBE_TIMEOUT_SECONDS,
+        "timeout": PROBE_TIMEOUT,
     }
     file = download_file(
         url="https://frost.met.no/sources/v0.jsonld?ids=SN18700&fields=id",

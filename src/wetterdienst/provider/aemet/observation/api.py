@@ -28,7 +28,7 @@ from wetterdienst.provider.aemet.observation.parser import (
     parse_wind_direction,
 )
 from wetterdienst.settings import Settings, reveal
-from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, download_file
+from wetterdienst.util.network import PROBE_TIMEOUT, download_file
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -264,7 +264,7 @@ def _probe_aemet_credentials(settings: Settings) -> bool | None:
         url=f"{_BASE_URL}/valores/climatologicos/inventarioestaciones/todasestaciones",
         cache_dir=settings.cache_dir,
         ttl=CacheExpiry.ONE_HOUR,
-        client_kwargs={**_client_kwargs(settings), "timeout": PROBE_TIMEOUT_SECONDS},
+        client_kwargs={**_client_kwargs(settings), "timeout": PROBE_TIMEOUT},
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
         attempts=1,

@@ -94,7 +94,7 @@ def test_is_valid_is_one_short_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = _answer(monkeypatch, BytesIO(b"{}"), 200)
     assert MetnoFrostRequest.is_valid() is True
     assert calls[0]["attempts"] == 1
-    assert calls[0]["client_kwargs"]["timeout"] == PROBE_TIMEOUT_SECONDS
+    assert calls[0]["client_kwargs"]["timeout"].total == PROBE_TIMEOUT_SECONDS
     assert Settings().fsspec_client_kwargs["timeout"] > PROBE_TIMEOUT_SECONDS
 
 

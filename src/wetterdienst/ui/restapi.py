@@ -862,8 +862,7 @@ def coverage(
 
     The list of every provider downloads nothing, so it answers at once. For a network that needs
     credentials, `configured` says whether they are present, and `valid` is false where they are not
-    and null where they are: whether the provider accepts them is not checked here, `/api/auth` does
-    that per network.
+    and null where they are: this list does not check whether the provider accepts them.
     """
     set_logging_level(debug=request.debug)
     provider, network = request.provider, request.network

@@ -655,7 +655,7 @@ def test_aemet_observation_is_valid_is_one_short_attempt(monkeypatch: pytest.Mon
     assert AemetObservationRequest.is_valid() is True
     assert len(calls) == 1
     assert calls[0]["attempts"] == 1
-    assert calls[0]["client_kwargs"]["timeout"] == PROBE_TIMEOUT_SECONDS
+    assert calls[0]["client_kwargs"]["timeout"].total == PROBE_TIMEOUT_SECONDS
     assert Settings().fsspec_client_kwargs["timeout"] > PROBE_TIMEOUT_SECONDS
 
 

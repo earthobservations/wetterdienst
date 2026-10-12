@@ -391,7 +391,11 @@ describe('parameterSelection credential checks', () => {
     const wrapper = await mountSelection()
 
     await vi.waitFor(() => expect(asked).toBe(1))
-    await new Promise(resolve => setTimeout(resolve, 50))
+    // the request is not sent again (`retry: 0`; ofetch asks a failed GET once more by default): a
+    // retry is made within a few turns of the event loop, so look after as many
+    for (let turn = 0; turn < 10; turn++)
+      await new Promise(resolve => setTimeout(resolve, 0))
+    expect(asked).toBe(1)
     expect((wrapper.vm as any).providers).toEqual(['aemet'])
   })
 
@@ -416,8 +420,6 @@ describe('parameterSelection credential checks', () => {
   })
 
   it('aborts the checks it no longer needs when the page is left', async () => {
-    // the mocked endpoint heeds no signal, so the abort is looked for where it is made
-    const aborts = vi.spyOn(AbortController.prototype, 'abort')
     const hold = gate()
     let asked = false
     registerEndpoint('/api/coverage', () => ({ aemet: { observation: credentialed() } }))
@@ -429,10 +431,39 @@ describe('parameterSelection credential checks', () => {
 
     const wrapper = await mountSelection()
     await vi.waitFor(() => expect(asked).toBe(true))
-    const before = aborts.mock.calls.length
+    // the mocked endpoint heeds no signal, so the signal of the checks is looked at itself
+    const signal: AbortSignal = (wrapper.vm as any).credentialChecks.signal
+    expect(signal.aborted).toBe(false)
     wrapper.unmount()
 
-    expect(aborts.mock.calls.length).toBeGreaterThan(before)
+    expect(signal.aborted).toBe(true)
     hold.release()
+  })
+
+  it('drops a network found rejected while the selection was still being restored', async () => {
+    // initialization is waiting for the network's coverage when the rejection comes in, so the
+    // watcher that clears the selection has to run again once initialization is over
+    const hold = gate()
+    registerEndpoint('/api/coverage', (event) => {
+      if (getQuery(event).provider)
+        return hold.released.then(() => dailyClimateSummaryCoverage())
+      return { dwd: { observation: open }, aemet: { observation: credentialed() } }
+    })
+    registerEndpoint('/api/auth', () => ({ valid: false }))
+
+    const wrapper = await mountSuspended(ParameterSelection, {
+      props: { modelValue: { provider: 'aemet', network: 'observation' } },
+    })
+    mountedWrappers.push(wrapper)
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.providers).toEqual(['dwd']))
+    expect(vm.isInitializing).toBe(true)
+    expect(vm.provider).toBe('aemet')
+
+    hold.release()
+    await vi.waitFor(() => expect(vm.isInitializing).toBe(false))
+    await vi.waitFor(() => expect(vm.provider).toBeUndefined())
+    expect(vm.network).toBeUndefined()
   })
 })
