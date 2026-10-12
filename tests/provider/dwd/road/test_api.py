@@ -148,7 +148,16 @@ def test_dwd_road_weather_group_with_nothing_published(monkeypatch: pytest.Monke
     df = _stub_stations().values.all().df
     assert df.is_empty()
     # and it is an answer rather than a hole: the columns a caller asks the result for are there
-    assert set(df.columns) == {"station_id", "resolution", "dataset", "parameter", "timestamp", "value", "quality"}
+    assert set(df.columns) == {
+        "station_id",
+        "resolution",
+        "dataset",
+        "parameter",
+        "timestamp",
+        "value",
+        "quality",
+        "quality_flag",
+    }
 
 
 def _listing(*names: str) -> list[str]:

@@ -128,6 +128,11 @@ NwsObservationMetadata = {
 NwsObservationMetadata = build_metadata_model(NwsObservationMetadata, "NwsObservationMetadata")
 
 
+def _quantity(dtype: pl.DataType | type[pl.DataType]) -> pl.Struct:
+    """Give the schema of an observation's quantity: its value and the MADIS quality control flag it carries."""
+    return pl.Struct([pl.Field("value", dtype), pl.Field("qualityControl", pl.String)])
+
+
 class NwsObservationValues(TimeseriesValues):
     """Values class for NWS observation."""
 
@@ -188,73 +193,21 @@ class NwsObservationValues(TimeseriesValues):
                                 {
                                     "station": pl.String,
                                     "timestamp": pl.String,
-                                    "temperature": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Float64),
-                                        ],
-                                    ),
-                                    "dewpoint": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Float64),
-                                        ],
-                                    ),
-                                    "windDirection": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Int64),
-                                        ],
-                                    ),
-                                    "windSpeed": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Float64),
-                                        ],
-                                    ),
-                                    "windGust": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Int32),
-                                        ],
-                                    ),
-                                    "barometricPressure": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Int64),
-                                        ],
-                                    ),
-                                    "seaLevelPressure": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Int64),
-                                        ],
-                                    ),
-                                    "visibility": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Int64),
-                                        ],
-                                    ),
-                                    "maxTemperatureLast24Hours": pl.Struct([pl.Field("value", pl.Int32)]),
-                                    "minTemperatureLast24Hours": pl.Struct([pl.Field("value", pl.Int32)]),
-                                    "precipitationLastHour": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Int64),
-                                        ],
-                                    ),
-                                    "precipitationLast3Hours": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Int64),
-                                        ],
-                                    ),
-                                    "precipitationLast6Hours": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Int64),
-                                        ],
-                                    ),
-                                    "relativeHumidity": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Float64),
-                                        ],
-                                    ),
-                                    "windChill": pl.Struct(
-                                        [
-                                            pl.Field("value", pl.Float64),
-                                        ],
-                                    ),
+                                    "temperature": _quantity(pl.Float64),
+                                    "dewpoint": _quantity(pl.Float64),
+                                    "windDirection": _quantity(pl.Int64),
+                                    "windSpeed": _quantity(pl.Float64),
+                                    "windGust": _quantity(pl.Int32),
+                                    "barometricPressure": _quantity(pl.Int64),
+                                    "seaLevelPressure": _quantity(pl.Int64),
+                                    "visibility": _quantity(pl.Int64),
+                                    "maxTemperatureLast24Hours": _quantity(pl.Int32),
+                                    "minTemperatureLast24Hours": _quantity(pl.Int32),
+                                    "precipitationLastHour": _quantity(pl.Int64),
+                                    "precipitationLast3Hours": _quantity(pl.Int64),
+                                    "precipitationLast6Hours": _quantity(pl.Int64),
+                                    "relativeHumidity": _quantity(pl.Float64),
+                                    "windChill": _quantity(pl.Float64),
                                 },
                             ),
                         },
@@ -278,6 +231,8 @@ class NwsObservationValues(TimeseriesValues):
             pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%z"),
             pl.col("value").struct.field("value").cast(pl.Float64),
             pl.lit(None, dtype=pl.Float64).alias("quality"),
+            # the MADIS flag of the quantity (Z, C, S, V, X, Q, G, B, T), verbatim (GH-2018)
+            pl.col("value").struct.field("qualityControl").alias("quality_flag"),
         )
 
 

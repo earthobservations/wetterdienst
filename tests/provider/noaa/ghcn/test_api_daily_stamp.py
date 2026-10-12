@@ -5,6 +5,7 @@
 import datetime as dt
 from zoneinfo import ZoneInfo
 
+import polars as pl
 import pytest
 
 from tests.provider.value_stubs import serve
@@ -80,4 +81,50 @@ def test_ghcn_daily_is_stamped_at_00_utc_of_its_date(
         midnight - dt.timedelta(days=1),
         midnight,
         midnight + dt.timedelta(days=1),
+    ]
+
+
+# The attributes are "MFLAG,QFLAG,SFLAG" (ghcn/daily/readme.txt): "Blank = did not fail any quality assurance check",
+# otherwise the check the value failed, "X = failed bounds check", "G = failed gap check", ... The rows are USW00094728
+# (checked 2026-10-11 against the live file, whose QFLAGs are X, I, L, G and W besides blank).
+_FLAGGED = (
+    '"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","PRCP","PRCP_ATTRIBUTES","TMAX","TMAX_ATTRIBUTES"\n'
+    '"USW00094728","2000-01-01","40.77898","-73.96925","42.7","NY CITY, NY US","    0",",,0","   61",",,0"\n'
+    '"USW00094728","2000-01-02","40.77898","-73.96925","42.7","NY CITY, NY US","  250","T,X,0","  -28",",G,7"\n'
+    '"USW00094728","2000-01-03","40.77898","-73.96925","42.7","NY CITY, NY US",,,"   17","H,,S"\n'
+)
+
+
+def test_ghcn_daily_returns_the_quality_flag_of_each_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the quality flag in a value's attributes is returned in `quality_flag`, blank as null (GH-2018).
+
+    The attributes were dropped with the other columns the value did not need, so a value that failed the bounds or
+    the gap check came back as any other. The measurement and the source flag, which say how the value was made and
+    where it came from, are no quality information and are not carried.
+    """
+    serve(
+        monkeypatch,
+        api,
+        {
+            "ghcnd-stations": _STATIONS.encode("utf8"),
+            "ghcnd-inventory": _INVENTORY.encode("utf8"),
+            "access/USW00094728": _FLAGGED.encode("utf8"),
+        },
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("daily", "data", "precipitation_amount"), ("daily", "data", "temperature_air_max_2m")],
+        start="2000-01-01",
+        end="2000-01-03",
+        settings=Settings(cache_disable=True, ts_drop_nulls=False),
+    ).filter_by_station_id("USW00094728")
+    df = request.values.all().df.with_columns(pl.col("parameter").cast(pl.String)).sort("parameter", "timestamp")
+    assert df.schema["quality_flag"] == pl.String
+    assert df.get_column("quality").null_count() == df.height
+    assert df.select("parameter", "quality_flag").rows() == [
+        ("precipitation_amount", None),
+        ("precipitation_amount", "X"),
+        ("precipitation_amount", None),
+        ("temperature_air_max_2m", None),
+        ("temperature_air_max_2m", "G"),
+        ("temperature_air_max_2m", None),
     ]

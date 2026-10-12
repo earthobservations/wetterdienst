@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import polars as pl
 import polars.selectors as cs
@@ -145,15 +145,31 @@ class NoaaGhcnValues(TimeseriesValues):
                     pl.col("longitude"),
                     pl.col("elevation"),
                     pl.col("name"),
-                    cs.ends_with("_attributes"),
                 ],
             ),
         )
-        df = df.unpivot(
-            index=["station", "timestamp"],
-            on=cs.exclude(["station", "timestamp"]),
-            variable_name="parameter",
-            value_name="value",
+        index = ["station", "timestamp"]
+        elements = [column for column in df.columns if column not in index and not column.endswith("_attributes")]
+        # `<element>_attributes` holds "MFLAG,QFLAG,SFLAG", e.g. ",,E" or "H,,S"; the middle one is the quality
+        # flag (GH-2018), a letter naming the check the value failed or blank where it failed none. It travels
+        # with its value through the unpivot as the field of a struct
+        df = df.select(
+            *index,
+            *(
+                pl.struct(
+                    pl.col(element).cast(pl.String).alias("value"),
+                    (
+                        pl.col(f"{element}_attributes").str.split(",").list.get(1, null_on_oob=True)
+                        if f"{element}_attributes" in df.columns
+                        else pl.lit(None, dtype=pl.String)
+                    ).alias("quality_flag"),
+                ).alias(element)
+                for element in elements
+            ),
+        ).unpivot(index=index, on=elements, variable_name="parameter", value_name="value")
+        df = df.with_columns(
+            pl.col("value").struct.field("quality_flag").str.strip_chars().replace("", None),
+            pl.col("value").struct.field("value"),
         )
         df = df.select(
             pl.col("station").alias("station_id"),
@@ -161,6 +177,7 @@ class NoaaGhcnValues(TimeseriesValues):
             pl.col("parameter").str.to_lowercase(),
             pl.col("value").str.strip_chars().cast(float),
             pl.lit(value=None, dtype=pl.Float64).alias("quality"),
+            "quality_flag",
         )
         # A daily value is stamped at 00:00 UTC of the date the file gives it, whichever time zone the station is in.
         # The date is the station's own observing day, which the readme gives no zone for, and a stamp shifted by the
@@ -176,6 +193,7 @@ class NoaaGhcnValues(TimeseriesValues):
             "timestamp",
             "value",
             "quality",
+            "quality_flag",
         )
 
     @staticmethod
@@ -200,6 +218,13 @@ class NoaaGhcnRequest(TimeseriesRequest):
     metadata = NoaaGhcnMetadata
     _values = NoaaGhcnValues
 
+    # extend base columns of core class with the station's WMO number, which cross-references it with
+    # the WMO lists and with the other providers' stations
+    _base_columns: ClassVar = (
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "wmo_id",
+    )
+
     def _all(self) -> pl.LazyFrame:
         from typing import cast  # noqa: PLC0415
 
@@ -215,8 +240,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
         data = [d for d in data if d.collect_schema().names()]
         if not data:
             return pl.LazyFrame()
-        # only the daily frame has start_timestamp and end_timestamp, from its inventory, and wmo_id, which the
-        # hourly reader does not select; the hourly stations get nulls
+        # only the daily frame has start_timestamp and end_timestamp, from its inventory; the hourly stations
+        # get nulls
         df = pl.concat(data, how="diagonal")
         # a request for one resolution has no pairs to settle
         return self._take_daily_elevation(df) if len(data) > 1 else df
@@ -287,6 +312,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
                 "ELEVATION",
                 "STATE",
                 "NAME",
+                "WMO_ID",
             ]
         )
         df = df.rename(
@@ -297,12 +323,19 @@ class NoaaGhcnRequest(TimeseriesRequest):
                 "ELEVATION": "elevation",
                 "STATE": "region",
                 "NAME": "name",
+                "WMO_ID": "wmo_id",
             }
         )
         df = df.with_columns(
             pl.lit("hourly", dtype=pl.String).alias("resolution"),
             pl.lit("data", dtype=pl.String).alias("dataset"),
             cs.string().str.strip_chars().replace("", None),
+        )
+        # a WMO number is five digits, as the daily list writes it. The hourly list also has `400` on 445 Spanish
+        # stations such as SPN00000293 BEGUR (CAP), and `of`, `unkno`, `resol`, `260` and `open` on a dozen more:
+        # not numbers of a station
+        df = df.with_columns(
+            pl.when(pl.col("wmo_id").str.contains(r"^\d{5}$")).then(pl.col("wmo_id")).alias("wmo_id"),
         )
         # the documentation marks a missing elevation as -999.9. The list also carries 9999.0 and
         # 8191.0, undocumented, on rows such as the North Sea lightship GMMU0010434 ELBE NO. 1 and

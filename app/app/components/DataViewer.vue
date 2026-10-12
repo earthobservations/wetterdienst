@@ -320,6 +320,7 @@ const columnDefinitions: { key: keyof Value, cell?: TableColumn<Value>['cell'] }
   { key: 'timestamp', cell: ({ row }) => formatDate(fieldText(row.original.timestamp)) },
   { key: 'value' },
   { key: 'quality' },
+  { key: 'quality_flag' },
   { key: 'taken_station_id' },
   { key: 'taken_station_ids' },
 ]

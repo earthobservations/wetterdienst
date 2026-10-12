@@ -690,6 +690,7 @@ class ExportMixin:
                 }
                 parameter = record.pop("parameter", None)
                 quality = record.pop("quality", None)
+                quality_flag = record.pop("quality_flag", None)
                 # fields is a dict of either a single value (long format) or multiple values (wide format).
                 fields = {k: v for k, v in record.items() if v is not None}
                 if not fields:
@@ -699,6 +700,8 @@ class ExportMixin:
                         tags["parameter"] = parameter
                         if quality:
                             fields["quality"] = quality
+                        if quality_flag:
+                            fields["quality_flag"] = quality_flag
                     point = {
                         "measurement": tablename,
                         "time": time,
@@ -718,6 +721,8 @@ class ExportMixin:
                         point = point.tag("parameter", parameter)
                         if quality:
                             point = point.field("quality", quality)
+                        if quality_flag:
+                            point = point.field("quality_flag", quality_flag)
                     for field, value in fields.items():
                         point = point.field(field, value)
                 elif version == 3:
@@ -732,6 +737,8 @@ class ExportMixin:
                         point = point.tag("parameter", parameter)
                         if quality:
                             point = point.field("quality", quality)
+                        if quality_flag:
+                            point = point.field("quality_flag", quality_flag)
                     for field, value in fields.items():
                         point = point.field(field, value)
 

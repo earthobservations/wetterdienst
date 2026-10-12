@@ -46,6 +46,7 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
                 "timestamp": dt.datetime(2021, 1, 2, tzinfo=ZoneInfo("UTC")),
                 "value": 3.7,
                 "quality": None,
+                "quality_flag": None,
             },
         ],
         schema={
@@ -56,6 +57,7 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
+            "quality_flag": pl.String,
         },
         orient="row",
     )
@@ -86,6 +88,7 @@ def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
                 "timestamp": dt.datetime(1977, 1, 10, 2, tzinfo=ZoneInfo("UTC")),
                 "value": 1.0,
                 "quality": None,
+                "quality_flag": None,
             },
         ],
         schema={
@@ -96,6 +99,7 @@ def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
+            "quality_flag": pl.String,
         },
         orient="row",
     )

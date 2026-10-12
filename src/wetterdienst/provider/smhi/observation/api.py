@@ -52,6 +52,7 @@ _EMPTY_VALUES_SCHEMA = {
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
     "quality": pl.Float64,
+    "quality_flag": pl.String,
 }
 
 
@@ -151,6 +152,7 @@ class SmhiObservationValues(TimeseriesValues):
             pl.col("timestamp"),
             pl.col("value").cast(pl.Float64, strict=False),
             pl.lit(None, pl.Float64).alias("quality"),
+            pl.col("quality_flag").str.strip_chars().replace("", None),
         )
 
 

@@ -445,6 +445,7 @@ class _ValuesItemDict(TypedDict):
     timestamp: str
     value: float | None
     quality: float | None
+    quality_flag: str | None
 
 
 class _ValuesOgcItemDict(TypedDict):
@@ -456,14 +457,24 @@ class _ValuesOgcItemDict(TypedDict):
     timestamp: str
     value: float | None
     quality: float | None
+    quality_flag: str | None
 
 
-# A wide row holds one value and one quality column per parameter, named after it, so those keys
-# differ per request and are typed as extra items rather than declared one by one; being numbers,
-# they also keep a long row, whose `parameter` is a string, from passing for a wide one. Its
-# dataset is null in a resolution the wide shape merged several requested datasets into (see
-# TimeseriesValues._widen_df).
-class _ValuesWideItemDict(TypedDict, extra_items=float | None):
+# The columns of a wide row beyond the declared ones are numbers, except the quality flags, which are
+# strings. A TypedDict's `extra_items` has one type for all of them, so the schema is told apart
+# here: `additionalProperties` stays numeric, which is what keeps a long row, whose `parameter` is a
+# string, from passing for a wide one (GH-2282), and the flag columns are named by pattern.
+def _wide_row_schema(schema: dict[str, typing.Any]) -> None:
+    schema["additionalProperties"] = {"anyOf": [{"type": "number"}, {"type": "null"}]}
+    schema["patternProperties"] = {"_quality_flag$": {"anyOf": [{"type": "string"}, {"type": "null"}]}}
+
+
+# A wide row holds one value, one quality and one quality flag column per parameter, named after it,
+# so those keys differ per request and are typed as extra items rather than declared one by one:
+# numbers for the first two, a string for the flag. Its dataset is null in a resolution the wide
+# shape merged several requested datasets into (see TimeseriesValues._widen_df).
+@with_config(ConfigDict(json_schema_extra=_wide_row_schema))
+class _ValuesWideItemDict(TypedDict, extra_items=float | str | None):
     """Type definition for a wide row of values."""
 
     station_id: str
@@ -472,7 +483,8 @@ class _ValuesWideItemDict(TypedDict, extra_items=float | None):
     timestamp: str
 
 
-class _ValuesWideOgcItemDict(TypedDict, extra_items=float | None):
+@with_config(ConfigDict(json_schema_extra=_wide_row_schema))
+class _ValuesWideOgcItemDict(TypedDict, extra_items=float | str | None):
     """Type definition for a wide row of a GeoJSON feature: the feature's properties carry its station."""
 
     resolution: str
@@ -764,8 +776,8 @@ class ValuesResult(_ValuesResult):
         A null is left out, as the long shape leaves it out by default: the wide shape writes one
         wherever a column has no reading at a row another column has one at, and a column of one
         resolution is null throughout the rows of another, as the widening joins on the resolution.
-        Kept, those would draw a series under a resolution it does not belong to. The quality
-        columns are not drawn.
+        Kept, those would draw a series under a resolution it does not belong to. The quality and
+        quality flag columns are not drawn.
 
         The rows are put in the order a long result holds them in, which is the order the plot
         lays its facets out and colours its stations in: station by station, as they were
@@ -780,7 +792,10 @@ class ValuesResult(_ValuesResult):
             column
             for column in df.columns
             if column not in keys
-            and not (column.endswith("_quality") and column.removesuffix("_quality") in df.columns)
+            and not (
+                column.endswith(("_quality", "_quality_flag"))
+                and column.removesuffix("_flag").removesuffix("_quality") in df.columns
+            )
         ]
         series = []
         for (resolution,), df_resolution in df.group_by("resolution", maintain_order=True):

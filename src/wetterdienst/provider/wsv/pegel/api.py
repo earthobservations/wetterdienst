@@ -446,10 +446,13 @@ class WsvPegelRequest(TimeseriesRequest):
         "hsw": "highest of shipping water level",
     }
 
-    # extend base columns of core class with those of characteristic values plus gauge zero and the
-    # vertical datum it is given in, which differs between stations (NHN, NN, ...)
+    # extend base columns of core class with the river a gauge is on and its position along it, those
+    # of characteristic values plus gauge zero and the vertical datum it is given in, which differs
+    # between stations (NHN, NN, ...)
     _base_columns: ClassVar = (
         *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "river",
+        "river_kilometer",
         "gauge_zero",
         "gauge_zero_datum",
         *characteristic_values.keys(),
@@ -532,7 +535,9 @@ class WsvPegelRequest(TimeseriesRequest):
             # per requested resolution and has no inputs at all to concatenate if there are none
             return pl.LazyFrame()
         df = df.with_columns(
-            pl.col("water").struct.field("shortname"),
+            # the river as published, in upper case such as `ELBE`; the field is called `shortname`
+            # like the station's own, which is renamed to `name` above
+            pl.col("water").struct.field("shortname").alias("river"),
             # a station belongs to a resolution because it records one of the parameters requested
             # there at that very interval -- not because of anything the network as a whole does.
             # Stations that mix intervals get one row per resolution they record in, and the values
@@ -572,7 +577,7 @@ class WsvPegelRequest(TimeseriesRequest):
         return df.select(
             pl.col("resolution"),
             pl.lit(DATASET_NAME_DEFAULT, dtype=pl.String).alias("dataset"),
-            pl.all().exclude(["timeseries", "ts_water", "resolution"]),
+            pl.all().exclude(["timeseries", "ts_water", "resolution", "water"]),
             # must match the name in `_base_columns`, or the reindex there drops it and leaves an
             # all-null `gauge_zero` -- which is the column that says which datum a stage is on
             pl.col("ts_water").struct.field("gaugeZero").struct.field("value").alias("gauge_zero"),

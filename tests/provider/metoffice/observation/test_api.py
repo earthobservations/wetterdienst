@@ -279,6 +279,43 @@ def test_latest_release_version_bad_listing_returns_none(body: bytes, monkeypatc
     assert fileindex.latest_release_version(Settings(), token="t") is None  # noqa: S106
 
 
+def test_metoffice_station_list_gives_the_historic_county_as_region(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station's `region` is the county MIDAS files it under, as published (GH-2019).
+
+    The catalogue gives every station a `historic_county`, the first path component of its data files
+    (`shetland`), and the request left `region` null; `station_file_name` stays out of the frame.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.metoffice.observation import api  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    content = _badc(
+        b"Conventions,G,BADC-CSV,1\ntitle,G,Midas-open: Station site metadata\n",
+        "src_id,station_name,station_file_name,historic_county,authority,"
+        "station_latitude,station_longitude,station_elevation,first_year,last_year",
+        b"00001,FOULA,foula,shetland,Met Office,60.154,-2.074,22,1989,2003\n"
+        b"00009,LERWICK,lerwick,shetland,Met Office,60.139,-1.183,82,1930,2025\n"
+        b"00036,KEW GARDENS,kew-gardens,surrey,Met Office,51.478,-0.295,5,1901,2025\n",
+    )
+    monkeypatch.setattr(api, "get_ceda_token", lambda _settings: "token")
+    monkeypatch.setattr(api, "latest_release_version", lambda _settings, _token: "202507")
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(content), status=200),
+    )
+
+    df = MetOfficeObservationRequest(parameters=[("daily", "rain", "precipitation_amount")]).all().df
+
+    assert df.select("station_id", "name", "region").rows() == [
+        ("00001", "FOULA", "shetland"),
+        ("00009", "LERWICK", "shetland"),
+        ("00036", "KEW GARDENS", "surrey"),
+    ]
+    assert "station_file_name" not in df.columns
+
+
 # ---------------------------------------------------------------------------
 # Remote tests -- require a free CEDA account (WD_AUTH__CEDA=<username>:<password>).
 # ---------------------------------------------------------------------------

@@ -181,7 +181,7 @@ EcccObservationMetadata = {
                     # The fields the climate-monthly collection actually publishes. This block used
                     # to carry bulk-CSV column headers ("total precip (mm)", "spd of max gust(km/h)")
                     # that the OGC API never returns, along with quality parameters -- quality
-                    # arrives in the `quality` column via the *_FLAG join, as it does for daily.
+                    # arrives in the `quality_flag` column via the *_FLAG join, as it does for daily.
                     # The DAYS_WITH_* counts and NORMAL_* fields are deliberately left out: they
                     # have no canonical name yet, and adding vocabulary belongs in its own change
                     # rather than a repair.

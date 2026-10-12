@@ -125,7 +125,7 @@ hourly/air_temperature, hourly/precipitation.
 ## Reading results
 - By default (shape="long" unless the server is configured otherwise, format="json") `values` \
 returns JSON with a `values` array of \
-{station_id, resolution, dataset, parameter, timestamp, value, quality}, grouped by station, then by \
+{station_id, resolution, dataset, parameter, timestamp, value, quality, quality_flag}, grouped by station, then by \
 resolution, dataset and parameter, in timestamp order within each group. A parameter's LATEST \
 timestamp is the LAST item of its group, not the last item of the array.
 - Responses are compact by default (just the `values`). Keep them small (and answer in fewer calls) \

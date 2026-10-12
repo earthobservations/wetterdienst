@@ -65,6 +65,7 @@ def test_imgw_hydrology_api_daily() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.62,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "150190130",
@@ -74,6 +75,7 @@ def test_imgw_hydrology_api_daily() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 164.0,
                 "quality": None,
+                "quality_flag": None,
             },
         ],
         schema={
@@ -84,6 +86,7 @@ def test_imgw_hydrology_api_daily() -> None:
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
+            "quality_flag": pl.String,
         },
         orient="row",
     )
@@ -109,6 +112,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 18.3,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "150190130",
@@ -118,6 +122,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 8.36,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "150190130",
@@ -127,6 +132,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 2.75,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "150190130",
@@ -136,6 +142,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 264.0,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "150190130",
@@ -145,6 +152,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 199.0,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "150190130",
@@ -154,6 +162,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 149.0,
                 "quality": None,
+                "quality_flag": None,
             },
         ],
         schema={
@@ -166,6 +175,7 @@ def test_imgw_hydrology_api_monthly() -> None:
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
+            "quality_flag": pl.String,
         },
         orient="row",
     )
@@ -196,6 +206,7 @@ def test_imgw_hydrology_api_daily_consolidated_yearly_file() -> None:
                 "timestamp": dt.datetime(2023, 11, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 25.4,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "149180020",
@@ -205,6 +216,7 @@ def test_imgw_hydrology_api_daily_consolidated_yearly_file() -> None:
                 "timestamp": dt.datetime(2023, 11, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 113.0,
                 "quality": None,
+                "quality_flag": None,
             },
         ],
         schema={
@@ -215,6 +227,7 @@ def test_imgw_hydrology_api_daily_consolidated_yearly_file() -> None:
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
+            "quality_flag": pl.String,
         },
         orient="row",
     )

@@ -138,6 +138,8 @@ export interface Value {
   timestamp: string
   value: number | null
   quality: number | null
+  // the source's own flag, verbatim; null where the provider publishes none
+  quality_flag?: string | null
   taken_station_id?: string
   taken_station_ids?: string
 }

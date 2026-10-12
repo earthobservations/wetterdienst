@@ -24,6 +24,35 @@ from wetterdienst.provider.imgw.meteorology.api import (
 from wetterdienst.util.network import File
 
 
+def test_imgw_meteorology_station_list_gives_no_region(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The river catchment of the station list is `river`, not `region` (GH-2019).
+
+    The list's fourth column is `Rzeka`, the river catchment with its hydrographic code (`Odra (1)`, `Bałtyk (0)`
+    for the sea), which the request read into `region`. The list gives no region.
+    """
+    catalogue = (
+        "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
+        "Wysokość n.p.m.\r\n"
+        "1;249170080;Dzierżkowice;Opawa (112);2024;49 59 32;17 50 47;270\r\n"
+        "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
+        "4;249180030;Chałupki;Odra (1);1948;49 55 33;18 19 39;198\r\n"
+    )
+    monkeypatch.setattr(
+        "wetterdienst.provider.imgw.meteorology.api.download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue.encode("utf8")), status=200),
+    )
+
+    df = ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df
+
+    # the reader takes the first row of the list for the header (GH-2752), so the first station is not asserted
+    stations = df.filter(pl.col("name").is_in(["Pszczyna", "Chałupki"]))
+    assert stations.select("station_id", "name", "river", "region", "elevation").rows() == [
+        ("249180010", "Pszczyna", "Pszczynka (2116)", None, 270.0),
+        ("249180030", "Chałupki", "Odra (1)", None, 198.0),
+    ]
+    assert df["region"].is_null().all()
+
+
 @pytest.mark.remote
 def test_imgw_meteorology_api_daily() -> None:
     """Test fetching of meteorological data."""
@@ -43,7 +72,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "longitude": 16.104444,
                 "elevation": 137.0,
                 "name": "WIERZCHOWO",
-                "region": "Drawa (1888)",
+                "region": None,
             },
         ],
         schema={
@@ -72,6 +101,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.2875,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "253160090",
@@ -81,6 +111,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
                 "quality": 9.0,
+                "quality_flag": None,
             },
             {
                 "station_id": "253160090",
@@ -90,6 +121,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
                 "quality": 9.0,
+                "quality_flag": None,
             },
             {
                 "station_id": "253160090",
@@ -99,6 +131,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 28.2,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "253160090",
@@ -108,6 +141,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 20.6,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "253160090",
@@ -117,6 +151,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 5.6,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "253160090",
@@ -126,6 +161,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 9.2,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "253160090",
@@ -135,6 +171,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.7,
                 "quality": None,
+                "quality_flag": None,
             },
         ],
         schema={
@@ -156,6 +193,7 @@ def test_imgw_meteorology_api_daily() -> None:
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
+            "quality_flag": pl.String,
         },
         orient="row",
     )
@@ -181,7 +219,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "longitude": 19.002222222222223,
                 "elevation": 396.0,
                 "name": "Bielsko-Biała",
-                "region": "Biała (2114)",
+                "region": None,
             },
         ],
         schema={
@@ -210,6 +248,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.6,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -219,6 +258,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.753,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -228,6 +268,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 204.1,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -237,6 +278,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 136.4,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -246,6 +288,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 92.3,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -255,6 +298,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 67.7,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -264,6 +308,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1013.8,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -273,6 +318,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 967.4,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -282,6 +328,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 15.6,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -291,6 +338,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -300,6 +348,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 29.5,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -309,6 +358,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 23.2,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -318,6 +368,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 18.2,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -327,6 +378,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 7.7,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -336,6 +388,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 8.5,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -345,6 +398,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 14.0,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "349190600",
@@ -354,6 +408,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.1,
                 "quality": None,
+                "quality_flag": None,
             },
         ],
         schema={
@@ -384,6 +439,7 @@ def test_imgw_meteorology_api_monthly() -> None:
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
+            "quality_flag": pl.String,
         },
         orient="row",
     )
@@ -413,6 +469,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.905,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "354150100",
@@ -422,6 +479,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 4.9,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "354150100",
@@ -431,6 +489,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.1,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "354150100",
@@ -440,6 +499,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 4.8,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "354150100",
@@ -449,6 +509,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1004.2,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "354150100",
@@ -458,6 +519,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1003.5,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "354150100",
@@ -467,6 +529,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 7.7,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "354150100",
@@ -476,6 +539,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.0,
                 "quality": 9.0,
+                "quality_flag": None,
             },
             {
                 "station_id": "354150100",
@@ -485,6 +549,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 5.3,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "354150100",
@@ -494,6 +559,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 4.6,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "354150100",
@@ -503,6 +569,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.6,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "354150100",
@@ -512,6 +579,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.5,
                 "quality": None,
+                "quality_flag": None,
             },
             {
                 "station_id": "354150100",
@@ -521,6 +589,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.1,
                 "quality": None,
+                "quality_flag": None,
             },
         ],
         schema={
@@ -547,6 +616,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality": pl.Float64,
+            "quality_flag": pl.String,
         },
         orient="row",
     )
