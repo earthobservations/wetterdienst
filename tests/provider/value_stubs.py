@@ -764,7 +764,7 @@ def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) ->
         "149180020;CHALUPKI;Odra (1);2023;01;02;89;13.700;99.9;11\n"
         "149180020;CHALUPKI;Odra (1);2023;01;03;9999;99999.999;99.9;11\n"
         # 99.900 m3/s is a discharge, and 99.9 is the sentinel of the temperature column alone (GH-2759)
-        "149180020;CHALUPKI;Odra (1);2023;01;04;90;99.900;4.0;11\n"
+        "149180020;CHALUPKI;Odra (1);2023;01;04;90;99.900;9999;11\n"
     )
     archive = BytesIO()
     with zipfile.ZipFile(archive, "w") as zf:
@@ -912,6 +912,7 @@ STUBS = [
             ("stage", "9999", None),
             ("discharge", "99999.999", None),
             ("temperature_water", "99.9", None),
+            ("temperature_water", "9999", None),
         ),
     ),
     ValueStub(

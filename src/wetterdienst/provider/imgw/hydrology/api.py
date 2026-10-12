@@ -34,13 +34,15 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# what the files write for a reading they do not have, by column: 9999 (stage), 99999.999 (discharge), 99.9 (water
-# temperature), e.g. `149180020;CHAŁUPKI;Odra (1);2023;01;01;88;14.200;99.9;11` in codz_2023.zip. The reading keeps the
-# text as `raw:` in `quality_flags` (GH-2759)
+# what the files write for a reading they do not have, by column: 9999 (stage), 99999.999 (discharge), 99.9 and 9999
+# (water temperature), e.g. `149180020;CHAŁUPKI;Odra (1);2023;01;01;88;14.200;99.9;11` in codz_2023.zip (live: 99.9 in
+# the temperature of 265311 rows, 99999.999 in the discharge of 46895). A sentinel is matched by number, so each holds
+# in its own column: a discharge of 99.900 m3/s is a reading and 99.9 is not one there. The reading keeps the text as
+# `raw:` in `quality_flags` (GH-2759)
 _MISSING = (
     Sentinel("9999", where=pl.col("parameter") == "stan wody"),
     Sentinel("99999.999", where=pl.col("parameter") == "przepływ"),
-    Sentinel("99.9", where=pl.col("parameter") == "temperatura wody"),
+    Sentinel("99.9", "9999", where=pl.col("parameter") == "temperatura wody"),
 )
 
 
