@@ -694,6 +694,13 @@ class ExportMixin:
                 quality_flags = record.pop("quality_flags", None)
                 # fields is a dict of either a single value (long format) or multiple values (wide format).
                 fields = {k: v for k, v in record.items() if v is not None}
+                # the same for a wide row: the flags of a parameter that has no value are not written alone, as
+                # `raw:` makes them for a value mapped from a sentinel (GH-2759)
+                fields = {
+                    k: v
+                    for k, v in fields.items()
+                    if not (k.endswith("_quality_flags") and record.get(k.removesuffix("_quality_flags")) is None)
+                }
                 if not fields:
                     continue
                 if version == 1:

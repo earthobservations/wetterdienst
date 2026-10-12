@@ -7,7 +7,14 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.quality_flags import (
+    Sentinel,
+    clear_sentinels,
+    join_quality_flags,
+    null_sentinels,
+    raw_column,
+    unpivot_with_raw,
+)
 
 
 def _flags(df: pl.DataFrame, expr: pl.Expr) -> list[str | None]:
@@ -65,3 +72,111 @@ def test_a_call_without_a_flag_is_refused() -> None:
     """Test that there is nothing to join without a flag."""
     with pytest.raises(ValueError, match="at least one flag"):
         join_quality_flags()
+
+
+def _clean(values: list, *sentinels: Sentinel, **kwargs: bool) -> tuple[list, list]:
+    """Give the cleaned values and the raw texts of a column of values."""
+    cleaned, raw = null_sentinels(pl.col("v"), *sentinels, **kwargs)
+    out = pl.DataFrame({"v": values}).select(cleaned.alias("cleaned"), raw.alias("raw"))
+    return out.get_column("cleaned").to_list(), out.get_column("raw").to_list()
+
+
+def test_a_sentinel_read_from_text_is_nulled_and_its_text_kept_as_written() -> None:
+    """Test that the token is the cell as the source wrote it: `-999.0` stays `-999.0`, padding is stripped."""
+    cleaned, raw = _clean(["  -999", "-999.0", "5", "", None, "-9999"], Sentinel("-999"))
+    assert cleaned == [None, None, "5", "", None, "-9999"]
+    assert raw == ["-999", "-999.0", None, None, None, None]
+
+
+def test_a_sentinel_read_from_a_number_is_written_as_declared() -> None:
+    """Test that a number carries the declared text, `-999`, where formatting the float would say `-999.0`."""
+    cleaned, raw = _clean(
+        [-999.0, 5.0, None, float("nan"), 99.9], Sentinel("-999", "99.9"), Sentinel("NaN"), text=False
+    )
+    assert cleaned == [None, 5.0, None, None, None]
+    assert raw == ["-999", None, None, "NaN", "99.9"]
+
+
+def test_a_sentinel_can_stand_for_a_value() -> None:
+    """Test that `to` keeps the text of the sentinel beside the value it means (FMI's -1 for no precipitation)."""
+    cleaned, raw = _clean(["-1", "0.4", "NaN", None], Sentinel("-1", to=0.0), Sentinel("NaN"))
+    assert cleaned == [0.0, 0.4, None, None]
+    assert raw == ["-1", None, "NaN", None]
+
+
+def test_a_sentinel_can_be_limited_to_the_values_an_expression_selects() -> None:
+    """Test that `where` leaves the same number alone where it is a reading."""
+    cleaned, raw = null_sentinels(pl.col("v"), Sentinel("9", where=pl.col("parameter") == "n"))
+    out = pl.DataFrame({"parameter": ["n", "t"], "v": ["9", "9"]}).select(cleaned.alias("cleaned"), raw.alias("raw"))
+    assert out.get_column("cleaned").to_list() == [None, "9"]
+    assert out.get_column("raw").to_list() == ["9", None]
+
+
+def test_the_first_sentinel_that_matches_decides() -> None:
+    """Test that a value is mapped once, by the first rule that holds."""
+    cleaned, raw = _clean(["-1"], Sentinel("-1", to=0.0), Sentinel("-1"))
+    assert cleaned == [0.0]
+    assert raw == ["-1"]
+
+
+def test_text_that_is_no_number_can_be_a_sentinel_too() -> None:
+    """Test that `non_numeric` maps `mq` and `---` with their text, and leaves a blank and a number alone."""
+    cleaned, raw = _clean(["mq", "---", "", " ", None, "3.5", "-999"], Sentinel("-999"), non_numeric=True)
+    assert cleaned == [None, None, None, None, None, 3.5, None]
+    assert raw == ["mq", "---", None, None, None, None, "-999"]
+
+
+def test_a_number_has_no_text_that_could_be_no_number() -> None:
+    """Test that `non_numeric` needs the text of the source."""
+    with pytest.raises(ValueError, match="needs `text=True`"):
+        null_sentinels(pl.col("v"), non_numeric=True, text=False)
+
+
+@pytest.mark.parametrize("text", ["", " ", "-9,9"])
+def test_a_sentinel_text_is_a_token_of_a_comma_separated_string(text: str) -> None:
+    """Test that a text that is blank or holds the separator cannot be declared."""
+    with pytest.raises(ValueError, match="cannot be the text of a sentinel"):
+        Sentinel(text)
+
+
+def test_a_sentinel_needs_a_text() -> None:
+    """Test that a rule without a text is refused."""
+    with pytest.raises(ValueError, match="needs the text"):
+        Sentinel()
+
+
+def test_the_raw_token_comes_after_the_flag_and_the_other_kinds() -> None:
+    """Test `G,raw:-9999` for a source with a plain flag, and `3,element:E,raw:-999` with a further kind."""
+    cleaned, raw = null_sentinels(pl.col("v"), Sentinel("-9999", "-999"))
+    out = pl.DataFrame({"v": ["-9999", "4.0", "-999"], "q": ["G", "G", "3"], "e": [None, None, "E"]}).select(
+        cleaned.alias("v"),
+        join_quality_flags(pl.col("q"), element=pl.col("e"), raw=raw),
+    )
+    assert out.get_column("v").to_list() == [None, "4.0", None]
+    assert out.get_column("quality_flags").to_list() == ["G,raw:-9999", "G", "3,element:E,raw:-999"]
+
+
+def test_a_wide_frame_keeps_the_text_beside_its_column_through_the_unpivot() -> None:
+    """Test that the rules of a column record the first match and the long frame has it as `raw`."""
+    df = pl.DataFrame({"at": [1, 2, 3], "t": ["1", "-999", "2"], "w": ["3", "990", "-999"]})
+    df = clear_sentinels(df, ["t", "w", "missing"], Sentinel("-999"))
+    df = clear_sentinels(df, ["w"], Sentinel("990"))
+    long = unpivot_with_raw(df, index=["at"]).sort("parameter", "at")
+    assert long.columns == ["at", "parameter", "value", "raw"]
+    assert long.get_column("value").to_list() == ["1", None, "2", "3", None, None]
+    assert long.get_column("raw").to_list() == [None, "-999", None, None, "990", "-999"]
+
+
+def test_a_numeric_column_of_a_wide_frame_is_read_as_a_number() -> None:
+    """Test that the dtype of the column decides, and the token of a number is the declared text."""
+    df = clear_sentinels(pl.DataFrame({"t": [-999, 5], "s": ["-999.0", "5"]}).lazy(), ["t", "s"], Sentinel("-999"))
+    out = df.collect()
+    assert out.get_column("t").to_list() == [None, 5]
+    assert out.get_column(raw_column("t")).to_list() == ["-999", None]
+    assert out.get_column(raw_column("s")).to_list() == ["-999.0", None]
+
+
+def test_a_column_without_a_rule_has_no_raw_text() -> None:
+    """Test that the unpivot gives a null `raw` to a column no rule cleaned."""
+    long = unpivot_with_raw(pl.DataFrame({"at": [1], "t": ["1"]}), index=["at"])
+    assert long.get_column("raw").to_list() == [None]
