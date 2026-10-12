@@ -43,8 +43,8 @@ Types of changes:
   library and the CLI are not limited (GH-2765)
 - The Docker image runs as the user `wetterdienst` (uid 10001), no longer as root, and its cache is
   `/home/wetterdienst/.cache/wetterdienst`. A volume mounted at `/root/.cache/wetterdienst` is
-  mounted there instead, or anywhere with `WD_CACHE_DIR` pointing to it, writable by uid 10001
-  (GH-2770)
+  mounted there instead, or anywhere with `WD_CACHE_DIR` pointing to it; a mounted host directory,
+  for the cache or a file `--target`, must be writable by uid 10001 (GH-2770)
 
 ### Removed
 

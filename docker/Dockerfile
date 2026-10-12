@@ -71,9 +71,10 @@ COPY --from=build /usr/local/bin /usr/local/bin
 # chart (kaleido runs it without its sandbox), so a flaw in either should not be root's (GH-2770).
 # The home directory is where the cache goes, /home/wetterdienst/.cache/wetterdienst; a volume
 # kept across runs is mounted there, or anywhere with WD_CACHE_DIR pointing to it. The directory
-# is made here, owned by the user, so that a new named volume mounted there takes its owner
+# is made here, with ~/.cache above it (Chromium and matplotlib keep theirs there), owned by the
+# user, so that a new named volume mounted there takes its owner
 RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin wetterdienst && \
-    install -d -o wetterdienst -g wetterdienst /home/wetterdienst/.cache/wetterdienst
+    install -d -o wetterdienst -g wetterdienst /home/wetterdienst/.cache /home/wetterdienst/.cache/wetterdienst
 USER wetterdienst
 
 # Expose port 3000

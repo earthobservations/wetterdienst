@@ -7867,6 +7867,12 @@ _IMAGE_ROUTES = [
 ]
 
 
+def _unreached(*_args: object, **_kwargs: object) -> None:
+    """Stand in for what a request refused for the size of its image must not reach."""
+    msg = "a request refused for the size of its image went on"
+    raise AssertionError(msg)
+
+
 def _image_params(query: dict[str, object], **given: object) -> dict[str, object]:
     return {
         "provider": "dwd",
@@ -7907,7 +7913,7 @@ def test_oversized_image_is_refused_before_anything_is_fetched(
     size: dict[str, int],
 ) -> None:
     """An image with a side over 8192 px is refused with a 400 that names the limit, before the provider is reached."""
-    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
+    monkeypatch.setattr(restapi, "Wetterdienst", _unreached)
     response = TestClient(restapi.app, raise_server_exceptions=False).get(
         f"/api/{endpoint}", params=_image_params(query, format="png", **size)
     )
@@ -7920,7 +7926,7 @@ def test_oversized_image_is_refused_before_anything_is_fetched(
 @pytest.mark.parametrize("fmt", ["png", "jpg", "webp", "svg", "pdf"])
 def test_oversized_image_is_refused_in_every_image_format(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
     """Each format the browser renders is measured."""
-    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
+    monkeypatch.setattr(restapi, "Wetterdienst", _unreached)
     response = TestClient(restapi.app, raise_server_exceptions=False).get(
         "/api/stations", params=_image_params({"all": "true"}, format=fmt, width=100_000)
     )
@@ -7958,7 +7964,7 @@ def test_image_within_the_limit_goes_on_to_the_provider(size: dict[str, int]) ->
 
 def test_oversized_stripes_image_is_refused_before_anything_is_fetched(monkeypatch: pytest.MonkeyPatch) -> None:
     """The stripes image is plotly's 700 x 500 times `dpi / 100`, and is refused above 8192 px on a side."""
-    monkeypatch.setattr(restapi, "_plot_stripes", _fail_to_fetch)
+    monkeypatch.setattr(restapi, "_plot_stripes", _unreached)
     client = TestClient(restapi.app, raise_server_exceptions=False)
     params = {"kind": "temperature", "station": "01048"}
 
@@ -7991,3 +7997,50 @@ def test_mcp_oversized_image_is_refused() -> None:
 
     with pytest.raises(ToolError, match="renders no side longer than 8192 px"):
         asyncio.run(_call())
+
+
+@pytest.mark.usefixtures("stubbed_values")
+def test_image_is_measured_as_the_chart_is_drawn(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A chart is 300 px tall for each parameter, which the request cannot know: it is measured once drawn.
+
+    Three parameters make the chart 900 px tall, so a `scale` of 10 passes the check of the request
+    (7000 x 5000) and not that of the figure (7000 x 9000). The refusal comes before the browser is
+    started, which `to_image` is stubbed to fail on.
+    """
+    monkeypatch.setattr("plotly.graph_objects.Figure.to_image", _unreached)
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m,daily/kl/precipitation_amount,daily/more_precip/snow_depth",
+            "station": "00002,00001",
+            "format": "png",
+            "scale": 10,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "The image would be 7000 x 9000 px, and this server renders no side longer than 8192 px. "
+        "Lower scale, or ask for fewer parameters."
+    )
+
+
+def test_check_image_size_measures_the_figure_then_the_default() -> None:
+    """The caller's size wins over the figure's, which wins over plotly's 700 x 500; no limit, no check."""
+    import plotly.graph_objects as go  # noqa: PLC0415
+
+    from wetterdienst.exceptions import ImageTooLargeError  # noqa: PLC0415
+    from wetterdienst.io.export import check_image_size  # noqa: PLC0415
+
+    figure = go.Figure(layout={"height": 9_000})
+    with pytest.raises(ImageTooLargeError, match=r"7000 x 90000 px.*no side longer than 8192 px"):
+        check_image_size(figure, None, None, 10, 8_192)
+    # the caller's height replaces the figure's
+    check_image_size(figure, None, 800, 10, 8_192)
+    # a figure of its own size is measured at plotly's default without it
+    check_image_size(go.Figure(), None, None, 11, 8_192)
+    with pytest.raises(ImageTooLargeError):
+        check_image_size(go.Figure(), None, None, 12, 8_192)
+    # the library and the CLI set no limit
+    check_image_size(figure, 100_000, 100_000, 100, None)

@@ -23,6 +23,7 @@ from wetterdienst.exceptions import (
     BufrReaderMissingError,
     CredentialMissingError,
     DateRequiredError,
+    ImageTooLargeError,
     InvalidTimeIntervalError,
     MissingDependencyError,
     MissingTimeIntervalError,
@@ -269,25 +270,31 @@ def _refuse_oversized_image(
     image request starts its own browser, so the size it paints is theirs to choose. The library
     and the CLI, whose caller is the host's own user, are not limited. The MCP tools are this API's
     routes, so they are limited with it. A size left out is plotly's default, which is what is
-    measured: a chart of several parameters is 300 px taller for each, a height the parameters
-    given bound and this does not count.
+    measured here: the height of a chart of several parameters is 300 px for each, known only once
+    they are collected, and is measured then, by `check_image_size` (`_refuse_oversized_render`).
     """
     scale = 1 if scale is None else scale
     rendered = ((width or _DEFAULT_IMAGE_WIDTH) * scale, (height or _DEFAULT_IMAGE_HEIGHT) * scale)
     if max(rendered) > _MAX_IMAGE_SIDE:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"The image would be {rendered[0]:g} x {rendered[1]:g} px, and this server renders no side "
-                f"longer than {_MAX_IMAGE_SIDE} px. Lower {lower}."
-            ),
-        )
+        error = ImageTooLargeError(rendered[0], rendered[1], _MAX_IMAGE_SIDE)
+        raise HTTPException(status_code=400, detail=f"{error} Lower {lower}.")
 
 
 def _refuse_oversized_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
     """Refuse the size of a chart in an image format, see `_refuse_oversized_image`."""
     if request.format in _IMAGE_FORMATS:
         _refuse_oversized_image(request.width, request.height, request.scale)
+
+
+@app.exception_handler(ImageTooLargeError)
+async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) -> JSONResponse:
+    """Answer a chart whose own height makes the image too large with a 400, as `_refuse_oversized_image` does.
+
+    Raised by `check_image_size` once the figure is built, since a chart of several parameters is
+    300 px tall for each, and before the browser is started.
+    """
+    log.info(f"Refused {request.url.path}: {exc}")
+    return JSONResponse(status_code=400, content={"detail": f"{exc} Lower scale, or ask for fewer parameters."})
 
 
 # each output format by its media type; the rest are JSON. `image/{format}` named no registered type
@@ -1043,6 +1050,7 @@ def stations(
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
+        kwargs["max_side"] = _MAX_IMAGE_SIDE
 
     content = stations_.to_format(**kwargs)
 
@@ -1134,6 +1142,7 @@ def values(
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
+        kwargs["max_side"] = _MAX_IMAGE_SIDE
 
     content = _render(values_, request, kwargs, ValuesSettings, settings)
 
@@ -1361,6 +1370,7 @@ def interpolate(
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
+        kwargs["max_side"] = _MAX_IMAGE_SIDE
 
     content = _render(values_, request, kwargs, InterpolationSettings, settings)
 
@@ -1417,6 +1427,7 @@ def summarize(
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
+        kwargs["max_side"] = _MAX_IMAGE_SIDE
 
     content = _render(values_, request, kwargs, SummarySettings, settings)
 

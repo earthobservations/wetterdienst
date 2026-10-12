@@ -38,21 +38,22 @@ the caller below. The library and the CLI trust their caller, who is the host's 
 
 A caller of the REST API or MCP cannot, with any request:
 
-- read or write a file on the host, or make the server fetch a URL of the caller's choosing. The
-  provider and network are looked up in a fixed registry, station ids are joined to the provider's
-  own catalogue, parameters are checked against its metadata, and dates are parsed; no caller value
-  becomes a URL, a path or code. Archives and XML from the providers are read in memory, with XML
-  entities off; nothing is unpickled, evaluated or loaded from YAML that a caller sent.
+- read or write a file on the host, or make the server fetch from a host of the caller's choosing.
+  The provider and network are looked up in a fixed registry, parameters are checked against the
+  provider's metadata, and dates are parsed. Archives and XML from the providers are read in
+  memory, with XML entities off; nothing is unpickled, evaluated or loaded from YAML that a caller
+  sent.
 - run SQL on the host unless the operator sets `WD_RESTAPI_SQL=true`, and then only a filter on a
   DuckDB connection that cannot read files, reach the network or load extensions (the
   [REST API docs](https://wetterdienst.readthedocs.io/en/latest/usage/restapi.html) list its limits).
 - read a provider credential. Credentials are `SecretStr`, are left out of the settings the API
   reports, and are scrubbed from retry logs and exceptions. A caller can learn that a key is
   configured and accepted (`/api/auth`, `/api/coverage`), not the key.
-- reach an image size that holds a browser for long: a chart is refused above 8192 px on a side.
+- reach an image size that holds a browser for long: a chart is refused above 8192 px on a side,
+  `scale` applied.
 
 The dependencies are locked with hashes in `uv.lock` and audited by `uv audit` in CI. The workflows
-default to empty permissions, the Docker image runs as an unprivileged user, and PyPI releases are
+default to no permissions, or read-only, the Docker image runs as an unprivileged user, and PyPI releases are
 published with trusted publishing.
 
 ### What it leaves to the operator
