@@ -1045,13 +1045,13 @@ NO_STUB = {
         "files of 14 stations (0-20000-0-11406, 11433, 11457, 11502, 11519, 11546, 11609, 11636, 11653, 11679, "
         "11693, 11723, 11766, 11787) have 41,993 of 1,410,190 rows empty, all of them with QUALITY 4, and no cell "
         "holds text that is no number. The extremes of every daily, monthly, yearly, 10 minute and hourly element "
-        "sampled (11414, 2026-10-12) are readings (daily H tops at 100, SRA at 238.5 mm)"
+        "sampled (station 0-20000-0-11414, 2026-10-12) are readings (daily H tops at 100, SRA at 238.5 mm)"
     ),
     "dmi/observation": (
         "no reader maps a sentinel; its values are JSON numbers, and the extremes of every hourly, daily, monthly and "
-        "yearly parameter of 06180, 06070, 04339, 06058 and 06096 are readings (2026-10-12) but for the daily "
-        "acc_precip of 04339 in 2011 (GH-2797). The hourly mean_wind_dir 0 comes with a speed of 0 in 1419 of 1730 "
-        "hours, see GH-2794"
+        "yearly parameter of 06180, 06070, 04339, 06058 and 06096 are readings (2026-10-12) but for the "
+        "acc_precip of 04339 (daily 2011, monthly 2011-10 at 17802 mm, yearly 2014 at 9574.3 mm; GH-2797). The "
+        "hourly mean_wind_dir 0 comes with a speed of 0 in 1419 of 1730 hours, see GH-2794"
     ),
     "dwd/alerts": "no timeseries",
     "dwd/phenology": (
@@ -1077,7 +1077,7 @@ NO_STUB = {
     "imgw/meteorology": (
         "the null is decided by the status column beside the value (`8` no measurement, `9` no phenomenon), which "
         "`quality_flags` carries verbatim: the cell of the value holds `.0` or nothing, no sentinel. The daily "
-        "climate, synop and precipitation files (249180010, 252190030, 249190090, 349190600, 353230375, 249180020; "
+        "climate, synop and precipitation files (249180010, 252190030, 249190090, 349190600, 249180020; "
         "2010 to 2011) and the monthly climate and synop files (1990 to 2020) have no value that is no reading "
         "(2026-10-12)"
     ),

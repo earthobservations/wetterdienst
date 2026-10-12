@@ -34,10 +34,11 @@ _PAGE_SIZE = 10000
 # The daily gust is published only when it exceeds 30 km/h ("The stations do not report if less than 31 km/h", ECCC's
 # glossary under "Speed of Maximum Gust"), and the direction, in tens of degrees where "36 means 360 degrees true" and
 # so north, "only if the maximum gust speed for the day exceeds 29 km/h". A day below that has 0 in both fields of the
-# collection, where the bulk CSV of the same day (ALERT, 1975-07-01) writes "<31" for the speed. In the first 60,000
-# rows of each of 1975, 1995 and 2019, 4597 of the 8885 days with a gust read 0 for the speed and 0 for the
-# direction, without a flag. Neither 0 is a measurement: no gust is 0 km/h, and no direction of 0 exists. The direction
-# is 0 on a few days with a reported speed as well (ST CATHARINES A, 1974-11-26: 42 km/h).
+# collection on most days, where the bulk CSV of the same day (ALERT, 1975-07-01) writes "<31" for the speed. In the
+# first 60,000 rows of each of 1975, 1995 and 2019, 4597 of the 8885 days with a gust read 0 for the speed and 0 for
+# the direction, without a flag. Neither 0 is a measurement: no gust is 0 km/h, and no direction of 0 exists. The
+# direction is 0 on a few days with a reported speed as well (ST CATHARINES A, 1974-11-26: 42 km/h). The reverse also
+# exists and is left alone: 14,128 days with a speed of 0 and a direction (CHURCHILL A, 1973-05-13: 340 degrees).
 _GUST_NOT_REPORTED = Sentinel("0", where=pl.col("parameter").is_in(["speed_max_gust", "direction_max_gust"]))
 
 
