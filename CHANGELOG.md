@@ -69,6 +69,10 @@ Types of changes:
   `dict[str, Any]`, and `TimeseriesValues` is generic over the model a provider collects by (a bare
   `TimeseriesValues` still means any). A request's `metadata`, `_values` and `_history` are class
   variables, no longer in `dataclasses.fields()` (GH-2622)
+- **Breaking**: a `.env` file is read as UTF-8 on every Python, where the encoding was the locale's
+  (the ANSI code page on Windows) until Python 3.15 made UTF-8 the default. A `.env` saved in a
+  Windows code page with a non-ASCII value now raises `UnicodeDecodeError` on `Settings()`:
+  re-save it as UTF-8 (GH-2568)
 
 ### Removed
 
