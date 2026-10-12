@@ -61,6 +61,15 @@ _HEADER_ROWS = 2
 # neither. Neither is an amount of cloud.
 _CLOUD_COVER_CODES = (Sentinel("113", "126", where=pl.col("parameter").eq("cloud_cover_total")),)
 
+# The wind direction is on a grid of 10 degrees with north as 360 and 0 for no direction: in 11,364 reports with a
+# direction of 937 files (2026-10-12) 141 read 360, 141 read 10 and 155 read 350, but 747 read 0. 401 of those have a
+# wind speed of 0 (of the 465 reports with a speed of 0), and 346, of 68 stations, a speed above 0 (4 km/h in 184, 7
+# in 67, 5 in 32, 11 in 21, 2 in 19, and 23 from 8 to 22): a wind with no direction, a calm or a variable one, which
+# the files do not tell apart and DWD does not describe. Neither is a bearing, so both are null.
+_NO_WIND_DIRECTION = Sentinel(
+    "0", where=pl.col("parameter").eq("mean_wind_direction_during_last_10 min_at_10_meters_above_ground")
+)
+
 _EMPTY_VALUES_SCHEMA = {
     "resolution": pl.String,
     "dataset": pl.String,
@@ -152,7 +161,9 @@ class DwdPoiValues(TimeseriesValues):
         df = df.unpivot(index=["timestamp"], variable_name="parameter", value_name="value")
         # "---" marks a missing value, and any other value DWD cannot express as a number is none either: both
         # become null and the text stays beside the value as `raw:` (GH-2759)
-        value, raw = null_sentinels(pl.col("value").str.replace(",", "."), *_CLOUD_COVER_CODES, non_numeric=True)
+        value, raw = null_sentinels(
+            pl.col("value").str.replace(",", "."), *_CLOUD_COVER_CODES, _NO_WIND_DIRECTION, non_numeric=True
+        )
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),

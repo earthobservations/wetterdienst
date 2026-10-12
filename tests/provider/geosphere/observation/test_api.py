@@ -575,3 +575,43 @@ def test_geosphere_observation_none_code_is_a_daily_one(
     )
     df = request.filter_by_station_id("4821").values.all().df
     assert -1.0 in df.get_column("value").to_list()
+
+
+@pytest.mark.parametrize("resolution", ["10_minutes", "hourly"])
+def test_geosphere_observation_wind_direction_of_0_is_null_and_the_gust_direction_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch,
+    resolution: str,
+) -> None:
+    """Test that the mean direction 0 of a calm is null with `raw:0`, and 360, the gust direction are not (GH-2794).
+
+    The values of Aflenz (id 1) in klima-v2-1h for 2024-01-02 18:00 to 20:00 (checked 2026-10-12), served on the
+    dates of the helper: `dd` [9, 0, 38] beside `ff` [0.3, 0.0, 0.5], and `ddx` [12, 358, 356]. The description of `dd`
+    is "Windrichtung [360°]", and in the hourly dataset of 25 stations all 816 hours with a `dd` of 0 have an `ff`
+    of 0.0. The 360 is made up.
+    """
+    _serve_values(
+        monkeypatch,
+        {"dd": [9, 0, 360], "ddx": [12, 358, 356], "ff": [0.3, 0.0, 0.5]},
+    )
+    request = GeosphereObservationRequest(
+        parameters=[
+            (resolution, "data", "wind_direction"),
+            (resolution, "data", "wind_direction_gust_max"),
+            (resolution, "data", "wind_speed"),
+        ],
+        start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+    df = request.filter_by_station_id("4821").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    df = df.sort("parameter", "timestamp")
+    rows = {
+        parameter: group.select("value", "quality_flags").rows()
+        for (parameter,), group in df.group_by("parameter", maintain_order=True)
+    }
+    assert rows == {
+        "wind_direction": [(9.0, None), (None, "raw:0"), (360.0, None)],
+        "wind_direction_gust_max": [(12.0, None), (358.0, None), (356.0, None)],
+        "wind_speed": [(0.3, None), (0.0, None), (0.5, None)],
+    }
