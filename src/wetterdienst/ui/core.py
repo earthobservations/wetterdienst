@@ -1127,6 +1127,41 @@ def _is_caller_refusal(e: Exception, request: BaseModel) -> bool:
     )
 
 
+class AuthAnswer(TypedDict):
+    """Whether the credentials of a provider and network are present and accepted."""
+
+    provider: str
+    network: str
+    auth: bool
+    configured: bool
+    # null where the probe could not tell (no network, a timeout, a rate limit, an outage): unknown, not rejected
+    valid: bool | None
+
+
+def get_auth(api: type[TimeseriesRequest], provider: str, network: str) -> AuthAnswer:
+    """Check the credentials of one network, probing its provider where they are configured.
+
+    The one place a credential is checked against its provider: `/api/coverage` and `about coverage`
+    do not probe (GH-2564), so this answers `valid` for the one network asked about, as a single
+    attempt that gives up after `PROBE_TIMEOUT_SECONDS`. A network that needs none is `configured`
+    and `valid` without a request; one whose credentials are missing is not `valid`, as a probe
+    cannot be performed without them; one that is configured is `valid` as the probe tells, `None`
+    when it could not (`Wetterdienst.is_valid`).
+    """
+    from wetterdienst.api import Wetterdienst  # noqa: PLC0415
+
+    metadata = getattr(api, "metadata", None)
+    requires_auth = metadata.auth if metadata is not None else False
+    configured = Wetterdienst.is_configured(api) if requires_auth else True
+    if not requires_auth:
+        valid = True
+    elif not configured:
+        valid = False
+    else:
+        valid = Wetterdienst.is_valid(api)
+    return AuthAnswer(provider=provider, network=network, auth=requires_auth, configured=configured, valid=valid)
+
+
 class GlossaryEntry(TypedDict):
     """One canonical parameter: what it measures and which unit it is returned in."""
 

@@ -14,7 +14,7 @@ asserts that the sentinel *is* still in the output, so fixing the provider fails
 
 A sentinel a reader maps to null (or to the value the source documents it to mean) is not lost: the value carries the
 text the source wrote in `quality_flags`, as a last `raw:<text>` token (GH-2759). `tokens` names, per stub, each
-(parameter, text, value) that has to arrive, with `ts_drop_nulls=False` since the default drops the null rows; the test
+(parameter, text, value) that has to arrive, with `drop_nulls=False` since the default drops the null rows; the test
 holds every sentinel of `sentinels` to having one, so a reader that maps a sentinel and keeps no text fails it.
 
 To hold another provider to this, add a stub to `STUBS`: serve what the source answers, write the missing value as the
@@ -39,7 +39,7 @@ from urllib.parse import parse_qs, urlparse
 import polars as pl
 import pytest
 
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.aemet.observation import AemetObservationRequest
@@ -155,9 +155,14 @@ def stations_result(request: Any, resolution: str, dataset: str, station_id: str
     return StationsResult(stations=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
 
 
-def _settings(drop_nulls: bool, **kwargs: Any) -> Settings:  # noqa: ANN401, FBT001
-    """Give the settings of a stub: the rows without a value are dropped as by default, or kept to see their flags."""
-    return Settings(cache_disable=True, ts_drop_nulls=drop_nulls, **kwargs)
+def _settings(**kwargs: Any) -> Settings:  # noqa: ANN401
+    """Give the host settings of a stub: no cache, and whatever else the provider needs (a credential)."""
+    return Settings(cache_disable=True, **kwargs)
+
+
+def _options(drop_nulls: bool) -> Options:  # noqa: FBT001
+    """Give the options of a stub: the rows without a value are dropped as by default, or kept to see their flags."""
+    return Options(drop_nulls=drop_nulls)
 
 
 def _day(year: int, month: int, day: int, hour: int = 0) -> dt.datetime:
@@ -197,7 +202,8 @@ def _ipma(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFr
         parameters=[("hourly", "data")],
         start=_day(2026, 10, 10, 11),
         end=_day(2026, 10, 10, 14),
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return request.filter_by_station_id("1200579").values.all().df
 
@@ -230,7 +236,8 @@ def _dwd_observation(
         periods={Period.RECENT},
         start=_day(year, 1, 1),
         end=_day(year, 12, 31),
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return stations_result(request, resolution, dataset, station_id).values.all().df
 
@@ -348,7 +355,8 @@ def _geosphere_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -
         parameters=[("daily", "data", "precipitation_amount"), ("daily", "data", "snow_depth_manual")],
         start=_day(2024, 1, 8),
         end=_day(2024, 1, 10),
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return request.filter_by_station_id("1").values.all().df
 
@@ -364,7 +372,7 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
         b"ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD ANTIGUA,,,78861,,AG\n"
     )
-    hourly = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=_settings(drop_nulls))
+    hourly = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
     columns = [parameter.name_original for parameter in hourly.metadata["hourly"]["data"]]
     rows = [
         {"temperature": "23.5", "wind_direction": "999", "wind_speed": "0.0", "precipitation": "-9999"},
@@ -386,7 +394,8 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         parameters=[("hourly", "data")],
         start=_day(1942, 1, 17),
         end=_day(1942, 1, 18),
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return request.filter_by_station_id("ACM00078861").values.all().df
 
@@ -431,7 +440,8 @@ def _meteofrance_observation_hourly(
         parameters=[("hourly", dataset, parameter) for parameter in parameters],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 1, 3),
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "hourly", dataset, "07005001").values.all().df
 
@@ -450,7 +460,8 @@ def _meteofrance_observation_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: 
         parameters=[("daily", "core", "temperature_air_min_2m"), ("daily", "core", "wind_direction_gust_max")],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 3),
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "core", "07005001").values.all().df
 
@@ -485,7 +496,8 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
         ],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 2),
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "subdaily", "data", "07005").values.all().df
 
@@ -517,7 +529,8 @@ def _dwd_derived_radiation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
         periods={Period.RECENT},
         start=_day(2025, 4, 9),
         end=_day(2025, 4, 9, 23),
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "hourly", "radiation_global", "18001").values.all().df
 
@@ -559,7 +572,8 @@ def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     monkeypatch.setattr(dwd_mosmix_api.KMLReader, "fetch", lambda _self, _url: BytesIO(kml))
     request = DwdMosmixRequest(
         parameters=[("hourly", "small", "ttt"), ("hourly", "small", "td")],
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "hourly", "small", "01001").values.all().df
 
@@ -576,7 +590,8 @@ def _dwd_dmo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Dat
     request = DwdDmoRequest(
         parameters=[("hourly", "icon", "ttt"), ("hourly", "icon", "td")],
         lead_time="short",
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "hourly", "icon", "01001").values.all().df
 
@@ -590,9 +605,12 @@ def _dwd_poi(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Dat
         "Datum;Uhrzeit (UTC);Wolkenbedeckung;Temperatur (2m)\n"
         "10.10.26;20:00;100;15,3\n"
         "10.10.26;19:00;---;15,4\n"
+        # a percent that reads 113 (9 oktas x 12.5, sky obscured) or 126 (03953, 13367, 2026-10-12)
+        "10.10.26;18:00;113;15,5\n"
+        "10.10.26;17:00;126;15,6\n"
     ).encode("latin-1")
     serve(monkeypatch, dwd_poi_api, {"10147-BEOB.csv": csv})
-    request = DwdPoiRequest(parameters=[("hourly", "data")], settings=_settings(drop_nulls))
+    request = DwdPoiRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
     return stations_result(request, "hourly", "data", "10147").values.all().df
 
 
@@ -608,7 +626,7 @@ def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     )
     run = dwd_swsmos_api._read_run_csv(bz2.compress(raw))  # noqa: SLF001
     monkeypatch.setattr(dwd_swsmos_api.DwdSwsmosValues, "_run_frame", lambda _self, _settings: run)
-    request = DwdSwsmosRequest(parameters=[("hourly", "data")], settings=_settings(drop_nulls))
+    request = DwdSwsmosRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
     return stations_result(request, "hourly", "data", "A006").values.all().df
 
 
@@ -628,7 +646,8 @@ def _eccc_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         parameters=[("daily", "data")],
         start=_day(1975, 7, 1),
         end=_day(1975, 7, 6),
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "data", "1731").values.all().df
 
@@ -647,7 +666,8 @@ def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         parameters=[("daily", "data")],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 2),
-        settings=_settings(drop_nulls, auth={"aemet": "stub"}),
+        settings=_settings(auth={"aemet": "stub"}),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "data", "3195").values.all().df
 
@@ -680,7 +700,8 @@ def _metoffice_daily_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tr
         parameters=[("daily", "rain")],
         start=_day(2000, 1, 1),
         end=_day(2000, 1, 2),
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "rain", "00001").values.all().df
 
@@ -706,7 +727,8 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
         parameters=[("hourly", "data", "cloud_cover_total"), ("hourly", "data", "snow_depth")],
         start=_day(2020, 1, 1),
         end=_day(2020, 1, 1, 1),
-        settings=_settings(drop_nulls, auth={"metno_frost": "stub"}),
+        settings=_settings(auth={"metno_frost": "stub"}),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "hourly", "data", "SN18700").values.all().df
 
@@ -743,7 +765,8 @@ def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         parameters=[("daily", "data", "temperature_air_mean_2m"), ("daily", "data", "precipitation_amount")],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 2),
-        settings=_settings(drop_nulls, auth={"knmi": "stub"}),
+        settings=_settings(auth={"knmi": "stub"}),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "data", "06260").values.all().df
 
@@ -772,7 +795,8 @@ def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         parameters=[("hourly", "data")],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 1, 1),
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "hourly", "data", "100971").values.all().df
 
@@ -808,7 +832,8 @@ def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) ->
         parameters=[("daily", "hydrology")],
         start=_day(2022, 11, 1),
         end=_day(2022, 11, 4),
-        settings=_settings(drop_nulls),
+        settings=_settings(),
+        options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "hydrology", "149180020").values.all().df
 
@@ -981,7 +1006,13 @@ STUBS = [
         "dwd/poi hourly/data",
         _dwd_poi,
         reading=("temperature_air_2m", 15.3),
-        tokens=(("cloud_cover_total", "---", None),),
+        # the percent is converted to a decimal on its way
+        sentinels=(("cloud_cover_total", 1.13), ("cloud_cover_total", 1.26)),
+        tokens=(
+            ("cloud_cover_total", "---", None),
+            ("cloud_cover_total", "113", None),
+            ("cloud_cover_total", "126", None),
+        ),
     ),
     ValueStub(
         "dwd/swsmos hourly/data",

@@ -56,6 +56,7 @@ def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     monkeypatch.chdir(tmp_path)
 
 
+# old route, removed in stage 5
 def _settings(changes: dict[str, Any]) -> Settings:
     """Return settings carrying the changes as their `ts_*` settings."""
     return Settings(cache_disable=True, **{f"ts_{name}": value for name, value in changes.items()})
@@ -140,6 +141,7 @@ VALUES_CASES = {
 }
 
 
+# old route, removed in stage 5
 @pytest.mark.parametrize("name", VALUES_CASES)
 def test_values_through_settings_and_through_options_are_the_same_frame(
     name: str,
@@ -290,6 +292,7 @@ ESTIMATE_CASES = {
 }
 
 
+# old route, removed in stage 5
 @pytest.mark.parametrize("method", ["interpolate", "summarize"])
 @pytest.mark.parametrize("name", ESTIMATE_CASES)
 def test_estimates_through_settings_and_through_options_are_the_same_frame(
@@ -385,6 +388,7 @@ def test_the_cases_name_every_option() -> None:
     assert set(CARRIED) == set(ESTIMATE_CASES)
 
 
+# old route, removed in stage 5
 @pytest.mark.parametrize("name", CARRIED)
 def test_a_request_takes_an_option_from_the_settings_it_carries_as(name: str) -> None:
     """A request given settings and no options reads the settings' `ts_*` setting as its option."""
@@ -395,6 +399,7 @@ def test_a_request_takes_an_option_from_the_settings_it_carries_as(name: str) ->
     assert request.options.model_dump()[name] == CARRIED[name]
 
 
+# old route, removed in stage 5
 def test_a_request_takes_the_radii_the_settings_expand_to() -> None:
     """The radius for a parameter and a resolution is the same through the settings and through the options."""
     changes = {
@@ -447,6 +452,7 @@ def test_options_are_keyword_only(request_class: type[TimeseriesRequest]) -> Non
         assert positional.index("issue") == positional.index("periods") + 1
 
 
+# old route, removed in stage 5
 def test_a_request_copied_with_replace_keeps_its_options() -> None:
     """`dataclasses.replace` hands the resolved options back beside their settings, which is no conflict."""
     request = _request(settings=_settings({"shape": "wide"}))
@@ -519,6 +525,7 @@ def test_a_dict_of_options_notes_a_wide_shape_once(caplog: pytest.LogCaptureFixt
     ]
 
 
+# old route, removed in stage 5
 @pytest.mark.parametrize("options", [Options(), {}, {"shape": "long"}], ids=["options", "empty", "dict"])
 def test_options_beside_settings_that_carry_options_are_refused(options: Options | dict) -> None:
     """Settings that carry a `ts_*` setting and options are two answers to one question, and a caller is told."""
@@ -526,12 +533,14 @@ def test_options_beside_settings_that_carry_options_are_refused(options: Options
         _request(settings=_settings({"shape": "wide"}), options=options)
 
 
+# old route, removed in stage 5
 def test_options_beside_settings_given_as_a_dict_are_refused() -> None:
     """The settings are checked as they are once validated, whether they were given as a dict or not."""
     with pytest.raises(ValueError, match="ts_humanize, ts_skip_empty"):
         _request(settings={"cache_disable": True, "ts_skip_empty": True, "ts_humanize": False}, options={})
 
 
+# old route, removed in stage 5
 def test_options_beside_settings_that_carry_none_are_taken() -> None:
     """Settings of the host alone leave the options to the caller."""
     settings = Settings(cache_disable=True, ts_shape="long", ts_humanize=True)
@@ -547,6 +556,7 @@ def test_the_environment_is_no_settings_of_the_callers_to_refuse(monkeypatch: py
     assert _request(options={"humanize": False}).options.shape == "wide"
 
 
+# old route, removed in stage 5
 def test_a_request_keeps_the_options_it_was_built_with() -> None:
     """Options are fixed when the request is built: changing the settings afterwards does not reach them."""
     settings = Settings(cache_disable=True)
@@ -571,6 +581,7 @@ def test_stations_result_has_the_options_of_its_request() -> None:
     assert stations.values.sr.options.humanize is False
 
 
+# old route, removed in stage 5
 def test_the_settings_of_a_request_are_the_hosts_alone_for_options() -> None:
     """Options are not read from `settings` once given: the request reads them from `options` only."""
     request = _request(settings=Settings(cache_disable=True), options={"shape": "wide"})
@@ -578,6 +589,7 @@ def test_the_settings_of_a_request_are_the_hosts_alone_for_options() -> None:
     assert request.options.shape == "wide"
 
 
+# old route, removed in stage 5
 def test_options_from_settings_are_those_the_settings_dump() -> None:
     """`options_from_settings` takes the settings' `ts_*` settings as the options of the same name."""
     settings = _settings(CARRIED)

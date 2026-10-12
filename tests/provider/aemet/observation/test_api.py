@@ -136,7 +136,7 @@ def test_aemet_observation_values_daily() -> None:
 
     # 2020-01-02 has dir=99 (calm/variable), which AEMET encodes with a sentinel value
     # rather than an actual direction. The parser must turn that into a null rather than
-    # a bogus 990°; with the default ts_drop_nulls=True, a null value means no row at all.
+    # a bogus 990°; with the default drop_nulls=True, a null value means no row at all.
     day2 = dt.datetime(2020, 1, 2, tzinfo=UTC)
     assert df.filter(pl.col("parameter").eq("wind_direction"), pl.col("timestamp").eq(day2)).is_empty()
 

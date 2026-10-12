@@ -8,7 +8,7 @@ from typing import Literal
 import pytest
 from dirty_equals import IsApprox
 
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.exceptions import NoParametersFoundError
 from wetterdienst.model.result import ValuesResult
 from wetterdienst.provider.dwd.observation import (
@@ -19,25 +19,25 @@ from wetterdienst.provider.dwd.observation import (
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    ("ts_skip_criteria", "expected_stations"),
+    ("skip_criteria", "expected_stations"),
     [("min", ["05906", "04928"]), ("mean", ["05426", "04177"]), ("max", ["00377", "05426"])],
 )
 def test_api_skip_empty_stations(
-    ts_skip_criteria: Literal["min", "mean", "max"],
+    skip_criteria: Literal["min", "mean", "max"],
     expected_stations: list[str],
 ) -> None:
     """Test that empty stations are skipped."""
-    settings = Settings(
-        ts_skip_criteria=ts_skip_criteria,
-        ts_skip_threshold=0.6,
-        ts_skip_empty=True,
-        ts_drop_nulls=False,
+    options = Options(
+        skip_criteria=skip_criteria,
+        skip_threshold=0.6,
+        skip_empty=True,
+        drop_nulls=False,
     )
     request = DwdObservationRequest(
         parameters=[("daily", "kl"), ("daily", "solar")],
         start="2021-01-01",
         end="2021-12-31",
-        settings=settings,
+        options=options,
     ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=2)
     values = request.values.all()
     assert (
@@ -50,37 +50,33 @@ def test_api_skip_empty_stations(
 
 @pytest.mark.remote
 def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(
-    settings_skip_empty_true: Settings,
+    options_skip_empty_true: Options,
 ) -> None:
     """Test that the same station is returned when only one parameter is requested."""
 
-    def _get_values(settings: Settings) -> ValuesResult:
+    def _get_values(options: Options) -> ValuesResult:
         return (
             DwdObservationRequest(
                 parameters=[("daily", "climate_summary", "sunshine_duration")],
                 start="1990-01-01",
                 end="2021-12-31",
-                settings=settings,
+                options=options,
             )
             .filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=1)
             .values.all()
         )
 
-    settings_skip_empty_true.ts_skip_threshold = 0.9
     expected_station = ["05426"]
 
-    settings_skip_empty_true.ts_skip_criteria = "min"
-    values = _get_values(settings_skip_empty_true)
+    values = _get_values(options_skip_empty_true.replace(skip_threshold=0.9, skip_criteria="min"))
     assert values.df.get_column("station_id").unique().to_list() == expected_station
     assert values.df_stations.get_column("station_id").to_list() == expected_station
 
-    settings_skip_empty_true.ts_skip_criteria = "mean"
-    values = _get_values(settings_skip_empty_true)
+    values = _get_values(options_skip_empty_true.replace(skip_threshold=0.9, skip_criteria="mean"))
     assert values.df.get_column("station_id").unique(maintain_order=True).to_list() == expected_station
     assert values.df_stations.get_column("station_id").to_list() == expected_station
 
-    settings_skip_empty_true.ts_skip_criteria = "max"
-    values = _get_values(settings_skip_empty_true)
+    values = _get_values(options_skip_empty_true.replace(skip_threshold=0.9, skip_criteria="max"))
     assert values.df.get_column("station_id").unique(maintain_order=True).to_list() == expected_station
     assert values.df_stations.get_column("station_id").to_list() == expected_station
 

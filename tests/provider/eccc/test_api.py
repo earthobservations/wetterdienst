@@ -12,7 +12,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from tests.conftest import skip_if_upstream_unavailable
-from wetterdienst import Settings
+from wetterdienst import Options
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 from wetterdienst.provider.eccc.observation import api as eccc_api
 from wetterdienst.util.network import File
@@ -20,13 +20,13 @@ from wetterdienst.util.network import File
 
 @skip_if_upstream_unavailable()
 @pytest.mark.remote
-def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
+def test_eccc_api_stations(options_convert_units_false: Options) -> None:
     """Test fetching of ECCC stations."""
     request = EcccObservationRequest(
         parameters=[("daily", "data")],
         start="1990-01-01",
         end="1990-01-02",
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id(station_id=(14,))
     given_df = request.df
     expected_df = pl.DataFrame(
@@ -51,13 +51,13 @@ def test_eccc_api_stations(settings_convert_units_false: Settings) -> None:
 
 @skip_if_upstream_unavailable()
 @pytest.mark.remote
-def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
+def test_eccc_api_values(options_convert_units_false: Options) -> None:
     """Test fetching of ECCC data."""
     request = EcccObservationRequest(
         parameters=[("daily", "data")],
         start="1979-11-02",
         end="1979-11-02",
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id(station_id=("2",))
     given_df = request.values.all().df
     expected_df = pl.DataFrame(
@@ -162,7 +162,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
 
 @skip_if_upstream_unavailable()
 @pytest.mark.remote
-def test_eccc_degree_days_are_degree_days_not_day_counts(settings_convert_units_false: Settings) -> None:
+def test_eccc_degree_days_are_degree_days_not_day_counts(options_convert_units_false: Options) -> None:
     """Test that ECCC heating degree days hold a degree day value rather than a count of days.
 
     ECCC publishes the degree day total for the single day the record covers, ``18 - mean``, and not
@@ -173,7 +173,7 @@ def test_eccc_degree_days_are_degree_days_not_day_counts(settings_convert_units_
         parameters=[("daily", "data")],
         start="1979-11-02",
         end="1979-11-03",
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id(station_id=("2",))
     df = request.values.all().df
     values = dict(df.select("parameter", "value").iter_rows())
@@ -184,7 +184,7 @@ def test_eccc_degree_days_are_degree_days_not_day_counts(settings_convert_units_
 
 @skip_if_upstream_unavailable()
 @pytest.mark.remote
-def test_eccc_hourly_returns_data(settings_convert_units_false: Settings) -> None:
+def test_eccc_hourly_returns_data(options_convert_units_false: Options) -> None:
     """Test that the hourly resolution returns data.
 
     It declared a copy of the *daily* field list, none of which the hourly collection publishes, so
@@ -195,7 +195,7 @@ def test_eccc_hourly_returns_data(settings_convert_units_false: Settings) -> Non
         parameters=[("hourly", "data")],
         start="1972-06-01",
         end="1972-06-30",
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id(station_id=("4055",))
     df = request.values.all().df
     assert not df.is_empty()
@@ -214,7 +214,7 @@ def test_eccc_hourly_returns_data(settings_convert_units_false: Settings) -> Non
 
 @skip_if_upstream_unavailable()
 @pytest.mark.remote
-def test_eccc_monthly_returns_data(settings_convert_units_false: Settings) -> None:
+def test_eccc_monthly_returns_data(options_convert_units_false: Options) -> None:
     """Test that the monthly resolution returns data.
 
     It declared bulk-CSV column headers the OGC API never returns, and crashed on `LOCAL_DATE`,
@@ -224,7 +224,7 @@ def test_eccc_monthly_returns_data(settings_convert_units_false: Settings) -> No
         parameters=[("monthly", "data")],
         start="2015-01-01",
         end="2016-12-31",
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id(station_id=("26",))
     df = request.values.all().df
     assert not df.is_empty()
@@ -329,7 +329,7 @@ def _serve_eccc(
 )
 def test_eccc_hourly_is_stamped_at_the_instant_of_utc_date(
     monkeypatch: pytest.MonkeyPatch,
-    settings_convert_units_false: Settings,
+    options_convert_units_false: Options,
     start: dt.datetime,
     end: dt.datetime,
     expected: list[tuple[int, float]],
@@ -349,7 +349,7 @@ def test_eccc_hourly_is_stamped_at_the_instant_of_utc_date(
         parameters=[("hourly", "data", "temperature_air_2m")],
         start=start,
         end=end,
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     )
     df = request.filter_by_station_id("51459").values.all().df.sort("timestamp")
     day = start.replace(hour=0)
@@ -382,7 +382,7 @@ def _daily_rows() -> list[dict]:
     ids=["winter", "spring-forward", "summer-april", "summer-july", "fall-back"],
 )
 def test_eccc_daily_is_stamped_at_00_utc_of_its_date(
-    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings, local: str, expected: float
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options, local: str, expected: float
 ) -> None:
     """Test that a daily value is stamped at 00:00 UTC of the date, so a request for that one day returns it.
 
@@ -395,7 +395,7 @@ def test_eccc_daily_is_stamped_at_00_utc_of_its_date(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
         start=day,
         end=day,
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     )
     df = request.filter_by_station_id("51459").values.all().df
     midnight = dt.datetime.fromisoformat(day).replace(tzinfo=ZoneInfo("UTC"))
@@ -403,7 +403,7 @@ def test_eccc_daily_is_stamped_at_00_utc_of_its_date(
 
 
 def test_eccc_daily_values_of_a_year_are_all_stamped_at_00_utc(
-    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
     """Test that every daily value of a year is at 00:00 UTC, whichever side of a clock change it lies on."""
     _serve_eccc(monkeypatch, _daily_rows())
@@ -411,7 +411,7 @@ def test_eccc_daily_values_of_a_year_are_all_stamped_at_00_utc(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
         start=dt.datetime(2025, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(2025, 12, 31, tzinfo=ZoneInfo("UTC")),
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     )
     df = request.filter_by_station_id("51459").values.all().df.sort("timestamp")
     assert df.get_column("timestamp").to_list() == [
@@ -421,7 +421,7 @@ def test_eccc_daily_values_of_a_year_are_all_stamped_at_00_utc(
 
 @pytest.mark.parametrize("month", ["2025-01", "2025-06"], ids=["winter", "summer"])
 def test_eccc_monthly_is_stamped_at_00_utc_of_the_first_of_the_month(
-    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings, month: str
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options, month: str
 ) -> None:
     """Test that a month is stamped at 00:00 UTC of its first day, which a request for that day returns (GH-2683)."""
     _serve_eccc(
@@ -435,7 +435,7 @@ def test_eccc_monthly_is_stamped_at_00_utc_of_the_first_of_the_month(
         parameters=[("monthly", "data", "temperature_air_mean_2m")],
         start=f"{month}-01",
         end=f"{month}-01",
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     )
     df = request.filter_by_station_id("51459").values.all().df
     assert df.get_column("timestamp").to_list() == [
@@ -472,7 +472,7 @@ _FIRST_AND_LAST_MONTHLY_ROWS = [
 )
 def test_eccc_request_for_the_first_or_last_day_of_a_station_is_not_skipped(
     monkeypatch: pytest.MonkeyPatch,
-    settings_convert_units_false: Settings,
+    options_convert_units_false: Options,
     resolution: str,
     rows: list[dict],
     day: str,
@@ -490,7 +490,7 @@ def test_eccc_request_for_the_first_or_last_day_of_a_station_is_not_skipped(
         parameters=[(resolution, "data", "temperature_air_mean_2m")],
         start=day,
         end=day,
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     )
     df = request.filter_by_station_id("51459").values.all().df
     assert df.select("timestamp", "value").rows() == [
@@ -514,7 +514,7 @@ def test_eccc_request_for_the_first_or_last_day_of_a_station_is_not_skipped(
 )
 def test_eccc_station_list_dates_are_stamped_like_the_values(
     monkeypatch: pytest.MonkeyPatch,
-    settings_convert_units_false: Settings,
+    options_convert_units_false: Options,
     resolution: str,
     start: dt.datetime,
     end: dt.datetime,
@@ -523,13 +523,13 @@ def test_eccc_station_list_dates_are_stamped_like_the_values(
     _serve_eccc(monkeypatch, [])
     request = EcccObservationRequest(
         parameters=[(resolution, "data")],
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id("51459")
     assert request.df.select("start_timestamp", "end_timestamp").rows() == [(start, end)]
 
 
 def test_eccc_years_of_a_request_without_dates_follow_the_row_of_each_resolution(
-    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
     """Test that each resolution takes its years from its own first and last date when a request names no dates.
 
@@ -541,7 +541,7 @@ def test_eccc_years_of_a_request_without_dates_follow_the_row_of_each_resolution
     urls = _serve_eccc(monkeypatch, [], station)
     EcccObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m"), ("hourly", "data", "temperature_air_2m")],
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id("51459").values.all()
     assert [url.split("UTC_YEAR=")[1].split("&")[0] for url in urls if "climate-hourly" in url] == [
         "2014",
@@ -551,7 +551,7 @@ def test_eccc_years_of_a_request_without_dates_follow_the_row_of_each_resolution
 
 
 def test_eccc_daily_year_window_is_the_calendar_year_of_local_date(
-    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
     """Test that the rows of a year are asked for as the calendar year of LOCAL_DATE, not a window moved by the zone."""
     urls = _serve_eccc(monkeypatch, _daily_rows())
@@ -559,14 +559,14 @@ def test_eccc_daily_year_window_is_the_calendar_year_of_local_date(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
         start="2025-01-15",
         end="2025-01-15",
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id("51459").values.all()
     windows = [url.split("datetime=")[1].split("&")[0] for url in urls if "climate-daily" in url]
     assert windows == ["2025-01-01T00:00:00/2025-12-31T23:59:59"]
 
 
 def test_eccc_hourly_year_window_follows_utc_date_not_the_civil_zone(
-    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
     """Test that the first hour of a UTC year is fetched where ECCC's zone is not the civil one of the position.
 
@@ -599,7 +599,7 @@ def test_eccc_hourly_year_window_follows_utc_date_not_the_civil_zone(
         parameters=[("hourly", "data", "temperature_air_2m")],
         start=dt.datetime(2025, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(2025, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     )
     df = request.filter_by_station_id("50837").values.all().df.sort("timestamp")
     assert df.select("timestamp", "value").rows() == [
@@ -644,7 +644,7 @@ def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flags(monkeypatch:
         start="2023-01-01",
         end="2023-01-02",
         # nulls kept, or the missing day's row, which holds only its `M`, would be dropped
-        settings=Settings(ts_convert_units=False, ts_drop_nulls=False),
+        options=Options(convert_units=False, drop_nulls=False),
     )
     df = request.filter_by_station_id("51459").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
     assert df.schema["quality_flags"] == pl.String
@@ -676,7 +676,7 @@ def test_eccc_daily_gust_of_0_is_not_a_gust_and_a_direction_of_0_is_no_bearing(m
         parameters=[("daily", "data", "wind_gust_max"), ("daily", "data", "wind_direction_gust_max")],
         start="1975-07-01",
         end="1975-07-09",
-        settings=Settings(ts_convert_units=False, ts_drop_nulls=False),
+        options=Options(convert_units=False, drop_nulls=False),
     )
     df = request.filter_by_station_id("51459").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
     assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
@@ -690,7 +690,7 @@ def test_eccc_daily_gust_of_0_is_not_a_gust_and_a_direction_of_0_is_no_bearing(m
 
 
 def test_eccc_monthly_has_no_flags_and_so_null_quality_flags(
-    monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
     """Test that monthly rows, which ECCC publishes without flags, come back with null `quality_flags`."""
     _serve_eccc(monkeypatch, [{"LOCAL_DATE": "2025-01", "MEAN_TEMPERATURE": -5.4}])
@@ -698,7 +698,7 @@ def test_eccc_monthly_has_no_flags_and_so_null_quality_flags(
         parameters=[("monthly", "data", "temperature_air_mean_2m")],
         start="2025-01-01",
         end="2025-01-01",
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     )
     df = request.filter_by_station_id("51459").values.all().df
     assert df.schema["quality_flags"] == pl.String
