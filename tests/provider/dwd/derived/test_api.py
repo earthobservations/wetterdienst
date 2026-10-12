@@ -1337,9 +1337,9 @@ def test_dwd_derived_monthly_values_are_stamped_at_the_first_of_their_month(
 
 
 # The two period files of one station that both carry 2024-05-05 08:00 and 09:00, in the layout DWD serves. The
-# historical release has the higher reading (103 against 5, so a value sort would take the recent one), and a
-# `-999` at 09:00 where the recent file has a reading (so a value sort would take that one, and a null must not be
-# quietly filled from the later period).
+# frames are aligned on station, timestamp and quality before any value, so the recent file's quality (100) sorts
+# ahead of the historical one's (500) and a leftover sort would take the recent record; the historical one has a
+# `-999` at 09:00 where the recent file has a reading, which must not be quietly filled from the later period.
 _OVERLAPPING_PERIOD_FILES = {
     "https://example.invalid/historical.txt": (
         "STATIONS_ID;MESS_DATUM;QN_952;FG_DUETT;FG_UN_DUETT;eor\n"
@@ -1354,7 +1354,11 @@ _OVERLAPPING_PERIOD_FILES = {
 }
 
 
-@pytest.mark.parametrize("periods", list(permutations([Period.HISTORICAL, Period.RECENT])), ids=str)
+@pytest.mark.parametrize(
+    "periods",
+    list(permutations([Period.HISTORICAL, Period.RECENT])),
+    ids=lambda periods: "-".join(period.value for period in periods),
+)
 def test_dwd_derived_period_precedence_does_not_depend_on_the_order_of_the_periods(
     default_settings: Settings,
     monkeypatch: pytest.MonkeyPatch,
