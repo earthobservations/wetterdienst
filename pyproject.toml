@@ -337,6 +337,8 @@ python-version = "3.11"
 
 [tool.ty.rules]
 unresolved-import = "warn"
+# an ignore comment that silences nothing is a fix that forgot to take it out
+unused-ignore-comment = "error"
 
 [tool.ty.analysis]
 allowed-unresolved-imports = ["lxml.*", "tabula.*"]

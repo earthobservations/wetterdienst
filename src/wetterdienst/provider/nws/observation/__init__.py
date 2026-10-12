@@ -4,3 +4,8 @@ from wetterdienst.provider.nws.observation.api import (
     NwsObservationMetadata,
     NwsObservationRequest,
 )
+
+__all__ = [
+    "NwsObservationMetadata",
+    "NwsObservationRequest",
+]

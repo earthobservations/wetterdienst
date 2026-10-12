@@ -71,6 +71,8 @@ class DwdRadarSitesGenerator:  # pragma: no cover
         # Read table from PDF.
         import tabula  # noqa: PLC0415
 
+        # tabula-py, which this development tool needs (see the docstring below), is not installed: the
+        # `tabula` that the radar extra names is another package, without a `read_pdf` (GH-2764)
         df = tabula.read_pdf(self.url, multiple_tables=False, pages=1)[0]  # ty: ignore[unresolved-attribute]
 
         df = pl.from_pandas(df)

@@ -442,7 +442,7 @@ ImgwMeteorologyMetadata = {
 ImgwMeteorologyMetadata = build_metadata_model(ImgwMeteorologyMetadata, "ImgwMeteorologyMetadata")
 
 
-class ImgwMeteorologyValues(TimeseriesValues):
+class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
     """Values for the meteorological data from the Institute of Meteorology and Water Management."""
 
     _endpoint = (
@@ -583,7 +583,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         },
     }
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,

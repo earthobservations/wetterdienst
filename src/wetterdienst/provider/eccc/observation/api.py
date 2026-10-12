@@ -115,8 +115,6 @@ class EcccObservationValues(TimeseriesValues):
         parameter_or_dataset: ParameterModel | DatasetModel,
     ) -> pl.DataFrame:
         """Collect station dataset."""
-        from typing import cast  # noqa: PLC0415
-
         settings = cast("Settings", self.sr.stations.settings)
         # Normalize parameter_or_dataset to a DatasetModel for uniform access below.
         from wetterdienst.model.metadata import DatasetModel as _DatasetModel  # noqa: PLC0415
@@ -261,9 +259,7 @@ class EcccObservationRequest(TimeseriesRequest):
     _endpoint = "https://api.weather.gc.ca"
 
     metadata = EcccObservationMetadata
-    # _values is a class object (subclass of TimeseriesValues). Use cast to
-    # satisfy the static typechecker which expects a TimeseriesValues value.
-    _values = cast("TimeseriesValues", EcccObservationValues)
+    _values = EcccObservationValues
 
     # Mapping of Canadian timezone abbreviations to IANA timezone identifiers
     _timezone_mapping: ClassVar[dict] = {
@@ -284,7 +280,6 @@ class EcccObservationRequest(TimeseriesRequest):
     }
 
     def _all(self) -> pl.LazyFrame:
-        from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
         # The OGC endpoint defaults to 500 features, and ECCC has ~8600 stations, so the default

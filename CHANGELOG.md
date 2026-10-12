@@ -37,6 +37,13 @@ Types of changes:
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
+- The package ships `py.typed` (PEP 561): mypy and pyright now read the annotations of the public
+  API instead of taking all of it for `Any`, so code they passed before may report errors. For
+  that the annotations were made true: every provider package lists its classes in `__all__`
+  (strict mode refuses `from wetterdienst.provider.dwd.observation import DwdObservationRequest`
+  otherwise), `to_plot(**kwargs)` takes any values (it said `dict`), `discover()` is
+  `dict[str, Any]`, and `TimeseriesValues` is generic over the model a provider collects by (a bare
+  `TimeseriesValues` still means any) (GH-2622)
 
 ### Removed
 

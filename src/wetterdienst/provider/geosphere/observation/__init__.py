@@ -4,3 +4,8 @@ from wetterdienst.provider.geosphere.observation.api import (
     GeosphereObservationMetadata,
     GeosphereObservationRequest,
 )
+
+__all__ = [
+    "GeosphereObservationMetadata",
+    "GeosphereObservationRequest",
+]

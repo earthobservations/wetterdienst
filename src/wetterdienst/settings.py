@@ -485,6 +485,7 @@ def _reading_nested_as_json_would(source_class: type[PydanticBaseSettingsSource]
     ``Settings()`` raised it. As a ``ValueError`` it is dealt with as any other malformed value is.
     """
 
+    # the base is a parameter: a source class of pydantic-settings, which this subclasses for every one it is given
     class Reading(source_class):  # ty: ignore[unsupported-base]
         def decode_complex_value(self, field_name: str, field: FieldInfo, value: Any) -> Any:  # noqa: ANN401
             try:

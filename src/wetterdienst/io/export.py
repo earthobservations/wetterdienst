@@ -22,6 +22,8 @@ from wetterdienst.util.extras import import_optional
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     import plotly.graph_objs as go
 
 log = logging.getLogger(__name__)
@@ -41,8 +43,11 @@ class ExportMixin:
         self.df = self._filter_by_sql(self.df, sql)
         return self.df
 
+    # The three formatters below are declared as narrowly as every subclass keeps them: each takes
+    # `with_metadata` (and may take more, keyword-only with a default) and returns a mapping, which a
+    # TypedDict is and a `dict` is not. A wider declaration made every subclass an invalid override.
     @abstractmethod
-    def to_dict(self, *args: Any, **kwargs: Any) -> dict:  # noqa: ANN401
+    def to_dict(self, *, with_metadata: bool = False) -> Mapping[str, object]:
         """Convert station information into dictionary format."""
 
     @abstractmethod
@@ -50,7 +55,7 @@ class ExportMixin:
         """Convert station information into JSON format."""
 
     @abstractmethod
-    def to_ogc_feature_collection(self, *args: Any, with_metadata: bool, **kwargs: Any) -> dict:  # noqa: ANN401
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> Mapping[str, object]:
         """Convert station information into OGC Feature Collection format.
 
         Abstract method implementation.
@@ -184,7 +189,14 @@ class ExportMixin:
         """Create a plotly figure from the DataFrame."""
 
     @abstractmethod
-    def _to_image(self, **kwargs: Any) -> bytes | str:  # noqa: ANN401
+    def _to_image(
+        self,
+        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        width: int | None = None,
+        height: int | None = None,
+        scale: float | None = None,
+        **kwargs: object,
+    ) -> bytes | str:
         """Create an image from the plotly figure."""
 
     def to_image(self, **kwargs: Any) -> bytes | str:  # noqa: ANN401
@@ -635,7 +647,7 @@ class ExportMixin:
             if version == 1:
                 from influxdb import InfluxDBClient  # noqa: PLC0415
 
-                client = InfluxDBClient(
+                client_v1 = InfluxDBClient(
                     host=netloc,
                     port=connspec.port or 8086,
                     username=connspec.username,
@@ -643,15 +655,15 @@ class ExportMixin:
                     database=database,
                     ssl=protocol.endswith("s"),
                 )
-                client.create_database(database)
+                client_v1.create_database(database)
             elif version == 2:
                 from influxdb_client import InfluxDBClient as InfluxDBClientV2  # noqa: PLC0415
                 from influxdb_client import Point as PointV2  # noqa: PLC0415
                 from influxdb_client.client.write_api import SYNCHRONOUS  # noqa: PLC0415
 
                 url = f"{scheme}://{netloc}:{connspec.port or 8086}"
-                client = InfluxDBClientV2(url=url, org=connspec.username or "", token=connspec.password or "")
-                write_api = client.write_api(write_options=SYNCHRONOUS)
+                client_v2 = InfluxDBClientV2(url=url, org=connspec.username or "", token=connspec.password or "")
+                write_api = client_v2.write_api(write_options=SYNCHRONOUS)
             elif version == 3:
                 from influxdb_client_3 import (  # noqa: PLC0415
                     InfluxDBClient3 as InfluxDBClientV3,
@@ -741,7 +753,7 @@ class ExportMixin:
 
             # Write to InfluxDB.
             if version == 1:
-                client.write_points(  # ty: ignore[unresolved-attribute]
+                client_v1.write_points(
                     points=points,
                     batch_size=50000,
                 )

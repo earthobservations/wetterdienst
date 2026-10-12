@@ -134,7 +134,7 @@ def _quantity(dtype: pl.DataType | type[pl.DataType]) -> pl.Struct:
     return pl.Struct([pl.Field("value", dtype), pl.Field("qualityControl", pl.String)])
 
 
-class NwsObservationValues(TimeseriesValues):
+class NwsObservationValues(TimeseriesValues[DatasetModel]):
     """Values class for NWS observation."""
 
     _endpoint = "https://api.weather.gov/stations/{station_id}/observations"
@@ -163,7 +163,7 @@ class NwsObservationValues(TimeseriesValues):
         )
         return f"{url}?{query}"
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,

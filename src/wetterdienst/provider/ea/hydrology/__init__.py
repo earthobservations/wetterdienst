@@ -4,3 +4,8 @@ from wetterdienst.provider.ea.hydrology.api import (
     EAHydrologyMetadata,
     EAHydrologyRequest,
 )
+
+__all__ = [
+    "EAHydrologyMetadata",
+    "EAHydrologyRequest",
+]

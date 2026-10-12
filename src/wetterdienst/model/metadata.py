@@ -108,6 +108,8 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
     name_original: str
     unit: str
     description: str | None = None
+    # the back-reference its dataset sets once it holds this parameter, so it is None until then; typing
+    # it optional would put a None check in front of every read of `parameter.dataset`
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)  # ty: ignore[invalid-assignment]
 
     @property
@@ -158,6 +160,7 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
     description: str | None = None
     date_required: bool
     parameters: list[ParameterModel]
+    # the back-reference its resolution sets once it holds this dataset (see `ParameterModel.dataset`)
     resolution: SkipValidation[ResolutionModel] = Field(default=None, exclude=True, repr=False)  # ty: ignore[invalid-assignment]
 
     def __init__(self, **data: dict) -> None:
@@ -197,6 +200,8 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
             raise AttributeError(_not_found("parameters", item, self.parameters))
         return parameter
 
+    # on purpose, not pydantic's iteration over (name, value) pairs of the fields: a model here is iterated
+    # as the collection of its parameters
     def __iter__(self) -> Iterator[ParameterModel]:  # ty: ignore[invalid-method-override]
         """Iterate over all parameters."""
         return iter(parameter for parameter in self.parameters if not parameter.name.startswith("quality"))
@@ -217,7 +222,7 @@ class ResolutionModel(BaseModel):
 
     @field_validator("datasets", mode="before")
     @classmethod
-    def validate_datasets(cls, v: list[dict], validation_info: ValidationInfo) -> list[DatasetModel]:
+    def validate_datasets(cls, v: list[dict], validation_info: ValidationInfo) -> list[dict]:
         """Validate datasets and set resolution for each dataset.
 
         Reads the two cascading fields with ``get``: a field that failed its own validation is not
@@ -244,7 +249,7 @@ class ResolutionModel(BaseModel):
             for dataset in v:
                 if dataset.get("date_required") is None:
                     dataset["date_required"] = date_required
-        return v  # ty: ignore[invalid-return-type]
+        return v
 
     def __init__(self, **data: dict) -> None:
         """Initialize the resolution model."""
@@ -268,6 +273,8 @@ class ResolutionModel(BaseModel):
             raise AttributeError(_not_found("datasets", item, self.datasets))
         return dataset
 
+    # on purpose, not pydantic's iteration over (name, value) pairs of the fields: a model here is iterated
+    # as the collection of its datasets
     def __iter__(self) -> Iterator[DatasetModel]:  # ty: ignore[invalid-method-override]
         """Iterate over all datasets."""
         return iter(self.datasets)
@@ -310,9 +317,12 @@ class MetadataModel(BaseModel):
         """
         resolution = _find(self.resolutions, item)
         if resolution is None:
+            # pydantic defines `__getattr__` at runtime only, so its stubs do not have it
             return super().__getattr__(item)  # ty: ignore[unresolved-attribute]
         return resolution
 
+    # on purpose, not pydantic's iteration over (name, value) pairs of the fields: a model here is iterated
+    # as the collection of its resolutions
     def __iter__(self) -> Iterator[ResolutionModel]:  # ty: ignore[invalid-method-override]
         """Iterate over all resolutions."""
         return iter(self.resolutions)
@@ -469,23 +479,23 @@ def parse_parameters(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> li
     raises. A part that is not a string is a ``TypeError`` and does propagate: it says the caller
     passed the wrong kind of object rather than misspelled a name.
     """
+    entries: list[str | Iterable[str] | DatasetModel | ParameterModel]
     if isinstance(parameters, str | DatasetModel | ParameterModel):
         # "daily/climate_summary" -> ["daily/climate_summary"]
-        parameters = [parameters]
+        entries = [parameters]
     elif isinstance(parameters, Iterable):
         # materialized first: the check below would otherwise exhaust an iterator
-        parameters = list(parameters)
-        if parameters and all(
-            isinstance(p, str) and all(sep not in p for sep in POSSIBLE_SEPARATORS) for p in parameters
-        ):
+        entries = list(parameters)
+        names = [p for p in entries if isinstance(p, str)]
+        if entries and len(names) == len(entries) and all(sep not in p for p in names for sep in POSSIBLE_SEPARATORS):
             # ("daily", "climate_summary") -> [("daily", "climate_summary")]
-            parameters = [parameters]  # ty: ignore[invalid-assignment]
+            entries = [names]
     else:
         msg = f"expected {_EXPECTED_PARAMETER}, or a sequence of those, got {type(parameters).__name__}"
         raise TypeError(msg)
     parameters_found = []
     seen = set()
-    for parameter in parameters:
+    for parameter in entries:
         try:
             parameter_search = ParameterSearch.parse(parameter)
             found = metadata.search_parameter(parameter_search)

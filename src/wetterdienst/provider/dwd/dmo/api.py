@@ -471,7 +471,7 @@ def _refuse_parameters_the_run_does_not_carry(parameters: list[ParameterModel], 
         raise ParameterNotCarriedError(msg)
 
 
-class DwdDmoValues(TimeseriesValues):
+class DwdDmoValues(TimeseriesValues[DatasetModel]):
     """Fetch DWD DMO data."""
 
     def __post_init__(self) -> None:
@@ -508,7 +508,7 @@ class DwdDmoValues(TimeseriesValues):
         """Get metadata DataFrame for DMO."""
         return self.sr.df
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
@@ -787,8 +787,10 @@ class DwdDmoRequest(TimeseriesRequest):
         )
         self.lead_time = parse_enumeration_from_template(self.lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
         issue: str | dt.datetime | DwdForecastDate = self.issue
-        with contextlib.suppress(InvalidEnumerationError):
-            issue = parse_enumeration_from_template(issue, DwdForecastDate)  # ty: ignore[no-matching-overload]
+        # a datetime names no member of the enumeration, so only a string or a member is looked up
+        if not isinstance(issue, dt.datetime):
+            with contextlib.suppress(InvalidEnumerationError):
+                issue = parse_enumeration_from_template(issue, DwdForecastDate)
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
                 try:
