@@ -797,6 +797,26 @@ def oauth_metadata_not_found() -> None:
     raise HTTPException(status_code=404, detail="Not Found")
 
 
+def _resolve_listed_network(provider: str, network: str, what: str) -> type[TimeseriesRequest]:
+    """Resolve the network `/api/auth` and `/api/coverage` are asked about, telling why one does not resolve.
+
+    A provider or network that is not listed, or whose module cannot be imported, is a 404 pointing
+    at the listing. A network whose optional extra is not installed is none of those: it is listed,
+    and this deployment lacks what it needs, so it is the 501 the data routes answer
+    (`_dependency_missing_on_the_server`). `MissingDependencyError` is an `ImportError`, so it
+    has to be told apart first.
+    """
+    try:
+        return Wetterdienst(provider, network)
+    except MissingDependencyError as e:
+        raise _dependency_missing_on_the_server(e, f"{what} {provider}/{network}") from e
+    except (ApiNotFoundError, ImportError) as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Choose provider and network from {app.url_path_for('coverage')}",
+        ) from e
+
+
 @app.get("/api/auth", response_model=AuthAnswer)
 def auth(
     request: Annotated[AuthRequest, Query()],
@@ -818,13 +838,7 @@ def auth(
     set_logging_level(debug=request.debug)
     provider, network = request.provider, request.network
 
-    try:
-        api = Wetterdienst(str(provider), str(network))
-    except (ApiNotFoundError, ImportError) as e:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Choose provider and network from {app.url_path_for('coverage')}",
-        ) from e
+    api = _resolve_listed_network(str(provider), str(network), "check the credentials of")
 
     return get_auth(api, provider, network)
 
@@ -922,13 +936,7 @@ def coverage(
         cov = Wetterdienst.discover()
         return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
 
-    try:
-        api = Wetterdienst(str(provider), str(network))
-    except (ApiNotFoundError, ImportError) as e:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Choose provider and network from {app.url_path_for('coverage')}",
-        ) from e
+    api = _resolve_listed_network(str(provider), str(network), "list the coverage of")
 
     # Standalone networks (e.g. dwd/radar, dwd/alerts) have no metadata model and thus no per-network
     # discover(); report that cleanly instead of raising an uncaught AttributeError (HTTP 500).
