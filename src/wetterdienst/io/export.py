@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import polars as pl
 import polars.selectors as cs
 
-from wetterdienst.exceptions import ExportRefusedError
+from wetterdienst.exceptions import ExportRefusedError, ImageTooLargeError
 from wetterdienst.metadata.renamed import renamed_column
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.url import ConnectionString, redact_password
@@ -27,6 +27,28 @@ if TYPE_CHECKING:
     import plotly.graph_objs as go
 
 log = logging.getLogger(__name__)
+
+
+#: the size plotly renders a figure at when neither the figure nor the caller names one
+_DEFAULT_IMAGE_WIDTH, _DEFAULT_IMAGE_HEIGHT = 700, 500
+
+
+def check_image_size(
+    fig: go.Figure, width: int | None, height: int | None, scale: float | None, max_side: int | None
+) -> None:
+    """Raise `ImageTooLargeError` when the image of `fig` would have a side over `max_side` pixels.
+
+    Measured as the browser will paint it: a size the caller gives wins over the figure's own, which
+    wins over plotly's default, and `scale` multiplies the result. Nothing is checked without
+    `max_side`, which is what the library and the CLI do.
+    """
+    if max_side is None:
+        return
+    factor = 1 if scale is None else scale
+    rendered_width = (width or fig.layout.width or _DEFAULT_IMAGE_WIDTH) * factor
+    rendered_height = (height or fig.layout.height or _DEFAULT_IMAGE_HEIGHT) * factor
+    if max(rendered_width, rendered_height) > max_side:
+        raise ImageTooLargeError(rendered_width, rendered_height, max_side)
 
 
 @dataclass
@@ -195,6 +217,7 @@ class ExportMixin:
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
+        max_side: int | None = None,
         **kwargs: object,
     ) -> bytes | str:
         """Create an image from the plotly figure."""

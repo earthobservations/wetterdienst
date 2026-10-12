@@ -15,10 +15,10 @@ import re
 import shutil
 import tempfile
 import threading
-from collections import defaultdict
+from collections import defaultdict  # noqa: TC003  # pydantic resolves the field annotation at runtime
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import Annotated, Any, Literal
 
 import platformdirs
 from pydantic import (
@@ -34,27 +34,28 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, SettingsError
 
-from wetterdienst.exceptions import InvalidEnumerationError
-from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
-from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
-from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.unit import UnitConverter
-
-if TYPE_CHECKING:
-    from pydantic.fields import FieldInfo
+from wetterdienst.options import (
+    _STATION_DISTANCE_HETEROGENEOUS,
+    _STATION_DISTANCE_HOMOGENEOUS,
+    Options,
+    SkipThreshold,
+    _build_geo_station_distance,
+    _checked_geo_station_distance_keys,
+    _checked_geo_station_distance_values,
+    _checked_resolution_factors_keys,
+    _checked_resolution_factors_values,
+    _checked_unit_targets,
+    _decode_nested_as_json_would,
+    _note_drop_nulls_ignored,
+    _quiet,
+    _resolution_factor,
+    _station_distance_for,
+)
 
 log = logging.getLogger(__name__)
 
-_UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
-
-
 #: what pydantic renders a secret as, and so what a credential looks like after a JSON round-trip
 _MASK = "*" * 10
-
-#: the share of readings a station must cover not to be skipped: a threshold above 1 skips every
-#: station, one of 0 or below none, so neither is one. The REST request model takes it too, so the
-#: two cannot drift apart (GH-2334)
-SkipThreshold = Annotated[float, Field(gt=0, le=1)]
 
 
 def _as_given(value: object) -> object:
@@ -292,70 +293,6 @@ class Auth(BaseModel):
         return None if _blank_first(username, password) else (username, password)
 
 
-#: how far a station may be from the target point to still be used, in km
-_STATION_DISTANCE_HOMOGENEOUS = 40.0
-#: the same for a quantity that decorrelates faster -- see `CanonicalParameter.interpolation`
-_STATION_DISTANCE_HETEROGENEOUS = 20.0
-#: how far the heterogeneous radius reaches at a given resolution, relative to its hourly value.
-#: a quantity that decorrelates fast in space does so less the longer it is accumulated: gauge
-#: studies put the correlation length of precipitation at roughly 8 km over 10 minutes, 27 km over
-#: three hours and 33 to 94 km over a day, the upper end for the stratiform rain that dominates
-#: north-western Europe. One radius cannot serve both ends of that, so the radius follows the
-#: accumulation period.
-#:
-#: The table stops widening at 2.0 rather than following the correlation length up. Past a day,
-#: what binds is terrain and not correlation: the interpolation reads UTM x/y and never station
-#: elevation, so 40 km is as far as it may reach in complex ground -- the same bound the homogeneous
-#: radius is held to, which is why the two meet at `daily` with the defaults. Precipitation is more
-#: orographically driven than temperature, not less, so it does not get to reach farther.
-#:
-#: The fine end is not tightened all the way to the correlation length either: the interpolation
-#: needs four surrounding stations, and even the DWD network rarely has four rain gauges within
-#: 8 km of a point, so 15 km at `minute_10` is as tight as still answers at all.
-#:
-#: The factors are pure multipliers of whatever `ts_geo_station_distance_heterogeneous` says. A
-#: radius the user raises is followed rather than clipped: they have made the terrain judgement the
-#: table encodes, and a setting that silently does nothing is the failure this module validates
-#: against everywhere else. The homogeneous radius does not scale at all -- terrain does not care
-#: how long a quantity was accumulated for
-_STATION_DISTANCE_RESOLUTION_FACTORS: dict[str, float] = {
-    Resolution.MINUTE_1.value: 0.75,
-    Resolution.MINUTE_5.value: 0.75,
-    Resolution.MINUTE_6.value: 0.75,
-    Resolution.MINUTE_10.value: 0.75,
-    Resolution.MINUTE_15.value: 0.75,
-    Resolution.HOURLY.value: 1.0,
-    Resolution.HOUR_6.value: 1.5,
-    Resolution.SUBDAILY.value: 1.5,
-    Resolution.DAILY.value: 2.0,
-    Resolution.MONTHLY.value: 2.0,
-    Resolution.ANNUAL.value: 2.0,
-}
-#: every `Resolution` is named above, so this catches a resolution name from outside that
-#: vocabulary, which is left as it is rather than guessed at
-_STATION_DISTANCE_RESOLUTION_FACTOR_DEFAULT = 1.0
-
-
-def _build_geo_station_distance(
-    homogeneous: float,
-    heterogeneous: float,
-    overrides: dict[str, float],
-) -> defaultdict[str, float]:
-    """Build the per-parameter search radius from the two radii, the parameter table and overrides.
-
-    Which names get the shorter radius used to be written out here, a copy of a classification the
-    table already holds. Only those names are put in the dict; the default factory answers for
-    every other parameter, so the setting a user sees and overrides stays the short list of
-    exceptions rather than every name in the table.
-    """
-    d: defaultdict[str, float] = defaultdict(lambda: homogeneous)
-    for parameter in PARAMETER_TABLE:
-        if parameter.interpolation == "heterogeneous":
-            d[parameter.name] = heterogeneous
-    d.update(overrides)
-    return d
-
-
 def default_cache_dir(appname: str = "wetterdienst") -> Path:
     """Return the user's cache directory for `appname`, or a temporary one where there is no home.
 
@@ -474,36 +411,6 @@ def _redacted_client_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     return redacted
 
 
-@functools.cache
-def _reading_nested_as_json_would(source_class: type[PydanticBaseSettingsSource]) -> type[PydanticBaseSettingsSource]:
-    """Give a source class the reading of a value nested too deeply as of one that is not valid JSON (GH-2543).
-
-    The source decodes a dict, a pair or a nested setting as JSON before any validator sees it, and
-    for text such as 100000 opening brackets the decoder raises a ``RecursionError``. That is no
-    ``ValueError``, so it escaped the source's handling of text that is not JSON: it was neither
-    kept as the raw text for the validator to refuse nor reported by `check_settings`, and
-    ``Settings()`` raised it. As a ``ValueError`` it is dealt with as any other malformed value is.
-    """
-
-    # the base is a parameter: a source class of pydantic-settings, which this subclasses for every one it is given
-    class Reading(source_class):  # ty: ignore[unsupported-base]
-        def decode_complex_value(self, field_name: str, field: FieldInfo, value: Any) -> Any:  # noqa: ANN401
-            try:
-                return super().decode_complex_value(field_name, field, value)
-            except RecursionError as error:
-                msg = "nested too deeply to decode as JSON"
-                raise ValueError(msg) from error
-
-    Reading.__name__ = Reading.__qualname__ = source_class.__name__
-    return Reading
-
-
-def _decode_nested_as_json_would(source: PydanticBaseSettingsSource) -> PydanticBaseSettingsSource:
-    """Give a source, as configured, the reading of `_reading_nested_as_json_would`."""
-    source.__class__ = _reading_nested_as_json_would(type(source))
-    return source
-
-
 class Settings(BaseSettings):
     """Settings for the wetterdienst package."""
 
@@ -619,105 +526,32 @@ class Settings(BaseSettings):
     @field_validator("ts_unit_targets", mode="after")
     @classmethod
     def validate_ts_unit_targets_after(cls, values: dict[str, str]) -> dict[str, str]:
-        """Validate the unit targets, the units as well as the quantities.
-
-        A unit the converter has no such name for, or holds back as one a source publishes in, used
-        to pass here and be refused only once a values request had fetched its stations (GH-2306).
-        """
-        if not values:
-            # the default, which every `Settings()` is built with, so no converter is built for it
-            return values
-        unknown = sorted(values.keys() - _UNIT_CONVERTER_TARGETS)
-        if unknown:
-            msg = (
-                f"Invalid unit targets: quantities not supported: {', '.join(unknown)}. "
-                f"Supported quantities are: {', '.join(sorted(_UNIT_CONVERTER_TARGETS))}"
-            )
-            raise ValueError(msg)
-        try:
-            UnitConverter().update_targets(values)
-        except InvalidEnumerationError as e:
-            msg = f"Invalid unit targets: {e}"
-            raise ValueError(msg) from e
-        return values
+        """Validate the unit targets, the units as well as the quantities."""
+        return _checked_unit_targets(values)
 
     @field_validator("ts_geo_station_distance", mode="before")
     @classmethod
     def validate_ts_geo_station_distance_keys(cls, values: object) -> object:
-        """Check the overridden parameter names, which used to be taken on trust.
-
-        A name that is not a canonical parameter can never be looked up, so the override silently
-        did nothing and the parameter the user meant kept its default radius -- a typo was
-        indistinguishable from having set nothing at all. An empty value means no overrides; any
-        other that is not a mapping is left for the field to refuse, which names it, where looking
-        for keys in it failed with a bare `TypeError` that named nothing (GH-2353).
-        """
-        if not values:
-            return {}
-        if not isinstance(values, Mapping):
-            return values
-        if "default" in values:
-            msg = (
-                "the 'default' key of ts_geo_station_distance is gone, as it replaced the fallback radius and "
-                "the pre-populated per-parameter ones alike; set ts_geo_station_distance_homogeneous and "
-                "ts_geo_station_distance_heterogeneous instead"
-            )
-            raise ValueError(msg)
-        unknown = sorted(set(values) - PARAMETERS.keys())
-        if unknown:
-            msg = f"Invalid parameters in ts_geo_station_distance: {unknown} not in the canonical parameters"
-            renamed = [
-                f"'{name}' is now '{RENAMED_PARAMETERS[name]}'" for name in unknown if name in RENAMED_PARAMETERS
-            ]
-            if renamed:
-                msg += f" ({', '.join(renamed)})"
-            raise ValueError(msg)
-        never_interpolated = sorted(name for name in values if not PARAMETERS[name].interpolation)
-        if never_interpolated:
-            log.warning(
-                f"option 'ts_geo_station_distance' sets a radius for {never_interpolated}, which are never "
-                "interpolated, and is thus ignored for them in this request.",
-            )
-        return values
+        """Check the overridden parameter names."""
+        return _checked_geo_station_distance_keys(values, "ts_", log)
 
     @field_validator("ts_geo_station_distance", mode="after")
     @classmethod
     def validate_ts_geo_station_distance_values(cls, values: dict[str, float]) -> dict[str, float]:
         """Reject negative radii, as `ts_geo_use_nearby_station_distance` next to it already does."""
-        negative = sorted(name for name, distance in values.items() if distance < 0)
-        if negative:
-            msg = f"Negative distances in ts_geo_station_distance: {negative}"
-            raise ValueError(msg)
-        return values
+        return _checked_geo_station_distance_values(values, "ts_")
 
     @field_validator("ts_geo_station_distance_resolution_factors", mode="before")
     @classmethod
     def validate_ts_geo_station_distance_resolution_factors_keys(cls, values: object) -> object:
-        """Check the resolutions, which are a closed vocabulary like the unit types are.
-
-        An empty value means no factors of one's own, and any other that is not a mapping is left
-        for the field to refuse, as for `ts_geo_station_distance`.
-        """
-        if not values:
-            return {}
-        if not isinstance(values, Mapping):
-            return values
-        resolutions = {resolution.value for resolution in Resolution}
-        unknown = sorted(set(values) - resolutions)
-        if unknown:
-            msg = f"Invalid resolutions in ts_geo_station_distance_resolution_factors: {unknown} not in {sorted(resolutions)}"  # noqa: E501
-            raise ValueError(msg)
-        return values
+        """Check the resolutions, which are a closed vocabulary like the unit types are."""
+        return _checked_resolution_factors_keys(values, "ts_")
 
     @field_validator("ts_geo_station_distance_resolution_factors", mode="after")
     @classmethod
     def validate_ts_geo_station_distance_resolution_factors_values(cls, values: dict[str, float]) -> dict[str, float]:
         """Reject negative factors, which would turn a radius into a distance behind the point."""
-        negative = sorted(name for name, factor in values.items() if factor < 0)
-        if negative:
-            msg = f"Negative factors in ts_geo_station_distance_resolution_factors: {negative}"
-            raise ValueError(msg)
-        return values
+        return _checked_resolution_factors_values(values, "ts_")
 
     @model_validator(mode="after")
     def expand_ts_geo_station_distance(self) -> Settings:
@@ -757,10 +591,7 @@ class Settings(BaseSettings):
 
     def ts_geo_station_distance_resolution_factor(self, resolution: str) -> float:
         """Return the factor the heterogeneous radius is stretched by at this resolution."""
-        return self.ts_geo_station_distance_resolution_factors.get(
-            resolution,
-            _STATION_DISTANCE_RESOLUTION_FACTORS.get(resolution, _STATION_DISTANCE_RESOLUTION_FACTOR_DEFAULT),
-        )
+        return _resolution_factor(self.ts_geo_station_distance_resolution_factors, resolution)
 
     def ts_geo_station_distance_for(self, parameter_name: str, resolution: str) -> float:
         """Return how far a station may be to still be used for this parameter at this resolution.
@@ -777,13 +608,14 @@ class Settings(BaseSettings):
         run again from the overrides the settings were built with. Build a new `Settings` to change
         the per-parameter radii.
         """
-        overrides = self._ts_geo_station_distance_overrides or {}
-        if parameter_name in overrides:
-            return overrides[parameter_name]
-        parameter = PARAMETERS.get(parameter_name)
-        if parameter is None or parameter.interpolation != "heterogeneous":
-            return self.ts_geo_station_distance_homogeneous
-        return self.ts_geo_station_distance_heterogeneous * self.ts_geo_station_distance_resolution_factor(resolution)
+        return _station_distance_for(
+            self._ts_geo_station_distance_overrides or {},
+            self.ts_geo_station_distance_homogeneous,
+            self.ts_geo_station_distance_heterogeneous,
+            self.ts_geo_station_distance_resolution_factors,
+            parameter_name,
+            resolution,
+        )
 
     @property
     def ts_tidy(self) -> bool:
@@ -807,11 +639,7 @@ class Settings(BaseSettings):
         `Settings.model_validate(settings)`, and logged these lines each time. So a field assigned
         afterwards -- `ts_shape` included -- logs nothing; the lines say how the settings began.
         """
-        if self.ts_shape != "long":
-            log.info(
-                "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and "
-                "is thus ignored in this request.",
-            )
+        _note_drop_nulls_ignored(self.ts_shape, "ts_", log)
         if self.cache_disable:
             log.info("Wetterdienst cache is disabled")
         else:
@@ -837,12 +665,13 @@ class Settings(BaseSettings):
         return f"""Settings({json.dumps(self._rendered(), indent=4)})"""
 
 
-def _describe_settings_error(error: ValidationError | SettingsError) -> list[str]:
-    """Tell what is wrong with the settings, a line for each problem, by the `WD_*` variable that sets it.
+def _describe_settings_error(error: ValidationError | SettingsError, prefix: str = "WD_") -> list[str]:
+    """Tell what is wrong with the settings, a line for each problem, by the environment variable that sets it.
 
     For an error of settings built from the environment and `.env` alone, as `check_settings`
     builds them. Neither hands on a key that is no setting (GH-2349), so every problem is a
-    setting's.
+    setting's. `prefix` is the one the settings read their variables with: ``WD_`` for `Settings`,
+    ``WD_TS_`` for `Options`.
 
     pydantic's own account names the field rather than the variable an operator set, and each of
     its `errors()` holds the value given -- which for `WD_AUTH__*` is a credential, and for
@@ -856,29 +685,41 @@ def _describe_settings_error(error: ValidationError | SettingsError) -> list[str
         # it could not parse, but not where in the value
         match = re.search(r'error parsing value for field "(\w+)"', str(error))
         if match:
-            return [f"WD_{match.group(1).upper()} is invalid: not valid JSON"]
+            return [f"{prefix}{match.group(1).upper()} is invalid: not valid JSON"]
         return [str(error)]
     lines = []
     for problem in error.errors(include_url=False):
         # an element of a pair, such as the secret in `WD_AUTH__METNO_FROST`, is no variable of its
         # own, and is told by its index after the name that holds it: `WD_AUTH__METNO_FROST[1]`
-        variable = "WD_" if problem["loc"] else "WD_*"
+        variable = prefix if problem["loc"] else f"{prefix}*"
         for part in problem["loc"]:
             if isinstance(part, int):
                 variable += f"[{part}]"
             else:
-                variable += ("" if variable == "WD_" else "__") + str(part).upper()
+                variable += ("" if variable == prefix else "__") + str(part).upper()
         lines.append(f"{variable} is invalid: {problem['msg'].removeprefix('Value error, ')}")
     return lines
 
 
 def check_settings() -> list[str]:
-    """Build the settings from the environment and `.env` alone, and tell what is wrong with them.
+    """Build the settings and the options from the environment and `.env` alone, and tell what is wrong with them.
 
-    An empty list means they are valid.
+    An empty list means they are valid. `Settings` still reads the ``WD_TS_*`` variables as well as
+    `Options`, which gives one problem twice, so a variable is told once, by the first to find it.
     """
-    try:
-        Settings()
-    except (ValidationError, SettingsError) as e:
-        return _describe_settings_error(e)
-    return []
+    lines: list[str] = []
+    # `Settings` gives the notices of the `ts_*` settings, so `Options` gives none of its own
+    with _quiet():
+        for build, prefix in ((Settings, "WD_"), (Options, "WD_TS_")):
+            try:
+                build()
+            except (ValidationError, SettingsError) as e:
+                lines.extend(_describe_settings_error(e, prefix))
+    told: set[str] = set()
+    unique = []
+    for line in lines:
+        variable = line.split(" is invalid", 1)[0]
+        if variable not in told:
+            told.add(variable)
+            unique.append(line)
+    return unique

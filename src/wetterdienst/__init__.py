@@ -11,6 +11,7 @@ from wetterdienst import boot
 from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.options import Options
 from wetterdienst.settings import Settings
 
 __appname__ = "wetterdienst"
@@ -79,6 +80,7 @@ class Info:
 __all__ = [
     "Author",
     "Info",
+    "Options",
     "Period",
     "Resolution",
     "Settings",

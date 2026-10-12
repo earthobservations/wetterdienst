@@ -47,11 +47,19 @@ const { data: coverage, status: coverageStatus } = useFetch<CoverageResponse>('/
 const coverageSettled = computed(() => coverageStatus.value === 'success' || coverageStatus.value === 'error')
 const coveragePending = computed(() => !coverageSettled.value)
 
+// Whether the backend accepts the credentials of a network is not part of the coverage answer: it
+// is a request to the provider, which a list of every provider must not wait for (GH-2564). It is
+// asked per network, after the list is on screen, and only a network whose answer is "rejected"
+// leaves the selects. Until it answers, and where it cannot (`null`, an error), the network is
+// listed: a failure to check is not a rejection (GH-2550, GH-2562).
+const rejectedNetworks = ref<Record<string, true>>({})
+const networkKey = (providerName: string, networkName: string) => `${providerName}/${networkName}`
+
 // A provider/network is available when it needs no auth, or when auth credentials are present and not
-// rejected. `valid` is `null` when the backend could not check them (no network, a rate limit, an
-// outage): unknown, not rejected, so only an explicit `false` makes the network unavailable.
-function isAvailable(n: { auth: boolean, configured: boolean, valid: boolean | null }) {
-  return !n.auth || (n.configured && n.valid !== false)
+// rejected. `valid` in the coverage answer is `false` where they are missing and `null` where they
+// are present and unchecked; only an explicit `false` there, or a check that says so, hides a network.
+function isAvailable(providerName: string, networkName: string, n: { auth: boolean, configured: boolean, valid: boolean | null }) {
+  return !n.auth || (n.configured && n.valid !== false && !rejectedNetworks.value[networkKey(providerName, networkName)])
 }
 
 // EXPECTING
@@ -63,7 +71,7 @@ const providers = computed(() => {
   if (!cov)
     return []
   return Object.keys(cov)
-    .filter(p => Object.values(cov[p] ?? {}).some(isAvailable))
+    .filter(p => Object.entries(cov[p] ?? {}).some(([name, n]) => isAvailable(p, name, n)))
     .sort()
 })
 function networksFor(providerName: string | undefined): string[] {
@@ -71,10 +79,53 @@ function networksFor(providerName: string | undefined): string[] {
   if (!providerName || !cov)
     return []
   return Object.entries(cov[providerName] ?? {})
-    .filter(([, n]) => isAvailable(n))
+    .filter(([name, n]) => isAvailable(providerName, name, n))
     .map(([name]) => name)
 }
 const networks = computed<string[]>(() => networksFor(provider.value))
+
+// Ask whether the backend accepts the credentials of each network that has them configured, all at
+// once and without anything waiting for the answers. A request the page no longer needs is aborted
+// when it is left. `retry: 0`: the backend's probe is one bounded attempt, and a failure of the
+// request is "could not check" like any other.
+const credentialChecks = new AbortController()
+onScopeDispose(() => credentialChecks.abort())
+const checkedNetworks = new Set<string>()
+async function checkCredentials(providerName: string, networkName: string) {
+  try {
+    const answer = await $fetch<AuthResponse>('/api/auth', {
+      query: { provider: providerName, network: networkName },
+      retry: 0,
+      signal: credentialChecks.signal,
+    })
+    if (answer.valid === false)
+      rejectedNetworks.value = { ...rejectedNetworks.value, [networkKey(providerName, networkName)]: true }
+  }
+  catch {
+    // could not check: not a rejection, so the network stays listed
+  }
+}
+watch(coverage, (cov) => {
+  for (const [providerName, networksOfProvider] of Object.entries(cov ?? {})) {
+    for (const [networkName, n] of Object.entries(networksOfProvider ?? {})) {
+      const key = networkKey(providerName, networkName)
+      if (!n.auth || !n.configured || n.valid === false || checkedNetworks.has(key))
+        continue
+      checkedNetworks.add(key)
+      checkCredentials(providerName, networkName)
+    }
+  }
+}, { immediate: true })
+
+// A network that turns out to be rejected after it was chosen leaves the selection with it
+watch([rejectedNetworks, isInitializing], () => {
+  if (isInitializing.value)
+    return
+  if (network.value && !networks.value.includes(network.value))
+    network.value = undefined
+  if (provider.value && !providers.value.includes(provider.value))
+    provider.value = undefined
+})
 
 // A caller-supplied restriction (e.g. History is DWD-observation-only) is only
 // as good as the backend actually offering it. Silently falling back to the

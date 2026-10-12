@@ -13,7 +13,7 @@ from typing import Any, Literal, assert_type
 
 import polars as pl
 
-from wetterdienst import Period, Resolution, Settings, Wetterdienst
+from wetterdienst import Options, Period, Resolution, Settings, Wetterdienst
 from wetterdienst.model.history import TimeseriesHistory
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
@@ -88,3 +88,12 @@ assert_type(summarized.to_dict()["values"][0]["distance"], float | None)
 # metadata
 assert_type(request.discover(resolutions="daily"), dict[str, Any])
 assert_type(Resolution("daily"), Resolution)
+
+# how the values of a request come back
+options = Options(shape="wide")
+assert_type(options.shape, Literal["wide", "long"])
+assert_type(options.replace(shape="long"), Options)
+
+# whether a provider that needs credentials has them, and accepts them
+assert_type(Wetterdienst.is_configured(api), bool)
+assert_type(Wetterdienst.is_valid(api), bool | None)

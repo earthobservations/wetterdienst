@@ -50,6 +50,16 @@ The following examples use [httpie](https://github.com/httpie/cli) to demonstrat
 http localhost:7890/api/coverage
 ```
 
+The list downloads nothing, so it answers at once. For a network that needs credentials it says
+whether they are present (`configured`); `valid` is `false` where they are not, and `null` where
+they are, because whether the provider accepts them is a request to the provider. Ask for one
+network at a time, which gives up after a few seconds and answers `null` as well when it could not
+tell:
+
+```bash
+http localhost:7890/api/auth provider==aemet network==observation
+```
+
 ### Glossary
 
 Coverage says which parameters a provider offers; the glossary says what any of them means and
@@ -162,6 +172,13 @@ What it can still do once enabled: read DuckDB's own settings, which name paths 
 for as long as it likes on that thread; and allocate memory DuckDB's limit does not count, such as
 one very long string. The limits hold per request, not for the server as a whole. Enable it only
 for clients you trust with that.
+
+### Image size
+
+A chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused with a 400 when a side of
+the image is longer than 8192 px, `scale` applied; for `/api/stripes/image` the size is 700 x 500 px
+times `dpi / 100`. A chart of several parameters is 300 px tall for each, and is measured as drawn.
+The limit holds for the REST API and the MCP tools; the library and the CLI have none.
 
 ## MCP endpoint
 

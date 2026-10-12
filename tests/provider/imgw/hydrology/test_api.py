@@ -257,3 +257,43 @@ def test_imgw_hydrology_raises_a_failed_download_and_drops_a_missing_file(monkey
         values._collect_station_parameter_or_dataset("149180020", dataset)  # noqa: SLF001
     monkeypatch.setattr(imgw_hydrology_api, "download_files", lambda **_kwargs: [missing])
     assert values._collect_station_parameter_or_dataset("149180020", dataset).is_empty()  # noqa: SLF001
+
+
+def test_imgw_hydrology_reads_a_headerless_daily_file_by_column_position(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the headerless daily file is read by the position of its columns, whichever polars reads it.
+
+    The schema of the reader names the columns ``column_1`` and on, which polars 2 no longer does by itself.
+    """
+    from io import BytesIO  # noqa: PLC0415
+    from types import SimpleNamespace  # noqa: PLC0415
+    from zipfile import ZipFile  # noqa: PLC0415
+
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api  # noqa: PLC0415
+    from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyMetadata, ImgwHydrologyValues  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    # station, name, river, hydrological year, month, day, stage, discharge, water temperature
+    csv = "149180020,CHALUPKI,Odra,2023,03,15,141,12.5,9.9\n149180020,CHALUPKI,Odra,2023,03,16,150,13.5,9999\n"
+    buffer = BytesIO()
+    with ZipFile(buffer, "w") as archive:
+        archive.writestr("codz_2023_03.csv", csv)
+    buffer.seek(0)
+    values = ImgwHydrologyValues.__new__(ImgwHydrologyValues)
+    values.sr = SimpleNamespace(stations=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
+    monkeypatch.setattr(values, "_get_urls", lambda _dataset: ["unused"])
+    monkeypatch.setattr(
+        imgw_hydrology_api,
+        "download_files",
+        lambda **_kwargs: [File(url="https://example.invalid/codz_2023.zip", content=buffer, status=200)],
+    )
+    df = values._collect_station_parameter_or_dataset("149180020", ImgwHydrologyMetadata.daily.hydrology)  # noqa: SLF001
+    # 9999 is the missing temperature of the second day
+    assert df.sort("parameter", "timestamp").select("parameter", "value").rows() == [
+        ("przepływ", 12.5),
+        ("przepływ", 13.5),
+        ("stan wody", 141.0),
+        ("stan wody", 150.0),
+        ("temperatura wody", 9.9),
+        ("temperatura wody", None),
+    ]

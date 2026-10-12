@@ -20,6 +20,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
 )
 from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, DwdObservationMetadata
 from wetterdienst.util.network import File, download_file, download_files
+from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
@@ -146,7 +147,7 @@ def _read_meta_df(file: File, *, urban: bool = False) -> pl.LazyFrame:
     lines_split = [line[:-1] if line[-1] == "Frei" else line for line in lines_split]
     lines_csv = [_create_csv_line(line) for line in lines_split]
     text = "\n".join(lines_csv)
-    df = pl.read_csv(StringIO(text), has_header=False, infer_schema_length=0)
+    df = read_csv_without_header(StringIO(text), infer_schema_length=0)
     return df.rename(mapping=lambda col: DWD_COLUMN_NAMES_MAPPING.get(col, col)).lazy()
 
 

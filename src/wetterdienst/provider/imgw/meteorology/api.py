@@ -26,6 +26,7 @@ from wetterdienst.provider.imgw.fileindex import list_files_for_interval
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import File, download_file, download_files
+from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -680,7 +681,7 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
         statusless: frozenset[int] = frozenset(),
     ) -> pl.DataFrame:
         """Parse a single file from the meteorological zip file."""
-        df = pl.read_csv(file, encoding="latin-1", separator=",", has_header=False, infer_schema_length=0)
+        df = read_csv_without_header(file, encoding="latin-1", separator=",", infer_schema_length=0)
         status_columns = {}
         for column, name in schema.items():
             position = int(column.removeprefix("column_"))

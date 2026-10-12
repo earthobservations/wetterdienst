@@ -6,7 +6,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst.util.polars_util import read_fwf_from_df
+from wetterdienst.util.polars_util import read_csv_without_header, read_fwf_from_df
 
 
 @pytest.fixture
@@ -57,3 +57,15 @@ def test_read_fwf_from_df_multiple_columns_fail() -> None:
     df = pl.DataFrame({"a": ["foo"], "b": ["bar"]}, orient="col")
     with pytest.raises(ValueError, match="reading fwf from a DataFrame only supports one column"):
         read_fwf_from_df(df, ((0, 2), (2, 3)))
+
+
+def test_read_csv_without_header_names_the_columns_from_one() -> None:
+    """Test that a headerless file gets the names the readers select by, whichever polars reads it.
+
+    polars 1 names such columns from ``column_1`` and polars 2 from ``column_0``.
+    """
+    df = read_csv_without_header(b"a;b;c\nd;e;f\n", separator=";", infer_schema_length=0)
+    assert_frame_equal(
+        df,
+        pl.DataFrame({"column_1": ["a", "d"], "column_2": ["b", "e"], "column_3": ["c", "f"]}),
+    )

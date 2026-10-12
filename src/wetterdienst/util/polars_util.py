@@ -4,7 +4,28 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import polars as pl
+
+
+def read_csv_without_header(source: Any, **kwargs: Any) -> pl.DataFrame:  # noqa: ANN401
+    """Read a headerless CSV into columns named ``column_1``, ``column_2``, ... by position.
+
+    polars 1 names the columns of a headerless file from ``column_1``; polars 2 from ``column_0``.
+    The names are set here so the readers that select by them read the same file on both.
+
+    Args:
+        source: The path, bytes or file-like object ``pl.read_csv`` takes.
+        **kwargs: Further arguments for ``pl.read_csv``; ``has_header`` is fixed to False.
+
+    Returns:
+        The DataFrame with the columns named by their one-based position.
+
+    """
+    df = pl.read_csv(source, has_header=False, **kwargs)
+    df.columns = [f"column_{position}" for position in range(1, df.width + 1)]
+    return df
 
 
 def read_fwf_from_df(

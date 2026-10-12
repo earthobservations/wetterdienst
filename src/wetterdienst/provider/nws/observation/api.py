@@ -18,6 +18,7 @@ from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file
+from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -272,7 +273,7 @@ class NwsObservationRequest(TimeseriesRequest):
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
-        df = pl.read_csv(source=file.content, has_header=False, separator="\t", infer_schema_length=0).lazy()
+        df = read_csv_without_header(file.content, separator="\t", infer_schema_length=0).lazy()
         # the table is the global METAR listing; api.weather.gov serves the United States alone,
         # and column 7 is the country that narrows it to them. No coordinate box is laid over the
         # result on top of that: one excludes American ground for being in the wrong hemisphere --

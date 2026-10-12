@@ -15,7 +15,8 @@ from wetterdienst import Wetterdienst
 from wetterdienst.exceptions import NoInternetError
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
-from wetterdienst.util.network import File
+from wetterdienst.settings import Settings
+from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, File
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -39,8 +40,8 @@ def _answer(monkeypatch: pytest.MonkeyPatch, content: BytesIO | Exception, statu
 def _client_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Give Frost a client ID and nothing else of the `WD_*` variables and `.env` of whoever runs the tests.
 
-    `discover()` probes every provider whose credential is set, so one in the environment (AEMET's, say)
-    would reach for the network that this test stubs only for Frost.
+    A credential of another provider in the environment (AEMET's, say) would have `discover()` list
+    it as configured, which these tests then read.
     """
     for name in list(os.environ):
         if name.startswith("WD_") and name != "WD_CACHE_DIR":
@@ -88,10 +89,19 @@ def test_is_valid_is_unknown_when_the_probe_could_not_tell(
     ]
 
 
-def test_discover_tells_an_unchecked_client_id_as_null_not_false(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The listing of providers carries the unknown on as `valid: None`, and a rejection as False."""
-    _answer(monkeypatch, OSError("certificate verify failed"), 500)
+def test_is_valid_is_one_short_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The probe asks once and gives up after `PROBE_TIMEOUT_SECONDS`, not as long as a values request (GH-2564)."""
+    calls = _answer(monkeypatch, BytesIO(b"{}"), 200)
+    assert MetnoFrostRequest.is_valid() is True
+    assert calls[0]["attempts"] == 1
+    assert calls[0]["client_kwargs"]["timeout"].total == PROBE_TIMEOUT_SECONDS
+    assert Settings().fsspec_client_kwargs["timeout"] > PROBE_TIMEOUT_SECONDS
+
+
+def test_discover_does_not_probe_a_configured_client_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The listing of providers leaves `valid` null for a configured client ID, which `is_valid()` checks (GH-2564)."""
+    calls = _answer(monkeypatch, Exception("401"), 401)
     entry = Wetterdienst.discover()["metno"]["frost"]
     assert (entry["auth"], entry["configured"], entry["valid"]) == (True, True, None)
-    _answer(monkeypatch, Exception("401"), 401)
-    assert Wetterdienst.discover()["metno"]["frost"]["valid"] is False
+    assert calls == []
+    assert Wetterdienst.is_valid(MetnoFrostRequest) is False

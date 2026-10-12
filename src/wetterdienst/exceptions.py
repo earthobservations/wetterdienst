@@ -155,6 +155,25 @@ class ParameterNotCarriedError(ValueError):
     """Raised when a parameter is asked for by name of a forecast run that never carries it."""
 
 
+class ImageTooLargeError(Exception):
+    """Raised when a chart would be rendered larger than the caller allows (`max_side`), in pixels on a side.
+
+    The REST API sets the limit and answers it with a 400. The size is only known once the figure is
+    built, as a chart of several parameters is 300 px taller for each, so this is raised after the
+    values were collected and before the browser is started.
+    """
+
+    def __init__(self, width: float, height: float, max_side: int) -> None:
+        """Keep the size the image would have and the limit it exceeds, in pixels."""
+        self.width = width
+        self.height = height
+        self.max_side = max_side
+        super().__init__(
+            f"The image would be {width:.0f} x {height:.0f} px, and this server renders no side longer than "
+            f"{max_side} px."
+        )
+
+
 class ExportRefusedError(Exception):
     """Raised when a sink will not perform an export, for a reason the caller can act on.
 
