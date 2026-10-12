@@ -30,6 +30,13 @@ Types of changes:
 - **Breaking**: `metno/frost` `daily` `snow_depth` is stamped at 00:00 UTC of the date of its
   reading, no longer at the time of the reading (usually 06:00 UTC), like the other daily
   parameters. Join stored snow depth on the date (GH-2729)
+- **Breaking**: `metno/frost` and `aemet/observation` `is_valid()` is `False` only when the provider
+  rejects the credential (HTTP 401/403, for AEMET also an `estado` of 401/403), `True` when it
+  accepts it, and `None` when the probe could not tell (no network, a TLS failure, a timeout, a 429,
+  a 5xx), which used to read as `False`. `valid` in `/api/auth` and `/api/coverage` is `true`,
+  `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
+  for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
+  (GH-2550, GH-2562)
 
 ### Removed
 

@@ -1349,3 +1349,33 @@ def test_discover_lists_metoffice_as_needing_a_credential(monkeypatch: pytest.Mo
     monkeypatch.setenv("WD_AUTH__CEDA", "user:password")
     entry = Wetterdienst.discover()["metoffice"]["observation"]
     assert (entry["auth"], entry["configured"]) == (True, True)
+
+
+class _ProbeRaises:
+    """A provider whose credential probe raises instead of answering."""
+
+    @staticmethod
+    def is_valid() -> bool:
+        msg = "boom"
+        raise RuntimeError(msg)
+
+
+def test_is_valid_is_unknown_where_the_probe_raises(caplog: pytest.LogCaptureFixture) -> None:
+    """A probe that raises could not tell, so it is told as unknown (None), not as credentials rejected (GH-2550)."""
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.api"):
+        assert Wetterdienst.is_valid(_ProbeRaises) is None
+    assert [record.getMessage() for record in caplog.records] == ["Could not check the credentials of _ProbeRaises"]
+
+
+def test_is_valid_passes_on_what_the_probe_tells() -> None:
+    """The three answers of a probe reach the caller as they are, and a provider without one is valid."""
+
+    class _Probe:
+        def __init__(self, answer: bool | None) -> None:  # noqa: FBT001
+            self.answer = answer
+
+        def is_valid(self) -> bool | None:
+            return self.answer
+
+    assert [Wetterdienst.is_valid(_Probe(answer)) for answer in (True, False, None)] == [True, False, None]
+    assert Wetterdienst.is_valid(object()) is True

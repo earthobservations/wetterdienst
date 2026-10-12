@@ -316,8 +316,12 @@ class TimeseriesRequest:
         return True
 
     @classmethod
-    def is_valid(cls, settings: Settings | None = None) -> bool:  # noqa: ARG003
-        """Return True if the provider's credentials are valid (authenticated successfully).
+    def is_valid(cls, settings: Settings | None = None) -> bool | None:  # noqa: ARG003
+        """Tell whether the provider accepts its credentials.
+
+        Returns True if the provider accepted them, False if it rejected them, and None if the
+        probe could not tell (no network, a timeout, a rate limit, an outage): only an answer
+        that says the credentials are refused makes them invalid.
 
         This may perform a lightweight network probe and should cache the result.
         Only called when is_configured() is True. Override in auth-requiring subclasses.

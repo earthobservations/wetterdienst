@@ -65,7 +65,8 @@ export interface GlossaryEntry {
 export interface CoverageNetworkInfo {
   auth: boolean
   configured: boolean
-  valid: boolean
+  /** `null` when the credentials could not be checked: not a rejection, so unknown */
+  valid: boolean | null
   date_required: boolean
 }
 
@@ -78,7 +79,8 @@ export interface AuthResponse {
   network: string
   auth: boolean
   configured: boolean
-  valid: boolean
+  /** `null` when the credentials could not be checked: not a rejection, so unknown */
+  valid: boolean | null
 }
 
 /**

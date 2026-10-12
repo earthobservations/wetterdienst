@@ -7414,6 +7414,28 @@ def test_coverage_and_auth_survive_a_malformed_credential(client: TestClient, mo
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
+def test_coverage_and_auth_tell_a_credential_that_could_not_be_checked_as_null(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A probe that fails for a reason other than a rejection leaves `valid` null, not false (GH-2550)."""
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
+    answer = {"status": 500, "content": OSError("certificate verify failed")}
+    monkeypatch.setattr(
+        "wetterdienst.provider.metno.frost.api.download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=answer["content"], status=answer["status"]),
+    )
+    expected = {"provider": "metno", "network": "frost", "auth": True, "configured": True, "valid": None}
+    params = {"provider": "metno", "network": "frost"}
+    assert client.get("/api/auth", params=params).json() == expected
+    assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is None
+    answer.update(status=401, content=Exception("401, message='Unauthorized'"))
+    assert client.get("/api/auth", params=params).json() == expected | {"valid": False}
+    assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is False
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
 def test_auth_reports_metoffice_as_needing_a_credential(client: TestClient) -> None:
     """Without `WD_AUTH__CEDA` the Met Office is a credentialed provider that is not configured (GH-2594)."""
     response = client.get("/api/auth", params={"provider": "metoffice", "network": "observation"})
@@ -7455,6 +7477,8 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
 
     network = {"auth", "configured", "valid", "date_required"}
     assert shape("CoverageNetwork") == (network, network)
+    # null: the credentials could not be checked, which is not a rejection (GH-2550, GH-2562)
+    assert components["CoverageNetwork"]["properties"]["valid"]["anyOf"] == [{"type": "boolean"}, {"type": "null"}]
     assert shape("CoverageResolution") == ({"description", "datasets"}, {"description", "datasets"})
     assert shape("CoverageDataset") == ({"description", "parameters"}, {"description", "parameters"})
     # lead_times is `dwd/dmo`'s alone: sent there, absent elsewhere

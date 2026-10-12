@@ -193,6 +193,28 @@ class Wetterdienst:
                 log.warning("The settings are invalid, so no credential is read: %s", "; ".join(problems))
             return False
 
+    @staticmethod
+    def is_valid(api: object) -> bool | None:
+        """Tell whether the provider accepts the credentials it is configured with.
+
+        Only for a provider that is configured: it probes the provider.
+
+        Args:
+            api: Request class of the provider and network
+
+        Returns:
+            True if the provider accepted the credentials, False if it rejected them, None if that
+            could not be told (the probe failed for another reason, or raised): a failure to check
+            is not a rejection, so it is not told as one
+
+        """
+        is_valid = getattr(api, "is_valid", lambda: True)
+        try:
+            return is_valid()
+        except Exception:
+            log.warning("Could not check the credentials of %s", getattr(api, "__name__", api), exc_info=True)
+            return None
+
     @classmethod
     def discover(cls) -> dict:
         """Discover all available providers and networks with their metadata."""
@@ -212,17 +234,13 @@ class Wetterdienst:
                     continue
                 metadata = getattr(api, "metadata", None)
                 auth = metadata.auth if metadata is not None else False
-                is_valid = getattr(api, "is_valid", lambda: True)
                 configured = cls.is_configured(api) if auth else True
                 if not auth:
                     valid = True
                 elif not configured:
                     valid = False
                 else:
-                    try:
-                        valid = is_valid()
-                    except Exception:  # noqa: BLE001
-                        valid = False
+                    valid = cls.is_valid(api)
                 date_required = (
                     any(dataset.date_required for resolution in metadata for dataset in resolution.datasets)
                     if metadata is not None
