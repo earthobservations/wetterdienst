@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import StationsResult
-    from wetterdienst.settings import Settings
+    from wetterdienst.options import Options
 
 log = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ def get_interpolated_df(
 
     """
     utm_x, utm_y, zone_number, zone_letter = place_in_utm(latitude, longitude)
-    settings = cast("Settings", request.settings)
+    options = cast("Options", request.options)
     stations_dict, param_dict, dropped_for_elevation, unanswerable = request_stations(
         request,
         latitude,
@@ -113,7 +113,7 @@ def get_interpolated_df(
         zone=(zone_number, zone_letter),
         df_all=df_all,
     )
-    df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, settings.ts_geo_use_nearby_station_distance)
+    df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, options.geo_use_nearby_station_distance)
     # after the frame is built, not before: a parameter the exclusions left with three stations
     # holds columns and still interpolates to nothing, and only the frame knows that
     report_elevation_exclusions(
@@ -122,7 +122,7 @@ def get_interpolated_df(
         dropped_for_elevation,
         elevation,
         stations_needed=STATIONS_NEEDED,
-        nearby_station_distance=settings.ts_geo_use_nearby_station_distance,
+        nearby_station_distance=options.geo_use_nearby_station_distance,
         unanswerable=unanswerable,
     )
     return df
@@ -165,9 +165,9 @@ def request_stations(
     dropped_for_elevation: dict[tuple[str, str, str], DroppedForElevation] = {}
     if zone is None:
         zone = cast("tuple[int, str]", utm.from_latlon(latitude, longitude)[2:])
-    settings = cast("Settings", request.settings)
+    options = cast("Options", request.options)
     max_interp_distance = max(
-        settings.ts_geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
+        options.geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
         for parameter in request.parameters
         if isinstance(parameter, ParameterModel)
     )
@@ -192,7 +192,7 @@ def request_stations(
     counts = count_stations_in_reach(
         df_stations_ranked,
         request.parameters,
-        settings,
+        options,
         request.interpolatable_parameters,
     )
     unanswerable = unanswerable_at_elevation(counts, elevation, STATIONS_NEEDED)
@@ -279,7 +279,7 @@ def apply_station_values_per_parameter(
 
     """
     contributed = False
-    settings = cast("Settings", stations_ranked.stations.settings)
+    options = stations_ranked.options
     # once, not once per parameter per station: `values` builds a `TimeseriesValues` and with it a
     # `UnitConverter`, whose tables run to a couple of hundred entries
     unit_converter = stations_ranked.values.unit_converter
@@ -292,7 +292,7 @@ def apply_station_values_per_parameter(
             continue
         # the radius follows the resolution for a parameter that decorrelates fast in space, so it
         # is asked for per parameter and resolution rather than read off a mapping
-        station_distance = settings.ts_geo_station_distance_for(parameter.name, dataset.resolution.name)
+        station_distance = options.geo_station_distance_for(parameter.name, dataset.resolution.name)
         if station["distance"] > station_distance:
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
@@ -307,7 +307,7 @@ def apply_station_values_per_parameter(
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
-        lapse_rate = lapse_rate_for(parameter, unit_converter, convert_units=settings.ts_convert_units)
+        lapse_rate = lapse_rate_for(parameter, unit_converter, convert_units=options.convert_units)
         if not can_answer_at_elevation(station.get("elevation"), lapse_rate, elevation):
             # asked before the parameter gets an entry of its own: an entry with no station column
             # in it comes back as rows with no resolution, dataset or parameter either, the date
@@ -332,7 +332,7 @@ def apply_station_values_per_parameter(
             dataset.resolution.value,
             cast("dt.datetime | None", stations_ranked.stations.start),
             cast("dt.datetime | None", stations_ranked.stations.end),
-            decimals=decimals_for(parameter, unit_converter, convert_units=settings.ts_convert_units),
+            decimals=decimals_for(parameter, unit_converter, convert_units=options.convert_units),
         )
         if param_data is None:
             continue
@@ -349,8 +349,8 @@ def apply_station_values_per_parameter(
         contributed |= extract_station_values(
             param_data,
             result_series_param,
-            min_gain_of_value_pairs=stations_ranked.settings.ts_geo_min_gain_of_value_pairs,
-            num_additional_stations=stations_ranked.settings.ts_geo_num_additional_stations,
+            min_gain_of_value_pairs=stations_ranked.options.geo_min_gain_of_value_pairs,
+            num_additional_stations=stations_ranked.options.geo_num_additional_stations,
             valid_station_groups_exists=valid_station_groups_exists,
         )
     return contributed

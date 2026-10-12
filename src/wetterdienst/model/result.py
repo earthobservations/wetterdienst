@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.unit import UnitConverter
     from wetterdienst.model.values import TimeseriesValues
+    from wetterdienst.options import Options
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
@@ -164,6 +165,11 @@ class StationsResult(ExportMixin):
     def settings(self) -> Settings:
         """Get settings for the request."""
         return cast("Settings", self.stations.settings)
+
+    @property
+    def options(self) -> Options:
+        """Get the options of the request: how the values come back and how stations are chosen."""
+        return cast("Options", self.stations.options)
 
     @property
     def parameters(self) -> list[ParameterModel]:
@@ -555,13 +561,13 @@ class _ValuesResult(ExportMixin):
         of them label the other, which is the mislabel this method exists to prevent.
 
         Two things the plots used to get wrong. The frame carries `name_original` unless
-        `ts_humanize` is on, while the mapping was keyed on the canonical name alone, so nothing
+        `humanize` is on, while the mapping was keyed on the canonical name alone, so nothing
         matched and the label read `tmk (tmk)` -- the name where the unit belongs. And the symbol
-        was always the target unit's, though `ts_convert_units=False` leaves the values in the unit
+        was always the target unit's, though `convert_units=False` leaves the values in the unit
         the source published them in: `10_minutes/solar/sunshine_duration` came back in hours under
         a label saying seconds.
         """
-        convert_units = self.stations.settings.ts_convert_units
+        convert_units = self.stations.options.convert_units
         symbols = {}
         for parameter in self.stations.parameters:
             unit = (
@@ -571,7 +577,7 @@ class _ValuesResult(ExportMixin):
             )
             resolution = parameter.dataset.resolution.name
             dataset = parameter.dataset.name
-            # either naming, since which one the frame carries depends on `ts_humanize`
+            # either naming, since which one the frame carries depends on `humanize`
             symbols[f"{resolution}/{dataset}/{parameter.name}"] = unit.symbol
             symbols[f"{resolution}/{dataset}/{parameter.name_original}"] = unit.symbol
         return symbols

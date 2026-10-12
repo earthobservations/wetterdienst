@@ -275,7 +275,7 @@ def _hourly_long(dates: list[dt.datetime]) -> pl.DataFrame:
 
 def _percentage(values: TimeseriesValues, df: pl.DataFrame, criteria: str = "min") -> float:
     """Read the coverage of a frame the way `query` does, under the given skip criteria."""
-    values.sr.stations.settings.ts_skip_criteria = criteria
+    values.sr.stations.options = values.sr.stations.options.replace(skip_criteria=criteria)
     return values._get_actual_percentage(df=df)  # noqa: SLF001
 
 

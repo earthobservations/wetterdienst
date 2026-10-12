@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import StationsResult
-    from wetterdienst.settings import Settings
+    from wetterdienst.options import Options
 
 log = logging.getLogger(__name__)
 
@@ -100,13 +100,13 @@ def request_stations(
     param_dict = {}
     stations_dict = {}
     dropped_for_elevation: dict[tuple[str, str, str], DroppedForElevation] = {}
-    settings = cast("Settings", request.settings)
+    options = cast("Options", request.options)
     # the widest radius any requested parameter may draw on, as in `interpolate.request_stations`.
     # `max(...values())` used to stand here, which is the widest radius of the *populated* keys --
     # only the heterogeneous 20 km ones -- and so capped the search at 20 km for every parameter,
     # including the ones the setting gives 40 km
     distance = max(
-        settings.ts_geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
+        options.geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
         for parameter in request.parameters
         if isinstance(parameter, ParameterModel)
     )
@@ -129,7 +129,7 @@ def request_stations(
     counts = count_stations_in_reach(
         df_stations_ranked,
         request.parameters,
-        settings,
+        options,
         request.interpolatable_parameters,
     )
     unanswerable = unanswerable_at_elevation(counts, elevation, STATIONS_NEEDED)
@@ -179,7 +179,7 @@ def apply_station_values_per_parameter(
     Returns whether the station gave a value to any parameter, so that the stations a summary
     draws on mean the same thing here as in the interpolation.
     """
-    settings = cast("Settings", stations_ranked.stations.settings)
+    options = stations_ranked.options
     # once, not once per parameter per station: `values` builds a `TimeseriesValues` and with it a
     # `UnitConverter`, whose tables run to a couple of hundred entries
     unit_converter = stations_ranked.values.unit_converter
@@ -196,7 +196,7 @@ def apply_station_values_per_parameter(
         # blended here, but the question the radius answers is the same one: how far away a
         # measurement still says something about the target point, which depends on how long the
         # quantity was accumulated for
-        station_distance = settings.ts_geo_station_distance_for(parameter.name, dataset.resolution.name)
+        station_distance = options.geo_station_distance_for(parameter.name, dataset.resolution.name)
         if station["distance"] > station_distance:
             log.info(f"Station for parameter {parameter.name} is too far away")
             continue
@@ -211,7 +211,7 @@ def apply_station_values_per_parameter(
         )
         if result_series_param.drop_nulls("value").is_empty():
             continue
-        lapse_rate = lapse_rate_for(parameter, unit_converter, convert_units=settings.ts_convert_units)
+        lapse_rate = lapse_rate_for(parameter, unit_converter, convert_units=options.convert_units)
         if not can_answer_at_elevation(station.get("elevation"), lapse_rate, elevation):
             # asked before the parameter gets an entry of its own: an entry with no station column
             # in it comes back as rows with no resolution, dataset or parameter either, the date
@@ -236,7 +236,7 @@ def apply_station_values_per_parameter(
             dataset.resolution.value,
             cast("dt.datetime | None", stations_ranked.stations.start),
             cast("dt.datetime | None", stations_ranked.stations.end),
-            decimals=decimals_for(parameter, unit_converter, convert_units=settings.ts_convert_units),
+            decimals=decimals_for(parameter, unit_converter, convert_units=options.convert_units),
         )
         if param_data is None:
             continue
@@ -251,8 +251,8 @@ def apply_station_values_per_parameter(
         contributed |= extract_station_values(
             param_data,
             result_series_param,
-            min_gain_of_value_pairs=settings.ts_geo_min_gain_of_value_pairs,
-            num_additional_stations=settings.ts_geo_num_additional_stations,
+            min_gain_of_value_pairs=options.geo_min_gain_of_value_pairs,
+            num_additional_stations=options.geo_num_additional_stations,
             valid_station_groups_exists=True,
         )
     return contributed
