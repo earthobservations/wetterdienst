@@ -37,6 +37,13 @@ Types of changes:
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
+- A value a provider maps from a missing-value sentinel is no longer a null with no trace: the text
+  the source wrote is the last token of `quality_flags`, `raw:<text>` (`3,raw:-999`, `raw:-99.0`,
+  `raw:NaN`), for the `dwd` networks that read one, `aemet`, `fmi`, `geosphere`, `imgw/hydrology`,
+  `ipma`, `knmi`, `meteofrance`, `metoffice`, `metno/frost` and `noaa/ghcn` hourly. Where the source
+  documents the code (FMI's `-1.0`), the value is what it stands for (`0.0`) and the token stays.
+  The long frame drops null rows by default, so read the token with `ts_drop_nulls=False` or in the
+  wide shape, where a null `quality_flags` no longer means "no flag" for these rows (GH-2759)
 
 ### Removed
 

@@ -525,9 +525,20 @@ unless the table says so.
   kind as `kind:code`, comma-separated, in a fixed order per provider (`G,measurement:T,source:7`,
   `3,element:E`). A blank flag is left out, so a plain token is always the quality flag, and
   `measurement:T` alone is a reading whose quality flag is blank.
+- A value the provider maps from a missing-value sentinel carries the text the source wrote for it as the
+  last token, `raw:<text>`, after the quality flag and the other kinds (`3,raw:-999`, `raw:-99.0`,
+  `raw:NaN`). The value is null, or what the source documents the code to stand for (`0.0` for a
+  precipitation of `-1.0`), and the text stays beside it. It is the cell as the source writes it, `-999.0`
+  where the source writes that; where the value comes as a JSON number the text is the one the provider
+  declares. The long shape drops the rows without a value by default, so the token shows with
+  `ts_drop_nulls=False` or in the wide shape; a filter on a null `quality_flags` as "no flag" meets
+  these rows then.
 - `str.split(",")` takes the tokens apart; where a numeric code was used before, cast it:
   `pl.col("quality_flags").cast(pl.Int64, strict=False)`; a code that is no number (IMGW's `Z`) and a
-  value with several tokens become null.
+  value with several tokens become null. The sentinel of a reading is
+  `pl.col("quality_flags").str.extract(r"raw:([^,]*)$")`.
+
+The table lists the plain codes and the further kinds; the `raw:` tokens are in the second table below it.
 
 | Provider | codes in `quality_flags` |
 | --- | --- |
@@ -549,6 +560,30 @@ unless the table says so.
 | CHMI (daily, 10 minutes, hourly) | `QUALITY`, then `element:FLAG`: `0` good, `1` suspect, `2` poor, `3` estimated, `4` missing, `5` unknown (`meta4.csv`), and the letter of the element's own table (`meta3.csv`: SRA `T` an amount too small to measure, ...); the aggregate `FLAG_REPEAT` and `FLAG_INTERRUPTED` of monthly and annual files are not carried |
 | NWS | the MADIS `qualityControl` flag: `Z`, `C`, `S`, `V`, `X`, `Q`, `G`, `B`, `T` |
 | SMHI | the `Kvalitet` code: `G` approved, `Y` suspect or aggregated |
+
+##### Sentinels in `quality_flags`
+
+| Provider | `raw:` text (value) |
+| --- | --- |
+| DWD observation | `-999` in every dataset (null); `-1` in the hourly cloud cover, `cloud_type` layers included, where the sky was not visible (null); `-99.9` in the five hourly `moisture` columns (null); `-1` in the hourly `weather_phenomena` `weather`, "not reported" (null); `990` in the wind direction of hourly and 10 minute `wind`, a variable direction (null) |
+| DWD derived | `-999` and `-9999` (null) |
+| DWD mosmix, dmo | `-` for a value the run does not have (null) |
+| DWD poi, swsmos | `---` and any text that is no number (null) |
+| AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); any text that is no number in the daily, monthly and annual values (null) |
+| FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); any text that is no number (null) |
+| Geosphere | `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0) |
+| IMGW hydrology | `9999`, `99999.999` and `99.9` (null) |
+| IPMA | `-99.0` (null); `0` in the wind direction, calm, or a code the eight points do not have (null) |
+| KNMI | `NaN`, the fill value (null); `-1` in `precipitation_amount`, a trace (0.0) |
+| Met Office observation | `NA`, and any text that is no number (null); a day with an `NA` beside readings has the value of the readings |
+| MET Norway Frost | `-1` in `snow_depth`, no snow (0.0); `-3` and `9` in `cloud_cover_total`, not estimated (null); the code as Frost documents it |
+| Météo-France observation | `9` in the hourly cloud cover, the sky is invisible (null); `0` and `999` in the wind directions `DD` and `DXY` (hourly) and `DXI` (daily), no direction (null) |
+| Météo-France synop | `-0.1` in the precipitation, a trace (0.0); `101` in the cloud cover, the sky is obscured (null) |
+| NOAA GHCN hourly | `999` in `wind_direction`; `-9999` in `precipitation`; `-None` in any column (null) |
+
+The other providers write their missing values as an empty field, a JSON null or a status that the plain code
+already carries (IMGW meteorology: `8`), and have no `raw:` token. DWD road decodes BUFR, which has no text of a
+missing value.
 
 ### Interpolation & Summary
 

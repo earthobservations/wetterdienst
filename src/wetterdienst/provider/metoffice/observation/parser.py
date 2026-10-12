@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 
 _EMPTY_STATIONS_SCHEMA = {
     "station_id": pl.String,
@@ -34,8 +34,15 @@ _EMPTY_VALUES_SCHEMA = {
 }
 
 
-def _data_section(content: bytes) -> pl.DataFrame:
-    """Split off the CSV table between the bare ``data`` and ``end data`` lines."""
+# how the files write a value they do not have
+_MISSING = "NA"
+
+
+def _data_section(content: bytes, *, na_is_null: bool = True) -> pl.DataFrame:
+    """Split off the CSV table between the bare ``data`` and ``end data`` lines.
+
+    ``NA`` is null unless ``na_is_null`` is off, which leaves it as the text it is for a reader that keeps it.
+    """
     text = content.decode("utf-8")
     lines = text.splitlines()
     try:
@@ -46,7 +53,9 @@ def _data_section(content: bytes) -> pl.DataFrame:
     body = "\n".join(lines[start:end])
     if not body.strip():
         return pl.DataFrame()
-    return pl.read_csv(body.encode("utf-8"), has_header=True, infer_schema_length=0, null_values=["NA"])
+    return pl.read_csv(
+        body.encode("utf-8"), has_header=True, infer_schema_length=0, null_values=[_MISSING] if na_is_null else None
+    )
 
 
 def parse_station_metadata(content: bytes) -> pl.DataFrame:
@@ -126,7 +135,7 @@ def parse_values(
             which is the 12/24-hour observation window, not a count of accumulated periods.)
 
     """
-    df = _data_section(content)
+    df = _data_section(content, na_is_null=False)
     if df.is_empty():
         return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
     if period_count_column and period_count_column in df.columns:
@@ -135,6 +144,7 @@ def parse_values(
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
     date = (
         pl.col(time_column)
+        .replace(_MISSING, None)
         .str.to_datetime("%Y-%m-%d %H:%M:%S", time_unit="us")
         .dt.replace_time_zone("UTC")
         .dt.truncate(granularity)
@@ -145,31 +155,42 @@ def parse_values(
         if raw_column not in df.columns:
             continue
         quality_column = f"{raw_column}_q"
-        value = pl.col(raw_column).cast(pl.Float64, strict=False)
+        # an `NA`, and a text that is no number, is null with its text kept as `raw:` (GH-2759)
+        value, sentinel = null_sentinels(pl.col(raw_column), Sentinel(_MISSING), non_numeric=True)
         if raw_column in scale:
             value = value * scale[raw_column]
         sub = df.select(
             date.alias("timestamp"),
             value.alias("value"),
-            # MESQL as the text the file writes, not as a number
-            (
-                join_quality_flags(pl.col(quality_column))
-                if quality_column in df.columns
-                else pl.lit(None, dtype=pl.String).alias("quality_flags")
+            # MESQL as the text the file writes, not as a number; the file's `NA` is no flag
+            join_quality_flags(
+                pl.col(quality_column).replace(_MISSING, None) if quality_column in df.columns else None,
+                raw=sentinel,
             ),
-        ).filter(pl.col("value").is_not_null())
-        if sub.is_empty():
-            continue
+            sentinel.alias("sentinel"),
+        )
+        present = sub.filter(pl.col("value").is_not_null())
         if raw_column in min_columns:
-            aggregated = sub.group_by("timestamp").agg(
+            aggregated = present.group_by("timestamp").agg(
                 pl.col("value").min().alias("value"),
                 pl.col("quality_flags").sort_by("value").first(),
             )
         else:
-            aggregated = sub.group_by("timestamp").agg(
+            aggregated = present.group_by("timestamp").agg(
                 pl.col("value").max().alias("value"),
                 pl.col("quality_flags").sort_by("value").last(),
             )
+        # a day whose every report is an `NA` has no value to aggregate, and keeps the null with its text; a report
+        # with neither value nor `NA` is a blank, which is dropped as before
+        absent = (
+            sub.filter(pl.col("value").is_null() & pl.col("sentinel").is_not_null())
+            .group_by("timestamp")
+            .agg(pl.col("value").first(), pl.col("quality_flags").first())
+            .join(aggregated.select("timestamp"), on="timestamp", how="anti")
+        )
+        aggregated = pl.concat([aggregated, absent])
+        if aggregated.is_empty():
+            continue
         frames.append(
             aggregated.select(
                 pl.col("timestamp"),

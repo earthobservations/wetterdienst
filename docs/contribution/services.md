@@ -209,3 +209,14 @@ flag as the first argument, written as the plain code, and every further kind it
 `G,measurement:T,source:7`). A blank flag is left out and a reading without a flag is null. A provider
 that publishes none leaves the column out, and the base class fills it with a null. Document each
 code of the source next to the provider's page and quote its documentation in the test.
+
+A source that writes a number or a text for a value it does not have (`-999`, `99.9`, `NaN`, `---`, a wind
+direction `0`) is mapped to null in the reader, before the unit conversion, and its text is not lost: map it
+with `null_sentinels` from the same module, which returns the cleaned value and the `raw` text together, and
+pass the text as the last kind of the flags, `join_quality_flags(plain_flag, raw=raw)`, which writes
+`raw:-999` after the plain flag. Declare the text as the source writes it (`Sentinel("-999")`, not
+`-999.0`); a value read from text keeps the text of its own cell. `Sentinel(..., where=...)` limits it to a
+parameter, `to=0.0` makes it a value the source documents (no precipitation), and `non_numeric=True` takes
+every text that is no number for one. A wide frame keeps the text beside each column with `clear_sentinels`
+and `unpivot_with_raw`. Add a stub of the source with the sentinel written as the source writes it to
+`tests/provider/value_stubs.py` and name each `raw:` token it must carry in `tokens`.

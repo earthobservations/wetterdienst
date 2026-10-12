@@ -16,6 +16,7 @@ from aiohttp import encode_basic_auth
 from wetterdienst.exceptions import CredentialMissingError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, ParameterModel, build_metadata_model
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.settings import Settings
@@ -403,9 +404,9 @@ _EMPTY_VALUES_SCHEMA = {
 # Only the elements themselves. Frost leaves the codes out of its own monthly and annual means --
 # checked over nine years at SN18700, where neither mean goes negative or above eight.
 _SNOW_DEPTH = "surface_snow_thickness"
-_NO_SNOW = -1.0
+_NO_SNOW = "-1"
 _CLOUD_COVER = "cloud_area_fraction"
-_CLOUD_COVER_NOT_ESTIMATED = (-3.0, 9.0)
+_CLOUD_COVER_NOT_ESTIMATED = ("-3", "9")
 _DAILY = "daily"
 
 
@@ -437,15 +438,19 @@ def _stamp_days(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
-    """Turn Frost's in-band codes into the value they stand for, before anything reads them."""
-    return df.with_columns(
-        pl.when((pl.col("parameter") == _SNOW_DEPTH) & (pl.col("value") == _NO_SNOW))
-        .then(pl.lit(0.0))
-        .when((pl.col("parameter") == _CLOUD_COVER) & pl.col("value").is_in(_CLOUD_COVER_NOT_ESTIMATED))
-        .then(pl.lit(None, dtype=pl.Float64))
-        .otherwise(pl.col("value"))
-        .alias("value"),
+    """Turn Frost's in-band codes into the value they stand for, before anything reads them.
+
+    The code stays beside the value as the last token of `quality_flags`, `0,raw:-1`, written as Frost documents the
+    code: the value is a JSON number, so its text is not at hand (GH-2759).
+    """
+    value, raw = null_sentinels(
+        pl.col("value"),
+        Sentinel(_NO_SNOW, where=pl.col("parameter") == _SNOW_DEPTH, to=0.0),
+        Sentinel(*_CLOUD_COVER_NOT_ESTIMATED, where=pl.col("parameter") == _CLOUD_COVER),
+        text=False,
     )
+    quality = pl.col("quality_flags") if "quality_flags" in df.columns else None
+    return df.with_columns(value.alias("value"), join_quality_flags(quality, raw=raw))
 
 
 class MetnoFrostValues(TimeseriesValues):

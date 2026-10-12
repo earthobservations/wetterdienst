@@ -28,16 +28,22 @@ import bz2
 import datetime as dt
 import gzip
 import json
+import tempfile
+import zipfile
 from dataclasses import dataclass
 from io import BytesIO
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlparse
 
 import polars as pl
+import pytest
 
 from wetterdienst import Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.provider.aemet.observation import AemetObservationRequest
+from wetterdienst.provider.aemet.observation import api as aemet_api
 from wetterdienst.provider.dwd.derived import DwdDerivedRequest
 from wetterdienst.provider.dwd.derived import api as dwd_derived_api
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
@@ -50,20 +56,30 @@ from wetterdienst.provider.dwd.poi import DwdPoiRequest
 from wetterdienst.provider.dwd.poi import api as dwd_poi_api
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.provider.dwd.swsmos import api as dwd_swsmos_api
+from wetterdienst.provider.fmi.observation import FmiObservationRequest
+from wetterdienst.provider.fmi.observation import api as fmi_api
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
 from wetterdienst.provider.geosphere.observation import api as geosphere_api
+from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest
+from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api
 from wetterdienst.provider.ipma.observation import IpmaObservationRequest
 from wetterdienst.provider.ipma.observation import api as ipma_api
+from wetterdienst.provider.knmi.observation import KnmiObservationRequest
+from wetterdienst.provider.knmi.observation import api as knmi_api
+from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest
+from wetterdienst.provider.meteofrance.observation import api as observation_api
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
 from wetterdienst.provider.meteofrance.synop import api as synop_api
+from wetterdienst.provider.metno.frost import MetnoFrostRequest
+from wetterdienst.provider.metno.frost import api as frost_api
+from wetterdienst.provider.metoffice.observation import MetOfficeObservationRequest
+from wetterdienst.provider.metoffice.observation import api as metoffice_api
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 from wetterdienst.provider.noaa.ghcn import api as ghcn_api
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    import pytest
 
 _UTC = dt.UTC
 
@@ -137,9 +153,9 @@ def stations_result(request: Any, resolution: str, dataset: str, station_id: str
     return StationsResult(stations=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
 
 
-def _settings(drop_nulls: bool) -> Settings:  # noqa: FBT001
+def _settings(drop_nulls: bool, **kwargs: Any) -> Settings:  # noqa: ANN401, FBT001
     """Give the settings of a stub: the rows without a value are dropped as by default, or kept to see their flags."""
-    return Settings(cache_disable=True, ts_drop_nulls=drop_nulls)
+    return Settings(cache_disable=True, ts_drop_nulls=drop_nulls, **kwargs)
 
 
 def _day(year: int, month: int, day: int, hour: int = 0) -> dt.datetime:
@@ -362,6 +378,58 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     return request.filter_by_station_id("ACM00078861").values.all().df
 
 
+def _meteofrance_observation_hourly(
+    monkeypatch: pytest.MonkeyPatch,
+    dataset: str,
+    parameters: list[str],
+    *,
+    drop_nulls: bool,
+) -> pl.DataFrame:
+    # HOR_departement_07_periode_2020-2024 of data.gouv.fr: the descriptions of the hourly dataset give N = 9 for a sky
+    # that could not be seen, and the audit of GH-2720 found a wind direction of 0 where there is none (and 999 in six
+    # rows of 1965 to 1967); the rows are worded by the stub, with the validation code beside each value
+    schema = list(observation_api._CLIMATE_SCHEMAS["hourly", dataset])  # noqa: SLF001
+    rows = [
+        {"NUM_POSTE": "07005001", "AAAAMMJJHH": "2024010100", "T": "2.1", "N": "4", "DD": "250", "QN": "1", "QDD": "1"},
+        {"NUM_POSTE": "07005001", "AAAAMMJJHH": "2024010101", "T": "2.0", "N": "9", "DD": "0", "QN": "1", "QDD": "1"},
+        {"NUM_POSTE": "07005001", "AAAAMMJJHH": "2024010102", "T": "1.9", "N": "5", "DD": "999", "QN": "1", "QDD": "1"},
+    ]
+    lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
+    title = "HOR_departement_07_periode_2020-2024"
+    body = gzip.compress("\n".join(lines).encode("utf8"))
+
+    def download_file(*args: str, url: str | None = None, **_: object) -> File:
+        url = url or args[0]
+        listing = {"resources": [{"title": title, "url": f"https://example.invalid/{title}.csv.gz"}]}
+        return File(url=url, content=BytesIO(json.dumps(listing).encode("utf8")), status=200)
+
+    def download_files(urls: list[str], **_: object) -> list[File]:
+        return [File(url=url, content=BytesIO(body), status=200) for url in urls]
+
+    monkeypatch.setattr(observation_api, "download_file", download_file)
+    monkeypatch.setattr(observation_api, "download_files", download_files)
+    request = MeteoFranceObservationRequest(
+        parameters=[("hourly", dataset, parameter) for parameter in parameters],
+        start=_day(2024, 1, 1),
+        end=_day(2024, 1, 1, 3),
+        settings=_settings(drop_nulls),
+    )
+    return stations_result(request, "hourly", dataset, "07005001").values.all().df
+
+
+def _meteofrance_observation_hourly_core(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    return _meteofrance_observation_hourly(
+        monkeypatch, "core", ["temperature_air_2m", "wind_direction_last_10min"], drop_nulls=drop_nulls
+    )
+
+
+def _meteofrance_observation_hourly_others(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool = True,  # noqa: FBT001, FBT002
+) -> pl.DataFrame:
+    return _meteofrance_observation_hourly(monkeypatch, "others", ["cloud_cover_total"], drop_nulls=drop_nulls)
+
+
 def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # synop_2024.csv.gz: ABBEVILLE 2024-01-01T18:00Z has rr6=-0.1 beside rr1=0.0, CHASSIRON 2024-01-03T06:00Z has n=101
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
@@ -504,6 +572,184 @@ def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     return stations_result(request, "hourly", "data", "A006").values.all().df
 
 
+def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # worded by the stub, as the API needs a key: the daily endpoint writes its numbers as text with a decimal
+    # comma, the wind direction in tens of degrees with 99 for "calm/variable" (the reader's own comment), and the
+    # reader takes a text that is no number (the second precipitation) for none
+    records = [
+        {"fecha": "2024-01-01", "tmed": "5,3", "prec": "0,0", "dir": "23", "velmedia": "3,1"},
+        {"fecha": "2024-01-02", "tmed": "6,0", "prec": "Ip", "dir": "99", "velmedia": "2,0"},
+    ]
+    payload = json.dumps(records).encode("latin-1")
+    monkeypatch.setattr(aemet_api, "_fetch_datos", lambda *args, **kwargs: payload)  # noqa: ARG005
+    request = AemetObservationRequest(
+        parameters=[("daily", "data")],
+        start=_day(2024, 1, 1),
+        end=_day(2024, 1, 2),
+        settings=_settings(drop_nulls, auth={"aemet": "stub"}),
+    )
+    return stations_result(request, "daily", "data", "3195").values.all().df
+
+
+def _metoffice_daily_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the archive needs a CEDA login, so this is worded after what the reader takes for the files: BADC-CSV, a table
+    # between a bare `data` and an `end data` line, and `NA` for a value (and its flag) a report does not have
+    def badc(columns: str, rows: str) -> bytes:
+        return f"Conventions,G,BADC-CSV,1\ndata\n{columns}\n{rows}end data\n".encode()
+
+    stations = badc(
+        "src_id,station_name,station_file_name,historic_county,authority,"
+        "station_latitude,station_longitude,station_elevation,first_year,last_year",
+        "00001,FOULA,foula,shetland,Met Office,60.154,-2.074,22,1989,2003\n",
+    )
+    values = badc(
+        "ob_date,ob_day_cnt,prcp_amt,prcp_amt_q",
+        "2000-01-01 00:00:00,1,3.7,2576\n2000-01-02 00:00:00,1,NA,NA\n",
+    )
+
+    def download(_self: object, url: str, *_args: object, **_kwargs: object) -> bytes | None:
+        if "station-metadata" in url:
+            return stations
+        return values if "qcv-1" in url else None
+
+    monkeypatch.setattr(metoffice_api.MetOfficeObservationValues, "_token", lambda _self, _settings: "token")
+    monkeypatch.setattr(metoffice_api.MetOfficeObservationValues, "_download", download)
+    monkeypatch.setattr(metoffice_api, "latest_release_version", lambda *_args, **_kwargs: "202507")
+    request = MetOfficeObservationRequest(
+        parameters=[("daily", "rain")],
+        start=_day(2000, 1, 1),
+        end=_day(2000, 1, 2),
+        settings=_settings(drop_nulls),
+    )
+    return stations_result(request, "daily", "rain", "00001").values.all().df
+
+
+def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the API needs a client id, so this is worded after the element descriptions Frost publishes, which state the codes
+    # of the reader: a cloud cover of 9 (and -3) could not be estimated, and a snow thickness of -1 is no snow
+    payload = {
+        "data": [
+            {
+                "sourceId": "SN18700:0",
+                "referenceTime": f"2020-01-01T0{hour}:00:00.000Z",
+                "observations": [
+                    {"elementId": "cloud_area_fraction", "value": cloud, "qualityCode": 0},
+                    {"elementId": "surface_snow_thickness", "value": snow, "qualityCode": 0},
+                ],
+            }
+            for hour, (cloud, snow) in enumerate([(4, 12.0), (9, -1.0)])
+        ],
+    }
+    serve(monkeypatch, frost_api, {"observations/v0.jsonld": json.dumps(payload).encode()})
+    request = MetnoFrostRequest(
+        parameters=[("hourly", "data", "cloud_cover_total"), ("hourly", "data", "snow_depth")],
+        start=_day(2020, 1, 1),
+        end=_day(2020, 1, 1, 1),
+        settings=_settings(drop_nulls, auth={"metno_frost": "stub"}),
+    )
+    return stations_result(request, "hourly", "data", "SN18700").values.all().df
+
+
+def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    h5py = pytest.importorskip("h5py")
+    h5netcdf = pytest.importorskip("h5netcdf")
+
+    # a file per day for the whole network (here one station), the variables laid out as (station, time): a missing
+    # observation is the NaN _FillValue and a trace of precipitation a -1 in RH
+    days = {"20240101": (3.2, 1.4), "20240102": (float("nan"), -1.0)}
+
+    def netcdf(temperature: float, precipitation: float) -> bytes:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "knmi.nc"
+            with h5netcdf.File(path, "w") as file:
+                file.dimensions = {"station": 1, "time": 1}
+                station = file.create_variable("station", ("station",), dtype=h5py.string_dtype())
+                station[:] = ["0-20000-0-06260"]
+                for name, value in (("TG", temperature), ("RH", precipitation)):
+                    variable = file.create_variable(name, ("station", "time"), dtype="f8")
+                    variable[:] = [[value]]
+            return path.read_bytes()
+
+    payloads = {day: netcdf(*values) for day, values in days.items()}
+    monkeypatch.setattr(
+        knmi_api,
+        "_fetch_netcdf",
+        lambda _dataset, _version, filename, _settings: next(
+            payload for day, payload in payloads.items() if day in filename
+        ),
+    )
+    request = KnmiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m"), ("daily", "data", "precipitation_amount")],
+        start=_day(2024, 1, 1),
+        end=_day(2024, 1, 2),
+        settings=_settings(drop_nulls, auth={"knmi": "stub"}),
+    )
+    return stations_result(request, "daily", "data", "06260").values.all().df
+
+
+def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the WFS answers a flat list of Time / ParameterName / ParameterValue triples: `NaN` for a reading it does not have
+    # and, for the precipitation and the snow depth, `-1.0` for none (the fixture of tests/provider/fmi)
+    def element(hour: int, name: str, value: str) -> str:
+        return (
+            "<wfs:member><BsWfs:BsWfsElement>"
+            f"<BsWfs:Time>2024-01-01T{hour:02d}:00:00Z</BsWfs:Time><BsWfs:ParameterName>{name}</BsWfs:ParameterName>"
+            f"<BsWfs:ParameterValue>{value}</BsWfs:ParameterValue></BsWfs:BsWfsElement></wfs:member>"
+        )
+
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:BsWfs="http://xml.fmi.fi/schema/wfs/2.0">'
+        + element(0, "t2m", "-3.5")
+        + element(0, "r_1h", "0.4")
+        + element(1, "t2m", "NaN")
+        + element(1, "r_1h", "-1.0")
+        + "</wfs:FeatureCollection>"
+    ).encode()
+    serve(monkeypatch, fmi_api, {"opendata.fmi.fi": body})
+    request = FmiObservationRequest(
+        parameters=[("hourly", "data")],
+        start=_day(2024, 1, 1),
+        end=_day(2024, 1, 1, 1),
+        settings=_settings(drop_nulls),
+    )
+    return stations_result(request, "hourly", "data", "100971").values.all().df
+
+
+def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # codz_2023.zip (read 2026-10-12): `;` separated, a station per row with the stage, the discharge and the water
+    # temperature, which reads 99.9 in the first rows of the file (149180020, 2023-01-01 to 2023-01-03). The stage's
+    # 9999 and the discharge's 99999.999 are not in those rows: they are worded after the reader, which nulls those
+    # three texts
+    csv = (
+        "149180020;CHALUPKI;Odra (1);2023;01;01;88;14.200;4.1;11\n"
+        "149180020;CHALUPKI;Odra (1);2023;01;02;89;13.700;99.9;11\n"
+        "149180020;CHALUPKI;Odra (1);2023;01;03;9999;99999.999;99.9;11\n"
+    )
+    archive = BytesIO()
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("codz_2023.csv", csv.encode("latin-1"))
+    monkeypatch.setattr(
+        imgw_hydrology_api,
+        "list_files_for_interval",
+        lambda *args, **kwargs: ["https://example.invalid/codz_2023.zip"],  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        imgw_hydrology_api,
+        "download_files",
+        lambda *args, **kwargs: [  # noqa: ARG005
+            File(url="https://example.invalid/codz_2023.zip", content=BytesIO(archive.getvalue()), status=200)
+        ],
+    )
+    request = ImgwHydrologyRequest(
+        parameters=[("daily", "hydrology")],
+        start=_day(2022, 11, 1),
+        end=_day(2022, 11, 3),
+        settings=_settings(drop_nulls),
+    )
+    return stations_result(request, "daily", "hydrology", "149180020").values.all().df
+
+
 STUBS = [
     ValueStub(
         "ipma/observation hourly/data",
@@ -582,6 +828,52 @@ STUBS = [
         ),
     ),
     ValueStub(
+        "metoffice/observation daily/rain",
+        _metoffice_daily_rain,
+        reading=("precipitation_amount", 3.7),
+        tokens=(("precipitation_amount", "NA", None),),
+        empty_at=_day(2000, 1, 2),
+    ),
+    ValueStub(
+        "metno/frost hourly/data",
+        _metno_frost_hourly,
+        reading=("cloud_cover_total", 0.5),
+        # the cloud cover is converted from eighths to a decimal on its way
+        sentinels=(("cloud_cover_total", 1.125), ("snow_depth", -1.0)),
+        tokens=(("cloud_cover_total", "9", None), ("snow_depth", "-1", 0.0)),
+    ),
+    ValueStub(
+        "knmi/observation daily/data",
+        _knmi_daily,
+        reading=("temperature_air_mean_2m", 3.2),
+        sentinels=(("precipitation_amount", -1.0),),
+        tokens=(("temperature_air_mean_2m", "NaN", None), ("precipitation_amount", "-1", 0.0)),
+    ),
+    ValueStub(
+        "fmi/observation hourly/data",
+        _fmi_hourly,
+        reading=("temperature_air_2m", -3.5),
+        sentinels=(("precipitation_amount", -1.0),),
+        tokens=(("temperature_air_2m", "NaN", None), ("precipitation_amount", "-1.0", 0.0)),
+    ),
+    ValueStub(
+        "imgw/hydrology daily/hydrology",
+        _imgw_hydrology,
+        reading=("discharge", 14.2),
+        tokens=(
+            ("stage", "9999", None),
+            ("discharge", "99999.999", None),
+            ("temperature_water", "99.9", None),
+        ),
+    ),
+    ValueStub(
+        "aemet/observation daily/data",
+        _aemet_daily,
+        reading=("temperature_air_mean_2m", 5.3),
+        sentinels=(("wind_direction_gust_max", 990.0),),
+        tokens=(("wind_direction_gust_max", "99", None), ("precipitation_amount", "Ip", None)),
+    ),
+    ValueStub(
         "dwd/derived hourly/radiation_global",
         _dwd_derived_radiation,
         reading=("radiation_global", 103.0),
@@ -613,6 +905,32 @@ STUBS = [
         reading=("temperature_air_2m", 6.2),
         tokens=(("temperature_air_2m", "---", None),),
     ),
+    # Météo-France's climatological files, as audited in GH-2719 and GH-2720. RR (6 minutes, daily, monthly) and RR1
+    # (hourly) hold no code: the descriptions (the descriptif_champs files and the climatologie-*-descriptif PDFs)
+    # define none, and 1.9 billion rows of 2158 raw files (the daily RR-T-Vent and the monthly files of every
+    # department; the hourly ones of every department up to 1999 and from 2020, and of the overseas and a few mainland
+    # ones for 2000 to 2019; the 6 minute ones likewise from 2020 and for 2000 to 2019) have a minimum of 0.0, no
+    # negative value and nothing that is not a number. A trace is a 0.0: RR1 = 0.0 comes with a precipitation duration
+    # DRR1 > 0 in 414,235 hourly rows of 2020 to 2024. DD and DXY (hourly) and DXI (daily) hold a code 0, and DD a code
+    # 999, neither in the descriptions: 0, which has no place on a compass 'en rose de 360' where 360 is the north,
+    # mostly next to FF, FXY or FXI = 0 (99.97 %, 99.9 % and 98.8 %), and 999, as the swell direction DIRHOULE writes
+    # for 'variable', in six rows of Kerguelen and Nouvelle-Amsterdam, 1965 to 1967. One row lies outside 0 to 360
+    # without a code, with a quality code of 1: daily DXI = 400 (31299001, 2007-09-05).
+    ValueStub(
+        "meteofrance/observation hourly/core",
+        _meteofrance_observation_hourly_core,
+        reading=("temperature_air_2m", 2.1),
+        sentinels=(("wind_direction_last_10min", 0.0), ("wind_direction_last_10min", 999.0)),
+        tokens=(("wind_direction_last_10min", "0", None), ("wind_direction_last_10min", "999", None)),
+    ),
+    ValueStub(
+        "meteofrance/observation hourly/others",
+        _meteofrance_observation_hourly_others,
+        reading=("cloud_cover_total", 0.5),
+        # the octas are converted to a fraction on their way
+        sentinels=(("cloud_cover_total", 1.125),),
+        tokens=(("cloud_cover_total", "9", None),),
+    ),
     ValueStub(
         "meteofrance/synop subdaily/data",
         _meteofrance_synop,
@@ -626,42 +944,37 @@ STUBS = [
     ),
 ]
 
-# the networks no stub holds yet, with the reason; `test_every_network_has_a_stub_or_a_reason` keeps the list honest
+# the networks no stub holds, with the reason: a network that is no timeseries, or whose reader maps no sentinel to
+# null. A reader that does is given a stub and its `tokens` (GH-2759); `test_every_network_has_a_stub_or_a_reason`
+# keeps the list honest, and `test_a_reader_that_maps_a_sentinel_has_a_stub` finds a reader of this list that has
+# taken up the helper
 NO_STUB = {
-    "aemet/observation": "needs an API key; no offline test pins its `dir == 99` rule",
-    "chmi/observation": "no stub yet",
-    "dmi/observation": "no stub yet",
-    "dwd/alerts": "no timeseries",
-    "dwd/phenology": "no stub yet",
-    "dwd/radar": "no timeseries",
-    "dwd/road": "no stub yet; BUFR decodes a missing value itself",
-    "ea/hydrology": "no stub yet",
-    "eaufrance/hubeau": "no stub yet",
-    "eccc/observation": "no stub yet",
-    "fmi/observation": "no stub yet; its parser maps -1 to 0.0 for four parameters",
-    "imgw/hydrology": "no stub yet; its reader nulls 9999, 99999.999 and 99.9",
-    "imgw/meteorology": "no stub yet; its reader reads the status columns 8 and 9",
-    "knmi/observation": "needs an API key; the NaN and -1 rules are pinned by tests/provider/knmi",
-    "lhmt/observation": "no sentinel: the source writes null",
-    "meteofrance/observation": (
-        "no stub yet; its readers null hourly N = 9 and the wind directions 0 and 999, pinned by "
-        "tests/provider/meteofrance. RR (6 minutes, daily, monthly) and RR1 (hourly) hold no code (GH-2719): the "
-        "descriptions (the descriptif_champs files and the climatologie-*-descriptif PDFs) define none, and 1.9 "
-        "billion rows of 2158 raw files (the daily RR-T-Vent and the monthly files of every department; the hourly "
-        "ones of every department up to 1999 and from 2020, and of the overseas and a few mainland ones for 2000 to "
-        "2019; the 6 minute ones likewise from 2020 and for 2000 to 2019) have a minimum of 0.0, no negative value "
-        "and nothing that is not a number. A trace is a 0.0: RR1 = 0.0 comes with a precipitation duration DRR1 > 0 "
-        "in 414,235 hourly rows of 2020 to 2024. DD and DXY (hourly) and DXI (daily) hold a code 0, and DD a code 999 "
-        "(GH-2720), neither in the descriptions: 0, which has no place on a compass 'en rose de 360' where 360 is the "
-        "north, mostly next to FF, FXY or FXI = 0 (99.97 %, 99.9 % and 98.8 %), and 999, as the swell direction "
-        "DIRHOULE writes for 'variable', in six rows of Kerguelen and Nouvelle-Amsterdam, 1965 to 1967. One row lies "
-        "outside 0 to 360 without a code, with a quality code of 1: daily DXI = 400 (31299001, 2007-09-05)."
+    "chmi/observation": (
+        "the files write an empty VALUE for a missing one: dly-0-20000-0-11406-T.csv (2026-10-12) has 177144 rows, "
+        "32136 of them empty, nothing that is no number and a minimum of -27.6"
     ),
-    "meteoswiss/observation": "no stub yet",
-    "metno/frost": "needs an API key; the -1 and -3 rules are pinned by tests/provider/metno, which run with a key",
-    "metoffice/observation": "needs an API key; no offline test pins its NA rule",
-    "nws/observation": "no stub yet",
-    "rmi/observation": "no stub yet",
-    "smhi/observation": "no stub yet",
-    "wsv/pegel": "no stub yet",
+    "dmi/observation": "no reader maps a sentinel; its values are JSON numbers",
+    "dwd/alerts": "no timeseries",
+    "dwd/phenology": (
+        "JULTAG is a day of the year and the reader maps no sentinel: no -999 in the 2119 lines of "
+        "PH_Jahresmelder_Landwirtschaft_Kulturpflanze_Ruebe_akt.txt (2026-10-12)"
+    ),
+    "dwd/radar": "no timeseries",
+    "dwd/road": "BUFR: ecCodes decodes a missing value itself, there is no text of it to keep",
+    "ea/hydrology": "no reader maps a sentinel; a reading without a value is a JSON null with the quality `Missing`",
+    "eaufrance/hubeau": "no reader maps a sentinel of a value; -999 is a site altitude of the referential",
+    "eccc/observation": "no reader maps a sentinel; the flag `M` marks a missing value",
+    "imgw/meteorology": (
+        "the null is decided by the status column beside the value (`8` no measurement, `9` no phenomenon), which "
+        "`quality_flags` carries verbatim: the cell of the value holds `.0` or nothing, no sentinel"
+    ),
+    "lhmt/observation": "no sentinel: the source writes null",
+    "meteoswiss/observation": (
+        "the files write an empty field for a missing value: no cell that is no number in ogd-smn_ber_h_recent.csv "
+        "(6816 rows) and ogd-smn_ber_d_historical.csv (59170 rows), 2026-10-12"
+    ),
+    "nws/observation": "no reader maps a sentinel; a quantity without a value is a JSON null",
+    "rmi/observation": "no reader maps a sentinel; its values are JSON numbers",
+    "smhi/observation": "no reader maps a sentinel; a blank row is a missing reading and is dropped",
+    "wsv/pegel": "no reader maps a sentinel; its values are JSON numbers",
 }

@@ -244,7 +244,7 @@ def test_knmi_parse_netcdf_extracts_requested_station_and_parameters(netcdf_payl
     """Only the requested station's requested parameters come back."""
     moment = dt.datetime(2020, 1, 1, tzinfo=UTC)
     df = parse_knmi_netcdf(netcdf_payload, "06280", ["TG"], moment)
-    assert df.to_dicts() == [{"timestamp": moment, "parameter": "TG", "value": 1.2}]
+    assert df.to_dicts() == [{"timestamp": moment, "parameter": "TG", "value": 1.2, "quality_flags": None}]
 
 
 def test_knmi_parse_netcdf_uses_requested_moment_not_internal_time(netcdf_payload: bytes) -> None:
@@ -264,9 +264,12 @@ def test_knmi_parse_netcdf_trace_precipitation_becomes_zero(netcdf_payload: byte
     moment = dt.datetime(2020, 1, 1, tzinfo=UTC)
     df = parse_knmi_netcdf(netcdf_payload, "06260", ["RH"], moment)
     assert df.filter(pl.col("parameter").eq("RH"))["value"].item() == 0.0
+    # the -1 stays beside the 0.0 as the text of the sentinel (GH-2759)
+    assert df["quality_flags"].to_list() == ["raw:-1"]
     # a genuinely positive value at another station is left untouched
     df2 = parse_knmi_netcdf(netcdf_payload, "06280", ["RH"], moment)
     assert df2.filter(pl.col("parameter").eq("RH"))["value"].item() == pytest.approx(3.4)
+    assert df2["quality_flags"].to_list() == [None]
 
 
 def test_knmi_parse_netcdf_fill_value_becomes_null_not_nan(netcdf_payload: bytes) -> None:
@@ -280,9 +283,12 @@ def test_knmi_parse_netcdf_fill_value_becomes_null_not_nan(netcdf_payload: bytes
     df = parse_knmi_netcdf(netcdf_payload, "06260", ["VV"], moment)
     assert df["value"].to_list() == [None]
     assert df["value"].is_null().all()
+    # the fill value stays beside the null as its text (GH-2759)
+    assert df["quality_flags"].to_list() == ["raw:NaN"]
     # a genuine value at another station is untouched
     df2 = parse_knmi_netcdf(netcdf_payload, "06280", ["VV"], moment)
     assert df2["value"].item() == pytest.approx(10.0)
+    assert df2["quality_flags"].to_list() == [None]
 
 
 def test_knmi_parse_netcdf_missing_station_returns_empty(netcdf_payload: bytes) -> None:

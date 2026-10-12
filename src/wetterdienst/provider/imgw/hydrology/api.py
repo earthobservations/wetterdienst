@@ -20,6 +20,7 @@ from fsspec.implementations.zip import ZipFileSystem
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, build_metadata_model
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.imgw.fileindex import list_files_for_interval
@@ -31,6 +32,11 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+# what the files write for a reading they do not have, by column: 9999 (stage), 99999.999 (discharge), 99.9 (water
+# temperature), e.g. `149180020;CHAŁUPKI;Odra (1);2023;01;01;88;14.200;99.9;11` in codz_2023.zip. The reading keeps the
+# text as `raw:` in `quality_flags` (GH-2759)
+_MISSING = Sentinel("9999", "99999.999", "99.9")
 
 
 ImgwHydrologyMetadata = {
@@ -262,6 +268,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             pl.col("station_id"),
             pl.col("timestamp").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
+            pl.col("quality_flags"),
         )
 
     def _parse_file(
@@ -306,7 +313,6 @@ class ImgwHydrologyValues(TimeseriesValues):
             separator=separator,
             has_header=False,
             infer_schema_length=0,
-            null_values=["9999", "99999.999", "99.9"],
         )
         df = df.select(list(schema.keys())).rename(schema)
         df = df.with_columns(pl.col("station_id").str.strip_chars())
@@ -333,7 +339,9 @@ class ImgwHydrologyValues(TimeseriesValues):
             # monthly data includes extrimity column (1: min, 2: mean, 3: max)
             index = ["station_id", "timestamp", "extremity"]
         df = df.unpivot(index=index, variable_name="parameter", value_name="value")
-        df = df.with_columns(pl.col("value").cast(pl.Float64))
+        # the values the files write for a reading they do not have, nulled with their text kept as `raw:` (GH-2759)
+        value, raw = null_sentinels(pl.col("value"), _MISSING)
+        df = df.with_columns(value.cast(pl.Float64).alias("value"), join_quality_flags(None, raw=raw))
         if dataset.resolution.value == Resolution.MONTHLY:
             df = df.select(
                 pl.col("station_id"),
@@ -346,6 +354,7 @@ class ImgwHydrologyValues(TimeseriesValues):
                     separator=" ",
                 ).alias("parameter"),
                 pl.col("value"),
+                pl.col("quality_flags"),
             )
         return df
 

@@ -5,13 +5,19 @@
 What the source wrote is not lost with it: the value carries the text as a `raw:` token in `quality_flags` (GH-2759).
 """
 
+import re
+from pathlib import Path
+
 import polars as pl
 import pytest
 
+import wetterdienst
 from tests.provider.physical_ranges import out_of_range
 from tests.provider.value_stubs import NO_STUB, STUBS, ValueStub
 from wetterdienst import Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETERS
+
+PROVIDER_DIR = Path(wetterdienst.__file__).parent / "provider"
 
 
 def _carried(df: pl.DataFrame, stub: ValueStub) -> list[tuple[str, float]]:
@@ -103,6 +109,23 @@ def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
         assert not at.is_empty(), f"{stub.provider}: no values at {stub.empty_at}"
         silent = at.filter(pl.col("raws").fill_null(0) == 0)
         assert silent.is_empty(), f"{stub.provider}: {silent.height} values at {stub.empty_at} carry no `raw:` token"
+
+
+def test_a_reader_that_maps_a_sentinel_has_a_stub() -> None:
+    """A network whose reader uses the helper that maps a sentinel is held to its stub, with the tokens it names.
+
+    The test above holds what a stub names to the `raw:` token; this keeps a reader from losing its stub, and a network
+    that has taken up the helper from sitting in `NO_STUB` with the reason it had before.
+    """
+    users = set()
+    for path in PROVIDER_DIR.rglob("*.py"):
+        parts = path.relative_to(PROVIDER_DIR).parts
+        text = path.read_text(encoding="utf-8")
+        if len(parts) >= 3 and re.search(r"\b(null_sentinels|clear_sentinels|unpivot_with_raw|raw_column)\(", text):
+            users.add(f"{parts[0]}/{parts[1]}")
+    stubbed = {stub.provider.split(" ")[0] for stub in STUBS}
+    assert users - stubbed == set(), "add a stub with its tokens to STUBS"
+    assert users, "the helper is used by no reader, or the search found no provider"
 
 
 def test_the_parameters_a_stub_names_are_canonical() -> None:
