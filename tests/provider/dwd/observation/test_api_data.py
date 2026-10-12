@@ -268,6 +268,9 @@ def test_dwd_observation_data_result_wide_single_dataset(
 
     The request opens the day before the station's first, which returns no row of its own -- what
     a station did not record is absent from the frame rather than spelled out as a row of nulls.
+
+    The columns of a null carry the text the file wrote for it as the last `quality_flags` token:
+    `raw:-999` where the file has no quality byte, `1,raw:-999` where it has.
     """
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -286,15 +289,15 @@ def test_dwd_observation_data_result_wide_single_dataset(
             "dataset": ["climate_summary"],
             "timestamp": [dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC"))],
             "fx": [None],
-            "fx_quality_flags": [None],
+            "fx_quality_flags": ["raw:-999"],
             "fm": [None],
-            "fm_quality_flags": [None],
+            "fm_quality_flags": ["raw:-999"],
             "rsk": [0.2],
             "rsk_quality_flags": ["1"],
             "rskf": [8.0],
             "rskf_quality_flags": ["1"],
             "sdk": [None],
-            "sdk_quality_flags": [None],
+            "sdk_quality_flags": ["1,raw:-999"],
             "shk_tag": [0.0],
             "shk_tag_quality_flags": ["1"],
             "nm": [8.0],
@@ -312,7 +315,7 @@ def test_dwd_observation_data_result_wide_single_dataset(
             "tnk": [0.2],
             "tnk_quality_flags": ["1"],
             "tgk": [None],
-            "tgk_quality_flags": [None],
+            "tgk_quality_flags": ["1,raw:-999"],
         },
         schema={
             "station_id": pl.Enum(["01048"]),
@@ -430,15 +433,15 @@ def test_dwd_observation_data_result_wide_convert_units(
             "dataset": ["climate_summary"],
             "timestamp": [dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC"))],
             "fx": [None],
-            "fx_quality_flags": [None],
+            "fx_quality_flags": ["raw:-999"],
             "fm": [None],
-            "fm_quality_flags": [None],
+            "fm_quality_flags": ["raw:-999"],
             "rsk": [0.2],
             "rsk_quality_flags": ["1"],
             "rskf": [8.0],
             "rskf_quality_flags": ["1"],
             "sdk": [None],
-            "sdk_quality_flags": [None],
+            "sdk_quality_flags": ["1,raw:-999"],
             "shk_tag": [0.0],
             "shk_tag_quality_flags": ["1"],
             "nm": [1.0],
@@ -456,7 +459,7 @@ def test_dwd_observation_data_result_wide_convert_units(
             "tnk": [0.2],
             "tnk_quality_flags": ["1"],
             "tgk": [None],
-            "tgk_quality_flags": [None],
+            "tgk_quality_flags": ["1,raw:-999"],
         },
         schema={
             "station_id": pl.Enum(["01048"]),
@@ -528,15 +531,15 @@ def test_dwd_observation_data_result_wide_two_datasets(
                 dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
             ],
             "climate_summary_fx": [None, None],
-            "climate_summary_fx_quality_flags": [None, None],
+            "climate_summary_fx_quality_flags": [None, "raw:-999"],
             "climate_summary_fm": [None, None],
-            "climate_summary_fm_quality_flags": [None, None],
+            "climate_summary_fm_quality_flags": [None, "raw:-999"],
             "climate_summary_rsk": [None, 0.2],
             "climate_summary_rsk_quality_flags": [None, "1"],
             "climate_summary_rskf": [None, 8.0],
             "climate_summary_rskf_quality_flags": [None, "1"],
             "climate_summary_sdk": [None, None],
-            "climate_summary_sdk_quality_flags": [None, None],
+            "climate_summary_sdk_quality_flags": [None, "1,raw:-999"],
             "climate_summary_shk_tag": [None, 0.0],
             "climate_summary_shk_tag_quality_flags": [None, "1"],
             "climate_summary_nm": [None, 8.0],
@@ -554,7 +557,7 @@ def test_dwd_observation_data_result_wide_two_datasets(
             "climate_summary_tnk": [None, 0.2],
             "climate_summary_tnk_quality_flags": [None, "1"],
             "climate_summary_tgk": [None, None],
-            "climate_summary_tgk_quality_flags": [None, None],
+            "climate_summary_tgk_quality_flags": [None, "1,raw:-999"],
             "precipitation_more_rs": [0.6, 0.2],
             "precipitation_more_rs_quality_flags": ["1", "1"],
             "precipitation_more_rsf": [1.0, 8.0],
@@ -562,7 +565,7 @@ def test_dwd_observation_data_result_wide_two_datasets(
             "precipitation_more_sh_tag": [0.0, 0.0],
             "precipitation_more_sh_tag_quality_flags": ["1", "1"],
             "precipitation_more_nsh_tag": [None, None],
-            "precipitation_more_nsh_tag_quality_flags": [None, None],
+            "precipitation_more_nsh_tag_quality_flags": ["1,raw:-999", "1,raw:-999"],
         },
         schema={
             "station_id": pl.Enum(["01048"]),
@@ -613,7 +616,11 @@ def test_dwd_observation_data_result_wide_two_datasets(
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_drop_nulls_false: Settings) -> None:
-    """Test for actual values (tidy) in metric units."""
+    """Test for actual values (tidy) in metric units.
+
+    The nulls stay (`drop_nulls=False`) and each carries the text the file wrote for it as the last
+    `quality_flags` token: `raw:-999`, after the quality byte where the file has one (`1,raw:-999`).
+    """
     request = DwdObservationRequest(
         parameters=[("daily", "kl")],
         start="1933-12-31",  # few days before official start
@@ -641,7 +648,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
                 "parameter": "fm",
                 "timestamp": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": None,
-                "quality_flags": None,
+                "quality_flags": "raw:-999",
             },
             {
                 "station_id": "01048",
@@ -650,7 +657,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
                 "parameter": "fx",
                 "timestamp": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": None,
-                "quality_flags": None,
+                "quality_flags": "raw:-999",
             },
             {
                 "station_id": "01048",
@@ -695,7 +702,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
                 "parameter": "sdk",
                 "timestamp": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": None,
-                "quality_flags": None,
+                "quality_flags": "1,raw:-999",
             },
             {
                 "station_id": "01048",
@@ -713,7 +720,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
                 "parameter": "tgk",
                 "timestamp": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": None,
-                "quality_flags": None,
+                "quality_flags": "1,raw:-999",
             },
             {
                 "station_id": "01048",
