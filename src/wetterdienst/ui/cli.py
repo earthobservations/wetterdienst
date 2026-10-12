@@ -1582,9 +1582,9 @@ def values(
 
     api = get_timeseries_api(request.provider, request.network)
 
-    # a unit target given for a quantity the unit converter does not know is a usage error
     # built first: a malformed host setting is not the command line's to fix, whatever the options say
     settings = Settings()
+    # a unit target given for a quantity the unit converter does not know is a usage error
     options = _build_options(
         {
             "humanize": ("humanize", request.humanize),
@@ -1728,10 +1728,10 @@ def interpolate(
 
     api = get_timeseries_api(request.provider, request.network)
 
-    # a distance given for a name that is not a canonical parameter, or a negative one, or a unit
-    # target for a quantity the unit converter does not know is a usage error
     # built first: a malformed host setting is not the command line's to fix, whatever the options say
     settings = Settings()
+    # a distance given for a name that is not a canonical parameter, or a negative one, or a unit
+    # target for a quantity the unit converter does not know is a usage error
     options = _build_options(
         {
             "humanize": ("humanize", request.humanize),
@@ -1878,10 +1878,10 @@ def summarize(
 
     api = get_timeseries_api(request.provider, request.network)
 
-    # a distance given for a name that is not a canonical parameter, or a negative one, or a unit
-    # target for a quantity the unit converter does not know is a usage error
     # built first: a malformed host setting is not the command line's to fix, whatever the options say
     settings = Settings()
+    # a distance given for a name that is not a canonical parameter, or a negative one, or a unit
+    # target for a quantity the unit converter does not know is a usage error
     options = _build_options(
         {
             "humanize": ("humanize", request.humanize),

@@ -682,10 +682,10 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
     apply to this answer alone.
     """
     given = http_request.query_params.keys()
-    # a malformed server setting is the bare 500 FastAPI answers, which does not read its value back.
-    # Built once for the endpoints no parameter given applies to, as each build reads the
-    # environment and the `.env` again
+    # a malformed server setting is the bare 500 FastAPI answers, which does not read its value back
     Settings()
+    # built once for the endpoints no parameter given applies to, as each build reads the
+    # environment and the `.env` again
     server = Options()
     reported: dict[str, _AppliedSettings] = {}
     refused: list[str] = []
