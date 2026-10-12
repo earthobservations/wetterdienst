@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `chmi/observation`: the monthly and annual values carry the files' `FLAG_REPEAT` and
+  `FLAG_INTERRUPTED` in `quality_flags` (null before) as `repeat:*` (the `MAX` or `MIN` was reached
+  on more than one day of the period) and `interrupted:I` (the value is computed although daily
+  values of the period are missing), e.g. `repeat:*,interrupted:I`. A filter on a null
+  `quality_flags` as "no flag" no longer holds for these rows (GH-2763)
+
 ## [0.147.0] - 2026-10-12
 
 ### Added

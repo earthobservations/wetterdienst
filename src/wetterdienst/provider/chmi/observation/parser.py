@@ -83,10 +83,22 @@ def _values(date: pl.Expr, element: str, df: pl.DataFrame) -> pl.DataFrame:
     It is written as the whole number meta4 lists, the plain token of ``quality_flags``. They also give
     a row a ``FLAG`` letter that is blank for most rows and whose meaning is that of its element
     (``metadata/meta3.csv``, e.g. SRA ``T`` for an unmeasurable amount); it follows as
-    ``element:<letter>``, so ``quality_flags`` reads ``0,element:T``. The aggregate files have neither
-    column and so no flag; their ``FLAG_REPEAT`` (``*`` on 435 of the 14292 rows of
-    ``mly-0-20000-0-11406-T.csv``) and ``FLAG_INTERRUPTED`` marks are explained by no metadata file and
-    are not carried.
+    ``element:<letter>``, so ``quality_flags`` reads ``0,element:T``.
+
+    The aggregate files have neither column but ``FLAG_REPEAT`` and ``FLAG_INTERRUPTED``, which no
+    metadata file and no CHMI document explains (``Klimatologicka_data_popis.pdf`` names the flag
+    files and no more); what they mean follows from comparing the files with their daily files:
+
+    - ``*`` in ``FLAG_REPEAT`` (and no other character, in any file of station 0-20000-0-11406) is on
+      a ``MAX`` or ``MIN`` row only, and in ``mly-0-20000-0-11406-T.csv`` on exactly the 435 of the
+      9528 such rows whose extreme ``dly-0-20000-0-11406-T.csv`` holds on more than one day of the
+      month: the extreme was reached repeatedly.
+    - ``I`` in ``FLAG_INTERRUPTED`` is on a row whose value is computed although daily values of the
+      period are missing (``mly-...-T20.csv`` and ``-Fmax.csv`` against their daily files: every such
+      row has it and no row of a complete period): the series was interrupted.
+
+    They follow as ``repeat:*`` and ``interrupted:I``, in that order after ``element``, so
+    ``quality_flags`` reads ``repeat:*,interrupted:I`` (these files have no quality code).
     """
     quality = (
         pl.col("QUALITY").cast(pl.Float64, strict=False).cast(pl.Int64, strict=False)
@@ -94,11 +106,13 @@ def _values(date: pl.Expr, element: str, df: pl.DataFrame) -> pl.DataFrame:
         else pl.lit(None, dtype=pl.String)
     )
     element_flag = pl.col("FLAG") if "FLAG" in df.columns else pl.lit(None, dtype=pl.String)
+    repeat = pl.col("FLAG_REPEAT") if "FLAG_REPEAT" in df.columns else pl.lit(None, dtype=pl.String)
+    interrupted = pl.col("FLAG_INTERRUPTED") if "FLAG_INTERRUPTED" in df.columns else pl.lit(None, dtype=pl.String)
     return df.select(
         date.alias("timestamp"),
         pl.lit(element, dtype=pl.String).alias("parameter"),
         pl.col("VALUE").cast(pl.Float64, strict=False).alias("value"),
-        join_quality_flags(quality, element=element_flag),
+        join_quality_flags(quality, element=element_flag, repeat=repeat, interrupted=interrupted),
     )
 
 

@@ -558,7 +558,7 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 | EA hydrology | the reading's `quality`: `Good`, `Estimated`, `Suspect`, `Unchecked`, `Missing` |
 | Météo-France observation | the `Q<parameter>` code: `9` filtered, `0` protected, `1` validated, `2` doubtful |
 | NOAA GHCN daily | `QFLAG,measurement:MFLAG,source:SFLAG` of the value's attributes: the check it failed (`X` bounds, `G` gap, ...), how the value was made (`T` trace, ...) and where it came from (`0` U.S. Cooperative Summary of the Day, ...), as in the GHCN-Daily `readme.txt`. Hourly (GHCNh) is null (apart from `raw:`) |
-| CHMI (daily, 10 minutes, hourly) | `QUALITY`, then `element:FLAG`: `0` good, `1` suspect, `2` poor, `3` estimated, `4` missing, `5` unknown (`meta4.csv`), and the letter of the element's own table (`meta3.csv`: SRA `T` an amount too small to measure, ...); the aggregate `FLAG_REPEAT` and `FLAG_INTERRUPTED` of monthly and annual files are not carried |
+| CHMI | daily, 10 minutes, hourly: `QUALITY`, then `element:FLAG`: `0` good, `1` suspect, `2` poor, `3` estimated, `4` missing, `5` unknown (`meta4.csv`), and the letter of the element's own table (`meta3.csv`: SRA `T` an amount too small to measure, ...). Monthly and annual (no `QUALITY`, no `FLAG`): `repeat:*`, the `MAX` or `MIN` was reached on more than one day of the period (`FLAG_REPEAT`), and `interrupted:I`, the value is computed although daily values of the period are missing (`FLAG_INTERRUPTED`), e.g. `repeat:*,interrupted:I`. CHMI documents neither flag; the meaning is read from the files against their daily files |
 | NWS | the MADIS `qualityControl` flag: `Z`, `C`, `S`, `V`, `X`, `Q`, `G`, `B`, `T` |
 | SMHI | the `Kvalitet` code: `G` approved, `Y` suspect or aggregated |
 
