@@ -10,7 +10,7 @@ Setup
 
 import logging
 
-from wetterdienst import Settings
+from wetterdienst import Options
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
 )
@@ -20,13 +20,13 @@ log = logging.getLogger()
 
 def values_sql_example() -> None:
     """Retrieve temperature data by DWD and filter by sql statement."""
-    settings = Settings(ts_shape="long", ts_humanize=True, ts_convert_units=False)
+    options = Options(shape="long", humanize=True, convert_units=False)
 
     request = DwdObservationRequest(
         parameters=("hourly", "temperature_air"),
         start="2019-01-01",
         end="2020-01-01",
-        settings=settings,
+        options=options,
     )
 
     stations = request.filter_by_station_id(station_id=(1048,))

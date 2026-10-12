@@ -528,7 +528,7 @@ def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
 
-    # two years of five missing, well below the 0.95 `ts_skip_threshold` asks for by default
+    # two years of five missing, well below the 0.95 `skip_threshold` asks for by default
     values = [1.0, None, None, 4.0, 5.0]
     years = list(range(2000, 2000 + len(values)))
     stations = pl.DataFrame(

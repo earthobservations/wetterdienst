@@ -10,7 +10,7 @@ import polars as pl
 import pytest
 
 from tests.provider.value_stubs import serve, stations_result
-from wetterdienst import Settings, __version__
+from wetterdienst import Options, Settings, __version__
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.nws.observation import NwsObservationRequest
 from wetterdienst.provider.nws.observation import api as nws_api
@@ -40,13 +40,16 @@ def _values(request: NwsObservationRequest) -> NwsObservationValues:
     )
 
 
-def _request(settings: Settings | None = None, **kwargs: object) -> NwsObservationRequest:
+def _request(
+    settings: Settings | None = None, options: Options | None = None, **kwargs: object
+) -> NwsObservationRequest:
     """Build a request over a two-day window, which is what the endpoint is asked for."""
     return NwsObservationRequest(
         parameters=[("hourly", "data", "temperature_air_2m")],
         start=dt.datetime(2026, 8, 20, tzinfo=UTC),
         end=dt.datetime(2026, 8, 21, tzinfo=UTC),
         settings=settings or Settings(),
+        options=options,
         **kwargs,
     )
 
@@ -216,7 +219,7 @@ def test_nws_values_carry_the_madis_quality_control_flag_of_each_quantity(monkey
         for hour, temperature, flag in ((1, 16, "V"), (2, 15, "S"), (3, None, "Z"))
     ]
     serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": features}).encode()})
-    request = _request(Settings(cache_disable=True, ts_drop_nulls=False))
+    request = _request(Settings(cache_disable=True), Options(drop_nulls=False))
     sr = stations_result(request, "hourly", "data", "KDEN")
     df = NwsObservationValues(sr=sr).all().df.with_columns(pl.col("parameter").cast(pl.String))
     temperature = df.filter(pl.col("parameter") == "temperature_air_2m").sort("timestamp")

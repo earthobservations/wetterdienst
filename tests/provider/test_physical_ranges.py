@@ -17,7 +17,7 @@ from tests.provider.physical_ranges import (
     bounds_for,
     out_of_range,
 )
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
@@ -167,7 +167,7 @@ def test_a_sum_over_a_month_or_a_year_may_exceed_the_depth_of_one_reading() -> N
 
 
 def _lhmt_values(
-    monkeypatch: pytest.MonkeyPatch, temperature: float, settings: Settings, pressure: float = 1007.4
+    monkeypatch: pytest.MonkeyPatch, temperature: float, options: Options, pressure: float = 1007.4
 ) -> pl.DataFrame:
     """Give the values of one LHMT station for a day with one reading, as its reader and the framework make them."""
     stations = (
@@ -186,7 +186,11 @@ def _lhmt_values(
     monkeypatch.setattr("wetterdienst.provider.lhmt.observation.api.download_file", download_file)
     start = dt.datetime(2020, 7, 1, tzinfo=dt.UTC)
     request = LhmtObservationRequest(
-        parameters=[("hourly", "data")], start=start, end=start + dt.timedelta(days=1), settings=settings
+        parameters=[("hourly", "data")],
+        start=start,
+        end=start + dt.timedelta(days=1),
+        settings=Settings(cache_disable=True),
+        options=options,
     )
     return request.filter_by_station_id("vilniaus-ams").values.all().df
 
@@ -197,7 +201,7 @@ def test_the_check_sees_a_frame_a_provider_hands_back(
 ) -> None:
     """The hook the provider tests run under is armed: a value out of range in a returned frame is recorded."""
     # LHMT publishes `null` for a missing reading, so a -999 here is what a sentinel that got through would be
-    df = _lhmt_values(monkeypatch, -999.0, Settings(cache_disable=True))
+    df = _lhmt_values(monkeypatch, -999.0, Options())
 
     assert sorted(df.get_column("value").to_list()) == [-999.0, 1007.4]
     assert len(physical_range_findings) == 1
@@ -210,8 +214,8 @@ def test_a_frame_converted_to_other_units_than_the_default_is_left_alone(
     physical_range_findings: list[str],
 ) -> None:
     """The ranges are written in the default units, so 72 degrees Fahrenheit is no air temperature out of range."""
-    settings = Settings(cache_disable=True, ts_unit_targets={"temperature": "degree_fahrenheit"})
-    df = _lhmt_values(monkeypatch, 22.3, settings)
+    options = Options(unit_targets={"temperature": "degree_fahrenheit"})
+    df = _lhmt_values(monkeypatch, 22.3, options)
 
     assert sorted(df.get_column("value").to_list()) == [pytest.approx(72.14), 1007.4]
     assert physical_range_findings == []
@@ -222,8 +226,8 @@ def test_only_the_unit_type_converted_to_other_units_is_left_alone(
     physical_range_findings: list[str],
 ) -> None:
     """A temperature in degrees Fahrenheit is not checked, the pressure beside it still is."""
-    settings = Settings(cache_disable=True, ts_unit_targets={"temperature": "degree_fahrenheit"})
-    _lhmt_values(monkeypatch, 22.3, settings, pressure=-999.0)
+    options = Options(unit_targets={"temperature": "degree_fahrenheit"})
+    _lhmt_values(monkeypatch, 22.3, options, pressure=-999.0)
 
     assert len(physical_range_findings) == 1
     assert "pressure_air_sea_level" in physical_range_findings[0]
@@ -236,7 +240,7 @@ def test_a_frame_that_is_not_converted_is_left_alone(
     physical_range_findings: list[str],
 ) -> None:
     """With the unit conversion off a value is in the source's own unit, which the ranges do not describe."""
-    df = _lhmt_values(monkeypatch, -999.0, Settings(cache_disable=True, ts_convert_units=False))
+    df = _lhmt_values(monkeypatch, -999.0, Options(convert_units=False))
 
     assert sorted(df.get_column("value").to_list()) == [-999.0, 1007.4]
     assert physical_range_findings == []

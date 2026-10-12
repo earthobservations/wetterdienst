@@ -9,6 +9,7 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.provider.wsv.pegel import WsvPegelRequest
@@ -642,16 +643,16 @@ def test_wide_empty_result_matches_the_shape_of_a_populated_one(monkeypatch: pyt
         datasets=["climate_summary", "precipitation_more"],
     )
     parameters = ["daily/kl/temperature_air_mean_2m", "daily/more_precip/precipitation_amount"]
-    settings = {"ts_shape": "wide"}
+    options = {"shape": "wide"}
 
     empty = (
-        DwdObservationRequest(parameters=parameters, start="1930-01-01", end="1930-12-31", settings=settings)
+        DwdObservationRequest(parameters=parameters, start="1930-01-01", end="1930-12-31", options=options)
         .filter_by_station_id("00001")
         .values.all()
         .df
     )
     populated = (
-        DwdObservationRequest(parameters=parameters, start="1990-01-01", end="1990-12-31", settings=settings)
+        DwdObservationRequest(parameters=parameters, start="1990-01-01", end="1990-12-31", options=options)
         .filter_by_station_id("00001")
         .values.all()
         .df
@@ -728,7 +729,7 @@ def test_convert_units_keeps_a_reading_a_much_larger_target_holds_little_of() ->
     """
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary", "snow_depth")],
-        settings={"ts_unit_targets": {"length_short": "mile"}},
+        options={"unit_targets": {"length_short": "mile"}},
     )
     values = DwdObservationValues(
         sr=StationsResult(
@@ -809,7 +810,9 @@ def test_a_station_whose_datasets_all_start_after_the_window_is_not_downloaded(
     assert collected == []
 
 
-def _values_with_a_null(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def _values_with_a_null(
+    monkeypatch: pytest.MonkeyPatch, *, settings: Settings | None = None, options: Options | None = None
+) -> pl.DataFrame:
     """Return a station's daily mean temperature over two days, the second of which is null."""
     _stub_dwd_daily(station_ids=["00001"], data_year_by_station={"00001": 1990}, monkeypatch=monkeypatch)
     utc = ZoneInfo("UTC")
@@ -833,11 +836,29 @@ def _values_with_a_null(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> 
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
         start="1990-01-01",
         end="1990-01-02",
-        settings=settings,
+        settings=settings or Settings(),
+        options=options,
     )
     return request.filter_by_station_id("00001").values.all().df
 
 
+def test_values_drop_nulls_again_for_options_once_wide_and_now_long(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An `Options` reused for a long request after a wide one drops the null rows (GH-2388).
+
+    The wide request used to write False into the settings' `ts_drop_nulls`, which the long
+    request reusing them then read, and returned the null rows.
+    """
+    wide_options = Options(shape="wide", drop_nulls=True)
+    wide = _values_with_a_null(monkeypatch, options=wide_options)
+    # the wide shape drops no nulls
+    assert wide.get_column("temperature_air_mean_2m").to_list() == [1.0, None]
+
+    long = _values_with_a_null(monkeypatch, options=wide_options.replace(shape="long"))
+    assert long.get_column("value").to_list() == [1.0]
+    assert_frame_equal(long, _values_with_a_null(monkeypatch, options=Options(shape="long", drop_nulls=True)))
+
+
+# old route, removed in stage 5
 def test_values_drop_nulls_again_for_settings_once_wide_and_now_long(monkeypatch: pytest.MonkeyPatch) -> None:
     """A `Settings` reused for a long request after a wide one drops the null rows (GH-2388).
 
@@ -846,14 +867,14 @@ def test_values_drop_nulls_again_for_settings_once_wide_and_now_long(monkeypatch
     """
     settings = Settings(ts_shape="long", ts_drop_nulls=True)
     settings.ts_shape = "wide"
-    wide = _values_with_a_null(settings, monkeypatch)
+    wide = _values_with_a_null(monkeypatch, settings=settings)
     # the wide shape drops no nulls
     assert wide.get_column("temperature_air_mean_2m").to_list() == [1.0, None]
 
     settings.ts_shape = "long"
-    long = _values_with_a_null(settings, monkeypatch)
+    long = _values_with_a_null(monkeypatch, settings=settings)
     assert long.get_column("value").to_list() == [1.0]
-    assert_frame_equal(long, _values_with_a_null(Settings(ts_shape="long", ts_drop_nulls=True), monkeypatch))
+    assert_frame_equal(long, _values_with_a_null(monkeypatch, settings=Settings(ts_shape="long", ts_drop_nulls=True)))
 
 
 def test_a_window_in_a_named_zone_cuts_the_utc_values_at_its_instants(monkeypatch: pytest.MonkeyPatch) -> None:

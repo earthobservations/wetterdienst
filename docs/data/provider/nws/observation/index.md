@@ -23,10 +23,10 @@ there".
 > identifiers such as `KPSR` or `KOHX` that were never observation stations, and stations that
 > simply have not reported this week.
 
-A station that returns nothing is walked past by `filter_by_rank` without any setting and without
+A station that returns nothing is walked past by `filter_by_rank` without any option and without
 using up a rank, so a request for the two nearest stations still returns two that carry data. What
-`ts_skip_empty` adds is the next step: passing over a station that *did* return data but too little
-of it, as `ts_skip_threshold` and `ts_skip_criteria` define. Naming a silent station outright with
+the `skip_empty` option adds is the next step: passing over a station that *did* return data but too
+little of it, as `skip_threshold` and `skip_criteria` define. Naming a silent station outright with
 `filter_by_station_id` returns an empty frame either way.
 
 MADIS files three genuinely American stations under a state code rather than a country code —

@@ -82,4 +82,4 @@ wetterdienst values --provider dwd --network observation \
 - [Data / Overview](../data/overview.md) — every supported provider and what it offers.
 - [Interpolation & Summary](interpolation.md) — derive a series for an arbitrary location.
 - [Climate Stripes](stripes.md) — generate warming-stripes visualizations.
-- [Settings](settings.md) — units, caching, proxies and interpolation knobs.
+- [Settings and options](settings.md) — units, caching, proxies and interpolation knobs.
