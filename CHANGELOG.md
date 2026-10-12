@@ -37,6 +37,14 @@ Types of changes:
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
+- The REST API and the MCP tools refuse a chart image with a side over 8192 px, `scale` (or the
+  stripes `dpi`) applied, with a 400 naming the limit; a larger one held a Chromium for tens of
+  seconds and could come back empty. Ask for a smaller `width`, `height`, `scale` or `dpi`. The
+  library and the CLI are not limited (GH-2765)
+- The Docker image runs as the user `wetterdienst` (uid 10001), no longer as root, and its cache is
+  `/home/wetterdienst/.cache/wetterdienst`. A volume mounted at `/root/.cache/wetterdienst` is
+  mounted there instead, or anywhere with `WD_CACHE_DIR` pointing to it, writable by uid 10001
+  (GH-2770)
 
 ### Removed
 
@@ -73,6 +81,8 @@ Types of changes:
   way); the CLI prints that line, and `/api/stations`, `/api/values`, `/api/interpolate` and
   `/api/summarize` answer 501 with the line in the server log, no longer a 500 with a traceback
   (GH-2545)
+- `noaa/ghcn` reads its daily station list and inventory over https, no longer plain http
+  (GH-2766)
 
 ## [0.146.0] - 2026-10-11
 
