@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- polars 2 is supported: the dependency is now `polars[calamine]>=1.43.0,<3` (it was `<2`), so
+  wetterdienst installs next to packages that need polars 2. The lock resolves 2.0.0; 1.43 still
+  works. `dwd/observation` collects with the in-memory engine, as on polars 1: the streaming
+  engine, which polars 2 uses by default, took a historical `1_minute/precipitation` station-year
+  13 times as long (GH-2570)
+
 ### Changed
 
 - **Breaking**: the `quality` number of every values frame is replaced by one nullable string
