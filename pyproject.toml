@@ -400,6 +400,7 @@ scikit-learn = "sklearn"
 DEP002 = [
     # imported by name through `util.extras.import_optional`, which deptry does not read as an import
     "duckdb",
+    "h5netcdf",
     "kaleido",
     "mysqlclient",
     "pandas",
