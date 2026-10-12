@@ -70,3 +70,19 @@ def test_the_benchmark_runs_every_stage_on_cached_files(tmp_path: Path) -> None:
     assert rows["values_wide"] == 3
     assert rows["values_long"] == 4
     assert json.loads(output.read_text())["header"]["polars"]
+
+
+def test_the_benchmark_runs_a_stage_in_a_process_of_its_own(tmp_path: Path) -> None:
+    """Test the path of the default run: a child process per stage, its JSON read from standard output."""
+    _zip(
+        tmp_path / "recent" / "1minutenwerte_nieder_00044_akt.zip",
+        "produkt_ein_min_rr_20250101_20250101_00044.txt",
+        _RECENT,
+    )
+    report = benchmark.main(
+        ["--cache-dir", str(tmp_path), "--stations", "00044", "--runs", "1", "--warmup", "0", "--stage", "parse"],
+    )
+    (stage,) = report["stages"]
+    assert stage["rows"] == 3
+    # Windows has no resource module to read it from
+    assert stage["peak_rss_mb"] is None or stage["peak_rss_mb"] > 0

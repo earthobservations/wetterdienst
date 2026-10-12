@@ -15,8 +15,9 @@ library, not from the server of DWD::
     uv run python -m benchmarks.dwd_observation_minute_1_precipitation --scale small
     uv run --with 'polars==1.43.2' python -m benchmarks.dwd_observation_minute_1_precipitation
 
-Four stages are timed apart, each in a process of its own so that the peak resident memory
-belongs to that stage alone:
+Four stages are timed apart, each in a process of its own so that the peak resident memory is
+that of the stage, its warm-up and the loading of the modules and files, not of the other stages
+(``--in-process`` shares one process and reports no peak; Windows has none to report):
 
 - ``parse``: ``parse_climate_observations_data`` on the recent product files, collected.
 - ``historical``: the same on the historical (monthly) product files, which adds the transform from
@@ -33,10 +34,10 @@ It is not a gate: nothing here fails on a slow run.
 from __future__ import annotations
 
 import argparse
+import calendar
 import json
 import os
 import platform
-import resource
 import statistics
 import subprocess
 import sys
@@ -50,11 +51,17 @@ from urllib.error import HTTPError
 import polars as pl
 
 from wetterdienst import Period, Settings
+from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as dwd_observation_api
 from wetterdienst.provider.dwd.observation.download import _unpack_climate_observations_data
 from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
 from wetterdienst.util.network import File
+
+try:
+    import resource
+except ImportError:  # Windows
+    resource = None
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -77,6 +84,8 @@ STAGES = ("parse", "historical", "values_long", "values_wide")
 
 DEFAULT_CACHE_DIR = Path(__file__).parent / ".cache" / "dwd_observation_minute_1_precipitation"
 DATASET = DwdObservationMetadata.minute_1.precipitation
+DEFAULT_ENGINE = "in-memory"
+"""The engine the library collects with, and the benchmark unless ``--engine`` says otherwise."""
 
 
 def _recent_name(station_id: str) -> str:
@@ -85,8 +94,6 @@ def _recent_name(station_id: str) -> str:
 
 def _historical_names(station_id: str) -> list[str]:
     """Give the monthly historical file names of a station for the year of the manifest."""
-    import calendar  # noqa: PLC0415
-
     names = []
     for month in range(1, 13):
         last_day = calendar.monthrange(HISTORICAL_YEAR, month)[1]
@@ -181,8 +188,6 @@ def _values(cache_dir: Path, stations: tuple[str, ...], shape: str) -> pl.DataFr
 
 def _stations_result(request: DwdObservationRequest, station_ids: tuple[str, ...]) -> Any:  # noqa: ANN401
     """Stand a station up rather than look it up: the catalogue is a network step this benchmark leaves out."""
-    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
-
     height = len(station_ids)
     df = pl.DataFrame(
         {
@@ -211,14 +216,16 @@ def _stations_result(request: DwdObservationRequest, station_ids: tuple[str, ...
     return StationsResult(stations=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
 
 
-def _stage(name: str, cache_dir: Path, stations: tuple[str, ...]) -> Callable[[], int]:
+def _stage(name: str, cache_dir: Path, stations: tuple[str, ...], engine: str) -> Callable[[], int]:
     """Give the function of a stage, which returns the number of rows it made."""
     if name in ("parse", "historical"):
         period, parser_period = ("recent", Period.RECENT) if name == "parse" else ("historical", Period.HISTORICAL)
         products = _products(_cached(cache_dir, period, stations))
 
         def parse() -> int:
-            return parse_climate_observations_data(_fresh(products), DATASET, parser_period).collect().height
+            return (
+                parse_climate_observations_data(_fresh(products), DATASET, parser_period).collect(engine=engine).height
+            )
 
         return parse
     shape = "long" if name == "values_long" else "wide"
@@ -229,9 +236,11 @@ def _stage(name: str, cache_dir: Path, stations: tuple[str, ...]) -> Callable[[]
     return values
 
 
-def _measure(name: str, cache_dir: Path, stations: tuple[str, ...], runs: int, warmup: int) -> dict[str, Any]:
+def _measure(
+    name: str, cache_dir: Path, stations: tuple[str, ...], runs: int, warmup: int, engine: str, *, isolated: bool
+) -> dict[str, Any]:
     """Time a stage and read the peak resident memory of this process afterwards."""
-    run = _stage(name, cache_dir, stations)
+    run = _stage(name, cache_dir, stations, engine)
     for _ in range(warmup):
         run()
     seconds = []
@@ -240,9 +249,11 @@ def _measure(name: str, cache_dir: Path, stations: tuple[str, ...], runs: int, w
         start = time.perf_counter()
         rows = run()
         seconds.append(time.perf_counter() - start)
-    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    # macOS reports bytes, Linux kilobytes
-    peak_mb = peak / 1e6 if sys.platform == "darwin" else peak / 1e3
+    peak_mb = None
+    if isolated and resource is not None:
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        # macOS reports bytes, Linux kilobytes
+        peak_mb = peak / 1e6 if sys.platform == "darwin" else peak / 1e3
     median = statistics.median(seconds)
     return {
         "stage": name,
@@ -266,6 +277,11 @@ def _header() -> dict[str, Any]:
     }
 
 
+def peak(result: dict[str, Any]) -> str:
+    """Format the peak memory of a stage, or n/a where there is none."""
+    return "n/a" if result["peak_rss_mb"] is None else f"{result['peak_rss_mb']:.0f}"
+
+
 def _table(header: dict[str, Any], results: list[dict[str, Any]]) -> str:
     lines = [
         (
@@ -276,7 +292,7 @@ def _table(header: dict[str, Any], results: list[dict[str, Any]]) -> str:
     ]
     lines.extend(
         f"{r['stage']:<14}{r['rows']:>12,}{r['median_s']:>10.3f}{r['min_s']:>9.3f}{r['max_s']:>9.3f}"
-        f"{r['rows_per_s']:>14,.0f}{r['peak_rss_mb']:>10.0f}"
+        f"{r['rows_per_s']:>14,.0f}{peak(r):>10}"
         for r in results
     )
     return "\n".join(lines)
@@ -295,7 +311,12 @@ def main(argv: list[str] | None = None) -> dict[str, Any]:
     parser.add_argument(
         "--engine",
         choices=["in-memory", "streaming", "auto"],
-        help="Set the engine affinity of polars; by default its own applies: in-memory in 1, streaming in 2.",
+        default=DEFAULT_ENGINE,
+        help=(
+            "The engine of the collects and the engine affinity of polars. The default is the in-memory engine, "
+            "which is what polars 1 uses and what the library asks for. The values stages go through "
+            "DwdObservationValues, which names the in-memory engine itself, so only parse and historical follow this."
+        ),
     )
     parser.add_argument("--output", type=Path, help="Write the JSON here.")
     parser.add_argument("--in-process", action="store_true", help="Run the stages in this process, not one each.")
@@ -303,19 +324,24 @@ def main(argv: list[str] | None = None) -> dict[str, Any]:
     args = parser.parse_args(argv)
     args.cache_dir = args.cache_dir.resolve()
     stations = tuple(args.stations or MANIFEST[args.scale])
-    if args.engine:
-        pl.Config.set_engine_affinity(args.engine)
+    pl.Config.set_engine_affinity(args.engine)
     if args.fetch:
         fetch(args.cache_dir, stations)
         return {}
     stages = args.stage or list(STAGES)
     if args.child:
-        print(json.dumps(_measure(stages[0], args.cache_dir, stations, args.runs, args.warmup)))
+        print(
+            json.dumps(
+                _measure(stages[0], args.cache_dir, stations, args.runs, args.warmup, args.engine, isolated=True)
+            )
+        )
         return {}
     results = []
     for name in stages:
         if args.in_process:
-            results.append(_measure(name, args.cache_dir, stations, args.runs, args.warmup))
+            results.append(
+                _measure(name, args.cache_dir, stations, args.runs, args.warmup, args.engine, isolated=False)
+            )
             continue
         command = [
             sys.executable,
@@ -330,13 +356,14 @@ def main(argv: list[str] | None = None) -> dict[str, Any]:
             str(args.runs),
             "--warmup",
             str(args.warmup),
-            *(["--engine", args.engine] if args.engine else []),
+            "--engine",
+            args.engine,
             "--stations",
             *stations,
         ]
         completed = subprocess.run(command, check=True, stdout=subprocess.PIPE, text=True)  # noqa: S603
         results.append(json.loads(completed.stdout.strip().splitlines()[-1]))
-    header = {**_header(), "engine_affinity": args.engine or "default"}
+    header = {**_header(), "engine_affinity": args.engine}
     report = {"header": header, "scale": args.scale, "stations": list(stations), "stages": results}
     if args.output:
         args.output.write_text(json.dumps(report, indent=2))
