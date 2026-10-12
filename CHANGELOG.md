@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `dwd/derived` and `eccc/observation` values collect with the in-memory engine, as on polars 1,
+  not with the streaming engine polars 2 uses by default: it took 6 times as long for the hourly
+  radiation of one station and 4 times for 60 years of daily rows of one ECCC station, for the
+  same rows (GH-2781)
+
 ## [0.147.0] - 2026-10-12
 
 ### Added

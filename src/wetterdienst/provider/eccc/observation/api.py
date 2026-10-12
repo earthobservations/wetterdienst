@@ -241,7 +241,9 @@ class EcccObservationValues(TimeseriesValues):
                 join_quality_flags(pl.col("quality_flags")),
             )
             data.append(df)
-        return pl.concat(data).collect()
+        # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which took
+        # the unpivot and join of 60 years of daily rows 4 times as long, for the same rows (GH-2781)
+        return pl.concat(data).collect(engine="in-memory")
 
 
 @dataclass

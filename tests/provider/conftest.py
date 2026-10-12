@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import polars as pl
@@ -201,3 +203,27 @@ def physical_range_findings(request: pytest.FixtureRequest) -> Generator[list[st
             f"reached the output looks like: {' | '.join(found)}",
             pytrace=False,
         )
+
+
+@pytest.fixture
+def collect_engines(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str | None]]:
+    """Record the engine each `LazyFrame.collect()` of the library names, by the module that calls it (GH-2781).
+
+    polars 2 collects with the streaming engine unless told otherwise, and the plans the library pins to the in-memory
+    one are those it measured slower on streaming (GH-2570, GH-2781). A result cannot tell the engines apart, so the
+    test asks the call. The key is the path below ``src/wetterdienst/``, the value the engine of each call in the
+    order it was made, None where the call names none. A call made from a file of polars itself is left out.
+    """
+    seen: dict[str, list[str | None]] = {}
+    collect = pl.LazyFrame.collect
+
+    def spy(self: pl.LazyFrame, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        caller = Path(sys._getframe(1).f_code.co_filename).as_posix()  # noqa: SLF001
+        _, found, module = caller.rpartition("/src/wetterdienst/")
+        if found:
+            engine = kwargs.get("engine")
+            seen.setdefault(module, []).append(None if engine is None else str(engine))
+        return collect(self, *args, **kwargs)
+
+    monkeypatch.setattr(pl.LazyFrame, "collect", spy)
+    return seen
