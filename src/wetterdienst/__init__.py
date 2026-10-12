@@ -5,6 +5,7 @@
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from textwrap import dedent
+from typing import Any
 
 from wetterdienst import boot
 from wetterdienst.api import Wetterdienst
@@ -64,7 +65,7 @@ class Info:
         cache_dir (default):    {self.cache_dir}
         """).strip()
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Return dictionary representation of Info object."""
         return {
             "name": self.name,

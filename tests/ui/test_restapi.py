@@ -5302,7 +5302,7 @@ def test_geo_settings_report_the_drop_nulls_the_estimate_reads_with(
     """The estimating endpoints report the `drop_nulls` their stations' values are read with (GH-2359).
 
     They read the values in the long shape whatever the server's (`_for_estimating`), on a copy of
-    the settings that takes the `drop_nulls` in effect, which the server's wide shape turns off.
+    the options that takes the `drop_nulls` in effect, which the server's wide shape turns off.
     """
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
@@ -5313,9 +5313,9 @@ def test_geo_settings_report_the_drop_nulls_the_estimate_reads_with(
 
     (settings,) = taken
     request = DwdObservationRequest(parameters=[("daily", "climate_summary")], settings=settings)
-    read_with = request._for_estimating().settings  # noqa: SLF001
-    assert read_with.ts_shape == "long"
-    assert read_with.ts_drop_nulls is reported
+    read_with = request._for_estimating().options  # noqa: SLF001
+    assert read_with.shape == "long"
+    assert read_with.drop_nulls is reported
 
 
 def test_with_metadata_names_the_settings_block_where_it_comes() -> None:

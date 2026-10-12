@@ -1801,7 +1801,7 @@ def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
         fig.add_annotation(
             x=0.05,
             y=-0.05,
-            text=str(df.get_column("timestamp").min().year),  # ty: ignore[unresolved-attribute]
+            text=str(df.get_column("timestamp").dt.year().min()),
             showarrow=False,
             xref="paper",
             yref="paper",
@@ -1810,7 +1810,7 @@ def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
         fig.add_annotation(
             x=0.95,
             y=-0.05,
-            text=str(df.get_column("timestamp").max().year),  # ty: ignore[unresolved-attribute]
+            text=str(df.get_column("timestamp").dt.year().max()),
             showarrow=False,
             xref="paper",
             yref="paper",

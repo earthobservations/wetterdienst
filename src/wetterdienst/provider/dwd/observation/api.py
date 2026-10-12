@@ -603,10 +603,8 @@ class DwdObservationRequest(TimeseriesRequest):
     """Request class for DWD observation data."""
 
     metadata = DwdObservationMetadata
-    # _values and _history are class objects (subclasses of TimeseriesValues/TimeseriesHistory).
-    # Use cast to satisfy the static typechecker which expects instances of those types.
-    _values = cast("TimeseriesValues", DwdObservationValues)
-    _history = cast("TimeseriesHistory", DwdObservationHistory)
+    _values = DwdObservationValues
+    _history = DwdObservationHistory
     _selects_by_period = True
 
     @property

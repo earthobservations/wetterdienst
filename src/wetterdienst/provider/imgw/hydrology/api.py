@@ -194,7 +194,7 @@ def _normalize_hydrology_csv(data: bytes) -> tuple[bytes, str]:
     return body, ","
 
 
-class ImgwHydrologyValues(TimeseriesValues):
+class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
     """Values class for hydrological data from IMGW."""
 
     _endpoint = "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/{resolution}/"
@@ -227,7 +227,7 @@ class ImgwHydrologyValues(TimeseriesValues):
         },
     }
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,

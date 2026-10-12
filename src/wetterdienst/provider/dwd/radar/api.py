@@ -197,7 +197,7 @@ class DwdRadarValues:  # noqa: PLW1641
         self.format = parse_enumeration_from_template(fmt, DwdRadarDataFormat)
         self.subset = parse_enumeration_from_template(subset, DwdRadarDataSubset)
         self.elevation = elevation and int(elevation)
-        self.resolution: Resolution = parse_enumeration_from_template(resolution, DwdRadarResolution, Resolution)  # ty: ignore[invalid-assignment]
+        self.resolution: Resolution | None = parse_enumeration_from_template(resolution, DwdRadarResolution, Resolution)
         self.period: Period | None = parse_enumeration_from_template(period, DwdRadarPeriod, Period)
 
         # Sanity checks.
@@ -426,7 +426,8 @@ class DwdRadarValues:  # noqa: PLW1641
             results = []
             for period in period_types:
                 file_index = create_fileindex_radolan_cdc(
-                    resolution=self.resolution,
+                    # __init__ refused RADOLAN_CDC for any resolution but hourly and daily
+                    resolution=cast("Resolution", self.resolution),
                     period=period,
                     settings=self.settings,
                 )
@@ -434,7 +435,10 @@ class DwdRadarValues:  # noqa: PLW1641
                 # Filter for dates range if start and end are defined.
                 if period == Period.RECENT:
                     file_index = file_index.filter(
-                        pl.col("datetime").is_between(self.start, self.end, closed="both"),  # ty: ignore[invalid-argument-type]
+                        # typed as all __init__ accepts; a window is datetimes (an open one is None, as before)
+                        pl.col("datetime").is_between(
+                            cast("dt.datetime", self.start), cast("dt.datetime", self.end), closed="both"
+                        ),
                     )
 
                 # This is for matching historical data, e.g. "RW-200509.tar.gz".
@@ -475,7 +479,10 @@ class DwdRadarValues:  # noqa: PLW1641
 
             # Filter for dates range if start and end are defined.
             file_index = file_index.filter(
-                pl.col("datetime").is_between(self.start, self.end, closed="both"),  # ty: ignore[invalid-argument-type]
+                # typed as all __init__ accepts; a window is datetimes (an open one is None, as before)
+                pl.col("datetime").is_between(
+                    cast("dt.datetime", self.start), cast("dt.datetime", self.end), closed="both"
+                ),
             )
 
             # Filter SWEEP_VOL_VELOCITY_H and SWEEP_VOL_REFLECTIVITY_H by elevation.
@@ -656,6 +663,7 @@ class DwdRadarValues:  # noqa: PLW1641
 
 
 # help() and IPython read the arguments off __init__ rather than the variadic refusal, as on TimeseriesRequest
+# (`__wrapped__` is no attribute a function is declared to have, which is how `inspect` looks it up)
 DwdRadarValues.__new__.__wrapped__ = DwdRadarValues.__init__  # ty: ignore[unresolved-attribute]
 
 

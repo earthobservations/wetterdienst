@@ -9,10 +9,11 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, cast
 
 import polars as pl
 from tqdm import tqdm
+from typing_extensions import TypeVar
 
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.metadata import group_parameters_by_dataset
@@ -29,10 +30,21 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# What a provider collects its values by: a provider that reads one dataset at a time takes a
+# `DatasetModel` (and sets `grouped` on its datasets), one that reads one parameter at a time a
+# `ParameterModel`, and one that does both leaves it unspecified. That is also what a bare
+# `TimeseriesValues` in an annotation means (the default), so a result that holds one of any provider's
+# does not ask for a type argument.
+_UnitT = TypeVar("_UnitT", bound="ParameterModel | DatasetModel", default=Any)
+
 
 @dataclass
-class TimeseriesValues(ABC):
-    """Core for sources of timeseries where data is related to a station."""
+class TimeseriesValues(ABC, Generic[_UnitT]):
+    """Core for sources of timeseries where data is related to a station.
+
+    Subscript it with the model the provider collects by -- `TimeseriesValues[DatasetModel]` -- so that
+    `_collect_station_parameter_or_dataset` is declared as the narrow signature the provider implements.
+    """
 
     sr: StationsResult
     stations_counter: int = 0
@@ -41,7 +53,7 @@ class TimeseriesValues(ABC):
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
-        self.unit_converter.update_targets(self.sr.settings.ts_unit_targets)
+        self.unit_converter.update_targets(self.sr.options.unit_targets)
 
     @classmethod
     def from_stations(cls, stations: StationsResult) -> TimeseriesValues:
@@ -69,7 +81,7 @@ class TimeseriesValues(ABC):
     @property
     def _meta_fields(self) -> dict[str, Any]:
         """Get metadata fields for the DataFrame."""
-        if not self.sr.settings.ts_tidy:
+        if not self.sr.options.tidy:
             return {
                 "station_id": pl.String,
                 "resolution": pl.String,
@@ -166,7 +178,7 @@ class TimeseriesValues(ABC):
         self.stations_collected = []
         # mapping of original to humanized parameter names is always the same
         hpm: dict[str, str] = {}
-        if self.sr.settings.ts_humanize:
+        if self.sr.options.humanize:
             hpm = self._create_humanized_parameters_mapping()
         for (station_id,), df_station_meta in self.sr.df.group_by(["station_id"], maintain_order=True):
             if self.stations_counter == self.sr.rank:
@@ -184,17 +196,17 @@ class TimeseriesValues(ABC):
             # request came back with nothing
             if df.is_empty():
                 continue
-            if self.sr.settings.ts_skip_empty:
+            if self.sr.options.skip_empty:
                 percentage = self._get_actual_percentage(df=df)
-                if percentage < self.sr.settings.ts_skip_threshold:
+                if percentage < self.sr.options.skip_threshold:
                     log.info(
                         f"station {station_id} is skipped as percentage of actual values ({percentage}) "
-                        f"is below threshold ({self.sr.settings.ts_skip_threshold}).",
+                        f"is below threshold ({self.sr.options.skip_threshold}).",
                     )
                     continue
-            if self.sr.settings.ts_humanize:
+            if self.sr.options.humanize:
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
-            if not self.sr.settings.ts_tidy:
+            if not self.sr.options.tidy:
                 df = self._widen_df(df=df)
             # sorted by resolution first in either shape: two resolutions are two series, and
             # sorting by the dataset alone interleaves them when they share one -- an hourly and a
@@ -202,7 +214,7 @@ class TimeseriesValues(ABC):
             # `_widen_df` leaves the wide rows in no particular order to begin with.
             sort_columns = (
                 ["resolution", "dataset", "parameter", "timestamp"]
-                if self.sr.settings.ts_tidy
+                if self.sr.options.tidy
                 else ["resolution", "dataset", "timestamp"]
             )
             df = df.sort(sort_columns)
@@ -256,7 +268,7 @@ class TimeseriesValues(ABC):
         """Build the frame a request that collected nothing returns, carrying its schema.
 
         Shaped like a collected one would have been, so that the empty case differs from the
-        populated case only in having no rows: wide for ``ts_shape="wide"``, where ``_widen_df``
+        populated case only in having no rows: wide for ``shape="wide"``, where ``_widen_df``
         names the parameter columns from the request rather than from data it does not have.
 
         Built in the long form and then reshaped, exactly as a collected frame is, rather than in
@@ -268,7 +280,7 @@ class TimeseriesValues(ABC):
         less than the string it replaces and reads oddly on a schema anyone may print.
         """
         df = pl.DataFrame(schema=self._long_fields)
-        if not self.sr.settings.ts_tidy:
+        if not self.sr.options.tidy:
             df = self._widen_df(df=df)
         return df
 
@@ -304,7 +316,9 @@ class TimeseriesValues(ABC):
         if dataset.grouped:
             df = self._collect_station_parameter_or_dataset(
                 station_id=station_id,
-                parameter_or_dataset=dataset,
+                # a dataset marked `grouped` is collected as a whole: the provider asked for it by
+                # saying so, and the type parameter is what it said it would be handed
+                parameter_or_dataset=cast("_UnitT", dataset),
             )
             if not df.is_empty():
                 parameter_names = {parameter.name_original for parameter in parameters}
@@ -314,7 +328,7 @@ class TimeseriesValues(ABC):
             for parameter in parameters:
                 df = self._collect_station_parameter_or_dataset(
                     station_id=station_id,
-                    parameter_or_dataset=parameter,
+                    parameter_or_dataset=cast("_UnitT", parameter),
                 )
                 # a parameter with no data for this station yields a bare frame with no columns,
                 # which cannot be concatenated with the populated ones -- polars raises
@@ -326,10 +340,10 @@ class TimeseriesValues(ABC):
             df = pl.concat(data) if data else pl.DataFrame()
         if df.is_empty():
             return df
-        if self.sr.settings.ts_convert_units:
+        if self.sr.options.convert_units:
             df = self._convert_units(df, dataset)
         df = df.unique(subset=["resolution", "dataset", "parameter", "timestamp"], maintain_order=True)
-        if self.sr.settings.ts_drop_nulls_effective:
+        if self.sr.options.drop_nulls_effective:
             df = df.drop_nulls(subset=["value"])
         return self._organize_df_columns(df, station_id, dataset)
 
@@ -337,7 +351,7 @@ class TimeseriesValues(ABC):
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter_or_dataset: ParameterModel | DatasetModel,
+        parameter_or_dataset: _UnitT,
     ) -> pl.DataFrame:
         """Collect data for a station and a single parameter or dataset."""
 
@@ -432,7 +446,7 @@ class TimeseriesValues(ABC):
                 df_wide = df_wide.join(df_parameter, on=["resolution", "timestamp"], how="left")
         else:
             for parameter in self.sr.parameters:
-                parameter_name = parameter.name_original if not self.sr.settings.ts_humanize else parameter.name
+                parameter_name = parameter.name_original if not self.sr.options.humanize else parameter.name
                 # prefixed on the same condition as the populated branch above, so that an empty
                 # frame carries the column names a populated one would have rather than the
                 # unprefixed names it used to, which named no column the request could produce
@@ -553,11 +567,11 @@ class TimeseriesValues(ABC):
             percentages.append(min(covered / expected, 1.0))
         if not percentages:
             return 0.0
-        if self.sr.settings.ts_skip_criteria == "min":
+        if self.sr.options.skip_criteria == "min":
             return min(percentages)
-        if self.sr.settings.ts_skip_criteria == "mean":
+        if self.sr.options.skip_criteria == "mean":
             return sum(percentages) / len(percentages)
-        if self.sr.settings.ts_skip_criteria == "max":
+        if self.sr.options.skip_criteria == "max":
             return max(percentages)
-        msg = "ts_skip_criteria must be one of min, mean, max"
+        msg = "skip_criteria must be one of min, mean, max"
         raise KeyError(msg)

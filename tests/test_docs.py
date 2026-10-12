@@ -3,9 +3,9 @@
 """Tests for the documentation."""
 
 import doctest
-import os.path
 import re
 from collections.abc import Iterable, Iterator
+from itertools import takewhile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -983,6 +983,11 @@ def _dataset_description_problems(
             yield f"docs {text!r} != model {dataset.description!r}"
 
 
+def _common_prefix(names: list[str]) -> str:
+    """Return the longest string every name starts with (`os.path.commonprefix`, deprecated in Python 3.15)."""
+    return "".join(chars[0] for chars in takewhile(lambda chars: len(set(chars)) == 1, zip(*names, strict=False)))
+
+
 def _distinguishing_tokens(names: list[str]) -> list[str]:
     """Return what is left of each name once the part they all share is removed.
 
@@ -993,9 +998,9 @@ def _distinguishing_tokens(names: list[str]) -> list[str]:
     that differs rather than however many characters happen to be left: those three share the prefix
     `cooling_degreehours_1`, and `3`, `6` and `8` would be matched by almost any prose.
     """
-    head = os.path.commonprefix(names)
+    head = _common_prefix(names)
     head = head[: head.rfind("_") + 1]
-    tail = os.path.commonprefix([name[::-1] for name in names])[::-1]
+    tail = _common_prefix([name[::-1] for name in names])[::-1]
     tail = tail[tail.find("_") :] if "_" in tail else ""
     return [name[len(head) : len(name) - len(tail)] for name in names]
 

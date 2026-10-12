@@ -1389,7 +1389,7 @@ def history(
 
     if path is not None:
         try:
-            Path(path).write_text(output)
+            Path(path).write_text(output, encoding="utf-8")
         except OSError as e:
             # a directory that does not exist or cannot be written, or a path naming a directory
             msg = f"Could not write --target: {e}"

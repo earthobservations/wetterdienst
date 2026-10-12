@@ -26,8 +26,13 @@ Types of changes:
   `unit_targets`, `skip_*`, `drop_nulls` and the `geo_*` distances), the request half of what
   `Settings` holds as `ts_*`, as a frozen class of their own. They read the same `WD_TS_*`
   variables and `.env`, so no host configuration changes; `replace(**changes)` makes a validated
-  copy. Nothing takes them yet and `Settings` is unchanged; `check_settings()` now checks them too
-  (GH-2639)
+  copy. `Settings` is unchanged; `check_settings()` now checks them too (GH-2639)
+- Every timeseries request takes the keyword `options=` (an `Options`, or a dict naming some of
+  them), and `StationsResult.options` carries them to the values, `interpolate` and `summarize`.
+  Given none, a request takes the `ts_*` settings of its `Settings` as before, so nothing changes
+  for a caller who passes none -- except that assigning `settings.ts_*` after the request is built
+  no longer reaches it. Passing `options=` beside settings that carry a non-default `ts_*` raises
+  a `ValueError`: set the options in `options=` alone (GH-2639)
 
 ### Changed
 
@@ -61,6 +66,18 @@ Types of changes:
   whether they are accepted. That probe is one attempt that takes at most 5 s, and AEMET's probe
   reads only the envelope: an `estado` of 200 is accepted, whatever follows. The app lists the
   networks at once and hides one when `/api/auth` says its credentials are rejected (GH-2564)
+- The package ships `py.typed` (PEP 561): mypy and pyright now read the annotations of the public
+  API instead of taking all of it for `Any`, so code they passed before may report errors. For
+  that the annotations were made true: every provider package lists its classes in `__all__`
+  (strict mode refuses `from wetterdienst.provider.dwd.observation import DwdObservationRequest`
+  otherwise), `to_plot(**kwargs)` takes any values (it said `dict`), `discover()` is
+  `dict[str, Any]`, and `TimeseriesValues` is generic over the model a provider collects by (a bare
+  `TimeseriesValues` still means any). A request's `metadata`, `_values` and `_history` are class
+  variables, no longer in `dataclasses.fields()` (GH-2622)
+- **Breaking**: a `.env` file is read as UTF-8 on every Python, where the encoding was the locale's
+  (the ANSI code page on Windows) until Python 3.15 made UTF-8 the default. A `.env` saved in a
+  Windows code page with a non-ASCII value now raises `UnicodeDecodeError` on `Settings()`:
+  re-save it as UTF-8 (GH-2568)
 - A value a provider maps from a missing-value sentinel is no longer a null with no trace: the text
   the source wrote is the last token of `quality_flags`, `raw:<text>` (`3,raw:-999`, `raw:-99.0`,
   `raw:NaN`), for the `dwd` networks that read one, `aemet`, `fmi`, `geosphere`, `imgw/hydrology`,

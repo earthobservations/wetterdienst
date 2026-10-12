@@ -288,7 +288,7 @@ class DwdPhenologyRequest(TimeseriesRequest):
     """Request class for DWD phenology data."""
 
     metadata = DwdPhenologyMetadata
-    _values = cast("TimeseriesValues", DwdPhenologyValues)
+    _values = DwdPhenologyValues
     _selects_by_period = True
 
     @staticmethod
