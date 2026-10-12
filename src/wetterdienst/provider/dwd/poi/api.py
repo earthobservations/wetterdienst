@@ -55,9 +55,10 @@ _TIME_COLUMN_INDEX = 1
 # line 1 is the header polars reads; lines 2 and 3 are the units and the German descriptions
 _HEADER_ROWS = 2
 
-# The cloud cover is a percent, 0 to 100, and 20,804 reports of 960 files (2026-10-12) hold 113 in 26 and 126 in 32 of
-# the 8744 that have one: no cloud cover, and neither number is explained by a description of DWD's. They come with
-# a visibility of 75 km as well as of 0.1 km, so they are not fog alone.
+# The cloud cover is a percent on a grid of oktas (oktas x 12.5: 0, 12/13, 25, ... 100), and 20,804 reports of 960
+# files (2026-10-12) hold 113 in 26 and 126 in 32 of the 8744 that have one. 113 is 9 oktas, the WMO N=9 "sky
+# obscured"; 126 comes with fog (present_weather 5), a visibility below 1 km and no cloud base, and DWD describes
+# neither. Neither is an amount of cloud.
 _CLOUD_COVER_CODES = (Sentinel("113", "126", where=pl.col("parameter").eq("cloud_cover_total")),)
 
 _EMPTY_VALUES_SCHEMA = {

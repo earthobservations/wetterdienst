@@ -19,9 +19,8 @@ Types of changes:
 ### Fixed
 
 - `dwd/poi` `cloud_cover_total` is null, with `raw:113` or `raw:126` in `quality_flags`, where DWD
-  writes those numbers in the percent column. They came back as a cloud cover of 1.13 and 1.26 (the
-  percent is converted to a decimal): 58 of 8744 reports in a day of 960 stations. Take the cover
-  only where it is not null (GH-2615)
+  writes those numbers in the percent column (113 is an obscured sky, 126 comes with fog). They
+  came back as a cloud cover of 1.13 and 1.26: 58 of 8744 reports in a day of 960 stations (GH-2615)
 
 ## [0.147.0] - 2026-10-12
 

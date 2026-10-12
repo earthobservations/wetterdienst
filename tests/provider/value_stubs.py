@@ -588,7 +588,7 @@ def _dwd_poi(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Dat
         "Datum;Uhrzeit (UTC);Wolkenbedeckung;Temperatur (2m)\n"
         "10.10.26;20:00;100;15,3\n"
         "10.10.26;19:00;---;15,4\n"
-        # a percent that reads 113 or 126 (stations 03953, 13367 and others at 2026-10-12; 58 of 8744 reports)
+        # a percent that reads 113 (9 oktas x 12.5, sky obscured) or 126 (03953, 13367, 2026-10-12)
         "10.10.26;18:00;113;15,5\n"
         "10.10.26;17:00;126;15,6\n"
     ).encode("latin-1")
