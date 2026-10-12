@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteofrance.synop.metadata import MeteoFranceSynopMetadata
@@ -38,10 +39,12 @@ _SYNOP_ARCHIVE_START_YEAR = 1996
 # codes the source writes in place of a number (GH-2674); the file defines neither, they are read off the data:
 # `-0.1` in the precipitation columns is a trace (WMO element 013011 has a reference value of -1 at scale 1), some rain
 # below what the gauge reports, so it is 0.0 rather than a negative amount; `101` in `n` is outside the classes 0 to
-# 100 and comes with a visibility of metres and a cloud base class 9, the sky was obscured, so there is no amount
+# 100 and comes with a visibility of metres and a cloud base class 9, the sky was obscured, so there is no amount.
+# The reading keeps the code as the `raw` token of its `quality_flags` (GH-2759); the 2024 file (7 MB, checked
+# 2026-10-12) writes `-0.1` 12733 times in rr6 and 8862 times in rr1, and `101` 2388 times in n
 _SYNOP_TRACE_COLUMNS = ("rr1", "rr3", "rr6", "rr12", "rr24")
-_SYNOP_TRACE = -0.1
-_SYNOP_SKY_OBSCURED = 101.0
+_SYNOP_TRACE = "-0.1"
+_SYNOP_SKY_OBSCURED = "101"
 
 # explicit schema of the exact columns published by the source, read as strings throughout since
 # many columns are entirely empty for a given station or year, which would otherwise lead to
@@ -171,6 +174,15 @@ class MeteoFranceSynopValues(TimeseriesValues):
             variable_name="parameter",
             value_name="value",
         )
+        # before the unit conversion
+        value, raw = null_sentinels(
+            pl.col("value"),
+            Sentinel(_SYNOP_TRACE, where=pl.col("parameter").is_in(_SYNOP_TRACE_COLUMNS), to=0.0),
+            Sentinel(_SYNOP_SKY_OBSCURED, where=pl.col("parameter").eq("n")),
+            # a missing reading is an empty field; a text that is no number was nulled by the cast alone
+            # (the 2024 file holds none) and now keeps its text too
+            non_numeric=True,
+        )
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
@@ -180,19 +192,9 @@ class MeteoFranceSynopValues(TimeseriesValues):
             .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", strict=False)
             .dt.replace_time_zone("UTC")
             .alias("timestamp"),
-            _map_codes(pl.col("parameter"), pl.col("value").cast(pl.Float64, strict=False)).alias("value"),
+            value.alias("value"),
+            join_quality_flags(None, raw=raw),
         )
-
-
-def _map_codes(parameter: pl.Expr, value: pl.Expr) -> pl.Expr:
-    """Map the codes the source writes for a trace of rain and for an obscured sky, before the unit conversion."""
-    return (
-        pl.when(parameter.is_in(_SYNOP_TRACE_COLUMNS) & value.eq(_SYNOP_TRACE))
-        .then(pl.lit(0.0))
-        .when(parameter.eq("n") & value.eq(_SYNOP_SKY_OBSCURED))
-        .then(pl.lit(None, pl.Float64))
-        .otherwise(value)
-    )
 
 
 @dataclass

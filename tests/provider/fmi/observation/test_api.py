@@ -235,8 +235,8 @@ def test_fmi_observation_values_window_in_helsinki_time_across_the_clock_change(
         sent.append((start, end))
         hours = pl.datetime_range(start, end, interval="1h", eager=True)
         return pl.DataFrame(
-            {"timestamp": hours, "parameter": "t2m", "value": 1.0},
-            schema_overrides={"timestamp": pl.Datetime("us", "UTC")},
+            {"timestamp": hours, "parameter": "t2m", "value": 1.0, "quality_flags": None},
+            schema_overrides={"timestamp": pl.Datetime("us", "UTC"), "quality_flags": pl.String},
         )
 
     monkeypatch.setattr(FmiObservationValues, "_collect_window", collect_window)

@@ -20,6 +20,7 @@ from lxml.etree import iterparse
 from tqdm import tqdm
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.quality_flags import raw_column
 from wetterdienst.util.io import read_in_chunks
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.network import NetworkFilesystemManager
@@ -33,6 +34,9 @@ if TYPE_CHECKING:
     from wetterdienst.util.network import HTTPFileSystem
 
 log = logging.getLogger(__name__)
+
+# how the file writes a value it does not have, in the list of values of an element
+MISSING_VALUE = "-"
 
 
 class KMLReader:
@@ -258,7 +262,7 @@ class KMLReader:
                 if measurement_string is None:
                     continue
                 # str.split() already collapses the whitespace-separated value list
-                measurement_values = [None if i == "-" else float(i) for i in measurement_string.split()]
+                measurement_values = [None if i == MISSING_VALUE else float(i) for i in measurement_string.split()]
                 self.data[station_id][measurement_parameter.lower()] = measurement_values
             station_forecast.clear()
 
@@ -268,4 +272,11 @@ class KMLReader:
         if not station_forecast_values:
             return pl.DataFrame()
         data = {"timestamp": self.timesteps} | station_forecast_values
-        return pl.DataFrame(data)
+        df = pl.DataFrame(data)
+        # a value the file writes as "-" was stored as None, so the text beside each None is that "-". It is kept
+        # beside its column for `quality_flags` (GH-2759); the stored lists stay floats, as MOSMIX-S holds
+        # tens of millions of them for all stations
+        return df.with_columns(
+            pl.when(pl.col(parameter).is_null()).then(pl.lit(MISSING_VALUE)).alias(raw_column(parameter))
+            for parameter in station_forecast_values
+        )

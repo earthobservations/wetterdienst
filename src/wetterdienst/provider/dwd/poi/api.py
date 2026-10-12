@@ -31,6 +31,7 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.quality_flags import join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.catalogue import read_mosmix_station_catalogue
@@ -143,15 +144,17 @@ class DwdPoiValues(TimeseriesValues):
             *[pl.col(column) for column in columns],
         )
         df = df.unpivot(index=["timestamp"], variable_name="parameter", value_name="value")
+        # "---" marks a missing value, and any other value DWD cannot express as a number is none either: both
+        # become null and the text stays beside the value as `raw:` (GH-2759)
+        value, raw = null_sentinels(pl.col("value").str.replace(",", "."), non_numeric=True)
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
-            # "---" marks a missing value and is cast away non-strictly, as is any other value DWD
-            # cannot express as a number
-            pl.col("value").str.replace(",", ".").cast(pl.Float64, strict=False),
+            value.alias("value"),
+            join_quality_flags(None, raw=raw),
         )
 
 

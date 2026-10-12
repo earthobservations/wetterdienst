@@ -20,6 +20,11 @@ from wetterdienst.provider.aemet.observation.api import (
     AemetObservationValues,
     _download_with_rate_limit_retry,
 )
+from wetterdienst.provider.aemet.observation.parser import (
+    parse_decimal_comma,
+    parse_monthly_value,
+    parse_wind_direction,
+)
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, File
 
@@ -682,3 +687,26 @@ def test_aemet_observation_is_valid_is_unknown_when_the_probe_could_not_tell(
         assert AemetObservationRequest.is_valid() is None
     assert len(calls) == 1
     assert any(record.getMessage().startswith("Could not check the AEMET API key") for record in caplog.records)
+
+
+def test_aemet_observation_monthly_value_keeps_the_text_of_what_is_no_number() -> None:
+    """Test that `24.2(20)` is 24.2 and a text with no number in front is null with its text as `raw` (GH-2759)."""
+    value, raw = parse_monthly_value("v")
+    df = pl.DataFrame({"v": ["24.2(20)", "39.4(27/jul)", "-3.0", "Ip", "", None]}).select(
+        value.alias("value"), raw.alias("raw")
+    )
+    assert df.get_column("value").to_list() == [24.2, 39.4, -3.0, None, None, None]
+    assert df.get_column("raw").to_list() == [None, None, None, "Ip", None, None]
+
+
+def test_aemet_observation_daily_values_keep_the_text_of_what_is_no_number() -> None:
+    """Test the decimal comma, the wind direction in tens of degrees with its 99, and a text that is no number."""
+    value, raw = parse_decimal_comma("v")
+    direction, direction_raw = parse_wind_direction("v")
+    df = pl.DataFrame({"v": ["28,0", "Ip", "99", "23", None]}).select(
+        value.alias("value"), raw.alias("raw"), direction.alias("direction"), direction_raw.alias("direction_raw")
+    )
+    assert df.get_column("value").to_list() == [28.0, None, 99.0, 23.0, None]
+    assert df.get_column("raw").to_list() == [None, "Ip", None, None, None]
+    assert df.get_column("direction").to_list() == [280.0, None, None, 230.0, None]
+    assert df.get_column("direction_raw").to_list() == [None, "Ip", "99", None, None]

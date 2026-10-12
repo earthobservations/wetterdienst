@@ -253,7 +253,7 @@ class KnmiObservationValues(TimeseriesValues):
         if not frames:
             return self._empty_df()
 
-        # every frame from parse_knmi_netcdf shares the same (timestamp, parameter, value) schema
+        # every frame from parse_knmi_netcdf shares the same (timestamp, parameter, value, quality_flags) schema
         df = pl.concat(frames)
         return df.select(
             pl.lit(resolution.value, dtype=pl.String).alias("resolution"),
@@ -262,6 +262,7 @@ class KnmiObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
             pl.col("value"),
+            pl.col("quality_flags"),
         )
 
     @staticmethod

@@ -78,6 +78,16 @@ Types of changes:
   (the ANSI code page on Windows) until Python 3.15 made UTF-8 the default. A `.env` saved in a
   Windows code page with a non-ASCII value now raises `UnicodeDecodeError` on `Settings()`:
   re-save it as UTF-8 (GH-2568)
+- A value a provider maps from a missing-value sentinel is no longer a null with no trace: the text
+  the source wrote is the last token of `quality_flags`, `raw:<text>` (`3,raw:-999`, `raw:-99.0`,
+  `raw:NaN`), for the `dwd` networks that read one, `aemet`, `fmi`, `geosphere`, `imgw/hydrology`,
+  `ipma`, `knmi`, `meteofrance`, `metoffice`, `metno/frost` and `noaa/ghcn` hourly. Where the source
+  documents the code (FMI's `-1.0`), the value is what it stands for (`0.0`) and the token stays.
+  The long frame drops null rows by default, so read the token with `ts_drop_nulls=False` or in the
+  wide shape, where a null `quality_flags` no longer means "no flag" for these rows.
+  `metoffice/observation` returns a day whose reports are all `NA` as a null row, and
+  `imgw/hydrology` nulls `9999` in the stage, `99999.999` in the discharge and `99.9`, `9999` in
+  the water temperature, no longer all three in every column (GH-2759)
 
 ### Removed
 

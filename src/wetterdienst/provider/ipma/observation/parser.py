@@ -8,12 +8,25 @@ import json
 
 import polars as pl
 
-# IPMA's missing-value sentinel, used across every numeric observation field.
-_MISSING = -99.0
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
+
+# IPMA's missing-value sentinel, used across every numeric observation field, as the feed writes it
+# (`"radiacao": -99.0`; on the live feed of 2026-10-12 it is the only one, in every field)
+_MISSING = Sentinel("-99.0")
 
 # ``idDireccVento`` is an 8-point wind-direction code, not degrees. Per the IPMA docs: 0 = no
 # direction (calm) -> null; 1 and 9 both mean N; 2..8 step clockwise through NE, E, SE, S, SW, W, NW.
-_WIND_DIRECTION_DEGREES = {1: 0.0, 2: 45.0, 3: 90.0, 4: 135.0, 5: 180.0, 6: 225.0, 7: 270.0, 8: 315.0, 9: 0.0}
+_WIND_DIRECTION_DEGREES = {
+    1.0: 0.0,
+    2.0: 45.0,
+    3.0: 90.0,
+    4.0: 135.0,
+    5.0: 180.0,
+    6.0: 225.0,
+    7.0: 270.0,
+    8.0: 315.0,
+    9.0: 0.0,
+}
 
 # the raw observation fields mapped to parameters (i.e. every ``name_original`` in metadata.py).
 _VALUE_FIELDS = (
@@ -36,6 +49,7 @@ _EMPTY_VALUES_SCHEMA = {
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
+    "quality_flags": pl.String,
 }
 
 
@@ -64,15 +78,6 @@ def parse_ipma_stations(content: bytes) -> pl.DataFrame:
     return pl.DataFrame(rows, schema=_EMPTY_STATIONS_SCHEMA)
 
 
-def _value(field: str, raw: float | None) -> float | None:
-    """Normalise one raw field value: sentinel/missing to null, wind-direction code to degrees."""
-    if raw is None or raw == _MISSING:
-        return None
-    if field == "idDireccVento":
-        return _WIND_DIRECTION_DEGREES.get(int(raw))  # code 0 (calm) and unknown codes -> null
-    return float(raw)
-
-
 def parse_ipma_observations_feed(content: bytes) -> dict:
     """Deserialise the all-stations ``observations.json`` once into its nested dict.
 
@@ -90,8 +95,9 @@ def extract_ipma_station_observations(feed: dict, station_id: str) -> pl.DataFra
     """Extract one station's long-form rows from an already-parsed observations ``feed``.
 
     A station that reported nothing for a timestamp maps to ``null`` and is skipped. The emitted
-    ``parameter`` column keeps the raw IPMA field name (``name_original``); values are normalised via
-    :func:`_value`. Timestamps are UTC (``YYYY-MM-DDTHH:MM``).
+    ``parameter`` column keeps the raw IPMA field name (``name_original``). The ``-99.0`` sentinel is nulled, a
+    wind-direction code is converted to degrees, and the text of what was nulled is kept as ``raw:`` in
+    ``quality_flags`` (GH-2759). Timestamps are UTC (``YYYY-MM-DDTHH:MM``).
     """
     rows = []
     for timestamp, stations in feed.items():
@@ -99,13 +105,22 @@ def extract_ipma_station_observations(feed: dict, station_id: str) -> pl.DataFra
         if not record:
             continue
         for field in (*_VALUE_FIELDS, "idDireccVento"):
-            rows.append({"timestamp": timestamp, "parameter": field, "value": _value(field, record.get(field))})
+            value = record.get(field)
+            rows.append({"timestamp": timestamp, "parameter": field, "value": None if value is None else float(value)})
     if not rows:
         return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-    return pl.DataFrame(
-        rows, schema={"timestamp": pl.String, "parameter": pl.String, "value": pl.Float64}
-    ).with_columns(
+    cleaned, raw = null_sentinels(pl.col("value"), _MISSING, text=False)
+    # a wind direction is a code of eight points, and code 0 is "no direction (calm)" or a code no table lists: no
+    # direction either way, and the code is kept as its text
+    is_direction = pl.col("parameter") == "idDireccVento"
+    no_direction = is_direction & cleaned.is_not_null() & ~cleaned.is_in(list(_WIND_DIRECTION_DEGREES))
+    raw = pl.coalesce(raw, pl.when(no_direction).then(cleaned.cast(pl.Int64).cast(pl.String)))
+    degrees = cleaned.replace_strict(_WIND_DIRECTION_DEGREES, default=None, return_dtype=pl.Float64)
+    return pl.DataFrame(rows, schema={"timestamp": pl.String, "parameter": pl.String, "value": pl.Float64}).select(
         pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M", time_unit="us").dt.replace_time_zone("UTC"),
+        pl.col("parameter"),
+        pl.when(is_direction).then(degrees).otherwise(cleaned).alias("value"),
+        join_quality_flags(None, raw=raw),
     )
 
 

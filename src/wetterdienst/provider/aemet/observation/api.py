@@ -18,6 +18,7 @@ from wetterdienst.exceptions import CredentialMissingError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.quality_flags import join_quality_flags, raw_column, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.aemet.observation.metadata import AemetObservationMetadata
@@ -405,21 +406,26 @@ class AemetObservationValues(TimeseriesValues):
         for column in ("fecha", *_VALUE_COLUMNS):
             if column not in df.columns:
                 df = df.with_columns(pl.lit(None, pl.String).alias(column))
+        # a value that is no number is null and keeps its text beside it as `raw:` (GH-2759)
+        parsed = {
+            "tmed": parse_decimal_comma("tmed"),
+            "tmax": parse_decimal_comma("tmax"),
+            "tmin": parse_decimal_comma("tmin"),
+            "prec": parse_decimal_comma("prec"),
+            "dir": parse_wind_direction("dir"),
+            "velmedia": parse_decimal_comma("velmedia"),
+            "racha": parse_decimal_comma("racha"),
+            "presMax": parse_decimal_comma("presMax"),
+            "presMin": parse_decimal_comma("presMin"),
+            "hrMedia": parse_decimal_comma("hrMedia"),
+            "hrMax": parse_decimal_comma("hrMax"),
+            "hrMin": parse_decimal_comma("hrMin"),
+        }
         df = df.with_columns(
-            parse_decimal_comma("tmed").alias("tmed"),
-            parse_decimal_comma("tmax").alias("tmax"),
-            parse_decimal_comma("tmin").alias("tmin"),
-            parse_decimal_comma("prec").alias("prec"),
-            parse_wind_direction("dir").alias("dir"),
-            parse_decimal_comma("velmedia").alias("velmedia"),
-            parse_decimal_comma("racha").alias("racha"),
-            parse_decimal_comma("presMax").alias("presMax"),
-            parse_decimal_comma("presMin").alias("presMin"),
-            pl.col("hrMedia").cast(pl.Float64, strict=False).alias("hrMedia"),
-            pl.col("hrMax").cast(pl.Float64, strict=False).alias("hrMax"),
-            pl.col("hrMin").cast(pl.Float64, strict=False).alias("hrMin"),
+            *[value.alias(name) for name, (value, _) in parsed.items()],
+            *[raw.alias(raw_column(name)) for name, (_, raw) in parsed.items()],
         )
-        df = df.unpivot(index="fecha", on=list(_VALUE_COLUMNS), variable_name="parameter", value_name="value")
+        df = unpivot_with_raw(df, index=["fecha"], on=list(_VALUE_COLUMNS))
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
@@ -427,6 +433,7 @@ class AemetObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("fecha").str.to_datetime("%Y-%m-%d").dt.replace_time_zone("UTC").alias("timestamp"),
             pl.col("value"),
+            join_quality_flags(None, raw=pl.col("raw")),
         )
 
     def _collect_monthly_or_annual(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
@@ -476,22 +483,21 @@ class AemetObservationValues(TimeseriesValues):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         date_expr = pl.date(pl.col("_year"), 1, 1) if is_annual else pl.date(pl.col("_year"), pl.col("_period"), 1)
         df = df.with_columns(date_expr.alias("_date"))
+        parsed = {
+            "tm_mes": parse_monthly_value("tm_mes"),
+            "tm_max": parse_monthly_value("tm_max"),
+            "tm_min": parse_monthly_value("tm_min"),
+            "ta_max": parse_monthly_value("ta_max"),
+            "ta_min": parse_monthly_value("ta_min"),
+            "p_mes": parse_monthly_value("p_mes"),
+            "p_max": parse_monthly_value("p_max"),
+            "hr": parse_decimal_comma("hr"),
+        }
         df = df.with_columns(
-            parse_monthly_value("tm_mes").alias("tm_mes"),
-            parse_monthly_value("tm_max").alias("tm_max"),
-            parse_monthly_value("tm_min").alias("tm_min"),
-            parse_monthly_value("ta_max").alias("ta_max"),
-            parse_monthly_value("ta_min").alias("ta_min"),
-            parse_monthly_value("p_mes").alias("p_mes"),
-            parse_monthly_value("p_max").alias("p_max"),
-            pl.col("hr").cast(pl.Float64, strict=False).alias("hr"),
+            *[value.alias(name) for name, (value, _) in parsed.items()],
+            *[raw.alias(raw_column(name)) for name, (_, raw) in parsed.items()],
         )
-        df = df.unpivot(
-            index="_date",
-            on=list(_MONTHLY_ANNUAL_VALUE_COLUMNS),
-            variable_name="parameter",
-            value_name="value",
-        )
+        df = unpivot_with_raw(df, index=["_date"], on=list(_MONTHLY_ANNUAL_VALUE_COLUMNS))
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
@@ -499,6 +505,7 @@ class AemetObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("_date").cast(pl.Datetime(time_zone="UTC")).alias("timestamp"),
             pl.col("value"),
+            join_quality_flags(None, raw=pl.col("raw")),
         )
 
 
