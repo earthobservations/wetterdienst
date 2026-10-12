@@ -551,7 +551,8 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 | Met Office observation | the MIDAS `*_q` flag `MESQL`, a five digit compound code, written by the file as an integer so that its leading zeros are missing (`2576` is `02576`; `str.zfill(5)` restores them) (marker, estimate, status, query, level: [QC flags](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html)); not a scale |
 | RMI | the validation of the value in `qc_flags`: `1` validated, `0` not validated |
 | IMGW meteorology | the status column beside the value: `8` no measurement (value null), `9` the phenomenon did not occur (value 0), `Z` a collective total (`o_d` only); `11` is this library's own, for a day absent from a month that is present (`daily/precipitation`, value 0). Blank status is null |
-| IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, DMI, MeteoSwiss, AEMET, Geosphere, Météo-France synop | null (apart from `raw:`) |
+| IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, MeteoSwiss, AEMET, Geosphere, Météo-France synop | null (apart from `raw:`) |
+| DMI | `qcStatus`: `manual` quality controlled by DMI's climatologists, `none` not controlled; then `validity:true` or `validity:false`, whether the climatologists consider the value valid ("Invalid data is generally not correct"; mostly Greenland) |
 | Hubeau (Eaufrance) | `code_qualification_obs`: `0` neutre, `4` faible, `8` forte, `12` douteuse, `16` non qualifiée, `20` bonne, `30` estimée |
 | MET Norway Frost | `qualityCode`: `0` controlled and found O.K., `1` controlled and corrected or interpolated, `2` slightly uncertain, not controlled, `4` slightly uncertain, not corrected, `5` very uncertain, not corrected, `6` very uncertain, model data, `7` erroneous, not corrected |
 | ECCC | the `*_FLAG` letter of the value: `M` missing, `E` estimated, `T` trace, ... (null for monthly) |

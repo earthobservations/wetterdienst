@@ -476,13 +476,14 @@ def test_collect_dates_daily_max_precipitation_by_the_day_it_ends_on(monkeypatch
 
 
 def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Rows as DMI serves them for 04339 (GH-2797): 1978 mm in a day is no reading, DMI marks it invalid."""
+    """A daily 1978 mm of 04339 (GH-2797) is no reading and DMI marks it invalid; a flag it leaves out is left out."""
     rows = [
         # (parameterId, from, value, qcStatus, validity)
         ("acc_precip", "2011-07-24T06:00:00+00:00", 1978.0, "manual", False),
         ("acc_precip", "2011-07-25T06:00:00+00:00", 3.4, "manual", True),
         ("mean_temp", "2011-07-24T06:00:00+00:00", 5.1, "none", True),
         ("mean_temp", "2011-07-25T06:00:00+00:00", 5.3, None, None),
+        ("mean_temp", "2011-07-26T06:00:00+00:00", 5.5, None, False),
     ]
     features = [
         {
@@ -502,7 +503,7 @@ def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: py
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
         start=dt.datetime(2011, 7, 24, tzinfo=UTC),
-        end=dt.datetime(2011, 7, 26, tzinfo=UTC),
+        end=dt.datetime(2011, 7, 27, tzinfo=UTC),
         stations=SimpleNamespace(settings=Settings(cache_disable=True)),
     )
     dataset = dmi_api.DmiObservationMetadata["daily"].datasets[0]
@@ -514,4 +515,5 @@ def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: py
         ("acc_precip", 3.4): "manual,validity:true",
         ("mean_temp", 5.1): "none,validity:true",
         ("mean_temp", 5.3): None,
+        ("mean_temp", 5.5): "validity:false",
     }

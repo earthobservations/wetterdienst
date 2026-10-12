@@ -324,13 +324,7 @@ def _quality_flags() -> pl.Expr:
     generally not correct", and sets it ``false`` for Greenland and, rarely, Denmark. The value of such a
     record is kept, so a caller can drop it by the flag (GH-2797).
     """
-    validity = pl.col("validity")
-    return join_quality_flags(
-        pl.col("qcStatus"),
-        validity=pl.when(validity.is_not_null()).then(
-            pl.when(validity).then(pl.lit("true")).otherwise(pl.lit("false"))
-        ),
-    )
+    return join_quality_flags(pl.col("qcStatus"), validity=pl.col("validity"))
 
 
 @dataclass
