@@ -31,9 +31,9 @@ is effectively a de-duplication there. Hourly datasets carry one reading per hou
 Not every station measures every parameter — a station/parameter combination MIDAS doesn't have
 simply contributes no rows.
 
-The `quality_flags` column carries MIDAS's raw five-digit `MESQL` quality-control flag verbatim, as
-the string the file writes (an integer, so its leading zeros are missing: `2576` is `02576`); each digit encodes a different aspect of the
-observation's quality (see the
+The `quality_flags` column carries MIDAS's `MESQL` quality-control flag, a five-digit code that the
+file writes as an integer (`2576` is `02576`), as the string the file writes; each digit encodes a
+different aspect of the observation's quality (see the
 [MIDAS QC flag documentation](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html)),
 so a larger number is not "worse".
 

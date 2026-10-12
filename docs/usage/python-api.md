@@ -514,8 +514,8 @@ values.df_stations
 Every reading has one string column, `quality_flags` (in the wide shape `<parameter>_quality_flags`),
 holding the flags its source publishes for it. It is null where the source gives none, which is the
 case for every provider not listed below. Interpolated and summarized results have no such column, as
-they are made of several stations' readings. The sources call the field by many names (DWD `QN`, MIDAS `MESQL`,
-ECCC `Flag`, SMHI `Kvalitet`, GHCN `QFLAG`, NWS `qualityControl`, Frost `qualityCode`, Hubeau
+they are made of several stations' readings. The sources call the field by many names (DWD `QN`,
+MIDAS `MESQL`, ECCC `Flag`, SMHI `Kvalitet`, GHCN `QFLAG`, NWS `qualityControl`, Frost `qualityCode`, Hubeau
 `code_qualification_obs`, Météo-France `Q<parameter>`) and the meaning of a code differs from provider to
 provider, so a code from one says nothing about one from another; none is a scale of better and worse
 unless the table says so.
@@ -526,7 +526,8 @@ unless the table says so.
   `3,element:E`). A blank flag is left out, so a plain token is always the quality flag, and
   `measurement:T` alone is a reading whose quality flag is blank.
 - `str.split(",")` takes the tokens apart; where a numeric code was used before, cast it:
-  `pl.col("quality_flags").cast(pl.Int64)`.
+  `pl.col("quality_flags").cast(pl.Int64, strict=False)`; a code that is no number (IMGW's `Z`) and a
+  value with several tokens become null.
 
 | Provider | codes in `quality_flags` |
 | --- | --- |

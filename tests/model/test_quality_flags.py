@@ -31,14 +31,14 @@ def test_the_quality_flag_is_plain_and_the_other_kinds_follow_with_their_name() 
     df = pl.DataFrame(
         {
             "q": ["G", None, "", "X", None],
-            "m": ["S", "S", "", None, ""],
+            "m": ["T", "T", "", None, ""],
             "s": [7, None, None, 1, None],
         },
     )
     expr = join_quality_flags(pl.col("q"), measurement=pl.col("m"), source=pl.col("s"))
     assert _flags(df, expr) == [
-        "G,measurement:S,source:7",
-        "measurement:S",
+        "G,measurement:T,source:7",
+        "measurement:T",
         None,
         "X,source:1",
         None,
