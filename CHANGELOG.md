@@ -33,7 +33,8 @@ Types of changes:
   the parameters is one (GH-2763)
 - `Settings` no longer holds the 15 `ts_*` settings: they are gone from `model_fields`,
   `model_dump()` and the repr, and a malformed `WD_TS_*` is refused when `Options` is built, not by
-  `Settings()` (GH-2639)
+  `Settings()`. `Settings(_env_file=...)` no longer sets options: use `Options(_env_file=...)`
+  (GH-2639)
 
 ### Deprecated
 

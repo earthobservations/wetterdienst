@@ -210,8 +210,8 @@ class _Taken(Exception):  # noqa: N818
 
 
 def _is_set(options: Options, case: Case) -> bool:
-    """Tell whether the options carry the value the case sets, which a surface that dropped it would not."""
-    return options.model_dump()[case.option] == case.value
+    """Tell whether the options are the defaults plus the case's value, and nothing else changed."""
+    return options.model_dump() == Options(**{case.option: case.value}).model_dump()
 
 
 def _take(monkeypatch: pytest.MonkeyPatch, getter: str) -> list[Options]:

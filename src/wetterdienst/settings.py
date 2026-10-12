@@ -13,6 +13,7 @@ import os
 import platform
 import re
 import shutil
+import sys
 import tempfile
 import threading
 import warnings
@@ -21,6 +22,8 @@ from pathlib import Path
 from typing import Any, Self
 
 import platformdirs
+import pydantic
+import pydantic_settings
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -398,6 +401,12 @@ def _redacted_client_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     return redacted
 
 
+#: the code that is no caller of the shim: wetterdienst itself and the libraries it goes through
+_SKIPPED_FRAMES = (
+    *(str(Path(module.__file__).parent) for module in (pydantic, pydantic_settings) if module.__file__ is not None),
+    str(Path(__file__).parent),
+)
+
 #: the ``ts_*`` settings the settings carried until options took them over (GH-2639), by the name of
 #: the option each became. Still accepted, with a warning, until they are dropped for good
 _REMOVED_SETTINGS: dict[str, str] = {f"ts_{name}": name for name in Options.model_fields}
@@ -408,7 +417,25 @@ _REMOVED_MEMBERS: dict[str, str] = {
 }
 
 
-def _warn_removed(name: str, *, stacklevel: int) -> None:
+def _caller_stacklevel() -> int:
+    """Return the stacklevel, for `_warn_removed`, that points at the code outside wetterdienst and pydantic.
+
+    The shim is reached through `__init__`, `model_validate` (which a request calls for settings
+    given as a dict), `__getattr__` and `__setattr__`, some of them through frames of pydantic and
+    of the generated dataclass `__init__`. A warning attributed to one of those is not shown by
+    default, which shows a `DeprecationWarning` only for code in ``__main__``.
+    """
+    level = 2
+    frame = sys._getframe(2)  # noqa: SLF001
+    while frame is not None and (
+        frame.f_code.co_filename.startswith(_SKIPPED_FRAMES) or frame.f_code.co_filename[0] == "<"
+    ):
+        level += 1
+        frame = frame.f_back
+    return level
+
+
+def _warn_removed(name: str) -> None:
     """Warn that a ``ts_*`` setting is deprecated and what to use instead."""
     if name in _REMOVED_MEMBERS:
         use = f"read request.options.{_REMOVED_MEMBERS[name]}"
@@ -419,7 +446,7 @@ def _warn_removed(name: str, *, stacklevel: int) -> None:
         f"the setting '{name}' is deprecated: it is an option of the request now; {use}. "
         "The WD_TS_* variables are unchanged",
         DeprecationWarning,
-        stacklevel=stacklevel,
+        stacklevel=_caller_stacklevel(),
     )
 
 
@@ -555,8 +582,17 @@ class Settings(BaseSettings):
         if not removed:
             return
         for name in removed:
-            _warn_removed(name, stacklevel=4)
+            _warn_removed(name)
         self._ts_options = options_from_mapping({_REMOVED_SETTINGS[name]: value for name, value in removed.items()})
+
+    def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Self:
+        """Copy the settings, taking a removed ``ts_*`` setting in `update` as an assignment to the copy."""
+        removed = {name: value for name, value in (update or {}).items() if name in _REMOVED_SETTINGS}
+        rest = {name: value for name, value in (update or {}).items() if name not in removed}
+        settings = super().model_copy(update=rest or None, deep=deep)
+        for name, value in removed.items():
+            setattr(settings, name, value)
+        return settings
 
     def __getattr__(self, name: str) -> object:
         """Read a removed ``ts_*`` setting from the options it became, and say it is removed (GH-2639)."""
@@ -564,7 +600,7 @@ class Settings(BaseSettings):
         if option is None:
             # pydantic defines `__getattr__` (private attributes and extras) outside the type-checking view
             return super().__getattr__(name)  # ty: ignore[unresolved-attribute]
-        _warn_removed(name, stacklevel=3)
+        _warn_removed(name)
         return getattr(self._options_of_ts_settings(), option)
 
     def __setattr__(self, name: str, value: object) -> None:
@@ -577,7 +613,7 @@ class Settings(BaseSettings):
         if option is None:
             super().__setattr__(name, value)
             return
-        _warn_removed(name, stacklevel=3)
+        _warn_removed(name)
         self._ts_options = self._options_of_ts_settings().replace(**{option: value})
 
     def _options_of_ts_settings(self) -> Options:

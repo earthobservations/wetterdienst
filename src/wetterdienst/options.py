@@ -4,8 +4,8 @@
 
 `Settings` is the host's configuration -- cache, network client, credentials -- and is read by the
 providers. What is here is the request's: no provider reads it, only the values, the interpolation
-and the summary will. The defaults come from the same ``WD_TS_*`` variables that `Settings` reads
-as its ``ts_*`` settings, so an operator who set ``WD_TS_SHAPE`` changes nothing.
+and the summary do. The defaults come from the ``WD_TS_*`` variables, which `Settings` read as its
+``ts_*`` settings until GH-2639, so an operator who set ``WD_TS_SHAPE`` changes nothing.
 """
 
 from __future__ import annotations

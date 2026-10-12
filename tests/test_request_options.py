@@ -666,3 +666,27 @@ def test_a_ts_setting_that_never_existed_is_still_refused() -> None:
     """Only the `ts_*` settings that existed are taken; another is the unknown setting it is."""
     with pytest.raises(ValidationError, match="ts_nope"):
         Settings(ts_nope=1)
+
+
+def test_the_warning_is_attributed_to_the_caller_whichever_way_a_ts_setting_comes_in() -> None:
+    """Python shows a `DeprecationWarning` by default for the code in `__main__` alone, so it must name the caller's."""
+    with warnings.catch_warnings(record=True) as warned:
+        warnings.simplefilter("always")
+        settings = Settings(ts_shape="wide")
+        _request(settings={"ts_shape": "wide"})
+        Settings.model_validate({"ts_humanize": False})
+        settings.ts_shape  # noqa: B018
+        settings.ts_shape = "long"
+        settings.model_copy(update={"ts_humanize": False})
+    assert len(warned) == 6
+    assert {warning.filename for warning in warned} == {__file__}
+
+
+def test_a_ts_setting_in_the_update_of_a_copy_is_taken_as_an_assignment() -> None:
+    """`model_copy(update=...)` would write the raw value past the shim, where a request never reads it."""
+    settings = Settings(cache_disable=True)
+    with pytest.warns(DeprecationWarning, match="'ts_shape' is deprecated"):
+        copy = settings.model_copy(update={"ts_shape": "wide", "use_certifi": True})
+    assert copy.use_certifi
+    assert _request(settings=copy).options.shape == "wide"
+    assert _request(settings=settings).options.shape == "long"
