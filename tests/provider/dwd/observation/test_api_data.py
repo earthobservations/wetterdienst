@@ -269,8 +269,9 @@ def test_dwd_observation_data_result_wide_single_dataset(
     The request opens the day before the station's first, which returns no row of its own -- what
     a station did not record is absent from the frame rather than spelled out as a row of nulls.
 
-    The columns of a null carry the text the file wrote for it as the last `quality_flags` token:
-    `raw:-999` where the file has no quality byte, `1,raw:-999` where it has.
+    The `quality_flags` column of a null value carries the text the file wrote for it as its last
+    token: `raw:-999` where the file writes -999 for the quality byte too, `1,raw:-999` where it
+    has one.
     """
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
@@ -619,7 +620,8 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
     """Test for actual values (tidy) in metric units.
 
     The nulls stay (`drop_nulls=False`) and each carries the text the file wrote for it as the last
-    `quality_flags` token: `raw:-999`, after the quality byte where the file has one (`1,raw:-999`).
+    `quality_flags` token: `raw:-999`, after the quality byte where the file has one (`1,raw:-999`);
+    a file that writes -999 for the quality byte too leaves `raw:-999` alone.
     """
     request = DwdObservationRequest(
         parameters=[("daily", "kl")],
