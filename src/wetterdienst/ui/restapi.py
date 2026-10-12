@@ -50,6 +50,7 @@ from wetterdienst.settings import SkipThreshold, check_settings
 from wetterdienst.ui.core import (
     SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     AlertsRequest,
+    AuthAnswer,
     AuthRequest,
     CoverageRequest,
     GlossaryEntry,
@@ -69,6 +70,7 @@ from wetterdienst.ui.core import (
     _is_caller_refusal,
     _plot_stripes,
     check_timeseries_api,
+    get_auth,
     get_glossary,
     get_interpolate,
     get_issues,
@@ -208,10 +210,10 @@ def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseMo
     which is a 501 as for the BUFR reader: this server does not serve the network. Not a 503, which
     the app asks once more (`RETRY_TRANSIENT` keeps it for a proxy's), and a missing key does not
     pass by itself. This is what `configured: false` reports, without the setting's name; the body
-    points at `coverage` for it, as the MCP tools do not include `/api/auth`. The request's window
-    and parameters are parsed by the time this is raised, its stations are not, so the body does
-    not vouch for the request. The message is not lost, it moves to the server log, as a warning:
-    a state that lasts until someone configures the key is no incident.
+    points at `coverage` for it. The request's window and parameters are parsed by the time this is
+    raised, its stations are not, so the body does not vouch for the request. The message is not
+    lost, it moves to the server log, as a warning: a state that lasts until someone configures the
+    key is no incident.
     """
     log.warning(f"Failed to {what}, no credential is configured for the provider: {e}")
     provider, network = getattr(request, "provider", None), getattr(request, "network", None)
@@ -795,10 +797,10 @@ def oauth_metadata_not_found() -> None:
     raise HTTPException(status_code=404, detail="Not Found")
 
 
-@app.get("/api/auth")
+@app.get("/api/auth", response_model=AuthAnswer)
 def auth(
     request: Annotated[AuthRequest, Query()],
-) -> JSONResponse:
+) -> AuthAnswer:
     """Check whether the credentials for an auth-required provider are present and valid.
 
     Returns `{"provider": ..., "network": ..., "auth": bool, "configured": bool, "valid": bool | null}`.
@@ -811,7 +813,7 @@ def auth(
 
     This is the one call that probes the provider, for the one network asked about: one attempt that
     gives up after a few seconds. `/api/coverage` does not probe, so ask here for the networks whose
-    `valid` it leaves null.
+    `valid` it leaves null. The MCP tool and the CLI command (`wetterdienst about auth`) are this call.
     """
     set_logging_level(debug=request.debug)
     provider, network = request.provider, request.network
@@ -824,24 +826,7 @@ def auth(
             detail=f"Choose provider and network from {app.url_path_for('coverage')}",
         ) from e
 
-    metadata = getattr(api, "metadata", None)
-    requires_auth = metadata.auth if metadata is not None else False
-    configured = Wetterdienst.is_configured(api) if requires_auth else True
-    if not requires_auth:
-        valid = True
-    elif not configured:
-        valid = False
-    else:
-        valid = Wetterdienst.is_valid(api)
-    return JSONResponse(
-        content={
-            "provider": provider,
-            "network": network,
-            "auth": requires_auth,
-            "configured": configured,
-            "valid": valid,
-        }
-    )
+    return get_auth(api, provider, network)
 
 
 # What `/api/coverage` answers, as `Wetterdienst.discover()` and `TimeseriesRequest.discover()` build
@@ -912,7 +897,8 @@ def coverage(
 
     The list of every provider downloads nothing, so it answers at once. For a network that needs
     credentials, `configured` says whether they are present, and `valid` is false where they are not
-    and null where they are: this list does not check whether the provider accepts them.
+    and null where they are: this list does not check whether the provider accepts them, `/api/auth`
+    (the MCP `auth` tool) does, for one network.
     """
     set_logging_level(debug=request.debug)
     provider, network = request.provider, request.network
