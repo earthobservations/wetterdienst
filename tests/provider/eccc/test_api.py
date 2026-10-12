@@ -538,9 +538,10 @@ def test_eccc_station_list_dates_are_stamped_like_the_values(
         ("PST", "2023-04-24 10:00:00", dt.datetime(2023, 4, 24, 18, tzinfo=ZoneInfo("UTC"))),
         ("AST", "2017-10-29 13:00:00", dt.datetime(2017, 10, 29, 17, tzinfo=ZoneInfo("UTC"))),
         ("NST", "2020-07-01 09:00:00", dt.datetime(2020, 7, 1, 12, 30, tzinfo=ZoneInfo("UTC"))),
-        # winter, and a date before standard time was kept, where a zone has a local mean time of its own
+        # winter, and a date before standard time was kept, where the zone has a local mean time of its own
+        # (America/Toronto: -5:17:32 until 1895)
         ("EST", "2013-01-11 09:00:00", dt.datetime(2013, 1, 11, 14, tzinfo=ZoneInfo("UTC"))),
-        ("EST", "1895-01-01 09:00:00", dt.datetime(1895, 1, 1, 14, tzinfo=ZoneInfo("UTC"))),
+        ("EST", "1840-03-01 09:00:00", dt.datetime(1840, 3, 1, 14, tzinfo=ZoneInfo("UTC"))),
         # a station without a timezone is read as UTC
         (None, "2013-06-11 09:00:00", dt.datetime(2013, 6, 11, 9, tzinfo=ZoneInfo("UTC"))),
     ],

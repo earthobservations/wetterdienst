@@ -44,7 +44,8 @@ Types of changes:
 - `eccc/observation` `start_timestamp` and `end_timestamp` of a station with hourly values were one
   hour early when the station's first or last date fell in the daylight-saving season (Toronto Intl
   A started 2013-06-11 13:00 UTC, not 14:00). The dates are Local Standard Time, so they are now
-  converted with the fixed offset of the `TIMEZONE` code, and an unknown code raises (GH-2693)
+  converted with the fixed offset of the `TIMEZONE` code (no more 17 min 32 s from the local mean
+  time of a station that began before 1895), and an unknown code raises (GH-2693)
 
 ## [0.147.0] - 2026-10-12
 
