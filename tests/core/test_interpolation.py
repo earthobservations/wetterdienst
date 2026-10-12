@@ -975,7 +975,7 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
                         "parameter": parameter,
                         "timestamp": timestamp,
                         "value": value,
-                        "quality": 10.0,
+                        "quality_flags": "10",
                     }
                     for parameter, value in (("snow_depth", snow_depth), ("cloud_cover_total", cloud_cover))
                     for timestamp in timestamps
@@ -1087,11 +1087,11 @@ def test_interpolate_and_summarize_keep_a_reading_in_a_small_source_unit_when_un
                         "parameter": "precipitation_intensity",
                         "timestamp": timestamp,
                         "value": value,
-                        "quality": None,
+                        "quality_flags": None,
                     }
                     for timestamp, value in readings.items()
                 ],
-                schema_overrides={"quality": pl.Float64},
+                schema_overrides={"quality_flags": pl.String},
             )
             yield SimpleNamespace(df=df)
 
@@ -1183,7 +1183,7 @@ def test_interpolation_places_stations_across_a_utm_zone_boundary_in_the_point_s
                             "parameter": "temperature_air_mean_2m",
                             "timestamp": timestamp,
                             "value": reading(lat, lon),
-                            "quality": 10.0,
+                            "quality_flags": "10",
                         },
                     ],
                 ),
@@ -1268,7 +1268,7 @@ def test_interpolation_leaves_out_a_station_beyond_what_utm_covers(
                             "parameter": "temperature_air_mean_2m",
                             "timestamp": timestamp,
                             "value": -20.0,
-                            "quality": 10.0,
+                            "quality_flags": "10",
                         },
                     ],
                 ),
@@ -1360,7 +1360,7 @@ def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_settings
                     "parameter": parameter,
                     "timestamp": timestamp,
                     "value": value,
-                    "quality": 10.0,
+                    "quality_flags": "10",
                 }
                 for parameter, value in (("tmk", 10.0), ("txk", 12.0))
                 for timestamp in timestamps
@@ -1474,7 +1474,7 @@ def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station
                             "parameter": parameter_of[resolution],
                             "timestamp": timestamp,
                             "value": 5.0,
-                            "quality": 10.0,
+                            "quality_flags": "10",
                         }
                         for resolution, dataset, _ in datasets
                     ],

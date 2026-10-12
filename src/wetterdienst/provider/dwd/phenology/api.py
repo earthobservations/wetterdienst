@@ -30,6 +30,7 @@ import portion
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.phenology.metadata import (
@@ -62,7 +63,7 @@ _EMPTY_VALUES_SCHEMA = {
     "parameter": pl.String,
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
-    "quality": pl.Float64,
+    "quality_flags": pl.String,
 }
 
 # The files head their columns inconsistently: most write ``Stations_id``, the two beet files
@@ -134,7 +135,7 @@ def _parse_values(content: bytes, object_id: int) -> pl.DataFrame:
         pl.col("OBJEKT_ID").str.strip_chars().cast(pl.Int32, strict=False).alias("object_id"),
         pl.col("PHASE_ID").str.strip_chars().cast(pl.Int32, strict=False).alias("phase_id"),
         pl.col("JULTAG").str.strip_chars().cast(pl.Float64, strict=False).alias("value"),
-        pl.col("QUALITAETSNIVEAU").str.strip_chars().cast(pl.Float64, strict=False).alias("quality"),
+        join_quality_flags(pl.col("QUALITAETSNIVEAU")),
     )
     df = df.filter(
         pl.col("object_id").eq(object_id),
@@ -147,7 +148,7 @@ def _parse_values(content: bytes, object_id: int) -> pl.DataFrame:
         pl.col("phase_id").cast(pl.String).alias("parameter"),
         pl.datetime(pl.col("year"), 1, 1, time_zone="UTC").alias("timestamp"),
         pl.col("value"),
-        pl.col("quality"),
+        pl.col("quality_flags"),
     )
 
 
@@ -278,7 +279,7 @@ class DwdPhenologyValues(TimeseriesValues):
             pl.col("station_id"),
             pl.col("timestamp"),
             pl.col("value"),
-            pl.col("quality"),
+            pl.col("quality_flags"),
         )
 
 

@@ -27,6 +27,9 @@ Types of changes:
   `temperature_air_min_2m_last_12h`, the names the backend gives MOSMIX `tx` and `tn` after the
   release following 0.144.0, and keeps the old names as a fallback: against an older backend it
   works as before, but an app older than this one against the new backend draws no band (GH-2614)
+- `[DataViewer]` The table shows the one string column `quality_flags` the backend gives a values row
+  in the release following 0.146.0 in place of `quality`: against an older backend the numeric
+  `quality` column is no longer shown (GH-2758)
 
 ### Security
 

@@ -845,7 +845,8 @@ class DwdRoadValues(TimeseriesValues):
             "station_id",
             "timestamp",
             "value",
-            "quality",
+            # the internal 0 / 1 verdict (see `_quality`), written as a flag: "0", "1" or null
+            pl.col("quality").cast(pl.Int8).cast(pl.String).alias("quality_flags"),
         )
 
     def _create_file_index_for_dwd_road_weather_station(

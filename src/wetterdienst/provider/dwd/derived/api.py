@@ -19,6 +19,7 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.derived.download import download_climate_derived_data
@@ -490,7 +491,6 @@ class DwdDerivedValues(TimeseriesValues):
             pl.lit(parameter.name_original).alias("parameter"),
             pl.lit(date).alias("timestamp"),
             pl.lit(value).alias("value"),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
     def _collect_station_param_technical_dataset(self, station_id: str, parameter: ParameterModel) -> pl.DataFrame:
@@ -620,7 +620,7 @@ class DwdDerivedValues(TimeseriesValues):
             pl.col("station_id").str.pad_start(5, "0"),
             pl.col("timestamp").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
-            pl.col("quality").cast(pl.Float64),
+            pl.col("quality_flags"),
         )
 
     @staticmethod
@@ -635,11 +635,11 @@ class DwdDerivedValues(TimeseriesValues):
 
         return (
             df.unpivot(on=on, index=id_vars, variable_name="parameter", value_name="value")
-            .rename({q_col: "quality"} if q_col else {})
+            .rename({q_col: "quality_flags"} if q_col else {})
             .with_columns(
-                pl.when(pl.col("value").is_not_null()).then(pl.col("quality"))
+                pl.when(pl.col("value").is_not_null()).then(join_quality_flags(pl.col("quality_flags")))
                 if q_col
-                else pl.lit(None).alias("quality")
+                else pl.lit(None, dtype=pl.String).alias("quality_flags")
             )
         )
 

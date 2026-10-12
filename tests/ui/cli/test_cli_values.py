@@ -232,8 +232,7 @@ def test_cli_values_json_multiple_datasets() -> None:
         "parameter": "wind_gust_max",
         "timestamp": "2020-06-30T00:00:00.000000+00:00",
         "value": 15.3,
-        "quality": 10.0,
-        "quality_flag": None,
+        "quality_flags": "10",
     }
 
 
@@ -263,7 +262,7 @@ def test_cli_values_json(
             "timestamp",
             "parameter",
             "value",
-            "quality",
+            "quality_flags",
         },
     )
 
@@ -575,8 +574,7 @@ def test_cli_values_custom_units() -> None:
         "parameter": "temperature_air_mean_2m",
         "timestamp": "2022-01-01T00:00:00.000000+00:00",
         "value": 52.52,
-        "quality": 10.0,
-        "quality_flag": None,
+        "quality_flags": "10",
     }
 
 

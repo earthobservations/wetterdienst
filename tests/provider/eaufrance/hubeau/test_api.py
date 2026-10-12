@@ -208,6 +208,55 @@ def hubeau_network(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.usefixtures("hubeau_network")
+def test_hubeau_values_carry_the_qualification_code_as_a_whole_number(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that `code_qualification_obs` comes back as the code Hubeau writes in `quality_flags` (GH-2018, GH-2758).
+
+    The hydrometry API documents it as "7 valeurs possibles : 0, 4, 8, 12, 16, 20, 30 (Neutre, Faible, Forte,
+    Douteuse, Non qualifiée, Bonne, Estimée)" (hubeau.eaufrance.fr/api/v2/hydrometrie/api-docs, checked 2026-10-12).
+    The live realtime observations of 2026-10-12 hold 16 (1761 of 2000 rows) and 12 (239), both with the status
+    "Brute". The JSON number is a float in a frame, and is written without a decimal point.
+    """
+    stub = api._paged_rows  # noqa: SLF001
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:
+        if "code_entite=1011000101" not in url:
+            return stub(url, settings, ttl=ttl, timeout=timeout)
+        return [
+            {
+                "code_station": "1011000101",
+                "date_obs": "2026-08-21T04:00:00Z",
+                "resultat_obs": 1.5,
+                "code_qualification_obs": 16,
+            },
+            {
+                "code_station": "1011000101",
+                "date_obs": "2026-08-21T04:15:00Z",
+                "resultat_obs": 1.6,
+                "code_qualification_obs": 12,
+            },
+            {
+                "code_station": "1011000101",
+                "date_obs": "2026-08-21T04:30:00Z",
+                "resultat_obs": 1.7,
+                "code_qualification_obs": None,
+            },
+        ]
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+    end = dt.datetime(2026, 8, 21, 5, tzinfo=ZoneInfo("UTC"))
+    request = HubeauRequest(
+        parameters=[("15_minutes", "data", "stage")],
+        start=end - dt.timedelta(days=1),
+        end=end,
+        settings=Settings(cache_disable=True, ts_drop_nulls=False),
+    )
+    df = request.filter_by_station_id("1011000101").values.all().df.sort("timestamp")
+    assert df.schema["quality_flags"] == pl.String
+    assert df.get_column("quality_flags").to_list() == ["16", "12", None]
+    assert "quality" not in df.columns
+
+
+@pytest.mark.usefixtures("hubeau_network")
 def test_all_lists_each_station_under_the_interval_it_transmits_at() -> None:
     """Test that a station is listed under its own measured interval and under no other."""
     df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df

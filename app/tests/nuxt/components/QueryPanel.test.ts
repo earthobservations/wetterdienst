@@ -43,7 +43,7 @@ const data: Value[] = [{
   parameter: 'temperature_air_mean_2m',
   timestamp: '2020-01-01T00:00:00.000000+00:00',
   value: 1.5,
-  quality: 10,
+  quality_flags: '10',
 }]
 
 const mounted: { unmount: () => void }[] = []
@@ -68,7 +68,7 @@ describe('queryPanel', () => {
   it('hands on a query\'s values plain: a timestamp as the REST API writes it, a count as a number', async () => {
     // a TIMESTAMP came as milliseconds since the epoch, which the table's timestamp cell failed on,
     // and a COUNT(*) as a BigInt
-    const rows = await transform('SELECT station_id, resolution, dataset, parameter, timestamp::TIMESTAMP AS timestamp, value, quality, COUNT(*) OVER () AS n FROM data')
+    const rows = await transform('SELECT station_id, resolution, dataset, parameter, timestamp::TIMESTAMP AS timestamp, value, quality_flags, COUNT(*) OVER () AS n FROM data')
     expect(rows).toEqual([{ ...data[0], n: 1 }])
   })
 })
@@ -836,8 +836,8 @@ describe('queryPanel table columns', () => {
     // a column null in the first row was VARCHAR, which `avg` refused and which handed `quality`
     // on as text, and a column the first row lacked was no column at all
     const rows = [
-      { ...data[0]!, value: null, quality: null },
-      { ...data[0]!, timestamp: '2020-01-02T00:00:00.000000+00:00', value: 2.5, quality: 10, distance: 1.25 },
+      { ...data[0]!, value: null, quality_flags: null },
+      { ...data[0]!, timestamp: '2020-01-02T00:00:00.000000+00:00', value: 2.5, quality_flags: '10', distance: 1.25 },
     ] as Value[]
     const wrapper = await queryMode(rows)
     await wrapper.find('textarea').setValue('SELECT *, avg(value) OVER () AS mean FROM data ORDER BY timestamp')
@@ -862,7 +862,7 @@ describe('queryPanel table columns', () => {
 })
 
 describe('queryPanel columns of the rows queried', () => {
-  const { parameter: _parameter, value: _value, quality: _quality, ...key } = data[0]!
+  const { parameter: _parameter, value: _value, quality_flags: _quality_flags, ...key } = data[0]!
   // each shape of row the panel queries, as the REST API answers it, and the examples it offers
   const shapes = [
     {
@@ -919,7 +919,7 @@ describe('queryPanel columns of the rows queried', () => {
     await runButton(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.emitted('dataTransformed')).toHaveLength(1))
     expect(wrapper.emitted<[Value[]]>('dataTransformed')![0]![0]).toEqual([{ parameter: 'temperature_air_mean_2m', mean: 1.5 }])
-    expect(wrapper.text()).toContain('missing expected columns: station_id, resolution, dataset, timestamp, value, quality')
+    expect(wrapper.text()).toContain('missing expected columns: station_id, resolution, dataset, timestamp, value, quality_flags')
   })
 })
 
@@ -1082,7 +1082,7 @@ describe('queryPanel query left running', () => {
 
 describe('queryPanel column of lists', () => {
   // an interpolated row, whose `taken_station_ids` the REST API answers as a list
-  const { parameter: _parameter, value: _value, quality: _quality, ...key } = data[0]!
+  const { parameter: _parameter, value: _value, quality_flags: _quality_flags, ...key } = data[0]!
   const interpolated = (ids: unknown, value = 1.5) => ({ ...key, parameter: 'temperature_air_mean_2m', value, distance_mean: 3.25, taken_station_ids: ids })
 
   it('loads a column of lists as lists, which list_contains and unnest take, and hands them on as lists', async () => {

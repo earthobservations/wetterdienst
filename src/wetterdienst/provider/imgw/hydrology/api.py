@@ -262,7 +262,6 @@ class ImgwHydrologyValues(TimeseriesValues):
             pl.col("station_id"),
             pl.col("timestamp").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
     def _parse_file(

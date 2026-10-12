@@ -104,28 +104,26 @@ have to collapse onto `wrtr`'s liquid/solid/unknown, and the freezing and deposi
 glaze, rime, clear ice -- have no home there at all. On a road weather network that is exactly the
 distinction worth keeping.
 
-#### quality
+#### quality_flags
 
-Each reading carries the station's own verdict on the sensor that took it, in the `quality` column,
-read from the `qualityInformationAwsData` flag (BUFR `0 33 005`) that ends every road subset:
+Each reading carries the station's own verdict on the sensor that took it, in the `quality_flags` column
+(`"1"`, `"0"` or null), read from the `qualityInformationAwsData` flag (BUFR `0 33 005`) that ends every road subset:
 
-| quality | meaning                                                             |
-|---------|---------------------------------------------------------------------|
+| quality_flags | meaning                                                             |
+|---------------|---------------------------------------------------------------------|
 | `1`     | the station checked this quantity and reports it as **suspect**      |
 | `0`     | the station checked this quantity and did not                        |
 | `null`  | nothing is known -- the station ran no automated checks, said nothing, or sent only the flag table's own missing marker |
 
-These numbers are this network's own. `quality` is a number each provider fills in its own way, and
-the scale differs by provider -- DWD observation puts its `qn` codes there, where a *larger* number
-means a more thorough check, so a number from one network says nothing about a number from another.
-The providers whose source flags are letters, words or codes also return them as a string in
-`quality_flag`.
+These codes are this network's own. `quality_flags` holds each provider's flags in its own way, and
+the codes differ by provider -- DWD observation puts its `qn` codes there, where a *larger* number
+means a more thorough check, so a code from one network says nothing about a code from another.
 
 `null` is the common case, not the exception: in a network-wide sample of 1199 station-minutes, 817
 reported "no automated meteorological data checks performed" and 40 carried no flag at all. It says
 the station did not look, which is why it is not reported as `0`.
 
-{term}`road_surface_condition` and {term}`water_film_thickness` always carry a `null` *quality*,
+{term}`road_surface_condition` and {term}`water_film_thickness` always carry a `null` quality flag,
 whatever they report as a value. The flag table is the WMO's generic one for an automatic weather
 station and it names neither quantity -- the road layout carries them as DWD's own `0 20 241` and
 `0 13 241`, and where the film instead arrives as WMO `0 13 116` the table still has no bit for it.
@@ -153,7 +151,7 @@ A caller reading this network at face value should expect, at roughly one statio
 Wetterdienst removes none of these. It reports what DWD publishes, and a reading's plausibility is
 left to the caller -- a road surface really does reach 60 °C in July sun, so a threshold that took
 *out* the nonsense above would take genuine extremes with it. Two of those shapes it does **mark**,
-in the `quality` column, which is a different thing: the reading stays exactly as published, and a
+in the `quality_flags` column, which is a different thing: the reading stays exactly as published, and a
 caller who wants the extremes keeps them. The two are the stuck sensors, and the part of the exact
 round values that no reading could hold -- the `-75.00`, but not the `-30.00` or the `-25.00`.
 
@@ -165,7 +163,7 @@ marked at all, 79.8 °C on a road in September being implausible rather than imp
 
 The first of the two is a sensor that has stopped. Where an air temperature, a dew point or a road
 surface temperature reports the identical value for 24 readings -- six hours at this resolution --
-`quality` becomes `1`. The reading is left exactly as published.
+`quality_flags` becomes `1`. The reading is left exactly as published.
 
 A run ends where the readings stop for more than four times the station's own usual interval, so
 two three-hour plateaus either side of a three-day outage are not a six-hour one. Against the
@@ -203,7 +201,7 @@ Two things the run rule does not catch, and one it cannot:
 - a run shorter than the window. A request covering less than six hours has too few readings for the
   question to be asked at all -- and because the check sees only the files the window selected, the
   same reading can come back `null` from a two-hour request and `1` from a full day's. A caller
-  filtering on `quality` should ask for the window it means. The one exception is the line drawn in
+  filtering on `quality_flags` should ask for the window it means. The one exception is the line drawn in
   the next section, which reads a value rather than a run and so needs no window at all.
 - a sensor that moves but is wrong. RH/L702 ran 76.5 to 79.8 °C across a day and HV/E237 46.9 to
   57.2 °C, both varying hour to hour exactly as a working sensor does.
@@ -234,9 +232,9 @@ No line is drawn at the warm end. A road surface in July sun passes 60 °C, and 
 implausible rather than impossible -- there is no temperature at that end which an honest reading
 cannot reach.
 
-##### what `quality` of `1` means
+##### what a quality flag of `1` means
 
-So `quality` of `1` means suspect, whether DWD said so or either of these checks did. They do not
+So a quality flag of `1` means suspect, whether DWD said so or either of these checks did. They do not
 have the same standing -- DWD's bit 7 is verified against the data, with no station within 5 K of its own air
 temperature carrying it, where the run length is a threshold fitted to one day -- and the column
 does not distinguish them. Nor do the two of ours stand alike: a run length is a threshold fitted to one day

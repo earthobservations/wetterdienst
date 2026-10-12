@@ -199,3 +199,13 @@ stations for the requested datasets/parameters. The listing includes:
 The values class is based on `TimeseriesValues` and manages the acquisition of actual data. The
 class is also part of the `TimeseriesRequest` being accessed via the `_values` property. It has to implement the
 `_collect_station_parameter` method that takes care of getting values of a parameter/dataset for a station id.
+
+The frame it returns has the columns `resolution`, `dataset`, `parameter`, `station_id`, `timestamp` and
+`value`. A source that publishes a quality flag for a reading adds the string column `quality_flags`,
+built with `join_quality_flags` from `wetterdienst.model.quality_flags`: the source's ordinary quality
+flag as the first argument, written as the plain code, and every further kind it publishes as
+`kind=expression`, which is written `kind:code` after it, comma-separated and in the order given
+(`join_quality_flags(pl.col("QFLAG"), measurement=pl.col("MFLAG"), source=pl.col("SFLAG"))` gives
+`G,measurement:S,source:7`). A blank flag is left out and a reading without a flag is null. A provider
+that publishes none leaves the column out, and the base class fills it with a null. Document each
+code of the source next to the provider's page and quote its documentation in the test.

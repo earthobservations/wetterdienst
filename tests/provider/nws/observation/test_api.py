@@ -175,7 +175,7 @@ def test_nws_values_returns_the_requested_window_only() -> None:
 
 
 def test_nws_values_carry_the_madis_quality_control_flag_of_each_quantity(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that the `qualityControl` of a quantity is returned verbatim in `quality_flag` (GH-2018).
+    """Test that the `qualityControl` of a quantity is returned verbatim in `quality_flags` (GH-2018, GH-2758).
 
     Every observation value is `{value, unitCode, qualityControl}` and the flag was dropped with the unit. The
     OpenAPI schema (api.weather.gov/openapi.json, QuantitativeValue.qualityControl): "the quality control flag from
@@ -201,5 +201,6 @@ def test_nws_values_carry_the_madis_quality_control_flag_of_each_quantity(monkey
     sr = stations_result(request, "hourly", "data", "KDEN")
     df = NwsObservationValues(sr=sr).all().df.with_columns(pl.col("parameter").cast(pl.String))
     temperature = df.filter(pl.col("parameter") == "temperature_air_2m").sort("timestamp")
-    assert temperature.select("value", "quality_flag").rows() == [(16.0, "V"), (15.0, "S"), (None, "Z")]
-    assert df.get_column("quality").null_count() == df.height
+    assert temperature.select("value", "quality_flags").rows() == [(16.0, "V"), (15.0, "S"), (None, "Z")]
+    assert "quality" not in df.columns
+    assert "quality_flag" not in df.columns

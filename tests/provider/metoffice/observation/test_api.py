@@ -71,10 +71,20 @@ def test_parse_values_collapses_multiple_report_types() -> None:
         min_columns=frozenset({"min_air_temp"}),
     ).sort("parameter")
     assert df.to_dicts() == [
-        # max over {4.8, 5.4, 5.1} == the 24h value 5.4; quality is that of the extreme row
-        {"timestamp": dt.datetime(2000, 1, 1, tzinfo=UTC), "parameter": "max_air_temp", "value": 5.4, "quality": 4.0},
+        # max over {4.8, 5.4, 5.1} == the 24h value 5.4; the flags are those of the extreme row
+        {
+            "timestamp": dt.datetime(2000, 1, 1, tzinfo=UTC),
+            "parameter": "max_air_temp",
+            "value": 5.4,
+            "quality_flags": "4",
+        },
         # min over {0.3, 0.3, 2.8} == 0.3
-        {"timestamp": dt.datetime(2000, 1, 1, tzinfo=UTC), "parameter": "min_air_temp", "value": 0.3, "quality": 6.0},
+        {
+            "timestamp": dt.datetime(2000, 1, 1, tzinfo=UTC),
+            "parameter": "min_air_temp",
+            "value": 0.3,
+            "quality_flags": "6",
+        },
     ]
 
 
@@ -94,7 +104,12 @@ def test_parse_values_drops_multiday_accumulations() -> None:
         period_count_column="ob_day_cnt",
     )
     assert df.to_dicts() == [
-        {"timestamp": dt.datetime(2000, 1, 2, tzinfo=UTC), "parameter": "prcp_amt", "value": 3.7, "quality": 2576.0},
+        {
+            "timestamp": dt.datetime(2000, 1, 2, tzinfo=UTC),
+            "parameter": "prcp_amt",
+            "value": 3.7,
+            "quality_flags": "2576",
+        },
     ]
 
 
@@ -117,9 +132,27 @@ def test_parse_values_scales_visibility_to_metres() -> None:
             "timestamp": dt.datetime(2015, 7, 1, 13, 0, tzinfo=UTC),
             "parameter": "visibility",
             "value": 19000.0,
-            "quality": 6.0,
+            "quality_flags": "6",
         },
     ]
+
+
+def test_parse_values_keeps_the_mesql_digits_as_the_file_writes_them() -> None:
+    """MESQL is five digits, each one an aspect of the QC, and a zero in front is one of them (GH-2018, GH-2758).
+
+    The CEDA documentation (dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html): "This _q attribute is a
+    five digit number (of the form MESQL), where each digit describes one aspect of the quality of a meteorological
+    element": M qc_marker, E qc_estimate, S qc_status, Q qc_query, L qc_level. Read as a number "00001" would be 1.
+    """
+    content = _badc(
+        b"Conventions,G,BADC-CSV,1\n",
+        "ob_date,ob_day_cnt,prcp_amt,prcp_amt_q",
+        b"2000-01-01 00:00:00,1,3.7,00001\n2000-01-02 00:00:00,1,0.0,20001\n2000-01-03 00:00:00,1,1.1,\n",
+    )
+    df = parse_values(
+        content, time_column="ob_date", columns=["prcp_amt"], granularity="1d", period_count_column="ob_day_cnt"
+    ).sort("timestamp")
+    assert df.get_column("quality_flags").to_list() == ["00001", "20001", None]
 
 
 def test_parse_values_empty_input() -> None:
@@ -127,7 +160,7 @@ def test_parse_values_empty_input() -> None:
     content = _badc(b"Conventions,G,BADC-CSV,1\n", "ob_date,prcp_amt", b"")
     df = parse_values(content, time_column="ob_date", columns=["prcp_amt"], granularity="1d")
     assert df.is_empty()
-    assert df.columns == ["timestamp", "parameter", "value", "quality"]
+    assert df.columns == ["timestamp", "parameter", "value", "quality_flags"]
 
 
 def _fake_jwt(exp: float) -> str:

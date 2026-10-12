@@ -319,8 +319,7 @@ const columnDefinitions: { key: keyof Value, cell?: TableColumn<Value>['cell'] }
   // a query's null timestamp empty, as the other cells show a missing value, where formatDate threw on it
   { key: 'timestamp', cell: ({ row }) => formatDate(fieldText(row.original.timestamp)) },
   { key: 'value' },
-  { key: 'quality' },
-  { key: 'quality_flag' },
+  { key: 'quality_flags' },
   { key: 'taken_station_id' },
   { key: 'taken_station_ids' },
 ]
@@ -425,7 +424,7 @@ const rowsMode = computed((): StationMode => {
 const TABLE_ORDER: string[] = columnDefinitions.map(c => c.key)
 
 // The columns the query panel lists as available: those of the rows it queries, as a download
-// orders them. The mode's fixed columns listed a `quality` that interpolated and summarized rows
+// orders them. The mode's fixed columns listed a `quality_flags` that interpolated and summarized rows
 // lack, and a wide table's `parameter` and `value`, and left out its parameters and a point mode's
 // distance
 const queryColumns = computed(() => exportColumns(allValues.value, TABLE_ORDER))
@@ -433,7 +432,7 @@ const queryColumns = computed(() => exportColumns(allValues.value, TABLE_ORDER))
 // The picker's options: every column the rows shown carry, as a download writes them -- the table's
 // own in its order first, then a wide-shaped table's parameters or a query's `avg_value` -- and none
 // while the table is empty, when the picker is disabled. The nine fixed columns alone left those out,
-// and showed a wide table's `parameter`, `value` and `quality` empty; the mode's long-shaped columns,
+// and showed a wide table's `parameter`, `value` and `quality_flags` empty; the mode's long-shaped columns,
 // offered while empty whatever the shape, were a guess at columns a Fetch may not bring, and one
 // hidden then stayed hidden once it did
 const columnOptions = computed(() => exportColumns(displayData.value, TABLE_ORDER))

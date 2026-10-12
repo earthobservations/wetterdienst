@@ -59,10 +59,10 @@ class TimeseriesValues(ABC):
         "parameter": pl.String,
         "timestamp": pl.Datetime(time_zone="UTC"),
         "value": pl.Float64,
-        "quality": pl.Float64,
-        # the source's own flag or code for the reading as a string (a letter, a word, a code), where
-        # the provider reads one; null for every provider that does not (GH-2018)
-        "quality_flag": pl.String,
+        # every flag the source publishes for the reading, as one string: the plain code of a source with
+        # one flag, `kind:code` tokens of a source with several, comma-separated in a fixed order per
+        # provider; null where the source published none (GH-2018, GH-2758)
+        "quality_flags": pl.String,
     }
 
     @property
@@ -121,16 +121,16 @@ class TimeseriesValues(ABC):
         """Reorder columns in DataFrame to match the expected order of columns."""
         columns = list(self._meta_fields.keys())
         columns.extend(set(df.columns).difference(columns))
-        # the wide form lists no value columns among the meta fields, so the flag is asked for by name
-        if "quality_flag" not in columns:
-            columns.append("quality_flag")
+        # the wide form lists no value columns among the meta fields, so the flags are asked for by name
+        if "quality_flags" not in columns:
+            columns.append("quality_flags")
         df = df.with_columns(
             pl.lit(station_id).alias("station_id"),
             pl.lit(dataset.resolution.name).alias("resolution"),
             pl.lit(dataset.name.lower()).alias("dataset"),
         )
         # a column the provider did not deliver is a typed null where the long form declares it: the
-        # providers that publish no flag leave `quality_flag` out, and an untyped null would not
+        # providers that publish no flag leave `quality_flags` out, and an untyped null would not
         # concatenate with the String column of those that do
         return df.select(
             pl.col(col) if col in df.columns else pl.lit(None, dtype=self._long_fields.get(col)).alias(col)
@@ -341,31 +341,30 @@ class TimeseriesValues(ABC):
         """Collect data for a station and a single parameter or dataset."""
 
     def _widen_df(self, df: pl.DataFrame) -> pl.DataFrame:
-        """Widen a dataframe with each row having one timestamp, parameter, value and quality.
+        """Widen a dataframe with each row having one timestamp, parameter, value and quality flags.
 
         Example:
-        timestamp    parameter                  value   quality   quality_flag
-        1971-01-01   precipitation_amount       0       0         null
-        1971-01-01   temperature_air_mean_2m   10      0         null
+        timestamp    parameter                  value   quality_flags
+        1971-01-01   precipitation_amount       0       3
+        1971-01-01   temperature_air_mean_2m   10      null
 
         becomes
 
-        timestamp    precipitation_amount   precipitation_amount_quality   precipitation_amount_quality_flag
-        1971-01-01   0                      0                              null
-            temperature_air_mean_2m    temperature_air_mean_2m_quality    temperature_air_mean_2m_quality_flag
-            10                          0                                  null
+        timestamp    precipitation_amount   precipitation_amount_quality_flags
+        1971-01-01   0                      3
+            temperature_air_mean_2m    temperature_air_mean_2m_quality_flags
+            10                          null
 
-        Each quality column is named after its parameter with a `_quality` suffix rather than a
+        Each flags column is named after its parameter with a `_quality_flags` suffix rather than a
         `quality_` prefix, which is how the table names a source's own quality flags
         (`quality_temperature_air_max_2m` and ten more like it); those never become value columns,
-        but a column named like one would read as one. The source's flag follows the same rule with
-        a `_quality_flag` suffix.
+        but a column named like one would read as one.
 
         Args:
-            df: DataFrame with columns timestamp, parameter, value, quality and quality_flag.
+            df: DataFrame with columns timestamp, parameter, value and quality_flags.
 
         Returns:
-            DataFrame with one value, one quality and one quality flag column per parameter.
+            DataFrame with one value and one quality flags column per parameter.
 
         """
         # if there is more than one dataset, we need to prefix parameter names with dataset names to avoid
@@ -417,15 +416,11 @@ class TimeseriesValues(ABC):
 
         if not df.is_empty():
             for (parameter,), df_parameter in df.group_by(["parameter"], maintain_order=True):
-                # Build quality column name
-                parameter_quality = f"{parameter}_quality"
-                parameter_quality_flag = f"{parameter}_quality_flag"
-                df_parameter = df_parameter.select(["resolution", "timestamp", "value", "quality", "quality_flag"])
+                df_parameter = df_parameter.select(["resolution", "timestamp", "value", "quality_flags"])
                 df_parameter = df_parameter.rename(
                     mapping={
                         "value": parameter,
-                        "quality": parameter_quality,
-                        "quality_flag": parameter_quality_flag,
+                        "quality_flags": f"{parameter}_quality_flags",
                     },
                 )
                 # left, not inner: a parameter that has no reading at a timestamp another parameter
@@ -442,12 +437,9 @@ class TimeseriesValues(ABC):
                 # unprefixed names it used to, which named no column the request could produce
                 if len(datasets) > 1:
                     parameter_name = f"{parameter.dataset.name}_{parameter_name}"
-                parameter_quality = f"{parameter_name}_quality"
-                parameter_quality_flag = f"{parameter_name}_quality_flag"
                 df_wide = df_wide.with_columns(
                     pl.lit(None, pl.Float64).alias(parameter_name),
-                    pl.lit(None, pl.Float64).alias(parameter_quality),
-                    pl.lit(None, pl.String).alias(parameter_quality_flag),
+                    pl.lit(None, pl.String).alias(f"{parameter_name}_quality_flags"),
                 )
 
         return df_wide

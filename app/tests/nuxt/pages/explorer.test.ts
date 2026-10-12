@@ -21,7 +21,7 @@ const ExplorerWithApp = defineComponent({
   },
 })
 
-const VALUE_ROW = { station_id: '00001', dataset: 'climate_summary', parameter: 'temperature_air_max_2m', timestamp: '2020-01-01T00:00:00Z', value: 12.3, quality: null, unit: 'degree_celsius' }
+const VALUE_ROW = { station_id: '00001', dataset: 'climate_summary', parameter: 'temperature_air_max_2m', timestamp: '2020-01-01T00:00:00Z', value: 12.3, quality_flags: null, unit: 'degree_celsius' }
 
 // pages mounted, and endpoints registered, by a test: unmounted and removed after it
 const mounted: { unmount: () => void }[] = []

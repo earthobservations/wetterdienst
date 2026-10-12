@@ -179,14 +179,19 @@ def _renamed_wide_column(key: str) -> str:
     """Rename a wide frame's column after the parameter it is named for.
 
     A wide frame names a column after its parameter -- prefixed with its dataset where several are
-    requested -- and the quality column after that, so each follows its parameter's rename;
-    `qn_<parameter>` was the quality column's name before GH-2030.
+    requested -- and the quality flags column after that, so each follows its parameter's rename;
+    `qn_<parameter>` was the quality column's name before GH-2030, and `<parameter>_quality` and
+    `<parameter>_quality_flag` its names before the two became one `<parameter>_quality_flags`
+    (GH-2758).
     """
     base, suffix = key, ""
     if key.startswith("qn_"):
-        base, suffix = key.removeprefix("qn_"), "_quality"
-    elif key.endswith("_quality"):
-        base, suffix = key.removesuffix("_quality"), "_quality"
+        base, suffix = key.removeprefix("qn_"), "_quality_flags"
+    else:
+        for old_suffix in ("_quality_flags", "_quality_flag", "_quality"):
+            if key.endswith(old_suffix):
+                base, suffix = key.removesuffix(old_suffix), "_quality_flags"
+                break
     if base in RENAMED_PARAMETERS:
         return f"{RENAMED_PARAMETERS[base]}{suffix}"
     # `<dataset>_<parameter>`: the longest renamed name the column ends in, after an underscore

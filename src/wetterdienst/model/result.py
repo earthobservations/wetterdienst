@@ -444,8 +444,7 @@ class _ValuesItemDict(TypedDict):
     parameter: str
     timestamp: str
     value: float | None
-    quality: float | None
-    quality_flag: str | None
+    quality_flags: str | None
 
 
 class _ValuesOgcItemDict(TypedDict):
@@ -456,8 +455,7 @@ class _ValuesOgcItemDict(TypedDict):
     parameter: str
     timestamp: str
     value: float | None
-    quality: float | None
-    quality_flag: str | None
+    quality_flags: str | None
 
 
 # The columns of a wide row beyond the declared ones are numbers, except the quality flags, which are
@@ -466,12 +464,12 @@ class _ValuesOgcItemDict(TypedDict):
 # string, from passing for a wide one (GH-2282), and the flag columns are named by pattern.
 def _wide_row_schema(schema: dict[str, typing.Any]) -> None:
     schema["additionalProperties"] = {"anyOf": [{"type": "number"}, {"type": "null"}]}
-    schema["patternProperties"] = {"_quality_flag$": {"anyOf": [{"type": "string"}, {"type": "null"}]}}
+    schema["patternProperties"] = {"_quality_flags$": {"anyOf": [{"type": "string"}, {"type": "null"}]}}
 
 
-# A wide row holds one value, one quality and one quality flag column per parameter, named after it,
+# A wide row holds one value and one quality flags column per parameter, named after it,
 # so those keys differ per request and are typed as extra items rather than declared one by one:
-# numbers for the first two, a string for the flag. Its dataset is null in a resolution the wide
+# a number for the value, a string for the flags. Its dataset is null in a resolution the wide
 # shape merged several requested datasets into (see TimeseriesValues._widen_df).
 @with_config(ConfigDict(json_schema_extra=_wide_row_schema))
 class _ValuesWideItemDict(TypedDict, extra_items=float | str | None):
@@ -776,8 +774,8 @@ class ValuesResult(_ValuesResult):
         A null is left out, as the long shape leaves it out by default: the wide shape writes one
         wherever a column has no reading at a row another column has one at, and a column of one
         resolution is null throughout the rows of another, as the widening joins on the resolution.
-        Kept, those would draw a series under a resolution it does not belong to. The quality and
-        quality flag columns are not drawn.
+        Kept, those would draw a series under a resolution it does not belong to. The quality
+        flags columns are not drawn.
 
         The rows are put in the order a long result holds them in, which is the order the plot
         lays its facets out and colours its stations in: station by station, as they were
@@ -792,10 +790,7 @@ class ValuesResult(_ValuesResult):
             column
             for column in df.columns
             if column not in keys
-            and not (
-                column.endswith(("_quality", "_quality_flag"))
-                and column.removesuffix("_flag").removesuffix("_quality") in df.columns
-            )
+            and not (column.endswith("_quality_flags") and column.removesuffix("_quality_flags") in df.columns)
         ]
         series = []
         for (resolution,), df_resolution in df.group_by("resolution", maintain_order=True):

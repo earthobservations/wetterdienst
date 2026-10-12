@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import polars as pl
 
+from wetterdienst.model.quality_flags import join_quality_flags
+
 _EMPTY_STATIONS_SCHEMA = {
     "station_id": pl.String,
     "name": pl.String,
@@ -28,7 +30,7 @@ _EMPTY_VALUES_SCHEMA = {
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
-    "quality": pl.Float64,
+    "quality_flags": pl.String,
 }
 
 
@@ -84,7 +86,7 @@ def parse_values(
     scale: dict[str, float] | None = None,
     period_count_column: str | None = None,
 ) -> pl.DataFrame:
-    """Parse a per-station-year data file into long ``(timestamp, parameter, value, quality)`` rows.
+    """Parse a per-station-year data file into long ``(timestamp, parameter, value, quality_flags)`` rows.
 
     Every reading is truncated to ``granularity`` (``1d`` for daily datasets, ``1h`` for hourly)
     and aggregated to one value per ``(timestamp, parameter)``. This collapses MIDAS's *multiple
@@ -110,7 +112,7 @@ def parse_values(
             ``name_original`` values before humanizing it itself.
         granularity: polars truncation unit for the timestamp (``1d`` or ``1h``).
         min_columns: the subset of ``columns`` aggregated with ``min`` (the min-type parameters);
-            all others use ``max``. The retained ``quality`` is the flag of the row that supplied
+            all others use ``max``. The retained ``quality_flags`` is the flag of the row that supplied
             the aggregated extreme.
         scale: optional ``{raw_column: factor}`` applied to a column's values to reach the unit
             declared in ``metadata.py``. Confirmed live: MIDAS ``visibility`` is stored in
@@ -149,30 +151,31 @@ def parse_values(
         sub = df.select(
             date.alias("timestamp"),
             value.alias("value"),
+            # the MESQL digits as the file writes them, leading zeros included
             (
-                pl.col(quality_column).cast(pl.Float64, strict=False)
+                join_quality_flags(pl.col(quality_column))
                 if quality_column in df.columns
-                else pl.lit(None, dtype=pl.Float64)
-            ).alias("quality"),
+                else pl.lit(None, dtype=pl.String).alias("quality_flags")
+            ),
         ).filter(pl.col("value").is_not_null())
         if sub.is_empty():
             continue
         if raw_column in min_columns:
             aggregated = sub.group_by("timestamp").agg(
                 pl.col("value").min().alias("value"),
-                pl.col("quality").sort_by("value").first().alias("quality"),
+                pl.col("quality_flags").sort_by("value").first(),
             )
         else:
             aggregated = sub.group_by("timestamp").agg(
                 pl.col("value").max().alias("value"),
-                pl.col("quality").sort_by("value").last().alias("quality"),
+                pl.col("quality_flags").sort_by("value").last(),
             )
         frames.append(
             aggregated.select(
                 pl.col("timestamp"),
                 pl.lit(raw_column, dtype=pl.String).alias("parameter"),
                 pl.col("value"),
-                pl.col("quality"),
+                pl.col("quality_flags"),
             ),
         )
     if not frames:

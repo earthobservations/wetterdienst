@@ -57,7 +57,6 @@ _EMPTY_VALUES_SCHEMA = {
     "station_id": pl.String,
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
-    "quality": pl.Float64,
 }
 
 # FMI caps a single observation request's time span (sub-daily queries reject spans over 168
@@ -157,7 +156,6 @@ class FmiObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
             pl.col("value").cast(pl.Float64, strict=False),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
     def _collect_window(

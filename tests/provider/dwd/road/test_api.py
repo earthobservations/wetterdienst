@@ -155,8 +155,7 @@ def test_dwd_road_weather_group_with_nothing_published(monkeypatch: pytest.Monke
         "parameter",
         "timestamp",
         "value",
-        "quality",
-        "quality_flag",
+        "quality_flags",
     }
 
 
@@ -1379,7 +1378,9 @@ def test_dwd_road_weather_empty_is_one_shape(
         parameter_or_dataset=DwdRoadRequest.metadata["15_minutes"]["data"],
     )
     assert df.is_empty(), case
-    assert df.columns == ["resolution", "dataset", "parameter", "station_id", "timestamp", "value", "quality"], case
+    assert df.columns == ["resolution", "dataset", "parameter", "station_id", "timestamp", "value", "quality_flags"], (
+        case
+    )
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -1415,6 +1416,44 @@ def test_dwd_road_weather_keeps_the_station_that_was_asked_for(monkeypatch: pyte
     readings = df.drop_nulls("value").select("station_id", "parameter", "value").rows()
     # the station asked for, and only it -- the other station's reading is in the same file
     assert readings == [("A006", "airTemperature", 12.0)]
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_returns_the_verdict_as_a_quality_flag_string(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The 1 / 0 / unknown verdict of a reading is written into `quality_flags` as "1", "0" or null (GH-2758).
+
+    The verdict is a number inside the module, where the stuck-sensor and impossible-temperature checks set
+    it to 1, and a flag string in the frame a request returns, like every other provider's.
+    """
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    ground_suspect = 1 << (30 - 7)
+    reading = _flat(
+        {
+            "#1#shortStationName": "P034",
+            "#1#qualityInformationAwsData": ground_suspect,
+            "#1#roadSurfaceTemperature": 338.75,
+            "#1#airTemperature": 285.25,
+            # the table names no bit for the film, so the verdict on it is unknown
+            "#1#waterFilmThickness": 0.1,
+        },
+    )
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
+    name = "swis2-ISXD70_DWDD_131200-2609131200-DD---bin"
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [name])
+    monkeypatch.setattr(
+        api, "download_files", lambda **_kwargs: [File(url=name, content=BytesIO(b"x" * 500), status=200)]
+    )
+    df = _stub_stations(("P034",)).values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        station_id="P034",
+        parameter_or_dataset=DwdRoadRequest.metadata["15_minutes"]["data"],
+    )
+    assert df.schema["quality_flags"] == pl.String
+    assert "quality" not in df.columns
+    flags = dict(df.drop_nulls("value").select("parameter", "quality_flags").iter_rows())
+    assert flags["roadSurfaceTemperature"] == "1"
+    assert flags["airTemperature"] == "0"
+    assert flags["waterFilmThickness"] is None
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")

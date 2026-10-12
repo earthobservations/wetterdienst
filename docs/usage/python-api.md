@@ -483,25 +483,6 @@ import polars as pl
 subset = df.filter(pl.col("parameter").cast(pl.String).is_in(["temperature_air_mean_2m", "sunshine_duration"]))
 ```
 
-A reading's quality comes in two columns. `quality` is a number, which each provider fills in its
-own way (DWD its quality level, DWD road a 0/1 mark, ...), so a number from one provider says
-nothing about one from another; it is null for a provider that sets none. `quality_flag` is a
-string holding the source's own flag or code for the reading, for the providers listed below, with
-only whitespace trimmed and CHMI's `0.0` written as `0`; it is null for every other provider and
-for a reading the source gives no flag. In the wide shape each parameter has both, named
-`<parameter>_quality` and `<parameter>_quality_flag`. Interpolated and summarized results have
-neither, as they are made of several stations' readings.
-
-| Provider | `quality_flag` |
-| --- | --- |
-| ECCC | the `*_FLAG` letter of the value: `M` missing, `E` estimated, `T` trace, ... (null for monthly) |
-| EA hydrology | the reading's `quality`: `Good`, `Estimated`, `Suspect`, `Unchecked`, `Missing` |
-| Météo-France observation | the `Q<parameter>` code: `9` filtered, `0` protected, `1` validated, `2` doubtful |
-| NOAA GHCN daily | the quality flag of the value's attributes: the check it failed (`X` bounds, `G` gap, ...) |
-| CHMI (daily, 10 minutes, hourly) | the `QUALITY` code: `0` good, `1` suspect, `2` poor, `3` estimated, `4` missing, `5` unknown |
-| NWS | the MADIS `qualityControl` flag: `Z`, `C`, `S`, `V`, `X`, `Q`, `G`, `B`, `T` |
-| SMHI | the `Kvalitet` code: `G` approved, `Y` suspect or aggregated |
-
 In case you use `filter_by_rank` you may want to skip empty stations. We can use the Settings from
 [settings](settings.md) to achieve that:
 
@@ -527,6 +508,46 @@ print(values.df.head())
 # df_stations has only stations that appear in the values
 values.df_stations
 ```
+
+#### Quality flags
+
+Every reading has one string column, `quality_flags` (in the wide shape `<parameter>_quality_flags`),
+holding the flags its source publishes for it. It is null where the source gives none, which is the
+case for every provider not listed below, and for the interpolated and summarized results, which are
+made of several stations' readings. The sources call the field by many names (DWD `QN`, MIDAS `MESQL`,
+ECCC `Flag`, SMHI `Kvalitet`, GHCN `QFLAG`, NWS `qualityControl`, Frost `qualityCode`, Hubeau
+`code_qualification_obs`, Météo-France `Q<parameter>`) and the meaning of a code differs from provider to
+provider, so a code from one says nothing about one from another; none is a scale of better and worse
+unless the table says so.
+
+- A source with one flag: its plain code as the source writes it, only trimmed (`T`, `Good`, `3`).
+- A source with several kinds of flag: the ordinary quality flag first as a plain code, then every other
+  kind as `kind:code`, comma-separated, in a fixed order per provider (`G,measurement:S,source:7`,
+  `3,element:E`). A blank flag is left out, so a plain token is always the quality flag, and
+  `measurement:S` alone is a reading whose quality flag is blank.
+- `str.split(",")` takes the tokens apart; where a numeric code was used before, cast it:
+  `pl.col("quality_flags").cast(pl.Int64)`.
+
+| Provider | codes in `quality_flags` |
+| --- | --- |
+| DWD observation | `QN`, the quality control level of the file's row: `1` only formal control, `2` controlled with individually defined criteria, `3` automatic control and correction, `5` historic, subjective procedures, `7` second control done, before correction, `8` quality control outside routine, `9` not all parameters corrected, `10` quality control finished (data up to 1980 reach `5` at best; 10 minutes data `1` to `3`). A larger number is a more thorough check. `DwdObservationRequest.describe_fields` prints the table of a dataset |
+| DWD derived | `QN` of the file: radiation `500` DUETT data without station and satellite data, `501` on station data only, `502` on satellite data only, `503` on station and satellite data; the other datasets as DWD observation |
+| DWD phenology | `Qualitaetsniveau`: `1` formal check only, `7` checked in routine but uncorrected, `10` checked and corrected |
+| DWD road | the station's own verdict, from `qualityInformationAwsData`, or this library's: `1` suspect, `0` checked and not found suspect, null unknown ([details](../data/provider/dwd/road/15_minutes.md)) |
+| DWD mosmix, dmo, poi, swsmos, radar and the other DWD networks | null |
+| Met Office observation | the MIDAS `*_q` flag `MESQL`, a five digit compound code with leading zeros kept (marker, estimate, status, query, level: [QC flags](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html)); not a scale |
+| RMI | the validation of the value in `qc_flags`: `1` validated, `0` not validated |
+| IMGW meteorology | the status column beside the value: `8` no measurement (value null), `9` the phenomenon did not occur (value 0), `Z` a collective total (`o_d` only); `11` is this library's own, for a day absent from a month that is present (`daily/precipitation`, value 0). Blank status is null |
+| IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, DMI, MeteoSwiss, AEMET, Geosphere, Météo-France synop | null |
+| Hubeau (Eaufrance) | `code_qualification_obs`: `0` neutre, `4` faible, `8` forte, `12` douteuse, `16` non qualifiée, `20` bonne, `30` estimée |
+| MET Norway Frost | `qualityCode`: `0` controlled and found O.K., `1` controlled and corrected or interpolated, `2` slightly uncertain, not controlled, `4` slightly uncertain, not corrected, `5` very uncertain, not corrected, `6` very uncertain, model data, `7` erroneous, not corrected |
+| ECCC | the `*_FLAG` letter of the value: `M` missing, `E` estimated, `T` trace, ... (null for monthly) |
+| EA hydrology | the reading's `quality`: `Good`, `Estimated`, `Suspect`, `Unchecked`, `Missing` |
+| Météo-France observation | the `Q<parameter>` code: `9` filtered, `0` protected, `1` validated, `2` doubtful |
+| NOAA GHCN daily | `QFLAG,measurement:MFLAG,source:SFLAG` of the value's attributes: the check it failed (`X` bounds, `G` gap, ...), how the value was made (`T` trace, ...) and where it came from (`0` U.S. Cooperative Summary of the Day, ...), as in the GHCN-Daily `readme.txt`. Hourly (GHCNh) is null |
+| CHMI (daily, 10 minutes, hourly) | `QUALITY`, then `element:FLAG`: `0` good, `1` suspect, `2` poor, `3` estimated, `4` missing, `5` unknown (`meta4.csv`), and the letter of the element's own table (`meta3.csv`: SRA `T` an amount too small to measure, ...); the aggregate `FLAG_REPEAT` and `FLAG_INTERRUPTED` of monthly and annual files are not carried |
+| NWS | the MADIS `qualityControl` flag: `Z`, `C`, `S`, `V`, `X`, `Q`, `G`, `B`, `T` |
+| SMHI | the `Kvalitet` code: `G` approved, `Y` suspect or aggregated |
 
 ### Interpolation & Summary
 

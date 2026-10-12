@@ -181,7 +181,6 @@ class MeteoFranceSynopValues(TimeseriesValues):
             .dt.replace_time_zone("UTC")
             .alias("timestamp"),
             _map_codes(pl.col("parameter"), pl.col("value").cast(pl.Float64, strict=False)).alias("value"),
-            pl.lit(None, pl.Float64).alias("quality"),
         )
 
 

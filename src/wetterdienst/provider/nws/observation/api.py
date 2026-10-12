@@ -14,6 +14,7 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, DatasetModel, build_metadata_model
+from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file
@@ -230,9 +231,8 @@ class NwsObservationValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%z"),
             pl.col("value").struct.field("value").cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
             # the MADIS flag of the quantity (Z, C, S, V, X, Q, G, B, T), verbatim (GH-2018)
-            pl.col("value").struct.field("qualityControl").alias("quality_flag"),
+            join_quality_flags(pl.col("value").struct.field("qualityControl")),
         )
 
 

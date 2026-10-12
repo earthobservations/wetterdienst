@@ -14,6 +14,7 @@ import polars.selectors as cs
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import group_parameters_by_dataset
+from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.noaa.ghcn.metadata import (
@@ -99,7 +100,6 @@ class NoaaGhcnValues(TimeseriesValues):
             # reconstructing from the separate year/month/day/hour/minute fields
             pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S", time_zone="UTC"),
             pl.col("value").replace("-None", None).cast(pl.Float64),
-            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
         )
         # a wind direction is 0 to 360 degrees ("000" is calm, per the documentation), yet the older
         # reports write 999, mostly with the measurement code C (calm) but also on an hour with a wind
@@ -150,25 +150,31 @@ class NoaaGhcnValues(TimeseriesValues):
         )
         index = ["station", "timestamp"]
         elements = [column for column in df.columns if column not in index and not column.endswith("_attributes")]
-        # `<element>_attributes` holds "MFLAG,QFLAG,SFLAG", e.g. ",,E" or "H,,S"; the middle one is the quality
-        # flag (GH-2018), a letter naming the check the value failed or blank where it failed none. It travels
-        # with its value through the unpivot as the field of a struct
+        # `<element>_attributes` holds "MFLAG,QFLAG,SFLAG", e.g. ",,E" or "H,,S" (readme.txt): the quality flag is a
+        # letter naming the check the value failed, blank where it failed none; the measurement and source flags say
+        # how the value was made and where it came from. They travel with their value through the unpivot as the
+        # field of a struct, and are written `QFLAG,measurement:MFLAG,source:SFLAG` (GH-2018, GH-2758)
         df = df.select(
             *index,
             *(
                 pl.struct(
                     pl.col(element).cast(pl.String).alias("value"),
                     (
-                        pl.col(f"{element}_attributes").str.split(",").list.get(1, null_on_oob=True)
+                        pl.col(f"{element}_attributes").cast(pl.String)
                         if f"{element}_attributes" in df.columns
                         else pl.lit(None, dtype=pl.String)
-                    ).alias("quality_flag"),
+                    ).alias("attributes"),
                 ).alias(element)
                 for element in elements
             ),
         ).unpivot(index=index, on=elements, variable_name="parameter", value_name="value")
+        attributes = pl.col("value").struct.field("attributes").str.split(",")
         df = df.with_columns(
-            pl.col("value").struct.field("quality_flag").str.strip_chars().replace("", None),
+            join_quality_flags(
+                attributes.list.get(1, null_on_oob=True),
+                measurement=attributes.list.get(0, null_on_oob=True),
+                source=attributes.list.get(2, null_on_oob=True),
+            ),
             pl.col("value").struct.field("value"),
         )
         df = df.select(
@@ -176,8 +182,7 @@ class NoaaGhcnValues(TimeseriesValues):
             pl.col("timestamp").str.to_date("%Y-%m-%d"),
             pl.col("parameter").str.to_lowercase(),
             pl.col("value").str.strip_chars().cast(float),
-            pl.lit(value=None, dtype=pl.Float64).alias("quality"),
-            "quality_flag",
+            "quality_flags",
         )
         # A daily value is stamped at 00:00 UTC of the date the file gives it, whichever time zone the station is in.
         # The date is the station's own observing day, which the readme gives no zone for, and a stamp shifted by the
@@ -192,8 +197,7 @@ class NoaaGhcnValues(TimeseriesValues):
             "station_id",
             "timestamp",
             "value",
-            "quality",
-            "quality_flag",
+            "quality_flags",
         )
 
     @staticmethod

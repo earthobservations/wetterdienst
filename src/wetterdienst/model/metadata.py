@@ -341,7 +341,7 @@ class MetadataModel(BaseModel):
         if parameter.name.startswith("quality"):
             msg = (
                 f"'{parameter_search.parameter}' is a quality flag. Quality flags are returned in the "
-                f"'quality' column next to the parameter they belong to and cannot be requested on their own."
+                f"'quality_flags' column next to the parameter they belong to and cannot be requested on their own."
             )
             raise KeyError(msg)
         return [parameter]

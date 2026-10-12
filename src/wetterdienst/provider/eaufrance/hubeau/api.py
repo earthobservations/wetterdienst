@@ -376,7 +376,7 @@ class HubeauValues(TimeseriesValues):
                 "code_station": "station_id",
                 "date_obs": "timestamp",
                 "resultat_obs": "value",
-                "code_qualification_obs": "quality",
+                "code_qualification_obs": "quality_flags",
             },
         )
         return df.select(
@@ -389,7 +389,8 @@ class HubeauValues(TimeseriesValues):
             "station_id",
             pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%SZ").dt.replace_time_zone("UTC"),
             "value",
-            "quality",
+            # the qualification code as Hubeau writes it, a whole number: "12", not "12.0"
+            pl.col("quality_flags").cast(pl.Int64).cast(pl.String),
         )
 
 

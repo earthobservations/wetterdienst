@@ -104,7 +104,7 @@ DF_STATIONS_MINIMUM_COLUMNS = {
     "name",
     "region",
 }
-DF_VALUES_MINIMUM_COLUMNS = {"resolution", "dataset", "station_id", "parameter", "timestamp", "value", "quality"}
+DF_VALUES_MINIMUM_COLUMNS = {"resolution", "dataset", "station_id", "parameter", "timestamp", "value", "quality_flags"}
 
 
 def _is_complete_stations_df(
@@ -120,7 +120,7 @@ def _is_complete_stations_df(
 def _is_complete_values_df(
     df: pl.DataFrame,
 ) -> bool:
-    columns = DF_VALUES_MINIMUM_COLUMNS - {"value", "quality"}
+    columns = DF_VALUES_MINIMUM_COLUMNS - {"value", "quality_flags"}
     return df.select(columns).select(pl.all_horizontal(pl.all().is_not_null().all())).to_series().all()
 
 

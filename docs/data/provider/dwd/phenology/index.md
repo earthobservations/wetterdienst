@@ -36,8 +36,8 @@ file layout:
 - **value** — `Jultag`, the day of the year the phase was reached, dimensionless.
 - **timestamp** — the 1st of January of the reference year. The entry date DWD also publishes is that
   date plus `Jultag`, so nothing is lost by not carrying it separately.
-- **quality** — `Qualitaetsniveau`: `1` formal check only, `7` checked in routine but uncorrected,
-  `10` checked and corrected.
+- **quality_flags** — `Qualitaetsniveau`, as DWD writes it: `1` formal check only, `7` checked in routine
+  but uncorrected, `10` checked and corrected.
 
 ```python
 from wetterdienst.provider.dwd.phenology import DwdPhenologyRequest

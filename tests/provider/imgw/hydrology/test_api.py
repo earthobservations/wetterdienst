@@ -64,8 +64,7 @@ def test_imgw_hydrology_api_daily() -> None:
                 "parameter": "discharge",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.62,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "150190130",
@@ -74,8 +73,7 @@ def test_imgw_hydrology_api_daily() -> None:
                 "parameter": "stage",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 164.0,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
         ],
         schema={
@@ -85,8 +83,7 @@ def test_imgw_hydrology_api_daily() -> None:
             "parameter": pl.Enum(["discharge", "stage"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
-            "quality_flag": pl.String,
+            "quality_flags": pl.String,
         },
         orient="row",
     )
@@ -111,8 +108,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "parameter": "discharge_max",
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 18.3,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "150190130",
@@ -121,8 +117,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "parameter": "discharge_mean",
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 8.36,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "150190130",
@@ -131,8 +126,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "parameter": "discharge_min",
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 2.75,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "150190130",
@@ -141,8 +135,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "parameter": "stage_max",
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 264.0,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "150190130",
@@ -151,8 +144,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "parameter": "stage_mean",
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 199.0,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "150190130",
@@ -161,8 +153,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "parameter": "stage_min",
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 149.0,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
         ],
         schema={
@@ -174,8 +165,7 @@ def test_imgw_hydrology_api_monthly() -> None:
             ),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
-            "quality_flag": pl.String,
+            "quality_flags": pl.String,
         },
         orient="row",
     )
@@ -205,8 +195,7 @@ def test_imgw_hydrology_api_daily_consolidated_yearly_file() -> None:
                 "parameter": "discharge",
                 "timestamp": dt.datetime(2023, 11, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 25.4,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "149180020",
@@ -215,8 +204,7 @@ def test_imgw_hydrology_api_daily_consolidated_yearly_file() -> None:
                 "parameter": "stage",
                 "timestamp": dt.datetime(2023, 11, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 113.0,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
         ],
         schema={
@@ -226,8 +214,7 @@ def test_imgw_hydrology_api_daily_consolidated_yearly_file() -> None:
             "parameter": pl.Enum(["discharge", "stage"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
-            "quality_flag": pl.String,
+            "quality_flags": pl.String,
         },
         orient="row",
     )

@@ -570,7 +570,7 @@ def test_meteofrance_observation_api_unknown_fu_offset_warns_only_when_rows_come
 def test_meteofrance_observation_api_daily_returns_the_validation_code_of_each_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test that the Q column of a parameter is returned verbatim in `quality_flag`, blank as null (GH-2018).
+    """Test that the Q column of a parameter is returned verbatim in `quality_flags`, blank as null (GH-2018, GH-2758).
 
     The Q columns were in the file's schema and left out of the columns read. The daily description (the
     climatologie-donnees-quotidiennes-descriptif PDF, checked 2026-10-11): "un code qualité est associé à la
@@ -596,7 +596,7 @@ def test_meteofrance_observation_api_daily_returns_the_validation_code_of_each_v
         .values.all()
         .df.with_columns(pl.col("parameter").cast(pl.String))
     )
-    assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flag").rows() == [
+    assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
         ("precipitation_amount", 0.2, "1"),
         ("precipitation_amount", 0.0, None),
         ("precipitation_amount", 1.0, "0"),
@@ -604,7 +604,8 @@ def test_meteofrance_observation_api_daily_returns_the_validation_code_of_each_v
         ("temperature_air_min_2m", 2.5, "2"),
         ("temperature_air_min_2m", 1.5, "1"),
     ]
-    assert df.get_column("quality").null_count() == df.height
+    assert "quality" not in df.columns
+    assert "quality_flag" not in df.columns
 
 
 @pytest.mark.parametrize(

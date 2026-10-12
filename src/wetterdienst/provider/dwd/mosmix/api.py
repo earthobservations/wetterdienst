@@ -155,7 +155,6 @@ class DwdMosmixValues(TimeseriesValues):
             "parameter",
             pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_zone="UTC"),
             "value",
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
     def read_mosmix(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:

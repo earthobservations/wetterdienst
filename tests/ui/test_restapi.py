@@ -609,8 +609,7 @@ def test_values_dwd_success(client: TestClient) -> None:
         "parameter": "wind_gust_max",
         "timestamp": "1982-01-01T00:00:00.000000+00:00",
         "value": 4.2,
-        "quality": 10.0,
-        "quality_flag": None,
+        "quality_flags": "10",
     }
 
 
@@ -780,47 +779,33 @@ def test_values_dwd_sql_tabular(client: TestClient, monkeypatch: pytest.MonkeyPa
         "resolution": "daily",
         "dataset": "climate_summary",
         "cloud_cover_total": 0.8625,
-        "cloud_cover_total_quality": 10.0,
-        "cloud_cover_total_quality_flag": None,
+        "cloud_cover_total_quality_flags": "10",
         "humidity_relative": 0.89,
-        "humidity_relative_quality": 10.0,
-        "humidity_relative_quality_flag": None,
+        "humidity_relative_quality_flags": "10",
         "precipitation_form": 0.0,
-        "precipitation_form_quality": 10.0,
-        "precipitation_form_quality_flag": None,
+        "precipitation_form_quality_flags": "10",
         "precipitation_amount": 0.0,
-        "precipitation_amount_quality": 10.0,
-        "precipitation_amount_quality_flag": None,
+        "precipitation_amount_quality_flags": "10",
         "pressure_air_site": 993.9,
-        "pressure_air_site_quality": 10.0,
-        "pressure_air_site_quality_flag": None,
+        "pressure_air_site_quality_flags": "10",
         "pressure_vapor": 4.6,
-        "pressure_vapor_quality": 10.0,
-        "pressure_vapor_quality_flag": None,
+        "pressure_vapor_quality_flags": "10",
         "snow_depth": 0,
-        "snow_depth_quality": 10.0,
-        "snow_depth_quality_flag": None,
+        "snow_depth_quality_flags": "10",
         "sunshine_duration": 0.0,
-        "sunshine_duration_quality": 10.0,
-        "sunshine_duration_quality_flag": None,
+        "sunshine_duration_quality_flags": "10",
         "temperature_air_max_2m": -0.6,
-        "temperature_air_max_2m_quality": 10.0,
-        "temperature_air_max_2m_quality_flag": None,
+        "temperature_air_max_2m_quality_flags": "10",
         "temperature_air_mean_2m": -2.2,
-        "temperature_air_mean_2m_quality": 10.0,
-        "temperature_air_mean_2m_quality_flag": None,
+        "temperature_air_mean_2m_quality_flags": "10",
         "temperature_air_min_0_05m": -6.6,
-        "temperature_air_min_0_05m_quality": 10.0,
-        "temperature_air_min_0_05m_quality_flag": None,
+        "temperature_air_min_0_05m_quality_flags": "10",
         "temperature_air_min_2m": -4.6,
-        "temperature_air_min_2m_quality": 10.0,
-        "temperature_air_min_2m_quality_flag": None,
+        "temperature_air_min_2m_quality_flags": "10",
         "wind_gust_max": 4.6,
-        "wind_gust_max_quality": 10.0,
-        "wind_gust_max_quality_flag": None,
+        "wind_gust_max_quality_flags": "10",
         "wind_speed": 1.9,
-        "wind_speed_quality": 10.0,
-        "wind_speed_quality_flag": None,
+        "wind_speed_quality_flags": "10",
     }
 
 
@@ -849,8 +834,7 @@ def test_values_dwd_sql_long(client: TestClient, monkeypatch: pytest.MonkeyPatch
         "parameter": "temperature_air_max_2m",
         "timestamp": "2019-12-28T00:00:00.000000+00:00",
         "value": 1.3,
-        "quality": 10.0,
-        "quality_flag": None,
+        "quality_flags": "10",
     }
 
 
@@ -1300,7 +1284,7 @@ def test_values_missing_null(client: TestClient) -> None:
         },
     )
     assert response.status_code == 200
-    assert response.json()["values"][0]["quality"] is None
+    assert response.json()["values"][0]["quality_flags"] is None
 
 
 @pytest.mark.remote
@@ -1568,8 +1552,7 @@ def test_values_dwd_mosmix(client: TestClient) -> None:
         "parameter": "temperature_air_2m",
         "timestamp": IsStr,
         "value": IsNumber,
-        "quality": None,
-        "quality_flag": None,
+        "quality_flags": None,
     }
 
 
@@ -1595,8 +1578,7 @@ def test_values_dwd_dmo_lead_time_long(client: TestClient) -> None:
         "parameter": "temperature_air_2m",
         "timestamp": IsStr,
         "value": IsNumber,
-        "quality": None,
-        "quality_flag": None,
+        "quality_flags": None,
     }
 
 
@@ -1626,8 +1608,7 @@ def test_values_dwd_observation_climate_summary_custom_units(client: TestClient)
         "parameter": "temperature_air_mean_2m",
         "timestamp": "2022-01-01T00:00:00.000000+00:00",
         "value": 52.52,
-        "quality": 10.0,
-        "quality_flag": None,
+        "quality_flags": "10",
     }
 
 
@@ -2431,7 +2412,7 @@ def test_mcp_server_reports_the_wetterdienst_version() -> None:
 @pytest.mark.parametrize(
     ("schema_name", "nullable_numeric"),
     [
-        ("_ValuesItemDict", ("value", "quality")),
+        ("_ValuesItemDict", ("value",)),
         ("_InterpolatedValuesItemDict", ("value", "distance_mean")),
         ("_SummarizedValuesItemDict", ("value", "distance")),
     ],
@@ -2456,17 +2437,19 @@ def test_values_item_output_schemas_match_payload(schema_name: str, nullable_num
         assert any(branch.get("type") == "number" for branch in branches), f"{schema_name}.{field} not numeric"
 
 
-def test_values_item_schema_types_the_quality_flag_as_a_nullable_string() -> None:
-    """The long item schemas declare `quality_flag` as a string or null, the other two omit it (GH-2018)."""
+def test_values_item_schema_types_the_quality_flags_as_a_nullable_string() -> None:
+    """The long item schemas declare `quality_flags` as a string or null, the other two omit it (GH-2018, GH-2758)."""
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
 
     schemas = app.openapi()["components"]["schemas"]
     for name in ("_ValuesItemDict", "_ValuesOgcItemDict"):
-        flag = schemas[name]["properties"]["quality_flag"]
+        flag = schemas[name]["properties"]["quality_flags"]
         assert {branch.get("type") for branch in flag["anyOf"]} == {"string", "null"}
-        assert "quality_flag" in schemas[name]["required"]
+        assert "quality_flags" in schemas[name]["required"]
+        # the numeric `quality` and the single `quality_flag` are gone
+        assert not {"quality", "quality_flag"} & schemas[name]["properties"].keys()
     for name in ("_InterpolatedValuesItemDict", "_SummarizedValuesItemDict"):
-        assert "quality_flag" not in schemas[name]["properties"]
+        assert "quality_flags" not in schemas[name]["properties"]
 
 
 @pytest.mark.remote
@@ -3456,7 +3439,7 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
     """Build a values result of one station in two daily datasets, in the long or the wide shape.
 
     The wide row is the one `TimeseriesValues._widen_df` writes for two datasets of one resolution:
-    one value, one quality and one quality flag column per parameter, prefixed with its dataset, and
+    one value and one quality flags column per parameter, prefixed with its dataset, and
     no dataset of its own.
     """
     import datetime as dt  # noqa: PLC0415
@@ -3503,17 +3486,15 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
                 "dataset": "climate_summary",
                 "parameter": "temperature_air_mean_2m",
                 "value": 1.0,
-                "quality": 10.0,
                 # a flag that is set, so the schema checks run over a string as well as over null
-                "quality_flag": "E",
+                "quality_flags": "E",
             },
             {
                 **row,
                 "dataset": "precipitation_more",
                 "parameter": "precipitation_amount",
                 "value": 2.0,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
         ],
         schema_overrides={"timestamp": pl.Datetime(time_zone="UTC")},
@@ -3623,16 +3604,16 @@ _NEEDS_EXTRA_ITEMS = pytest.mark.skipif(
 def test_values_wide_row_schemas_type_the_parameter_columns(schema_name: str) -> None:
     """The wide row schemas type the columns beyond the declared ones as nullable numbers (GH-2282).
 
-    A wide row has a value, a quality and a quality flag column per parameter asked for, which differ per
+    A wide row has a value and a quality flags column per parameter asked for, which differ per
     request, so a client generated from the schema must not read the declared keys as a closed list. The
-    flag columns, named `<parameter>_quality_flag`, are nullable strings and the rest nullable numbers (GH-2018).
+    flag columns, named `<parameter>_quality_flags`, are nullable strings and the rest nullable numbers (GH-2018).
     """
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
 
     schema = app.openapi()["components"]["schemas"][schema_name]
     extra = schema["additionalProperties"]
     assert {branch.get("type") for branch in extra.get("anyOf", [extra])} == {"number", "null"}
-    flag = schema["patternProperties"]["_quality_flag$"]
+    flag = schema["patternProperties"]["_quality_flags$"]
     assert {branch.get("type") for branch in flag.get("anyOf", [flag])} == {"string", "null"}
 
 
@@ -3645,7 +3626,7 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
     """A long row fails the wide row schema, so the served union still checks a long row (GH-2282).
 
     Were the wide row's columns untyped, every long row would match it too, and a long row missing
-    its `value` or `quality` would pass the union through the wide branch.
+    its `value` would pass the union through the wide branch.
     """
     jsonschema = pytest.importorskip("jsonschema")
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
@@ -3656,7 +3637,7 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
     else:
         item = result.to_ogc_feature_collection()["data"]["features"][0]["values"][0]
     # a flag set on the stub row would be refused first, as it is no number; the row's `parameter` is the point
-    item = {**item, "quality_flag": None}
+    item = {**item, "quality_flags": None}
     schema = {"$ref": f"#/components/schemas/{schema_name}", "components": app.openapi()["components"]}
     with pytest.raises(jsonschema.ValidationError, match="'temperature_air_mean_2m' is not valid"):
         jsonschema.validate(item, schema)
@@ -4322,8 +4303,7 @@ def test_values_wide_items_are_the_ones_the_description_states(stubbed_values: C
             "dataset",
             "timestamp",
             *parameters,
-            *(f"{parameter}_quality" for parameter in parameters),
-            *(f"{parameter}_quality_flag" for parameter in parameters),
+            *(f"{parameter}_quality_flags" for parameter in parameters),
         }
         # both datasets are daily, so they share the row and no one dataset names it
         assert item["dataset"] is None
@@ -6058,8 +6038,7 @@ def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: li
                     "parameter": name_original,
                     "timestamp": dt.datetime(2000 + offset, 1, 1, tzinfo=dt.UTC),
                     "value": value,
-                    "quality": 10.0,
-                    "quality_flag": None,
+                    "quality_flags": "10",
                 }
                 for offset, value in enumerate(values)
             ],

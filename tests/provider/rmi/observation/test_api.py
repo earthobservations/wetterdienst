@@ -232,7 +232,7 @@ def test_collect_reshapes_wide_features_to_long_utc_values() -> None:
     values._iter_value_pages = lambda *_args, **_kwargs: iter([wide])  # noqa: SLF001
 
     df = values._collect_station_parameter_or_dataset(UCCLE, dataset)  # noqa: SLF001
-    assert df.columns == ["resolution", "dataset", "parameter", "station_id", "timestamp", "value", "quality"]
+    assert df.columns == ["resolution", "dataset", "parameter", "station_id", "timestamp", "value", "quality_flags"]
     assert df.get_column("resolution").unique().to_list() == ["hourly"]
     assert df.get_column("station_id").unique().to_list() == [UCCLE]
     assert set(df.get_column("parameter").unique().to_list()) == set(names)
@@ -240,10 +240,10 @@ def test_collect_reshapes_wide_features_to_long_utc_values() -> None:
     assert df.height == 2 * len(names)
     assert str(df.schema["timestamp"]).find("UTC") != -1
     assert df.get_column("timestamp").min() == dt.datetime(2023, 6, 1, tzinfo=UTC)
-    # qc_flags validation maps to the quality code: validated -> 1.0, not validated -> 0.0
-    quality_by_parameter = dict(df.select("parameter", "quality").unique().iter_rows())
-    assert quality_by_parameter[names[0]] == 1.0
-    assert quality_by_parameter[names[1]] == 0.0
+    # qc_flags validation maps to the flag: validated -> "1", not validated -> "0"
+    quality_by_parameter = dict(df.select("parameter", "quality_flags").unique().iter_rows())
+    assert quality_by_parameter[names[0]] == "1"
+    assert quality_by_parameter[names[1]] == "0"
 
 
 @pytest.mark.remote

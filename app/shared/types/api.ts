@@ -135,9 +135,9 @@ export interface Value {
   parameter: string
   timestamp: string
   value: number | null
-  quality: number | null
-  // the source's own flag, verbatim; null where the provider publishes none
-  quality_flag?: string | null
+  // every flag the source publishes for the reading, comma-separated: the plain quality flag first, then
+  // `kind:code` tokens (`G,measurement:S,source:7`); null where the provider publishes none
+  quality_flags?: string | null
   taken_station_id?: string
   taken_station_ids?: string
 }

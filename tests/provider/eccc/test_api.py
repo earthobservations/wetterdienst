@@ -69,8 +69,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "parameter": "cooling_degree_day",
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "2",
@@ -79,8 +78,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "parameter": "heating_degree_day",
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 11.7,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "2",
@@ -89,8 +87,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "parameter": "precipitation_amount",
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 1.0,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "2",
@@ -99,8 +96,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "parameter": "precipitation_amount_liquid",
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 1.0,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "2",
@@ -109,8 +105,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "parameter": "snow_depth_new",
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 0.0,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "2",
@@ -119,8 +114,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "parameter": "temperature_air_max_2m",
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 9.5,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "2",
@@ -129,8 +123,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "parameter": "temperature_air_mean_2m",
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 6.3,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "2",
@@ -139,8 +132,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
                 "parameter": "temperature_air_min_2m",
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 3.0,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
         ],
         schema={
@@ -161,8 +153,7 @@ def test_eccc_api_values(settings_convert_units_false: Settings) -> None:
             ),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
-            "quality_flag": pl.String,
+            "quality_flags": pl.String,
         },
         orient="row",
     )
@@ -617,8 +608,8 @@ def test_eccc_hourly_year_window_follows_utc_date_not_the_civil_zone(
     ]
 
 
-def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that a value's `*_FLAG` letter is kept verbatim in `quality_flag`, beside its own parameter (GH-2018).
+def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a value's `*_FLAG` letter is kept verbatim in `quality_flags` (GH-2018, GH-2758).
 
     The flags were fetched, joined on as `quality` and then replaced by a null Float64, so a missing (`M`),
     estimated (`E`) or trace (`T`) day looked like any other. Rows as api.weather.gc.ca/collections/climate-daily
@@ -656,9 +647,10 @@ def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flag(monkeypatch: 
         settings=Settings(ts_convert_units=False, ts_drop_nulls=False),
     )
     df = request.filter_by_station_id("51459").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
-    assert df.schema["quality_flag"] == pl.String
-    assert df.get_column("quality").null_count() == df.height
-    assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flag").rows() == [
+    assert df.schema["quality_flags"] == pl.String
+    assert "quality" not in df.columns
+    assert "quality_flag" not in df.columns
+    assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
         ("precipitation_amount", 0.0, "T"),
         ("precipitation_amount", 1.2, "E"),
         ("temperature_air_mean_2m", -5.0, None),
@@ -666,10 +658,10 @@ def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flag(monkeypatch: 
     ]
 
 
-def test_eccc_monthly_has_no_flags_and_so_a_null_quality_flag(
+def test_eccc_monthly_has_no_flags_and_so_null_quality_flags(
     monkeypatch: pytest.MonkeyPatch, settings_convert_units_false: Settings
 ) -> None:
-    """Test that monthly rows, which ECCC publishes without flags, come back with a null `quality_flag`."""
+    """Test that monthly rows, which ECCC publishes without flags, come back with null `quality_flags`."""
     _serve_eccc(monkeypatch, [{"LOCAL_DATE": "2025-01", "MEAN_TEMPERATURE": -5.4}])
     request = EcccObservationRequest(
         parameters=[("monthly", "data", "temperature_air_mean_2m")],
@@ -678,6 +670,6 @@ def test_eccc_monthly_has_no_flags_and_so_a_null_quality_flag(
         settings=settings_convert_units_false,
     )
     df = request.filter_by_station_id("51459").values.all().df
-    assert df.schema["quality_flag"] == pl.String
-    assert df.get_column("quality_flag").to_list() == [None]
+    assert df.schema["quality_flags"] == pl.String
+    assert df.get_column("quality_flags").to_list() == [None]
     assert df.get_column("value").to_list() == [-5.4]
