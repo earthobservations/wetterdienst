@@ -19,9 +19,9 @@ Types of changes:
 ### Fixed
 
 - `eccc/observation` daily `wind_gust_max` and `wind_direction_gust_max` are null, with `raw:0` in
-  `quality_flags`, on a day whose gust ECCC does not report (below 31 km/h). They were 0 m/s and 0
-  degrees on those days, over half of all days with a gust. Use the gust only where it is not
-  null (GH-2615)
+  `quality_flags`, where ECCC writes 0: the gust is not reported below 31 km/h, and a direction of 0
+  is no bearing (north is 36 tens of degrees). They were 0 m/s and 0 degrees on over a third of the
+  days with a gust value. Use the gust only where it is not null (GH-2615)
 
 ## [0.147.0] - 2026-10-12
 
