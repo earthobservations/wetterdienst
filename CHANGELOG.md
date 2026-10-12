@@ -31,6 +31,12 @@ Types of changes:
   the period are missing. A filter on a null `quality_flags` as "no flag" no longer holds for these
   rows. `FLAG_REPEAT` is carried as `repeat:*` too, but only `MAX`/`MIN` rows have it and none of
   the parameters is one (GH-2763)
+- `dmi/observation`: `quality_flags` (null before) carries DMI's `qcStatus` and `validity`, as
+  `manual,validity:true`. DMI sets `validity` to `false` for values its climatologists consider
+  invalid ("generally not correct"), mostly Greenland: 1978 mm of precipitation in a day at
+  04339, 17,802 mm in a month. The values are still returned; filter `quality_flags` for
+  `validity:false` to leave them out. A filter on a null `quality_flags` no longer holds (Part of
+  GH-2797)
 
 ### Fixed
 

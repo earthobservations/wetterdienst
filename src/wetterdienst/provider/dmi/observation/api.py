@@ -22,6 +22,7 @@ from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dmi.observation.metadata import DmiObservationMetadata
@@ -64,6 +65,7 @@ _EMPTY_VALUES_SCHEMA = {
     "station_id": pl.String,
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
+    "quality_flags": pl.String,
 }
 
 _STATION_VALUE_SCHEMA = pl.Schema(
@@ -77,6 +79,8 @@ _STATION_VALUE_SCHEMA = pl.Schema(
                             "from": pl.String,
                             "to": pl.String,
                             "value": pl.Float64,
+                            "qcStatus": pl.String,
+                            "validity": pl.Boolean,
                         }
                     ),
                 }
@@ -307,7 +311,26 @@ class DmiObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             self._date_expression(resolution).alias("timestamp"),
             pl.col("value").cast(pl.Float64),
+            _quality_flags(),
         )
+
+
+def _quality_flags() -> pl.Expr:
+    """Write DMI's ``qcStatus`` and ``validity`` of a record as its ``quality_flags``.
+
+    ``qcStatus`` (``manual``: quality controlled by DMI's climatologists, ``none``: not controlled) is the
+    plain code and ``validity`` follows as ``validity:true`` or ``validity:false``. DMI documents
+    ``validity`` as "whether or not the value is considered valid by the climatologists. Invalid data is
+    generally not correct", and sets it ``false`` for Greenland and, rarely, Denmark. The value of such a
+    record is kept, so a caller can drop it by the flag (GH-2797).
+    """
+    validity = pl.col("validity")
+    return join_quality_flags(
+        pl.col("qcStatus"),
+        validity=pl.when(validity.is_not_null()).then(
+            pl.when(validity).then(pl.lit("true")).otherwise(pl.lit("false"))
+        ),
+    )
 
 
 @dataclass

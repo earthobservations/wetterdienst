@@ -473,3 +473,45 @@ def test_collect_dates_daily_max_precipitation_by_the_day_it_ends_on(monkeypatch
         ("acc_precip", "2025-03-29"): 0.0,
         ("acc_precip", "2025-03-30"): 9.8,
     }
+
+
+def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rows as DMI serves them for 04339 (GH-2797): 1978 mm in a day is no reading, DMI marks it invalid."""
+    rows = [
+        # (parameterId, from, value, qcStatus, validity)
+        ("acc_precip", "2011-07-24T06:00:00+00:00", 1978.0, "manual", False),
+        ("acc_precip", "2011-07-25T06:00:00+00:00", 3.4, "manual", True),
+        ("mean_temp", "2011-07-24T06:00:00+00:00", 5.1, "none", True),
+        ("mean_temp", "2011-07-25T06:00:00+00:00", 5.3, None, None),
+    ]
+    features = [
+        {
+            "properties": {
+                "parameterId": parameter,
+                "from": start,
+                "to": start,
+                "value": value,
+                "qcStatus": qc_status,
+                "validity": validity,
+            }
+        }
+        for parameter, start, value, qc_status, validity in rows
+    ]
+    content = json.dumps({"features": features}).encode()
+    monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
+    values = object.__new__(dmi_api.DmiObservationValues)
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        start=dt.datetime(2011, 7, 24, tzinfo=UTC),
+        end=dt.datetime(2011, 7, 26, tzinfo=UTC),
+        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+    )
+    dataset = dmi_api.DmiObservationMetadata["daily"].datasets[0]
+    df = values._collect_station_parameter_or_dataset("04339", dataset)  # noqa: SLF001
+    assert df.schema["quality_flags"] == pl.String
+    flags = {(row["parameter"], row["value"]): row["quality_flags"] for row in df.iter_rows(named=True)}
+    assert flags == {
+        ("acc_precip", 1978.0): "manual,validity:false",
+        ("acc_precip", 3.4): "manual,validity:true",
+        ("mean_temp", 5.1): "none,validity:true",
+        ("mean_temp", 5.3): None,
+    }
