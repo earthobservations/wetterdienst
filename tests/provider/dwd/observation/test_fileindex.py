@@ -2,14 +2,21 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD observation file index creation."""
 
+import datetime as dt
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
+
 import polars as pl
+import portion
 import pytest
 
 from wetterdienst import Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
+    fileindex,
 )
+from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.provider.dwd.observation.fileindex import (
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
@@ -77,3 +84,93 @@ def test_create_file_list_for_dwd_server(default_settings: Settings) -> None:
             "10minutenwerte_TU_00003_19930428_19991231_hist.zip"
         ),
     ]
+
+
+_TEN_MINUTE_FILES = [
+    "10minutenwerte_TU_01048_19911119_19991231_hist.zip",
+    "10minutenwerte_TU_01048_20000101_20091231_hist.zip",
+    "10minutenwerte_TU_01048_20100101_20191231_hist.zip",
+    "10minutenwerte_TU_01048_20200101_20241231_hist.zip",
+]
+
+
+def _serve_ten_minute_files(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Serve the listing of the historical 10 minute air temperature directory from the test."""
+    urls = [
+        f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/air_temperature/historical/{name}"
+        for name in _TEN_MINUTE_FILES
+    ]
+    listing = (
+        pl.DataFrame({"url": urls}).with_columns(pl.col("url").str.split("/").list.last().alias("filename")).lazy()
+    )
+    monkeypatch.setattr(fileindex, "_create_file_index_for_dwd_server", lambda *_, **__: listing)
+
+
+def test_historical_file_bounds_are_utc_instants_of_the_stamps(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that a file spans the UTC (or, before 2000, MEZ) days its name gives, not Berlin days.
+
+    The stamps of the 10 minute files are UTC from 2000 and MEZ, the fixed UTC+1, before, so the file
+    of 2010 to 2019 ends at 00:00 UTC on 2020-01-01 and the one that ends in 1999 at 23:00 UTC on 31 December,
+    whatever Europe/Berlin does with summer time (GH-2811).
+    """
+    _serve_ten_minute_files(monkeypatch)
+    index = create_file_index_for_climate_observations(
+        DwdObservationMetadata.minute_10.temperature_air, Period.HISTORICAL, default_settings
+    ).collect()
+    bounds = {row["date_range"]: (row["start_timestamp"], row["end_timestamp"]) for row in index.iter_rows(named=True)}
+    utc = dt.UTC
+    assert bounds["19911119_19991231"] == (
+        dt.datetime(1991, 11, 18, 23, tzinfo=utc),
+        dt.datetime(1999, 12, 31, 23, tzinfo=utc),
+    )
+    assert bounds["20000101_20091231"] == (
+        dt.datetime(2000, 1, 1, tzinfo=utc),
+        dt.datetime(2010, 1, 1, tzinfo=utc),
+    )
+    assert bounds["20100101_20191231"] == (
+        dt.datetime(2010, 1, 1, tzinfo=utc),
+        dt.datetime(2020, 1, 1, tzinfo=utc),
+    )
+    assert index.schema["start_timestamp"] == pl.Datetime("us", "UTC")
+    assert index.schema["end_timestamp"] == pl.Datetime("us", "UTC")
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "date_ranges"),
+    [
+        # the last hour of a file's last day: the file that holds it is chosen (it was dropped, as the
+        # file's end was taken as 23:00 UTC)
+        ("2019-12-31T23:00+00:00", "2019-12-31T23:50+00:00", ["20100101_20191231"]),
+        ("2019-12-31T22:00+00:00", "2019-12-31T22:30+00:00", ["20100101_20191231"]),
+        # across the seam both files are chosen
+        ("2019-12-31T23:00+00:00", "2020-01-01T01:00+00:00", ["20100101_20191231", "20200101_20241231"]),
+        # a request that ends on the first stamp of a file needs that file
+        ("2019-12-31T23:50+00:00", "2020-01-01T00:00+00:00", ["20100101_20191231", "20200101_20241231"]),
+        # a Berlin-aware window is the same instants: 23:00 to 00:30 UTC
+        ("2020-01-01T00:00+01:00", "2020-01-01T01:30+01:00", ["20100101_20191231", "20200101_20241231"]),
+        # a window that starts after a file's last stamp does not need it
+        ("2020-01-01T00:00+00:00", "2020-01-01T01:00+00:00", ["20200101_20241231"]),
+        # MEZ before 2000: 00:00 MEZ on the 1st of January 1992 is 23:00 UTC on 31 December 1991
+        ("1999-12-31T22:00+00:00", "1999-12-31T22:50+00:00", ["19911119_19991231"]),
+    ],
+)
+def test_historical_files_are_chosen_by_the_instants_they_cover(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+    start: str,
+    end: str,
+    date_ranges: list[str],
+) -> None:
+    """Test that the historical files chosen for a request are those whose stamps fall in the window."""
+    _serve_ten_minute_files(monkeypatch)
+    berlin = ZoneInfo("Europe/Berlin")
+    interval = portion.closed(
+        dt.datetime.fromisoformat(start).astimezone(berlin), dt.datetime.fromisoformat(end).astimezone(berlin)
+    )
+    values = SimpleNamespace(sr=SimpleNamespace(stations=SimpleNamespace(interval=interval)))
+    chosen = DwdObservationValues._get_historical_date_ranges(  # noqa: SLF001
+        values, "01048", DwdObservationMetadata.minute_10.temperature_air, default_settings
+    )
+    assert chosen == date_ranges
