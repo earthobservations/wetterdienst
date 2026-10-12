@@ -13,7 +13,7 @@ import polars.selectors as cs
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import group_parameters_by_dataset
+from wetterdienst.model.metadata import DatasetModel, group_parameters_by_dataset
 from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -28,7 +28,7 @@ from wetterdienst.util.polars_util import read_fwf_from_df
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from wetterdienst.model.metadata import DatasetModel, ParameterModel
+    from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -41,10 +41,10 @@ GHCNH_WIND_DIRECTION_MISSING = 999.0
 GHCNH_PRECIPITATION_MISSING = -9999.0
 
 
-class NoaaGhcnValues(TimeseriesValues):
+class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     """Values class for NOAA GHCN data provider."""
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,

@@ -578,10 +578,9 @@ class DwdDerivedValues(TimeseriesValues):
         """
         from typing import cast  # noqa: PLC0415
 
-        if (isinstance(parameter_or_dataset, DatasetModel) and parameter_or_dataset in TECHNICAL_DATASETS) or (
-            isinstance(parameter_or_dataset, ParameterModel) and parameter_or_dataset.dataset in TECHNICAL_DATASETS
-        ):
-            return self._collect_station_param_technical_dataset(station_id, parameter_or_dataset)  # ty: ignore[invalid-argument-type]
+        # the technical datasets are not grouped, so they arrive one parameter at a time
+        if isinstance(parameter_or_dataset, ParameterModel) and parameter_or_dataset.dataset in TECHNICAL_DATASETS:
+            return self._collect_station_param_technical_dataset(station_id, parameter_or_dataset)
 
         dataset = cast("DatasetModel", parameter_or_dataset)
         stations = cast("DwdDerivedRequest", self.sr.stations)

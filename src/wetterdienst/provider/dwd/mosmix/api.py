@@ -18,6 +18,7 @@ import polars as pl
 
 from wetterdienst.exceptions import InvalidEnumerationError, InvalidTimeIntervalError, IssueNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.catalogue import MOSMIX_STATION_CATALOGUE_URL, read_mosmix_station_catalogue
@@ -27,7 +28,6 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import list_remote_files_fsspec
 
 if TYPE_CHECKING:
-    from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ def _run_stamp(urls: pl.Expr) -> pl.Expr:
     return urls.str.split("/").list.last().str.extract(rf"(?i)_(\d{{10}})(?:_[^.]*)?{_FORECAST_FILE}", 1)
 
 
-class DwdMosmixValues(TimeseriesValues):
+class DwdMosmixValues(TimeseriesValues[DatasetModel]):
     """Fetch weather mosmix data (KML/MOSMIX_S dataset)."""
 
     def __post_init__(self) -> None:
@@ -124,7 +124,7 @@ class DwdMosmixValues(TimeseriesValues):
         delta_hours = (datetime_.hour - regular_date.hour) % 6
         return datetime_ - dt.timedelta(hours=delta_hours)
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
@@ -402,8 +402,10 @@ class DwdMosmixRequest(TimeseriesRequest):
             or DwdMosmixStationGroup.SINGLE_STATIONS
         )
         issue = self.issue
-        with contextlib.suppress(InvalidEnumerationError):
-            issue = parse_enumeration_from_template(issue, DwdForecastDate)  # ty: ignore[no-matching-overload]
+        # a datetime names no member of the enumeration, so only a string or a member is looked up
+        if not isinstance(issue, dt.datetime):
+            with contextlib.suppress(InvalidEnumerationError):
+                issue = parse_enumeration_from_template(issue, DwdForecastDate)
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
                 try:

@@ -406,8 +406,10 @@ class DwdSwsmosRequest(TimeseriesRequest):
         """Resolve the ``issue`` (model run) to LATEST or a UTC hour."""
         super().__post_init__()
         issue: str | dt.datetime | DwdForecastDate = self.issue
-        with contextlib.suppress(InvalidEnumerationError):
-            issue = parse_enumeration_from_template(issue, DwdForecastDate)  # ty: ignore[no-matching-overload]
+        # a datetime names no member of the enumeration, so only a string or a member is looked up
+        if not isinstance(issue, dt.datetime):
+            with contextlib.suppress(InvalidEnumerationError):
+                issue = parse_enumeration_from_template(issue, DwdForecastDate)
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
                 try:

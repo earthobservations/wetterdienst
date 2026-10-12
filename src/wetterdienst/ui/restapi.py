@@ -778,6 +778,7 @@ def _openapi() -> dict[str, Any]:
 
 
 # FastAPI's documented way to extend the schema, which the route serving it calls on the app
+# (the assignment replaces a method, which a type checker rejects whatever the right-hand side is)
 app.openapi = _openapi  # ty: ignore[invalid-assignment]
 
 

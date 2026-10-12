@@ -4,7 +4,7 @@
 
 import importlib
 import logging
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from pydantic import ValidationError
 from pydantic_settings import SettingsError
@@ -216,7 +216,7 @@ class Wetterdienst:
             return None
 
     @classmethod
-    def discover(cls) -> dict:
+    def discover(cls) -> dict[str, Any]:
         """Discover all available providers and networks with their metadata.
 
         Nothing is downloaded, so this is as fast on a cold cache as on a warm one (GH-2564). Whether

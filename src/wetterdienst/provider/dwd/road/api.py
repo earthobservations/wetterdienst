@@ -807,7 +807,7 @@ def _log_dropped_sensors(
     )
 
 
-class DwdRoadValues(TimeseriesValues):
+class DwdRoadValues(TimeseriesValues[DatasetModel]):
     """Values class for DWD road weather data."""
 
     def __post_init__(self) -> None:
@@ -820,7 +820,7 @@ class DwdRoadValues(TimeseriesValues):
         # See `_collect_data_by_station_group`
         self._group_cache: tuple[tuple[str, tuple[str, ...]], pl.DataFrame] | None = None
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,

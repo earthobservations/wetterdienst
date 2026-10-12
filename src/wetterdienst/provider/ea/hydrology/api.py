@@ -154,7 +154,7 @@ _READINGS_MARGIN = dt.timedelta(days=1)
 _DAILY_DAY_START = dt.timedelta(hours=9)
 
 
-class EAHydrologyValues(TimeseriesValues):
+class EAHydrologyValues(TimeseriesValues[ParameterModel]):
     """Values class for Environment Agency hydrology data."""
 
     _url = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
@@ -181,7 +181,7 @@ class EAHydrologyValues(TimeseriesValues):
             query["_limit"] = limit
         return f"{url}?{urlencode(query)}"
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: ParameterModel,
