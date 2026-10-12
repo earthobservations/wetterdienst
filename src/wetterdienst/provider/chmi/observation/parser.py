@@ -97,8 +97,10 @@ def _values(date: pl.Expr, element: str, df: pl.DataFrame) -> pl.DataFrame:
       period are missing (``mly-...-T20.csv`` and ``-Fmax.csv`` against their daily files: every such
       row has it and no row of a complete period): the series was interrupted.
 
-    They follow as ``repeat:*`` and ``interrupted:I``, in that order after ``element``, so
-    ``quality_flags`` reads ``repeat:*,interrupted:I`` (these files have no quality code).
+    They follow as ``repeat:*`` and ``interrupted:I``, in that order after ``element`` (these files
+    have no quality code). The parameters read from the aggregate files are means and the precipitation
+    total (``_AGGREGATE_ELEMENTS``), never a ``MAX`` or ``MIN``, so ``repeat:*`` does not show in
+    them today; ``interrupted:I`` does.
     """
     quality = (
         pl.col("QUALITY").cast(pl.Float64, strict=False).cast(pl.Int64, strict=False)
