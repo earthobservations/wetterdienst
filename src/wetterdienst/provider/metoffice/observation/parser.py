@@ -151,7 +151,7 @@ def parse_values(
         sub = df.select(
             date.alias("timestamp"),
             value.alias("value"),
-            # the MESQL digits as the file writes them, leading zeros included
+            # MESQL as the text the file writes, not as a number
             (
                 join_quality_flags(pl.col(quality_column))
                 if quality_column in df.columns

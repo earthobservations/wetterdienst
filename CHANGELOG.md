@@ -21,12 +21,12 @@ Types of changes:
 - **Breaking**: the `quality` number of every values frame is replaced by one nullable string
   column `quality_flags` (wide: `<parameter>_quality` by `<parameter>_quality_flags`) holding every
   flag the source publishes, comma-separated: the quality flag plain (`T`, `Good`, `3`), further
-  kinds as `kind:code` (`noaa/ghcn` daily `G,measurement:S,source:7`, `chmi/observation`
+  kinds as `kind:code` (`noaa/ghcn` daily `G,measurement:T,source:7`, `chmi/observation`
   `3,element:E`); null where there is none. It fills what `eccc`, `ea`, `meteofrance`, `noaa/ghcn`,
-  `chmi`, `nws` and `smhi` dropped, and `imgw/meteorology` keeps `Z` where it wrote 10. Cast where
-  you used the number, `pl.col("quality_flags").cast(pl.Int64)`; select by name, as columns move; a
-  bare `df.drop_nulls()` drops null-flag rows, use `drop_nulls("value")`; SQL tables need the new
-  column. Interpolated and summarized frames have no flags column (GH-2018, GH-2755, GH-2757, GH-2758)
+  `chmi`, `nws` and `smhi` dropped, and `imgw/meteorology` keeps `Z` where it wrote 10. Where you
+  used the number, cast it, `pl.col("quality_flags").cast(pl.Int64, strict=False)` (`Z` is no
+  number); select by name, as columns move; SQL tables need the new column. Interpolated and
+  summarized frames have no flags column (GH-2018, GH-2755, GH-2757, GH-2758)
 - **Breaking**: `metno/frost` `daily` `snow_depth` is stamped at 00:00 UTC of the date of its
   reading, no longer at the time of the reading (usually 06:00 UTC), like the other daily
   parameters. Join stored snow depth on the date (GH-2729)

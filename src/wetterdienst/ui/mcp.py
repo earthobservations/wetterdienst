@@ -127,7 +127,7 @@ hourly/air_temperature, hourly/precipitation.
 returns JSON with a `values` array of \
 {station_id, resolution, dataset, parameter, timestamp, value, quality_flags}, grouped by station, then by \
 resolution, dataset and parameter, in timestamp order within each group. `quality_flags` is null or the \
-source's own flag as a string, comma-separated `kind:code` tokens where the source has several kinds. \
+source's own flags as a string: the plain quality flag first, then `kind:code` tokens (`G,measurement:T,source:7`). \
 A parameter's LATEST timestamp is the LAST item of its group, not the last item of the array.
 - Responses are compact by default (just the `values`). Keep them small (and answer in fewer calls) \
 by querying a single "resolution/dataset/parameter" and -- if you only need one day -- a \

@@ -740,7 +740,7 @@ describe('dataViewer columns', () => {
   it('shows the flags a provider publishes next to the value', async () => {
     // the source's own flags, one string: the quality flag plain and the further kinds as `kind:code` (GH-2018, GH-2758),
     // and a column the table orders after it, which would otherwise come out ahead of the flags
-    registerEndpoint('/api/values', () => ({ values: [{ ...row, taken_station_id: '01048', quality_flags: 'G,measurement:S,source:7' }] }))
+    registerEndpoint('/api/values', () => ({ values: [{ ...row, taken_station_id: '01048', quality_flags: 'G,measurement:T,source:7' }] }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     expect(picked(wrapper)).toEqual([
@@ -751,7 +751,7 @@ describe('dataViewer columns', () => {
       'quality_flags',
       'taken_station_id',
     ])
-    expect(wrapper.text()).toContain('G,measurement:S,source:7')
+    expect(wrapper.text()).toContain('G,measurement:T,source:7')
   })
 
   it('takes the columns of the station rows a Fetch replaces interpolated rows with', async () => {

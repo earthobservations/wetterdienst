@@ -32,7 +32,7 @@ Not every station measures every parameter — a station/parameter combination M
 simply contributes no rows.
 
 The `quality_flags` column carries MIDAS's raw five-digit `MESQL` quality-control flag verbatim, as
-the string the file writes (leading zeros kept); each digit encodes a different aspect of the
+the string the file writes (an integer, so its leading zeros are missing: `2576` is `02576`); each digit encodes a different aspect of the
 observation's quality (see the
 [MIDAS QC flag documentation](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html)),
 so a larger number is not "worse".

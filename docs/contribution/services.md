@@ -206,6 +206,6 @@ built with `join_quality_flags` from `wetterdienst.model.quality_flags`: the sou
 flag as the first argument, written as the plain code, and every further kind it publishes as
 `kind=expression`, which is written `kind:code` after it, comma-separated and in the order given
 (`join_quality_flags(pl.col("QFLAG"), measurement=pl.col("MFLAG"), source=pl.col("SFLAG"))` gives
-`G,measurement:S,source:7`). A blank flag is left out and a reading without a flag is null. A provider
+`G,measurement:T,source:7`). A blank flag is left out and a reading without a flag is null. A provider
 that publishes none leaves the column out, and the base class fills it with a null. Document each
 code of the source next to the provider's page and quote its documentation in the test.

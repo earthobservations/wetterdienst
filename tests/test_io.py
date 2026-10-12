@@ -986,6 +986,17 @@ def test_filter_by_sql_names_a_renamed_wide_quality_column() -> None:
 
 
 @pytest.mark.sql
+def test_filter_by_sql_names_the_quality_flags_that_replaced_quality() -> None:
+    """A long frame's `quality` and `quality_flag` are named by the one column they became (GH-2758)."""
+    import duckdb  # noqa: PLC0415
+
+    df = pl.DataFrame({"parameter": ["tmk"], "value": [1.5], "quality_flags": ["10"]})
+    for old in ("quality", "quality_flag"):
+        with pytest.raises(duckdb.BinderException, match=f'column "{old}" was renamed to "quality_flags"'):
+            ExportMixin(df=df).filter_by_sql(f"{old} >= 5")
+
+
+@pytest.mark.sql
 def test_filter_by_sql_names_a_renamed_parameter_column() -> None:
     """A wide frame's column after a renamed parameter, and its quality column, name the new ones (GH-2032)."""
     import duckdb  # noqa: PLC0415

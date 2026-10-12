@@ -15,6 +15,8 @@ RENAMED_COLUMNS: dict[str, str] = {
     "date": "timestamp",  # GH-2028
     "start_date": "start_timestamp",  # GH-2439
     "end_date": "end_timestamp",  # GH-2439
+    "quality": "quality_flags",  # GH-2758
+    "quality_flag": "quality_flags",  # GH-2758
 }
 
 

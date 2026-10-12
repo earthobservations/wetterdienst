@@ -137,22 +137,23 @@ def test_parse_values_scales_visibility_to_metres() -> None:
     ]
 
 
-def test_parse_values_keeps_the_mesql_digits_as_the_file_writes_them() -> None:
-    """MESQL is five digits, each one an aspect of the QC, and a zero in front is one of them (GH-2018, GH-2758).
+def test_parse_values_keeps_the_mesql_code_as_the_text_the_file_writes() -> None:
+    """MESQL comes back as the text the file writes, not as a float (GH-2018, GH-2758).
 
     The CEDA documentation (dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html): "This _q attribute is a
     five digit number (of the form MESQL), where each digit describes one aspect of the quality of a meteorological
-    element": M qc_marker, E qc_estimate, S qc_status, Q qc_query, L qc_level. Read as a number "00001" would be 1.
+    element": M qc_marker, E qc_estimate, S qc_status, Q qc_query, L qc_level. The files write the integer, so
+    "2576" is MESQL 02576; a float would give "2576.0".
     """
     content = _badc(
         b"Conventions,G,BADC-CSV,1\n",
         "ob_date,ob_day_cnt,prcp_amt,prcp_amt_q",
-        b"2000-01-01 00:00:00,1,3.7,00001\n2000-01-02 00:00:00,1,0.0,20001\n2000-01-03 00:00:00,1,1.1,\n",
+        b"2000-01-01 00:00:00,1,3.7,2576\n2000-01-02 00:00:00,1,0.0,20001\n2000-01-03 00:00:00,1,1.1,\n",
     )
     df = parse_values(
         content, time_column="ob_date", columns=["prcp_amt"], granularity="1d", period_count_column="ob_day_cnt"
     ).sort("timestamp")
-    assert df.get_column("quality_flags").to_list() == ["00001", "20001", None]
+    assert df.get_column("quality_flags").to_list() == ["2576", "20001", None]
 
 
 def test_parse_values_empty_input() -> None:

@@ -513,8 +513,8 @@ values.df_stations
 
 Every reading has one string column, `quality_flags` (in the wide shape `<parameter>_quality_flags`),
 holding the flags its source publishes for it. It is null where the source gives none, which is the
-case for every provider not listed below, and for the interpolated and summarized results, which are
-made of several stations' readings. The sources call the field by many names (DWD `QN`, MIDAS `MESQL`,
+case for every provider not listed below. Interpolated and summarized results have no such column, as
+they are made of several stations' readings. The sources call the field by many names (DWD `QN`, MIDAS `MESQL`,
 ECCC `Flag`, SMHI `Kvalitet`, GHCN `QFLAG`, NWS `qualityControl`, Frost `qualityCode`, Hubeau
 `code_qualification_obs`, Météo-France `Q<parameter>`) and the meaning of a code differs from provider to
 provider, so a code from one says nothing about one from another; none is a scale of better and worse
@@ -522,20 +522,20 @@ unless the table says so.
 
 - A source with one flag: its plain code as the source writes it, only trimmed (`T`, `Good`, `3`).
 - A source with several kinds of flag: the ordinary quality flag first as a plain code, then every other
-  kind as `kind:code`, comma-separated, in a fixed order per provider (`G,measurement:S,source:7`,
+  kind as `kind:code`, comma-separated, in a fixed order per provider (`G,measurement:T,source:7`,
   `3,element:E`). A blank flag is left out, so a plain token is always the quality flag, and
-  `measurement:S` alone is a reading whose quality flag is blank.
+  `measurement:T` alone is a reading whose quality flag is blank.
 - `str.split(",")` takes the tokens apart; where a numeric code was used before, cast it:
   `pl.col("quality_flags").cast(pl.Int64)`.
 
 | Provider | codes in `quality_flags` |
 | --- | --- |
 | DWD observation | `QN`, the quality control level of the file's row: `1` only formal control, `2` controlled with individually defined criteria, `3` automatic control and correction, `5` historic, subjective procedures, `7` second control done, before correction, `8` quality control outside routine, `9` not all parameters corrected, `10` quality control finished (data up to 1980 reach `5` at best; 10 minutes data `1` to `3`). A larger number is a more thorough check. `DwdObservationRequest.describe_fields` prints the table of a dataset |
-| DWD derived | `QN` of the file: radiation `500` DUETT data without station and satellite data, `501` on station data only, `502` on satellite data only, `503` on station and satellite data; the other datasets as DWD observation |
+| DWD derived | hourly `radiation_global` and `sunshine_duration` (DUETT, `QN_952`): `500` DUETT data without station and satellite data, `501` on station data only, `502` on satellite data only, `503` on station and satellite data; the other derived datasets: null |
 | DWD phenology | `Qualitaetsniveau`: `1` formal check only, `7` checked in routine but uncorrected, `10` checked and corrected |
 | DWD road | the station's own verdict, from `qualityInformationAwsData`, or this library's: `1` suspect, `0` checked and not found suspect, null unknown ([details](../data/provider/dwd/road/15_minutes.md)) |
 | DWD mosmix, dmo, poi, swsmos, radar and the other DWD networks | null |
-| Met Office observation | the MIDAS `*_q` flag `MESQL`, a five digit compound code with leading zeros kept (marker, estimate, status, query, level: [QC flags](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html)); not a scale |
+| Met Office observation | the MIDAS `*_q` flag `MESQL`, a five digit compound code, written by the file as an integer so that its leading zeros are missing (`2576` is `02576`; `str.zfill(5)` restores them) (marker, estimate, status, query, level: [QC flags](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html)); not a scale |
 | RMI | the validation of the value in `qc_flags`: `1` validated, `0` not validated |
 | IMGW meteorology | the status column beside the value: `8` no measurement (value null), `9` the phenomenon did not occur (value 0), `Z` a collective total (`o_d` only); `11` is this library's own, for a day absent from a month that is present (`daily/precipitation`, value 0). Blank status is null |
 | IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, DMI, MeteoSwiss, AEMET, Geosphere, Météo-France synop | null |

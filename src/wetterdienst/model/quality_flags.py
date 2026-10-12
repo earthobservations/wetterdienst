@@ -5,7 +5,7 @@
 The column is one nullable string. The source's ordinary quality flag is written as the plain code the
 source writes (``T``, ``Good``, ``3``) and comes first; every further kind of flag a source publishes
 is a ``kind:code`` token after it, comma-separated, in the fixed order the provider lists them in
-(GHCN: ``G,measurement:S,source:7``; CHMI: ``3,element:E``). The prefix ``quality:`` is never written,
+(GHCN: ``G,measurement:T,source:7``; CHMI: ``3,element:E``). The prefix ``quality:`` is never written,
 so a plain token is always the quality flag. A blank flag is left out and a reading without any flag is
 null.
 
