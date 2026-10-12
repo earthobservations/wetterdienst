@@ -23,6 +23,7 @@ from starlette.testclient import TestClient
 from wetterdienst import Settings, Wetterdienst, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.metadata.unit_type import UnitType
+from wetterdienst.options import Options
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
 from wetterdienst.ui.mcp import _TOOL_NAMES
@@ -212,14 +213,14 @@ def test_glossary_limit(client: TestClient) -> None:
 
 
 def test_glossary_reports_unit_target_override() -> None:
-    """Test that the reported unit follows ts_unit_targets rather than the built-in default.
+    """Test that the reported unit follows the unit_targets option rather than the built-in default.
 
     Reporting degree_celsius while a values request hands back Fahrenheit would make the glossary
     actively misleading, which is worse than it not existing.
     """
     entries = get_glossary(
         parameter="temperature_air_mean_2m",
-        settings=Settings(ts_unit_targets={"temperature": "degree_fahrenheit"}),
+        options=Options(unit_targets={"temperature": "degree_fahrenheit"}),
     )
     assert entries
     assert {entry["unit"] for entry in entries if entry["unit_type"] == "temperature"} == {"degree_fahrenheit"}
@@ -1062,14 +1063,14 @@ def test_interpolate_dwd_image_pdf(client: TestClient) -> None:
     assert response.headers["Content-Type"] == "application/pdf"
 
 
-def test_geo_settings_radii_reach_the_settings() -> None:
-    """Test that the two radii given to an endpoint end up on the settings.
+def test_geo_settings_radii_reach_the_options() -> None:
+    """Test that the two radii given to an endpoint end up on the options.
 
     The per-parameter dict is layered on top of them, so a request may widen a whole kind and still
     treat one parameter differently.
     """
     from wetterdienst.ui.core import InterpolationRequest  # noqa: PLC0415
-    from wetterdienst.ui.restapi import _geo_settings  # noqa: PLC0415
+    from wetterdienst.ui.restapi import _geo_options  # noqa: PLC0415
 
     request = InterpolationRequest.model_validate(
         {
@@ -1082,11 +1083,11 @@ def test_geo_settings_radii_reach_the_settings() -> None:
             "interpolation_station_distance": {"precipitation_amount": 25.0},
         },
     )
-    settings = _geo_settings(request, request.model_fields_set, "interpolation")
-    assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 60.0
-    assert settings.ts_geo_station_distance["precipitation_amount"] == 25.0
+    options = _geo_options(request, request.model_fields_set, "interpolation")
+    assert options.geo_station_distance["temperature_air_mean_2m"] == 60.0
+    assert options.geo_station_distance["precipitation_amount"] == 25.0
     # the radius that was not given keeps its default rather than being reset
-    assert settings.ts_geo_station_distance["snow_depth_new"] == 20.0
+    assert options.geo_station_distance["snow_depth_new"] == 20.0
 
 
 def test_interpolate_negative_radius_rejected(client: TestClient) -> None:
@@ -4460,10 +4461,10 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
     (field,) = (parameter for parameter in parameters if parameter["name"] == "use_nearby_station_distance")
     assert "deprecated" not in field
 
-    taken: list[Settings] = []
+    taken: list[Options] = []
 
-    def take(*, settings: Settings, **_kwargs: object) -> None:
-        taken.append(settings)
+    def take(*, options: Options, **_kwargs: object) -> None:
+        taken.append(options)
         msg = "taken"
         raise ValueError(msg)
 
@@ -4488,7 +4489,7 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
     assert [response.status_code for response in responses] == [500, 500]
     # the warnings only: the stub's failures are logged with their tracebacks as errors
     assert not [record for record in caplog.records if record.levelno == logging.WARNING]
-    assert [settings.ts_geo_use_nearby_station_distance for settings in taken] == [3.0, 3.0, 0.5]
+    assert [options.geo_use_nearby_station_distance for options in taken] == [3.0, 3.0, 0.5]
 
 
 @pytest.fixture
@@ -4510,20 +4511,20 @@ _FETCH_OF_ENDPOINT = {
 }
 
 
-def _settings_of(monkeypatch: pytest.MonkeyPatch, endpoint: str, params: dict[str, str]) -> Settings:
-    """Answer a request up to its fetch, and return the settings it would fetch with."""
-    taken: list[Settings] = []
+def _settings_of(monkeypatch: pytest.MonkeyPatch, endpoint: str, params: dict[str, str]) -> Options:
+    """Answer a request up to its fetch, and return the options it would fetch with."""
+    taken: list[Options] = []
 
-    def take(*, settings: Settings, **_kwargs: object) -> None:
-        taken.append(settings)
+    def take(*, options: Options, **_kwargs: object) -> None:
+        taken.append(options)
         raise RuntimeError
 
     monkeypatch.setattr(restapi, _FETCH_OF_ENDPOINT[endpoint], take)
     client = TestClient(restapi.app, raise_server_exceptions=False)
     response = client.get(endpoint, params=params)
     assert response.status_code == 500, response.text
-    (settings,) = taken
-    return settings
+    (options,) = taken
+    return options
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -4548,17 +4549,17 @@ def test_values_leaves_a_setting_the_request_does_not_give_to_the_server(monkeyp
         monkeypatch.setenv(name, value)
     params = {**_OBSERVATION, "station": "01048"}
 
-    settings = _settings_of(monkeypatch, "/api/values", params)
-    assert settings.ts_shape == "wide"
-    assert settings.ts_humanize is False
-    assert settings.ts_convert_units is False
-    assert settings.ts_unit_targets == {"temperature": "degree_fahrenheit"}
-    assert settings.ts_skip_empty is True
-    assert settings.ts_skip_criteria == "max"
-    assert settings.ts_skip_threshold == 0.5
-    assert settings.ts_drop_nulls is False
+    options = _settings_of(monkeypatch, "/api/values", params)
+    assert options.shape == "wide"
+    assert options.humanize is False
+    assert options.convert_units is False
+    assert options.unit_targets == {"temperature": "degree_fahrenheit"}
+    assert options.skip_empty is True
+    assert options.skip_criteria == "max"
+    assert options.skip_threshold == 0.5
+    assert options.drop_nulls is False
 
-    settings = _settings_of(
+    options = _settings_of(
         monkeypatch,
         "/api/values",
         {
@@ -4572,13 +4573,13 @@ def test_values_leaves_a_setting_the_request_does_not_give_to_the_server(monkeyp
             "drop_nulls": "true",
         },
     )
-    assert settings.ts_shape == "long"
-    assert settings.ts_humanize is True
-    assert settings.ts_convert_units is True
-    assert settings.ts_skip_empty is False
-    assert settings.ts_skip_criteria == "min"
-    assert settings.ts_skip_threshold == 0.95
-    assert settings.ts_drop_nulls is True
+    assert options.shape == "long"
+    assert options.humanize is True
+    assert options.convert_units is True
+    assert options.skip_empty is False
+    assert options.skip_criteria == "min"
+    assert options.skip_threshold == 0.95
+    assert options.drop_nulls is True
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -4605,16 +4606,16 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
         monkeypatch.setenv(name, value)
     params = {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"}
 
-    settings = _settings_of(monkeypatch, endpoint, params)
-    assert settings.ts_humanize is False
-    assert settings.ts_convert_units is False
-    assert settings.ts_geo_station_distance_homogeneous == 60
-    assert settings.ts_geo_station_distance_heterogeneous == 15
-    assert settings.ts_geo_use_nearby_station_distance == 0
-    assert settings.ts_geo_min_gain_of_value_pairs == 0.5
-    assert settings.ts_geo_num_additional_stations == 5
+    options = _settings_of(monkeypatch, endpoint, params)
+    assert options.humanize is False
+    assert options.convert_units is False
+    assert options.geo_station_distance_homogeneous == 60
+    assert options.geo_station_distance_heterogeneous == 15
+    assert options.geo_use_nearby_station_distance == 0
+    assert options.geo_min_gain_of_value_pairs == 0.5
+    assert options.geo_num_additional_stations == 5
 
-    settings = _settings_of(
+    options = _settings_of(
         monkeypatch,
         endpoint,
         {
@@ -4628,14 +4629,14 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
             "num_additional_stations": "3",
         },
     )
-    assert settings.ts_humanize is True
-    assert settings.ts_convert_units is True
-    assert settings.ts_geo_station_distance_homogeneous == 40
-    assert settings.ts_geo_station_distance_heterogeneous == 20
+    assert options.humanize is True
+    assert options.convert_units is True
+    assert options.geo_station_distance_homogeneous == 40
+    assert options.geo_station_distance_heterogeneous == 20
     # a summary does not pass it on, as it reads none (GH-2333): the server's stays
-    assert settings.ts_geo_use_nearby_station_distance == (1 if kind == "interpolation" else 0)
-    assert settings.ts_geo_min_gain_of_value_pairs == 0.1
-    assert settings.ts_geo_num_additional_stations == 3
+    assert options.geo_use_nearby_station_distance == (1 if kind == "interpolation" else 0)
+    assert options.geo_min_gain_of_value_pairs == 0.1
+    assert options.geo_num_additional_stations == 3
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -4661,7 +4662,7 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
                 "timestamp": "2020-06-30",
                 "interpolation_station_distance": '{"temperature_air_mean": 10}',
             },
-            "Invalid value for 'interpolation_station_distance': Invalid parameters in ts_geo_station_distance: "
+            "Invalid value for 'interpolation_station_distance': Invalid parameters in geo_station_distance: "
             "['temperature_air_mean'] not in the canonical parameters (got {\"temperature_air_mean\": 10.0})",
             id="interpolate-station-distance",
         ),
@@ -4996,8 +4997,8 @@ def test_settings_reports_the_servers_wd_ts_variables(client: TestClient, monkey
         assert settings["station_distance_resolution_factors"]["hourly"] == 1.0
 
 
-def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str, station_name: str | None = None) -> list[Settings]:
-    """Answer `endpoint` with a result of one row, and return the settings it is fetched with, once it is."""
+def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str, station_name: str | None = None) -> list[Options]:
+    """Answer `endpoint` with a result of one row, and return the options it is fetched with, once it is."""
     import datetime as dt  # noqa: PLC0415
 
     import polars as pl  # noqa: PLC0415
@@ -5026,10 +5027,10 @@ def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str, station_name: s
     else:
         df = pl.DataFrame([{**row, "distance": 5.0, "taken_station_id": "01048"}])
         result = SummarizedValuesResult(stations=values.stations, df=df, latlon=(51.1, 13.8))
-    taken: list[Settings] = []
+    taken: list[Options] = []
 
-    def fetch(*, settings: Settings, **_kwargs: object) -> object:
-        taken.append(settings)
+    def fetch(*, options: Options, **_kwargs: object) -> object:
+        taken.append(options)
         return result
 
     monkeypatch.setattr(restapi, _FETCH_OF_ENDPOINT[endpoint], fetch)
@@ -5071,8 +5072,8 @@ def test_data_endpoints_report_the_settings_they_used(
     assert payload["settings"] == {**defaults, "humanize": False}
     assert payload["settings"]["convert_units"] is False
     assert payload["settings"]["unit_targets"]["temperature"] == "degree_fahrenheit"
-    (settings,) = taken
-    assert settings.ts_humanize is False
+    (options,) = taken
+    assert options.humanize is False
     schema_name = {
         ("/api/values", "json"): "_ValuesWithSettingsDict",
         ("/api/values", "geojson"): "_ValuesWithSettingsOgcFeatureCollection",
@@ -5230,7 +5231,7 @@ def test_each_reported_setting_is_a_field_of_the_request_but_the_servers_own(
     requested = set(getattr(core, request_model).model_fields)
     assert reported - requested == server_only
     # each read off the setting its alias names
-    assert {field.validation_alias for field in model.model_fields.values()} <= Settings.model_fields.keys()
+    assert {field.validation_alias for field in model.model_fields.values()} <= Options.model_fields.keys()
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -5248,7 +5249,7 @@ def test_data_endpoints_write_the_rest_as_without_the_settings(
     escaping of a station's name included, stays the one `to_json` or `to_geojson` writes.
     """
     _stub_result(monkeypatch, endpoint, station_name="Görlitz")
-    result = getattr(restapi, _FETCH_OF_ENDPOINT[endpoint])(settings=Settings())
+    result = getattr(restapi, _FETCH_OF_ENDPOINT[endpoint])(settings=Settings(), options=Options())
     params = {
         **_OBSERVATION,
         "station": "01048",
@@ -5285,8 +5286,8 @@ def test_settings_and_a_values_request_leaving_the_shape_out_agree_under_a_wide_
     params = {**_OBSERVATION, "station": "01048", "with_metadata": "true"}
     applied = client.get("/api/values", params=params).json()["settings"]
 
-    (settings,) = taken
-    assert settings.ts_drop_nulls_effective is False
+    (options,) = taken
+    assert options.drop_nulls_effective is False
     assert applied["drop_nulls"] is False
     assert reported["drop_nulls"] is False
     assert reported == applied
@@ -5311,8 +5312,8 @@ def test_geo_settings_report_the_drop_nulls_the_estimate_reads_with(
     params = {**_OBSERVATION, "station": "01048", "timestamp": "2026-01-01", "with_metadata": "true"}
     reported = client.get(endpoint, params=params).json()["settings"]["drop_nulls"]
 
-    (settings,) = taken
-    request = DwdObservationRequest(parameters=[("daily", "climate_summary")], settings=settings)
+    (options,) = taken
+    request = DwdObservationRequest(parameters=[("daily", "climate_summary")], options=options)
     read_with = request._for_estimating().options  # noqa: SLF001
     assert read_with.shape == "long"
     assert read_with.drop_nulls is reported
@@ -5382,16 +5383,16 @@ def test_an_infinite_radius_is_reported_as_valid_json(
     jsonschema.validate(payload, {"$ref": f"#/components/schemas/{schema_name}", "components": components})
 
 
-@pytest.mark.parametrize(("field", "setting"), [("shape", "ts_shape"), ("skip_criteria", "ts_skip_criteria")])
-def test_reported_choices_are_the_settings_choices(field: str, setting: str) -> None:
-    """A setting reported as one of a set of choices offers the choices `Settings` takes (GH-2359).
+@pytest.mark.parametrize(("field", "option"), [("shape", "shape"), ("skip_criteria", "skip_criteria")])
+def test_reported_choices_are_the_settings_choices(field: str, option: str) -> None:
+    """A setting reported as one of a set of choices offers the choices `Options` takes (GH-2359).
 
-    One `Settings` takes and the report does not would fail every report built with it.
+    One `Options` takes and the report does not would fail every report built with it.
     """
     from typing import get_args  # noqa: PLC0415
 
     reported = set(get_args(restapi.ValuesSettings.model_fields[field].annotation))
-    assert reported == set(get_args(Settings.model_fields[setting].annotation))
+    assert reported == set(get_args(Options.model_fields[option].annotation))
 
 
 @pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
@@ -5672,12 +5673,12 @@ def test_settings_without_parameters_reports_the_servers(client: TestClient, mon
     """With no parameters, `/api/settings` reports the server's settings, as it did before it took any (GH-2383)."""
     for name, setting in _SETTINGS_SERVER.items():
         monkeypatch.setenv(name, setting)
-    settings = Settings()
+    options = Options()
 
     reported = client.get("/api/settings").json()
 
     assert reported == {
-        endpoint: json.loads(restapi._applied_settings(model, settings).model_dump_json())  # noqa: SLF001
+        endpoint: json.loads(restapi._applied_settings(model, options).model_dump_json())  # noqa: SLF001
         for endpoint, model in (
             ("values", restapi.ValuesSettings),
             ("interpolate", restapi.InterpolationSettings),
@@ -5706,21 +5707,24 @@ def test_settings_with_parameters_reports_no_credential_or_cache_setting(
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_settings_without_parameters_builds_the_settings_once(
+def test_settings_without_parameters_builds_the_options_once(
     client: TestClient,
     caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """With no parameters, `/api/settings` builds the server's settings once, logging the cache once (GH-2383).
+    """With no parameters, `/api/settings` builds the server's options once, noting the wide shape once (GH-2383).
 
     No parameter applies to any endpoint, so each reports the server's, read once rather than twice
-    per endpoint.
+    per endpoint. A wide shape is what makes a build say so: the options, as they are built, note that
+    `drop_nulls` is then ignored.
     """
-    caplog.set_level(logging.INFO, logger="wetterdienst.settings")
+    monkeypatch.setenv("WD_TS_SHAPE", "wide")
+    caplog.set_level(logging.INFO, logger="wetterdienst.options")
 
     response = client.get("/api/settings")
 
     assert response.status_code == 200, response.text
-    assert sum(record.getMessage().startswith("Wetterdienst cache is") for record in caplog.records) == 1
+    assert sum("is only available with option 'shape=long'" in record.getMessage() for record in caplog.records) == 1
 
 
 # server variables setting each settings parameter the schema gives a default for, and some it gives

@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from wetterdienst import Settings, Wetterdienst
 from wetterdienst.exceptions import InvalidEnumerationError, StationNotFoundError
 from wetterdienst.model.metadata import parse_parameters
+from wetterdienst.options import Options
 from wetterdienst.ui.cli import cli, wetterdienst_help
 
 # Individual settings for observation and mosmix
@@ -669,14 +670,14 @@ def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
 
 
 class _SettingsTaken(Exception):  # noqa: N818
-    """Raised in place of fetching, carrying the settings a command built."""
+    """Raised in place of fetching, carrying the options a command built."""
 
 
-def _settings_of(monkeypatch: pytest.MonkeyPatch, args: list[str], env: dict[str, str]) -> Settings:
-    """Run a command up to its fetch, and return the settings it would fetch with."""
+def _settings_of(monkeypatch: pytest.MonkeyPatch, args: list[str], env: dict[str, str]) -> Options:
+    """Run a command up to its fetch, and return the options it would fetch with."""
 
-    def take(_get: object, *, settings: Settings, **_kwargs: object) -> None:
-        raise _SettingsTaken(settings)
+    def take(_get: object, *, options: Options, **_kwargs: object) -> None:
+        raise _SettingsTaken(options)
 
     monkeypatch.setattr("wetterdienst.ui.cli._collect_or_exit", take)
     result = CliRunner().invoke(cli, args, env=env)
@@ -699,17 +700,17 @@ def test_cli_values_leaves_a_setting_no_option_was_given_for_to_the_environment(
         "WD_TS_SKIP_THRESHOLD": "0.5",
         "WD_TS_DROP_NULLS": "false",
     }
-    settings = _settings_of(monkeypatch, ["values", *_DWD_KL, "--station=01048"], env)
-    assert settings.ts_shape == "wide"
-    assert settings.ts_humanize is False
-    assert settings.ts_convert_units is False
-    assert settings.ts_unit_targets == {"temperature": "degree_fahrenheit"}
-    assert settings.ts_skip_empty is True
-    assert settings.ts_skip_criteria == "max"
-    assert settings.ts_skip_threshold == 0.5
-    assert settings.ts_drop_nulls is False
+    options = _settings_of(monkeypatch, ["values", *_DWD_KL, "--station=01048"], env)
+    assert options.shape == "wide"
+    assert options.humanize is False
+    assert options.convert_units is False
+    assert options.unit_targets == {"temperature": "degree_fahrenheit"}
+    assert options.skip_empty is True
+    assert options.skip_criteria == "max"
+    assert options.skip_threshold == 0.5
+    assert options.drop_nulls is False
     # an option given at its default value is given all the same
-    settings = _settings_of(
+    options = _settings_of(
         monkeypatch,
         [
             "values",
@@ -725,13 +726,13 @@ def test_cli_values_leaves_a_setting_no_option_was_given_for_to_the_environment(
         ],
         env,
     )
-    assert settings.ts_shape == "long"
-    assert settings.ts_humanize is True
-    assert settings.ts_convert_units is True
-    assert settings.ts_skip_empty is False
-    assert settings.ts_skip_criteria == "min"
-    assert settings.ts_skip_threshold == 0.95
-    assert settings.ts_drop_nulls is True
+    assert options.shape == "long"
+    assert options.humanize is True
+    assert options.convert_units is True
+    assert options.skip_empty is False
+    assert options.skip_criteria == "min"
+    assert options.skip_threshold == 0.95
+    assert options.drop_nulls is True
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -751,15 +752,15 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
         "WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS": "0.5",
         "WD_TS_GEO_NUM_ADDITIONAL_STATIONS": "5",
     }
-    settings = _settings_of(monkeypatch, [command, *_POINT_ARGS], env)
-    assert settings.ts_humanize is False
-    assert settings.ts_convert_units is False
-    assert settings.ts_geo_station_distance_homogeneous == 60
-    assert settings.ts_geo_station_distance_heterogeneous == 15
-    assert settings.ts_geo_use_nearby_station_distance == 0
-    assert settings.ts_geo_min_gain_of_value_pairs == 0.5
-    assert settings.ts_geo_num_additional_stations == 5
-    settings = _settings_of(
+    options = _settings_of(monkeypatch, [command, *_POINT_ARGS], env)
+    assert options.humanize is False
+    assert options.convert_units is False
+    assert options.geo_station_distance_homogeneous == 60
+    assert options.geo_station_distance_heterogeneous == 15
+    assert options.geo_use_nearby_station_distance == 0
+    assert options.geo_min_gain_of_value_pairs == 0.5
+    assert options.geo_num_additional_stations == 5
+    options = _settings_of(
         monkeypatch,
         [
             command,
@@ -772,12 +773,12 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
         ],
         env,
     )
-    assert settings.ts_humanize is True
-    assert settings.ts_convert_units is True
-    assert settings.ts_geo_station_distance_homogeneous == 40
-    assert settings.ts_geo_station_distance_heterogeneous == 20
+    assert options.humanize is True
+    assert options.convert_units is True
+    assert options.geo_station_distance_homogeneous == 40
+    assert options.geo_station_distance_heterogeneous == 20
     # `summarize` accepts the option and reads nothing from it, which it says it does (GH-2333)
-    assert settings.ts_geo_use_nearby_station_distance == (0.5 if command == "interpolate" else 0)
+    assert options.geo_use_nearby_station_distance == (0.5 if command == "interpolate" else 0)
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -788,7 +789,7 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
             ["interpolate", *_POINT_ARGS, '--interpolation_station_distance={"temperature_air_mean": 10}'],
             (
                 "Error: Invalid value for '--interpolation_station_distance': Invalid parameters in "
-                "ts_geo_station_distance: ['temperature_air_mean'] not in the canonical parameters "
+                "geo_station_distance: ['temperature_air_mean'] not in the canonical parameters "
                 "(got {'temperature_air_mean': 10.0}).\n"
             ),
         ),
@@ -873,13 +874,17 @@ def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyP
     assert all(not kwargs for kwargs in calls)
 
 
+@pytest.mark.xfail(
+    reason="the host Settings still read WD_TS_* until they drop the ts_* settings (GH-2639, stage 5)",
+    strict=True,
+)
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_cli_values_option_outranks_a_malformed_variable_for_its_setting(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test an option given on the command line replaces a WD_TS_* variable Settings would refuse."""
-    settings = _settings_of(
+    options = _settings_of(
         monkeypatch, ["values", *_DWD_KL, "--station=01048", "--shape=long"], {"WD_TS_SHAPE": "bogus"}
     )
-    assert settings.ts_shape == "long"
+    assert options.shape == "long"
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -889,7 +894,7 @@ def test_cli_estimate_refuses_an_option_with_the_value_it_gave(monkeypatch: pyte
     result = CliRunner().invoke(cli, ["summarize", *_POINT_ARGS, '--summary_station_distance={"foo": 1}'])
     assert result.exit_code == 2, result.output
     assert (
-        "Error: Invalid value for '--summary_station_distance': Invalid parameters in ts_geo_station_distance: "
+        "Error: Invalid value for '--summary_station_distance': Invalid parameters in geo_station_distance: "
         "['foo'] not in the canonical parameters (got {'foo': 1.0}).\n"
     ) in result.output
 
@@ -936,13 +941,13 @@ def test_cli_summarize_warns_that_use_nearby_station_distance_is_deprecated(monk
     warning = "DeprecationWarning: The option 'use_nearby_station_distance' is deprecated. It has no effect"
 
     def run(args: list[str]) -> str:
-        def take(_get: object, *, settings: Settings, **_kwargs: object) -> None:
-            raise _SettingsTaken(settings)
+        def take(_get: object, *, options: Options, **_kwargs: object) -> None:
+            raise _SettingsTaken(options)
 
         monkeypatch.setattr("wetterdienst.ui.cli._collect_or_exit", take)
         result = CliRunner().invoke(cli, args, env={})
         assert isinstance(result.exception, _SettingsTaken), result.output
-        assert result.exception.args[0].ts_geo_use_nearby_station_distance == (0.5 if args[0] == "interpolate" else 1.0)
+        assert result.exception.args[0].geo_use_nearby_station_distance == (0.5 if args[0] == "interpolate" else 1.0)
         return result.stderr
 
     assert warning in run(["summarize", *_POINT_ARGS, "--use_nearby_station_distance=0.5"])

@@ -45,6 +45,7 @@ from wetterdienst.model.result import (
     _ValuesOgcFeatureCollection,
 )
 from wetterdienst.model.unit import UnitConverter
+from wetterdienst.options import Options
 from wetterdienst.settings import SkipThreshold, check_settings
 from wetterdienst.ui.core import (
     SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
@@ -75,6 +76,7 @@ from wetterdienst.ui.core import (
     get_summarize,
     get_values,
     limit_stations_to_rank,
+    overlay_options,
     select_history_sections,
     set_logging_level,
 )
@@ -322,12 +324,12 @@ _Unbounded = Annotated[
 
 
 # The settings a request to `/api/values`, `/api/interpolate` and `/api/summarize` is answered with,
-# by the request field that sets each, and with the setting it sets as its validation alias. The REST
+# by the request field that sets each, and with the option of `Options` it sets as its validation alias. The REST
 # API's one list of them: an endpoint takes these from its request (GH-2325), reports the ones it
 # used with its metadata, and `/api/settings` reports the server's defaults for them (GH-2359), or
 # what the query parameters it is given resolve to over those (GH-2383).
-# Listed one by one rather than read from `Settings`, so that neither report reaches a credential or
-# the cache.
+# Listed one by one rather than dumped from `Options`: the REST API names them its own way, and reports
+# the unit targets and the resolution factors whole.
 class _AppliedSettings(BaseModel):
     """The settings every one of the three endpoints is answered with."""
 
@@ -335,18 +337,18 @@ class _AppliedSettings(BaseModel):
     # the settings take as infinite is written as the string "Infinity", which JSON has no number for
     model_config = ConfigDict(extra="forbid", populate_by_name=True, ser_json_inf_nan="strings")
 
-    humanize: bool = Field(validation_alias="ts_humanize")
-    convert_units: bool = Field(validation_alias="ts_convert_units")
+    humanize: bool = Field(validation_alias="humanize")
+    convert_units: bool = Field(validation_alias="convert_units")
     unit_targets: dict[str, str] = Field(
-        validation_alias="ts_unit_targets",
+        validation_alias="unit_targets",
         description="The unit values of each quantity are converted to, for every quantity, where `convert_units` "
         "is on; off, they come in the unit the source publishes.",
     )
-    skip_empty: bool = Field(validation_alias="ts_skip_empty")
-    skip_threshold: SkipThreshold = Field(validation_alias="ts_skip_threshold")
-    skip_criteria: Literal["min", "mean", "max"] = Field(validation_alias="ts_skip_criteria")
+    skip_empty: bool = Field(validation_alias="skip_empty")
+    skip_threshold: SkipThreshold = Field(validation_alias="skip_threshold")
+    skip_criteria: Literal["min", "mean", "max"] = Field(validation_alias="skip_criteria")
     drop_nulls: bool = Field(
-        validation_alias="ts_drop_nulls",
+        validation_alias="drop_nulls",
         description="Whether rows without a value are dropped. The wide shape, the server's or the request's, "
         "turns it off.",
     )
@@ -355,7 +357,7 @@ class _AppliedSettings(BaseModel):
 class ValuesSettings(_AppliedSettings):
     """The settings of `/api/values`."""
 
-    shape: Literal["long", "wide"] = Field(validation_alias="ts_shape")
+    shape: Literal["long", "wide"] = Field(validation_alias="shape")
 
 
 _STATION_DISTANCE_DESCRIPTION = (
@@ -371,12 +373,12 @@ _STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION = (
 class _GeoSettings(_AppliedSettings):
     """The settings `/api/interpolate` and `/api/summarize` share."""
 
-    min_gain_of_value_pairs: _Unbounded = Field(validation_alias="ts_geo_min_gain_of_value_pairs")
-    num_additional_stations: int = Field(validation_alias="ts_geo_num_additional_stations")
+    min_gain_of_value_pairs: _Unbounded = Field(validation_alias="geo_min_gain_of_value_pairs")
+    num_additional_stations: int = Field(validation_alias="geo_num_additional_stations")
     # set by the server alone, as are the skipping of sparse stations and the dropping of nulls
     # here: neither request has a field for them, and the stations' values are read with them
     station_distance_resolution_factors: dict[str, _Unbounded] = Field(
-        validation_alias="ts_geo_station_distance_resolution_factors",
+        validation_alias="geo_station_distance_resolution_factors",
         description="The factor the heterogeneous radius is multiplied by, for every resolution. Set by the "
         "server alone.",
     )
@@ -387,16 +389,14 @@ class InterpolationSettings(_GeoSettings):
 
     # not read for a summary, which has nothing for it to decide: its field is only accepted there,
     # and deprecated (GH-2333), so a summary neither passes nor reports it
-    use_nearby_station_distance: _Unbounded | None = Field(validation_alias="ts_geo_use_nearby_station_distance")
+    use_nearby_station_distance: _Unbounded | None = Field(validation_alias="geo_use_nearby_station_distance")
     interpolation_station_distance: dict[str, _Unbounded] = Field(
-        validation_alias="ts_geo_station_distance",
+        validation_alias="geo_station_distance",
         description=_STATION_DISTANCE_DESCRIPTION,
     )
-    interpolation_station_distance_homogeneous: _Unbounded = Field(
-        validation_alias="ts_geo_station_distance_homogeneous"
-    )
+    interpolation_station_distance_homogeneous: _Unbounded = Field(validation_alias="geo_station_distance_homogeneous")
     interpolation_station_distance_heterogeneous: _Unbounded = Field(
-        validation_alias="ts_geo_station_distance_heterogeneous",
+        validation_alias="geo_station_distance_heterogeneous",
         description=_STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION,
     )
 
@@ -405,12 +405,12 @@ class SummarySettings(_GeoSettings):
     """The settings of `/api/summarize`."""
 
     summary_station_distance: dict[str, _Unbounded] = Field(
-        validation_alias="ts_geo_station_distance",
+        validation_alias="geo_station_distance",
         description=_STATION_DISTANCE_DESCRIPTION,
     )
-    summary_station_distance_homogeneous: _Unbounded = Field(validation_alias="ts_geo_station_distance_homogeneous")
+    summary_station_distance_homogeneous: _Unbounded = Field(validation_alias="geo_station_distance_homogeneous")
     summary_station_distance_heterogeneous: _Unbounded = Field(
-        validation_alias="ts_geo_station_distance_heterogeneous",
+        validation_alias="geo_station_distance_heterogeneous",
         description=_STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION,
     )
 
@@ -428,36 +428,34 @@ class ServerSettings(BaseModel):
     summarize: SummarySettings
 
 
-def _applied_settings(model: type[_M], settings: Settings) -> _M:
-    """Report `settings` by the fields of `model`.
+def _applied_settings(model: type[_M], options: Options) -> _M:
+    """Report `options` by the fields of `model`.
 
     The unit targets and the resolution factors hold only the entries that depart from
     wetterdienst's, and are reported whole: the unit of every quantity and the factor of every
-    resolution. The per-parameter radii are reported as given, as `Settings` dumps them, since a
+    resolution. The per-parameter radii are reported as given, as `Options` dumps them, since a
     parameter they leave out takes one of the two radii reported next to them. `drop_nulls` is
     reported as in effect, which the wide shape turns off.
     """
 
     def unit_targets() -> dict[str, str]:
         converter = UnitConverter()
-        converter.update_targets(settings.ts_unit_targets)
+        converter.update_targets(options.unit_targets)
         return {quantity: unit.name for quantity, unit in converter.targets.items()}
 
     reported: dict[str, Callable[[], object]] = {
-        "ts_unit_targets": unit_targets,
-        "ts_drop_nulls": lambda: settings.ts_drop_nulls_effective,
-        "ts_geo_station_distance": lambda: settings.model_dump(include={"ts_geo_station_distance"})[
-            "ts_geo_station_distance"
-        ],
-        "ts_geo_station_distance_resolution_factors": lambda: {
-            resolution.value: settings.ts_geo_station_distance_resolution_factor(resolution.value)
+        "unit_targets": unit_targets,
+        "drop_nulls": lambda: options.drop_nulls_effective,
+        "geo_station_distance": lambda: options.model_dump(include={"geo_station_distance"})["geo_station_distance"],
+        "geo_station_distance_resolution_factors": lambda: {
+            resolution.value: options.geo_station_distance_resolution_factor(resolution.value)
             for resolution in Resolution
         },
     }
     return model.model_validate(
         {
-            setting: reported[setting]() if setting in reported else getattr(settings, setting)
-            for setting in (str(field.validation_alias) for field in model.model_fields.values())
+            option: reported[option]() if option in reported else getattr(options, option)
+            for option in (str(field.validation_alias) for field in model.model_fields.values())
         },
     )
 
@@ -686,20 +684,20 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
     given = http_request.query_params.keys()
     # a malformed server setting is the bare 500 FastAPI answers, which does not read its value back.
     # Built once for the endpoints no parameter given applies to, as each build reads the
-    # environment and the `.env` again, and logs where the cache is
-    server = Settings()
+    # environment and the `.env` again
+    server = Options()
     reported: dict[str, _AppliedSettings] = {}
     refused: list[str] = []
     for endpoint, taking, applied in _ENDPOINT_SETTINGS:
         # a parameter applies to every endpoint whose request takes it, and to no other
         taken = [name for name in given if name in taking.model_fields]
         try:
-            settings = _request_settings(request, taken, applied) if taken else server
+            options = _request_options(request, taken, applied) if taken else server
         except HTTPException as e:
             # a value two endpoints refuse is told once
             refused.extend(line for line in str(e.detail).split("\n") if line not in refused)
             continue
-        reported[endpoint] = _applied_settings(applied, settings)
+        reported[endpoint] = _applied_settings(applied, options)
     if refused:
         raise HTTPException(status_code=400, detail="\n".join(refused))
     content = ServerSettings.model_validate(reported)
@@ -713,13 +711,13 @@ def _openapi() -> dict[str, Any]:
     `/api/settings` leaves out takes the server's value, but the schema advertised wetterdienst's,
     which a client filling in the defaults then sent, hiding the server's. Each default is now the
     one `/api/settings` reports for the endpoint without parameters, worked out as it does it:
-    `_applied_settings` over `Settings()`. `drop_nulls` alone is the server's as set, not the one
+    `_applied_settings` over `Options()`. `drop_nulls` alone is the server's as set, not the one
     in effect that `/api/settings` reports: leaving it out means the value set whatever the shape,
     which decides only whether it applies, so a client that fills it in and asks for the long
     shape on a wide server still drops nulls. A parameter for `/api/settings` takes the value of
     the endpoint it applies to. The request models keep wetterdienst's defaults in Python, which
     the CLI builds its requests with, and FastAPI fills in for a parameter left out, which the
-    endpoints do not pass on (`_request_settings`).
+    endpoints do not pass on (`_request_options`).
 
     A parameter whose request field defaults to None has no schema default and keeps none: the
     radii and the JSON-encoded dicts (`unit_targets`, the station distances). A dict given is
@@ -729,9 +727,9 @@ def _openapi() -> dict[str, Any]:
 
     Built once per process: with the `[mcp]` extra, as the module is imported, by the MCP endpoint,
     whose tools' defaults are then the server's too, and else on the first request for the schema.
-    It is kept as FastAPI keeps it, and a recent FastAPI builds it again, reading `Settings()`
+    It is kept as FastAPI keeps it, and a recent FastAPI builds it again, reading `Options()`
     anew, only for a route added. A `.env` edited after the build reaches the requests and
-    `/api/settings`, which read `Settings()` each time, but not the schema, until the server is
+    `/api/settings`, which read `Options()` each time, but not the schema, until the server is
     restarted.
     """
     kept = app.openapi_schema
@@ -739,7 +737,7 @@ def _openapi() -> dict[str, Any]:
     if schema is kept:
         return schema
     try:
-        server = Settings()
+        server = Options()
     except Exception:  # noqa: BLE001
         # malformed, which the server refuses to start for, naming each variable without its
         # value (`_RefuseInvalidSettings`). Reached as the module is imported, by the MCP build,
@@ -755,7 +753,7 @@ def _openapi() -> dict[str, Any]:
         }
         for endpoint, taking, applied in _ENDPOINT_SETTINGS
     }
-    defaults["/api/values"]["drop_nulls"] = server.ts_drop_nulls
+    defaults["/api/values"]["drop_nulls"] = server.drop_nulls
     # a parameter several endpoints take sets one setting, which each reports alike
     defaults["/api/settings"] = {
         field: value
@@ -1137,10 +1135,13 @@ def values(
 
     api = _get_timeseries_api(request.provider, request.network)
 
+    # outside the handlers: nothing of the caller's reaches the server's settings, so a malformed one
+    # is the bare 500 FastAPI answers, which does not read its value back
+    settings = Settings()
     # a unit target given for a quantity or unit the converter has none for is the request's 400
-    settings = _request_settings(request, http_request.query_params.keys(), ValuesSettings)
+    options = _request_options(request, http_request.query_params.keys(), ValuesSettings)
 
-    values_ = _values(api=api, request=request, settings=settings)
+    values_ = _values(api=api, request=request, settings=settings, options=options)
 
     # build kwargs dynamically
     kwargs: dict[str, Any] = {
@@ -1156,38 +1157,37 @@ def values(
         kwargs["scale"] = request.scale
         kwargs["max_side"] = _MAX_IMAGE_SIDE
 
-    content = _render(values_, request, kwargs, ValuesSettings, settings)
+    content = _render(values_, request, kwargs, ValuesSettings, options)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
     return Response(content=content, media_type=media_type)
 
 
-def _request_settings(request: BaseModel, given: Collection[str], applied: type[_AppliedSettings]) -> Settings:
-    """Build an endpoint's settings from the server's and the fields the request gave.
+def _request_options(request: BaseModel, given: Collection[str], applied: type[_AppliedSettings]) -> Options:
+    """Build an endpoint's options from the server's and the fields the request gave.
 
     `applied` lists the endpoint's settings by the request field that sets each, and `given` names
-    the query parameters the request came with. A field is passed only when given: FastAPI fills
-    one the query leaves out with its default, and an init argument outranks the environment, so
-    passing that default would hide the `WD_TS_*` variable the server sets for the setting.
+    the query parameters the request came with. A field is laid over the server's only when given:
+    FastAPI fills one the query leaves out with its default, which would hide the `WD_TS_*` variable
+    the server sets for the option.
 
-    The server's own settings are built first, and outside the handler: one malformed there is the
+    The server's own options are built first, and outside the handler: one malformed there is the
     bare 500 FastAPI answers, which does not read its value back. Where an error is located would
-    not tell, as pydantic-settings merges a dict the environment sets into the one the request
-    gives. With the server's valid on their own, an error once the request's fields are added is
-    the request's, and is told by its field with the value the request gave, not the dict merged
-    from it and the server's.
+    not tell, as the request's dicts are merged into the ones the server sets. With the server's
+    valid on their own, an error once the request's fields are added is the request's, and is told
+    by its field with the value the request gave, not the dict merged from it and the server's.
     """
-    Settings()
-    # each setting given by the field that sets it
+    server = Options()
+    # each option given by the field that sets it
     passed = {
-        str(setting.validation_alias): (field, value)
-        for field, setting in applied.model_fields.items()
-        # not a setting the request has no field for, which the server sets alone
+        str(option.validation_alias): (field, value)
+        for field, option in applied.model_fields.items()
+        # not an option the request has no field for, which the server sets alone
         if field in type(request).model_fields and field in given and (value := getattr(request, field)) is not None
     }
     try:
-        return Settings(**{setting: value for setting, (_, value) in passed.items()})
+        return overlay_options(server, {option: value for option, (_, value) in passed.items()})
     except ValidationError as e:
         problems = e.errors(include_url=False)
         if any(not problem["loc"] or problem["loc"][0] not in passed for problem in problems):
@@ -1209,7 +1209,7 @@ def _render(
     request: ValuesRequest | InterpolationRequest | SummaryRequest,
     kwargs: dict[str, Any],
     applied: type[_AppliedSettings],
-    settings: Settings,
+    options: Options,
 ) -> str | bytes:
     """Render a result in the format `kwargs` names, the JSON formats with the settings `applied`.
 
@@ -1222,23 +1222,23 @@ def _render(
         data: dict[str, Any] = dict(result.to_dict(with_metadata=True, with_stations=request.with_stations))
     else:
         data = dict(result.to_ogc_feature_collection(with_metadata=True))
-    report = json.loads(_applied_settings(applied, settings).model_dump_json())
+    report = json.loads(_applied_settings(applied, options).model_dump_json())
     data = {"metadata": data.pop("metadata"), "settings": report, **data}
     return json.dumps(data, indent=4 if request.pretty else None, ensure_ascii=request.format == "json")
 
 
-def _geo_settings(
+def _geo_options(
     request: InterpolationRequest | SummaryRequest,
     given: Collection[str],
     kind: Literal["interpolation", "summary"],
-) -> Settings:
-    """Build the settings shared by the interpolation and the summary endpoint.
+) -> Options:
+    """Build the options shared by the interpolation and the summary endpoint.
 
     `kind` picks the endpoint's settings, which name its request's station distance fields.
     """
     # a distance given for a name that is not a canonical parameter, or a unit target for an
     # unknown quantity or unit, is the request's 400
-    return _request_settings(request, given, InterpolationSettings if kind == "interpolation" else SummarySettings)
+    return _request_options(request, given, InterpolationSettings if kind == "interpolation" else SummarySettings)
 
 
 def _refusal_detail(e: Exception, what: str) -> str:
@@ -1281,6 +1281,7 @@ def _values(
     api: type[TimeseriesRequest],
     request: ValuesRequest,
     settings: Settings,
+    options: Options,
 ) -> ValuesResult:
     """Collect values, telling the caller which failures are theirs to fix.
 
@@ -1289,7 +1290,7 @@ def _values(
     which also assembles a response format, a target and a set of kwargs -- is not where it belongs.
     """
     try:
-        return get_values(api=api, request=request, settings=settings)
+        return get_values(api=api, request=request, settings=settings, options=options)
     except ParameterNotCarriedError as e:
         # the message is the whole of it: which parameters, and the lead time that carries them
         log.info(f"Failed to get values: {e}")
@@ -1307,6 +1308,7 @@ def _geo_values(
     api: type[TimeseriesRequest],
     request: InterpolationRequest | SummaryRequest,
     settings: Settings,
+    options: Options,
     what: str,
 ) -> InterpolatedValuesResult | SummarizedValuesResult:
     """Run an interpolation or a summary, telling the caller which failures are theirs to fix.
@@ -1322,7 +1324,7 @@ def _geo_values(
     decisions in both places, so they are made here rather than twice over.
     """
     try:
-        return get(api=api, request=request, settings=settings)
+        return get(api=api, request=request, settings=settings, options=options)
     except (NoStationsWithElevationError, ParameterNotCarriedError) as e:
         # the message is the whole of it: which parameters lost their stations, and that asking
         # without an elevation gets them back; or which parameters the run does not carry, and the
@@ -1366,9 +1368,11 @@ def interpolate(
 
     api = _get_timeseries_api(request.provider, request.network)
 
-    settings = _geo_settings(request, http_request.query_params.keys(), "interpolation")
+    # outside the handlers, as for `/api/values`
+    settings = Settings()
+    options = _geo_options(request, http_request.query_params.keys(), "interpolation")
 
-    values_ = _geo_values(get_interpolate, api, request, settings, "interpolate")
+    values_ = _geo_values(get_interpolate, api, request, settings, options, "interpolate")
 
     # build kwargs dynamically
     kwargs: dict[str, Any] = {
@@ -1384,7 +1388,7 @@ def interpolate(
         kwargs["scale"] = request.scale
         kwargs["max_side"] = _MAX_IMAGE_SIDE
 
-    content = _render(values_, request, kwargs, InterpolationSettings, settings)
+    content = _render(values_, request, kwargs, InterpolationSettings, options)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
@@ -1423,9 +1427,11 @@ def summarize(
 
     api = _get_timeseries_api(request.provider, request.network)
 
-    settings = _geo_settings(request, http_request.query_params.keys(), "summary")
+    # outside the handlers, as for `/api/values`
+    settings = Settings()
+    options = _geo_options(request, http_request.query_params.keys(), "summary")
 
-    values_ = _geo_values(get_summarize, api, request, settings, "summarize")
+    values_ = _geo_values(get_summarize, api, request, settings, options, "summarize")
 
     # build kwargs dynamically
     kwargs: dict[str, Any] = {
@@ -1441,7 +1447,7 @@ def summarize(
         kwargs["scale"] = request.scale
         kwargs["max_side"] = _MAX_IMAGE_SIDE
 
-    content = _render(values_, request, kwargs, SummarySettings, settings)
+    content = _render(values_, request, kwargs, SummarySettings, options)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
