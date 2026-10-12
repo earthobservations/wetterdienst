@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
     from wetterdienst.metadata.resolution import Resolution
     from wetterdienst.model.unit import UnitConverter
-    from wetterdienst.settings import Settings
+    from wetterdienst.options import Options
 
 log = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ def lapse_rate_for(
     """Give the rate a quantity falls at, in the unit its values are written in.
 
     The table declares it per kelvin, which is per degree Celsius too, those being the same step.
-    A step of a degree Fahrenheit is not: with `ts_unit_targets={"temperature": "degree_fahrenheit"}`
+    A step of a degree Fahrenheit is not: with the option `unit_targets={"temperature": "degree_fahrenheit"}`
     the values are 1.8 times as far apart as their Celsius readings, and a rate left in kelvin would
     move them by 8.45 where 15.21 is meant.
 
@@ -218,7 +218,7 @@ def one_row_per_station(df_stations_ranked: pl.DataFrame) -> pl.DataFrame:
 def count_stations_in_reach(
     df_stations_ranked: pl.DataFrame,
     parameters: Iterable[object],
-    settings: Settings,
+    options: Options,
     interpolatable: Collection[str],
 ) -> dict[tuple[str, str, str], StationsInReach]:
     """Count what each parameter has within its own radius, before a single value is downloaded.
@@ -247,7 +247,7 @@ def count_stations_in_reach(
         if not isinstance(parameter, ParameterModel) or parameter.name not in interpolatable:
             continue
         dataset = parameter.dataset
-        radius = settings.ts_geo_station_distance_for(parameter.name, dataset.resolution.name)
+        radius = options.geo_station_distance_for(parameter.name, dataset.resolution.name)
         # which stations can answer this parameter is a different question from what they report:
         # a station that stands only in another dataset's index holds none of this dataset's
         # readings, so the walk passes over it however near it is, and counting it here would keep

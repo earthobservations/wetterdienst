@@ -47,6 +47,7 @@ from wetterdienst.model.result import (
     SummarizedValuesResult,
 )
 from wetterdienst.model.util import create_station_id_from_string
+from wetterdienst.options import resolve_options
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.extras import import_optional
@@ -55,6 +56,7 @@ from wetterdienst.util.python import to_list
 if TYPE_CHECKING:
     from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.values import TimeseriesValues
+    from wetterdienst.options import Options
 log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
@@ -99,6 +101,12 @@ class TimeseriesRequest:
     # `_resolve_periods`. A dataset published under a single period has nothing to choose between;
     # asking for another one is an error rather than a silently widened request.
     periods: _PERIODS_TYPE = None
+    # How the values come back and how the stations are chosen, as opposed to `settings`, which is
+    # the host's. None takes what `settings` carries as its `ts_*` settings; a dict is taken as the
+    # options it names. Resolved in __post_init__ to an `Options`, which is read from there on and
+    # never again from `settings`. Keyword-only, so that it moves none of the arguments a subclass
+    # adds after `periods` (`issue` of the forecasts)
+    options: Options | dict | None = field(default=None, kw_only=True)
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
         """Refuse a renamed argument before the dataclass __init__ rejects it without naming the new one.
@@ -120,9 +128,11 @@ class TimeseriesRequest:
         # Convert settings given as a dict to a validated model. A `Settings` object is used as it is:
         # one built the usual way was validated at construction and on every assignment since, and
         # validating it again would only re-run its after-validators (it once logged the cache line a
-        # second time, GH-2476, GH-2504). One built with `model_construct` skipped validation on purpose
+        # second time, GH-2476, GH-2504). One built with `model_construct` skipped validation on purpose,
+        # though the options it carries are checked when they are taken from it
         if not isinstance(self.settings, Settings):
             self.settings = Settings.model_validate(self.settings)
+        self.options = resolve_options(self.options, self.settings)
         # Convert timestamps
         self.start, self.end = self.convert_timestamps(self.start, self.end)
         # Parse parameters
@@ -342,9 +352,9 @@ class TimeseriesRequest:
              "description": ...}]}}}}
 
         `unit` is the unit the source publishes in, which is not always the unit a request answers
-        with: a value is converted to its type's target unless `ts_convert_units` is off, so
+        with: a value is converted to its type's target unless the option `convert_units` is off, so
         `dwd/road` reports `degree_kelvin` here and answers in °C, and `millimeter_per_second` here
-        and answers in mm/h. `UnitConverter.targets`, which `ts_unit_targets` overrides, is the other
+        and answers in mm/h. `UnitConverter.targets`, which the option `unit_targets` overrides, is the other
         side.
 
         Args:
@@ -572,8 +582,8 @@ class TimeseriesRequest:
 
         In other words, use ``stations.values.all().df_stations`` (not
         ``stations.df``) to see the ``rank`` closest stations that actually returned
-        data. Enable ``ts_skip_empty`` to walk past a station that returned data but
-        too little of it, as ``ts_skip_threshold`` and ``ts_skip_criteria`` define.
+        data. Enable the option ``skip_empty`` to walk past a station that returned data but
+        too little of it, as ``skip_threshold`` and ``skip_criteria`` define.
 
         Args:
             latlon: Latitude and longitude for the requested point.
@@ -961,28 +971,26 @@ class TimeseriesRequest:
         """Give the request `interpolate` and `summarize` read the stations' values through.
 
         Both read a long frame named by canonical parameter: they pick a parameter's rows by its
-        canonical name and take the `value` column. A caller's `ts_humanize=False` left them
-        matching no row at all, and `ts_shape="wide"` has no `value` column (GH-2331). So the
-        values are read as long and humanized whatever the caller's settings say, on a copy, so
+        canonical name and take the `value` column. A caller's `humanize=False` left them
+        matching no row at all, and `shape="wide"` has no `value` column (GH-2331). So the
+        values are read as long and humanized whatever the caller's options say, on a copy, so
         that the caller's own request keeps them. `_as_asked` names the result the caller's way.
-        The copy drops nulls as the caller's settings do, which a wide shape does not.
+        The copy drops nulls as the caller's options do, which a wide shape does not.
         """
-        settings = cast("Settings", self.settings)
-        if settings.ts_shape == "long" and settings.ts_humanize:
+        options = cast("Options", self.options)
+        if options.shape == "long" and options.humanize:
             return self
         request = copy.copy(self)
-        request.settings = settings.model_copy(
-            update={"ts_shape": "long", "ts_humanize": True, "ts_drop_nulls": settings.ts_drop_nulls_effective},
-        )
+        request.options = options.replace(shape="long", humanize=True, drop_nulls=options.drop_nulls_effective)
         return request
 
     def _as_asked(self, df: pl.DataFrame) -> pl.DataFrame:
-        """Name an interpolated or summarized frame's parameters as the caller's `ts_humanize` does.
+        """Name an interpolated or summarized frame's parameters as the caller's `humanize` does.
 
-        The frame comes back long whatever `ts_shape` says: one estimate per row, with the distance
+        The frame comes back long whatever `shape` says: one estimate per row, with the distance
         and the stations it was drawn from beside it, has no wide form.
         """
-        if cast("Settings", self.settings).ts_humanize:
+        if cast("Options", self.options).humanize:
             return df
         name = pl.col("parameter")
         for parameter in self.parameters:
@@ -998,7 +1006,7 @@ class TimeseriesRequest:
                 .otherwise(name)
             )
         # sorted again, as the cores sorted by the canonical names: `tmk` is `values`' first under
-        # `ts_humanize=False` and came last here, behind `txk` (`temperature_air_max_2m`)
+        # `humanize=False` and came last here, behind `txk` (`temperature_air_max_2m`)
         return df.with_columns(name.alias("parameter")).sort(["resolution", "dataset", "parameter", "timestamp"])
 
     def _get_latlon_by_station_id(self, station_id: str) -> tuple[float, float]:

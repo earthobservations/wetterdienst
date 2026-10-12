@@ -514,3 +514,85 @@ class Options(BaseSettings):
         """Show the overrides that were given for `geo_station_distance`, not the table they expand into."""
         for name, value in super().__repr_args__():
             yield name, (self._geo_station_distance_overrides or {}) if name == "geo_station_distance" else value
+
+
+def _options_from_fields(fields: Mapping[str, Any]) -> Options:
+    """Build options from their fields alone, neither the environment nor a ``.env`` read, and with no notice given."""
+    token = _REPLACING.set(True)
+    try:
+        with _quiet():
+            return Options(**fields)
+    finally:
+        _REPLACING.reset(token)
+
+
+def options_from_settings(settings: BaseSettings) -> Options:
+    """Build the options a `Settings` object carries as its ``ts_*`` settings.
+
+    Until the settings stop carrying them, a request given no options takes these, so that what it
+    does is what it did before options existed. Built from the fields alone: the settings have read
+    the environment already, and reading it again would merge it into a mapping handed over.
+
+    `model_dump` gives the per-parameter radii that were given for ``ts_geo_station_distance``, not
+    the table they were expanded into, so the options expand them as the settings did.
+    """
+    carried = settings.model_dump(include={f"ts_{name}" for name in Options.model_fields})
+    return _options_from_fields({name.removeprefix("ts_"): value for name, value in carried.items()})
+
+
+def options_from_mapping(given: Mapping[str, Any], base: Options | None = None) -> Options:
+    """Build options from the ones a caller names, the rest as ``Options()`` has them.
+
+    The environment sets what is not named, as it does for ``Options()``; what is named replaces its
+    default wholesale. ``Options(**given)`` would merge the environment into a mapping that was
+    named -- a ``WD_TS_UNIT_TARGETS`` the caller never meant to keep would add to theirs -- so the
+    named options are laid over a base the environment has already shaped, as `Options.replace` does.
+    A shape that drops no nulls and a radius for a parameter never interpolated are noted, as they
+    are for options built the usual way. `base` is the ``Options()`` of the environment, for a
+    caller that has built it already.
+    """
+    if base is None:
+        with _quiet():
+            base = Options()
+    options = _options_from_fields({**base.model_dump(), **given})
+    if options.shape != base.shape:
+        _note_drop_nulls_ignored(options.shape, "", log)
+    if "geo_station_distance" in given:
+        _checked_geo_station_distance_keys(given["geo_station_distance"], "", log)
+    return options
+
+
+def resolve_options(options: Options | Mapping[str, Any] | None, settings: BaseSettings) -> Options:
+    """Settle the options of a request from what it was given.
+
+    None gives the options the settings carry as their ``ts_*`` settings, a mapping gives
+    `options_from_mapping`, and an `Options` is used as it is.
+
+    Options given beside settings that carry ``ts_*`` settings of their own are refused: one of the
+    two would be ignored, and which one is not a thing to leave a caller to guess. What the settings
+    carry is compared with what the process's environment and ``.env`` give, so an operator's
+    ``WD_TS_*`` never counts against a caller who passes options; settings that read theirs from
+    elsewhere (another ``_env_file``) do. Options that are the very ones the settings carry are no
+    conflict, which is what a request copied with `dataclasses.replace` gives.
+
+    Raises:
+        ValueError: Where both are given.
+
+    """
+    carried = options_from_settings(settings)
+    if options is None:
+        return carried
+    with _quiet():
+        baseline = Options()
+    given = options if isinstance(options, Options) else options_from_mapping(options, baseline)
+    if given.model_dump() == carried.model_dump():
+        return given
+    baseline_dump = baseline.model_dump()
+    differing = [f"ts_{name}" for name, value in carried.model_dump().items() if value != baseline_dump[name]]
+    if differing:
+        msg = (
+            f"the request was given options and settings that carry {', '.join(differing)}; "
+            "set the request's options through options= alone"
+        )
+        raise ValueError(msg)
+    return given
