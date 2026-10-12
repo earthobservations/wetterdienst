@@ -217,7 +217,17 @@ class Wetterdienst:
 
     @classmethod
     def discover(cls) -> dict:
-        """Discover all available providers and networks with their metadata."""
+        """Discover all available providers and networks with their metadata.
+
+        Nothing is downloaded, so this is as fast on a cold cache as on a warm one (GH-2564). Whether
+        a provider accepts the credentials it is configured with takes a request to the provider, which
+        a listing of every provider must not wait for, so `valid` is `None` for a network that is
+        configured and has not been checked. `Wetterdienst.is_valid(api)` checks one.
+
+        Per network: `auth` whether it needs credentials, `configured` whether they are present,
+        `valid` whether they are accepted (`True` where none are needed, `False` where they are
+        missing, `None` where they are present and unchecked), `date_required`.
+        """
         result = {}
         for provider, networks in cls.registry.items():
             result[provider] = {}
@@ -240,7 +250,9 @@ class Wetterdienst:
                 elif not configured:
                     valid = False
                 else:
-                    valid = cls.is_valid(api)
+                    # not probed: that is a request to the provider per network, and a listing of
+                    # all of them waited for each in turn (GH-2564)
+                    valid = None
                 date_required = (
                     any(dataset.date_required for resolution in metadata for dataset in resolution.datasets)
                     if metadata is not None
