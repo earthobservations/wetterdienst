@@ -18,6 +18,10 @@ Types of changes:
 
 ### Added
 
+- polars 2 is supported: the dependency is now `polars[calamine]>=1.43.0,<3` (it was `<2`), so
+  wetterdienst installs next to packages that need polars 2. `dwd/observation` collects with the
+  in-memory engine, as on polars 1, not with the streaming engine polars 2 uses by default
+  (GH-2570)
 - `wetterdienst.Options`: the per-request options (`shape`, `humanize`, `convert_units`,
   `unit_targets`, `skip_*`, `drop_nulls` and the `geo_*` distances), the request half of what
   `Settings` holds as `ts_*`, as a frozen class of their own. They read the same `WD_TS_*`

@@ -26,6 +26,7 @@ from wetterdienst.provider.imgw.fileindex import list_files_for_interval
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import File, download_file, download_files
+from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -300,11 +301,10 @@ class ImgwHydrologyValues(TimeseriesValues):
     def __parse_file(self, file: bytes, station_id: str, dataset: DatasetModel, schema: dict) -> pl.DataFrame:
         """Parse hydrological data from a single file."""
         normalized, separator = _normalize_hydrology_csv(file)
-        df = pl.read_csv(
+        df = read_csv_without_header(
             normalized,
             encoding="latin-1",
             separator=separator,
-            has_header=False,
             infer_schema_length=0,
             null_values=["9999", "99999.999", "99.9"],
         )
