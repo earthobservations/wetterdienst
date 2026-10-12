@@ -274,6 +274,21 @@ def test_history_target_absolute_file_uri(monkeypatch: pytest.MonkeyPatch, tmp_p
     assert json.loads(target.read_text()) == {"histories": []}
 
 
+def test_history_target_is_written_as_utf8(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Test the file is written with an encoding named, not the locale's (Python 3.15 made UTF-8 the default)."""
+    encodings = []
+    write_text = Path.write_text
+
+    def _record(self: Path, data: str, encoding: str | None = None, errors: str | None = None, **kwargs: object) -> int:
+        encodings.append(encoding)
+        return write_text(self, data, encoding=encoding, errors=errors, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", _record)
+    result = _history_to_target(monkeypatch, f"file://{tmp_path / 'history.json'}")
+    assert result.exit_code == 0, result.output
+    assert encodings == ["utf-8"]
+
+
 def test_history_target_file_uri_without_json_suffix(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Test the `.json` check still applies to a `file://` URI, read on the path it names."""
     monkeypatch.chdir(tmp_path)

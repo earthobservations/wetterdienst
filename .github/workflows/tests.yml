@@ -59,7 +59,10 @@ jobs:
     strategy:
       matrix:
         os: [ "ubuntu-latest" ]
-        python-version: [ "3.11", "3.12", "3.13", "3.14" ]
+        # 3.15 is not claimed as supported yet (GH-2568): the locked beartype (through fastmcp) does
+        # not import there, which fails the MCP tests until the lock takes 0.23, and h5py, duckdb,
+        # numcodecs and pyyaml have no 3.15 wheel and are built from source
+        python-version: [ "3.11", "3.12", "3.13", "3.14", "3.15" ]
         include:
           - os: "windows-latest"
             python-version: "3.14"
@@ -94,6 +97,13 @@ jobs:
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: ${{ env.PYTHON }}
+
+      # h5py has no 3.15 wheel yet and is built from source, which needs the HDF5 headers
+      - name: Install HDF5 headers (Ubuntu, Python 3.15 only)
+        if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.python-version == '3.15' }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libhdf5-dev pkg-config
 
       - name: Install project
         run: uv sync
@@ -183,7 +193,7 @@ jobs:
     strategy:
       # the guard reasons about an interpreter difference, so the version it names is run here: 3.12
       # is the one that calls a v4-mapped loopback address not a loopback. 3.11 and 3.14 are the
-      # oldest and newest the project supports. The matrix above covers all four, but it is
+      # oldest and newest the project supports. The matrix above covers all of them, but it is
       # `continue-on-error`, so a regression in that branch would block nothing
       fail-fast: false
       matrix:

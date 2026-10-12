@@ -416,6 +416,10 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=".env",
+        # UTF-8 on every Python, not the locale's encoding: Python 3.15 reads text as UTF-8 by default
+        # (PEP 686) and earlier versions on Windows read the ANSI code page, so a `.env` holding a
+        # non-ASCII value would otherwise mean different things by version
+        env_file_encoding="utf-8",
         # read only the settings from `.env`, as from the environment. A `.env` is often shared with
         # other programs, and by default each of its other keys is handed on too, which the settings
         # refuse as no field of theirs: one line of someone else's made every `Settings()` fail and
