@@ -229,7 +229,8 @@ in a crontab, `%` is a command separator, not a character. `$(date +%F)` has to 
 The image is a normal CLI container, so the scheduling unit simply runs `docker run`. It runs as the
 unprivileged user `wetterdienst` (uid 10001): mount a volume at its cache directory to keep the
 cache across runs, and make the host directory of a file target writable by that user
-(`chown 10001 /var/lib/wetterdienst`):
+(`chown 10001 /var/lib/wetterdienst`). A volume that an earlier run as root filled needs a one-time
+`chown -R 10001:10001` as well, see [Docker](docker.md):
 
 ```bash
 docker run --rm \

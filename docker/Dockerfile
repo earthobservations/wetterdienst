@@ -76,6 +76,7 @@ COPY --from=build /usr/local/bin /usr/local/bin
 RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin wetterdienst && \
     install -d -o wetterdienst -g wetterdienst /home/wetterdienst/.cache /home/wetterdienst/.cache/wetterdienst
 USER wetterdienst
+WORKDIR /home/wetterdienst
 
 # Expose port 3000
 EXPOSE 3000
