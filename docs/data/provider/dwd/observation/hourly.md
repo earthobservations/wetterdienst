@@ -431,7 +431,7 @@ weather codes and descriptions: [here](https://opendata.dwd.de/climate_environme
 | name                   | original name | description         | unit | constraints |
 |------------------------|---------------|---------------------|------|-------------|
 | {term}`wind_speed` | f | Mean wind speed. | m/s | >=0 |
-| {term}`wind_direction` | d | Mean wind direction. The source's 0 (a calm wind) is null. | ° | >=0,<=360 |
+| {term}`wind_direction` | d | Mean wind direction. The source's 0 (a calm or variable wind) is null. | ° | >=0,<=360 |
 
 ### wind_extreme
 

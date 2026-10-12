@@ -316,11 +316,11 @@ def _dwd_hourly_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -
 
 def _dwd_hourly_wind_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # historical/stundenwerte_F_00003_19500401_20110401_hist.zip: "Windrichtung uml.,windstill DD=00" (DWD), so the 0 of
-    # 1950-05-04 06:00 (a speed of 0.0) and of 1954-02-19 15:00 (1.0 m/s) are no direction, 360 is north (GH-2805)
+    # 1954-02-19 15:00 (beside 1.0 m/s) is no direction; 360 is north, as at 1954-01-04 00:00 (GH-2805)
     product = (
         "STATIONS_ID;MESS_DATUM;QN_8;  FF;  DD;eor\n"
         "          3;1954021915;    1;   1.0;   0;eor\n"
-        "          3;1954021916;    1;   0.5; 360;eor\n"
+        "          3;1954010400;    1;   2.6; 360;eor\n"
     )
     return _dwd_observation(monkeypatch, "hourly", "wind_synop", product, "00003", year=1954, drop_nulls=drop_nulls)
 
@@ -353,9 +353,9 @@ def _dwd_10_minutes_extreme_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bo
     # historical/10minutenwerte_extrema_wind_00003_19930429_19991231_hist.zip: the direction of the gust is 0 beside a
     # gust of 0.0 (1993-04-28 12:30), a calm, and beside one of 4.1 m/s (1993-06-15 15:30), a north (GH-2805)
     product = (
-        "STATIONS_ID;MESS_DATUM;  QN;FX_10;FNX_10;FMX_10;DX_10;eor\n"
-        "          3;199304281230;    1;   0.0;  -999;  -999;   0;eor\n"
-        "          3;199306151530;    1;   4.1;  -999;  -999;   0;eor\n"
+        "STATIONS_ID;MESS_DATUM;  QN;FX_10;FNX_10;FMX_10;DX_10\n"
+        "          3;199304281230;    1;   0.0;  -999;  -999;   0\n"
+        "          3;199306151530;    1;   4.1;  -999;  -999;   0\n"
     )
     return _dwd_observation(
         monkeypatch, "10_minutes", "wind_extreme", product, "00003", year=1993, drop_nulls=drop_nulls

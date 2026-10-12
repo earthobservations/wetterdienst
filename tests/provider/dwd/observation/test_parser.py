@@ -419,7 +419,7 @@ _CALM_WIND_FILES = {
         [("250", None), ("360", None), (None, "0"), (None, "0")],
     ),
     # DWD names the column "Windrichtung uml.,windstill DD=00": every 0 is null, with the speed of 0 or of 1.0 m/s
-    # or of the gale of Büsum (00785) on 1986-02-14
+    # or of the 7.7 m/s of Büsum (00785) on 1986-02-14
     "hourly/wind_synop": (
         DwdObservationMetadata.hourly.wind_synoptic,
         "STATIONS_ID;MESS_DATUM;QN_8;  FF;  DD;eor",
@@ -463,11 +463,11 @@ _CALM_WIND_FILES = {
     # the speed of the direction is the gust: 00003 on 1993-06-15 15:30 has a 0 beside a gust of 4.1 m/s
     "10_minutes/extreme_wind": (
         DwdObservationMetadata.minute_10.wind_extreme,
-        "STATIONS_ID;MESS_DATUM;  QN;FX_10;FNX_10;FMX_10;DX_10;eor",
+        "STATIONS_ID;MESS_DATUM;  QN;FX_10;FNX_10;FMX_10;DX_10",
         [
-            "          3;199306150700;    1;   4.5;  -999;  -999; 360;eor",
-            "          3;199306151530;    1;   4.1;  -999;  -999;   0;eor",
-            "          3;199304281230;    1;   0.0;  -999;  -999;   0;eor",
+            "          3;199306150700;    1;   4.5;  -999;  -999; 360",
+            "          3;199306151530;    1;   4.1;  -999;  -999;   0",
+            "          3;199304281230;    1;   0.0;  -999;  -999;   0",
         ],
         "dx_10",
         [("360", None), ("0", None), (None, "0")],

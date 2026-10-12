@@ -125,27 +125,28 @@ WIND_DIRECTION_PARAMETERS = (
     (DwdObservationMetadata.minute_10.wind, DwdObservationMetadata.minute_10.wind.wind_direction.name_original),
 )
 
-# The wind files write a direction of 0 where there is no direction, and 360 for north (GH-2805; read 2026-10-12 in
-# 24 station files per dataset and period of opendata.dwd.de). Left alone it is returned as 0 degrees, north, which a
-# wind rose or a mean direction counts. Where DWD's sheets say what 0 is, every 0 is null; where they do not and the
-# files use it for north too, only a 0 beside a speed of 0 is:
+# The wind files write a direction of 0 where there is no direction, and mostly 360 for north (GH-2805; read
+# 2026-10-12 in 24 station files per dataset and period of opendata.dwd.de). Left alone it is returned as 0 degrees,
+# north, which a wind rose or a mean direction counts. Where DWD's sheets say what 0 is, every 0 is null; where they
+# do not and the files use it for north too, only a 0 beside a speed of 0 is:
 #
 # - hourly wind_synop DD: the sheet names the column "Windrichtung uml.,windstill DD=00", the code of a variable or
 #   calm wind. 129,350 of the 129,420 historical hours with a speed of 0 have DD 0, and 27,714 more a speed above 0
-#   (11,892 at 1.0 m/s). A few stations also write it in a gale (00785, 1986-02-14, 7.7 m/s for hours), where
-#   `raw:0` keeps it.
+#   (11,892 at 1.0 m/s). A few stations also write it at 7 m/s for hours (00785, 1986-02-14), where `raw:0` keeps it.
 # - hourly wind D: the sheet gives a "36-teilige Windrose", which has no point 0. 141,852 of the 141,873 historical
-#   hours with a speed of 0 have D 0; beside a wind that blows it falls from 1,447 of 180,845 hours below 0.5 m/s to
-#   1 of 1,487,127 at 3 to 5 m/s, while 360 stays at 2 to 5 %.
+#   hours with a speed of 0 have D 0; beside a wind that blows it falls from 1,447 of 180,845 hours below 0.5 m/s to 1
+#   of 1,487,127 at 3 to 5 m/s, while 360 stays at 1.6 to 4.6 % of the hours up to 5 m/s. The hourly files of 01691
+#   and 03761, which write north as 0 at 10 minutes, hold 0 to 3 zeros a year (1993 to 2007) at 1 m/s or more against
+#   33 to 257 of 360.
 # - subdaily wind DK_TER: the sheet gives a "32-teilige Windrose" (a point is 11.25 degrees, 32 north, GH-2808), which
 #   has no point 0. 97,605 of the 97,610 terms with Beaufort 0 have 0, and 798 of the 1,284 in the recent files
 #   Beaufort 1 or 2.
 # - 10 minute wind DD_10 and extreme_wind DX_10 have no sheet text on it. 81,158 of the 82,475 historical 10 minutes
-#   with a speed of 0 have DD_10 0 (DX_10: 68,166 of 70,458), but two stations (01691, 1993 to 1999; 03761, 2000 to
-#   2006) also write north as 0: 01691 on 1994-05-01 reads 360, 360, 0, 360, 0, 360, 360 from 15:30 to 16:30 at 5 to 6
-#   m/s, and from 1 m/s on 492 rows read 0 against 94,042 of 360. DWD documents no limit between a calm and a wind
-#   (1,457 of the 29,704 10 minutes from 0.05 to 0.25 m/s read 0), so only a 0 beside a speed of exactly 0 is null,
-#   with the gust for extreme_wind. A 0 beside a missing speed stays.
+#   with a speed of 0 have DD_10 0 (DX_10: 68,166 of 70,458), but some stations also write north as 0 (DD_10: 01691,
+#   1993 to 1999, and 03761, 2000 to 2006; DX_10: 00003): 01691 on 1994-05-01 reads 360, 360, 0, 360, 0, 360, 360 from
+#   15:30 to 16:30 at 4 to 6 m/s, and from 1 m/s on 492 rows read 0 against 94,042 of 360. DWD documents no limit
+#   between a calm and a wind (1,457 of the 29,704 10 minutes from 0.05 to 0.25 m/s read 0), so only a 0 beside a
+#   speed of exactly 0 is null, with the gust for extreme_wind. A 0 beside a missing speed stays.
 CALM_WIND_DIRECTION_PARAMETERS = (
     (DwdObservationMetadata.hourly.wind, DwdObservationMetadata.hourly.wind.wind_direction.name_original, None),
     (
@@ -340,7 +341,7 @@ def _parse_climate_observations_data(  # noqa: C901
         if dataset == wind_dataset and parameter in columns:
             df = clear_sentinels(df, [parameter], _WIND_DIRECTION_VARIABLE)
     for wind_dataset, parameter, speed in CALM_WIND_DIRECTION_PARAMETERS:
-        if dataset == wind_dataset and parameter in columns:
+        if dataset == wind_dataset and parameter in columns and (speed is None or speed in columns):
             # where the file has the speed, a 0 is only a calm beside a speed of exactly 0; a speed that is missing is
             # no calm
             calm = (

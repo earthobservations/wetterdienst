@@ -964,7 +964,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Returned as 1 for P and 2 for I."
         ),
         ("hourly", "weather_phenomena", "ww"): "Weather code of current condition.",
-        ("hourly", "wind", "d"): "Mean wind direction. The source's 0 (a calm wind) is null.",
+        ("hourly", "wind", "d"): "Mean wind direction. The source's 0 (a calm or variable wind) is null.",
         ("hourly", "wind", "f"): "Mean wind speed.",
         ("hourly", "wind_extreme", "fx_911"): "Wind speed, wind gust: the highest wind peak of the last hour.",
         ("hourly", "wind_synoptic", "dd"): (
@@ -1069,7 +1069,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "temperature_air", "rf_ter"): "2m relative humidity.",
         ("subdaily", "temperature_air", "tt_ter"): "2m air temperature.",
         ("subdaily", "visibility", "vk_ter"): "Coded visibility class.",
-        ("subdaily", "wind", "dk_ter"): "Wind direction. The source's 0 (a calm wind) is null.",
+        ("subdaily", "wind", "dk_ter"): "Wind direction. The source's 0 (a calm or variable wind) is null.",
         ("subdaily", "wind", "fk_ter"): "Wind force (beaufort).",
         (
             "subdaily",
