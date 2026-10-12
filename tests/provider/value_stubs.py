@@ -44,6 +44,8 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.aemet.observation import AemetObservationRequest
 from wetterdienst.provider.aemet.observation import api as aemet_api
+from wetterdienst.provider.dmi.observation import DmiObservationRequest
+from wetterdienst.provider.dmi.observation import api as dmi_api
 from wetterdienst.provider.dwd.derived import DwdDerivedRequest
 from wetterdienst.provider.dwd.derived import api as dwd_derived_api
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
@@ -76,6 +78,10 @@ from wetterdienst.provider.metoffice.observation import MetOfficeObservationRequ
 from wetterdienst.provider.metoffice.observation import api as metoffice_api
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 from wetterdienst.provider.noaa.ghcn import api as ghcn_api
+from wetterdienst.provider.nws.observation import NwsObservationRequest
+from wetterdienst.provider.nws.observation import api as nws_api
+from wetterdienst.provider.smhi.observation import SmhiObservationRequest
+from wetterdienst.provider.smhi.observation import api as smhi_api
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
@@ -796,6 +802,9 @@ def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         + element(0, "r_1h", "0.4")
         + element(1, "t2m", "NaN")
         + element(1, "r_1h", "-1.0")
+        # the direction is 0.0 for a calm wind and 360.0 for north (checked on 15 stations, 2026-10-12; GH-2794)
+        + element(0, "wd_10min", "250.0")
+        + element(1, "wd_10min", "0.0")
         + "</wfs:FeatureCollection>"
     ).encode()
     serve(monkeypatch, fmi_api, {"opendata.fmi.fi": body})
@@ -807,6 +816,83 @@ def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         options=_options(drop_nulls),
     )
     return stations_result(request, "hourly", "data", "100971").values.all().df
+
+
+def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # api.weather.gov/stations/KBOS/observations (read 2026-10-12): 12:54Z is the METAR `36005KT`, a direction of 360,
+    # and 14:54Z `00000KT`, a calm, which the endpoint gives as a direction of 0 beside a speed of 0 (GH-2794)
+    def observation(hour: int, direction: int, speed: float) -> dict[str, Any]:
+        return {
+            "properties": {
+                "station": "https://api.weather.gov/stations/KBOS",
+                "timestamp": f"2026-10-12T{hour:02d}:54:00+00:00",
+                "windDirection": {"unitCode": "wmoUnit:degree_(angle)", "value": direction, "qualityControl": "V"},
+                "windSpeed": {"unitCode": "wmoUnit:km_h-1", "value": speed, "qualityControl": "V"},
+            }
+        }
+
+    features = [observation(12, 360, 9.36), observation(14, 0, 0)]
+    serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": features}).encode()})
+    request = NwsObservationRequest(
+        parameters=[("hourly", "data")],
+        start=_day(2026, 10, 12),
+        end=_day(2026, 10, 13),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "data", "KBOS").values.all().df
+
+
+def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # parameter 3 of station 188790 (Abisko Aut) as SMHI writes it (read 2026-10-12), "Vindriktning, medelvärde 10 min":
+    # 0 at 2019-01-18 04:00, where the wind speed is 0.0, and 360 for north at 2019-03-15 11:00 (GH-2794)
+    csv = (
+        "Datum;Tid (UTC);Vindriktning;Kvalitet\n"
+        "2019-01-18;03:00:00;208;G\n"
+        "2019-01-18;04:00:00;0;G\n"
+        "2019-03-15;11:00:00;360;G\n"
+    )
+    serve(monkeypatch, smhi_api, {"parameter/3/station/188790/period": csv.encode()})
+    request = SmhiObservationRequest(
+        parameters=[("hourly", "data", "wind_direction_last_10min")],
+        start=_day(2019, 1, 18),
+        end=_day(2019, 3, 16),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "data", "188790").values.all().df
+
+
+def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # stationValue of 06070 (read 2026-10-12): the mean wind direction of 2020-02-14 03:00 is 0 beside a mean wind speed
+    # of 0, which is a calm (GH-2794); the 06:00 hour is made up. The 0 beside a speed above 0, which stays, is pinned
+    # by tests/provider/dmi
+    rows = [
+        ("mean_wind_dir", "2020-02-14T03:00:00+00:00", 0.0),
+        ("mean_wind_speed", "2020-02-14T03:00:00+00:00", 0.0),
+        ("mean_wind_dir", "2020-02-14T06:00:00+00:00", 250.0),
+        ("mean_wind_speed", "2020-02-14T06:00:00+00:00", 4.1),
+    ]
+    features = [
+        {
+            "properties": {
+                "parameterId": parameter,
+                "from": start,
+                "to": (dt.datetime.fromisoformat(start) + dt.timedelta(hours=1)).isoformat(),
+                "value": value,
+            }
+        }
+        for parameter, start, value in rows
+    ]
+    serve(monkeypatch, dmi_api, {"stationValue": json.dumps({"features": features}).encode()})
+    request = DmiObservationRequest(
+        parameters=[("hourly", "data")],
+        start=_day(2020, 2, 14),
+        end=_day(2020, 2, 14, 7),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "data", "06070").values.all().df
 
 
 def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -965,8 +1051,34 @@ STUBS = [
         "fmi/observation hourly/data",
         _fmi_hourly,
         reading=("temperature_air_2m", -3.5),
-        sentinels=(("precipitation_amount", -1.0),),
-        tokens=(("temperature_air_2m", "NaN", None), ("precipitation_amount", "-1.0", 0.0)),
+        sentinels=(("precipitation_amount", -1.0), ("wind_direction_last_10min", 0.0)),
+        tokens=(
+            ("temperature_air_2m", "NaN", None),
+            ("precipitation_amount", "-1.0", 0.0),
+            ("wind_direction_last_10min", "0.0", None),
+        ),
+    ),
+    ValueStub(
+        "nws/observation hourly/data",
+        _nws_hourly,
+        reading=("wind_direction", 360.0),
+        sentinels=(("wind_direction", 0.0),),
+        # a calm is no direction; the speed of 0 is a reading
+        tokens=(("wind_direction", "0", None),),
+    ),
+    ValueStub(
+        "smhi/observation hourly/data",
+        _smhi_hourly,
+        reading=("wind_direction_last_10min", 360.0),
+        sentinels=(("wind_direction_last_10min", 0.0),),
+        tokens=(("wind_direction_last_10min", "0", None),),
+    ),
+    ValueStub(
+        "dmi/observation hourly/data",
+        _dmi_hourly,
+        reading=("wind_direction", 250.0),
+        sentinels=(("wind_direction", 0.0),),
+        tokens=(("wind_direction", "0", None),),
     ),
     ValueStub(
         "imgw/hydrology daily/hydrology",
@@ -1084,7 +1196,6 @@ NO_STUB = {
         "the files write an empty VALUE for a missing one: dly-0-20000-0-11406-T.csv (2026-10-12) has 177144 rows, "
         "32136 of them empty, nothing that is no number and a minimum of -27.6"
     ),
-    "dmi/observation": "no reader maps a sentinel; its values are JSON numbers",
     "dwd/alerts": "no timeseries",
     "dwd/phenology": (
         "JULTAG is a day of the year and the reader maps no sentinel: no -999 in the 2119 lines of "
@@ -1104,8 +1215,6 @@ NO_STUB = {
         "the files write an empty field for a missing value: no cell that is no number in ogd-smn_ber_h_recent.csv "
         "(6816 rows) and ogd-smn_ber_d_historical.csv (59170 rows), 2026-10-12"
     ),
-    "nws/observation": "no reader maps a sentinel; a quantity without a value is a JSON null",
     "rmi/observation": "no reader maps a sentinel; its values are JSON numbers",
-    "smhi/observation": "no reader maps a sentinel; a blank row is a missing reading and is dropped",
     "wsv/pegel": "no reader maps a sentinel; its values are JSON numbers",
 }

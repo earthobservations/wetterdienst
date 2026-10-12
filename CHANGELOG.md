@@ -44,6 +44,16 @@ Types of changes:
   `wind_direction_last_10min`, where the 0 is a calm or a variable wind (it comes with speeds up to
   22 km/h). North is 360 in these sources. The gust direction of Geosphere has no 0 and is
   unchanged (GH-2794)
+- A wind direction of 0 that means a calm wind is null, with the source's text (`raw:0`, `raw:0.0`)
+  in `quality_flags`, no longer 0 degrees (north, which a wind rose or a mean direction counted):
+  `nws/observation` (METAR `00000KT`), `smhi/observation` (both directions), `fmi/observation`
+  `wd_10min`, and `dmi/observation` `mean_wind_dir` where the mean wind speed of the same hour,
+  day, month or year is 0. North is 360 in these sources. A DMI 0 beside a wind that blows stays
+  (GH-2794)
+- `GET /api/auth` and `GET /api/coverage?provider=...&network=...`, and so the MCP tools `auth`
+  and `coverage`, answer a network whose optional extra is not installed with the 501 the data
+  routes answer, not the 404 "Choose provider and network from /api/coverage" for an unknown one.
+  The install line is in the server log (GH-2788)
 
 ## [0.147.0] - 2026-10-12
 
