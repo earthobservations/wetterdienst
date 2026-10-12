@@ -163,24 +163,12 @@ for as long as it likes on that thread; and allocate memory DuckDB's limit does 
 one very long string. The limits hold per request, not for the server as a whole. Enable it only
 for clients you trust with that.
 
-### Running it for others
+### Image size
 
-The REST API and the MCP endpoint have no authentication, and `wetterdienst restapi` listens on
-`127.0.0.1` unless told otherwise. If you expose it, what it leaves to you:
-
-- **Who may use it.** Anyone who can reach it can use the provider credentials it is configured with
-  (`WD_AUTH__*`) and spend their quotas. `/api/auth` and `/api/coverage` also tell whether a key is
-  configured and accepted, never the key.
-- **Limits on one request.** A request can make the server download and compute a lot: all stations
-  of a network, a long window at a fine resolution, a chart. The API bounds few of these. An image
-  is refused above 8192 px on a side, once `scale` or `dpi` is applied. Put a timeout, a concurrency
-  limit and a memory limit in front of the server or on its container.
-- **Transport.** It speaks plain HTTP and sets no CORS headers. Terminate TLS in a reverse proxy,
-  and let the proxy serve the app and the API from one origin.
-- **SQL.** `sql` and `sql_values` are off until you set `WD_RESTAPI_SQL=true`, see above.
-- **The cache directory.** `WD_CACHE_DIR` holds files the server reads back, among them pickled
-  directory listings: whoever can write there can run code as the server. Keep it private to the
-  user the server runs as.
+A chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused with a 400 when a side of
+the image is longer than 8192 px, `scale` applied; for `/api/stripes/image` the size is 700 x 500 px
+times `dpi / 100`. A chart of several parameters is 300 px tall for each, and is measured as drawn.
+The limit holds for the REST API and the MCP tools; the library and the CLI have none.
 
 ## MCP endpoint
 
