@@ -277,7 +277,7 @@ def _header() -> dict[str, Any]:
     }
 
 
-def peak(result: dict[str, Any]) -> str:
+def _peak(result: dict[str, Any]) -> str:
     """Format the peak memory of a stage, or n/a where there is none."""
     return "n/a" if result["peak_rss_mb"] is None else f"{result['peak_rss_mb']:.0f}"
 
@@ -285,14 +285,14 @@ def peak(result: dict[str, Any]) -> str:
 def _table(header: dict[str, Any], results: list[dict[str, Any]]) -> str:
     lines = [
         (
-            f"polars {header['polars']} (engine {header['engine_affinity']}) / Python {header['python']} / "
+            f"polars {header['polars']} (engine {header['engine']}) / Python {header['python']} / "
             f"{header['platform']} / {header['cpu_count']} cpus"
         ),
         f"{'stage':<14}{'rows':>12}{'median s':>10}{'min s':>9}{'max s':>9}{'rows/s':>14}{'peak MB':>10}",
     ]
     lines.extend(
         f"{r['stage']:<14}{r['rows']:>12,}{r['median_s']:>10.3f}{r['min_s']:>9.3f}{r['max_s']:>9.3f}"
-        f"{r['rows_per_s']:>14,.0f}{peak(r):>10}"
+        f"{r['rows_per_s']:>14,.0f}{_peak(r):>10}"
         for r in results
     )
     return "\n".join(lines)
@@ -313,7 +313,7 @@ def main(argv: list[str] | None = None) -> dict[str, Any]:
         choices=["in-memory", "streaming", "auto"],
         default=DEFAULT_ENGINE,
         help=(
-            "The engine of the collects and the engine affinity of polars. The default is the in-memory engine, "
+            "The engine of the parse and historical collects. The default is the in-memory engine, "
             "which is what polars 1 uses and what the library asks for. The values stages go through "
             "DwdObservationValues, which names the in-memory engine itself, so only parse and historical follow this."
         ),
@@ -324,7 +324,6 @@ def main(argv: list[str] | None = None) -> dict[str, Any]:
     args = parser.parse_args(argv)
     args.cache_dir = args.cache_dir.resolve()
     stations = tuple(args.stations or MANIFEST[args.scale])
-    pl.Config.set_engine_affinity(args.engine)
     if args.fetch:
         fetch(args.cache_dir, stations)
         return {}
@@ -363,7 +362,7 @@ def main(argv: list[str] | None = None) -> dict[str, Any]:
         ]
         completed = subprocess.run(command, check=True, stdout=subprocess.PIPE, text=True)  # noqa: S603
         results.append(json.loads(completed.stdout.strip().splitlines()[-1]))
-    header = {**_header(), "engine_affinity": args.engine}
+    header = {**_header(), "engine": args.engine}
     report = {"header": header, "scale": args.scale, "stations": list(stations), "stages": results}
     if args.output:
         args.output.write_text(json.dumps(report, indent=2))
