@@ -210,6 +210,7 @@ class _Taken(Exception):  # noqa: N818
     """Raised in place of fetching, to stop where the options have been taken."""
 
 
+# old route, removed in stage 5
 def _before(case: Case) -> Options:
     """Give the options that ``Settings(ts_<option>=...)`` carried to a request, as the UIs once built them."""
     return options_from_settings(Settings(**{f"ts_{case.option}": case.value}))
@@ -303,6 +304,7 @@ def _env_cases() -> list[Any]:
     ]
 
 
+# old route, removed in stage 5
 @pytest.mark.parametrize(("case", "endpoint"), _rest_cases())
 def test_rest_query_parameter_sets_the_option_as_the_setting(
     monkeypatch: pytest.MonkeyPatch, case: Case, endpoint: str
@@ -313,6 +315,7 @@ def test_rest_query_parameter_sets_the_option_as_the_setting(
     assert options.model_dump() == _before(case).model_dump()
 
 
+# old route, removed in stage 5
 @pytest.mark.parametrize(("case", "endpoint"), _env_cases())
 def test_rest_environment_sets_the_option_as_the_setting(
     monkeypatch: pytest.MonkeyPatch, case: Case, endpoint: str
@@ -324,6 +327,7 @@ def test_rest_environment_sets_the_option_as_the_setting(
     assert options.model_dump() == _before(case).model_dump()
 
 
+# old route, removed in stage 5
 @pytest.mark.parametrize(("case", "command"), _cli_cases())
 def test_cli_option_sets_the_option_as_the_setting(monkeypatch: pytest.MonkeyPatch, case: Case, command: str) -> None:
     """Test a command line option gives the request the options the setting did."""
@@ -332,6 +336,7 @@ def test_cli_option_sets_the_option_as_the_setting(monkeypatch: pytest.MonkeyPat
     assert options.model_dump() == _before(case).model_dump()
 
 
+# old route, removed in stage 5
 @pytest.mark.parametrize(("case", "command"), _env_cases())
 def test_cli_environment_sets_the_option_as_the_setting(
     monkeypatch: pytest.MonkeyPatch, case: Case, command: str
@@ -343,6 +348,7 @@ def test_cli_environment_sets_the_option_as_the_setting(
     assert options.model_dump() == _before(case).model_dump()
 
 
+# old route, removed in stage 5
 @pytest.mark.parametrize(("case", "endpoint"), _rest_cases())
 def test_mcp_tool_argument_sets_the_option_as_the_setting(
     monkeypatch: pytest.MonkeyPatch, mcp_server: object, case: Case, endpoint: str
@@ -353,6 +359,7 @@ def test_mcp_tool_argument_sets_the_option_as_the_setting(
     assert options.model_dump() == _before(case).model_dump()
 
 
+# old route, removed in stage 5
 @pytest.mark.parametrize(("case", "endpoint"), _env_cases())
 def test_mcp_environment_sets_the_option_as_the_setting(
     monkeypatch: pytest.MonkeyPatch, mcp_server: object, case: Case, endpoint: str

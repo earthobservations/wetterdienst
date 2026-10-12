@@ -9,7 +9,7 @@ import polars as pl
 import pytest
 
 from tests.provider.value_stubs import serve
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest, api
 
 # Rows of the per-station files at ncei.noaa.gov/data/global-historical-climatology-network-daily/access/ as NOAA writes
@@ -120,7 +120,8 @@ def test_ghcn_daily_returns_the_flags_of_each_value(monkeypatch: pytest.MonkeyPa
         parameters=[("daily", "data", "precipitation_amount"), ("daily", "data", "temperature_air_max_2m")],
         start="2000-01-01",
         end="2000-01-03",
-        settings=Settings(cache_disable=True, ts_drop_nulls=False),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
     ).filter_by_station_id("USW00094728")
     df = request.values.all().df.with_columns(pl.col("parameter").cast(pl.String)).sort("parameter", "timestamp")
     assert df.schema["quality_flags"] == pl.String

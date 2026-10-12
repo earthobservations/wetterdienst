@@ -11,7 +11,7 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
   formats),
 - clean tool names (``values`` instead of ``values_api_values_get``),
 - the refusal of an argument a tool does not take, which FastMCP would drop, and
-- exclusion of the non-data endpoints (index, robots, health, version, auth, settings) so the tool
+- exclusion of the non-data endpoints (index, robots, health, version, settings) so the tool
   list stays focused. The settings a data tool used come back in its own answer with
   ``with_metadata``.
 
@@ -102,6 +102,11 @@ the user asks what something is, or what unit a number is in. It is not a way to
 knows nothing about providers or stations, so `coverage` remains the tool for "which parameters \
 does this provider have".
 
+`auth` checks the credentials this server holds for one provider and network that needs them \
+(e.g. aemet/observation): `valid` is true when the provider accepted them, false when it rejected \
+them or none are configured, and null when that could not be told (treat it as unknown, not as \
+rejected). `coverage` does not check them, so it leaves `valid` null for a configured network.
+
 ## Conventions
 - provider/network: use "dwd"/"observation" for German ground observations (the common case). Call \
 `coverage` with no arguments to list every provider/network.
@@ -154,12 +159,12 @@ _EXCLUDE_PATTERNS = (
     r"^/robots\.txt$",
     r"^/health$",
     r"^/api/version$",
-    r"^/api/auth$",
     r"^/api/settings$",
 )
 
 # Clean, agent-friendly names for the auto-generated tools (auto name -> friendly name).
 _TOOL_NAMES = {
+    "auth_api_auth_get": "auth",
     "coverage_api_coverage_get": "coverage",
     "glossary_api_glossary_get": "glossary",
     "stations_api_stations_get": "stations",

@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 import matplotlib.pyplot as plt
 import polars as pl
 
-from wetterdienst import Settings
+from wetterdienst import Options
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
 )
@@ -51,7 +51,7 @@ def station_example(
         parameters=("daily", "climate_summary", "temperature_air_mean_2m"),
         start=start_date,
         end=end_date,
-        settings=Settings(ts_convert_units=False),
+        options=Options(convert_units=False),
     )
     return stations.filter_by_name(name=name)
 
