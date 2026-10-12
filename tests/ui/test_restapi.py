@@ -2370,11 +2370,12 @@ def test_mcp_server_is_agent_friendly() -> None:
 
     tools, instructions = asyncio.run(_introspect())
     # data endpoints exposed under clean, agent-friendly names
-    assert {"coverage", "glossary", "stations", "values", "alerts"} <= tools
+    # (`auth` is the credential check, GH-2773)
+    assert {"auth", "coverage", "glossary", "stations", "values", "alerts"} <= tools
     # the ugly auto-generated names are gone
-    assert "values_api_values_get" not in tools
+    assert not tools & {"values_api_values_get", "auth_api_auth_get"}
     # non-data/noise endpoints are excluded
-    assert not tools & {"index", "health_health_get", "version_api_version_get", "auth_api_auth_get"}
+    assert not tools & {"index", "health_health_get", "version_api_version_get"}
     # a workflow instructions block is attached and describes the station -> values path
     assert instructions is not None
     assert "stations" in instructions
@@ -7449,6 +7450,76 @@ def test_coverage_and_auth_tell_a_credential_that_could_not_be_checked_as_null(
     assert len(asked) == 2
 
 
+def _call_mcp_auth(arguments: dict[str, str]) -> dict[str, object]:
+    """Call the MCP `auth` tool and return its structured answer."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def _call() -> dict[str, object]:
+        async with Client(build_mcp_server(restapi.app)) as mcp_client:
+            result = await mcp_client.call_tool("auth", arguments)
+        return result.structured_content
+
+    return asyncio.run(_call())
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("content", "status", "valid"),
+    [
+        pytest.param(io.BytesIO(b"{}"), 200, True, id="accepted"),
+        pytest.param(Exception("401, message='Unauthorized'"), 401, False, id="rejected"),
+        pytest.param(OSError("certificate verify failed"), 500, None, id="could-not-tell"),
+    ],
+)
+def test_mcp_auth_tool_answers_as_the_route_does(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, content: object, status: int, *, valid: bool | None
+) -> None:
+    """The MCP `auth` tool is `/api/auth`: true, false or null, and the probe asked once per call (GH-2773)."""
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
+    asked: list[str] = []
+
+    def download_file(**kwargs: str) -> File:
+        asked.append(kwargs["url"])
+        return File(url=kwargs["url"], content=content, status=status)
+
+    monkeypatch.setattr("wetterdienst.provider.metno.frost.api.download_file", download_file)
+    arguments = {"provider": "metno", "network": "frost"}
+    expected = {"provider": "metno", "network": "frost", "auth": True, "configured": True, "valid": valid}
+
+    assert _call_mcp_auth(arguments) == expected
+    assert len(asked) == 1
+    assert client.get("/api/auth", params=arguments).json() == expected
+    assert len(asked) == 2
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_mcp_auth_tool_without_a_credential_is_not_valid() -> None:
+    """A network whose credentials are not configured is `configured: false` and `valid: false` (GH-2773)."""
+    assert _call_mcp_auth({"provider": "knmi", "network": "observation"}) == {
+        "provider": "knmi",
+        "network": "observation",
+        "auth": True,
+        "configured": False,
+        "valid": False,
+    }
+
+
+def test_mcp_auth_tool_refuses_an_unknown_network_as_the_route_does() -> None:
+    """An unknown provider or network is the route's 404, pointing at `coverage` (GH-2773)."""
+    pytest.importorskip("fastmcp")
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    with pytest.raises(ToolError, match=r"/api/coverage"):
+        _call_mcp_auth({"provider": "nonexistent", "network": "fake"})
+
+
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_auth_reports_metoffice_as_needing_a_credential(client: TestClient) -> None:
     """Without `WD_AUTH__CEDA` the Met Office is a credentialed provider that is not configured (GH-2594)."""
@@ -7835,7 +7906,6 @@ def test_a_missing_credential_is_a_501_that_does_not_name_the_setting(
     assert f"for {provider}/{network}" in detail
     assert "WD_AUTH" not in detail
     assert "Settings(" not in detail
-    # a route the MCP tools have too, which `/api/auth` is not
     assert "/api/coverage" in detail
     assert setting in caplog.text
 
