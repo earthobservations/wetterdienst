@@ -4,6 +4,7 @@
 
 import itertools
 import json
+import logging
 import os
 import re
 from collections.abc import Iterator
@@ -1342,6 +1343,35 @@ def test_auth_of_an_unknown_network_is_a_usage_error() -> None:
         "\n\nError: No API available for provider dwd and network abc. "
         "`wetterdienst about coverage`, without --provider and --network, lists the available ones.\n"
     )
+    assert result.stdout == ""
+
+
+@pytest.mark.parametrize("command", ["auth", "coverage"])
+def test_a_network_whose_extra_is_missing_is_one_logged_line_on_auth_and_coverage(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, command: str
+) -> None:
+    """`about auth` and `about coverage` for a network whose extra is not installed print what to install (GH-2788).
+
+    The same line and exit 1 as the data commands, not a traceback and not a usage error: the command
+    line was right, the environment lacks the package.
+    """
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    msg = (
+        "Reading KNMI NetCDF requires h5netcdf, which is not installed. Install it with: pip install wetterdienst[knmi]"
+    )
+
+    def resolve(*_args: object) -> None:
+        raise MissingDependencyError(msg)
+
+    monkeypatch.setattr(Wetterdienst, "resolve", resolve)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(cli, ["about", command, "--provider=knmi", "--network=observation"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [msg]
+    assert all(record.exc_info is None for record in caplog.records)
     assert result.stdout == ""
 
 
