@@ -208,6 +208,8 @@ def clear_sentinels(
         if raw_column(column) in schema:
             raw = pl.coalesce(pl.col(raw_column(column)), raw)
         expressions += [cleaned.alias(column), raw.alias(raw_column(column))]
+    # polars types `with_columns` on the union `DataFrame | LazyFrame`, not on the constrained `Frame` TypeVar,
+    # so the checker cannot see that a DataFrame in gives a DataFrame out and a LazyFrame a LazyFrame
     return df.with_columns(expressions)  # ty: ignore[invalid-return-type]
 
 
