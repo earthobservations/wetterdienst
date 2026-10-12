@@ -37,6 +37,23 @@ Types of changes:
 - `dwd/poi` `cloud_cover_total` is null, with `raw:113` or `raw:126` in `quality_flags`, where DWD
   writes those numbers in the percent column (113 is an obscured sky, 126 comes with fog). They
   came back as a cloud cover of 1.13 and 1.26: 58 of 8744 reports in a day of 960 stations (GH-2615)
+- A wind direction of 0 that is no bearing (a calm wind) is null, with the source's text (`raw:0`)
+  in `quality_flags`, no longer 0 degrees (north, which a wind rose or a mean direction counted):
+  `noaa/ghcn` hourly `wind_direction` (the documentation's "000"), `geosphere/observation`
+  `wind_direction` (`dd`) of the 10 minute and hourly data, and `dwd/poi`
+  `wind_direction_last_10min`, where the 0 is a calm or a variable wind (it comes with speeds up to
+  22 km/h). North is 360 in these sources. The gust direction of Geosphere has no 0 and is
+  unchanged (GH-2794)
+- A wind direction of 0 that means a calm wind is null, with the source's text (`raw:0`, `raw:0.0`)
+  in `quality_flags`, no longer 0 degrees (north, which a wind rose or a mean direction counted):
+  `nws/observation` (METAR `00000KT`), `smhi/observation` (both directions), `fmi/observation`
+  `wd_10min`, and `dmi/observation` `mean_wind_dir` where the mean wind speed of the same hour,
+  day, month or year is 0. North is 360 in these sources. A DMI 0 beside a wind that blows stays
+  (GH-2794)
+- `GET /api/auth` and `GET /api/coverage?provider=...&network=...`, and so the MCP tools `auth`
+  and `coverage`, answer a network whose optional extra is not installed with the 501 the data
+  routes answer, not the 404 "Choose provider and network from /api/coverage" for an unknown one.
+  The install line is in the server log (GH-2788)
 - `eccc/observation` daily `wind_gust_max` and `wind_direction_gust_max` are null, with `raw:0` in
   `quality_flags`, where ECCC writes 0: the gust is not reported below 31 km/h, and a direction of 0
   is no bearing (north is 36 tens of degrees). They were 0 m/s and 0 degrees on over a third of the

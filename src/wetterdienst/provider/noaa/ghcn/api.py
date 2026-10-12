@@ -38,6 +38,11 @@ MAX_DISTANCE_KM_SAME_STATION = 5.0
 
 # what the hourly files write for a reading they do not have, as text: the reading keeps it as `raw:` (GH-2759)
 GHCNH_WIND_DIRECTION_MISSING = "999"
+# the documentation: "wind_direction = Wind Direction from true north using compass directions (e.g. 360 = true north,
+# ...). Note: A direction of "000" is given for calm winds", which the files write as `0` (GH-2794). Of the 898,935 and
+# 221,947 hours with a direction of USW00023174 and ASN00086282 (read 2026-10-12) 565 and 11,347 are 0, of which all but
+# one (1.5 m/s, 1985) have a wind speed of 0, and 12,384 and 28,366 are 360
+GHCNH_WIND_DIRECTION_CALM = "0"
 GHCNH_PRECIPITATION_MISSING = "-9999"
 GHCNH_NONE = "-None"
 
@@ -101,14 +106,19 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             # reconstructing from the separate year/month/day/hour/minute fields
             pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S", time_zone="UTC"),
         )
-        # a wind direction is 0 to 360 degrees ("000" is calm, per the documentation), yet the older
-        # reports write 999, mostly with the measurement code C (calm) but also on an hour with a wind
-        # speed of 4.1 m/s: no direction was given (GH-2672). The documentation names -9999 as the
-        # missing value of the precipitation value, which is the column "precipitation" (none seen so far)
+        # a wind direction is 1 to 360 degrees and 0 for a calm wind ("000" is calm, per the documentation), which
+        # is no bearing (GH-2794), yet the older reports write 999, mostly with the measurement code C (calm) but
+        # also on an hour with a wind speed of 4.1 m/s: no direction was given (GH-2672). The documentation names
+        # -9999 as the missing value of the precipitation value, which is the column "precipitation" (none seen so
+        # far)
         value, raw = null_sentinels(
             pl.col("value"),
             Sentinel(GHCNH_NONE),
-            Sentinel(GHCNH_WIND_DIRECTION_MISSING, where=pl.col("parameter").eq("wind_direction")),
+            Sentinel(
+                GHCNH_WIND_DIRECTION_MISSING,
+                GHCNH_WIND_DIRECTION_CALM,
+                where=pl.col("parameter").eq("wind_direction"),
+            ),
             Sentinel(GHCNH_PRECIPITATION_MISSING, where=pl.col("parameter").eq("precipitation")),
         )
         return df.with_columns(value.cast(pl.Float64).alias("value"), join_quality_flags(None, raw=raw))
