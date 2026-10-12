@@ -50,6 +50,16 @@ The following examples use [httpie](https://github.com/httpie/cli) to demonstrat
 http localhost:7890/api/coverage
 ```
 
+The list downloads nothing, so it answers at once. For a network that needs credentials it says
+whether they are present (`configured`); `valid` is `false` where they are not, and `null` where
+they are, because whether the provider accepts them is a request to the provider. Ask for one
+network at a time, which gives up after a few seconds and answers `null` as well when it could not
+tell:
+
+```bash
+http localhost:7890/api/auth provider==aemet network==observation
+```
+
 ### Glossary
 
 Coverage says which parameters a provider offers; the glossary says what any of them means and
