@@ -15,7 +15,7 @@ from sphinx.util.docutils import SphinxDirective
 
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.model.unit import UnitConverter
-from wetterdienst.settings import (
+from wetterdienst.options import (
     _STATION_DISTANCE_HETEROGENEOUS,
     _STATION_DISTANCE_HOMOGENEOUS,
     _STATION_DISTANCE_RESOLUTION_FACTORS,

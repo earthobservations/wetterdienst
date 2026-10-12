@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `wetterdienst.Options`: the per-request options (`shape`, `humanize`, `convert_units`,
+  `unit_targets`, `skip_*`, `drop_nulls` and the `geo_*` distances), the request half of what
+  `Settings` holds as `ts_*`, as a frozen class of their own. They read the same `WD_TS_*`
+  variables and `.env`, so no host configuration changes; `replace(**changes)` makes a validated
+  copy. Nothing takes them yet and `Settings` is unchanged; `check_settings()` now checks them too
+  (GH-2639)
+
 ### Changed
 
 - **Breaking**: the `quality` number of every values frame is replaced by one nullable string
