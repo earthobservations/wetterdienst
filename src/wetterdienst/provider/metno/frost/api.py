@@ -20,7 +20,7 @@ from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import PROBE_TIMEOUT, download_file
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
@@ -797,7 +797,7 @@ class MetnoFrostValues(TimeseriesValues):
 
 
 def _probe_frost_credentials(settings: Settings) -> bool | None:
-    """Probe the Frost API; an answer is cached on disk for ONE_HOUR via download_file.
+    """Probe the Frost API, once and for `PROBE_TIMEOUT_SECONDS`; an answer is cached on disk for ONE_HOUR.
 
     Returns False only for the answers that say the client ID is refused (HTTP 401 and 403), True for
     a 200, and None for any other outcome -- no network, a failed TLS verification, a timeout, a 429,
@@ -817,6 +817,8 @@ def _probe_frost_credentials(settings: Settings) -> bool | None:
             **settings.fsspec_client_kwargs.get("headers", {}),
             "Authorization": encode_basic_auth(client_id.get_secret_value(), secret.get_secret_value()),
         },
+        # bounded: this is asked while a page waits for it (GH-2564)
+        "timeout": PROBE_TIMEOUT,
     }
     file = download_file(
         url="https://frost.met.no/sources/v0.jsonld?ids=SN18700&fields=id",
@@ -825,6 +827,7 @@ def _probe_frost_credentials(settings: Settings) -> bool | None:
         client_kwargs=client_kwargs,
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
+        attempts=1,
     )
     if file.status in _FROST_REJECTED_STATUSES:
         return False

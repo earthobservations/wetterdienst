@@ -7070,7 +7070,6 @@ def test_coverage_missing_provider_dependency_is_a_404(client: TestClient, monke
 
 def test_coverage_all_providers_honours_pretty(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The list of every provider is compact unless pretty is set, like the per-network listing (GH-2496)."""
-    # discover() probes the providers whose credentials are configured, which reaches upstream
     monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.discover", lambda: {"dwd": {"observation": {}}})
     compact = client.get("/api/coverage")
     pretty = client.get("/api/coverage", params={"pretty": "true"})
@@ -7417,22 +7416,33 @@ def test_coverage_and_auth_survive_a_malformed_credential(client: TestClient, mo
 def test_coverage_and_auth_tell_a_credential_that_could_not_be_checked_as_null(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A probe that fails for a reason other than a rejection leaves `valid` null, not false (GH-2550)."""
+    """A probe that fails for a reason other than a rejection leaves `valid` null, not false (GH-2550).
+
+    Only `/api/auth` probes. `/api/coverage` leaves `valid` null for a configured network whatever
+    the provider would say, and never asks it (GH-2564).
+    """
     from wetterdienst.util.network import File  # noqa: PLC0415
 
     monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
     answer = {"status": 500, "content": OSError("certificate verify failed")}
-    monkeypatch.setattr(
-        "wetterdienst.provider.metno.frost.api.download_file",
-        lambda **kwargs: File(url=kwargs["url"], content=answer["content"], status=answer["status"]),
-    )
+    asked: list[str] = []
+
+    def download_file(**kwargs: str) -> File:
+        asked.append(kwargs["url"])
+        return File(url=kwargs["url"], content=answer["content"], status=answer["status"])
+
+    monkeypatch.setattr("wetterdienst.provider.metno.frost.api.download_file", download_file)
     expected = {"provider": "metno", "network": "frost", "auth": True, "configured": True, "valid": None}
     params = {"provider": "metno", "network": "frost"}
     assert client.get("/api/auth", params=params).json() == expected
+    assert len(asked) == 1
     assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is None
     answer.update(status=401, content=Exception("401, message='Unauthorized'"))
     assert client.get("/api/auth", params=params).json() == expected | {"valid": False}
-    assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is False
+    assert len(asked) == 2
+    # the listing neither asks nor learns: a rejected client ID is told by `/api/auth` only
+    assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is None
+    assert len(asked) == 2
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -7574,7 +7584,7 @@ def test_coverage_model_refuses_a_key_discover_does_not_have() -> None:
 def test_coverage_of_every_provider_matches_its_model(client: TestClient) -> None:
     """The list of every provider and its networks validates, and is sent as `discover()` builds it (GH-2090).
 
-    With no credential set, no credentialed provider is probed, so nothing reaches upstream.
+    The listing probes no provider, so nothing reaches upstream whatever credentials are set.
     """
     response = client.get("/api/coverage")
     assert response.status_code == 200
@@ -7856,3 +7866,225 @@ def test_mcp_tool_without_a_credential_is_refused_without_naming_the_setting() -
     message = asyncio.run(_call())
     assert "no credential for knmi/observation" in message
     assert "WD_AUTH" not in message
+
+
+# each REST endpoint rendering a chart to an image, with the rest of a request it would serve
+_IMAGE_ROUTES = [
+    ("stations", {"all": "true"}),
+    ("values", {"station": "01048"}),
+    ("interpolate", {"station": "01048", "timestamp": "2020-06-30"}),
+    ("summarize", {"station": "01048", "timestamp": "2020-06-30"}),
+]
+
+
+def _unreached(*_args: object, **_kwargs: object) -> None:
+    """Stand in for what a request refused for the size of its image must not reach."""
+    msg = "a request refused for the size of its image went on"
+    raise AssertionError(msg)
+
+
+def _image_params(query: dict[str, object], **given: object) -> dict[str, object]:
+    return {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/kl/temperature_air_mean_2m",
+        **query,
+        **given,
+    }
+
+
+def test_image_routes_cover_every_route_rendering_an_image() -> None:
+    """Every route offering `width`, `height` and `scale` is in the size limit's tests, so none slips by."""
+    offered = {
+        path.removeprefix("/api/")
+        for path, operations in restapi.app.openapi()["paths"].items()
+        for operation in operations.values()
+        if {"width", "height", "scale"} <= {parameter["name"] for parameter in operation.get("parameters", [])}
+    }
+    assert offered == {endpoint for endpoint, _ in _IMAGE_ROUTES}
+
+
+@pytest.mark.parametrize(
+    "size",
+    [
+        {"width": 100_000},
+        {"height": 8_193},
+        {"width": 1_000, "height": 1_000, "scale": 9},
+        # no size at all, scaled: plotly's 700 x 500 times 12 is 8400 x 6000
+        {"scale": 12},
+    ],
+    ids=["width", "height", "scaled", "default-size-scaled"],
+)
+@pytest.mark.parametrize(("endpoint", "query"), _IMAGE_ROUTES, ids=[endpoint for endpoint, _ in _IMAGE_ROUTES])
+def test_oversized_image_is_refused_before_anything_is_fetched(
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    query: dict[str, str],
+    size: dict[str, int],
+) -> None:
+    """An image with a side over 8192 px is refused with a 400 that names the limit, before the provider is reached."""
+    monkeypatch.setattr(restapi, "Wetterdienst", _unreached)
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        f"/api/{endpoint}", params=_image_params(query, format="png", **size)
+    )
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "renders no side longer than 8192 px" in detail
+    assert "Lower width, height or scale" in detail
+
+
+@pytest.mark.parametrize("fmt", ["png", "jpg", "webp", "svg", "pdf"])
+def test_oversized_image_is_refused_in_every_image_format(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
+    """Each format the browser renders is measured."""
+    monkeypatch.setattr(restapi, "Wetterdienst", _unreached)
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/stations", params=_image_params({"all": "true"}, format=fmt, width=100_000)
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize("fmt", ["json", "geojson", "csv", "html"])
+def test_size_is_not_measured_where_no_image_is_rendered(fmt: str) -> None:
+    """A format that is not rendered to an image has no size: the request goes on, here to a network not served."""
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/stations", params=_image_params({"all": "true"}, network="nowhere", format=fmt, width=100_000)
+    )
+    assert response.status_code == 404
+    assert "No API available" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "size",
+    [
+        {},
+        {"width": 8_192, "height": 8_192},
+        {"width": 1_000, "height": 1_000, "scale": 8},
+        {"scale": 11},
+    ],
+    ids=["default", "at-the-limit", "scaled", "default-size-scaled"],
+)
+def test_image_within_the_limit_goes_on_to_the_provider(size: dict[str, int]) -> None:
+    """An image up to 8192 px on a side is not refused: the request goes on, here to a network not served."""
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/stations", params=_image_params({"all": "true"}, network="nowhere", format="png", **size)
+    )
+    assert response.status_code == 404
+    assert "No API available" in response.json()["detail"]
+
+
+def test_oversized_stripes_image_is_refused_before_anything_is_fetched(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The stripes image is plotly's 700 x 500 times `dpi / 100`, and is refused above 8192 px on a side."""
+    monkeypatch.setattr(restapi, "_plot_stripes", _unreached)
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+    params = {"kind": "temperature", "station": "01048"}
+
+    response = client.get("/api/stripes/image", params={**params, "dpi": 100_000})
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "renders no side longer than 8192 px" in detail
+    assert "Lower dpi" in detail
+
+    # 1170 dpi is 8190 px wide, 1171 is 8197: the first is not refused, so it reaches the stub
+    assert client.get("/api/stripes/image", params={**params, "dpi": 1_171}).status_code == 400
+    assert client.get("/api/stripes/image", params={**params, "dpi": 1_170}).status_code == 500
+
+
+def test_mcp_oversized_image_is_refused() -> None:
+    """The MCP tools are the REST API's routes, and refuse an image it refuses."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool("stations", _image_params({"all": True}, format="png", width=100_000))
+
+    with pytest.raises(ToolError, match="renders no side longer than 8192 px"):
+        asyncio.run(_call())
+
+
+@pytest.mark.usefixtures("stubbed_values")
+def test_image_is_measured_as_the_chart_is_drawn(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A chart is 300 px tall for each parameter, which the request cannot know: it is measured once drawn.
+
+    Three parameters make the chart 900 px tall, so a `scale` of 10 passes the check of the request
+    (7000 x 5000) and not that of the figure (7000 x 9000). The refusal comes before the browser is
+    started, which `to_image` is stubbed to fail on.
+    """
+    monkeypatch.setattr("plotly.graph_objects.Figure.to_image", _unreached)
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m,daily/kl/precipitation_amount,daily/more_precip/snow_depth",
+            "station": "00002,00001",
+            "format": "png",
+            "scale": 10,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "The image would be 7000 x 9000 px, and this server renders no side longer than 8192 px. "
+        "Lower scale, give a smaller height, or ask for fewer parameters."
+    )
+
+
+def test_check_image_size_measures_the_figure_then_the_default() -> None:
+    """The caller's size wins over the figure's, which wins over plotly's 700 x 500; no limit, no check."""
+    import plotly.graph_objects as go  # noqa: PLC0415
+
+    from wetterdienst.exceptions import ImageTooLargeError  # noqa: PLC0415
+    from wetterdienst.io.export import check_image_size  # noqa: PLC0415
+
+    figure = go.Figure(layout={"height": 9_000})
+    with pytest.raises(ImageTooLargeError, match=r"7000 x 90000 px.*no side longer than 8192 px"):
+        check_image_size(figure, None, None, 10, 8_192)
+    # the caller's height replaces the figure's
+    check_image_size(figure, None, 800, 10, 8_192)
+    # a figure of its own size is measured at plotly's default without it
+    check_image_size(go.Figure(), None, None, 11, 8_192)
+    with pytest.raises(ImageTooLargeError):
+        check_image_size(go.Figure(), None, None, 12, 8_192)
+    # the library and the CLI set no limit
+    check_image_size(figure, 100_000, 100_000, 100, None)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("endpoint", ["/api/values", "/api/interpolate", "/api/summarize"])
+def test_chart_taller_than_its_request_is_refused_on_every_data_endpoint(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str
+) -> None:
+    """Each endpoint hands the limit to the chart it draws: a chart 900 px tall is refused at `scale=10`."""
+    import plotly.graph_objects as go  # noqa: PLC0415
+
+    from wetterdienst.model.result import (  # noqa: PLC0415
+        InterpolatedValuesResult,
+        SummarizedValuesResult,
+        ValuesResult,
+    )
+
+    _stub_result(monkeypatch, endpoint)
+    for result_class in (ValuesResult, InterpolatedValuesResult, SummarizedValuesResult):
+        monkeypatch.setattr(result_class, "to_plot", lambda *_args, **_kwargs: go.Figure(layout={"height": 900}))
+    monkeypatch.setattr(go.Figure, "to_image", _unreached)
+    response = client.get(
+        endpoint,
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "01048",
+            "timestamp": "2020-06-30",
+            "format": "png",
+            "scale": 10,
+        },
+    )
+    assert response.status_code == 400, response.text
+    assert "The image would be 7000 x 9000 px" in response.json()["detail"]

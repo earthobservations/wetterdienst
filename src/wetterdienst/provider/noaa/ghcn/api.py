@@ -404,7 +404,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
-        listings_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-stations.txt"
+        listings_url = "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-stations.txt"
         listings_file = download_file(
             url=listings_url,
             cache_dir=settings.cache_dir,
@@ -443,7 +443,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             .alias("elevation"),
         )
 
-        inventory_url = "http://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
+        inventory_url = "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
         inventory_file = download_file(
             url=inventory_url,
             cache_dir=settings.cache_dir,
