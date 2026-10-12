@@ -23,12 +23,12 @@ UTC = ZoneInfo("UTC")
 # minuts medel varje minut") is the mean of the minute, 0.000000 at 09:07 of 2026-10-12 with a speed of 0.000000.
 _HOURLY = (
     "Datum;Tid (UTC);Vindriktning;Kvalitet\n"
-    "2019-01-18;03:00:00;347;G\n"
+    "2019-01-18;03:00:00;208;G\n"
     "2019-01-18;04:00:00;0;G\n"
     "2019-01-18;08:00:00;0;G\n"
     "2019-03-15;11:00:00;360;G\n"
 )
-_MINUTE = "Datum;Tid (UTC);Vindriktning;Kvalitet\n2026-10-12;09:06:00;228.150162;G\n2026-10-12;09:07:00;0.000000;G\n"
+_MINUTE = "Datum;Tid (UTC);Vindriktning;Kvalitet\n2026-10-12;09:06:00;12.856694;G\n2026-10-12;09:07:00;0.000000;G\n"
 _STATION = {
     "id": 188790,
     "name": "Abisko Aut",
@@ -78,7 +78,7 @@ def test_smhi_hourly_wind_direction_of_0_is_null_and_360_is_north(monkeypatch: p
         dt.datetime(2019, 3, 16, tzinfo=UTC),
     )
     assert df.select("value", "quality_flags").rows() == [
-        (347.0, "G"),
+        (208.0, "G"),
         (None, "G,raw:0"),
         (None, "G,raw:0"),
         (360.0, "G"),
@@ -94,7 +94,7 @@ def test_smhi_1_minute_wind_direction_of_0_is_null_as_the_source_writes_it(monke
         dt.datetime(2026, 10, 12, 9, tzinfo=UTC),
         dt.datetime(2026, 10, 12, 10, tzinfo=UTC),
     )
-    assert df.select("value", "quality_flags").rows() == [(228.1502, "G"), (None, "G,raw:0.000000")]
+    assert df.select("value", "quality_flags").rows() == [(12.8567, "G"), (None, "G,raw:0.000000")]
 
 
 def test_smhi_wind_speed_of_0_is_a_reading(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -27,9 +27,10 @@ log = logging.getLogger(__name__)
 
 # A calm wind is written `00000KT` in a METAR and reaches the endpoint as a direction of 0. The National Weather
 # Service's METAR decode key (weather.gov/media/wrh/mesowest/metar_decode_key.pdf) gives "00000KT for calm" and the
-# direction "from true north", so north is 360. Over KDEN, KSEA, KPHX, KBOS, KMIA, KORD and KJFK on 2026-10-12 all 322
-# observations with a direction of 0 have a wind speed of 0, 76 have a direction of 360, and a `VRB` wind has no
-# direction at all (null). A calm wind has no direction, so the 0 is no bearing (GH-2794).
+# direction "from true north", so north is 360. In the last 500 observations of each of KDEN, KSEA, KPHX, KBOS, KMIA,
+# KORD and KJFK (read 2026-10-12) all 322 observations with a direction of 0 have a wind speed of 0, 76 have a
+# direction of 360, and a `VRB` wind has no direction at all (null). A calm wind has no direction, so the 0 is no
+# bearing (GH-2794).
 _CALM_WIND = Sentinel("0", where=pl.col("parameter").eq("winddirection"))
 
 NwsObservationMetadata = {

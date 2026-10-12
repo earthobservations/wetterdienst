@@ -813,10 +813,10 @@ def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 
 def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # parameter 3 of station 188790 (Abisko Aut) as SMHI writes it (read 2026-10-12), "Vindriktning, medelvärde 10 min":
-    # 0 at 2019-01-18 04:00, where the wind speed is 0.0, and 360 for north (GH-2794)
+    # 0 at 2019-01-18 04:00, where the wind speed is 0.0, and 360 for north at 2019-03-15 11:00 (GH-2794)
     csv = (
         "Datum;Tid (UTC);Vindriktning;Kvalitet\n"
-        "2019-01-18;03:00:00;347;G\n"
+        "2019-01-18;03:00:00;208;G\n"
         "2019-01-18;04:00:00;0;G\n"
         "2019-03-15;11:00:00;360;G\n"
     )
@@ -833,21 +833,30 @@ def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
 
 def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # stationValue of 06070 (read 2026-10-12): the mean wind direction of 2020-02-14 03:00 is 0 beside a mean wind speed
-    # of 0, which is a calm; 04:00 is a bearing (GH-2794). The other 0 (speed above 0) is pinned by tests/provider/dmi
+    # of 0, which is a calm (GH-2794); the 06:00 hour is made up. The 0 beside a speed above 0, which stays, is pinned
+    # by tests/provider/dmi
     rows = [
         ("mean_wind_dir", "2020-02-14T03:00:00+00:00", 0.0),
         ("mean_wind_speed", "2020-02-14T03:00:00+00:00", 0.0),
-        ("mean_wind_dir", "2020-02-14T04:00:00+00:00", 250.0),
-        ("mean_wind_speed", "2020-02-14T04:00:00+00:00", 4.1),
+        ("mean_wind_dir", "2020-02-14T06:00:00+00:00", 250.0),
+        ("mean_wind_speed", "2020-02-14T06:00:00+00:00", 4.1),
     ]
     features = [
-        {"properties": {"parameterId": parameter, "from": start, "value": value}} for parameter, start, value in rows
+        {
+            "properties": {
+                "parameterId": parameter,
+                "from": start,
+                "to": (dt.datetime.fromisoformat(start) + dt.timedelta(hours=1)).isoformat(),
+                "value": value,
+            }
+        }
+        for parameter, start, value in rows
     ]
     serve(monkeypatch, dmi_api, {"stationValue": json.dumps({"features": features}).encode()})
     request = DmiObservationRequest(
         parameters=[("hourly", "data")],
         start=_day(2020, 2, 14),
-        end=_day(2020, 2, 14, 5),
+        end=_day(2020, 2, 14, 7),
         settings=_settings(),
         options=_options(drop_nulls),
     )

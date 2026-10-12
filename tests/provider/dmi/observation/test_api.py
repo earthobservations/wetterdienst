@@ -478,9 +478,10 @@ def test_collect_dates_daily_max_precipitation_by_the_day_it_ends_on(monkeypatch
 def test_collect_nulls_the_wind_direction_of_an_hour_without_wind_and_no_other(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a mean wind direction of 0 is null where the mean wind speed is 0, and a bearing otherwise (GH-2794).
 
-    Rows as DMI serves them for 06070 (checked 2026-10-12): 2020-02-14 02:00 has a direction of 0 beside 0.3 m/s,
-    03:00 one of 0 beside 0 m/s, and 2020-05-02 03:00 one of 0 beside 1.2 m/s. The speed decides, and the 0 it nulls
-    stays as `raw:0` in `quality_flags`; 250 and 360 are bearings, and an hour without a speed is not known to be calm.
+    Rows as DMI serves them for 06070 (checked 2026-10-12): 2020-02-14 02:00 and 04:00 have a direction of 0 beside
+    0.3 m/s, 03:00 one of 0 beside 0 m/s, and 2020-05-02 03:00 one of 0 beside 1.2 m/s. The speed decides, and the 0
+    it nulls stays as `raw:0` in `quality_flags`. The 250 and 360 at 06:00, and the 0 of 2020-05-02 05:00 that has no
+    speed in its hour (an hour not known to be calm), are made up.
     """
     rows = [
         # (parameterId, from, value)
@@ -488,16 +489,26 @@ def test_collect_nulls_the_wind_direction_of_an_hour_without_wind_and_no_other(m
         ("mean_wind_speed", "2020-02-14T02:00:00+00:00", 0.3),
         ("mean_wind_dir", "2020-02-14T03:00:00+00:00", 0.0),
         ("mean_wind_speed", "2020-02-14T03:00:00+00:00", 0.0),
-        ("mean_wind_dir", "2020-02-14T04:00:00+00:00", 250.0),
-        ("mean_wind_speed", "2020-02-14T04:00:00+00:00", 4.1),
+        ("mean_wind_dir", "2020-02-14T04:00:00+00:00", 0.0),
+        ("mean_wind_speed", "2020-02-14T04:00:00+00:00", 0.3),
+        ("mean_wind_dir", "2020-02-14T06:00:00+00:00", 250.0),
+        ("mean_wind_speed", "2020-02-14T06:00:00+00:00", 4.1),
         ("mean_wind_dir", "2020-05-02T03:00:00+00:00", 0.0),
         ("mean_wind_speed", "2020-05-02T03:00:00+00:00", 1.2),
-        ("mean_wind_dir", "2020-05-02T04:00:00+00:00", 360.0),
-        ("mean_wind_speed", "2020-05-02T04:00:00+00:00", 5.0),
         ("mean_wind_dir", "2020-05-02T05:00:00+00:00", 0.0),
+        ("mean_wind_dir", "2020-05-02T06:00:00+00:00", 360.0),
+        ("mean_wind_speed", "2020-05-02T06:00:00+00:00", 5.0),
     ]
     features = [
-        {"properties": {"parameterId": parameter, "from": start, "value": value}} for parameter, start, value in rows
+        {
+            "properties": {
+                "parameterId": parameter,
+                "from": start,
+                "to": (dt.datetime.fromisoformat(start) + dt.timedelta(hours=1)).isoformat(),
+                "value": value,
+            }
+        }
+        for parameter, start, value in rows
     ]
     content = json.dumps({"features": features}).encode()
     monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
@@ -513,11 +524,12 @@ def test_collect_nulls_the_wind_direction_of_an_hour_without_wind_and_no_other(m
     assert direction.select("value", "quality_flags").rows() == [
         (0.0, None),
         (None, "raw:0"),
+        (0.0, None),
         (250.0, None),
         (0.0, None),
-        (360.0, None),
         (0.0, None),
+        (360.0, None),
     ]
     speed = df.filter(pl.col("parameter") == "mean_wind_speed").sort("timestamp")
-    assert speed.get_column("value").to_list() == [0.3, 0.0, 4.1, 1.2, 5.0]
+    assert speed.get_column("value").to_list() == [0.3, 0.0, 0.3, 4.1, 1.2, 5.0]
     assert speed.get_column("quality_flags").is_null().all()
