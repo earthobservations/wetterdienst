@@ -87,10 +87,12 @@ def test_create_file_list_for_dwd_server(default_settings: Settings) -> None:
 
 
 _TEN_MINUTE_FILES = [
+    "10minutenwerte_TU_01048_19900101_19910630_hist.zip",
     "10minutenwerte_TU_01048_19911119_19991231_hist.zip",
     "10minutenwerte_TU_01048_20000101_20091231_hist.zip",
     "10minutenwerte_TU_01048_20100101_20191231_hist.zip",
     "10minutenwerte_TU_01048_20200101_20241231_hist.zip",
+    "10minutenwerte_TU_01048_20250101_20250731_hist.zip",
 ]
 
 
@@ -129,6 +131,10 @@ def test_historical_file_bounds_are_utc_instants_of_the_stamps(
         dt.datetime(2000, 1, 1, tzinfo=utc),
         dt.datetime(2010, 1, 1, tzinfo=utc),
     )
+    assert bounds["19900101_19910630"] == (
+        dt.datetime(1989, 12, 31, 23, tzinfo=utc),
+        dt.datetime(1991, 6, 30, 23, tzinfo=utc),
+    )
     assert bounds["20100101_20191231"] == (
         dt.datetime(2010, 1, 1, tzinfo=utc),
         dt.datetime(2020, 1, 1, tzinfo=utc),
@@ -143,6 +149,10 @@ def test_historical_file_bounds_are_utc_instants_of_the_stamps(
         # the last hour of a file's last day: the file that holds it is chosen (it was dropped, as the
         # file's end was taken as 23:00 UTC)
         ("2019-12-31T23:00+00:00", "2019-12-31T23:50+00:00", ["20100101_20191231"]),
+        # in summer the last two hours (the end was taken as 22:00 UTC, Berlin midnight in CEST)
+        ("2025-07-31T22:00+00:00", "2025-07-31T22:30+00:00", ["20250101_20250731"]),
+        ("2025-07-31T23:00+00:00", "2025-07-31T23:50+00:00", ["20250101_20250731"]),
+        # not affected before: the hour before the cut-off of a winter file
         ("2019-12-31T22:00+00:00", "2019-12-31T22:30+00:00", ["20100101_20191231"]),
         # across the seam both files are chosen
         ("2019-12-31T23:00+00:00", "2020-01-01T01:00+00:00", ["20100101_20191231", "20200101_20241231"]),
@@ -152,7 +162,10 @@ def test_historical_file_bounds_are_utc_instants_of_the_stamps(
         ("2020-01-01T00:00+01:00", "2020-01-01T01:30+01:00", ["20100101_20191231", "20200101_20241231"]),
         # a window that starts after a file's last stamp does not need it
         ("2020-01-01T00:00+00:00", "2020-01-01T01:00+00:00", ["20200101_20241231"]),
-        # MEZ before 2000: 00:00 MEZ on the 1st of January 1992 is 23:00 UTC on 31 December 1991
+        # MEZ before 2000 is a fixed UTC+1: the first hour of a file is 23:00 UTC of the day before, and a file
+        # that ends in summer ends at 23:00 UTC, where Berlin's CEST midnight is 22:00 UTC
+        ("1991-11-18T23:00+00:00", "1991-11-18T23:30+00:00", ["19911119_19991231"]),
+        ("1991-06-30T22:30+00:00", "1991-06-30T22:50+00:00", ["19900101_19910630"]),
         ("1999-12-31T22:00+00:00", "1999-12-31T22:50+00:00", ["19911119_19991231"]),
     ],
 )
