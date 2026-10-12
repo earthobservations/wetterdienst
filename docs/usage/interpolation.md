@@ -175,9 +175,8 @@ quantity decorrelates in space, so two radii carry that decision:
 
 Which of the two a parameter belongs to is declared per parameter; the
 [parameter glossary](../data/parameters.md) names the radius for every parameter. Changing a
-radius moves every parameter of its kind at once:
-
-They are options of the request, given as `options=Options(...)` or as a dict:
+radius moves every parameter of its kind at once. They are options of the request, given as
+`options=Options(...)` or as a dict:
 
 ```python
 from wetterdienst import Options

@@ -33,7 +33,8 @@ Both read the environment, and `.env`, the same way. The variables of the option
 ```{note}
 `Settings(ts_shape="long")` and the other `ts_*` settings are the old way to set what are options
 now. They are still read when a request is given no `options=`, but are deprecated and will be
-removed: pass `options=Options(shape="long")` instead. The `WD_TS_*` variables stay.
+removed: pass `options=Options(shape="long")` instead. Giving `options=` beside settings that carry a
+non-default `ts_*` raises a `ValueError`. The `WD_TS_*` variables stay.
 ```
 
 ## Settings
@@ -53,7 +54,8 @@ The arguments are overruled in the above order meaning:
 
 As from the environment, only the `WD_` variables that name a setting are read from `.env`. Its
 other keys, such as another program's, or a `WD_` key that names no setting, such as the misspelt
-`WD_CACHE_DIABLE`, are ignored. A keyword to `Settings(...)` that names no setting is refused.
+`WD_CACHE_DIABLE`, are ignored. A key within a setting, such as `WD_AUTH__KNMI`, is read as part of
+that setting. A keyword to `Settings(...)` that names no setting is refused.
 
 The following settings are available:
 
@@ -157,7 +159,9 @@ certificates while verifying the identity of TLS hosts.
 
 A dict names only the options it changes and leaves the rest to the environment and the defaults.
 What it names replaces the environment's value for that option as a whole: a `unit_targets` dict
-is not merged with a `WD_TS_UNIT_TARGETS` the host sets. A key within an option, such as
+is not merged with a `WD_TS_UNIT_TARGETS` the host sets. `Options(...)` itself, as `Settings(...)`
+does, merges a mapping it is given with the environment's key by key; give a dict, or use
+`options.replace(...)`, to replace it. A key within an option, such as
 `WD_TS_UNIT_TARGETS__TEMPERATURE`, is read as part of that option, and a keyword to `Options(...)`
 that names no option is refused. As for the settings, only the `WD_TS_` variables that name an
 option are read from `.env`.

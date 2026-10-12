@@ -39,7 +39,7 @@ WD_CACHE_DIR_PATTERN = re.compile(r"[\s\S]*wetterdienst(\\Cache)?")
 WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR:[\s\S]*wetterdienst(\\Cache)?]$")
 
 
-# old route, removed in stage 5
+# old route, removed in stage 5 (the ts_* lines only; the rest of the test stays)
 def test_default_settings(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test default settings."""
     monkeypatch.delenv("WD_CACHE_DIR", raising=False)
@@ -71,7 +71,7 @@ def test_default_settings(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.
     assert re.match(WD_CACHE_ENABLED_PATTERN, caplog.messages[0])
 
 
-# old route, removed in stage 5
+# old route, removed in stage 5 (the ts_* lines only; the rest of the test stays)
 @mock.patch.dict(os.environ, {})
 def test_settings_envs(caplog: pytest.LogCaptureFixture) -> None:
     """Test default settings but with multiple envs set."""
@@ -94,7 +94,7 @@ def test_settings_envs(caplog: pytest.LogCaptureFixture) -> None:
     assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 40.0
 
 
-# old route, removed in stage 5
+# old route, removed in stage 5 (the ts_* lines only; the rest of the test stays)
 @mock.patch.dict(os.environ, {})
 def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
     """Test mixed settings."""
@@ -911,7 +911,7 @@ def test_settings_geo_station_distance_mappings_refuse_anything_but_a_mapping_fr
         Settings()
 
 
-# old route, removed in stage 5
+# old route, removed in stage 5 (the ts_* lines only; the rest of the test stays)
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_settings_dotenv_ignores_a_key_that_is_no_setting(tmp_path: Path) -> None:
     """A `.env` shared with another program does not stop the settings from loading (GH-2349).
@@ -975,7 +975,7 @@ def test_settings_assignment_is_validated(field: str, value: object, message: st
     assert getattr(settings, field) == before
 
 
-# old route, removed in stage 5
+# old route, removed in stage 5 (the ts_* lines only; the rest of the test stays)
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_settings_assignment_takes_a_valid_value() -> None:
     """A valid assignment is taken, and coerced to the field's type as the constructor does (GH-2342)."""
@@ -988,7 +988,7 @@ def test_settings_assignment_takes_a_valid_value() -> None:
     assert settings.cache_dir == Path("some/dir")
 
 
-# old route, removed in stage 5
+# old route, removed in stage 5 (the ts_* lines only; the rest of the test stays)
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_settings_assignment_rewrites_fields_as_construction_does() -> None:
     """The validators that rewrite a field give on assignment what they give on construction (GH-2342).

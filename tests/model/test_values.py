@@ -848,13 +848,12 @@ def test_values_drop_nulls_again_for_options_once_wide_and_now_long(monkeypatch:
     The wide request used to write False into the settings' `ts_drop_nulls`, which the long
     request reusing them then read, and returned the null rows.
     """
-    options = Options(shape="long", drop_nulls=True)
-    wide = _values_with_a_null(monkeypatch, options=options.replace(shape="wide"))
+    wide_options = Options(shape="wide", drop_nulls=True)
+    wide = _values_with_a_null(monkeypatch, options=wide_options)
     # the wide shape drops no nulls
     assert wide.get_column("temperature_air_mean_2m").to_list() == [1.0, None]
 
-    long = _values_with_a_null(monkeypatch, options=options)
-    assert options.drop_nulls is True
+    long = _values_with_a_null(monkeypatch, options=wide_options.replace(shape="long"))
     assert long.get_column("value").to_list() == [1.0]
     assert_frame_equal(long, _values_with_a_null(monkeypatch, options=Options(shape="long", drop_nulls=True)))
 

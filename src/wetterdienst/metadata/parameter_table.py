@@ -30,7 +30,7 @@ exposed parameter names with no explanation of what they measure.
 ``interpolation`` and ``zero_inflated`` say how the quantity behaves in space, which is the other
 thing that is true of a quantity rather than of a provider. They used to be spelled out as three
 hand-maintained name lists -- ``TimeseriesRequest.interpolatable_parameters``, the
-``geo_station_distance`` defaults in ``options`` and ``_OCCURRENCE_BASED_PARAMETERS`` in
+``ts_geo_station_distance`` defaults in ``settings`` and ``_OCCURRENCE_BASED_PARAMETERS`` in
 ``core.interpolate`` -- which had to agree about the same names and could only be kept in step by a
 test. All three are derived from these two fields now.
 """

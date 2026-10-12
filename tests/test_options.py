@@ -152,7 +152,7 @@ def test_options_argument_is_merged_into_a_mapping_from_the_environment(monkeypa
     assert options.geo_station_distance["wind_speed"] == 43.0
 
 
-# old route, removed in stage 5
+# old route, removed in stage 5 (the ts_* lines only; the rest of the test stays)
 def test_options_read_a_nested_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
     """An entry of a mapping is set by ``__`` and its key."""
     monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE__PRECIPITATION_AMOUNT", "25")
@@ -171,7 +171,6 @@ def test_options_refuse_a_value_out_of_bounds(case: Case, monkeypatch: pytest.Mo
         Options()
 
 
-# old route, removed in stage 5
 def test_options_refuse_an_option_that_does_not_exist() -> None:
     """A misspelt name is refused, not dropped."""
     with pytest.raises(ValidationError, match="shpae"):
@@ -520,7 +519,7 @@ def test_options_replace_does_not_repeat_the_warning_for_a_radius(caplog: pytest
     assert len([record for record in caplog.records if record.name == "wetterdienst.options"]) == 1
 
 
-# old route, removed in stage 5
+# old route, removed in stage 5 (the ts_* lines only; the rest of the test stays)
 def test_options_ignore_an_empty_variable(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """An empty variable is no value, in the environment as in a ``.env``, as it is for the settings."""
     monkeypatch.setenv("WD_TS_SHAPE", "")
@@ -531,7 +530,7 @@ def test_options_ignore_an_empty_variable(monkeypatch: pytest.MonkeyPatch, tmp_p
     assert Options().skip_threshold == 0.95
 
 
-# old route, removed in stage 5
+# old route, removed in stage 5 (the ts_* lines only; the rest of the test stays)
 def test_options_and_settings_take_none_where_it_means_unset() -> None:
     """No unit targets and no nearby-station distance can be given as none."""
     assert Options(unit_targets=None).unit_targets == {}

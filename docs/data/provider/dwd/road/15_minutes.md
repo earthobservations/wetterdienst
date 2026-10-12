@@ -46,8 +46,8 @@ the parser labelling the BUFR units of what it decodes and converting nothing it
 differ from what comes back under the default targets: {term}`humidity_relative` is published `%` and
 returned as a decimal, so 87 % reads 0.87; the three temperatures read `K` and come back in °C;
 {term}`precipitation_intensity` is per second and comes back per hour; and
-{term}`water_film_thickness` is metres and comes back centimetres. The `unit_targets` option (`WD_TS_UNIT_TARGETS`)
-decides that other side, not this column.
+{term}`water_film_thickness` is metres and comes back centimetres. The `unit_targets` option
+(`WD_TS_UNIT_TARGETS`) decides that other side, not this column.
 
 Where the model spells a unit differently from BUFR the column carries the model's spelling of the
 same quantity -- `mm` for a `kg m-2`, `°` for a `deg` -- and the two coded rows,

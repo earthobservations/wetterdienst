@@ -860,7 +860,7 @@ def test_cli_values_does_not_blame_a_given_unit_targets_for_the_environment(monk
 def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
     """Test a command left its options out passes Settings nothing, which the environment then sets.
 
-    Among them are the settings no option sets at all, such as `geo_num_additional_stations`.
+    Among them are the settings no option sets at all, such as `ts_geo_num_additional_stations`.
     """
     calls: list[dict] = []
 
