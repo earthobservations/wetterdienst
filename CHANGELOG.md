@@ -41,6 +41,10 @@ Types of changes:
   `quality_flags`, where ECCC writes 0: the gust is not reported below 31 km/h, and a direction of 0
   is no bearing (north is 36 tens of degrees). They were 0 m/s and 0 degrees on over a third of the
   days with a gust value. Use the gust only where it is not null (GH-2615)
+- `eccc/observation` hourly `wind_direction` is null, with `raw:0` in `quality_flags`, where ECCC
+  writes 0: ECCC's glossary says "A value of zero (0) denotes a calm wind", and north is 36 tens of
+  degrees. A calm hour was 0 degrees, north, before: 1824 of 43,469 hours with a direction at
+  eight stations, all with a wind speed of 0 (GH-2794)
 
 ## [0.147.0] - 2026-10-12
 

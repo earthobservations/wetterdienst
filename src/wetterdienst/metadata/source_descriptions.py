@@ -1127,7 +1127,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "station_pressure"): "air pressure at site",
         ("hourly", "data", "temp"): "2m air temperature",
         ("hourly", "data", "visibility"): "visibility range",
-        ("hourly", "data", "wind_direction"): "wind direction (source: 10s deg)",
+        ("hourly", "data", "wind_direction"): "wind direction (source: 10s deg). The source's 0 (a calm wind) is null.",
         ("hourly", "data", "wind_speed"): "wind speed",
         ("hourly", "data", "windchill"): "wind chill temperature",
         ("monthly", "data", "bright_sunshine"): "bright sunshine duration",

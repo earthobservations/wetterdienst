@@ -652,6 +652,26 @@ def _eccc_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     return stations_result(request, "daily", "data", "1731").values.all().df
 
 
+def _eccc_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # climate-hourly as api.weather.gc.ca answers for Toronto Intl A (STN_ID=51459, read 2026-10-12): the direction is
+    # in tens of degrees, 31 at 2019-01-01 08:00Z, and 0 beside a speed of 0 at 2019-01-08 22:00Z, which the glossary
+    # words "A value of zero (0) denotes a calm wind" (GH-2794)
+    rows = [
+        {"UTC_DATE": "2019-01-01T08:00:00", "WIND_DIRECTION": 31, "WIND_SPEED": 29},
+        {"UTC_DATE": "2019-01-08T22:00:00", "WIND_DIRECTION": 0, "WIND_SPEED": 0},
+    ]
+    body = json.dumps({"features": [{"type": "Feature", "properties": row} for row in rows]}).encode()
+    serve(monkeypatch, eccc_api, {"climate-hourly": body})
+    request = EcccObservationRequest(
+        parameters=[("hourly", "data", "wind_direction"), ("hourly", "data", "wind_speed")],
+        start=_day(2019, 1, 1),
+        end=_day(2019, 1, 9),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "data", "51459").values.all().df
+
+
 def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # worded by the stub, as the API needs a key: the daily endpoint writes its numbers as text with a decimal
     # comma, the wind direction in tens of degrees with 99 for "calm/variable" (the reader's own comment), and the
@@ -970,6 +990,14 @@ STUBS = [
         # the gust is converted from km/h to m/s on its way
         sentinels=(("wind_gust_max", 0.0), ("wind_direction_gust_max", 0.0)),
         tokens=(("wind_gust_max", "0", None), ("wind_direction_gust_max", "0", None)),
+    ),
+    ValueStub(
+        "eccc/observation hourly/data",
+        _eccc_hourly,
+        reading=("wind_direction", 310.0),
+        # a calm has no direction; the speed of 0 is a reading
+        sentinels=(("wind_direction", 0.0),),
+        tokens=(("wind_direction", "0", None),),
     ),
     ValueStub(
         "aemet/observation daily/data",
