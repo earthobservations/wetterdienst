@@ -61,6 +61,11 @@ Types of changes:
 - **Breaking**: `imgw/meteorology` `region` held the river catchment with its hydrographic code
   (`Odra (1)`) and is null now, the station list giving no region; the catchment is in the new
   `river` column. Use `river` where you used `region` (GH-2019)
+- `knmi/observation` without the `knmi` extra raises `MissingDependencyError` naming
+  `pip install wetterdienst[knmi]`, no longer a bare `ModuleNotFoundError` (an `ImportError` either
+  way); the CLI prints that line, and `/api/stations`, `/api/values`, `/api/interpolate` and
+  `/api/summarize` answer 501 with the line in the server log, no longer a 500 with a traceback
+  (GH-2545)
 
 ## [0.146.0] - 2026-10-11
 
