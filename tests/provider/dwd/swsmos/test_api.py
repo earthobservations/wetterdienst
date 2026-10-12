@@ -265,7 +265,6 @@ def test_swsmos_run_that_cannot_be_fetched_is_asked_for_once(
         "station_id",
         "timestamp",
         "value",
-        "quality",
     }
     assert len(downloads) == 1, "a run that cannot be fetched is not re-fetched for the next station"
     # and the outage is reported once for the request rather than once per station

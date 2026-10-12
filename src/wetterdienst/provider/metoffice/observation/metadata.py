@@ -16,7 +16,7 @@ quality-control flags (``*_q``), estimation/interpolation flags (``*_j``), house
 ``meto_stmp_time``, ``midas_stmp_etime``) and a handful of columns with no clean canonical
 ``Parameter`` match (e.g. ``min_conc_temp`` concrete minimum temperature, ``q30cm_soil_temp`` --
 no ``TEMPERATURE_SOIL_MEAN_0_3M`` exists) are intentionally left unmapped rather than guessing a
-canonical name. ``*_q`` columns are wired up as the per-value ``quality`` column in ``api.py`` (a
+canonical name. ``*_q`` columns are wired up as the per-value ``quality_flags`` column in ``api.py`` (a
 raw MIDAS ``MESQL`` compound QC flag -- see api.py -- not a linear quality level), not as separate
 parameters.
 

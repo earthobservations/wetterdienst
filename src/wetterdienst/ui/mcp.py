@@ -125,9 +125,10 @@ hourly/air_temperature, hourly/precipitation.
 ## Reading results
 - By default (shape="long" unless the server is configured otherwise, format="json") `values` \
 returns JSON with a `values` array of \
-{station_id, resolution, dataset, parameter, timestamp, value, quality, quality_flag}, grouped by station, then by \
-resolution, dataset and parameter, in timestamp order within each group. A parameter's LATEST \
-timestamp is the LAST item of its group, not the last item of the array.
+{station_id, resolution, dataset, parameter, timestamp, value, quality_flags}, grouped by station, then by \
+resolution, dataset and parameter, in timestamp order within each group. `quality_flags` is null or the \
+source's own flags as a string: the plain quality flag first, then `kind:code` tokens (`G,measurement:T,source:7`). \
+A parameter's LATEST timestamp is the LAST item of its group, not the last item of the array.
 - Responses are compact by default (just the `values`). Keep them small (and answer in fewer calls) \
 by querying a single "resolution/dataset/parameter" and -- if you only need one day -- a \
 `timestamp` (e.g. timestamp="2026-07-25"; a station's most recent day is its `end_timestamp` from \

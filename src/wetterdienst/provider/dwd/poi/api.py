@@ -61,7 +61,6 @@ _EMPTY_VALUES_SCHEMA = {
     "station_id": pl.String,
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
-    "quality": pl.Float64,
 }
 
 
@@ -153,7 +152,6 @@ class DwdPoiValues(TimeseriesValues):
             # "---" marks a missing value and is cast away non-strictly, as is any other value DWD
             # cannot express as a number
             pl.col("value").str.replace(",", ".").cast(pl.Float64, strict=False),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
 

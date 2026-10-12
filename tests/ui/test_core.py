@@ -566,7 +566,7 @@ def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
                     "parameter": name_original,
                     "timestamp": dt.datetime(year, 1, 1, tzinfo=dt.UTC),
                     "value": value,
-                    "quality": 10.0,
+                    "quality_flags": "10",
                 }
                 for year, value in zip(years, values, strict=True)
             ],

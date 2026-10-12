@@ -5,12 +5,14 @@
 Observation files come in three shapes: the ``daily`` files carry a ``TIMEFUNC``/``DT`` pair, the
 sub-daily (``10_minutes``/``hourly``) files a bare ``DT``, and the ``monthly``/``annual`` files a
 ``YEAR``(+``MONTH``)/``TIMEFUNCTION`` aggregate layout. Each parser normalises to a common
-``(timestamp, parameter, value, quality_flag)`` frame.
+``(timestamp, parameter, value, quality_flags)`` frame.
 """
 
 from __future__ import annotations
 
 import polars as pl
+
+from wetterdienst.model.quality_flags import join_quality_flags
 
 # CHMI encodes timestamps without seconds, e.g. ``1863-10-01T00:00Z``.
 _DATE_FORMAT = "%Y-%m-%dT%H:%MZ"
@@ -29,7 +31,7 @@ _EMPTY_VALUES_SCHEMA = {
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
-    "quality_flag": pl.String,
+    "quality_flags": pl.String,
 }
 
 
@@ -74,26 +76,29 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
 
 
 def _values(date: pl.Expr, element: str, df: pl.DataFrame) -> pl.DataFrame:
-    """Select the timestamp, the parameter, the value and the quality code of a file's rows.
+    """Select the timestamp, the parameter, the value and the quality flags of a file's rows.
 
     The daily and sub-daily files give every value a ``QUALITY`` code, written "0.0", "3.0", ... and
     explained by ``metadata/meta4.csv``: 0 Good, 1 Suspect, 2 Poor, 3 Estimated, 4 Missing, 5 Unknown.
-    It is returned as the whole number meta4 lists, in ``quality_flag``. The aggregate files have no
-    such column and so no flag; their ``FLAG_REPEAT`` and ``FLAG_INTERRUPTED`` marks are not explained
-    by any metadata file and are not carried, and neither is the ``FLAG`` letter of a daily or
-    sub-daily row, whose meaning (``meta3.csv``, e.g. SRA ``T`` for an unmeasurable amount) is that
-    of its element.
+    It is written as the whole number meta4 lists, the plain token of ``quality_flags``. They also give
+    a row a ``FLAG`` letter that is blank for most rows and whose meaning is that of its element
+    (``metadata/meta3.csv``, e.g. SRA ``T`` for an unmeasurable amount); it follows as
+    ``element:<letter>``, so ``quality_flags`` reads ``0,element:T``. The aggregate files have neither
+    column and so no flag; their ``FLAG_REPEAT`` (``*`` on 435 of the 14292 rows of
+    ``mly-0-20000-0-11406-T.csv``) and ``FLAG_INTERRUPTED`` marks are explained by no metadata file and
+    are not carried.
     """
-    quality_flag = (
-        pl.col("QUALITY").cast(pl.Float64, strict=False).cast(pl.Int64, strict=False).cast(pl.String)
+    quality = (
+        pl.col("QUALITY").cast(pl.Float64, strict=False).cast(pl.Int64, strict=False)
         if "QUALITY" in df.columns
         else pl.lit(None, dtype=pl.String)
     )
+    element_flag = pl.col("FLAG") if "FLAG" in df.columns else pl.lit(None, dtype=pl.String)
     return df.select(
         date.alias("timestamp"),
         pl.lit(element, dtype=pl.String).alias("parameter"),
         pl.col("VALUE").cast(pl.Float64, strict=False).alias("value"),
-        quality_flag.alias("quality_flag"),
+        join_quality_flags(quality, element=element_flag),
     )
 
 

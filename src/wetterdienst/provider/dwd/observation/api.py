@@ -31,6 +31,7 @@ from wetterdienst.model.history import (
     _ParameterHistory,
 )
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, ParameterSearch
+from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation.download import (
@@ -159,7 +160,7 @@ class DwdObservationValues(TimeseriesValues):
             pl.col("station_id").str.pad_start(5, "0"),
             pl.col("timestamp").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
-            pl.col("quality").cast(pl.Float64),
+            pl.col("quality_flags"),
         )
 
     @staticmethod
@@ -186,11 +187,16 @@ class DwdObservationValues(TimeseriesValues):
                     "timestamp",
                     pl.lit(column, dtype=pl.String).alias("parameter"),
                     pl.col(column).alias("value"),
-                    series_quality.alias("quality"),
+                    series_quality.alias("quality_flags"),
                 )
                 data.append(df_parameter)
         df = pl.concat(data)
-        return df.with_columns(pl.when(pl.col("value").is_not_null()).then(pl.col("quality")))
+        # QN as DWD writes it, "3": the flag of a reading is kept only where there is a reading
+        return df.with_columns(
+            pl.when(pl.col("value").is_not_null())
+            .then(join_quality_flags(pl.col("quality_flags")))
+            .alias("quality_flags")
+        )
 
     def _get_historical_date_ranges(
         self,

@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { exportColumns, valuesToCsv, valuesToJson } from '../../app/utils/values-export'
 
 const rows: Value[] = [
-  { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', timestamp: '2020-01-01T00:00:00Z', value: 1.5, quality: 10 },
-  { station_id: '04411', resolution: 'daily', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', timestamp: '2020-01-01T00:00:00Z', value: null, quality: null },
+  { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', timestamp: '2020-01-01T00:00:00Z', value: 1.5, quality_flags: '10' },
+  { station_id: '04411', resolution: 'daily', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', timestamp: '2020-01-01T00:00:00Z', value: null, quality_flags: null },
 ]
 
 describe('valuesToCsv', () => {
@@ -39,7 +39,7 @@ describe('valuesToJson', () => {
   })
 })
 
-const TABLE_COLUMNS = ['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality']
+const TABLE_COLUMNS = ['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality_flags']
 
 describe('exportColumns', () => {
   it('keeps every column the rows carry, in the table\'s order, whatever it shows', () => {

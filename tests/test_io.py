@@ -50,47 +50,33 @@ def dwd_climate_summary_tabular_columns() -> list[str]:
         "dataset",
         "timestamp",
         "wind_gust_max",
-        "wind_gust_max_quality",
-        "wind_gust_max_quality_flag",
+        "wind_gust_max_quality_flags",
         "wind_speed",
-        "wind_speed_quality",
-        "wind_speed_quality_flag",
+        "wind_speed_quality_flags",
         "precipitation_amount",
-        "precipitation_amount_quality",
-        "precipitation_amount_quality_flag",
+        "precipitation_amount_quality_flags",
         "precipitation_form",
-        "precipitation_form_quality",
-        "precipitation_form_quality_flag",
+        "precipitation_form_quality_flags",
         "sunshine_duration",
-        "sunshine_duration_quality",
-        "sunshine_duration_quality_flag",
+        "sunshine_duration_quality_flags",
         "snow_depth",
-        "snow_depth_quality",
-        "snow_depth_quality_flag",
+        "snow_depth_quality_flags",
         "cloud_cover_total",
-        "cloud_cover_total_quality",
-        "cloud_cover_total_quality_flag",
+        "cloud_cover_total_quality_flags",
         "pressure_vapor",
-        "pressure_vapor_quality",
-        "pressure_vapor_quality_flag",
+        "pressure_vapor_quality_flags",
         "pressure_air_site",
-        "pressure_air_site_quality",
-        "pressure_air_site_quality_flag",
+        "pressure_air_site_quality_flags",
         "temperature_air_mean_2m",
-        "temperature_air_mean_2m_quality",
-        "temperature_air_mean_2m_quality_flag",
+        "temperature_air_mean_2m_quality_flags",
         "humidity_relative",
-        "humidity_relative_quality",
-        "humidity_relative_quality_flag",
+        "humidity_relative_quality_flags",
         "temperature_air_max_2m",
-        "temperature_air_max_2m_quality",
-        "temperature_air_max_2m_quality_flag",
+        "temperature_air_max_2m_quality_flags",
         "temperature_air_min_2m",
-        "temperature_air_min_2m_quality",
-        "temperature_air_min_2m_quality_flag",
+        "temperature_air_min_2m_quality_flags",
         "temperature_air_min_0_05m",
-        "temperature_air_min_0_05m_quality",
-        "temperature_air_min_0_05m_quality_flag",
+        "temperature_air_min_0_05m_quality_flags",
     ]
 
 
@@ -156,7 +142,7 @@ def df_values() -> pl.DataFrame:
                 "parameter": "temperature_air_max_2m",
                 "timestamp": dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
-                "quality": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "01048",
@@ -165,7 +151,7 @@ def df_values() -> pl.DataFrame:
                 "parameter": "temperature_air_max_2m",
                 "timestamp": dt.datetime(2019, 12, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.0,
-                "quality": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "01048",
@@ -174,7 +160,7 @@ def df_values() -> pl.DataFrame:
                 "parameter": "temperature_air_max_2m",
                 "timestamp": dt.datetime(2019, 12, 28, tzinfo=ZoneInfo("UTC")),
                 "value": 1.3,
-                "quality": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "01048",
@@ -183,7 +169,7 @@ def df_values() -> pl.DataFrame:
                 "parameter": "temperature_air_max_2m",
                 "timestamp": dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 2.0,
-                "quality": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "01048",
@@ -192,7 +178,7 @@ def df_values() -> pl.DataFrame:
                 "parameter": "temperature_air_max_2m",
                 "timestamp": dt.datetime(2021, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.0,
-                "quality": None,
+                "quality_flags": None,
             },
             {
                 "station_id": "01048",
@@ -201,7 +187,7 @@ def df_values() -> pl.DataFrame:
                 "parameter": "temperature_air_max_2m",
                 "timestamp": dt.datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 4.0,
-                "quality": None,
+                "quality_flags": None,
             },
         ],
         schema={
@@ -211,7 +197,7 @@ def df_values() -> pl.DataFrame:
             "parameter": pl.String,
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
+            "quality_flags": pl.String,
         },
         orient="row",
     )
@@ -421,7 +407,7 @@ def test_values_to_dict(df_values: pl.DataFrame) -> None:
             "parameter": "temperature_air_max_2m",
             "timestamp": "2019-01-01T00:00:00.000000+00:00",
             "value": 1.3,
-            "quality": None,
+            "quality_flags": None,
         },
     ]
 
@@ -463,7 +449,7 @@ def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_resu
                 "parameter": "temperature_air_max_2m",
                 "timestamp": "2019-01-01T00:00:00.000000+00:00",
                 "value": 1.3,
-                "quality": None,
+                "quality_flags": None,
             },
         ],
     }
@@ -504,7 +490,7 @@ def test_values_format_geojson(df_values: pl.DataFrame, stations_result_mock: St
         "parameter": "temperature_air_max_2m",
         "timestamp": "2019-01-01T00:00:00.000000+00:00",
         "value": 1.3,
-        "quality": None,
+        "quality_flags": None,
     }
 
 
@@ -512,7 +498,7 @@ def test_values_format_csv(df_values: pl.DataFrame) -> None:
     """Test export of DataFrame to csv."""
     output = ValuesResult(stations=None, values=None, df=df_values).to_csv().strip()
     lines = output.split("\n")
-    assert lines[0] == "station_id,resolution,dataset,parameter,timestamp,value,quality"
+    assert lines[0] == "station_id,resolution,dataset,parameter,timestamp,value,quality_flags"
     assert lines[-1] == "01048,daily,climate_summary,temperature_air_max_2m,2022-01-01T00:00:00.000000+00:00,4.0,"
 
 
@@ -969,21 +955,30 @@ def test_filter_by_sql_names_a_renamed_column(df_stations: pl.DataFrame, df_valu
 
 @pytest.mark.sql
 def test_filter_by_sql_names_a_renamed_wide_quality_column() -> None:
-    """A wide frame's `qn_<parameter>` is named by the column it is now (GH-2030)."""
+    """A wide frame's old quality columns are named by the column they are now.
+
+    `qn_<parameter>` went with GH-2030; `<parameter>_quality` and `<parameter>_quality_flag` became one
+    `<parameter>_quality_flags` (GH-2758).
+    """
     import duckdb  # noqa: PLC0415
 
-    df = pl.DataFrame({"temperature_air_mean_2m": [1.5], "temperature_air_mean_2m_quality": [10.0]})
+    df = pl.DataFrame({"temperature_air_mean_2m": [1.5], "temperature_air_mean_2m_quality_flags": ["10"]})
     with pytest.raises(
         duckdb.BinderException,
-        match='column "qn_temperature_air_mean_2m" was renamed to "temperature_air_mean_2m_quality"',
+        match='column "qn_temperature_air_mean_2m" was renamed to "temperature_air_mean_2m_quality_flags"',
     ):
         ExportMixin(df=df).filter_by_sql("qn_temperature_air_mean_2m = 10")
     # DuckDB matches identifiers regardless of case, and so does the hint
-    with pytest.raises(duckdb.BinderException, match='was renamed to "temperature_air_mean_2m_quality"'):
+    with pytest.raises(duckdb.BinderException, match='was renamed to "temperature_air_mean_2m_quality_flags"'):
         ExportMixin(df=df).filter_by_sql("QN_Temperature_Air_Mean_2m = 10")
+    for old in ("temperature_air_mean_2m_quality", "temperature_air_mean_2m_quality_flag"):
+        with pytest.raises(
+            duckdb.BinderException, match=f'column "{old}" was renamed to "temperature_air_mean_2m_quality_flags"'
+        ):
+            ExportMixin(df=df).filter_by_sql(f"{old} = 10")
     # a frame whose columns carry case, as source names do with humanize off, is named in its own
-    df = pl.DataFrame({"TMK": [1.5], "TMK_quality": [10.0]})
-    with pytest.raises(duckdb.BinderException, match='column "qn_tmk" was renamed to "TMK_quality"'):
+    df = pl.DataFrame({"TMK": [1.5], "TMK_quality_flags": ["10"]})
+    with pytest.raises(duckdb.BinderException, match='column "qn_tmk" was renamed to "TMK_quality_flags"'):
         ExportMixin(df=df).filter_by_sql("qn_tmk = 10")
     # a `qn_` column whose successor the frame does not hold is simply not there
     with pytest.raises(duckdb.BinderException, match='Referenced column "qn_wind_speed" not found'):
@@ -991,13 +986,24 @@ def test_filter_by_sql_names_a_renamed_wide_quality_column() -> None:
 
 
 @pytest.mark.sql
+def test_filter_by_sql_names_the_quality_flags_that_replaced_quality() -> None:
+    """A long frame's `quality` and `quality_flag` are named by the one column they became (GH-2758)."""
+    import duckdb  # noqa: PLC0415
+
+    df = pl.DataFrame({"parameter": ["tmk"], "value": [1.5], "quality_flags": ["10"]})
+    for old in ("quality", "quality_flag"):
+        with pytest.raises(duckdb.BinderException, match=f'column "{old}" was renamed to "quality_flags"'):
+            ExportMixin(df=df).filter_by_sql(f"{old} >= 5")
+
+
+@pytest.mark.sql
 def test_filter_by_sql_names_a_renamed_parameter_column() -> None:
     """A wide frame's column after a renamed parameter, and its quality column, name the new ones (GH-2032)."""
     import duckdb  # noqa: PLC0415
 
-    df = pl.DataFrame({"wave_height_significant": [1.5], "wave_height_significant_quality": [10.0]})
-    for old in ("wave_height_sign", "wave_height_sign_quality", "qn_wave_height_sign"):
-        new = "wave_height_significant" if old == "wave_height_sign" else "wave_height_significant_quality"
+    df = pl.DataFrame({"wave_height_significant": [1.5], "wave_height_significant_quality_flags": ["10"]})
+    for old in ("wave_height_sign", "wave_height_sign_quality", "wave_height_sign_quality_flag", "qn_wave_height_sign"):
+        new = "wave_height_significant" if old == "wave_height_sign" else "wave_height_significant_quality_flags"
         with pytest.raises(duckdb.BinderException, match=f'column "{old}" was renamed to "{new}"'):
             ExportMixin(df=df).filter_by_sql(f"{old} > 1")
     # several datasets prefix each column with its dataset, and the rename follows the parameter
@@ -1184,47 +1190,33 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "dataset",
         "timestamp",
         "wind_gust_max",
-        "wind_gust_max_quality",
-        "wind_gust_max_quality_flag",
+        "wind_gust_max_quality_flags",
         "wind_speed",
-        "wind_speed_quality",
-        "wind_speed_quality_flag",
+        "wind_speed_quality_flags",
         "precipitation_amount",
-        "precipitation_amount_quality",
-        "precipitation_amount_quality_flag",
+        "precipitation_amount_quality_flags",
         "precipitation_form",
-        "precipitation_form_quality",
-        "precipitation_form_quality_flag",
+        "precipitation_form_quality_flags",
         "sunshine_duration",
-        "sunshine_duration_quality",
-        "sunshine_duration_quality_flag",
+        "sunshine_duration_quality_flags",
         "snow_depth",
-        "snow_depth_quality",
-        "snow_depth_quality_flag",
+        "snow_depth_quality_flags",
         "cloud_cover_total",
-        "cloud_cover_total_quality",
-        "cloud_cover_total_quality_flag",
+        "cloud_cover_total_quality_flags",
         "pressure_vapor",
-        "pressure_vapor_quality",
-        "pressure_vapor_quality_flag",
+        "pressure_vapor_quality_flags",
         "pressure_air_site",
-        "pressure_air_site_quality",
-        "pressure_air_site_quality_flag",
+        "pressure_air_site_quality_flags",
         "temperature_air_mean_2m",
-        "temperature_air_mean_2m_quality",
-        "temperature_air_mean_2m_quality_flag",
+        "temperature_air_mean_2m_quality_flags",
         "humidity_relative",
-        "humidity_relative_quality",
-        "humidity_relative_quality_flag",
+        "humidity_relative_quality_flags",
         "temperature_air_max_2m",
-        "temperature_air_max_2m_quality",
-        "temperature_air_max_2m_quality_flag",
+        "temperature_air_max_2m_quality_flags",
         "temperature_air_min_2m",
-        "temperature_air_min_2m_quality",
-        "temperature_air_min_2m_quality_flag",
+        "temperature_air_min_2m_quality_flags",
         "temperature_air_min_0_05m",
-        "temperature_air_min_0_05m_quality",
-        "temperature_air_min_0_05m_quality_flag",
+        "temperature_air_min_0_05m_quality_flags",
     ]
     # Validate number of records.
     assert len(df) == 366
@@ -1235,47 +1227,33 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "dataset": "climate_summary",
         "timestamp": "2019-01-01T00:00:00.000000+00:00",
         "wind_gust_max": 19.9,
-        "wind_gust_max_quality": 10,
-        "wind_gust_max_quality_flag": None,
+        "wind_gust_max_quality_flags": "10",
         "wind_speed": 8.5,
-        "wind_speed_quality": 10,
-        "wind_speed_quality_flag": None,
+        "wind_speed_quality_flags": "10",
         "precipitation_amount": 0.9,
-        "precipitation_amount_quality": 10,
-        "precipitation_amount_quality_flag": None,
+        "precipitation_amount_quality_flags": "10",
         "precipitation_form": 8.0,
-        "precipitation_form_quality": 10,
-        "precipitation_form_quality_flag": None,
+        "precipitation_form_quality_flags": "10",
         "sunshine_duration": 0.0,
-        "sunshine_duration_quality": 10,
-        "sunshine_duration_quality_flag": None,
+        "sunshine_duration_quality_flags": "10",
         "snow_depth": 0,
-        "snow_depth_quality": 10,
-        "snow_depth_quality_flag": None,
+        "snow_depth_quality_flags": "10",
         "cloud_cover_total": 7.4,
-        "cloud_cover_total_quality": 10,
-        "cloud_cover_total_quality_flag": None,
+        "cloud_cover_total_quality_flags": "10",
         "pressure_vapor": 7.9,
-        "pressure_vapor_quality": 10,
-        "pressure_vapor_quality_flag": None,
+        "pressure_vapor_quality_flags": "10",
         "pressure_air_site": 991.9,
-        "pressure_air_site_quality": 10,
-        "pressure_air_site_quality_flag": None,
+        "pressure_air_site_quality_flags": "10",
         "temperature_air_mean_2m": 5.9,
-        "temperature_air_mean_2m_quality": 10,
-        "temperature_air_mean_2m_quality_flag": None,
+        "temperature_air_mean_2m_quality_flags": "10",
         "humidity_relative": 84,
-        "humidity_relative_quality": 10,
-        "humidity_relative_quality_flag": None,
+        "humidity_relative_quality_flags": "10",
         "temperature_air_max_2m": 7.5,
-        "temperature_air_max_2m_quality": 10,
-        "temperature_air_max_2m_quality_flag": None,
+        "temperature_air_max_2m_quality_flags": "10",
         "temperature_air_min_2m": 2.0,
-        "temperature_air_min_2m_quality": 10,
-        "temperature_air_min_2m_quality_flag": None,
+        "temperature_air_min_2m_quality_flags": "10",
         "temperature_air_min_0_05m": 1.5,
-        "temperature_air_min_0_05m_quality": 10,
-        "temperature_air_min_0_05m_quality_flag": None,
+        "temperature_air_min_0_05m_quality_flags": "10",
     }
     last_record = df.tail(1).to_dicts()[0]
     assert last_record == {
@@ -1284,47 +1262,33 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         "dataset": "climate_summary",
         "timestamp": "2020-01-01T00:00:00.000000+00:00",
         "wind_gust_max": 6.9,
-        "wind_gust_max_quality": 10,
-        "wind_gust_max_quality_flag": None,
+        "wind_gust_max_quality_flags": "10",
         "wind_speed": 3.2,
-        "wind_speed_quality": 10,
-        "wind_speed_quality_flag": None,
+        "wind_speed_quality_flags": "10",
         "precipitation_amount": 0.0,
-        "precipitation_amount_quality": 10,
-        "precipitation_amount_quality_flag": None,
+        "precipitation_amount_quality_flags": "10",
         "precipitation_form": 0,
-        "precipitation_form_quality": 10,
-        "precipitation_form_quality_flag": None,
+        "precipitation_form_quality_flags": "10",
         "sunshine_duration": 3.9,
-        "sunshine_duration_quality": 10,
-        "sunshine_duration_quality_flag": None,
+        "sunshine_duration_quality_flags": "10",
         "snow_depth": 0,
-        "snow_depth_quality": 10,
-        "snow_depth_quality_flag": None,
+        "snow_depth_quality_flags": "10",
         "cloud_cover_total": 4.2,
-        "cloud_cover_total_quality": 10,
-        "cloud_cover_total_quality_flag": None,
+        "cloud_cover_total_quality_flags": "10",
         "pressure_vapor": 5.7,
-        "pressure_vapor_quality": 10,
-        "pressure_vapor_quality_flag": None,
+        "pressure_vapor_quality_flags": "10",
         "pressure_air_site": 1005.1,
-        "pressure_air_site_quality": 10,
-        "pressure_air_site_quality_flag": None,
+        "pressure_air_site_quality_flags": "10",
         "temperature_air_mean_2m": 2.4,
-        "temperature_air_mean_2m_quality": 10,
-        "temperature_air_mean_2m_quality_flag": None,
+        "temperature_air_mean_2m_quality_flags": "10",
         "humidity_relative": 79,
-        "humidity_relative_quality": 10,
-        "humidity_relative_quality_flag": None,
+        "humidity_relative_quality_flags": "10",
         "temperature_air_max_2m": 5.6,
-        "temperature_air_max_2m_quality": 10,
-        "temperature_air_max_2m_quality_flag": None,
+        "temperature_air_max_2m_quality_flags": "10",
         "temperature_air_min_2m": -2.8,
-        "temperature_air_min_2m_quality": 10,
-        "temperature_air_min_2m_quality_flag": None,
+        "temperature_air_min_2m_quality_flags": "10",
         "temperature_air_min_0_05m": -4.6,
-        "temperature_air_min_0_05m_quality": 10,
-        "temperature_air_min_0_05m_quality_flag": None,
+        "temperature_air_min_0_05m_quality_flags": "10",
     }
 
 
@@ -1352,7 +1316,7 @@ def test_export_parquet(
     # Read back Parquet file.
     table = pq.read_table(filename)
     # Validate dimensions.
-    assert table.num_columns == 46
+    assert table.num_columns == 32
     assert table.num_rows == 366
     # Validate column names.
     assert table.column_names == dwd_climate_summary_tabular_columns
@@ -1390,7 +1354,7 @@ def test_export_zarr(
     root = zarr.open(filename, mode="r")
     group = root.get("climate_summary")
     # Validate dimensions.
-    assert len(group) == 47
+    assert len(group) == 33
     assert group.get("index").size == 366
     # Validate column names.
     columns = set(group.keys())
@@ -1478,7 +1442,7 @@ def test_export_feather(
     with pa_ipc.open_file(filename) as reader:
         table = reader.read_all()
     # Validate dimensions.
-    assert table.num_columns == 46
+    assert table.num_columns == 32
     assert table.num_rows == 366
     # Validate column names.
     assert table.column_names == dwd_climate_summary_tabular_columns
@@ -1518,47 +1482,33 @@ def test_export_sqlite(settings_convert_units_false_wide_shape: Settings, tmp_pa
         "climate_summary",
         dt.datetime(2019, 1, 1),  # noqa: DTZ001
         19.9,
-        10.0,
-        None,
+        "10",
         8.5,
-        10.0,
-        None,
+        "10",
         0.9,
-        10.0,
-        None,
+        "10",
         8.0,
-        10.0,
-        None,
+        "10",
         0.0,
-        10.0,
-        None,
+        "10",
         0.0,
-        10.0,
-        None,
+        "10",
         7.4,
-        10.0,
-        None,
+        "10",
         7.9,
-        10.0,
-        None,
+        "10",
         991.9,
-        10.0,
-        None,
+        "10",
         5.9,
-        10.0,
-        None,
+        "10",
         84.0,
-        10.0,
-        None,
+        "10",
         7.5,
-        10.0,
-        None,
+        "10",
         2.0,
-        10.0,
-        None,
+        "10",
         1.5,
-        10.0,
-        None,
+        "10",
     ]
     last = list(results[-1])
     last[3] = dt.datetime.fromisoformat(last[3])
@@ -1568,47 +1518,33 @@ def test_export_sqlite(settings_convert_units_false_wide_shape: Settings, tmp_pa
         "climate_summary",
         dt.datetime(2020, 1, 1),  # noqa: DTZ001
         6.9,
-        10.0,
-        None,
+        "10",
         3.2,
-        10.0,
-        None,
+        "10",
         0.0,
-        10.0,
-        None,
+        "10",
         0.0,
-        10.0,
-        None,
+        "10",
         3.9,
-        10.0,
-        None,
+        "10",
         0.0,
-        10.0,
-        None,
+        "10",
         4.2,
-        10.0,
-        None,
+        "10",
         5.7,
-        10.0,
-        None,
+        "10",
         1005.1,
-        10.0,
-        None,
+        "10",
         2.4,
-        10.0,
-        None,
+        "10",
         79.0,
-        10.0,
-        None,
+        "10",
         5.6,
-        10.0,
-        None,
+        "10",
         -2.8,
-        10.0,
-        None,
+        "10",
         -4.6,
-        10.0,
-        None,
+        "10",
     ]
 
 
@@ -1675,8 +1611,7 @@ def test_export_duckdb(settings_convert_units_false: Settings, tmp_path: Path) -
         "temperature_air_min_2m",
         dt.datetime(1939, 7, 26),  # noqa: DTZ001
         10.0,
-        1.0,
-        None,
+        "1",
     )
 
 
@@ -1728,20 +1663,20 @@ def test_export_influxdb1_wide(settings_convert_units_false_wide_shape: Settings
             "precipitation_amount": 0.9,
             "pressure_air_site": 991.9,
             "pressure_vapor": 7.9,
-            "cloud_cover_total_quality": 10.0,
-            "humidity_relative_quality": 10.0,
-            "precipitation_form_quality": 10.0,
-            "precipitation_amount_quality": 10.0,
-            "pressure_air_site_quality": 10.0,
-            "pressure_vapor_quality": 10.0,
-            "snow_depth_quality": 10.0,
-            "sunshine_duration_quality": 10.0,
-            "temperature_air_max_2m_quality": 10.0,
-            "temperature_air_mean_2m_quality": 10.0,
-            "temperature_air_min_0_05m_quality": 10.0,
-            "temperature_air_min_2m_quality": 10.0,
-            "wind_gust_max_quality": 10.0,
-            "wind_speed_quality": 10.0,
+            "cloud_cover_total_quality_flags": "10",
+            "humidity_relative_quality_flags": "10",
+            "precipitation_form_quality_flags": "10",
+            "precipitation_amount_quality_flags": "10",
+            "pressure_air_site_quality_flags": "10",
+            "pressure_vapor_quality_flags": "10",
+            "snow_depth_quality_flags": "10",
+            "sunshine_duration_quality_flags": "10",
+            "temperature_air_max_2m_quality_flags": "10",
+            "temperature_air_mean_2m_quality_flags": "10",
+            "temperature_air_min_0_05m_quality_flags": "10",
+            "temperature_air_min_2m_quality_flags": "10",
+            "wind_gust_max_quality_flags": "10",
+            "wind_speed_quality_flags": "10",
             "snow_depth": 0.0,
             "sunshine_duration": 0.0,
             "temperature_air_max_2m": 7.5,
@@ -1796,7 +1731,7 @@ def test_export_influxdb1_tidy(settings_convert_units_false: Settings) -> None:
         }
         assert first_point["fields"] == {
             "value": 7.4,
-            "quality": 10.0,
+            "quality_flags": "10",
         }
 
 
@@ -1839,20 +1774,20 @@ def test_export_influxdb2_wide(settings_convert_units_false_wide_shape: Settings
             "precipitation_amount": 0.9,
             "pressure_air_site": 991.9,
             "pressure_vapor": 7.9,
-            "cloud_cover_total_quality": 10.0,
-            "humidity_relative_quality": 10.0,
-            "precipitation_form_quality": 10.0,
-            "precipitation_amount_quality": 10.0,
-            "pressure_air_site_quality": 10.0,
-            "pressure_vapor_quality": 10.0,
-            "snow_depth_quality": 10.0,
-            "sunshine_duration_quality": 10.0,
-            "temperature_air_max_2m_quality": 10.0,
-            "temperature_air_mean_2m_quality": 10.0,
-            "temperature_air_min_0_05m_quality": 10.0,
-            "temperature_air_min_2m_quality": 10.0,
-            "wind_gust_max_quality": 10.0,
-            "wind_speed_quality": 10.0,
+            "cloud_cover_total_quality_flags": "10",
+            "humidity_relative_quality_flags": "10",
+            "precipitation_form_quality_flags": "10",
+            "precipitation_amount_quality_flags": "10",
+            "pressure_air_site_quality_flags": "10",
+            "pressure_vapor_quality_flags": "10",
+            "snow_depth_quality_flags": "10",
+            "sunshine_duration_quality_flags": "10",
+            "temperature_air_max_2m_quality_flags": "10",
+            "temperature_air_mean_2m_quality_flags": "10",
+            "temperature_air_min_0_05m_quality_flags": "10",
+            "temperature_air_min_2m_quality_flags": "10",
+            "wind_gust_max_quality_flags": "10",
+            "wind_speed_quality_flags": "10",
             "snow_depth": 0.0,
             "sunshine_duration": 0.0,
             "temperature_air_max_2m": 7.5,
@@ -1899,7 +1834,7 @@ def test_export_influxdb2_tidy(settings_convert_units_false: Settings) -> None:
         }
         assert first_point._fields == {
             "value": 7.4,
-            "quality": 10.0,
+            "quality_flags": "10",
         }
 
 
@@ -1942,20 +1877,20 @@ def test_export_influxdb3_wide(settings_convert_units_false_wide_shape: Settings
             "precipitation_amount": 0.9,
             "pressure_air_site": 991.9,
             "pressure_vapor": 7.9,
-            "cloud_cover_total_quality": 10.0,
-            "humidity_relative_quality": 10.0,
-            "precipitation_form_quality": 10.0,
-            "precipitation_amount_quality": 10.0,
-            "pressure_air_site_quality": 10.0,
-            "pressure_vapor_quality": 10.0,
-            "snow_depth_quality": 10.0,
-            "sunshine_duration_quality": 10.0,
-            "temperature_air_max_2m_quality": 10.0,
-            "temperature_air_mean_2m_quality": 10.0,
-            "temperature_air_min_0_05m_quality": 10.0,
-            "temperature_air_min_2m_quality": 10.0,
-            "wind_gust_max_quality": 10.0,
-            "wind_speed_quality": 10.0,
+            "cloud_cover_total_quality_flags": "10",
+            "humidity_relative_quality_flags": "10",
+            "precipitation_form_quality_flags": "10",
+            "precipitation_amount_quality_flags": "10",
+            "pressure_air_site_quality_flags": "10",
+            "pressure_vapor_quality_flags": "10",
+            "snow_depth_quality_flags": "10",
+            "sunshine_duration_quality_flags": "10",
+            "temperature_air_max_2m_quality_flags": "10",
+            "temperature_air_mean_2m_quality_flags": "10",
+            "temperature_air_min_0_05m_quality_flags": "10",
+            "temperature_air_min_2m_quality_flags": "10",
+            "wind_gust_max_quality_flags": "10",
+            "wind_speed_quality_flags": "10",
             "snow_depth": 0.0,
             "sunshine_duration": 0.0,
             "temperature_air_max_2m": 7.5,
@@ -2000,7 +1935,7 @@ def test_export_influxdb3_tidy(settings_convert_units_false: Settings) -> None:
         }
         assert first_point._fields == {
             "value": 7.4,
-            "quality": 10.0,
+            "quality_flags": "10",
         }
 
 
@@ -2221,7 +2156,7 @@ def _one_row(station_id: str = "01048") -> ExportMixin:
                 "parameter": ["temperature_air_mean_2m"],
                 "timestamp": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))],
                 "value": [1.0],
-                "quality": [1.0],
+                "quality_flags": ["1"],
             },
         ),
     )
@@ -2645,11 +2580,11 @@ def test_values_to_ogc_feature_collection_without_elevation_and_with_gauge_zero(
                 "parameter": "stage",
                 "timestamp": dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": value,
-                "quality": None,
+                "quality_flags": None,
             }
             for value, station_id in enumerate(_GAUGE_FEATURES)
         ],
-        schema_overrides={"quality": pl.Float64},
+        schema_overrides={"quality_flags": pl.String},
         orient="row",
     )
     # station_id as Enum, as a real values frame has it
@@ -3175,7 +3110,7 @@ def test_values_to_ogc_feature_collection_gives_each_dataset_its_own_values() ->
     a feature whose dataset did not match it.
     """
     timestamp = dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC"))
-    value = {"station_id": "01048", "resolution": "daily", "timestamp": timestamp, "quality": 1.0}
+    value = {"station_id": "01048", "resolution": "daily", "timestamp": timestamp, "quality_flags": "1"}
     result = _values_result(
         _two_dataset_stations_result(),
         [
@@ -3207,7 +3142,7 @@ def test_values_to_ogc_feature_collection_leaves_out_a_dataset_without_values() 
                 "parameter": "temperature_air_mean_2m",
                 "timestamp": dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.0,
-                "quality": 1.0,
+                "quality_flags": "1",
             },
         ],
     )
@@ -3323,7 +3258,7 @@ def test_values_to_ogc_feature_collection_without_position() -> None:
                 "parameter": "climate_correction_factor",
                 "timestamp": dt.datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.0,
-                "quality": None,
+                "quality_flags": None,
             }
             for station_id in _UNLOCATED_GEOMETRIES
         ],
@@ -3613,7 +3548,7 @@ def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
                     "parameter": name,
                     "timestamp": timestamp,
                     "value": float(len(rows) + index),
-                    "quality": 10.0,
+                    "quality_flags": "10",
                 }
                 for index, timestamp in enumerate(timestamps)
             )
@@ -4004,8 +3939,8 @@ def test_an_optional_package_that_is_not_installed_never_reaches_the_caller_as_a
     )
 
 
-def test_export_influxdb1_tidy_writes_the_quality_flag_beside_the_quality() -> None:
-    """Test that a reading's `quality_flag` is written as a field with its value, and not alone (GH-2018)."""
+def test_export_influxdb1_tidy_writes_the_quality_flags_beside_the_value() -> None:
+    """Test that a reading's `quality_flags` is written as a field with its value, and not alone (GH-2018, GH-2758)."""
     pytest.importorskip("influxdb")
     df = pl.DataFrame(
         {
@@ -4015,15 +3950,14 @@ def test_export_influxdb1_tidy_writes_the_quality_flag_beside_the_quality() -> N
             "parameter": ["temperature_air_mean_2m"] * 3,
             "timestamp": [dt.datetime(2025, 1, day, tzinfo=ZoneInfo("UTC")) for day in (1, 2, 3)],
             "value": [1.5, None, 2.5],
-            "quality": [None, None, None],
-            "quality_flag": ["E", "M", None],
+            "quality_flags": ["E", "M", None],
         },
-        schema_overrides={"quality": pl.Float64},
+        schema_overrides={"quality_flags": pl.String},
     )
     values = ValuesResult(stations=None, values=None, df=df)  # ty: ignore[invalid-argument-type]
     mock_client = mock.MagicMock()
     with mock.patch("influxdb.InfluxDBClient", side_effect=[mock_client], create=True):
         values.to_target("influxdb://localhost/?database=dwd&table=weather")
     points = mock_client.write_points.call_args.kwargs["points"]
-    # the missing reading with its `M` has no value to carry the flag, as its quality has none
-    assert [point["fields"] for point in points] == [{"value": 1.5, "quality_flag": "E"}, {"value": 2.5}]
+    # the missing reading with its `M` has no value to carry the flags, so it is not written at all
+    assert [point["fields"] for point in points] == [{"value": 1.5, "quality_flags": "E"}, {"value": 2.5}]

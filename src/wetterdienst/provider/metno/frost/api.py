@@ -387,7 +387,7 @@ _EMPTY_VALUES_SCHEMA = {
     "station_id": pl.String,
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
-    "quality": pl.Float64,
+    "quality_flags": pl.String,
 }
 
 # Frost states two codes in the element descriptions it publishes and then writes them into the
@@ -566,7 +566,7 @@ class MetnoFrostValues(TimeseriesValues):
                     pl.lit(station_id, dtype=pl.String).alias("station_id"),
                     pl.col("referenceTime").alias("timestamp"),
                     pl.col("value").cast(pl.Float64),
-                    pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+                    pl.col("qualityCode").cast(pl.Int64).cast(pl.String).alias("quality_flags"),
                 ),
             )
         )
@@ -672,7 +672,7 @@ class MetnoFrostValues(TimeseriesValues):
                     pl.lit(station_id, dtype=pl.String).alias("station_id"),
                     pl.col("referenceTime").alias("timestamp"),
                     pl.col("value").cast(pl.Float64),
-                    pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+                    pl.col("qualityCode").cast(pl.Int64).cast(pl.String).alias("quality_flags"),
                 ),
             )
         )
@@ -780,7 +780,7 @@ class MetnoFrostValues(TimeseriesValues):
                             pl.lit(station_id, dtype=pl.String).alias("station_id"),
                             pl.col("referenceTime").alias("timestamp"),
                             pl.col("value").cast(pl.Float64),
-                            pl.col("qualityCode").cast(pl.Float64).alias("quality"),
+                            pl.col("qualityCode").cast(pl.Int64).cast(pl.String).alias("quality_flags"),
                         ),
                     )
                 )

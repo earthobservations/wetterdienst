@@ -45,8 +45,10 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
                 "parameter": "temperature_air_mean_2m",
                 "timestamp": dt.datetime(2021, 1, 2, tzinfo=ZoneInfo("UTC")),
                 "value": 3.7,
-                "quality": None,
-                "quality_flag": None,
+                # Global Summary of the Day (source S), a daily mean made of hourly values (measurement H): the
+                # readme.txt's "H = for TMAX/TMIN/TAVG represents highest or lowest hourly temperature (TMAX or
+                # TMIN) or the average of hourly values (TAVG)" and "S = Global Summary of the Day"; no check failed
+                "quality_flags": "measurement:H,source:S",
             },
         ],
         schema={
@@ -56,8 +58,7 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
             "parameter": pl.Enum(["temperature_air_mean_2m"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
-            "quality_flag": pl.String,
+            "quality_flags": pl.String,
         },
         orient="row",
     )
@@ -87,8 +88,7 @@ def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
                 "parameter": "temperature_air_2m",
                 "timestamp": dt.datetime(1977, 1, 10, 2, tzinfo=ZoneInfo("UTC")),
                 "value": 1.0,
-                "quality": None,
-                "quality_flag": None,
+                "quality_flags": None,
             },
         ],
         schema={
@@ -98,8 +98,7 @@ def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
             "parameter": pl.Enum(["temperature_air_2m"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
-            "quality_flag": pl.String,
+            "quality_flags": pl.String,
         },
         orient="row",
     )

@@ -533,7 +533,6 @@ class DwdDmoValues(TimeseriesValues):
             "parameter",
             pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S.000Z", time_zone="UTC"),
             "value",
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
     def read_dmo(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:

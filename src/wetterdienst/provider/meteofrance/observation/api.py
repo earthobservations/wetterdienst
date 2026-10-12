@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteofrance.observation.metadata import MeteoFranceObservationMetadata
@@ -925,7 +926,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         df = df.select(
             date_column,
             *(
-                pl.struct(pl.col(name).alias("value"), pl.col(flag_columns[name]).alias("quality_flag")).alias(name)
+                pl.struct(pl.col(name).alias("value"), pl.col(flag_columns[name]).alias("quality_flags")).alias(name)
                 for name in parameter_columns
             ),
         ).unpivot(
@@ -935,7 +936,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
             value_name="value",
         )
         df = df.with_columns(
-            pl.col("value").struct.field("quality_flag").alias("quality_flag"),
+            pl.col("value").struct.field("quality_flags"),
             pl.col("value").struct.field("value"),
         )
         return df.select(
@@ -950,10 +951,9 @@ class MeteoFranceObservationValues(TimeseriesValues):
             _map_codes(pl.col("parameter"), pl.col("value").cast(pl.Float64, strict=False), resolution_name).alias(
                 "value"
             ),
-            pl.lit(None, pl.Float64).alias("quality"),
             # the validation code (9 filtered, 0 protected, 1 validated, 2 doubtful), verbatim and null where the
             # source leaves it blank (GH-2018)
-            pl.col("quality_flag").str.strip_chars().replace("", None),
+            join_quality_flags(pl.col("quality_flags")),
         )
 
 

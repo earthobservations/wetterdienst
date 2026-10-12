@@ -19,6 +19,7 @@ from fsspec.implementations.zip import ZipFileSystem
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, build_metadata_model
+from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.imgw.fileindex import list_files_for_interval
@@ -47,12 +48,10 @@ _STRUCTURAL_COLUMNS = frozenset({"station_id", "year", "month", "day"})
 # are the counts in `_STATUSLESS_COLUMNS` -- and declaring one would need its own branch here.
 _STATUS_NO_MEASUREMENT = "8"
 _STATUS_NO_PHENOMENON = "9"
-# The status, carried into `quality` the way `metoffice/observation` carries MIDAS's `MESQL` flag. "8"
-# and "9" are IMGW's own codes; `quality` is a float column and `Z` is a letter, so `Z` is reported as
-# 10 -- a value this library assigns itself, as it does `_QUALITY_ABSENT_DAY`, both documented on the
-# provider's page. A blank status is a plain measurement and stays null, which is what every other
-# value carries.
-_STATUS_QUALITY = {"8": 8.0, "9": 9.0, "Z": 10.0}
+# The status, carried verbatim into `quality_flags`: "8", "9" and "Z" are IMGW's own codes, documented
+# on the provider's page. A blank status is a plain measurement and stays null, which is what every
+# other value carries, and so does a status IMGW documents nowhere.
+_STATUS_CODES = ["8", "9", "Z"]
 # What a status is called between the rename and the unpivot, to keep it apart from the value of the
 # same name. No IMGW column name can collide with it: they are Polish prose.
 _STATUS_SUFFIX = "__status"
@@ -85,10 +84,10 @@ _STATUSLESS_COLUMNS: dict[str, frozenset[int]] = {
 _ABSENT_DAY_NO_PHENOMENON: dict[str, frozenset[str]] = {
     "o_d.*.csv": frozenset({"suma dobowa opadów"}),
 }
-# The `quality` of a day filled in from `_ABSENT_DAY_NO_PHENOMENON`. Not 9: the brak zjawiska comes from
-# the format description rather than from a status in the file, and a distinct code lets a caller tell
-# the two apart. Like `Z`'s 10, this one is the library's own, documented on the provider's page.
-_QUALITY_ABSENT_DAY = 11.0
+# The `quality_flags` of a day filled in from `_ABSENT_DAY_NO_PHENOMENON`. Not 9: the brak zjawiska comes
+# from the format description rather than from a status in the file, and a distinct code lets a caller
+# tell the two apart. This one is the library's own, documented on the provider's page.
+_QUALITY_ABSENT_DAY = "11"
 
 ImgwMeteorologyMetadata = {
     **_METADATA,
@@ -632,7 +631,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             pl.col("station_id"),
             pl.col("timestamp").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
-            pl.col("quality"),
+            pl.col("quality_flags"),
         )
 
     def _parse_file(
@@ -711,12 +710,15 @@ class ImgwMeteorologyValues(TimeseriesValues):
         values = ImgwMeteorologyValues._unpivot(df.select(list(schema.values())), resolution, "value")
         values = values.with_columns(pl.col("value").cast(pl.Float64))
         if not statuses:
-            return values.with_columns(pl.lit(None, dtype=pl.Float64).alias("quality"))
+            return values.with_columns(pl.lit(None, dtype=pl.String).alias("quality_flags"))
         structural = [name for name in schema.values() if name in _STRUCTURAL_COLUMNS]
-        quality = ImgwMeteorologyValues._unpivot(df.select(*structural, *statuses.values()), resolution, "quality")
+        quality = ImgwMeteorologyValues._unpivot(df.select(*structural, *statuses.values()), resolution, "status")
         quality = quality.with_columns(pl.col("parameter").str.strip_suffix(_STATUS_SUFFIX))
-        quality = quality.with_columns(
-            pl.col("quality").str.strip_chars().replace_strict(_STATUS_QUALITY, default=None, return_dtype=pl.Float64),
+        quality = quality.select(
+            "station_id",
+            "timestamp",
+            "parameter",
+            join_quality_flags(pl.when(pl.col("status").str.strip_chars().is_in(_STATUS_CODES)).then(pl.col("status"))),
         )
         return values.join(quality, on=["station_id", "timestamp", "parameter"], how="left")
 
@@ -738,7 +740,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
             pl.col("timestamp"),
             pl.col("parameter"),
             pl.lit(0.0, dtype=pl.Float64).alias("value"),
-            pl.lit(_QUALITY_ABSENT_DAY, dtype=pl.Float64).alias("quality"),
+            pl.lit(_QUALITY_ABSENT_DAY, dtype=pl.String).alias("quality_flags"),
         )
         return pl.concat([values, absent])
 

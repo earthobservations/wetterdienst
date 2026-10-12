@@ -33,7 +33,7 @@ _FILE = (
 
 
 def test_smhi_parser_returns_the_quality_code_of_each_reading() -> None:
-    """Test that the "Kvalitet" column is returned verbatim as `quality_flag`, beside the value (GH-2018).
+    """Test that the "Kvalitet" column is returned verbatim as `quality_flags`, beside the value (GH-2018).
 
     The column was read only to find the value column left of it. SMHI's legend, written into the file:
     "Grön (G) = Kontrollerade och godkända värden." (approved) and "Gul (Y) = Misstänkta eller aggregerade
@@ -41,12 +41,12 @@ def test_smhi_parser_returns_the_quality_code_of_each_reading() -> None:
     aggregated; roughly checked archive data and unchecked real-time data). Red (R) values are not delivered.
     """
     df = parse_smhi_csv(_FILE.removeprefix("﻿"))
-    assert df.get_column("quality_flag").to_list() == ["Y", "G", "Y", "Y", "Y"]
+    assert df.get_column("quality_flags").to_list() == ["Y", "G", "Y", "Y", "Y"]
     assert df.get_column("value").to_list() == ["11.1", "8.6", "9.3", "11.5", "9.4"]
 
 
 def test_smhi_values_carry_the_quality_code(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that the values come back with SMHI's code in `quality_flag` and a null numeric `quality`."""
+    """Test that the values come back with SMHI's code in `quality_flags` and no `quality` column."""
     stamp._serve(monkeypatch)  # noqa: SLF001
     request = SmhiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m")],
@@ -55,6 +55,7 @@ def test_smhi_values_carry_the_quality_code(monkeypatch: pytest.MonkeyPatch) -> 
         settings=Settings(cache_disable=True),
     ).filter_by_station_id("98230")
     df = request.values.all().df.sort("timestamp")
-    assert df.schema["quality_flag"] == pl.String
-    assert df.get_column("quality_flag").to_list() == ["Y", "Y", "Y"]
-    assert df.get_column("quality").null_count() == df.height
+    assert df.schema["quality_flags"] == pl.String
+    assert df.get_column("quality_flags").to_list() == ["Y", "Y", "Y"]
+    assert "quality" not in df.columns
+    assert "quality_flag" not in df.columns

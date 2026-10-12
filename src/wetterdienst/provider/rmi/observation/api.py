@@ -52,7 +52,7 @@ _EMPTY_VALUES_SCHEMA = {
     "station_id": pl.String,
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
-    "quality": pl.Float64,
+    "quality_flags": pl.String,
 }
 
 _STATION_ENDPOINT = (
@@ -85,7 +85,7 @@ def _values_schema(parameters: Sequence[ParameterModel]) -> pl.Schema:
     """Build the WFS feature schema for a dataset's parameters.
 
     Only the ``timestamp``, the mapped parameter columns and ``qc_flags`` (the per-parameter
-    validation map, decoded into the ``quality`` column) are declared; ``read_json`` ignores every
+    validation map, decoded into the ``quality_flags`` column) are declared; ``read_json`` ignores every
     other attribute (``code``, geometry, unmapped parameters).
     """
     properties: dict[str, type[pl.DataType]] = {"timestamp": pl.String}
@@ -205,7 +205,7 @@ class RmiObservationValues(TimeseriesValues):
         # Reshape the wide feature (one column per parameter) into the long value frame. The
         # column name is already `name_original`, which `_process_dataset` filters against.
         values = df.unpivot(index="timestamp", on=param_names, variable_name="parameter", value_name="value")
-        # Attach the per-parameter validation flag from qc_flags as the native quality code.
+        # Attach the per-parameter validation flag from qc_flags as the quality flag.
         df = values.join(_quality_long(df, param_names), on=["timestamp", "parameter"], how="left").drop_nulls("value")
         if df.is_empty():
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
@@ -216,7 +216,7 @@ class RmiObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             _parse_utc_z(pl.col("timestamp")).alias("timestamp"),
             pl.col("value").cast(pl.Float64),
-            pl.col("quality").cast(pl.Float64),
+            pl.col("quality_flags"),
         )
 
 
@@ -278,12 +278,12 @@ class RmiObservationRequest(TimeseriesRequest):
 
 
 def _quality_long(df: pl.DataFrame, param_names: list[str]) -> pl.DataFrame:
-    """Build a long ``(timestamp, parameter, quality)`` frame from the ``qc_flags`` JSON.
+    """Build a long ``(timestamp, parameter, quality_flags)`` frame from the ``qc_flags`` JSON.
 
     RMI's ``qc_flags`` carries a per-parameter validated/not-validated boolean keyed by the
     upper-cased attribute name (e.g. ``{"validated": {"TEMP_DRY_SHELTER_AVG": true, ...}}``). It is
-    exposed as the provider-native ``quality`` code: ``1.0`` validated, ``0.0`` not validated, and
-    null when the flag (or the whole ``qc_flags`` object) is absent.
+    written as ``quality_flags``: ``1`` validated, ``0`` not validated, and null when the flag (or the
+    whole ``qc_flags`` object) is absent.
     """
     validated_schema = pl.Struct({"validated": pl.Struct({name.upper(): pl.Boolean for name in param_names})})
     return (
@@ -296,9 +296,12 @@ def _quality_long(df: pl.DataFrame, param_names: list[str]) -> pl.DataFrame:
             index="timestamp",
             on=[name.upper() for name in param_names],
             variable_name="parameter",
-            value_name="quality",
+            value_name="quality_flags",
         )
-        .with_columns(pl.col("parameter").str.to_lowercase(), pl.col("quality").cast(pl.Float64))
+        .with_columns(
+            pl.col("parameter").str.to_lowercase(),
+            pl.col("quality_flags").cast(pl.Int8).cast(pl.String),
+        )
     )
 
 

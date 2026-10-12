@@ -14,8 +14,8 @@ wide feature per timestamp. Station metadata comes from the `aws_station` featur
 All timestamps are true UTC instants; daily aggregates are labelled at UTC midnight. The values
 therefore need no timezone adjustment.
 
-Each value carries a quality code derived from the source `qc_flags` validation map: `1.0` when
-the parameter is validated, `0.0` when it is not.
+Each value carries a code in `quality_flags` derived from the source `qc_flags` validation map: `1`
+when the parameter is validated, `0` when it is not.
 
 ## License
 

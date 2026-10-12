@@ -223,7 +223,6 @@ class GeosphereObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
             pl.col("value"),
-            pl.lit(None, pl.Float64).alias("quality"),
         )
 
 

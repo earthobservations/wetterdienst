@@ -52,8 +52,7 @@ _EMPTY_VALUES_SCHEMA = {
     "station_id": pl.String,
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
-    "quality": pl.Float64,
-    "quality_flag": pl.String,
+    "quality_flags": pl.String,
 }
 
 # monthly/annual elements as (category, TIMEFUNCTION, MDFUNCTION): the daily value that is
@@ -238,8 +237,7 @@ class ChmiObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
             pl.col("value"),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
-            pl.col("quality_flag"),
+            pl.col("quality_flags"),
         )
 
 

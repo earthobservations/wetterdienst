@@ -96,7 +96,7 @@ describe('query-validator', () => {
       // Query returns fewer columns than expected, so required columns are missing.
       const result = validateColumns(
         ['station_id', 'value'],
-        ['station_id', 'value', 'timestamp', 'quality'],
+        ['station_id', 'value', 'timestamp', 'quality_flags'],
       )
       expect(result.valid).toBe(false)
       expect(result.messageKey).toBe('validation.missingColumns')

@@ -107,7 +107,7 @@ const row = {
   parameter: 'temperature_air_mean_2m',
   timestamp: '2020-01-01T00:00:00Z',
   value: 1.5,
-  quality: null,
+  quality_flags: null,
 }
 
 // DataViewer's copy buttons use UTooltip, which needs the TooltipProvider app.vue's <UApp> supplies;
@@ -226,7 +226,7 @@ describe('dataViewer downloads', () => {
     expect(asked).toBe(1)
     const text = await saved[0]!.text()
     // every column the rows carry, those the column picker hides by default included
-    expect(text.split('\n')[0]).toBe('station_id,resolution,dataset,parameter,timestamp,value,quality')
+    expect(text.split('\n')[0]).toBe('station_id,resolution,dataset,parameter,timestamp,value,quality_flags')
     expect(text.split('\n')[1]).toContain('01048')
     expect(text.split('\n')[1]).toContain('1.5')
   })
@@ -459,7 +459,7 @@ describe('dataViewer downloads', () => {
     await wrapper.findAll('button[data-grace-area-trigger]')[1]!.trigger('click')
     await vi.waitFor(() => expect(copied).toHaveLength(1))
     // the picker's defaults: resolution and dataset hidden
-    expect(copied[0]!.split('\n')[0]).toBe('station_id,parameter,timestamp,value,quality')
+    expect(copied[0]!.split('\n')[0]).toBe('station_id,parameter,timestamp,value,quality_flags')
   })
 
   it('does not offer GeoJSON again while one is being downloaded', async () => {
@@ -683,7 +683,7 @@ describe('dataViewer query panel', () => {
       asked = true
       await hold.opened
       // a quality of its own, as an Arrow table built from rows drops a column that is null in every one
-      return rows(1, '01048').map(row => ({ ...row, value: 99, quality: 1 }))
+      return rows(1, '01048').map(row => ({ ...row, value: 99, quality_flags: '1' }))
     }
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
     await fetchData(viewer)
@@ -737,10 +737,10 @@ describe('dataViewer columns', () => {
     expect(wrapper.findComponent(QueryPanel).props('expectedColumns')).toContain(column)
   })
 
-  it('shows the flag a provider publishes next to the quality', async () => {
-    // the source's own flag, a string where `quality` is a number: ECCC's `E` for an estimated day (GH-2018)
-    // and a column the table orders after it, which would otherwise come out ahead of the flag
-    registerEndpoint('/api/values', () => ({ values: [{ ...row, taken_station_id: '01048', quality_flag: 'E' }] }))
+  it('shows the flags a provider publishes next to the value', async () => {
+    // the source's own flags, one string: the quality flag plain and the further kinds as `kind:code` (GH-2018, GH-2758),
+    // and a column the table orders after it, which would otherwise come out ahead of the flags
+    registerEndpoint('/api/values', () => ({ values: [{ ...row, taken_station_id: '01048', quality_flags: 'G,measurement:T,source:7' }] }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     expect(picked(wrapper)).toEqual([
@@ -748,10 +748,10 @@ describe('dataViewer columns', () => {
       'parameter',
       'timestamp',
       'value',
-      'quality',
-      'quality_flag',
+      'quality_flags',
       'taken_station_id',
     ])
+    expect(wrapper.text()).toContain('G,measurement:T,source:7')
   })
 
   it('takes the columns of the station rows a Fetch replaces interpolated rows with', async () => {
@@ -763,7 +763,7 @@ describe('dataViewer columns', () => {
     await wrapper.vm.$nextTick()
     await fetchData(viewer)
     await wrapper.vm.$nextTick()
-    expect(picked(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
+    expect(picked(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality_flags'])
     expect(wrapper.findComponent(QueryPanel).props('expectedColumns')).toEqual(Object.keys(row))
   })
 
@@ -775,7 +775,7 @@ describe('dataViewer columns', () => {
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await wrapper.vm.$nextTick()
-    // no empty parameter, value and quality, where the measurement was left out
+    // no empty parameter, value and quality_flags, where the measurement was left out
     expect(headers(wrapper)).toEqual(['station_id', 'timestamp', 'temperature_air_mean_2m'])
     expect(pageShown(wrapper).rows[0]).toContain('1.5')
     const copied: string[] = []
@@ -869,7 +869,7 @@ describe('dataViewer columns', () => {
     expect(headers(wrapper)).toEqual(['parameter'])
     panel.vm.$emit('dataTransformed', panel.props('data'))
     await wrapper.vm.$nextTick()
-    expect(headers(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality'])
+    expect(headers(wrapper)).toEqual(['station_id', 'parameter', 'timestamp', 'value', 'quality_flags'])
     panel.vm.$emit('dataTransformed', [{ parameter: 'temperature_air_mean_2m', avg_value: 3.5 }])
     await wrapper.vm.$nextTick()
     expect(headers(wrapper)).toEqual(['parameter'])
@@ -995,7 +995,7 @@ describe('dataViewer query panel columns', () => {
     return hint!.find('code').text().split(', ')
   }
 
-  it('lists the columns a wide-shaped table carries, its parameters in place of parameter, value and quality', async () => {
+  it('lists the columns a wide-shaped table carries, its parameters in place of parameter, value and quality_flags', async () => {
     registerEndpoint('/api/values', () => ({ values: [{ station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5, precipitation_height: 0.2 }] }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
@@ -1003,13 +1003,13 @@ describe('dataViewer query panel columns', () => {
     expect(await availableColumns(wrapper)).toEqual(['station_id', 'resolution', 'dataset', 'timestamp', 'temperature_air_mean_2m', 'precipitation_height'])
   })
 
-  // each point mode's rows as the REST API answers them, with a distance of their own and no quality.
+  // each point mode's rows as the REST API answers them, with a distance of their own and no quality_flags.
   // The distance comes first, so that the list is seen to follow the table's order, not the rows'
-  const { quality: _, ...measured } = row
+  const { quality_flags: _, ...measured } = row
   it.each([
     { mode: 'interpolation', endpoint: '/api/interpolate', values: [{ distance_mean: 12.3, ...measured, taken_station_ids: ['01048', '04411'] }], columns: ['taken_station_ids', 'distance_mean'] },
     { mode: 'summary', endpoint: '/api/summarize', values: [{ distance: 4.2, ...measured, taken_station_id: '01048' }], columns: ['taken_station_id', 'distance'] },
-  ] as const)('lists the $mode rows\' own columns, after the table\'s, and no quality', async ({ mode, endpoint, values, columns }) => {
+  ] as const)('lists the $mode rows\' own columns, after the table\'s, and no quality_flags', async ({ mode, endpoint, values, columns }) => {
     registerEndpoint(endpoint, () => ({ values }))
     const { wrapper, viewer } = await mountDataViewer(ref(atPoint(mode)))
     await fetchData(viewer)
@@ -1024,7 +1024,7 @@ describe('dataViewer query panel columns', () => {
     wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [{ parameter: 'temperature_air_mean_2m', avg_value: 2.5 }])
     await wrapper.vm.$nextTick()
     expect(headers(wrapper)).toEqual(['parameter', 'avg_value'])
-    expect(await availableColumns(wrapper)).toEqual(['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality'])
+    expect(await availableColumns(wrapper)).toEqual(['station_id', 'resolution', 'dataset', 'parameter', 'timestamp', 'value', 'quality_flags'])
   })
 })
 
@@ -1633,7 +1633,7 @@ describe('dataViewer sort of numbers and text in one column', () => {
 })
 
 describe('dataViewer column picker while the table is empty', () => {
-  // a wide-shaped row: a column per parameter, and no parameter, value or quality
+  // a wide-shaped row: a column per parameter, and no parameter, value or quality_flags
   const wide = { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5 }
 
   // the columns the picker offers, ticked or not, and whether it can be opened
@@ -1646,7 +1646,7 @@ describe('dataViewer column picker while the table is empty', () => {
   it('offers no columns and is disabled until a Fetch fills the table, then the rows\' own', async () => {
     registerEndpoint('/api/values', () => ({ values: [wide] }))
     const { wrapper, viewer } = await mountDataViewer()
-    // where it offered the long shape's parameter, value and quality, which the wide rows lack
+    // where it offered the long shape's parameter, value and quality_flags, which the wide rows lack
     expect(picker(wrapper)).toEqual({ items: [], disabled: true })
     await fetchData(viewer)
     await wrapper.vm.$nextTick()
@@ -1858,7 +1858,7 @@ describe('dataViewer parameter statistics of rows that are not long values', () 
   }
 
   it('takes none of a wide-shaped table, where it showed one row for an undefined parameter', async () => {
-    const wide = { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5, temperature_air_mean_2m_quality: 10 }
+    const wide = { station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5, temperature_air_mean_2m_quality_flags: '10' }
     registerEndpoint('/api/values', () => ({ values: [wide] }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)

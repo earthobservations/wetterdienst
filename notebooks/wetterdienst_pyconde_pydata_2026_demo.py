@@ -507,7 +507,7 @@ def _(con, mo):
             s.name        AS station,
             s.region,
             v.value       AS precipitation_amount_mm,
-            v.quality
+            v.quality_flags
         FROM "values" v
         JOIN stations s USING (station_id)
         WHERE v.parameter = 'precipitation_amount'

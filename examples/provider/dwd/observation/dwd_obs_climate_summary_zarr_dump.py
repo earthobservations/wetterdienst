@@ -23,7 +23,7 @@ def create_dwd_climate_summary_zarr_dump(filepath: Path, *, test: bool) -> None:
     meta = request.df
     data = []
     for result in tqdm(request.values.query(), total=meta.shape[0]):
-        df = result.df.drop("quality").to_pandas()
+        df = result.df.drop("quality_flags").to_pandas()
         df["timestamp"] = df["timestamp"].map(lambda timestamp: timestamp.to_datetime64())
         df = df.set_index(["station_id", "dataset", "parameter", "timestamp"])
         ds = df.to_xarray()

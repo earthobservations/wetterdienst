@@ -34,6 +34,7 @@ from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.knmi.observation.metadata import KnmiObservationMetadata
 from wetterdienst.provider.knmi.observation.parser import decode_str, parse_knmi_netcdf, public_station_id
 from wetterdienst.settings import reveal
+from wetterdienst.util.extras import import_optional
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -261,7 +262,6 @@ class KnmiObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
             pl.col("value"),
-            pl.lit(None, pl.Float64).alias("quality"),
         )
 
     @staticmethod
@@ -274,7 +274,6 @@ class KnmiObservationValues(TimeseriesValues):
                 "station_id": pl.String,
                 "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
                 "value": pl.Float64,
-                "quality": pl.Float64,
             },
         )
 
@@ -372,7 +371,7 @@ class KnmiObservationRequest(TimeseriesRequest):
             log.warning(f"Failed to fetch KNMI {resolution.value} stations: {payload}")
             return None
 
-        import h5netcdf  # noqa: PLC0415
+        h5netcdf = import_optional("h5netcdf", "Reading KNMI NetCDF", extra="knmi")
 
         with h5netcdf.File(io.BytesIO(payload), "r") as file:
             variables = file.variables

@@ -252,10 +252,10 @@ def test_ea_daily_window_with_more_readings_than_days_keeps_the_last_day(
     ]
 
 
-def test_ea_reading_quality_word_is_kept_in_quality_flag(
+def test_ea_reading_quality_word_is_kept_in_quality_flags(
     monkeypatch: pytest.MonkeyPatch, default_settings: Settings
 ) -> None:
-    """Test that a reading's `quality` word is returned verbatim in `quality_flag`, and `quality` stays null (GH-2018).
+    """Test that a reading's `quality` word is returned verbatim in `quality_flags` (GH-2018, GH-2758).
 
     The word was part of the readings schema and then replaced by a null Float64. The Environment Agency's
     reference (environment.data.gov.uk/hydrology/doc/reference, "Quality flags"): "quality: The quality of this
@@ -275,5 +275,6 @@ def test_ea_reading_quality_word_is_kept_in_quality_flag(
         settings=default_settings,
     )
     df = request.all().values.all().df.sort("timestamp")
-    assert df.select("value", "quality_flag").rows() == [(0.448, "Good"), (0.359, "Suspect"), (0.304, "Estimated")]
-    assert df.get_column("quality").null_count() == df.height
+    assert df.select("value", "quality_flags").rows() == [(0.448, "Good"), (0.359, "Suspect"), (0.304, "Estimated")]
+    assert "quality" not in df.columns
+    assert "quality_flag" not in df.columns

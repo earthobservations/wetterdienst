@@ -19,6 +19,7 @@ from wetterdienst.model.metadata import (
     ParameterModel,
     build_metadata_model,
 )
+from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file
@@ -296,9 +297,8 @@ class EAHydrologyValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             timestamp.alias("timestamp"),
             pl.col("value"),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
             # the reading's own "quality" word (Good, Estimated, Suspect, Unchecked, Missing), verbatim (GH-2018)
-            pl.col("quality").alias("quality_flag"),
+            join_quality_flags(pl.col("quality")),
         )
 
 

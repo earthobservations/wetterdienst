@@ -340,7 +340,6 @@ class MeteoswissObservationValues(TimeseriesValues):
             .dt.replace_time_zone("UTC")
             .alias("timestamp"),
             pl.col("value").cast(pl.Float64, strict=False),
-            pl.lit(None, pl.Float64).alias("quality"),
         )
 
 

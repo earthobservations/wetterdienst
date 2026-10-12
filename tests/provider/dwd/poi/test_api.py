@@ -112,7 +112,15 @@ def test_dwd_poi_values() -> None:
     request = DwdPoiRequest(parameters=[("hourly", "data")]).filter_by_station_id(["10147"])
     df = request.values.all().df
     assert not df.is_empty()
-    assert set(df.columns) >= {"station_id", "resolution", "dataset", "parameter", "timestamp", "value", "quality"}
+    assert set(df.columns) >= {
+        "station_id",
+        "resolution",
+        "dataset",
+        "parameter",
+        "timestamp",
+        "value",
+        "quality_flags",
+    }
     dates = df.get_column("timestamp")
     assert dates.dtype.time_zone == "UTC"
     span = dates.max() - dates.min()
