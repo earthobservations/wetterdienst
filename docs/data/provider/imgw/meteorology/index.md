@@ -15,14 +15,14 @@ monthly summaries are provided.
 ## Status columns
 
 Every measurement in these files is followed by a status column, documented per file in the
-`*_format.txt` beside the data. It is read, and carried into `quality`:
+`*_format.txt` beside the data. It is read, and carried verbatim into `quality_flags`:
 
-| status  | meaning                                           | value         | `quality` |
-|---------|---------------------------------------------------|---------------|-----------|
-| blank   | the value is a measurement                        | as published  | null      |
-| `8`     | *brak pomiaru* -- no measurement                  | null          | 8         |
-| `9`     | *brak zjawiska* -- the phenomenon did not occur   | 0             | 9         |
-| `Z`     | *opad zbiorczy* -- a collective total (`o_d` only)| as published  | 10        |
+| status  | meaning                                           | value         | `quality_flags` |
+|---------|---------------------------------------------------|---------------|-----------------|
+| blank   | the value is a measurement                        | as published  | null            |
+| `8`     | *brak pomiaru* -- no measurement                  | null          | `8`             |
+| `9`     | *brak zjawiska* -- the phenomenon did not occur   | 0             | `9`             |
+| `Z`     | *opad zbiorczy* -- a collective total (`o_d` only)| as published  | `Z`             |
 
 Neither code can be taken from the value column, because the files do not write it the same way
 twice. Where the status is `8` the value is not left empty but holds a literal zero, which is why
@@ -31,18 +31,17 @@ day of a Polish January. Where the status is `9` the cell holds a literal zero i
 nothing at all in others, for the same parameter months apart, so `9` is returned as the zero it
 means rather than passed through.
 
-`8` and `9` are IMGW's own codes. `quality` is a numeric column and `Z` is a letter, so `Z` is
-reported as 10, one of two codes here this library assigns itself. An *opad zbiorczy* is a sum over
-the preceding days that were not measured, published on the day the reading was taken without
-saying which days it covers, so the value is kept -- it is a real measurement -- and the 10 is what
-says it is not that day's total alone.
+`8`, `9` and `Z` are IMGW's own codes. An *opad zbiorczy* is a sum over the preceding days that were
+not measured, published on the day the reading was taken without saying which days it covers, so the
+value is kept -- it is a real measurement -- and the `Z` is what says it is not that day's total
+alone. (While the column was numeric, `Z` was reported as 10.)
 
-The other is 11. `o_d_format.txt` adds that *brak zjawiska* covers a day absent from a month that is
+One code here this library assigns itself: `11`. `o_d_format.txt` adds that *brak zjawiska* covers a day absent from a month that is
 itself present ("Brak zjawiska to również brak dnia w istniejącym miesiącu"), and the older `o_d`
 files rely on it: `o_d_02_2010` carries 14,229 rows for the 26,796 days in its stations' months,
 while `o_d_07_2024` writes every day out, with status `9` on the dry ones. `daily/precipitation`
-returns such a day as 0 mm with `quality` 11, so that a dry day reads the same whichever year IMGW
-wrote the file in, and 11 rather than 9 because no status in the file says so. Only
+returns such a day as 0 mm with `quality_flags` `11`, so that a dry day reads the same whichever year IMGW
+wrote the file in, and `11` rather than `9` because no status in the file says so. Only
 `precipitation_amount` is filled: a day without rain is not a day without snow cover. A month the
 station has no row in at all is left empty, and `daily/climate` and `daily/synop` are read as
 published, since their format files carry no such sentence.

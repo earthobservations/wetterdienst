@@ -16,7 +16,7 @@ https://opendata.dwd.de/climate_environment/CDC/observations_germany/phenology/.
 That file layout is what the model follows: one **dataset per plant** (all of its phases arrive
 in one file) and one **parameter per phenological phase**. A value is ``Jultag``, the day of the
 year the phase was reached, dated to the 1st of January of ``Referenzjahr`` at the ``annual``
-resolution; ``quality`` carries ``Qualitaetsniveau``. A parameter's ``name_original`` is the
+resolution; ``quality_flags`` carries ``Qualitaetsniveau``. A parameter's ``name_original`` is the
 numeric ``Phase_id``, which is the only name the data files themselves use for a phase.
 
 The plant and phase tables below are transcribed from the descriptions DWD publishes beside the

@@ -51,14 +51,14 @@ def test_parse_values() -> None:
             "parameter": "5",
             "timestamp": dt.datetime(2024, 1, 1, tzinfo=UTC),
             "value": 27.0,
-            "quality": 10.0,
+            "quality_flags": "10",
         },
         {
             "station_id": "07521",
             "parameter": "5",
             "timestamp": dt.datetime(2025, 1, 1, tzinfo=UTC),
             "value": 41.0,
-            "quality": 1.0,
+            "quality_flags": "1",
         },
     ]
 
@@ -84,7 +84,7 @@ def test_parse_values_beet_header_variant() -> None:
             "parameter": "10",
             "timestamp": dt.datetime(2024, 1, 1, tzinfo=UTC),
             "value": 92.0,
-            "quality": 10.0,
+            "quality_flags": "10",
         },
     ]
 
@@ -99,7 +99,7 @@ def test_parse_values_empty() -> None:
     """A header-only or empty file yields an empty frame with the expected schema."""
     df = _parse_values(b"", object_id=113)
     assert df.is_empty()
-    assert df.columns == ["station_id", "parameter", "timestamp", "value", "quality"]
+    assert df.columns == ["station_id", "parameter", "timestamp", "value", "quality_flags"]
 
 
 def test_file_url_recent() -> None:
@@ -288,7 +288,7 @@ def test_phenology_values_recent() -> None:
     assert df["dataset"].unique().to_list() == ["annual_common_hazel"]
     row = df.filter(pl.col("timestamp") == dt.datetime(2024, 1, 1, tzinfo=UTC)).to_dicts()[0]
     assert row["value"] == 27.0
-    assert row["quality"] == 10.0
+    assert row["quality_flags"] == "10"
 
 
 @pytest.mark.remote

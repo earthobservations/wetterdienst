@@ -121,6 +121,34 @@ def test_metno_frost_values_404_reaches_the_discovery_fallback(monkeypatch: pyte
     assert df["value"].to_list() == [2.7]
 
 
+def test_metno_frost_values_carry_the_quality_code_as_a_whole_number(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that Frost's `qualityCode` comes back in `quality_flags` as the digit its table lists (GH-2018, GH-2758).
+
+    frost.met.no/dataclarifications.html, "Quality code": "Frost tries to give the user a single value to represent
+    the general quality of the observation. This value is set in the field qualityCode": 0 "OK, value is controlled
+    and found O.K.", 1 "OK, value is controlled and corrected, or value is missing and interpolated", 2 "Slightly
+    uncertain, value is not controlled", 4 "Slightly uncertain, value is not corrected", 5 "Very uncertain, value
+    is not corrected", 6 "Very uncertain, model data", 7 "Erroneous, value is not corrected". A code is no scale.
+    """
+    payload = {
+        "data": [
+            {
+                "sourceId": "SN18700:0",
+                "referenceTime": f"2020-01-01T0{hour}:00:00.000Z",
+                "observations": [{"elementId": "air_temperature", "value": 2.7 + hour, "qualityCode": code}],
+            }
+            for hour, code in enumerate((0, 1, 7))
+        ],
+    }
+    values, _ = _values(
+        monkeypatch, lambda url: _ok(url, payload), end=dt.datetime(2020, 1, 1, 3, tzinfo=ZoneInfo("UTC"))
+    )
+    df = values.all().df.sort("timestamp")
+    assert df.schema["quality_flags"] == pl.String
+    assert df.get_column("quality_flags").to_list() == ["0", "1", "7"]
+    assert "quality" not in df.columns
+
+
 def test_metno_frost_hourly_wind_is_named_for_its_ten_minutes(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that Frost's hourly wind, the means of the last ten minutes, is named so (GH-2707).
 

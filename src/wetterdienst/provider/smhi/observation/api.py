@@ -16,6 +16,7 @@ from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.smhi.observation.metadata import SmhiObservationMetadata
@@ -51,8 +52,7 @@ _EMPTY_VALUES_SCHEMA = {
     "station_id": pl.String,
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
-    "quality": pl.Float64,
-    "quality_flag": pl.String,
+    "quality_flags": pl.String,
 }
 
 
@@ -151,8 +151,7 @@ class SmhiObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
             pl.col("value").cast(pl.Float64, strict=False),
-            pl.lit(None, pl.Float64).alias("quality"),
-            pl.col("quality_flag").str.strip_chars().replace("", None),
+            join_quality_flags(pl.col("quality_flags")),
         )
 
 

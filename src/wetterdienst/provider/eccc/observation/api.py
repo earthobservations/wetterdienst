@@ -14,6 +14,7 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetadata
@@ -61,8 +62,7 @@ class EcccObservationValues(TimeseriesValues):
         """Convert wide-format dataframe to long format, pairing value columns with their *_flag columns.
 
         The flag is the source's own letter (`M` missing, `E` estimated, `T` trace, ...), kept verbatim
-        in `quality_flag`: it has no number to be turned into, and `quality` stays null. Monthly rows
-        carry no flags, so theirs is null.
+        in `quality_flags`. Monthly rows carry no flags, so theirs is null.
         """
         # column names arrive lower-cased; `date` is the time axis, made `timestamp` further down
         schema_names = df.collect_schema().names()
@@ -80,7 +80,7 @@ class EcccObservationValues(TimeseriesValues):
         if not flag_columns:
             return df_values.with_columns(
                 pl.col("value").cast(pl.Float64),
-                pl.lit(None, dtype=pl.String).alias("quality_flag"),
+                pl.lit(None, dtype=pl.String).alias("quality_flags"),
             )
         # Unpivot flag columns (strip _flag suffix so parameter names align)
         df_flags = df.select(["date", *flag_columns]).rename({col: col.removesuffix("_flag") for col in flag_columns})
@@ -89,7 +89,7 @@ class EcccObservationValues(TimeseriesValues):
             on=flag_value_columns,
             index="date",
             variable_name="parameter",
-            value_name="quality_flag",
+            value_name="quality_flags",
         )
         return df_values.join(df_flags, on=["date", "parameter"], how="left").with_columns(
             pl.col("value").cast(pl.Float64),
@@ -240,8 +240,7 @@ class EcccObservationValues(TimeseriesValues):
                 pl.lit(station_id, dtype=pl.String).alias("station_id"),
                 timestamp.alias("timestamp"),
                 "value",
-                pl.lit(None, dtype=pl.Float64).alias("quality"),
-                "quality_flag",
+                join_quality_flags(pl.col("quality_flags")),
             )
             data.append(df)
         return pl.concat(data).collect()

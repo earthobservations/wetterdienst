@@ -22,7 +22,7 @@ const values = Array.from({ length: 24 }, (_, hour) => ({
   parameter: 'temperature_air_2m',
   timestamp: `2026-10-01T${String(hour).padStart(2, '0')}:00:00+00:00`,
   value: 10 + hour / 4,
-  quality: null,
+  quality_flags: null,
 }))
 
 // a failing Plotly load can take seconds on a busy runner, past the default test timeout

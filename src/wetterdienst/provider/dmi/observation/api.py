@@ -64,7 +64,6 @@ _EMPTY_VALUES_SCHEMA = {
     "station_id": pl.String,
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
-    "quality": pl.Float64,
 }
 
 _STATION_VALUE_SCHEMA = pl.Schema(
@@ -308,7 +307,6 @@ class DmiObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             self._date_expression(resolution).alias("timestamp"),
             pl.col("value").cast(pl.Float64),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
 

@@ -417,7 +417,6 @@ class WsvPegelValues(TimeseriesValues):
             pl.lit(parameter_or_dataset.name_original).alias("parameter"),
             pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S%z"),
             (pl.col("value") * factor) if factor != 1.0 else pl.col("value"),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
 

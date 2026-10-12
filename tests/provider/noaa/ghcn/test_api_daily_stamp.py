@@ -84,9 +84,14 @@ def test_ghcn_daily_is_stamped_at_00_utc_of_its_date(
     ]
 
 
-# The attributes are "MFLAG,QFLAG,SFLAG" (ghcn/daily/readme.txt): "Blank = did not fail any quality assurance check",
-# otherwise the check the value failed, "X = failed bounds check", "G = failed gap check", ... The rows are USW00094728
-# (checked 2026-10-11 against the live file, whose QFLAGs are X, I, L, G and W besides blank).
+# The attributes are "MFLAG,QFLAG,SFLAG" (ghcn/daily/readme.txt), PRCP, SNOW and SNWD with the observation time as a
+# fourth field. QFLAG: "Blank = did not fail any quality assurance check", otherwise the check the value failed,
+# "X = failed bounds check", "G = failed gap check", "I = failed internal consistency check", ... MFLAG: "Blank = no
+# measurement information applicable", "T = trace of precipitation, snowfall, or snow depth", "H = for TMAX/TMIN/TAVG
+# represents highest or lowest hourly temperature". SFLAG: "0 = U.S. Cooperative Summary of the Day (NCDC DSI-3200)",
+# "7 = U.S. Cooperative Summary of the Day -- Transmitted via WxCoder3 (NCDC DSI-3207)", "S = Global Summary of the
+# Day". The rows are made up from the combinations USW00094728 shows in the live file (checked 2026-10-12: `,,0`,
+# `T,,0,2400`, `,I,Z`, `,,X`, ...).
 _FLAGGED = (
     '"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","PRCP","PRCP_ATTRIBUTES","TMAX","TMAX_ATTRIBUTES"\n'
     '"USW00094728","2000-01-01","40.77898","-73.96925","42.7","NY CITY, NY US","    0",",,0","   61",",,0"\n'
@@ -95,12 +100,12 @@ _FLAGGED = (
 )
 
 
-def test_ghcn_daily_returns_the_quality_flag_of_each_value(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that the quality flag in a value's attributes is returned in `quality_flag`, blank as null (GH-2018).
+def test_ghcn_daily_returns_the_flags_of_each_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a value's flags come back as `QFLAG,measurement:MFLAG,source:SFLAG` in `quality_flags` (GH-2758).
 
     The attributes were dropped with the other columns the value did not need, so a value that failed the bounds or
-    the gap check came back as any other. The measurement and the source flag, which say how the value was made and
-    where it came from, are no quality information and are not carried.
+    the gap check came back as any other. The quality flag is the plain token and comes first, the measurement and the
+    source flag follow with their kind; a blank flag is left out and a value with no attributes at all is null.
     """
     serve(
         monkeypatch,
@@ -118,13 +123,14 @@ def test_ghcn_daily_returns_the_quality_flag_of_each_value(monkeypatch: pytest.M
         settings=Settings(cache_disable=True, ts_drop_nulls=False),
     ).filter_by_station_id("USW00094728")
     df = request.values.all().df.with_columns(pl.col("parameter").cast(pl.String)).sort("parameter", "timestamp")
-    assert df.schema["quality_flag"] == pl.String
-    assert df.get_column("quality").null_count() == df.height
-    assert df.select("parameter", "quality_flag").rows() == [
+    assert df.schema["quality_flags"] == pl.String
+    assert "quality" not in df.columns
+    assert "quality_flag" not in df.columns
+    assert df.select("parameter", "quality_flags").rows() == [
+        ("precipitation_amount", "source:0"),
+        ("precipitation_amount", "X,measurement:T,source:0"),
         ("precipitation_amount", None),
-        ("precipitation_amount", "X"),
-        ("precipitation_amount", None),
-        ("temperature_air_max_2m", None),
-        ("temperature_air_max_2m", "G"),
-        ("temperature_air_max_2m", None),
+        ("temperature_air_max_2m", "source:0"),
+        ("temperature_air_max_2m", "G,source:7"),
+        ("temperature_air_max_2m", "measurement:H,source:S"),
     ]

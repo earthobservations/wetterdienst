@@ -18,15 +18,15 @@ Types of changes:
 
 ### Changed
 
-- **Breaking**: every values frame has a `quality_flag` string column after `quality` (wide:
-  `<parameter>_quality_flag` after `<parameter>_quality`): the source's flag or code for the
-  reading, filled by `eccc/observation` (not monthly), `ea/hydrology`, `meteofrance/observation`,
-  `noaa/ghcn` daily, `chmi/observation` (not monthly or annual), `nws/observation` and
-  `smhi/observation`, which dropped it; null for every other provider. `quality` is unchanged.
-  Select columns by name, not position: positions move and the count grows by one. Append to a
-  table written before (any SQL target) only after adding the column or recreating it. A bare
-  `df.drop_nulls()` on a values frame now drops every row whose flag is null: use
-  `drop_nulls("value")`. Interpolated and summarized frames are unchanged (GH-2018)
+- **Breaking**: the `quality` number of every values frame is replaced by one nullable string
+  column `quality_flags` (wide: `<parameter>_quality` by `<parameter>_quality_flags`) holding every
+  flag the source publishes, comma-separated: the quality flag plain (`T`, `Good`, `3`), further
+  kinds as `kind:code` (`noaa/ghcn` daily `G,measurement:T,source:7`, `chmi/observation`
+  `3,element:E`); null where there is none. It fills what `eccc`, `ea`, `meteofrance`, `noaa/ghcn`,
+  `chmi`, `nws` and `smhi` dropped, and `imgw/meteorology` keeps `Z` where it wrote 10. Where you
+  used the number, cast it, `pl.col("quality_flags").cast(pl.Int64, strict=False)` (`Z` is no
+  number); select by name, as columns move; SQL tables need the new column. Interpolated and
+  summarized frames have no flags column (GH-2018, GH-2755, GH-2757, GH-2758)
 - **Breaking**: `metno/frost` `daily` `snow_depth` is stamped at 00:00 UTC of the date of its
   reading, no longer at the time of the reading (usually 06:00 UTC), like the other daily
   parameters. Join stored snow depth on the date (GH-2729)

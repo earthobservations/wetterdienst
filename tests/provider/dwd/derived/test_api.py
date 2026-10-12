@@ -190,8 +190,7 @@ def test_dwd_recent_data_result_long_single_parameter(
         "parameter",
         "timestamp",
         "value",
-        "quality",
-        "quality_flag",
+        "quality_flags",
     ]
     expected_df = pl.DataFrame(
         {
@@ -209,12 +208,11 @@ def test_dwd_recent_data_result_long_single_parameter(
                 98.5,
                 93.0,
             ],
-            "quality": [
+            "quality_flags": [
                 None,
                 None,
                 None,
             ],
-            "quality_flag": [None] * 3,
         },
         schema={
             "station_id": pl.Enum(["00044"]),
@@ -223,8 +221,7 @@ def test_dwd_recent_data_result_long_single_parameter(
             "parameter": pl.Enum(["heating_degree_day"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
-            "quality_flag": pl.String,
+            "quality_flags": pl.String,
         },
         orient="col",
     )
@@ -257,8 +254,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
         "dataset",
         "timestamp",
         "heating_degree_day",
-        "heating_degree_day_quality",
-        "heating_degree_day_quality_flag",
+        "heating_degree_day_quality_flags",
     ]
     expected_df = pl.DataFrame(
         {
@@ -275,12 +271,11 @@ def test_dwd_recent_data_result_wide_single_parameter(
                 98.5,
                 93.0,
             ],
-            "heating_degree_day_quality": [
+            "heating_degree_day_quality_flags": [
                 None,
                 None,
                 None,
             ],
-            "heating_degree_day_quality_flag": [None] * 3,
         },
         schema={
             "station_id": pl.Enum(["00044"]),
@@ -288,8 +283,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
             "dataset": pl.Enum(["heating_degreedays"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "heating_degree_day": pl.Float64,
-            "heating_degree_day_quality": pl.Float64,
-            "heating_degree_day_quality_flag": pl.String,
+            "heating_degree_day_quality_flags": pl.String,
         },
         orient="col",
     )
@@ -320,8 +314,7 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
         "parameter",
         "timestamp",
         "value",
-        "quality",
-        "quality_flag",
+        "quality_flags",
     ]
     expected_df = pl.DataFrame(
         {
@@ -337,11 +330,10 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
                 430.7,
                 201.9,
             ],
-            "quality": [
+            "quality_flags": [
                 None,
                 None,
             ],
-            "quality_flag": [None] * 2,
         },
         schema={
             "station_id": pl.Enum(["00044"]),
@@ -350,8 +342,7 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
             "parameter": pl.Enum(["heating_degree_day"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
-            "quality_flag": pl.String,
+            "quality_flags": pl.String,
         },
         orient="col",
     )
@@ -382,8 +373,7 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
         "parameter",
         "timestamp",
         "value",
-        "quality",
-        "quality_flag",
+        "quality_flags",
     ]
     expected_df = pl.DataFrame(
         {
@@ -396,11 +386,10 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
                 datetime.datetime(2014, 8, 1, tzinfo=ZoneInfo("UTC")),
             ],
             "value": [2240.6, 2549.5],
-            "quality": [
+            "quality_flags": [
                 None,
                 None,
             ],
-            "quality_flag": [None] * 2,
         },
         schema={
             "station_id": pl.Enum(["00044"]),
@@ -409,8 +398,7 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
             "parameter": pl.Enum(["cooling_degree_hour"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
-            "quality_flag": pl.String,
+            "quality_flags": pl.String,
         },
         orient="col",
     )
@@ -449,8 +437,7 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
         "parameter",
         "timestamp",
         "value",
-        "quality",
-        "quality_flag",
+        "quality_flags",
     ]
     expected_df = pl.DataFrame(
         {
@@ -478,11 +465,7 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
                 350.0,
                 744.0,
             ],
-            "quality": [
-                None,
-            ]
-            * 8,
-            "quality_flag": [None] * 8,
+            "quality_flags": [None] * 8,
         },
         schema={
             "station_id": pl.Enum(["00071"]),
@@ -498,8 +481,7 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
             ),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
-            "quality_flag": pl.String,
+            "quality_flags": pl.String,
         },
         orient="col",
     )
@@ -532,8 +514,7 @@ def test_dwd_recent_data_result_long_single_dataset(
         "parameter",
         "timestamp",
         "value",
-        "quality",
-        "quality_flag",
+        "quality_flags",
     ]
     expected_df = pl.DataFrame(
         {
@@ -573,7 +554,7 @@ def test_dwd_recent_data_result_long_single_dataset(
                 98.5,
                 93.0,
             ],
-            "quality": [
+            "quality_flags": [
                 None,
                 None,
                 None,
@@ -584,7 +565,6 @@ def test_dwd_recent_data_result_long_single_dataset(
                 None,
                 None,
             ],
-            "quality_flag": [None] * 9,
         },
         schema={
             "station_id": pl.Enum(["00044"]),
@@ -593,8 +573,7 @@ def test_dwd_recent_data_result_long_single_dataset(
             "parameter": pl.Enum(["count_days_heating_degree", "count_days_in_month", "heating_degree_day"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
-            "quality_flag": pl.String,
+            "quality_flags": pl.String,
         },
         orient="col",
     )
@@ -633,8 +612,7 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
         "parameter",
         "timestamp",
         "value",
-        "quality",
-        "quality_flag",
+        "quality_flags",
     ]
     expected_df = pl.DataFrame(
         {
@@ -660,11 +638,7 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
                 1.19,
                 1.14,
             ],
-            "quality": [
-                None,
-            ]
-            * 7,
-            "quality_flag": [None] * 7,
+            "quality_flags": [None] * 7,
         },
         schema={
             "station_id": pl.Enum(["01067"]),
@@ -673,8 +647,7 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
             "parameter": pl.Enum(["climate_correction_factor"]),
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
-            "quality_flag": pl.String,
+            "quality_flags": pl.String,
         },
         orient="col",
     )
@@ -701,8 +674,7 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
             "parameter": "thawing_thickness_bare_ground_max_month",
             "timestamp": datetime.datetime(2024, 5, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 0.0,
-            "quality": None,
-            "quality_flag": None,
+            "quality_flags": None,
         },
         {
             "station_id": "00150",
@@ -711,8 +683,7 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
             "parameter": "thawing_thickness_bare_ground_max_month",
             "timestamp": datetime.datetime(2024, 6, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 0.0,
-            "quality": None,
-            "quality_flag": None,
+            "quality_flags": None,
         },
         {
             "station_id": "00150",
@@ -721,8 +692,7 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
             "parameter": "thawing_thickness_bare_ground_max_month",
             "timestamp": datetime.datetime(2024, 7, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 0.0,
-            "quality": None,
-            "quality_flag": None,
+            "quality_flags": None,
         },
     ]
 
@@ -749,8 +719,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "parameter": "radiation_global",
             "timestamp": datetime.datetime(2024, 5, 5, 8, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 103.0,
-            "quality": 503.0,
-            "quality_flag": None,
+            "quality_flags": "503",
         },
         {
             "station_id": "18001",
@@ -759,8 +728,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "parameter": "radiation_global",
             "timestamp": datetime.datetime(2024, 5, 5, 9, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 114.0,
-            "quality": 503.0,
-            "quality_flag": None,
+            "quality_flags": "503",
         },
         {
             "station_id": "18001",
@@ -769,8 +737,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "parameter": "radiation_global",
             "timestamp": datetime.datetime(2024, 5, 5, 10, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 74.0,
-            "quality": 503.0,
-            "quality_flag": None,
+            "quality_flags": "503",
         },
         {
             "station_id": "18001",
@@ -779,8 +746,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "parameter": "radiation_global",
             "timestamp": datetime.datetime(2024, 5, 5, 11, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 42.0,
-            "quality": 503.0,
-            "quality_flag": None,
+            "quality_flags": "503",
         },
         {
             "station_id": "18001",
@@ -789,8 +755,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "parameter": "radiation_global",
             "timestamp": datetime.datetime(2024, 5, 5, 12, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 26.0,
-            "quality": 503.0,
-            "quality_flag": None,
+            "quality_flags": "503",
         },
         {
             "station_id": "18001",
@@ -799,8 +764,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "parameter": "radiation_global",
             "timestamp": datetime.datetime(2024, 5, 5, 13, 0, tzinfo=ZoneInfo(key="UTC")),
             "value": 84.0,
-            "quality": 503.0,
-            "quality_flag": None,
+            "quality_flags": "503",
         },
     ]
 
@@ -1048,9 +1012,6 @@ def test_process_dataframe_to_expected_format(
             "parameter": ["Monatsgradtage"],
             "timestamp": [input_date],
             "value": [12.3],
-            "quality": [
-                None,
-            ],
         },
         schema={
             "resolution": pl.String,
@@ -1058,7 +1019,6 @@ def test_process_dataframe_to_expected_format(
             "parameter": pl.String,
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
-            "quality": pl.Float64,
         },
         orient="col",
     )

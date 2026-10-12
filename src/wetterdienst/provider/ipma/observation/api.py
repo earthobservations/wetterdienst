@@ -44,7 +44,6 @@ _EMPTY_VALUES_SCHEMA = {
     "station_id": pl.String,
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
-    "quality": pl.Float64,
 }
 
 
@@ -108,7 +107,6 @@ class IpmaObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
             pl.col("value"),
-            pl.lit(None, dtype=pl.Float64).alias("quality"),
         )
 
 

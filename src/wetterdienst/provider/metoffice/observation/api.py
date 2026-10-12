@@ -21,8 +21,8 @@ Provider-specific handling, each established by live testing against the real ar
   decametres and is scaled to metres via ``_SCALE``.
 - **Quality.** The ``*_q`` column is MIDAS's raw ``MESQL`` five-digit compound QC flag (each digit a
   separate aspect; see https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html), *not* a
-  linear quality level. It is passed through unchanged into ``quality`` -- do not treat a larger
-  value as "worse".
+  linear quality level. It is passed through unchanged into ``quality_flags``, as the string the file
+  writes -- do not treat a larger value as "worse".
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ _EMPTY_VALUES_SCHEMA = {
     "station_id": pl.String,
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
-    "quality": pl.Float64,
+    "quality_flags": pl.String,
 }
 
 # per MIDAS dataset slug: the timestamp column and the ``ob_day_cnt``-style multi-period-accumulation
@@ -258,7 +258,7 @@ class MetOfficeObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
             pl.col("value"),
-            pl.col("quality"),
+            pl.col("quality_flags"),
         )
 
 

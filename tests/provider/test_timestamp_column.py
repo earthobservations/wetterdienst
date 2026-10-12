@@ -112,7 +112,7 @@ def test_interpolated_and_summarized_timestamps_are_utc_microseconds(
                         "parameter": "temperature_air_2m",
                         "timestamp": timestamp,
                         "value": 280.0 + index,
-                        "quality": 10.0,
+                        "quality_flags": "10",
                     }
                     for index, timestamp in enumerate(timestamps)
                 ],

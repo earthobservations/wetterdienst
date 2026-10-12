@@ -1064,7 +1064,7 @@ def values(
     timestamp is the last item of its group, not of the array. With shape="wide" an item is one
     timestamp of a station and resolution, with a key per parameter (prefixed with the full dataset
     name, e.g. "climate_summary_", when datasets of more than one name are requested), its
-    `_quality` key and its `_quality_flag` key, no `parameter` key, and a null `dataset` where
+    `_quality_flags` key, no `parameter` key, and a null `dataset` where
     several datasets of its resolution are requested. With format="geojson" the items sit under each
     feature's `values`, keeping their order but not `station_id`; a feature is one resolution and
     dataset of one station (one resolution in the wide shape), so a station can have several. Do not
