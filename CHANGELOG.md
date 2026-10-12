@@ -37,6 +37,10 @@ Types of changes:
 - `dwd/poi` `cloud_cover_total` is null, with `raw:113` or `raw:126` in `quality_flags`, where DWD
   writes those numbers in the percent column (113 is an obscured sky, 126 comes with fog). They
   came back as a cloud cover of 1.13 and 1.26: 58 of 8744 reports in a day of 960 stations (GH-2615)
+- `GET /api/auth` and `GET /api/coverage?provider=...&network=...`, and so the MCP tools `auth`
+  and `coverage`, answer a network whose optional extra is not installed with the 501 the data
+  routes answer, not the 404 "Choose provider and network from /api/coverage" for an unknown one.
+  The install line is in the server log (GH-2788)
 
 ## [0.147.0] - 2026-10-12
 
