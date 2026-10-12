@@ -53,8 +53,8 @@ A caller of the REST API or MCP cannot, with any request:
   `scale` applied.
 
 The dependencies are locked with hashes in `uv.lock` and audited by `uv audit` in CI. The workflows
-default to no permissions (read-only at most), the Docker image runs as an unprivileged user, and
-PyPI releases are published with trusted publishing.
+default to no permissions (read-only at most), and PyPI releases are published with trusted
+publishing.
 
 ### What it leaves to the operator
 

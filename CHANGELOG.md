@@ -41,10 +41,6 @@ Types of changes:
   stripes `dpi`) applied, with a 400 naming the limit; a larger one held a Chromium for tens of
   seconds and could come back empty. Ask for a smaller `width`, `height`, `scale` or `dpi`. The
   library and the CLI are not limited (GH-2765)
-- The Docker image runs as the user `wetterdienst` (uid 10001), no longer as root, and its cache is
-  `/home/wetterdienst/.cache/wetterdienst`. A volume mounted at `/root/.cache/wetterdienst` is
-  mounted there instead, or anywhere with `WD_CACHE_DIR` pointing to it; a mounted host directory,
-  for the cache or a file `--target`, must be writable by uid 10001 (GH-2770)
 
 ### Removed
 
