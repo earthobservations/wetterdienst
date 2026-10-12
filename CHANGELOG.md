@@ -37,6 +37,9 @@ Types of changes:
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
+- A `.env` file is read as UTF-8 on every Python, where the encoding was the locale's (the ANSI
+  code page on Windows) until Python 3.15 made UTF-8 the default. Re-save a `.env` that holds a
+  non-ASCII value in a Windows code page as UTF-8 (GH-2568)
 
 ### Removed
 

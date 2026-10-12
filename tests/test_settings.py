@@ -396,6 +396,15 @@ def test_settings_env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     assert settings.cache_disable
 
 
+def test_settings_env_file_is_read_as_utf8(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a .env file is read as UTF-8, whatever the locale's encoding is (Python 3.15 made it the default)."""
+    monkeypatch.delenv("WD_CACHE_DIR", raising=False)
+    (tmp_path / ".env").write_bytes("WD_CACHE_DIR=Wetterdienst-Täler\n".encode())
+    monkeypatch.chdir(tmp_path)
+    assert Settings.model_config["env_file_encoding"] == "utf-8"
+    assert Settings().cache_dir.name == "Wetterdienst-Täler"
+
+
 def test_settings_env_file_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that Settings loads without error when no .env file exists."""
     monkeypatch.delenv("WD_CACHE_DISABLE", raising=False)

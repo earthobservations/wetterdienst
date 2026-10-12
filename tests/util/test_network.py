@@ -3029,6 +3029,7 @@ def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
     assert len(attempts) == 2
 
 
+@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
 @pytest.mark.parametrize("function", ["download_file", "post_file"])
 @pytest.mark.parametrize("kind", ["certificate", "handshake", "reset"])
 @pytest.mark.parametrize(
