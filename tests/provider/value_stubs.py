@@ -315,7 +315,8 @@ def _dwd_hourly_weather_phenomena(monkeypatch: pytest.MonkeyPatch, drop_nulls: b
 
 
 def _dwd_hourly_cloudiness(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # station 00003 (hourly cloud_type, read 2026-10-12): -1 where the sky could not be seen, 43 times in 2005
+    # the -1 where the sky could not be seen, as the hourly cloud_type file of station 00003 writes it (43 times in
+    # 2005, read 2026-10-12); the cloudiness file is worded after it
     product = (
         "STATIONS_ID;MESS_DATUM;QN_8;V_N_I;V_N;eor\n"
         "          3;2025040800;    3;    I;   4;eor\n"
@@ -434,8 +435,9 @@ def _meteofrance_observation_hourly(
 
 
 def _meteofrance_observation_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # QUOT_departement_07_periode_2020-2024_RR-T-Vent: the daily DXI holds the same codes 0 and 999 (GH-2720); worded by
-    # the stub, with the validation code beside each value
+    # QUOT_departement_07_periode_2020-2024_RR-T-Vent: the daily DXI holds the code 0 (GH-2720), and the reader applies
+    # 0 and 999 to it as to the hourly DD, so the stub adds the 999; worded by the stub, with the validation code
+    # beside each value
     rows = [
         {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240101", "TN": "-1.0", "DXI": "250", "QDXI": "1"},
         {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240102", "TN": "-0.5", "DXI": "0", "QDXI": "1"},

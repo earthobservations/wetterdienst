@@ -61,7 +61,8 @@ class TimeseriesValues(ABC):
         "value": pl.Float64,
         # every flag the source publishes for the reading, as one string: the plain code of a source with
         # one flag, `kind:code` tokens of a source with several, comma-separated in a fixed order per
-        # provider; null where the source published none (GH-2018, GH-2758)
+        # provider, and a last `raw:<text>` token for a value mapped from a missing-value sentinel; null where the
+        # source published none (GH-2018, GH-2758, GH-2759)
         "quality_flags": pl.String,
     }
 

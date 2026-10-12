@@ -574,7 +574,7 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 | AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); any text that is no number in the daily, monthly and annual values (null) |
 | FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); any text that is no number (null) |
 | Geosphere | `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0) |
-| IMGW hydrology | `9999`, `99999.999` and `99.9` (null) |
+| IMGW hydrology | `9999` in the stage, `99999.999` in the discharge and `99.9` in the water temperature (null) |
 | IPMA | `-99.0` (null); `0` in the wind direction, calm, or a code the eight points do not have (null) |
 | KNMI | `NaN`, the fill value (null); `-1` in `precipitation_amount`, a trace (0.0) |
 | Met Office observation | `NA`, and any text that is no number (null); a day with an `NA` beside readings has the value of the readings |
