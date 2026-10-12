@@ -123,7 +123,8 @@ def null_sentinels(
             written (``-999.0`` stays ``-999.0``); from a number it is the text the matching sentinel was
             declared with.
         non_numeric: also map every non-blank text that is no number (``mq``, ``---``, ``Ip``) to null, with the
-            text as its ``raw`` token. Needs ``text=True``.
+            text as its ``raw`` token (a comma in it is written as a semicolon, as the tokens are separated by
+            commas). Needs ``text=True``.
 
     Returns:
         ``(cleaned, raw)``. With ``text=True`` the cleaned value is the stripped text, String, unless
@@ -150,7 +151,8 @@ def null_sentinels(
                 hit = hit & sentinel.where
             branches.append((hit.fill_null(value=False), mapped, cell if text else pl.lit(sentinel_text)))
     if non_numeric:
-        branches.append(((cell.str.len_chars() > 0) & number.is_null(), null, cell))
+        # a free text may hold the separator of the tokens
+        branches.append(((cell.str.len_chars() > 0) & number.is_null(), null, cell.str.replace_all(",", ";")))
     return _first_hit(branches, 1, base), _first_hit(branches, 2, pl.lit(None, dtype=pl.String))
 
 
@@ -217,26 +219,23 @@ def unpivot_with_raw(
 ) -> pl.DataFrame:
     """Unpivot a wide frame to long, the ``raw`` text of each column going with its value as column ``raw``.
 
-    The value columns are ``on``, or every column that is not in ``index`` and not a ``raw_column``. The value
-    columns need one dtype, as for ``DataFrame.unpivot``; a column without a ``raw_column`` has a null ``raw``.
+    The value columns are ``on``, or every column that is not in ``index`` and not a ``raw_column``; they are
+    unpivoted as ``DataFrame.unpivot`` does. A column without a ``raw_column`` has a null ``raw``.
     """
     names = df.columns
     raw_columns = {name for name in names if name.endswith(RAW_SUFFIX)}
     on = on if on is not None else [name for name in names if name not in index and name not in raw_columns]
-    packed = df.select(
+    long = df.unpivot(on=on, index=index, variable_name=variable_name, value_name=value_name)
+    # the text goes through the same unpivot, so its rows are the rows of the values, one for one, and it is
+    # laid beside them without a join. The value columns may differ in dtype (a column of nulls beside one of
+    # numbers), which a struct of value and text could not hold
+    raw = df.select(
         *index,
         *(
-            pl.struct(
-                pl.col(column).alias(value_name),
-                (pl.col(raw_column(column)) if raw_column(column) in raw_columns else pl.lit(None, dtype=pl.String))
-                .cast(pl.String)
-                .alias(RAW),
-            ).alias(column)
+            (pl.col(raw_column(column)) if raw_column(column) in raw_columns else pl.lit(None, dtype=pl.String))
+            .cast(pl.String)
+            .alias(column)
             for column in on
         ),
-    )
-    long = packed.unpivot(on=on, index=index, variable_name=variable_name, value_name=value_name)
-    return long.with_columns(
-        pl.col(value_name).struct.field(RAW),
-        pl.col(value_name).struct.field(value_name),
-    )
+    ).unpivot(on=on, index=index, variable_name=variable_name, value_name=RAW)
+    return long.with_columns(raw.get_column(RAW))

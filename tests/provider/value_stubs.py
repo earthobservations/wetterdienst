@@ -24,6 +24,7 @@ the reason, and `test_every_network_has_a_stub_or_a_reason` fails for one that i
 
 from __future__ import annotations
 
+import bz2
 import datetime as dt
 import gzip
 import json
@@ -37,8 +38,18 @@ import polars as pl
 from wetterdienst import Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.provider.dwd.derived import DwdDerivedRequest
+from wetterdienst.provider.dwd.derived import api as dwd_derived_api
+from wetterdienst.provider.dwd.dmo import DwdDmoRequest
+from wetterdienst.provider.dwd.dmo import api as dwd_dmo_api
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+from wetterdienst.provider.dwd.mosmix import api as dwd_mosmix_api
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as dwd_observation_api
+from wetterdienst.provider.dwd.poi import DwdPoiRequest
+from wetterdienst.provider.dwd.poi import api as dwd_poi_api
+from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
+from wetterdienst.provider.dwd.swsmos import api as dwd_swsmos_api
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
 from wetterdienst.provider.geosphere.observation import api as geosphere_api
 from wetterdienst.provider.ipma.observation import IpmaObservationRequest
@@ -68,8 +79,9 @@ class ValueStub:
     # a (canonical parameter, value) that has to arrive, so that the stub is no empty frame
     reading: tuple[str, float]
     # the numbers the source writes for a missing value, as the output would carry them; (parameter, value) where the
-    # number is a sentinel for one parameter and a reading for another
-    sentinels: tuple[tuple[str, float], ...]
+    # number is a sentinel for one parameter and a reading for another. None where the source writes a text that is no
+    # number (`-`, `---`), which no unit conversion can turn into one
+    sentinels: tuple[tuple[str, float], ...] = ()
     # the `raw:` tokens that have to arrive, as (canonical parameter, the text the source wrote, the value it was mapped
     # to: None for null). The text is verbatim: `-999`, not `-999.0`, wherever the source writes it so
     tokens: tuple[tuple[str, str, float | None], ...] = ()
@@ -372,6 +384,126 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
     return stations_result(request, "subdaily", "data", "07005").values.all().df
 
 
+def _dwd_derived_radiation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # stundenwerte_duett_FG_18001_akt.zip (the 2025-04-09 to 2026-10-10 release, read 2026-10-12): the hours
+    # without a reading write `-999` in both columns, e.g. 2025-04-17 18:00 `18001;2025041718;  500; -999;-999;eor`
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_952;FG_DUETT;FG_UN_DUETT;eor\n"
+        "      18001;2025040900;  500;  103;   10;eor\n"
+        "      18001;2025040901;  500; -999;-999;eor\n"
+    )
+    monkeypatch.setattr(
+        dwd_derived_api,
+        "create_file_list_for_climate_derived",
+        lambda *args, **kwargs: pl.Series(["https://example.invalid/produkt.zip"]),  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        dwd_derived_api,
+        "download_climate_derived_data",
+        lambda *args, **kwargs: [  # noqa: ARG005
+            File(url="https://example.invalid/produkt.txt", content=BytesIO(product.encode("latin-1")), status=200)
+        ],
+    )
+    request = DwdDerivedRequest(
+        parameters=[("hourly", "radiation_global")],
+        periods={Period.RECENT},
+        start=_day(2025, 4, 9),
+        end=_day(2025, 4, 9, 23),
+        settings=_settings(drop_nulls),
+    )
+    return stations_result(request, "hourly", "radiation_global", "18001").values.all().df
+
+
+_KML = "http://www.opengis.net/kml/2.2"
+_DWD_KML = "https://opendata.dwd.de/weather/lib/pointforecast_dwd_extension_V1_0.xsd"
+
+
+def _forecast_kml(station_id: str, elements: dict[str, str]) -> bytes:
+    """Build the document `KMLReader.fetch` hands back: three hours of a run and one station's elements.
+
+    Each element is the text of its `dwd:value`: the values separated by blanks, `-` for one the run does not have.
+    """
+    steps = "".join(f"<dwd:TimeStep>2026-10-10T{hour}:00:00.000Z</dwd:TimeStep>" for hour in (10, 11, 12))
+    forecasts = "".join(
+        f'<dwd:Forecast dwd:elementName="{name}"><dwd:value>{values}</dwd:value></dwd:Forecast>'
+        for name, values in elements.items()
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<kml:kml xmlns:kml="{_KML}" xmlns:dwd="{_DWD_KML}"><kml:Document>'
+        "<kml:ExtendedData><dwd:ProductDefinition><dwd:Issuer>DWD</dwd:Issuer><dwd:ProductID>MOSMIX</dwd:ProductID>"
+        "<dwd:GeneratingProcess>L</dwd:GeneratingProcess><dwd:IssueTime>2026-10-10T09:00:00.000Z</dwd:IssueTime>"
+        f"<dwd:ForecastTimeSteps>{steps}</dwd:ForecastTimeSteps></dwd:ProductDefinition></kml:ExtendedData>"
+        f"<kml:Placemark><kml:name>{station_id}</kml:name><kml:ExtendedData>{forecasts}</kml:ExtendedData>"
+        "</kml:Placemark></kml:Document></kml:kml>"
+    ).encode()
+
+
+def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the file writes `-` for a value the run does not have, in the blank-separated list of an element; the
+    # temperature is in Kelvin, and the second hour of it and the third of the dew point are missing
+    kml = _forecast_kml("01001", {"TTT": "275.15 - 276.15", "Td": "273.15 274.15 -"})
+    monkeypatch.setattr(
+        dwd_mosmix_api.DwdMosmixValues,
+        "get_url_for_date",
+        lambda *args, **kwargs: "https://example.invalid/MOSMIX_S_2026101009_240.kmz",  # noqa: ARG005
+    )
+    monkeypatch.setattr(dwd_mosmix_api.KMLReader, "fetch", lambda _self, _url: BytesIO(kml))
+    request = DwdMosmixRequest(
+        parameters=[("hourly", "small", "ttt"), ("hourly", "small", "td")],
+        settings=_settings(drop_nulls),
+    )
+    return stations_result(request, "hourly", "small", "01001").values.all().df
+
+
+def _dwd_dmo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the same KML as MOSMIX's, with the same `-`
+    kml = _forecast_kml("01001", {"TTT": "275.15 - 276.15", "Td": "273.15 274.15 -"})
+    monkeypatch.setattr(
+        dwd_dmo_api.DwdDmoValues,
+        "get_url_for_date",
+        lambda *args, **kwargs: "https://example.invalid/ptp_gdmog_01001_078_1_100000.kmz",  # noqa: ARG005
+    )
+    monkeypatch.setattr(dwd_dmo_api.KMLReader, "fetch", lambda _self, _url: BytesIO(kml))
+    request = DwdDmoRequest(
+        parameters=[("hourly", "icon", "ttt"), ("hourly", "icon", "td")],
+        lead_time="short",
+        settings=_settings(drop_nulls),
+    )
+    return stations_result(request, "hourly", "icon", "01001").values.all().df
+
+
+def _dwd_poi(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # a station file as DWD serves it (10147-BEOB.csv): English names, units and German descriptions, then the
+    # reports, newest first, `,` for a decimal and `---` for a report without the value
+    csv = (
+        "surface observations;Parameter description;cloud_cover_total;dry_bulb_temperature_at_2_meter_above_ground\n"
+        "10147;Unit;%;Grad C\n"
+        "Datum;Uhrzeit (UTC);Wolkenbedeckung;Temperatur (2m)\n"
+        "10.10.26;20:00;100;15,3\n"
+        "10.10.26;19:00;---;15,4\n"
+    ).encode("latin-1")
+    serve(monkeypatch, dwd_poi_api, {"10147-BEOB.csv": csv})
+    request = DwdPoiRequest(parameters=[("hourly", "data")], settings=_settings(drop_nulls))
+    return stations_result(request, "hourly", "data", "10147").values.all().df
+
+
+def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # a run file as DWD serves it (swsmos_LATEST_opendata.csv.bz2, read 2026-10-12): the header, the run's own
+    # timestamp, then the rows. The file read had no cell that is no number, in any of its 12 columns, so the text
+    # of the second row is worded by the stub: the reader takes a text that is no number for none
+    raw = (
+        b"ID;Lat;Lon;YYYYMMDDHHmm;TL;TS\n"
+        b"202610120500\n"
+        b"A006;54.889156;8.908735;202610120600;6.2;4.4\n"
+        b"A006;54.889156;8.908735;202610120700;---;5.1\n"
+    )
+    run = dwd_swsmos_api._read_run_csv(bz2.compress(raw))  # noqa: SLF001
+    monkeypatch.setattr(dwd_swsmos_api.DwdSwsmosValues, "_run_frame", lambda _self, _settings: run)
+    request = DwdSwsmosRequest(parameters=[("hourly", "data")], settings=_settings(drop_nulls))
+    return stations_result(request, "hourly", "data", "A006").values.all().df
+
+
 STUBS = [
     ValueStub(
         "ipma/observation hourly/data",
@@ -450,6 +582,38 @@ STUBS = [
         ),
     ),
     ValueStub(
+        "dwd/derived hourly/radiation_global",
+        _dwd_derived_radiation,
+        reading=("radiation_global", 103.0),
+        sentinels=(("radiation_global", -999.0),),
+        tokens=(("radiation_global", "-999", None), ("radiation_global_uncertainty", "-999", None)),
+        empty_at=_day(2025, 4, 9, 1),
+    ),
+    ValueStub(
+        "dwd/mosmix hourly/small",
+        _dwd_mosmix,
+        reading=("temperature_air_2m", 2.0),
+        tokens=(("temperature_air_2m", "-", None), ("temperature_dew_point_2m", "-", None)),
+    ),
+    ValueStub(
+        "dwd/dmo hourly/icon",
+        _dwd_dmo,
+        reading=("temperature_air_2m", 2.0),
+        tokens=(("temperature_air_2m", "-", None), ("temperature_dew_point_2m", "-", None)),
+    ),
+    ValueStub(
+        "dwd/poi hourly/data",
+        _dwd_poi,
+        reading=("temperature_air_2m", 15.3),
+        tokens=(("cloud_cover_total", "---", None),),
+    ),
+    ValueStub(
+        "dwd/swsmos hourly/data",
+        _dwd_swsmos,
+        reading=("temperature_air_2m", 6.2),
+        tokens=(("temperature_air_2m", "---", None),),
+    ),
+    ValueStub(
         "meteofrance/synop subdaily/data",
         _meteofrance_synop,
         reading=("precipitation_amount_last_1h", 0.4),
@@ -468,14 +632,9 @@ NO_STUB = {
     "chmi/observation": "no stub yet",
     "dmi/observation": "no stub yet",
     "dwd/alerts": "no timeseries",
-    "dwd/derived": "no stub yet; its parser maps -999 and -9999",
-    "dwd/dmo": "no stub yet; the KML marks a missing value with `-`",
-    "dwd/mosmix": "no stub yet; the KML marks a missing value with `-`",
     "dwd/phenology": "no stub yet",
-    "dwd/poi": "no stub yet; the file marks a missing value with `---`",
     "dwd/radar": "no timeseries",
     "dwd/road": "no stub yet; BUFR decodes a missing value itself",
-    "dwd/swsmos": "no stub yet; the file marks a missing value with `---`",
     "ea/hydrology": "no stub yet",
     "eaufrance/hubeau": "no stub yet",
     "eccc/observation": "no stub yet",

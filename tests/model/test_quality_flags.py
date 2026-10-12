@@ -126,6 +126,13 @@ def test_text_that_is_no_number_can_be_a_sentinel_too() -> None:
     assert raw == ["mq", "---", None, None, None, None, "-999"]
 
 
+def test_a_text_with_the_separator_of_the_tokens_is_kept_without_it() -> None:
+    """Test that a free text cannot split the string: its comma is written as a semicolon."""
+    cleaned, raw = _clean(["n/a, see note"], non_numeric=True)
+    assert cleaned == [None]
+    assert raw == ["n/a; see note"]
+
+
 def test_a_number_has_no_text_that_could_be_no_number() -> None:
     """Test that `non_numeric` needs the text of the source."""
     with pytest.raises(ValueError, match="needs `text=True`"):
